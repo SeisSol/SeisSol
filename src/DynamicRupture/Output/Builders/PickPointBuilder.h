@@ -42,7 +42,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       outputData_ = singleClusterOutputData;
       outputData_->extraRuntime.emplace(0);
 
-      assignNearestGaussianPoints(outputData_->receiverPoints);
+      assignNearestGaussianPoints(outputData_->receivers);
       assignNearestInternalGaussianPoints();
       assignFusedIndices();
       assignFaultTags();
@@ -78,7 +78,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       std::array<double, 3> coords{};
       convertStringToMask(line, coords);
 
-      ReceiverPoint point{};
+      Receiver point{};
       for (int i = 0; i < 3; ++i) {
         point.global.coords[i] = coords[i];
       }
@@ -89,7 +89,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   void initReceiverLocations(
       std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& outputDataPerCluster) {
-    const auto numReceiverPoints = potentialReceivers_.size();
+    const auto numReceivers = potentialReceivers_.size();
 
     const auto& meshElements = meshReader_->getElements();
     const auto& meshVertices = meshReader_->getVertices();
@@ -98,7 +98,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     std::vector<short> contained(potentialReceivers_.size());
 
 #pragma omp parallel for schedule(static)
-    for (size_t receiverIdx = 0; receiverIdx < numReceiverPoints; ++receiverIdx) {
+    for (size_t receiverIdx = 0; receiverIdx < numReceivers; ++receiverIdx) {
       try {
         auto& receiver = potentialReceivers_[receiverIdx];
 
@@ -143,7 +143,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           if (outputDataPerCluster[layerId] == nullptr) {
             outputDataPerCluster[layerId] = std::make_shared<ReceiverOutputData>();
           }
-          outputDataPerCluster[layerId]->receiverPoints.push_back(singleReceiver);
+          outputDataPerCluster[layerId]->receivers.push_back(singleReceiver);
         }
       }
     }
@@ -215,7 +215,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   private:
   seissol::initializer::parameters::PickpointParameters pickpointParams_;
-  std::vector<ReceiverPoint> potentialReceivers_;
+  std::vector<Receiver> potentialReceivers_;
   double timestep_{std::numeric_limits<double>::infinity()};
   double endtime_{std::numeric_limits<double>::infinity()};
 };

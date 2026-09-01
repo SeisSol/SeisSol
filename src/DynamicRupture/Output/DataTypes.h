@@ -238,7 +238,7 @@ struct OutputTopology {
 
 struct ReceiverOutputData {
   output::DrVarsT vars;
-  std::vector<ReceiverPoint> receiverPoints;
+  std::vector<Receiver> receivers;
   OutputTopology topology;
 
   std::vector<double> cachedTime;

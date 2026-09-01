@@ -26,7 +26,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
     outputData_ = std::move(elementwiseOutputData);
     initReceiverLocations();
-    assignNearestGaussianPoints(outputData_->receiverPoints);
+    assignNearestGaussianPoints(outputData_->receivers);
     assignNearestInternalGaussianPoints();
     assignFusedIndices();
     assignFaultTags();
@@ -100,7 +100,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
       }
 
       // retrieve all receivers from a fault face refiner
-      outputData_->receiverPoints = faultRefiner->moveAllReceiverPoints();
+      outputData_->receivers = faultRefiner->moveAllReceivers();
       faultRefiner.reset(nullptr);
     } else {
       const auto order = elementwiseParams_.vtkorder;
@@ -124,7 +124,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         }
       }
 
-      outputData_->receiverPoints.resize(faceCount * seissol::init::vtk2d::Shape[order][1]);
+      outputData_->receivers.resize(faceCount * seissol::init::vtk2d::Shape[order][1]);
       std::size_t faceOffset = 0;
 
       // iterate through each fault side
@@ -151,28 +151,28 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
           for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
-            auto& receiverPoint =
-                outputData_->receiverPoints[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
+            auto& receiver =
+                outputData_->receivers[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
             const real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
             double point[2] = {prepoint[0], prepoint[1]};
-            transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference.coords);
+            transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiver.reference.coords);
             transformations::tetrahedronReferenceToGlobal(vertices[0],
                                                           vertices[1],
                                                           vertices[2],
                                                           vertices[3],
-                                                          receiverPoint.reference.coords,
-                                                          receiverPoint.global.coords);
-            receiverPoint.globalTriangle = globalFace;
-            receiverPoint.isInside = true;
-            receiverPoint.faultFaceIndex = faceIdx;
-            receiverPoint.localFaceSideId = faceSideIdx;
-            receiverPoint.elementIndex = element.localId;
-            receiverPoint.elementGlobalIndex = element.globalId;
-            receiverPoint.globalReceiverIndex =
+                                                          receiver.reference.coords,
+                                                          receiver.global.coords);
+            receiver.globalTriangle = globalFace;
+            receiver.isInside = true;
+            receiver.faultFaceIndex = faceIdx;
+            receiver.localFaceSideId = faceSideIdx;
+            receiver.elementIndex = element.localId;
+            receiver.elementGlobalIndex = element.globalId;
+            receiver.globalReceiverIndex =
                 faceOffset * seissol::init::vtk2d::Shape[order][1] + i;
-            receiverPoint.faultTag = fault.tag;
+            receiver.faultTag = fault.tag;
           }
 
           ++faceOffset;

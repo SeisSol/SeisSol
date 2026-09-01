@@ -185,10 +185,10 @@ void OutputManager::initElementwiseOutput() {
   ewOutputBuilder_->build(ewOutputData_);
   const auto& seissolParameters = seissolInstance_.parameters();
 
-  const auto& receiverPoints = ewOutputData_->receiverPoints;
-  const auto cellConnectivity = getCellConnectivity(receiverPoints);
-  const auto faultTags = getFaultTags(receiverPoints);
-  const auto vertices = getAllVertices(receiverPoints);
+  const auto& receivers = ewOutputData_->receivers;
+  const auto cellConnectivity = getCellConnectivity(receivers);
+  const auto faultTags = getFaultTags(receivers);
+  const auto vertices = getAllVertices(receivers);
   constexpr auto MaxNumVars = std::tuple_size_v<DrVarsT>;
   const auto outputMask = seissolParameters.output.elementwiseParameters.outputMask;
   const auto intMask = convertMaskFromBoolToInt<MaxNumVars>(outputMask);
@@ -207,20 +207,20 @@ void OutputManager::initElementwiseOutput() {
     };
     misc::forEach(ewOutputData_->vars, recordPointers);
 
-    std::vector<unsigned> faceIdentifiers(receiverPoints.size());
+    std::vector<unsigned> faceIdentifiers(receivers.size());
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
       faceIdentifiers[i] =
-          receiverPoints[i].elementGlobalIndex * 4 + receiverPoints[i].localFaceSideId;
+          receivers[i].elementGlobalIndex * 4 + receivers[i].localFaceSideId;
     }
 
     seissolInstance_.faultWriter().init(cellConnectivity.data(),
                                         vertices.data(),
                                         faultTags.data(),
                                         faceIdentifiers.data(),
-                                        static_cast<unsigned int>(receiverPoints.size()),
-                                        static_cast<unsigned int>(3 * receiverPoints.size()),
+                                        static_cast<unsigned int>(receivers.size()),
+                                        static_cast<unsigned int>(3 * receivers.size()),
                                         &intMask[0],
                                         const_cast<const real**>(dataPointers.data()),
                                         seissolParameters.output.prefix.data(),
@@ -238,7 +238,7 @@ void OutputManager::initElementwiseOutput() {
     }
 
     io::instance::mesh::VtkHdfWriter writer("fault-elementwise",
-                                            receiverPoints.size() /
+                                            receivers.size() /
                                                 seissol::init::vtk2d::Shape[order][1],
                                             2,
                                             order);
@@ -247,19 +247,19 @@ void OutputManager::initElementwiseOutput() {
       for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
         for (int j = 0; j < 3; ++j) {
           target[i * 3 + j] =
-              receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
+              receivers[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
         }
       }
     });
 
-    writer.addCellData<int>("fault-tag", {}, [=, &receiverPoints](int* target, std::size_t index) {
-      *target = receiverPoints[index].faultTag;
+    writer.addCellData<int>("fault-tag", {}, [=, &receivers](int* target, std::size_t index) {
+      *target = receivers[index].faultTag;
     });
 
     writer.addCellData<std::size_t>(
-        "global-id", {}, [=, &receiverPoints](std::size_t* target, std::size_t index) {
+        "global-id", {}, [=, &receivers](std::size_t* target, std::size_t index) {
           *target =
-              receiverPoints[index].elementGlobalIndex * 4 + receiverPoints[index].localFaceSideId;
+              receivers[index].elementGlobalIndex * 4 + receivers[index].localFaceSideId;
         });
 
     misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
@@ -326,7 +326,7 @@ void OutputManager::initPickpointOutput() {
       std::unordered_map<std::size_t, std::vector<std::size_t>> globalIndexMap;
       for (size_t i = 0; i < outputData->topology.pointCount(); ++i) {
         const auto& receiver =
-            outputData->receiverPoints[outputData->topology.representative(i)];
+            outputData->receivers[outputData->topology.representative(i)];
         globalIndexMap[receiver.globalReceiverIndex].push_back(i);
       }
 
@@ -392,7 +392,7 @@ void OutputManager::initPickpointOutput() {
           title << "TITLE = \"Temporal Signal for fault receiver number(s) and simulation(s)";
           for (const auto& gIdx : ppfile.indices) {
             for (const auto receiverId : outputData->topology.receiversOf(gIdx)) {
-              const auto& receiver = outputData->receiverPoints[receiverId];
+              const auto& receiver = outputData->receivers[receiverId];
               const size_t globalIndex = receiver.globalReceiverIndex + 1;
               const size_t simIndex = receiver.simIndex + 1;
               title << " " << globalIndex << "," << simIndex << ";";
@@ -410,7 +410,7 @@ void OutputManager::initPickpointOutput() {
           for (const auto& gIdx : ppfile.indices) {
             const auto faceId = outputData->topology.points[gIdx].faceId;
             for (const auto receiverId : outputData->topology.receiversOf(gIdx)) {
-              const auto& receiver = outputData->receiverPoints[receiverId];
+              const auto& receiver = outputData->receivers[receiverId];
               const size_t globalIndex = receiver.globalReceiverIndex + 1;
               const size_t simIndex = receiver.simIndex + 1;
               const auto& point = receiver.global;

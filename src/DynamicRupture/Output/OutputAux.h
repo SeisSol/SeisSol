@@ -43,7 +43,7 @@ struct TriangleQuadratureData {
 
 TriangleQuadratureData generateTriangleQuadrature();
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
+void assignNearestGaussianPoints(Receivers& geoPoints);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
@@ -64,10 +64,10 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
                                                    const VrtxCoords* plusElementCoords[4],
                                                    const VrtxCoords* minusElementCoords[4]);
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
+std::vector<double> getAllVertices(const seissol::dr::Receivers& receivers);
 
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints);
-std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints);
+std::vector<unsigned int> getCellConnectivity(const seissol::dr::Receivers& receivers);
+std::vector<unsigned int> getFaultTags(const seissol::dr::Receivers& receivers);
 
 real computeTriangleArea(ExtTriangle& triangle);
 

@@ -88,7 +88,7 @@ struct ExtTriangle {
   std::array<ExtVrtxCoords, 3> points_{};
 };
 
-struct ReceiverPoint {
+struct Receiver {
   ExtVrtxCoords global;       // physical coords of a receiver
   ExtVrtxCoords reference;    // reference coords of a receiver
   ExtTriangle globalTriangle; // a surrounding triangle of a receiver
@@ -111,7 +111,7 @@ struct ReceiverPoint {
   int internalGpIndexFused{
       -1}; // Index of the nearest internal gaussian point considering fused simulations
 };
-using ReceiverPoints = std::vector<ReceiverPoint>;
+using Receivers = std::vector<Receiver>;
 
 struct FaultDirections {
   std::array<double, 3> faceNormal{};

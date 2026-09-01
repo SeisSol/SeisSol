@@ -198,13 +198,13 @@ void ReceiverOutput::calcFaultOutput(
 
       for (const auto i : topology.receiversOf(pointId)) {
         local.index = i;
-        local.fusedIndex = outputData->receiverPoints[i].simIndex;
+        local.fusedIndex = outputData->receivers[i].simIndex;
 
-        assert(outputData->receiverPoints[i].isInside == true &&
+        assert(outputData->receivers[i].isInside == true &&
                "a receiver is not within any tetrahedron adjacent to a fault");
 
-        local.gpIndex = outputData->receiverPoints[i].gpIndex;
-        local.internalGpIndexFused = outputData->receiverPoints[i].internalGpIndexFused;
+        local.gpIndex = outputData->receivers[i].gpIndex;
+        local.internalGpIndexFused = outputData->receivers[i].internalGpIndexFused;
 
         const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
 

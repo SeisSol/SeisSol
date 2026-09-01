@@ -114,7 +114,7 @@ void ReceiverBasedOutputBuilder::initTopology() {
   std::vector<FaceBucket> faceBuckets;
   std::unordered_map<std::size_t, std::size_t> faceIds;
 
-  for (const auto& [index, receiver] : common::enumerate(outputData_->receiverPoints)) {
+  for (const auto& [index, receiver] : common::enumerate(outputData_->receivers)) {
     if (!receiver.isInside) {
       continue;
     }
@@ -147,8 +147,8 @@ void ReceiverBasedOutputBuilder::initTopology() {
   // Flatten the buckets, renumbering the receivers on the way. This is what makes the point range
   // of a face and the receiver range of a point contiguous, so that the topology needs offsets
   // only.
-  std::vector<ReceiverPoint> receivers;
-  receivers.reserve(outputData_->receiverPoints.size());
+  std::vector<Receiver> receivers;
+  receivers.reserve(outputData_->receivers.size());
 
   for (const auto& faceBucket : faceBuckets) {
     OutputFace face{};
@@ -166,13 +166,13 @@ void ReceiverBasedOutputBuilder::initTopology() {
       topology.addPoint(point, pointBucket.receiverIds.size());
 
       for (const auto receiverId : pointBucket.receiverIds) {
-        receivers.push_back(outputData_->receiverPoints[receiverId]);
+        receivers.push_back(outputData_->receivers[receiverId]);
       }
     }
   }
 
-  outputData_->receiverPoints = std::move(receivers);
-  assert(outputData_->receiverPoints.size() == topology.receiverCount());
+  outputData_->receivers = std::move(receivers);
+  assert(outputData_->receivers.size() == topology.receiverCount());
 }
 
 void ReceiverBasedOutputBuilder::initBasisFunctions() {
@@ -215,7 +215,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     }
 
     for (const auto pointId : topology.pointsOf(faceId)) {
-      const auto& receiver = outputData_->receiverPoints[topology.representative(pointId)];
+      const auto& receiver = outputData_->receivers[topology.representative(pointId)];
       topology.points[pointId].basisFunctions =
           getPlusMinusBasisFunctions(receiver.global.coords, elemCoords, neighborElemCoords);
     }
@@ -389,7 +389,7 @@ void ReceiverBasedOutputBuilder::initOutputVariables(
 
   auto allocateVariables = [this](auto& var, int) {
     var.maxCacheLevel = outputData_->maxCacheLevel;
-    var.allocateData(this->outputData_->receiverPoints.size());
+    var.allocateData(this->outputData_->receivers.size());
   };
   misc::forEach(outputData_->vars, allocateVariables);
 }
@@ -432,7 +432,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
-  auto& geoPoints = outputData_->receiverPoints;
+  auto& geoPoints = outputData_->receivers;
   constexpr int NumPoly = ConvergenceOrder - 1;
 
   for (auto& geoPoint : geoPoints) {
@@ -447,7 +447,7 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
 }
 
 void ReceiverBasedOutputBuilder::assignFaultTags() {
-  auto& geoPoints = outputData_->receiverPoints;
+  auto& geoPoints = outputData_->receivers;
   const auto& faultInfo = meshReader_->getFault();
   for (auto& geoPoint : geoPoints) {
     geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex].tag;
@@ -455,7 +455,7 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
 }
 
 void ReceiverBasedOutputBuilder::assignFusedIndices() {
-  auto& geoPoints = outputData_->receiverPoints;
+  auto& geoPoints = outputData_->receivers;
   for (auto& geoPoint : geoPoints) {
     geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
     geoPoint.internalGpIndexFused =
