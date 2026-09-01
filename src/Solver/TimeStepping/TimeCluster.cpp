@@ -304,12 +304,14 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
     const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
     const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
-    streamRuntime_.runGraph(computeGraphKey,
-                            layerData,
-                            [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
-                              dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
-                                  table, pointsCollocate.data(), streamRuntime_);
-                            });
+    streamRuntime_.runGraph(
+        computeGraphKey,
+        layerData,
+        [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
+          dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
+              table, pointsCollocate.data(), streamRuntime_);
+        },
+        isRecurringTimestep(timestep));
     device_.api->popLastProfilingMark();
 
     auto& solver =
@@ -528,7 +530,8 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 streamRuntime_.stream());
           }
         }
-      });
+      },
+      isRecurringTimestep(timeStepWidth));
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
   device_.api->popLastProfilingMark();
@@ -588,19 +591,21 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
         clusterData_->var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
         clusterData_->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
-    streamRuntime_.runGraph(plasticityGraphKey,
-                            *clusterData_,
-                            [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-                              seissol::kernels::Plasticity::computePlasticityBatched(
-                                  timeStepWidth,
-                                  seissolInstance_.parameters().model.tv,
-                                  globalDataOnDevice_,
-                                  table,
-                                  plasticity,
-                                  conditionalCounterDevice_.data(),
-                                  isAdjustableVector,
-                                  streamRuntime);
-                            });
+    streamRuntime_.runGraph(
+        plasticityGraphKey,
+        *clusterData_,
+        [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+          seissol::kernels::Plasticity::computePlasticityBatched(
+              timeStepWidth,
+              seissolInstance_.parameters().model.tv,
+              globalDataOnDevice_,
+              table,
+              plasticity,
+              conditionalCounterDevice_.data(),
+              isAdjustableVector,
+              streamRuntime);
+        },
+        isRecurringTimestep(timeStepWidth));
 
     seissolInstance_.flopCounter().incrementMetric(
         perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)],

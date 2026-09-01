@@ -35,6 +35,7 @@ struct GraphKeyHash {
     std::size_t result = 0;
     recording::hashCombine(result, static_cast<size_t>(key.graphType));
     recording::hashCombine(result, key.timeWidth);
+    recording::hashCombine(result, static_cast<size_t>(key.withDisplacements));
     return result;
   }
 };

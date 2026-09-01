@@ -189,10 +189,25 @@ class StreamRuntime {
     }
   }
 
+  /**
+   * Runs the handler, replaying a cached graph for it where possible.
+   *
+   * `cacheable` states whether this invocation will recur. A graph key that only ever occurs
+   * once - most importantly the truncated time step that every cluster takes right before a
+   * synchronization point - would otherwise capture and instantiate a graph that is replayed
+   * a single time and then kept forever, so the number of live graphs would grow with the
+   * number of synchronization points.
+   */
   template <typename VarmapT, typename F>
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
                 initializer::Layer<VarmapT>& layer,
-                F&& handler) {
+                F&& handler,
+                bool cacheable = true) {
+    if (!cacheable) {
+      std::invoke(std::forward<F>(handler), *this);
+      return;
+    }
+
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     const bool needsUpdate = !computeGraphHandle.isInitialized();
