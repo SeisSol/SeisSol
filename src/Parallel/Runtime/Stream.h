@@ -10,8 +10,11 @@
 
 #include "Memory/Tree/Layer.h"
 
+#include <algorithm>
 #include <functional>
 #include <utility>
+#include <utils/logger.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -68,6 +71,8 @@ class StreamRuntime {
 
   public:
   static constexpr size_t EventPoolSize = 100;
+  static constexpr size_t EventPoolGrowth = 100;
+  static constexpr size_t MaxEventPoolSize = 100000;
 
   StreamRuntime() : StreamRuntime(0) {}
 
@@ -76,6 +81,7 @@ class StreamRuntime {
     streamPtr_.emplace();
     ringbufferPtr_.resize(ringbufferSize);
     events_.resize(EventPoolSize);
+    recorded_.resize(EventPoolSize, false);
 
     allStreams_.resize(ringbufferSize + 1);
     allStreams_[0] = streamPtr_->get();
@@ -89,6 +95,7 @@ class StreamRuntime {
       streamPtr_.reset();
       ringbufferPtr_.clear();
       events_.clear();
+      recorded_.clear();
       disposed_ = true;
     }
   }
@@ -122,9 +129,22 @@ class StreamRuntime {
   }
 
   void* nextEvent() {
-    const auto pos = this->eventpos_;
-    this->eventpos_ = (this->eventpos_ + 1) % this->events_.size();
-    return this->events_[pos].get();
+    while (true) {
+      const auto pos = this->eventpos_;
+      void* event = this->events_[pos].get();
+
+      // Handing out an event that has been recorded but not yet reached would make a later
+      // wait observe a point in time that has already passed, silently and without any
+      // ordering guarantee. Grow the pool instead of wrapping onto it.
+      if (this->recorded_[pos] && !device().api->isEventCompleted(event)) {
+        growEventPool();
+        continue;
+      }
+
+      this->recorded_[pos] = true;
+      this->eventpos_ = (this->eventpos_ + 1) % this->events_.size();
+      return event;
+    }
   }
 
   template <typename F>
@@ -201,6 +221,23 @@ class StreamRuntime {
 
   void eventSync(void* event) { device().api->syncStreamWithEvent(streamPtr_->get(), event); }
 
+  private:
+  void growEventPool() {
+    const auto oldSize = this->events_.size();
+    if (oldSize >= MaxEventPoolSize) {
+      logError() << "Ran out of device events (" << oldSize
+                 << " in flight). This points at events being recorded but never waited "
+                    "upon.";
+    }
+
+    // Appending keeps the handles that have already been handed out valid: the event handle
+    // is stored by value, so moving a ManagedEvent during reallocation does not change it.
+    this->events_.resize(std::min(oldSize + EventPoolGrowth, MaxEventPoolSize));
+    this->recorded_.resize(this->events_.size(), false);
+    this->eventpos_ = oldSize;
+  }
+
+  public:
   void* eventRecord() {
     void* event = nextEvent();
     device().api->recordEventOnStream(event, streamPtr_->get());
@@ -214,6 +251,7 @@ class StreamRuntime {
   std::vector<ManagedStream> ringbufferPtr_;
   std::vector<void*> allStreams_;
   std::vector<ManagedEvent> events_;
+  std::vector<bool> recorded_;
   std::size_t eventpos_{0};
 #else
   public:
