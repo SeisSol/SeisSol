@@ -315,7 +315,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
             potencyIncrease +=
                 drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
-                init::quadpoints::Values[k];
+                init::quadweights::Values[k];
           }
           potencyIncrease *= 0.5 * godunovData[i].doubledSurfaceArea;
           potency += potencyIncrease;
