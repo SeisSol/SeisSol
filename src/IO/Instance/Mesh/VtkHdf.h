@@ -16,7 +16,6 @@
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Instructions/Instruction.h"
 #include "IO/Writer/Writer.h"
-#include "Initializer/MemoryManager.h"
 #include "utils/logger.h"
 
 #include <functional>

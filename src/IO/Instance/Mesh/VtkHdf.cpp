@@ -15,6 +15,7 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
+#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cstddef>
