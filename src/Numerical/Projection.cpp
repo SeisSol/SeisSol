@@ -7,6 +7,7 @@
 
 #include "Projection.h"
 
+#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 

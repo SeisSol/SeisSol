@@ -26,8 +26,6 @@
 
 namespace seissol::unit_test {
 
-namespace {
-
 using namespace seissol::numerical;
 namespace projection = seissol::numerical::projection;
 
@@ -35,7 +33,7 @@ constexpr double Tolerance = 1e-10;
 
 // For fused simulations the code generator transposes everything in the `nodal` namespace
 // (cf. kernels/aderdg.py); detect that from a matrix whose shape is not square.
-bool nodalTransposed() {
+inline bool nodalTransposed() {
   return static_cast<std::size_t>(nodal::tensor::nodes2D::Shape[0]) !=
          projection::modalSize(2, ConvergenceOrder);
 }
@@ -55,20 +53,21 @@ constexpr Tet ReferenceTet{std::array<double, 3>{0, 0, 0},
                            std::array<double, 3>{0, 1, 0},
                            std::array<double, 3>{0, 0, 1}};
 
-std::array<double, 3> midpoint(const std::array<double, 3>& a, const std::array<double, 3>& b) {
+inline std::array<double, 3> midpoint(const std::array<double, 3>& a,
+                                      const std::array<double, 3>& b) {
   return {0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1]), 0.5 * (a[2] + b[2])};
 }
 
 // Transcriptions of the legacy refinement::DivideTetrahedronBy4 and ...By8. The legacy
 // refinement::MeshRefiner passed element.vertices[0..3] as a, b, c, d, so evaluating these on
 // ReferenceTet gives the subcells the refined output mesh used to consist of.
-std::vector<Tet> legacyRefine4(const Tet& in) {
+inline std::vector<Tet> legacyRefine4(const Tet& in) {
   const auto& [a, b, c, d] = in;
   const auto center = midpoint(midpoint(a, b), midpoint(c, d));
   return {Tet{a, b, c, center}, Tet{a, b, d, center}, Tet{a, c, d, center}, Tet{b, c, d, center}};
 }
 
-std::vector<Tet> legacyRefine8(const Tet& in) {
+inline std::vector<Tet> legacyRefine8(const Tet& in) {
   const auto& [a, b, c, d] = in;
   const auto ab = midpoint(a, b);
   const auto ac = midpoint(a, c);
@@ -87,7 +86,7 @@ std::vector<Tet> legacyRefine8(const Tet& in) {
 }
 
 //! @brief Swaps the last two vertices of a negatively oriented tetrahedron, as the tables do.
-Tet orientedTet(const Tet& in) {
+inline Tet orientedTet(const Tet& in) {
   const std::array<double, 3> u{in[1][0] - in[0][0], in[1][1] - in[0][1], in[1][2] - in[0][2]};
   const std::array<double, 3> v{in[2][0] - in[0][0], in[2][1] - in[0][1], in[2][2] - in[0][2]};
   const std::array<double, 3> w{in[3][0] - in[0][0], in[3][1] - in[0][1], in[3][2] - in[0][2]};
@@ -96,7 +95,7 @@ Tet orientedTet(const Tet& in) {
   return determinant > 0 ? in : Tet{in[0], in[1], in[3], in[2]};
 }
 
-Tet subcellVertices(const AffineMap<3, 3>& map) {
+inline Tet subcellVertices(const AffineMap<3, 3>& map) {
   Tet vertices{};
   for (std::size_t d = 0; d < 3; ++d) {
     vertices[0][d] = map.offset[d];
@@ -107,7 +106,7 @@ Tet subcellVertices(const AffineMap<3, 3>& map) {
   return vertices;
 }
 
-double signedVolume(const AffineMap<3, 3>& map) {
+inline double signedVolume(const AffineMap<3, 3>& map) {
   const auto& m = map.matrix;
   return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
          m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
@@ -116,7 +115,7 @@ double signedVolume(const AffineMap<3, 3>& map) {
 
 // Compares two tetrahedra as vertex sets, i.e. up to the vertex order inside the cell. All
 // coordinates involved are dyadic rationals, so sorting them exactly is safe.
-void requireSameCell(const Tet& actual, const Tet& expected) {
+inline void requireSameCell(const Tet& actual, const Tet& expected) {
   auto lhs = actual;
   auto rhs = expected;
   std::sort(lhs.begin(), lhs.end());
@@ -128,7 +127,7 @@ void requireSameCell(const Tet& actual, const Tet& expected) {
   }
 }
 
-seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
+inline seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
   const std::array<std::array<double, 2>, 3> corners = {
       std::array<double, 2>{0, 0}, std::array<double, 2>{1, 0}, std::array<double, 2>{0, 1}};
   std::vector<std::array<double, 3>> vertices;
@@ -140,8 +139,6 @@ seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
   }
   return seissol::numerical::AffineMap<2, 3>::fromVertices(vertices);
 }
-
-} // namespace
 
 // The projection module re-derives, at run time, what the code generator ships as constants. These
 // tests pin that agreement down; if they fail, the run-time output matrices and the generated
@@ -315,7 +312,7 @@ TEST_CASE("Numerical/Projection: the table matches build() in the generated layo
   const std::size_t stride = tensor::collvv::Size[index] / tensor::collvv::Shape[index][1];
   REQUIRE(stride >= points.size());
 
-  projection::Spec spec;
+  const projection::Spec spec;
   const projection::Table<3, 3> table(subcells, points, Degree, stride, spec, 1, ConvergenceOrder);
   REQUIRE(table.subcellCount() == subcells.size());
 
