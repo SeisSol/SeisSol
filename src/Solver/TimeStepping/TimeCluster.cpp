@@ -312,8 +312,6 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
               table, pointsCollocate.data(), streamRuntime_);
         },
         isRecurringTimestep(timestep),
-        // pilot for node construction: the whole body is a single envMany
-        // and never reaches for the stream on its own
         seissol::parallel::runtime::GraphMode::Nodes);
     device_.api->popLastProfilingMark();
 
@@ -534,7 +532,8 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
           }
         }
       },
-      isRecurringTimestep(timeStepWidth));
+      isRecurringTimestep(timeStepWidth),
+      seissol::parallel::runtime::GraphMode::Nodes);
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
   device_.api->popLastProfilingMark();
@@ -582,11 +581,14 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);
 
-  streamRuntime_.runGraph(computeGraphKey,
-                          *clusterData_,
-                          [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-                            neighborKernel_.computeBatchedNeighborsIntegral(table, streamRuntime);
-                          });
+  streamRuntime_.runGraph(
+      computeGraphKey,
+      *clusterData_,
+      [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+        neighborKernel_.computeBatchedNeighborsIntegral(table, streamRuntime);
+      },
+      true,
+      seissol::parallel::runtime::GraphMode::Nodes);
 
   if (settings_.plasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);

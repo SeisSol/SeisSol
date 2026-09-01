@@ -30,9 +30,10 @@ namespace seissol::parallel::runtime {
  * events on it. Nodes states the structure directly, one node per env/envMany scope, so no
  * events are involved at all.
  *
- * Nodes only sees work that goes through env, envMany or record. Anything that reaches for
- * stream() outside such a scope runs immediately instead of becoming part of the graph, so a
- * call site has to be routed before it can opt in.
+ * Nodes does not require the call site to be routed: work that simply takes stream() opens an
+ * implicit node and lands in the graph as well. env, envMany and record exist to give that
+ * work a shape - a named node that other nodes can depend on, or a set of branches that run
+ * independently.
  */
 enum class GraphMode { Capture, Nodes };
 
@@ -125,6 +126,8 @@ class StreamRuntime {
   template <typename F>
   void record(F&& handler) {
     if (buildGraph_.isInitialized()) {
+      closeImplicitNode();
+
       std::vector<device::DeviceGraphNodeHandle> dependencies;
       if (lastNode_.isInitialized()) {
         dependencies.push_back(lastNode_);
@@ -143,7 +146,7 @@ class StreamRuntime {
   template <typename F>
   void enqueueHost(F&& handler) {
     if (Backend != DeviceBackend::Hip) {
-      device().api->streamHostFunction(streamPtr_->get(), std::forward<F>(handler));
+      device().api->streamHostFunction(stream(), std::forward<F>(handler));
     } else {
       // if the stream host function call isn't implemented or slow, we'll need to synchronize
       wait();
@@ -183,6 +186,8 @@ class StreamRuntime {
   template <typename F>
   void envMany(size_t count, F&& handler) {
     if (buildGraph_.isInitialized()) {
+      closeImplicitNode();
+
       // fork and join are properties of the graph here, so neither costs an event
       std::vector<device::DeviceGraphNodeHandle> forkDependencies;
       if (lastNode_.isInitialized()) {
@@ -224,11 +229,31 @@ class StreamRuntime {
     }
   }
 
-  void wait() { device().api->syncStreamWithHost(streamPtr_->get()); }
+  void wait() {
+    if (buildGraph_.isInitialized()) {
+      logError() << "Cannot wait on a stream while a compute graph is being built on it.";
+    }
+    device().api->syncStreamWithHost(streamPtr_->get());
+  }
 
-  // While a node is being recorded, the recording stream is the one that work has to go onto;
-  // outside a recording it is the runtime's own stream.
-  void* stream() { return recordingStream_ != nullptr ? recordingStream_ : streamPtr_->get(); }
+  /**
+   * The stream that work has to be issued on.
+   *
+   * Inside an explicit node this is that node's recording stream. While a graph is being built
+   * from nodes and no explicit node is open, asking for the stream opens an implicit one, so
+   * that code which was never taught about graphs still ends up in the graph rather than
+   * running straight away. The implicit node is closed again at the next env, envMany or record,
+   * and at the end of the graph.
+   */
+  void* stream() {
+    if (recordingStream_ != nullptr) {
+      return recordingStream_;
+    }
+    if (buildGraph_.isInitialized()) {
+      openImplicitNode();
+    }
+    return streamPtr_->get();
+  }
 
   template <typename F>
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle,
@@ -243,6 +268,7 @@ class StreamRuntime {
 
         std::invoke(std::forward<F>(handler), *this);
 
+        closeImplicitNode();
         buildGraph_.reset();
         device().api->graphInstantiate(computeGraphHandle);
       } else {
@@ -292,12 +318,12 @@ class StreamRuntime {
 
   template <typename T>
   T* allocMemory(std::size_t count) {
-    return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), streamPtr_->get()));
+    return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), stream()));
   }
 
   template <typename T>
   void freeMemory(T* ptr) {
-    device().api->freeMemAsync(ptr, streamPtr_->get());
+    device().api->freeMemAsync(ptr, stream());
   }
 
   template <typename T>
@@ -305,7 +331,7 @@ class StreamRuntime {
     return StreamMemoryHandle<T>(count, *this);
   }
 
-  void eventSync(void* event) { device().api->syncStreamWithEvent(streamPtr_->get(), event); }
+  void eventSync(void* event) { device().api->syncStreamWithEvent(stream(), event); }
 
   private:
   void growEventPool() {
@@ -326,7 +352,7 @@ class StreamRuntime {
   public:
   void* eventRecord() {
     void* event = nextEvent();
-    device().api->recordEventOnStream(event, streamPtr_->get());
+    device().api->recordEventOnStream(event, stream());
     return event;
   }
 
@@ -346,9 +372,28 @@ class StreamRuntime {
     return node;
   }
 
+  void openImplicitNode() {
+    if (!implicitNodeOpen_) {
+      std::vector<device::DeviceGraphNodeHandle> dependencies;
+      if (lastNode_.isInitialized()) {
+        dependencies.push_back(lastNode_);
+      }
+      device().api->graphBeginNode(buildGraph_, dependencies, streamPtr_->get());
+      implicitNodeOpen_ = true;
+    }
+  }
+
+  void closeImplicitNode() {
+    if (implicitNodeOpen_) {
+      lastNode_ = device().api->graphEndNode(buildGraph_, streamPtr_->get());
+      implicitNodeOpen_ = false;
+    }
+  }
+
   device::DeviceGraphHandle buildGraph_;
   device::DeviceGraphNodeHandle lastNode_;
   void* recordingStream_{nullptr};
+  bool implicitNodeOpen_{false};
 
   std::size_t ringbufferSize_{0};
   bool disposed_;
