@@ -149,6 +149,11 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   std::vector<hsize_t> globalSizesMax;
   std::vector<hsize_t> globalSizes;
   std::vector<hsize_t> localSizes;
+  // The chunk shape is a property of the dataset, not of what this rank contributes: it has to be
+  // the same everywhere and, per the HDF5 API, strictly positive in every dimension. A rank with
+  // nothing to write -- an empty partition, or any rank but the first for non-distributed data --
+  // has a local size of zero, so the two cannot share one vector.
+  std::vector<hsize_t> chunkSizes;
 
   const std::size_t chunkcount = std::min(chunksize, count);
 
@@ -156,16 +161,19 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     globalSizesMax.push_back(H5S_UNLIMITED);
     globalSizes.push_back(1);
     localSizes.push_back(1);
+    chunkSizes.push_back(1);
   }
   if (source->distributed()) {
     globalSizesMax.push_back(allcount);
     globalSizes.push_back(allcount);
     localSizes.push_back(chunkcount);
+    chunkSizes.push_back(std::max(1_UZ, std::min(chunksize, allcount)));
   }
   for (const auto& dim : dimensions) {
     globalSizesMax.push_back(dim);
     globalSizes.push_back(dim);
     localSizes.push_back(dim);
+    chunkSizes.push_back(std::max<hsize_t>(1, dim));
   }
 
   const std::size_t actualDimensions = localSizes.size();
@@ -239,9 +247,9 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   if (create) {
     hid_t h5filter = H5P_DEFAULT;
-    if (!localSizes.empty()) {
+    if (!chunkSizes.empty()) {
       h5filter = _eh(H5Pcreate(H5P_DATASET_CREATE));
-      _eh(H5Pset_chunk(h5filter, localSizes.size(), localSizes.data()));
+      _eh(H5Pset_chunk(h5filter, chunkSizes.size(), chunkSizes.data()));
       if (compress > 0) {
         const int deflateStrength = compress;
         _eh(H5Pset_deflate(h5filter, deflateStrength));
