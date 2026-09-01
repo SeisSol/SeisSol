@@ -498,8 +498,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
-        projectedRT[d] +=
-            seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
+        projectedRT[d] += weights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
     const auto m2inv = seissol::init::M2inv::view::create(seissol::init::M2inv::Values);
