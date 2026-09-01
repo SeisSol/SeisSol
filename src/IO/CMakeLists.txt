@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-add_library(seissol-io STATIC
+add_library(seissol-io OBJECT
     Datatype/Datatype.cpp
     Datatype/HDF5Type.cpp
     Datatype/MPIType.cpp

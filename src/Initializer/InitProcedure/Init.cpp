@@ -61,11 +61,10 @@ void reportDeviceMemoryStatus() {
 }
 
 void initSeisSol(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.parameters();
 
   // set g
-  seissolInstance.getGravitationSetup().acceleration =
-      seissolParams.model.gravitationalAcceleration;
+  seissolInstance.gravitationSetup().acceleration = seissolParams.model.gravitationalAcceleration;
 
   // initialization procedure
   seissol::initializer::initprocedure::initMesh(seissolInstance);
@@ -75,7 +74,7 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initprocedure::initIO(seissolInstance);
 
   // synchronize data to device
-  seissolInstance.getMemoryManager().synchronizeTo(seissol::initializer::AllocationPlace::Device);
+  seissolInstance.memoryManager().synchronizeTo(seissol::initializer::AllocationPlace::Device);
 
   // set up simulator
   auto& sim = seissolInstance.simulator();
@@ -86,9 +85,9 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.parameters();
   writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix);
-  pinningWriter.write(seissolInstance.getPinning(), seissolInstance.env());
+  pinningWriter.write(seissolInstance.pinning(), seissolInstance.env());
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {

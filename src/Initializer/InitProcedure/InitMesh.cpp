@@ -8,10 +8,9 @@
 #include "InitMesh.h"
 
 #include "Geometry/MeshDefinition.h"
+#include "Initializer/Clustering/Clustering.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
-#include "Monitoring/Instrumentation.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>
@@ -30,8 +29,8 @@
 
 #include <hdf5.h>
 #endif // defined(USE_HDF)
+#include "Initializer/Clustering/VertexWeights/WeightsFactory.h"
 #include "Initializer/FaceMap.h"
-#include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
@@ -73,7 +72,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   meshReader.linearizeGhostlayer();
 
-  const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
+  const auto& drParameters = seissolInstance.parameters().drParameters;
   const VrtxCoords center{drParameters.referencePoint[0],
                           drParameters.referencePoint[1],
                           drParameters.referencePoint[2]};
@@ -287,25 +286,28 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     }
   }();
 
-  using namespace seissol::initializer::time_stepping;
-  const LtsWeightsConfig config{
+  const seissol::initializer::ClusteringConfig config{
       boundaryFormat,
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
-      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
+      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
+      &faceMap};
 
-  auto ltsWeights = getLtsWeightsImplementation(
-      seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
+  seissol::initializer::Clustering clustering(config, seissolInstance);
+  auto weightModel = seissol::initializer::getVertexWeightModel(
+      seissolParams.timeStepping.lts.getLtsWeightsType());
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName,
                                                        seissolParams.mesh.partitioningLib,
                                                        faceMap,
                                                        boundaryFormat,
                                                        topologyFormat,
-                                                       ltsWeights.get(),
+                                                       &clustering,
+                                                       weightModel.get(),
                                                        nodeWeight);
   seissolInstance.setMeshReader(meshReader);
-  seissolInstance.setTimestepScale(ltsWeights->getWiggleFactor());
+  seissolInstance.setTimestepScale(clustering.result().wiggleFactor);
+  seissolInstance.setEffectiveClusterRates(clustering.result().ratios);
 
   watch.pause();
   watch.printTime("PUML mesh read in:");
@@ -342,7 +344,7 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
 void initMesh(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.parameters();
   const auto commSize = seissol::Mpi::mpi.size();
 
   logInfo() << "Begin init mesh.";

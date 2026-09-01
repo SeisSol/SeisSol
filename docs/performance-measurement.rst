@@ -40,6 +40,24 @@ HW-GLOP/s and NZ-GFLOP/s.
 
 Note that the Dynamic Rupture friction law computation or the Point Sources both are *not* counted into the HW-/NZ-FLOP numbers at the moment; only the matrix operations do (as used, e.g., during the ADER computation).
 
+Kernel Memory Throughput (B/s)
+------------------------------
+
+SeisSol outputs one throughput estimation number, namely the kernel memory throughput.
+
+It consists of all non-constant data that is read and written by a kernel;
+regardless of where the data resides in memory. As such, it is supposed
+to only be an over-estimation over the L2 and main memory bandwidth values.
+
+Constant matrices are assumed to be loaded once at the first kernel launch,
+and reside near the compute units (i.e. in L1 or L0, depending on the nomenclature)
+during all following executions — thus they are not counted in here.
+
+Due to the structure of SeisSol, the kernel memory throughput will work better for GPUs
+than CPUs: on the GPUs (and not on CPUs), a loop over all elements corresponds to a single kernel.
+As such, the kernel memory throughput should lie somewhere between L2 and main memory bandwidth
+for most kernels.
+
 Performance
 -----------
 

@@ -126,7 +126,7 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
 
   impl_->setMeshReader(&userMesher);
 
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
   const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
@@ -140,9 +140,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ppOutputBuilder_ = std::make_unique<PickPointBuilder>();
     ppOutputBuilder_->setMeshReader(&userMesher);
     ppOutputBuilder_->setParams(seissolParameters.output.pickpointParameters);
-    ppOutputBuilder_->setTimestep(
-        seissolInstance_.getMemoryManager().clusterLayout().minimumTimestep,
-        seissolParameters.timeStepping.endTime);
+    ppOutputBuilder_->setTimestep(seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
+                                  seissolParameters.timeStepping.endTime);
   }
   if (elementwiseEnabled) {
     logInfo() << "Enabling 2D fault output";
@@ -163,7 +162,7 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
   drStorage_ = &userDrStorage;
   impl_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
   initFaceToLtsMap();
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
   const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
@@ -175,18 +174,18 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
   if (pointEnabled) {
     ppOutputBuilder_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
     ppOutputBuilder_->setVariableList(impl_->getOutputVariables());
-    ppOutputBuilder_->setFaceToLtsMap(&globalFaceToLtsMap_);
+    ppOutputBuilder_->setFaceToLtsMap(&faceToLtsMap_);
   }
   if (elementwiseEnabled) {
     ewOutputBuilder_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
-    ewOutputBuilder_->setFaceToLtsMap(&globalFaceToLtsMap_);
+    ewOutputBuilder_->setFaceToLtsMap(&faceToLtsMap_);
   }
 }
 
 void OutputManager::initElementwiseOutput() {
   logInfo() << "Setting up the fault output.";
   ewOutputBuilder_->build(ewOutputData_);
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
 
   const auto& receiverPoints = ewOutputData_->receiverPoints;
 
@@ -293,13 +292,13 @@ void OutputManager::initElementwiseOutput() {
   schedWriter.name = "fault";
   schedWriter.planWrite = writer.makeWriter();
 
-  seissolInstance_.getOutputManager().addOutput(schedWriter);
+  seissolInstance_.outputManager().addOutput(schedWriter);
 }
 
 void OutputManager::initPickpointOutput() {
   logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder_->build(ppOutputData_);
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
 
   seissolInstance_.pickpointWriter().enable(
       seissolParameters.output.pickpointParameters.writeInterval);
@@ -410,11 +409,11 @@ void OutputManager::initPickpointOutput() {
           for (const auto& gIdx : ppfile.indices) {
             const auto& receiver = outputData->receiverPoints[gIdx];
             const size_t globalIndex = receiver.globalReceiverIndex + 1;
-            const size_t simIndex = receiver.simIndex;
+            const size_t simIndex = receiver.simIndex + 1;
             const auto& point = receiver.global;
 
             // output coordinates
-            if (simIndex == 0) {
+            if (simIndex == 1) {
               file << "# Receiver number " << globalIndex << '\n';
               file << "# x1\t" << makeFormatted(point[0]) << '\n';
               file << "# x2\t" << makeFormatted(point[1]) << '\n';
@@ -424,10 +423,10 @@ void OutputManager::initPickpointOutput() {
             // stress info
             std::array<real, 6> rotatedInitialStress{};
             {
-              auto [layer, face] = faceToLtsMap_.at(receiver.faultFaceIndex);
+              const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
 
-              const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>();
-              const auto* initialStress = initialStressVar[face];
+              const auto* initialStress =
+                  drStorage_->lookup<DynamicRupture::InitialStressInFaultCS>(position);
               std::array<real, 6> unrotatedInitialStress{};
               for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
                    ++stressVar) {
@@ -436,24 +435,27 @@ void OutputManager::initPickpointOutput() {
 
               seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
               alignAlongDipAndStrikeKernel.stressRotationMatrix =
-                  outputData->stressGlbToDipStrikeAligned[i].data();
+                  outputData->stressGlbToDipStrikeAligned[gIdx].data();
               alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-                  outputData->stressFaceAlignedToGlb[i].data();
+                  outputData->stressFaceAlignedToGlb[gIdx].data();
 
               alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
               alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
               alignAlongDipAndStrikeKernel.execute();
             }
 
-            file << "# P_0" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[0])
-                 << '\n';
-            file << "# T_s" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[3])
-                 << '\n';
-            file << "# T_d" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[5])
-                 << '\n';
+            {
+              using namespace misc::quantity_indices;
+              file << "# P_0" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XX])
+                   << '\n';
+              file << "# T_s" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XY])
+                   << '\n';
+              file << "# T_d" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XZ])
+                   << '\n';
+            }
           }
         } else {
-          logError() << "cannot open " << ppfile.fileName;
+          logError() << "Cannot open fault receiver file" << ppfile.fileName;
         }
         file.close();
       }
@@ -472,34 +474,26 @@ void OutputManager::init() {
 
 void OutputManager::initFaceToLtsMap() {
   if (drStorage_ != nullptr) {
-    ::seissol::initializer::StorageBackmap<1> backmap;
-    backmap.setSize(meshReader_->getFault().size());
-
-    faceToLtsMap_.resize(meshReader_->getFault().size());
-    globalFaceToLtsMap_.resize(faceToLtsMap_.size());
+    faceToLtsMap_.setSize(meshReader_->getFault().size());
 
     const auto* globalFaceInformation = drStorage_->var<DynamicRupture::FaceInformation>();
     for (auto& layer : drStorage_->leaves()) {
       const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-        faceToLtsMap_[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
-        backmap.addElement(layer.id(),
-                           globalFaceInformation,
-                           faceInformation,
-                           faceInformation[ltsFace].meshFace,
-                           ltsFace);
-      }
-    }
 
-    for (size_t i = 0; i < meshReader_->getFault().size(); ++i) {
-      globalFaceToLtsMap_[i] = backmap.get(i);
+        faceToLtsMap_.addElement(layer.id(),
+                                 globalFaceInformation,
+                                 faceInformation,
+                                 faceInformation[ltsFace].meshFace,
+                                 ltsFace);
+      }
     }
   }
   impl_->setFaceToLtsMap(&faceToLtsMap_);
 }
 
 bool OutputManager::isAtPickpoint(double time, double dt) {
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
   const bool isFirstStep = iterationStep_ == 0;
   const double abortTime = seissolParameters.timeStepping.endTime;
   const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
@@ -516,7 +510,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
                                          double meshDt,
                                          double meshInDt,
                                          parallel::runtime::StreamRuntime& runtime) {
-  const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+  const auto& seissolParameters = seissolInstance_.parameters();
   if (this->ppOutputBuilder_) {
     if (this->isAtPickpoint(time, dt)) {
       const auto findResult = ppOutputData_.find(layerId);
@@ -585,7 +579,7 @@ void OutputManager::flushPickpointDataToFile() {
 
 void OutputManager::updateElementwiseOutput() {
   if (this->ewOutputBuilder_) {
-    const auto& seissolParameters = seissolInstance_.getSeisSolParameters();
+    const auto& seissolParameters = seissolInstance_.parameters();
     impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                            seissolParameters.drParameters.slipRateOutputType,
                            ewOutputData_,

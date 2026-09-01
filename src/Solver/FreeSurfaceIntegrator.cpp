@@ -14,7 +14,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Initializer/MemoryManager.h"
+#include "Initializer/BoundaryHelper.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
@@ -48,9 +48,9 @@ void FreeSurfaceIntegrator::initialize(unsigned /*maxRefinementDepth*/,
 
 FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
     CellMaterialData materialData, FaceType faceType, unsigned int face) {
-  if (initializer::isAcousticSideOfElasticAcousticInterface(materialData, face)) {
+  if (isAcousticSideOfElasticAcousticInterface(materialData, face)) {
     return LocationFlag::Acoustic;
-  } else if (initializer::isElasticSideOfElasticAcousticInterface(materialData, face)) {
+  } else if (isElasticSideOfElasticAcousticInterface(materialData, face)) {
     return LocationFlag::Elastic;
   } else if (faceType == FaceType::FreeSurface) {
     return LocationFlag::FreeSurface;
@@ -84,8 +84,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     reduction(+ : numberOfFreeSurfaces, numberOfOutputFreeSurfaces)
     for (std::size_t cell = 0; cell < layerSize; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (initializer::requiresDisplacement(
-                cellInformation[cell], cellMaterialData[cell], face)) {
+        if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
           ++numberOfFreeSurfaces;
 
           if (secondaryInformation[cell].duplicate == 0) {
@@ -124,8 +123,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     std::size_t surfaceCell = 0;
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (initializer::requiresDisplacement(
-                cellInformation[cell], cellMaterialData[cell], face)) {
+        if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
           // NOTE: assign LTS::Storage data here
           faceDisplacements[cell][face] = displacementDofs[surfaceCell];
           faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];

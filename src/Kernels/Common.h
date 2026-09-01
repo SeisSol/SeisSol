@@ -70,6 +70,14 @@
       return nullptr;                                                                              \
     }                                                                                              \
   }                                                                                                \
+  template <typename T>                                                                            \
+  constexpr auto get_offset_##NAME() -> size_t {                                                   \
+    if constexpr (has_##NAME<T>::value) {                                                          \
+      return offsetof(T, NAME);                                                                    \
+    } else {                                                                                       \
+      return 0;                                                                                    \
+    }                                                                                              \
+  }                                                                                                \
   } // namespace
 
 namespace seissol {
@@ -120,29 +128,52 @@ constexpr std::size_t
 }
 
 /**
- * Check if a type has a .size() member.
+  Helper for HasSizeInternal (to allow an arbitrary number of parameters)
  */
-template <typename T, typename = void>
-struct HasSize {
+template <typename T, typename... Ts>
+using HasSizeExists = decltype(std::declval<T>().size(std::declval<Ts>()...), void());
+
+/**
+  Helper for HasSizeInternal (to allow an arbitrary number of parameters)
+ */
+template <typename T, typename... Ts>
+using HasSizeSizeT = decltype(std::declval<T>().size(std::declval<Ts>()...));
+
+/**
+  Helper struct for HasSize (interface wrapper).
+ */
+template <typename T, typename Void, typename... Ts>
+struct HasSizeHelper {
   static constexpr bool Value = false;
   using Type = std::size_t;
 };
 
-template <typename T>
-struct HasSize<T, decltype(std::declval<T>().size(), void())> {
+template <typename T, typename... Ts>
+struct HasSizeHelper<T, HasSizeExists<T, Ts...>, Ts...> {
   static constexpr bool Value = true;
-  using Type = decltype(std::declval<T>().size());
+  using Type = HasSizeSizeT<T, Ts...>;
+};
+
+/**
+ * Check if a type has a .size(...) member.
+ */
+template <typename T, typename... Args>
+struct HasSize {
+  using Helper = HasSizeHelper<T, void, Args...>;
+
+  static constexpr bool Value = Helper::Value;
+  using Type = typename Helper::Type;
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise.
  */
-template <class T>
-constexpr auto size() -> typename HasSize<T>::Type {
-  if constexpr (HasSize<T>::Value) {
-    return T::size();
+template <class T, typename... Args>
+constexpr auto size(Args... args) -> typename HasSize<T, Args...>::Type {
+  if constexpr (HasSize<T, Args...>::Value) {
+    return T::size(args...);
   } else {
-    return static_cast<typename HasSize<T>::Type>(0);
+    return static_cast<typename HasSize<T, Args...>::Type>(0);
   }
 }
 

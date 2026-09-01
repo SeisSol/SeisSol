@@ -100,10 +100,10 @@ seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
 }
 
 void setupCheckpointing(seissol::SeisSol& seissolInstance) {
-  auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
+  auto& checkpoint = seissolInstance.outputManager().getCheckpointManager();
 
   {
-    auto& storage = seissolInstance.getMemoryManager().getLtsStorage();
+    auto& storage = seissolInstance.memoryManager().ltsStorage();
     std::vector<std::size_t> globalIds(storage.size(seissol::initializer::LayerMask(Ghost)));
     std::size_t offset = 0;
     for (const auto& layer : storage.leaves(Ghost)) {
@@ -120,8 +120,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   }
 
   {
-    auto& storage = seissolInstance.getMemoryManager().getDRStorage();
-    auto& dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
+    auto& storage = seissolInstance.memoryManager().drStorage();
+    auto& dynrup = seissolInstance.memoryManager().drDescriptor();
     std::vector<std::size_t> faceIdentifiers(storage.size(seissol::initializer::LayerMask(Ghost)));
     const auto* drFaceInformation = storage.var<DynamicRupture::FaceInformation>();
 
@@ -139,7 +139,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   }
 
   {
-    auto& storage = seissolInstance.getMemoryManager().getSurfaceStorage();
+    auto& storage = seissolInstance.memoryManager().surfaceStorage();
     std::vector<std::size_t> faceIdentifiers(storage.size(seissol::initializer::LayerMask(Ghost)));
     const auto* meshIds = storage.var<SurfaceLTS::MeshId>();
     const auto* sides = storage.var<SurfaceLTS::Side>();
@@ -153,27 +153,27 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     SurfaceLTS::registerCheckpointVariables(checkpoint, storage);
   }
 
-  const auto& checkpointFile = seissolInstance.getCheckpointLoadFile();
+  const auto& checkpointFile = seissolInstance.checkpointLoadFile();
   if (checkpointFile.has_value()) {
-    const double time = seissolInstance.getOutputManager().loadCheckpoint(checkpointFile.value());
+    const double time = seissolInstance.outputManager().loadCheckpoint(checkpointFile.value());
     seissolInstance.simulator().setCurrentTime(time);
   }
 
-  if (seissolInstance.getSeisSolParameters().output.checkpointParameters.enabled) {
+  if (seissolInstance.parameters().output.checkpointParameters.enabled) {
     // FIXME: for now, we allow only _one_ checkpoint interval which checkpoints everything
     // existent
-    seissolInstance.getOutputManager().setupCheckpoint(
-        seissolInstance.getSeisSolParameters().output.checkpointParameters.interval);
+    seissolInstance.outputManager().setupCheckpoint(
+        seissolInstance.parameters().output.checkpointParameters.interval);
   }
 }
 
 void setupOutput(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  auto& memoryManager = seissolInstance.getMemoryManager();
-  auto& ltsStorage = memoryManager.getLtsStorage();
-  auto& backmap = memoryManager.getBackmap();
-  auto& drStorage = memoryManager.getDRStorage();
-  auto* globalData = memoryManager.getGlobalData().onHost;
+  const auto& seissolParams = seissolInstance.parameters();
+  auto& memoryManager = seissolInstance.memoryManager();
+  auto& ltsStorage = memoryManager.ltsStorage();
+  auto& backmap = memoryManager.backmap();
+  auto& drStorage = memoryManager.drStorage();
+  auto* globalData = memoryManager.globalData().onHost;
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
   constexpr auto QDofSizePadded =
@@ -551,7 +551,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
     schedWriter.planWrite = writer.makeWriter();
-    seissolInstance.getOutputManager().addOutput(schedWriter);
+    seissolInstance.outputManager().addOutput(schedWriter);
   }
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
@@ -751,7 +751,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
     schedWriter.planWrite = writer.makeWriter();
-    seissolInstance.getOutputManager().addOutput(schedWriter);
+    seissolInstance.outputManager().addOutput(schedWriter);
   }
 
   if (seissolParams.output.receiverParameters.enabled) {
@@ -760,7 +760,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     receiverWriter.init(seissolParams.output.prefix,
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
-    receiverWriter.addPoints(seissolInstance.meshReader(), backmap, memoryManager.getGlobalData());
+    receiverWriter.addPoints(seissolInstance.meshReader(), backmap, memoryManager.globalData());
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 
@@ -782,9 +782,23 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 }
 
 void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
-  const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
-  seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
-  auto* faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
+  const auto& seissolParams = seissolInstance.parameters();
+
+  const auto& backupTimeStamp = seissolInstance.backupTimeStamp();
+
+  auto* faultOutputManager = seissolInstance.memoryManager().faultOutputManager();
+
+  if (seissolParams.drParameters.isDynamicRuptureEnabled) {
+    auto& ltsStorage = seissolInstance.memoryManager().ltsStorage();
+    auto& backmap = seissolInstance.memoryManager().backmap();
+    auto& drStorage = seissolInstance.memoryManager().drStorage();
+
+    faultOutputManager->setInputParam(seissolInstance.meshReader());
+    faultOutputManager->setLtsData(ltsStorage, backmap, drStorage);
+    faultOutputManager->setBackupTimeStamp(backupTimeStamp);
+    faultOutputManager->init();
+  }
+
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
 }
 
@@ -796,7 +810,7 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   const auto rank = Mpi::mpi.rank();
   logInfo() << "Begin init output.";
 
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+  const auto& seissolParams = seissolInstance.parameters();
   const filesystem::path outputPath(seissolParams.output.prefix);
   const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
   if (!filesystem::exists(outputDir)) {
