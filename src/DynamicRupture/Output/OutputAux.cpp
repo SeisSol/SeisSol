@@ -119,7 +119,7 @@ TriangleQuadratureData generateTriangleQuadrature() {
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
     reshapedPoints[i][0] = seissol::multisim::multisimTranspose(pointsView, i, 0);
     reshapedPoints[i][1] = seissol::multisim::multisimTranspose(pointsView, i, 1);
-    data.weights[i] = seissol::multisim::multisimTranspose(weightsView, i, 0);
+    data.weights[i] = weightsView(i);
   }
 
   return data;
