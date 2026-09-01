@@ -18,6 +18,7 @@
 namespace seissol {
 
 void AcceleratorDevice::bindNativeDevice(int deviceId) {
+  deviceId_ = deviceId;
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   {
