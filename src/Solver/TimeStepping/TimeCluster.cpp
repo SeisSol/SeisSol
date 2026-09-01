@@ -311,8 +311,7 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
           dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
               table, pointsCollocate.data(), streamRuntime_);
         },
-        isRecurringTimestep(timestep),
-        seissol::parallel::runtime::GraphMode::Nodes);
+        isRecurringTimestep(timestep));
     device_.api->popLastProfilingMark();
 
     auto& solver =
@@ -532,8 +531,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
           }
         }
       },
-      isRecurringTimestep(timeStepWidth),
-      seissol::parallel::runtime::GraphMode::Nodes);
+      isRecurringTimestep(timeStepWidth));
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
   device_.api->popLastProfilingMark();
@@ -587,8 +585,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
       [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         neighborKernel_.computeBatchedNeighborsIntegral(table, streamRuntime);
       },
-      true,
-      seissol::parallel::runtime::GraphMode::Nodes);
+      true);
 
   if (settings_.plasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);

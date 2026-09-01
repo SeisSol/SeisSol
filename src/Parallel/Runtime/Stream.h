@@ -326,7 +326,7 @@ class StreamRuntime {
   template <typename F>
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle,
                        F&& handler,
-                       GraphMode mode = GraphMode::Capture) {
+                       GraphMode mode = GraphMode::Nodes) {
     if (!computeGraphHandle.isInitialized()) {
       if (mode == GraphMode::Nodes && seissol::useGraphNodes()) {
         computeGraphHandle = device().api->graphCreate();
@@ -369,7 +369,7 @@ class StreamRuntime {
                 initializer::Layer<VarmapT>& layer,
                 F&& handler,
                 bool cacheable = true,
-                GraphMode mode = GraphMode::Capture) {
+                GraphMode mode = GraphMode::Nodes) {
     if (!cacheable) {
       std::invoke(std::forward<F>(handler), *this);
       return;
