@@ -317,7 +317,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                 drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
                 init::quadweights::Values[k];
           }
-          potencyIncrease *= 0.5 * godunovData[i].doubledSurfaceArea;
+          potencyIncrease *= godunovData[i].doubledSurfaceArea;
           potency += potencyIncrease;
           seismicMoment += potencyIncrease * mu;
         }
