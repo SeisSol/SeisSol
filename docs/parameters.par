@@ -160,6 +160,9 @@ wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for
 wavefieldcomputerotation = 0 ! compute rotation for the volume output
 wavefieldcomputestrain = 0 ! compute strain for the volume output
 
+wavefieldprojection = 'pointwise' ! how the solution is transferred onto the output points:
+! 'pointwise' evaluates it there, 'l2' projects onto the output space (conservative per subcell)
+
 ! off-fault receivers
 ReceiverOutput = 1                   ! Enable/disable off-fault receiver output
 ReceiverFormat = 'csv'               ! Format of receiver output: 'csv' (default) or 'hdf5'
@@ -177,6 +180,8 @@ SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
 
 surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
+
+surfaceprojection = 'l2' ! as wavefieldprojection, for the free-surface output
 
 !Checkpointing
 Checkpoint = 1                       ! enable/disable checkpointing

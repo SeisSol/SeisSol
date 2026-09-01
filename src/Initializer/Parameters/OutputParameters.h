@@ -34,6 +34,10 @@ enum class XdmfBackend : int { Posix, Hdf5 };
  * solution there, or by an L2 projection onto the output (Lagrange) space. The latter is
  * conservative on each output subcell, the former is cheaper and reproduces the solution exactly
  * at the sampled points.
+ *
+ * The default differs per output, so that each keeps the behaviour it had before the output
+ * modules were unified: the wavefield output sampled the solution at the subcell barycenters,
+ * while the free-surface output averaged over each subcell.
  */
 enum class ProjectionMethod : int { Pointwise, L2 };
 
@@ -65,6 +69,7 @@ struct FreeSurfaceOutputParameters {
   unsigned refinement{0};
   double interval{0};
   int vtkorder{-1};
+  ProjectionMethod projection{ProjectionMethod::L2};
 };
 
 struct PickpointParameters {
@@ -128,13 +133,13 @@ struct WaveFieldOutputParameters {
   std::unordered_set<int> groups;
   bool computeRotation{false};
   bool computeStrain{false};
+  ProjectionMethod projection{ProjectionMethod::Pointwise};
 };
 
 struct OutputParameters {
   bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
   XdmfBackend xdmfWriterBackend{};
-  ProjectionMethod projection{ProjectionMethod::L2};
   uint32_t hdfcompress{0};
   std::string prefix;
   CheckpointParameters checkpointParameters;
@@ -149,7 +154,6 @@ struct OutputParameters {
   OutputParameters(bool loopStatisticsNetcdfOutput,
                    OutputFormat format,
                    XdmfBackend xdmfWriterBackend,
-                   ProjectionMethod projection,
                    uint32_t hdfcompress,
                    const std::string& prefix,
                    const CheckpointParameters& checkpointParameters,
@@ -160,11 +164,11 @@ struct OutputParameters {
                    const ReceiverOutputParameters& receiverParameters,
                    const WaveFieldOutputParameters& waveFieldParameters)
       : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
-        xdmfWriterBackend(xdmfWriterBackend), projection(projection), hdfcompress(hdfcompress),
-        prefix(prefix), checkpointParameters(checkpointParameters),
-        elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
-        freeSurfaceParameters(freeSurfaceParameters), pickpointParameters(pickpointParameters),
-        receiverParameters(receiverParameters), waveFieldParameters(waveFieldParameters) {}
+        xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress), prefix(prefix),
+        checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
+        energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
+        pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),
+        waveFieldParameters(waveFieldParameters) {}
 };
 
 void warnIntervalAndDisable(bool& enabled,

@@ -263,10 +263,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     const auto truePoints = io::instance::geometry::applyMaps(subcells, trueBase);
 
-    const auto projectionTarget =
-        seissolParams.output.projection == seissol::initializer::parameters::ProjectionMethod::L2
-            ? projection::Target::Project
-            : projection::Target::Interpolate;
+    const auto projectionTarget = seissolParams.output.waveFieldParameters.projection ==
+                                          seissol::initializer::parameters::ProjectionMethod::L2
+                                      ? projection::Target::Project
+                                      : projection::Target::Interpolate;
 
     const auto makeVolumeTable = [&](projection::Source source,
                                      std::optional<std::size_t> derivative) {
@@ -619,10 +619,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           }
         });
 
-    const auto projectionTarget =
-        seissolParams.output.projection == seissol::initializer::parameters::ProjectionMethod::L2
-            ? projection::Target::Project
-            : projection::Target::Interpolate;
+    const auto projectionTarget = seissolParams.output.freeSurfaceParameters.projection ==
+                                          seissol::initializer::parameters::ProjectionMethod::L2
+                                      ? projection::Target::Project
+                                      : projection::Target::Interpolate;
 
     // volume basis -> face points, one table per side of the reference tetrahedron
     std::array<std::shared_ptr<projection::Table<2, 3>>, Cell::NumFaces> proj{};
