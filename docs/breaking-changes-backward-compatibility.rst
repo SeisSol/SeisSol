@@ -109,3 +109,13 @@ The adjustment was propagated to the GPU implementation after 1.3.0.
 The respective `commit <https://github.com/SeisSol/SeisSol/commit/73b284b7a8a2323170766f3ab594312a31f514c1>`_
 updated the CPU implementation; the GPU implementation was updated by
 `#1288 <https://github.com/SeisSol/SeisSol/pull/1288>`_.
+
+Potency and Seismic Moment Quadrature
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(since before 0.9.0, `#527 <https://github.com/SeisSol/SeisSol/pull/527>`_, April 2022)
+
+The potency and the seismic moment were computed by averaging the value over all points.
+Now, to make the integration more exact, they are instead weighed by the quadrature rule
+the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
+may slightly change compared to before.
