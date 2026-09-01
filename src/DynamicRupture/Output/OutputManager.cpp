@@ -211,8 +211,7 @@ void OutputManager::initElementwiseOutput() {
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
-      faceIdentifiers[i] =
-          receivers[i].elementGlobalIndex * 4 + receivers[i].localFaceSideId;
+      faceIdentifiers[i] = receivers[i].elementGlobalIndex * 4 + receivers[i].localFaceSideId;
     }
 
     seissolInstance_.faultWriter().init(cellConnectivity.data(),
@@ -237,11 +236,8 @@ void OutputManager::initElementwiseOutput() {
       logError() << "VTK order 0 is currently not supported for the elementwise fault output.";
     }
 
-    io::instance::mesh::VtkHdfWriter writer("fault-elementwise",
-                                            receivers.size() /
-                                                seissol::init::vtk2d::Shape[order][1],
-                                            2,
-                                            order);
+    io::instance::mesh::VtkHdfWriter writer(
+        "fault-elementwise", receivers.size() / seissol::init::vtk2d::Shape[order][1], 2, order);
 
     writer.addPointProjector([=](double* target, std::size_t index) {
       for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
@@ -258,8 +254,7 @@ void OutputManager::initElementwiseOutput() {
 
     writer.addCellData<std::size_t>(
         "global-id", {}, [=, &receivers](std::size_t* target, std::size_t index) {
-          *target =
-              receivers[index].elementGlobalIndex * 4 + receivers[index].localFaceSideId;
+          *target = receivers[index].elementGlobalIndex * 4 + receivers[index].localFaceSideId;
         });
 
     misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
@@ -325,8 +320,7 @@ void OutputManager::initPickpointOutput() {
 
       std::unordered_map<std::size_t, std::vector<std::size_t>> globalIndexMap;
       for (size_t i = 0; i < outputData->topology.pointCount(); ++i) {
-        const auto& receiver =
-            outputData->receivers[outputData->topology.representative(i)];
+        const auto& receiver = outputData->receivers[outputData->topology.representative(i)];
         globalIndexMap[receiver.globalReceiverIndex].push_back(i);
       }
 
@@ -556,7 +550,7 @@ void OutputManager::flushPickpointDataToFile() {
       std::stringstream data;
       for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
         data << makeFormatted(outputData->cachedTime[level]) << '\t';
-        for (std::size_t pointId : ppfile.indices) {
+        for (const std::size_t pointId : ppfile.indices) {
           // the output variables are indexed per receiver, and the header lists one column block
           // per (point, simulation) pair
           for (const auto receiverId : outputData->topology.receiversOf(pointId)) {

@@ -161,7 +161,7 @@ struct PlusMinusBasisFunctions {
  */
 struct OutputFace {
   std::size_t faultFaceIndex{};
-  ::seissol::initializer::StoragePosition position{};
+  ::seissol::initializer::StoragePosition position;
 
   std::size_t elementIndex{};
   std::size_t localFaceSideId{};

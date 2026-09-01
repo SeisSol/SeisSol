@@ -250,8 +250,8 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
       }
     } else {
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
-      const auto ghostIndex =
-          std::pair<int, std::size_t>(element.neighborRanks[faultSide], element.mpiIndices[faultSide]);
+      const auto ghostIndex = std::pair<int, std::size_t>(element.neighborRanks[faultSide],
+                                                          element.mpiIndices[faultSide]);
       if (elementIndicesGhost.find(ghostIndex) == elementIndicesGhost.end()) {
         const auto index = elementIndicesGhost.size();
         elementIndicesGhost[ghostIndex] =
@@ -270,8 +270,8 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
       const auto elementIndex = faultInfo[face.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
-      const auto ghostIndex =
-          std::pair<int, std::size_t>(element.neighborRanks[faultSide], element.mpiIndices[faultSide]);
+      const auto ghostIndex = std::pair<int, std::size_t>(element.neighborRanks[faultSide],
+                                                          element.mpiIndices[faultSide]);
       face.deviceDataMinus = elementIndices.size() + elementIndicesGhost.at(ghostIndex).index;
     }
   }
@@ -401,7 +401,8 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
   for (auto& outputFace : outputData_->topology.faces) {
     const auto& element = elementsInfo[outputFace.elementIndex];
-    auto face = getGlobalTriangle(static_cast<int>(outputFace.localFaceSideId), element, verticesInfo);
+    auto face =
+        getGlobalTriangle(static_cast<int>(outputFace.localFaceSideId), element, verticesInfo);
 
     VrtxCoords xab;
     VrtxCoords xac;
@@ -429,7 +430,6 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     outputFace.jacobianT2d = matrix.inverse();
   }
 }
-
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData_->receivers;

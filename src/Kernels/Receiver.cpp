@@ -35,8 +35,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <numeric>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -116,13 +116,12 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
 
     meshToReceiverCell_[meshId] = receiverCells_.size();
 
-    auto& cell =
-        receiverCells_.emplace_back(meshId,
-                                    ltsStorage.lookupRef(position),
-                                    ltsStorage.lookupRef(position,
-                                                         isDeviceOn()
-                                                             ? initializer::AllocationPlace::Device
-                                                             : initializer::AllocationPlace::Host));
+    auto& cell = receiverCells_.emplace_back(
+        meshId,
+        ltsStorage.lookupRef(position),
+        ltsStorage.lookupRef(position,
+                             isDeviceOn() ? initializer::AllocationPlace::Device
+                                          : initializer::AllocationPlace::Host));
     cell.ltsPosition = position.global;
   }
 
