@@ -12,6 +12,7 @@
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Geometry/Points.h"
 #include "IO/Instance/Geometry/Refinement.h"
+#include "Numerical/Functions.h"
 #include "Numerical/Projection.h"
 #include "Numerical/Transformation.h"
 #include "Solver/MultipleSimulations.h"
@@ -38,6 +39,13 @@ bool nodalTransposed() {
   return static_cast<std::size_t>(nodal::tensor::nodes2D::Shape[0]) !=
          projection::modalSize(2, ConvergenceOrder);
 }
+
+// The nodal point set of the volume follows the PLASTICITY_METHOD build option: "nb" ships a
+// unisolvent warp&blend set, "ip" the conical-product quadrature points.
+constexpr auto VolumeNodalSet =
+    static_cast<std::size_t>(tensor::vNodes::Shape[0]) == projection::modalSize(3, ConvergenceOrder)
+        ? projection::NodalSet::WarpBlend
+        : projection::NodalSet::Stroud;
 
 using Tet = std::array<std::array<double, 3>, 4>;
 
@@ -154,7 +162,7 @@ TEST_CASE("Numerical/Projection: nodal point sets match the generated ones") {
   }
 
   SUBCASE("3D volume nodes vs. vNodes") {
-    const auto points = projection::nodalPoints3D(ConvergenceOrder);
+    const auto points = projection::nodalPoints3D(ConvergenceOrder, VolumeNodalSet);
     const auto nodes = init::vNodes::view::create(init::vNodes::Values);
     REQUIRE(points.size() == static_cast<std::size_t>(tensor::vNodes::Shape[0]));
     for (std::size_t p = 0; p < points.size(); ++p) {
@@ -169,7 +177,8 @@ TEST_CASE("Numerical/Projection: nodal point sets match the generated ones") {
 TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated ones") {
   SUBCASE("2D vs. MV2nTo2m") {
     // MV2nTo2m is stored as [modalBasis][node]
-    const auto matrix = projection::nodalToModal<2>(ConvergenceOrder);
+    const auto matrix =
+        projection::nodalToModal<2>(ConvergenceOrder, projection::NodalSet::WarpBlend);
     const auto reference = nodal::init::MV2nTo2m::view::create(nodal::init::MV2nTo2m::Values);
     const auto transposed = nodalTransposed();
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
@@ -183,12 +192,51 @@ TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated o
   }
 
   SUBCASE("3D vs. vInv") {
-    const auto matrix = projection::nodalToModal<3>(ConvergenceOrder);
+    const auto matrix = projection::nodalToModal<3>(ConvergenceOrder, VolumeNodalSet);
     const auto reference = init::vInv::view::create(init::vInv::Values);
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
       for (std::size_t n = 0; n < matrix.cols(); ++n) {
         const auto expected = reference.isInRange(b, n) ? reference(b, n) : 0.0;
         REQUIRE(matrix(b, n) == AbsApprox(expected).epsilon(Tolerance).delta(Tolerance));
+      }
+    }
+  }
+}
+
+TEST_CASE("Numerical/Projection: both volume nodal sets round-trip") {
+  // Only one of the two is shipped by the code generator in a given build, so exercise both
+  // against the definition instead: sampling a modal function at the nodes and transforming back
+  // has to reproduce the coefficients.
+  const auto indices = projection::modalIndices<3>(ConvergenceOrder);
+
+  for (const auto set : {projection::NodalSet::WarpBlend, projection::NodalSet::Stroud}) {
+    const auto points = projection::nodalPoints3D(ConvergenceOrder, set);
+    const auto matrix = projection::nodalToModal<3>(ConvergenceOrder, set);
+
+    REQUIRE(points.size() == projection::nodalSize(3, ConvergenceOrder, set));
+    REQUIRE(matrix.rows() == indices.size());
+    REQUIRE(matrix.cols() == points.size());
+
+    for (const auto& point : points) {
+      const auto sum = point[0] + point[1] + point[2];
+      REQUIRE(point[0] >= -Tolerance);
+      REQUIRE(point[1] >= -Tolerance);
+      REQUIRE(point[2] >= -Tolerance);
+      REQUIRE(sum <= 1 + Tolerance);
+    }
+
+    for (std::size_t coefficient = 0; coefficient < indices.size(); ++coefficient) {
+      std::vector<double> nodalValues(points.size());
+      for (std::size_t n = 0; n < points.size(); ++n) {
+        nodalValues[n] = functions::DubinerP<3>(indices[coefficient], points[n]);
+      }
+      for (std::size_t b = 0; b < indices.size(); ++b) {
+        double value = 0;
+        for (std::size_t n = 0; n < points.size(); ++n) {
+          value += matrix(b, n) * nodalValues[n];
+        }
+        const auto expected = b == coefficient ? 1.0 : 0.0;
+        REQUIRE(value == AbsApprox(expected).epsilon(Tolerance).delta(Tolerance));
       }
     }
   }

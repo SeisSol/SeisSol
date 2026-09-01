@@ -59,6 +59,19 @@ namespace projection = seissol::numerical::projection;
 constexpr std::size_t MinProjectionOrder = 1;
 constexpr std::size_t MaxProjectionOrder = ConvergenceOrder;
 
+// Which nodal points the plastic strain lives on is a build option (PLASTICITY_METHOD): "nb"
+// uses a unisolvent warp&blend set, "ip" the conical-product quadrature points. Read that back
+// off the generated matrices instead of duplicating the CMake variable.
+constexpr auto PlasticityNodalSet = static_cast<std::size_t>(tensor::vNodes::Shape[0]) ==
+                                            projection::modalSize(Cell::Dim, ConvergenceOrder)
+                                        ? projection::NodalSet::WarpBlend
+                                        : projection::NodalSet::Stroud;
+
+static_assert(projection::nodalSize(Cell::Dim, ConvergenceOrder, PlasticityNodalSet) ==
+                  static_cast<std::size_t>(tensor::vNodes::Shape[0]),
+              "The projection module and the generated plasticity matrices disagree about the "
+              "nodal point set of the volume.");
+
 /**
  * The padded leading dimension of a generated projection tensor, i.e. the stride between two
  * consecutive basis functions. Yateto stores these matrices as [point][basisFunction] with an
@@ -260,6 +273,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       projection::Spec spec;
       spec.source = source;
       spec.target = projectionTarget;
+      spec.nodalSet = PlasticityNodalSet;
       spec.derivative = derivative;
       const auto stride = source == projection::Source::Nodal
                               ? projectionStride<tensor::collnv>(order)
@@ -635,6 +649,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     projection::Spec faceSpec;
     faceSpec.source = projection::Source::Nodal;
     faceSpec.target = projectionTarget;
+    // the face displacement is stored at the nodes2D points, which are always warp&blend
+    faceSpec.nodalSet = projection::NodalSet::WarpBlend;
     const auto projf =
         std::make_shared<projection::Table<2, 2>>(subcells,
                                                   dataBase,

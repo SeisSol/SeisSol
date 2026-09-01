@@ -142,6 +142,22 @@ enum class Target {
   Project
 };
 
+/**
+ * @brief Which nodal point set a Source::Nodal representation lives on.
+ *
+ * Both are in use in the volume: the generated plasticity matrices (@c vNodes , @c v , @c vInv )
+ * are built for exactly one of them, selected at configure time by @c PLASTICITY_METHOD . The 2D
+ * face nodes (@c nodes2D ) are always WarpBlend.
+ */
+enum class NodalSet {
+  //! Hesthaven/Warburton warp&blend points: unisolvent, one point per basis function
+  //! (@c PLASTICITY_METHOD=nb , the default).
+  WarpBlend,
+  //! Conical-product (Stroud) quadrature points: over-determined, the nodal-to-modal transform is
+  //! the corresponding L2 projection (@c PLASTICITY_METHOD=ip ). 3D only.
+  Stroud
+};
+
 //! @brief Number of Dubiner basis functions of convergence order @p order .
 constexpr std::size_t modalSize(std::size_t dim, std::size_t order) {
   std::size_t count = order;
@@ -152,10 +168,10 @@ constexpr std::size_t modalSize(std::size_t dim, std::size_t order) {
   return count;
 }
 
-//! @brief Number of points of the canonical nodal point set of convergence order @p order .
-constexpr std::size_t nodalSize(std::size_t dim, std::size_t order) {
-  if (dim == 3) {
-    // conical-product (Stroud) points, cf. quadrature::TetrahedronQuadrature
+//! @brief Number of points of the nodal point set @p set of convergence order @p order .
+constexpr std::size_t nodalSize(std::size_t dim, std::size_t order, NodalSet set) {
+  if (set == NodalSet::Stroud) {
+    // cf. quadrature::TetrahedronQuadrature(order + 1); defined for dim == 3 only
     return (order + 1) * (order + 1) * (order + 1);
   }
   return modalSize(dim, order);
@@ -181,26 +197,35 @@ std::vector<std::array<unsigned, Dim>> modalIndices(std::size_t order);
 std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order);
 
 /**
- * @brief The nodal points of the 3D volume basis (the generated @c vNodes ), plus their
- * quadrature weights.
+ * @brief The nodal points of the 3D volume basis (the generated @c vNodes ).
  *
- * Conical-product (Stroud) points; identical to quadrature::TetrahedronQuadrature(order + 1).
+ * NodalSet::Stroud gives the conical-product points, identical to
+ * quadrature::TetrahedronQuadrature(order + 1); NodalSet::WarpBlend gives the
+ * Hesthaven/Warburton warp&blend points, enumerated over the equidistant lattice with zeta
+ * slowest and xi fastest.
  */
-std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order);
-std::vector<double> nodalWeights3D(std::size_t order);
+std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order, NodalSet set);
+
+//! @brief The quadrature weights belonging to nodalPoints3D(order, NodalSet::Stroud).
+std::vector<double> stroudWeights3D(std::size_t order);
 
 /**
- * @brief The nodal-to-modal transform of the canonical nodal set, i.e. the generated
- * @c MV2nTo2m (Dim == 2) resp. @c vInv (Dim == 3). Shape: [modalSize][nodalSize].
+ * @brief The nodal-to-modal transform of a nodal set, i.e. the generated @c MV2nTo2m (Dim == 2)
+ * resp. @c vInv (Dim == 3). Shape: [modalSize][nodalSize].
+ *
+ * For a unisolvent set this is the inverse Vandermonde matrix; for the over-determined Stroud set
+ * it is the L2 projection using the quadrature the points stem from.
  */
 template <std::size_t Dim>
-DenseMatrix nodalToModal(std::size_t order);
+DenseMatrix nodalToModal(std::size_t order, NodalSet set);
 
 struct Spec {
   //! Convergence order of the source representation.
   std::size_t order{1};
   Source source{Source::Modal};
   Target target{Target::Interpolate};
+  //! The point set a Source::Nodal representation lives on; ignored for Source::Modal.
+  NodalSet nodalSet{NodalSet::WarpBlend};
   //! If set, the derivative direction (in the coordinates of the source reference cell).
   std::optional<std::size_t> derivative;
 };
@@ -217,8 +242,8 @@ struct Spec {
  *        face embedding.
  *
  * The number of columns is projection::modalSize(To, order) for Source::Modal and
- * projection::nodalSize(To, order) for Source::Nodal, i.e. the nodal-to-modal transform is folded
- * into the matrix.
+ * projection::nodalSize(To, order, spec.nodalSet) for Source::Nodal, i.e. the nodal-to-modal
+ * transform is folded into the matrix.
  */
 template <std::size_t From, std::size_t To>
 DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPoints,

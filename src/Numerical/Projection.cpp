@@ -66,21 +66,38 @@ std::pair<std::vector<std::array<double, Dim>>, std::vector<double>>
 constexpr double Pi = 3.14159265358979323846;
 
 // Hesthaven/Warburton warp&blend blending parameters, indexed by polynomial degree - 1.
-constexpr std::array<double, 15> WarpBlendAlpha = {0.0000,
-                                                   0.0000,
-                                                   1.4152,
-                                                   0.1001,
-                                                   0.2751,
-                                                   0.9800,
-                                                   1.0999,
-                                                   1.2832,
-                                                   1.3648,
-                                                   1.4773,
-                                                   1.4959,
-                                                   1.5743,
-                                                   1.5770,
-                                                   1.6223,
-                                                   1.6258};
+constexpr std::array<double, 15> WarpBlendAlpha2D = {0.0000,
+                                                     0.0000,
+                                                     1.4152,
+                                                     0.1001,
+                                                     0.2751,
+                                                     0.9800,
+                                                     1.0999,
+                                                     1.2832,
+                                                     1.3648,
+                                                     1.4773,
+                                                     1.4959,
+                                                     1.5743,
+                                                     1.5770,
+                                                     1.6223,
+                                                     1.6258};
+
+// The same, for the tetrahedron.
+constexpr std::array<double, 15> WarpBlendAlpha3D = {0.0000,
+                                                     0.0000,
+                                                     0.0000,
+                                                     0.1002,
+                                                     1.1332,
+                                                     1.5608,
+                                                     1.3413,
+                                                     1.2577,
+                                                     1.1603,
+                                                     1.10153,
+                                                     0.6080,
+                                                     0.4523,
+                                                     0.8856,
+                                                     0.8717,
+                                                     0.9655};
 
 //! Gauss-Lobatto points on [-1, 1]; returns degree + 1 points.
 std::vector<double> gaussLobatto(std::size_t degree) {
@@ -100,9 +117,14 @@ std::vector<double> gaussLobatto(std::size_t degree) {
 
 /**
  * Interpolates the displacement between the equidistant and the Gauss-Lobatto nodes of the given
- * degree onto the positions @p positions, and removes the (vanishing) boundary contribution.
+ * degree onto @p positions , divided by @f$ 1 - x^2 @f$ .
+ *
+ * The division is carried out analytically: the two endpoint factors of the Lagrange polynomial
+ * are exactly @f$ (x \mp 1) @f$ and are simply left out, which keeps the result finite (and
+ * accurate) at and near the interval ends. The endpoint terms themselves vanish because the
+ * Gauss-Lobatto and the equidistant nodes coincide there.
  */
-std::vector<double> warpFactor(std::size_t degree, const std::vector<double>& positions) {
+std::vector<double> warpInterpolation(std::size_t degree, const std::vector<double>& positions) {
   const auto lobatto = gaussLobatto(degree);
   std::vector<double> equidistant(degree + 1);
   for (std::size_t i = 0; i <= degree; ++i) {
@@ -112,20 +134,36 @@ std::vector<double> warpFactor(std::size_t degree, const std::vector<double>& po
   std::vector<double> warp(positions.size(), 0.0);
   for (std::size_t k = 0; k < positions.size(); ++k) {
     for (std::size_t i = 0; i <= degree; ++i) {
-      double lagrange = 1.0;
-      for (std::size_t j = 0; j <= degree; ++j) {
+      double term = lobatto[i] - equidistant[i];
+      for (std::size_t j = 1; j < degree; ++j) {
         if (i != j) {
-          lagrange *= (positions[k] - equidistant[j]) / (equidistant[i] - equidistant[j]);
+          term *= (positions[k] - equidistant[j]) / (equidistant[i] - equidistant[j]);
         }
       }
-      warp[k] += lagrange * (lobatto[i] - equidistant[i]);
+      if (i != 0) {
+        term /= -(equidistant[i] - equidistant[0]);
+      }
+      if (i != degree) {
+        term /= equidistant[i] - equidistant[degree];
+      }
+      warp[k] += term;
     }
-    // the warp is only applied in the interior; on the boundary it is blended out completely
-    if (std::abs(positions[k]) < 1.0 - 1e-10) {
-      warp[k] /= 1.0 - positions[k] * positions[k];
-    } else {
-      warp[k] = 0.0;
-    }
+  }
+  return warp;
+}
+
+/**
+ * The same interpolant on the reversed node set, which is what Hesthaven/Warburton use inside the
+ * tetrahedron. Both node sets are symmetric about zero, so reversing them just mirrors the
+ * interpolant.
+ */
+std::vector<double> warpInterpolationReversed(std::size_t degree, std::vector<double> positions) {
+  for (auto& position : positions) {
+    position = -position;
+  }
+  auto warp = warpInterpolation(degree, positions);
+  for (auto& value : warp) {
+    value = -value;
   }
   return warp;
 }
@@ -235,7 +273,7 @@ std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order) {
   }
 
   const auto degree = order - 1;
-  const auto alpha = degree <= WarpBlendAlpha.size() ? WarpBlendAlpha[degree - 1] : 5.0 / 3.0;
+  const auto alpha = degree <= WarpBlendAlpha2D.size() ? WarpBlendAlpha2D[degree - 1] : 5.0 / 3.0;
   const auto scale = 1.0 / static_cast<double>(degree);
 
   // equidistant lattice in barycentric coordinates; eta (= lambda2) slowest
@@ -272,9 +310,9 @@ std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order) {
   };
 
   const std::array<std::vector<double>, 3> warp = {
-      warpFactor(degree, difference(lambda3, lambda2)),
-      warpFactor(degree, difference(lambda1, lambda3)),
-      warpFactor(degree, difference(lambda2, lambda1))};
+      warpInterpolation(degree, difference(lambda3, lambda2)),
+      warpInterpolation(degree, difference(lambda1, lambda3)),
+      warpInterpolation(degree, difference(lambda2, lambda1))};
   const std::array<const std::vector<double>*, 3> blendOuter = {&lambda2, &lambda1, &lambda1};
   const std::array<const std::vector<double>*, 3> blendInner = {&lambda3, &lambda3, &lambda2};
   const std::array<const std::vector<double>*, 3> attenuate = {&lambda1, &lambda2, &lambda3};
@@ -298,59 +336,238 @@ std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order) {
   return points;
 }
 
-std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order) {
-  auto quadrature = simplexQuadrature<3>(order + 1);
-  assert(quadrature.first.size() == nodalSize(3, order));
-  return std::move(quadrature.first);
+std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order, NodalSet set) {
+  if (set == NodalSet::Stroud) {
+    auto quadrature = simplexQuadrature<3>(order + 1);
+    assert(quadrature.first.size() == nodalSize(3, order, set));
+    return std::move(quadrature.first);
+  }
+
+  assert(order >= 1);
+  if (order == 1) {
+    return {{0.25, 0.25, 0.25}};
+  }
+
+  const auto degree = order - 1;
+  const auto alpha = degree <= WarpBlendAlpha3D.size() ? WarpBlendAlpha3D[degree - 1] : 1.0;
+  const auto scale = 1.0 / static_cast<double>(degree);
+  constexpr double Tolerance = 1e-10;
+
+  // equidistant lattice in barycentric coordinates; zeta slowest, xi fastest. lambda[0..2] are
+  // the coordinates of the reference tetrahedron, lambda[3] the one belonging to its origin.
+  std::array<std::vector<double>, 4> lambda;
+  for (std::size_t k = 0; k <= degree; ++k) {
+    for (std::size_t j = 0; j + k <= degree; ++j) {
+      for (std::size_t i = 0; i + j + k <= degree; ++i) {
+        lambda[0].push_back(static_cast<double>(i) * scale);
+        lambda[1].push_back(static_cast<double>(j) * scale);
+        lambda[2].push_back(static_cast<double>(k) * scale);
+        lambda[3].push_back(1.0 - static_cast<double>(i + j + k) * scale);
+      }
+    }
+  }
+  const auto count = lambda[0].size();
+  assert(count == nodalSize(3, order, set));
+
+  // the equilateral reference tetrahedron the warp is applied in; vertex v[i] carries lambda[i]
+  const std::array<std::array<double, 3>, 4> vertices = {
+      std::array<double, 3>{1.0, -1.0 / std::sqrt(3.0), -1.0 / std::sqrt(6.0)},
+      std::array<double, 3>{0.0, 2.0 / std::sqrt(3.0), -1.0 / std::sqrt(6.0)},
+      std::array<double, 3>{0.0, 0.0, 3.0 / std::sqrt(6.0)},
+      std::array<double, 3>{-1.0, -1.0 / std::sqrt(3.0), -1.0 / std::sqrt(6.0)}};
+
+  // the two orthogonal in-plane directions of each face, indexed as the faces below
+  const auto subtract = [](const std::array<double, 3>& a, const std::array<double, 3>& b) {
+    return std::array<double, 3>{a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+  };
+  const auto middle = [](const std::array<double, 3>& a, const std::array<double, 3>& b) {
+    return std::array<double, 3>{0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1]), 0.5 * (a[2] + b[2])};
+  };
+  const auto normalize = [](std::array<double, 3> a) {
+    const auto norm = std::sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+    for (auto& value : a) {
+      value /= norm;
+    }
+    return a;
+  };
+  const std::array<std::array<double, 3>, 4> tangent1 = {
+      normalize(subtract(vertices[0], vertices[3])),
+      normalize(subtract(vertices[0], vertices[3])),
+      normalize(subtract(vertices[1], vertices[0])),
+      normalize(subtract(vertices[1], vertices[3]))};
+  const std::array<std::array<double, 3>, 4> tangent2 = {
+      normalize(subtract(vertices[1], middle(vertices[3], vertices[0]))),
+      normalize(subtract(vertices[2], middle(vertices[3], vertices[0]))),
+      normalize(subtract(vertices[2], middle(vertices[0], vertices[1]))),
+      normalize(subtract(vertices[2], middle(vertices[3], vertices[1])))};
+
+  // the face opposite to lambda[opposite[f]], warped in the plane spanned by the other three
+  const std::array<std::array<std::size_t, 4>, 4> faceLambda = {
+      std::array<std::size_t, 4>{2, 1, 3, 0},
+      std::array<std::size_t, 4>{1, 2, 3, 0},
+      std::array<std::size_t, 4>{3, 2, 0, 1},
+      std::array<std::size_t, 4>{0, 2, 3, 1}};
+
+  std::vector<std::array<double, 3>> position(count, std::array<double, 3>{});
+  for (std::size_t p = 0; p < count; ++p) {
+    for (std::size_t l = 0; l < 4; ++l) {
+      for (std::size_t d = 0; d < 3; ++d) {
+        position[p][d] += lambda[l][p] * vertices[l][d];
+      }
+    }
+  }
+
+  const auto difference = [&](const std::vector<double>& a, const std::vector<double>& b) {
+    std::vector<double> result(count);
+    for (std::size_t p = 0; p < count; ++p) {
+      result[p] = a[p] - b[p];
+    }
+    return result;
+  };
+
+  std::vector<std::array<double, 3>> shift(count, std::array<double, 3>{});
+  for (std::size_t face = 0; face < 4; ++face) {
+    const auto& la = lambda[faceLambda[face][0]];
+    const auto& lb = lambda[faceLambda[face][1]];
+    const auto& lc = lambda[faceLambda[face][2]];
+    const auto& ld = lambda[faceLambda[face][3]];
+
+    // the 2D warp of the face, in the frame spanned by tangent1/tangent2
+    const std::array<std::vector<double>, 3> warp = {
+        warpInterpolationReversed(degree, difference(ld, lc)),
+        warpInterpolationReversed(degree, difference(lb, ld)),
+        warpInterpolationReversed(degree, difference(lc, lb))};
+    const std::array<const std::vector<double>*, 3> blendOuter = {&lc, &lb, &lb};
+    const std::array<const std::vector<double>*, 3> blendInner = {&ld, &ld, &lc};
+    const std::array<const std::vector<double>*, 3> attenuate = {&lb, &lc, &ld};
+
+    std::vector<double> shift1(count, 0.0);
+    std::vector<double> shift2(count, 0.0);
+    for (std::size_t direction = 0; direction < 3; ++direction) {
+      const auto angle = 2.0 * Pi * static_cast<double>(direction) / 3.0;
+      for (std::size_t p = 0; p < count; ++p) {
+        const auto blend = 4.0 * (*blendOuter[direction])[p] * (*blendInner[direction])[p];
+        const auto damping = alpha * (*attenuate[direction])[p];
+        const auto value = warp[direction][p] * blend * (1.0 + damping * damping);
+        shift1[p] += std::cos(angle) * value;
+        shift2[p] += std::sin(angle) * value;
+      }
+    }
+
+    for (std::size_t p = 0; p < count; ++p) {
+      const auto contribution = [&](std::size_t d) {
+        return shift1[p] * tangent1[face][d] + shift2[p] * tangent2[face][d];
+      };
+
+      // On the boundary of this face the warp is prescribed exactly and replaces whatever the
+      // previously visited faces contributed; in the interior it is blended into the volume.
+      const bool onBoundary = la[p] < Tolerance && (static_cast<int>(lb[p] > Tolerance) +
+                                                    static_cast<int>(lc[p] > Tolerance) +
+                                                    static_cast<int>(ld[p] > Tolerance)) < 3;
+      if (onBoundary) {
+        for (std::size_t d = 0; d < 3; ++d) {
+          shift[p][d] = contribution(d);
+        }
+      } else {
+        const auto denominator =
+            (lb[p] + 0.5 * la[p]) * (lc[p] + 0.5 * la[p]) * (ld[p] + 0.5 * la[p]);
+        auto blend = lb[p] * lc[p] * ld[p];
+        if (denominator > Tolerance) {
+          blend *= (1.0 + (alpha * la[p]) * (alpha * la[p])) / denominator;
+        }
+        for (std::size_t d = 0; d < 3; ++d) {
+          shift[p][d] += blend * contribution(d);
+        }
+      }
+    }
+  }
+
+  for (std::size_t p = 0; p < count; ++p) {
+    for (std::size_t d = 0; d < 3; ++d) {
+      position[p][d] += shift[p][d];
+    }
+  }
+
+  // back to the reference tetrahedron: undo the barycentric map given by `vertices`
+  DenseMatrix basis(3, 3);
+  for (std::size_t d = 0; d < 3; ++d) {
+    for (std::size_t l = 0; l < 3; ++l) {
+      basis(d, l) = vertices[l][d] - vertices[3][d];
+    }
+  }
+  const auto inverse = basis.inverse();
+
+  std::vector<std::array<double, 3>> points(count);
+  for (std::size_t p = 0; p < count; ++p) {
+    for (std::size_t d = 0; d < 3; ++d) {
+      double value = 0.0;
+      for (std::size_t e = 0; e < 3; ++e) {
+        value += inverse(d, e) * (position[p][e] - vertices[3][e]);
+      }
+      points[p][d] = value;
+    }
+  }
+  return points;
 }
 
-std::vector<double> nodalWeights3D(std::size_t order) {
+std::vector<double> stroudWeights3D(std::size_t order) {
   return std::move(simplexQuadrature<3>(order + 1).second);
 }
 
 template <std::size_t Dim>
-DenseMatrix nodalToModal(std::size_t order) {
+DenseMatrix nodalToModal(std::size_t order, NodalSet set) {
   const auto indices = modalIndices<Dim>(order);
   if constexpr (Dim == 3) {
-    // over-determined nodal set: the transform is the (exact) L2 projection using the
-    // conical-product quadrature the nodes stem from
-    const auto points = nodalPoints3D(order);
-    const auto weights = nodalWeights3D(order);
-    DenseMatrix vandermonde(points.size(), indices.size());
-    for (std::size_t n = 0; n < points.size(); ++n) {
+    if (set == NodalSet::Stroud) {
+      // over-determined nodal set: the transform is the (exact) L2 projection using the
+      // conical-product quadrature the nodes stem from
+      const auto points = nodalPoints3D(order, set);
+      const auto weights = stroudWeights3D(order);
+      DenseMatrix vandermonde(points.size(), indices.size());
+      for (std::size_t n = 0; n < points.size(); ++n) {
+        for (std::size_t b = 0; b < indices.size(); ++b) {
+          vandermonde(n, b) = functions::DubinerP<3>(indices[b], points[n]);
+        }
+      }
+      std::vector<double> mass(indices.size(), 0.0);
       for (std::size_t b = 0; b < indices.size(); ++b) {
-        vandermonde(n, b) = functions::DubinerP<3>(indices[b], points[n]);
+        for (std::size_t n = 0; n < points.size(); ++n) {
+          mass[b] += weights[n] * vandermonde(n, b) * vandermonde(n, b);
+        }
       }
-    }
-    std::vector<double> mass(indices.size(), 0.0);
-    for (std::size_t b = 0; b < indices.size(); ++b) {
-      for (std::size_t n = 0; n < points.size(); ++n) {
-        mass[b] += weights[n] * vandermonde(n, b) * vandermonde(n, b);
+      DenseMatrix result(indices.size(), points.size());
+      for (std::size_t b = 0; b < indices.size(); ++b) {
+        for (std::size_t n = 0; n < points.size(); ++n) {
+          result(b, n) = weights[n] * vandermonde(n, b) / mass[b];
+        }
       }
+      return result;
     }
-    DenseMatrix result(indices.size(), points.size());
-    for (std::size_t b = 0; b < indices.size(); ++b) {
-      for (std::size_t n = 0; n < points.size(); ++n) {
-        result(b, n) = weights[n] * vandermonde(n, b) / mass[b];
-      }
-    }
-    return result;
   } else {
     static_assert(Dim == 2, "Only 2D and 3D nodal bases are supported.");
-    const auto points = nodalPoints2D(order);
-    assert(points.size() == indices.size());
-    DenseMatrix vandermonde(points.size(), indices.size());
-    for (std::size_t n = 0; n < points.size(); ++n) {
-      for (std::size_t b = 0; b < indices.size(); ++b) {
-        vandermonde(n, b) = functions::DubinerP<2>(indices[b], points[n]);
-      }
-    }
-    return vandermonde.inverse();
+    assert(set == NodalSet::WarpBlend);
   }
+
+  // unisolvent nodal set: the transform is the inverse Vandermonde matrix
+  const auto points = [&]() {
+    if constexpr (Dim == 3) {
+      return nodalPoints3D(order, set);
+    } else {
+      return nodalPoints2D(order);
+    }
+  }();
+  assert(points.size() == indices.size());
+  DenseMatrix vandermonde(points.size(), indices.size());
+  for (std::size_t n = 0; n < points.size(); ++n) {
+    for (std::size_t b = 0; b < indices.size(); ++b) {
+      vandermonde(n, b) = functions::DubinerP<Dim>(indices[b], points[n]);
+    }
+  }
+  return vandermonde.inverse();
 }
 
-template DenseMatrix nodalToModal<2>(std::size_t);
-template DenseMatrix nodalToModal<3>(std::size_t);
+template DenseMatrix nodalToModal<2>(std::size_t, NodalSet);
+template DenseMatrix nodalToModal<3>(std::size_t, NodalSet);
 
 template <std::size_t From, std::size_t To>
 DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPoints,
@@ -432,8 +649,8 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
   }
 
   if (spec.source == Source::Nodal) {
-    matrix = matrix.multiply(nodalToModal<To>(spec.order));
-    assert(matrix.cols() == nodalSize(To, spec.order));
+    matrix = matrix.multiply(nodalToModal<To>(spec.order, spec.nodalSet));
+    assert(matrix.cols() == nodalSize(To, spec.order, spec.nodalSet));
   }
 
   return matrix;
@@ -469,7 +686,8 @@ Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
   std::size_t offset = 0;
   for (std::size_t order = minOrder; order <= maxOrder; ++order) {
     orderOffsets_[order - minOrder] = offset;
-    const auto columns = spec.source == Source::Nodal ? nodalSize(To, order) : modalSize(To, order);
+    const auto columns =
+        spec.source == Source::Nodal ? nodalSize(To, order, spec.nodalSet) : modalSize(To, order);
     offset += columns * leadingDimension;
   }
   subcellStride_ = offset;
