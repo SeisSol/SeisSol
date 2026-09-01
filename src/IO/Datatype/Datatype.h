@@ -8,12 +8,12 @@
 #ifndef SEISSOL_SRC_IO_DATATYPE_DATATYPE_H_
 #define SEISSOL_SRC_IO_DATATYPE_DATATYPE_H_
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-#include <cstdint>
 
 namespace seissol::io::datatype {
 
