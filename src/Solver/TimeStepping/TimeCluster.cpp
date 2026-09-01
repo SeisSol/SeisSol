@@ -311,7 +311,10 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
           dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
               table, pointsCollocate.data(), streamRuntime_);
         },
-        isRecurringTimestep(timestep));
+        isRecurringTimestep(timestep),
+        // pilot for node construction: the whole body is a single envMany
+        // and never reaches for the stream on its own
+        seissol::parallel::runtime::GraphMode::Nodes);
     device_.api->popLastProfilingMark();
 
     auto& solver =

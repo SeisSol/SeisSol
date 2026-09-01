@@ -39,6 +39,24 @@ bool useCommThread(const T& mpiBasic, utils::Env& env) {
 
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
+/**
+ * Kill switch for explicit graph node construction. When off, graphs that would be built node
+ * by node fall back to whole-stream capture, which is what every graph used before.
+ */
+inline bool useGraphNodes(SEISSOL_GPU_PARAM utils::Env& env) {
+#ifdef ACL_DEVICE
+  return env.get<bool>("DEVICE_GRAPH_NODES", true) &&
+         device::DeviceInstance::getInstance().api->isCapableOfGraphNodes();
+#else
+  return false;
+#endif
+}
+
+inline bool useGraphNodes() {
+  utils::Env env("SEISSOL_");
+  return useGraphNodes(env);
+}
+
 inline void printPersistentMpiInfo(utils::Env& env) {
   if (usePersistentMpi(env)) {
     logInfo() << "Using persistent MPI routines.";

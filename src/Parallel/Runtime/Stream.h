@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Helper.h"
 
 #include <algorithm>
 #include <functional>
@@ -21,6 +22,19 @@
 #endif
 
 namespace seissol::parallel::runtime {
+
+/**
+ * How a compute graph is put together.
+ *
+ * Capture records a whole stream and lets the backend derive the dependency structure from the
+ * events on it. Nodes states the structure directly, one node per env/envMany scope, so no
+ * events are involved at all.
+ *
+ * Nodes only sees work that goes through env, envMany or record. Anything that reaches for
+ * stream() outside such a scope runs immediately instead of becoming part of the graph, so a
+ * call site has to be routed before it can opt in.
+ */
+enum class GraphMode { Capture, Nodes };
 
 template <typename T>
 class StreamMemoryHandle;
@@ -102,9 +116,28 @@ class StreamRuntime {
 
   ~StreamRuntime() { dispose(); }
 
+  /**
+   * Contributes the work of one callback to the current scope.
+   *
+   * While a graph is being built node by node, this becomes a single graph node that depends on
+   * whatever was recorded before it. Otherwise it is just a call on the stream.
+   */
+  template <typename F>
+  void record(F&& handler) {
+    if (buildGraph_.isInitialized()) {
+      std::vector<device::DeviceGraphNodeHandle> dependencies;
+      if (lastNode_.isInitialized()) {
+        dependencies.push_back(lastNode_);
+      }
+      lastNode_ = addNode(dependencies, streamPtr_->get(), std::forward<F>(handler));
+    } else {
+      std::invoke(std::forward<F>(handler), streamPtr_->get());
+    }
+  }
+
   template <typename F>
   void env(F&& handler) {
-    std::invoke(std::forward<F>(handler), streamPtr_->get());
+    record(std::forward<F>(handler));
   }
 
   template <typename F>
@@ -149,6 +182,27 @@ class StreamRuntime {
 
   template <typename F>
   void envMany(size_t count, F&& handler) {
+    if (buildGraph_.isInitialized()) {
+      // fork and join are properties of the graph here, so neither costs an event
+      std::vector<device::DeviceGraphNodeHandle> forkDependencies;
+      if (lastNode_.isInitialized()) {
+        forkDependencies.push_back(lastNode_);
+      }
+
+      std::vector<device::DeviceGraphNodeHandle> branches;
+      branches.reserve(count);
+      for (size_t i = 0; i < count; ++i) {
+        branches.push_back(addNode(forkDependencies, streamPtr_->get(), [&](void* streamPtr) {
+          std::invoke(handler, streamPtr, i);
+        }));
+      }
+
+      // an empty recorder yields a handle that stands for its own dependencies, which is
+      // exactly a join
+      lastNode_ = addNode(branches, streamPtr_->get(), [](void*) {});
+      return;
+    }
+
     if (Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
       void* forkEvent = nextEvent();
       device().api->recordEventOnStream(forkEvent, streamPtr_->get());
@@ -172,16 +226,32 @@ class StreamRuntime {
 
   void wait() { device().api->syncStreamWithHost(streamPtr_->get()); }
 
-  void* stream() { return streamPtr_->get(); }
+  // While a node is being recorded, the recording stream is the one that work has to go onto;
+  // outside a recording it is the runtime's own stream.
+  void* stream() { return recordingStream_ != nullptr ? recordingStream_ : streamPtr_->get(); }
 
   template <typename F>
-  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
+  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle,
+                       F&& handler,
+                       GraphMode mode = GraphMode::Capture) {
     if (!computeGraphHandle.isInitialized()) {
-      computeGraphHandle = device().api->streamBeginCapture(allStreams_);
+      if (mode == GraphMode::Nodes && seissol::useGraphNodes()) {
+        computeGraphHandle = device().api->graphCreate();
 
-      std::invoke(std::forward<F>(handler), *this);
+        buildGraph_ = computeGraphHandle;
+        lastNode_ = device::DeviceGraphNodeHandle();
 
-      device().api->streamEndCapture(computeGraphHandle);
+        std::invoke(std::forward<F>(handler), *this);
+
+        buildGraph_.reset();
+        device().api->graphInstantiate(computeGraphHandle);
+      } else {
+        computeGraphHandle = device().api->streamBeginCapture(allStreams_);
+
+        std::invoke(std::forward<F>(handler), *this);
+
+        device().api->streamEndCapture(computeGraphHandle);
+      }
     }
 
     if (computeGraphHandle.isInitialized()) {
@@ -202,7 +272,8 @@ class StreamRuntime {
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
                 initializer::Layer<VarmapT>& layer,
                 F&& handler,
-                bool cacheable = true) {
+                bool cacheable = true,
+                GraphMode mode = GraphMode::Capture) {
     if (!cacheable) {
       std::invoke(std::forward<F>(handler), *this);
       return;
@@ -212,7 +283,7 @@ class StreamRuntime {
 
     const bool needsUpdate = !computeGraphHandle.isInitialized();
 
-    runGraphGeneric(computeGraphHandle, std::forward<F>(handler));
+    runGraphGeneric(computeGraphHandle, std::forward<F>(handler), mode);
 
     if (needsUpdate && computeGraphHandle.isInitialized()) {
       layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
@@ -260,6 +331,25 @@ class StreamRuntime {
   }
 
   private:
+  template <typename F>
+  device::DeviceGraphNodeHandle
+      addNode(const std::vector<device::DeviceGraphNodeHandle>& dependencies,
+              void* streamPtr,
+              F&& handler) {
+    void* previousRecordingStream = recordingStream_;
+    recordingStream_ = streamPtr;
+    auto node =
+        device().api->graphAddNode(buildGraph_, dependencies, streamPtr, [&](void* recorded) {
+          std::invoke(handler, recorded);
+        });
+    recordingStream_ = previousRecordingStream;
+    return node;
+  }
+
+  device::DeviceGraphHandle buildGraph_;
+  device::DeviceGraphNodeHandle lastNode_;
+  void* recordingStream_{nullptr};
+
   std::size_t ringbufferSize_{0};
   bool disposed_;
   std::optional<ManagedStream> streamPtr_;
