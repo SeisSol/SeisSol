@@ -36,24 +36,27 @@ class SeisSol;
 namespace kernels {
 struct Receiver {
   Receiver(std::size_t pointId,
-           std::size_t receiverCellId,
            Eigen::Vector3d position,
            const double* elementCoords[4],
            size_t reserved);
   std::size_t pointId;
-  std::size_t receiverCellId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
   std::vector<real> output;
 };
 
+/**
+  A cell carrying at least one receiver. The time evaluation runs once per cell, and only the
+  point evaluation is repeated for each receiver in it.
+ */
 struct ReceiverCell {
   ReceiverCell(std::size_t meshId, LTS::Ref dataHost, LTS::Ref dataDevice);
   std::size_t meshId{};
+  std::size_t ltsPosition{};
   LTS::Ref dataHost;
   LTS::Ref dataDevice;
-  std::vector<std::size_t> receivers;
+  std::vector<std::size_t> receiverIds;
 };
 
 struct DerivedReceiverQuantity {

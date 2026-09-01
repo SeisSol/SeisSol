@@ -32,8 +32,10 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <numeric>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -45,11 +47,10 @@
 namespace seissol::kernels {
 
 Receiver::Receiver(std::size_t pointId,
-                   std::size_t receiverCellId,
                    Eigen::Vector3d position,
                    const double* elementCoords[4],
                    size_t reserved)
-    : pointId(pointId), receiverCellId(receiverCellId), position(std::move(position)) {
+    : pointId(pointId), position(std::move(position)) {
   output.reserve(reserved);
 
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
@@ -115,18 +116,19 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
 
     meshToReceiverCell_[meshId] = receiverCells_.size();
 
-    receiverCells_.emplace_back(meshId,
-                                ltsStorage.lookupRef(position),
-                                ltsStorage.lookupRef(position,
-                                                     isDeviceOn()
-                                                         ? initializer::AllocationPlace::Device
-                                                         : initializer::AllocationPlace::Host));
+    auto& cell =
+        receiverCells_.emplace_back(meshId,
+                                    ltsStorage.lookupRef(position),
+                                    ltsStorage.lookupRef(position,
+                                                         isDeviceOn()
+                                                             ? initializer::AllocationPlace::Device
+                                                             : initializer::AllocationPlace::Host));
+    cell.ltsPosition = position.global;
   }
 
-  const auto receiverCellId = meshToReceiverCell_.at(meshId);
-  receiverCells_[receiverCellId].receivers.emplace_back(receivers_.size());
+  receiverCells_[meshToReceiverCell_.at(meshId)].receiverIds.emplace_back(receivers_.size());
 
-  receivers_.emplace_back(pointId, receiverCellId, point, coords, reserved);
+  receivers_.emplace_back(pointId, point, coords, reserved);
 }
 
 double ReceiverCluster::calcReceivers(double time,
@@ -204,7 +206,7 @@ double ReceiverCluster::calcReceivers(double time,
 
         timeKernel_.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
 
-        for (const auto& receiverId : receiverCell.receivers) {
+        for (const auto& receiverId : receiverCell.receiverIds) {
 
           auto& receiver = receivers_[receiverId];
 
@@ -252,6 +254,22 @@ double ReceiverCluster::calcReceivers(double time,
 }
 
 void ReceiverCluster::allocateData() {
+  // Visit the cells in storage order, so that both the host loop and the device gather read the
+  // DOFs sequentially instead of in the order the receivers happened to appear in the parameter
+  // file. This is only safe because a receiver does not refer back to its cell.
+  std::vector<std::size_t> order(receiverCells_.size());
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [this](std::size_t a, std::size_t b) {
+    return receiverCells_[a].ltsPosition < receiverCells_[b].ltsPosition;
+  });
+
+  std::vector<ReceiverCell> sorted;
+  sorted.reserve(receiverCells_.size());
+  for (const auto cellId : order) {
+    sorted.push_back(receiverCells_[cellId]);
+  }
+  receiverCells_ = std::move(sorted);
+
   if constexpr (isDeviceOn()) {
     // one entry per cell; the gather index equals the cell index
     std::vector<real*> dofs;
@@ -264,6 +282,8 @@ void ReceiverCluster::allocateData() {
     deviceCollector_ = std::make_unique<seissol::parallel::DataCollector<real>>(
         dofs, tensor::Q::size(), hostAccessible);
   }
+
+  meshToReceiverCell_ = {};
 }
 void ReceiverCluster::freeData() {
   deviceCollector_.reset(nullptr);
