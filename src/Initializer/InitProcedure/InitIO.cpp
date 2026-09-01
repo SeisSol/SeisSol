@@ -11,6 +11,7 @@
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/equation-elastic-6-double/tensor.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -179,7 +180,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   constexpr auto QDofSizePadded =
       tensor::Q::Size / tensor::Q::Shape[multisim::BasisFunctionDimension + 1];
   constexpr auto QDofPointsPadded =
-      tensor::QStress::Size / tensor::QStress::Shape[multisim::BasisFunctionDimension + 1];
+      tensor::QStressNodal::Size /
+      tensor::QStressNodal::Shape[multisim::BasisFunctionDimension + 1];
   constexpr auto FaceDisplacementPadded =
       tensor::faceDisplacement::Size /
       tensor::faceDisplacement::Shape[multisim::BasisFunctionDimension + 1];
@@ -534,7 +536,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   const auto position = backmap.get(cellIndices[index]);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* pointsSingleQuantity =
-                      dofsAllQuantities + tensor::QStressNodal::size() * quantity;
+                      dofsAllQuantities + QDofPointsPadded * quantity;
                   kernel::projectNodalToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                   alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
