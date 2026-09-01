@@ -29,12 +29,10 @@ class ManagedStream {
   ManagedStream(const ManagedStream&) = delete;
   auto operator=(const ManagedStream&) = delete;
 
-  ManagedStream(ManagedStream&& old) noexcept : streamPtr_(old.streamPtr_) {}
+  ManagedStream(ManagedStream&& old) noexcept
+      : streamPtr_(std::exchange(old.streamPtr_, nullptr)) {}
 
-  auto operator=(ManagedStream&& old) noexcept -> ManagedStream& {
-    this->streamPtr_ = old.streamPtr_;
-    return *this;
-  }
+  auto operator=(ManagedStream&& old) noexcept -> ManagedStream&;
 
   [[nodiscard]] void* get() const { return streamPtr_; }
 
@@ -51,12 +49,9 @@ class ManagedEvent {
   ManagedEvent(const ManagedEvent&) = delete;
   auto operator=(const ManagedEvent&) = delete;
 
-  ManagedEvent(ManagedEvent&& old) noexcept : eventPtr_(old.eventPtr_) {}
+  ManagedEvent(ManagedEvent&& old) noexcept : eventPtr_(std::exchange(old.eventPtr_, nullptr)) {}
 
-  auto operator=(ManagedEvent&& old) noexcept -> ManagedEvent& {
-    this->eventPtr_ = old.eventPtr_;
-    return *this;
-  }
+  auto operator=(ManagedEvent&& old) noexcept -> ManagedEvent&;
 
   [[nodiscard]] void* get() const { return eventPtr_; }
 
