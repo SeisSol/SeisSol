@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 namespace seissol::model {
@@ -41,10 +42,13 @@ struct ElasticMaterial : Material {
 
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
   using LocalSpecificData = ElasticLocalData;
   using NeighborSpecificData = ElasticNeighborData;
   using Solver = kernels::solver::linearck::Solver;
+
+  using EnergyData = std::monostate;
 
   double lambda{};
   double mu{};
