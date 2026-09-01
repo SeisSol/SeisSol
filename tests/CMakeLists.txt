@@ -184,7 +184,7 @@ if (TESTING_GENERATED)
 
     foreach(_TGT IN LISTS _GENERATED_KERNEL_TARGETS)
         if (WITH_GPU)
-            make_device_lib(${_TGT}-device ${SEISSOL_CODEGEN_TESTS})
+            make_device_hostapi_lib(${_TGT}-device ${SEISSOL_CODEGEN_TESTS})
             target_link_libraries(${_TGT}-device PRIVATE seissol-kernel-lib)
             target_link_libraries(${_TGT}-device PRIVATE seissol-external)
             target_include_directories(${_TGT}-device PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
