@@ -154,7 +154,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
       });
 
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
-  const auto computeStrain = reader->readWithDefault("ReceiverComputeStrainRate", false);
+  const auto computeStrain = reader->readWithDefault("receivercomputestrainrate", false);
   const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
   const auto fileName = reader->readPath("rfilename");
 

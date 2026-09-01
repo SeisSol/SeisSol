@@ -156,6 +156,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
             f"{name_prefix}plConvertToModal",
             QStress["kp"] <= QStress["kp"] + db.vInv["kl"] * QStressNodal["lp"],
             target=target,
+            attrs={"flags": True},
         )
 
 
