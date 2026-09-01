@@ -448,7 +448,6 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   loopStatistics_->begin(regionComputeLocalIntegration_);
 
   auto& dataTable = clusterData_->getConditionalTable<inner_keys::Wp>();
-  auto& materialTable = clusterData_->getConditionalTable<inner_keys::Material>();
   auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
 
   kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
@@ -469,12 +468,10 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                                             *clusterData_,
                                             tmp,
                                             dataTable,
-                                            materialTable,
                                             true,
                                             streamRuntime);
 
-        localKernel_.computeBatchedIntegral(
-            dataTable, materialTable, indicesTable, timeStepWidth, streamRuntime);
+        localKernel_.computeBatchedIntegral(dataTable, indicesTable, timeStepWidth, streamRuntime);
 
         localKernel_.evaluateBatchedTimeDependentBc(dataTable,
                                                     indicesTable,
@@ -639,8 +636,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
     // Contribution from displacement/integrated displacement
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
-        estimate +=
-            GravitationalFreeSurfaceBc::metrics(face, cellInformation[cell].faceTypes[face]);
+        estimate += GravitationalFreeSurfaceBc::metrics(face);
       }
     }
   }

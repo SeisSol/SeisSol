@@ -41,7 +41,6 @@ class Local : public LocalKernel {
                        double timeStepWidth) override;
 
   void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                              recording::ConditionalMaterialTable& materialTable,
                               recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
@@ -66,6 +65,9 @@ class Local : public LocalKernel {
 
   kernels::DirichletBoundary dirichletBoundary_;
 
+  kernel::bcFreeSurfaceGravity bcFreeSurfaceGravity_;
+  kernel::bcDirichlet bcDirichlet_;
+
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype_;
   kernel::gpu_localFlux deviceLocalFluxKernelPrototype_;
@@ -73,6 +75,9 @@ class Local : public LocalKernel {
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
   kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+
+  kernel::gpu_bcFreeSurfaceGravity deviceBCFreeSurfaceGravity_;
+  kernel::gpu_bcDirichlet deviceBCDirichlet_;
 #endif
 };
 

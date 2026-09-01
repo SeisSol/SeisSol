@@ -13,8 +13,6 @@ add_library(seissol-kernels OBJECT
     Receiver.cpp
     TimeCommon.cpp
     Touch.cpp
-
-    LinearCK/GravitationalFreeSurfaceBC.cpp
 )
 
 target_link_libraries(seissol-kernels PUBLIC seissol-common-properties)

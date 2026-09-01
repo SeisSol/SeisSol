@@ -239,8 +239,10 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initializeBoundaryMappings(
       meshReader, boundaryScript, memoryManager.ltsStorage());
 
-  internal::setupRecorders(
-      memoryManager.ltsStorage(), memoryManager.drStorage(), seissolParams.model.plasticity);
+  internal::setupRecorders(memoryManager.ltsStorage(),
+                           memoryManager.drStorage(),
+                           seissolParams.model.plasticity,
+                           seissolInstance.gravitationSetup().acceleration);
 
   auto itmParameters = seissolInstance.parameters().model.itmParameters;
 

@@ -140,13 +140,6 @@ struct LTS {
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
   struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
-  struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
-  struct RotateDisplacementToGlobalScratch : public initializer::Scratchpad<real> {};
-  struct RotatedFaceDisplacementScratch : public initializer::Scratchpad<real> {};
-  struct DofsFaceNodalScratch : public initializer::Scratchpad<real> {};
-  struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
-  struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
-
   struct ZinvExtra : public initializer::Scratchpad<real> {};
 
   struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
@@ -185,12 +178,6 @@ struct LTS {
                                                         DofsExtScratch,
                                                         FlagScratch,
                                                         QStressNodalScratch,
-                                                        RotateDisplacementToFaceNormalScratch,
-                                                        RotateDisplacementToGlobalScratch,
-                                                        RotatedFaceDisplacementScratch,
-                                                        DofsFaceNodalScratch,
-                                                        PrevCoefficientsScratch,
-                                                        DofsFaceBoundaryNodalScratch,
                                                         Integrals,
                                                         ZinvExtra> {};
 
@@ -282,13 +269,6 @@ struct LTS {
 
       storage.add<FlagScratch>(LayerMask(), Alignment, mode);
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
-
-      storage.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), Alignment, mode);
-      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), Alignment, mode);
-      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), Alignment, mode);
-      storage.add<DofsFaceNodalScratch>(LayerMask(), Alignment, mode);
-      storage.add<PrevCoefficientsScratch>(LayerMask(), Alignment, mode);
-      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), Alignment, mode);
 
       storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
     }

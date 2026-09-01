@@ -38,9 +38,9 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
                          const seissol::model::PlasticityData* __restrict plasticity,
-                         double oneMinusIntegratingFactor,
-                         double tV,
-                         double timeStepWidth,
+                         real oneMinusIntegratingFactor,
+                         real tV,
+                         real timeStepWidth,
                          const size_t numElements,
                          void* streamPtr) {
   constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
@@ -66,7 +66,8 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       }
 
       // 1. Compute the mean stress for each node
-      real meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0f;
+      const real meanStress =
+          (localStresses[0] + localStresses[1] + localStresses[2]) / static_cast<real>(3);
 
 // 2. Compute deviatoric stress tensor
 #pragma unroll
@@ -75,8 +76,9 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       }
 
       // 3. Compute the second invariant for each node
-      real tau = 0.5 * (localStresses[0] * localStresses[0] + localStresses[1] * localStresses[1] +
-                        localStresses[2] * localStresses[2]);
+      real tau = static_cast<real>(0.5) *
+                 (localStresses[0] * localStresses[0] + localStresses[1] * localStresses[1] +
+                  localStresses[2] * localStresses[2]);
       tau += (localStresses[3] * localStresses[3] + localStresses[4] * localStresses[4] +
               localStresses[5] * localStresses[5]);
       tau = std::sqrt(tau);
@@ -94,10 +96,10 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       item.barrier();
 
       // 5. Compute the yield factor
-      real yieldfactor = 0.0;
+      real yieldfactor{};
       if (tau > taulim) {
         isAdjusted[0] = static_cast<unsigned>(true);
-        yieldfactor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
+        yieldfactor = ((taulim / tau) - static_cast<real>(1)) * oneMinusIntegratingFactor;
       }
 
       // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region

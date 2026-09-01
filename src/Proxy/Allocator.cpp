@@ -306,7 +306,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   ltsStorage.allocateScratchPads();
 
   seissol::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-  recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder(9.81));
   recorder.addRecorder(new seissol::recording::NeighIntegrationRecorder);
 
   recorder.addRecorder(new seissol::recording::PlasticityRecorder);

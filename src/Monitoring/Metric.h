@@ -51,7 +51,7 @@ struct PerformanceEstimate {
   }
 
   template <typename T, typename... Args>
-  static auto fromKernel(Args... kargs) -> PerformanceEstimate {
+  constexpr static auto fromKernel(Args... kargs) -> PerformanceEstimate {
     return PerformanceEstimate{T::hardwareFlops(kargs...),
                                T::nonZeroFlops(kargs...),
                                0,
