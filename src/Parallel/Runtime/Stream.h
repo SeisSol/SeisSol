@@ -12,7 +12,10 @@
 #include "Parallel/Helper.h"
 
 #include <algorithm>
+#include <atomic>
+#include <cstdint>
 #include <functional>
+#include <memory>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -79,6 +82,74 @@ class ManagedEvent {
   void* eventPtr_{nullptr};
 };
 
+namespace internal {
+struct EventSlot {
+  ManagedEvent event;
+  std::atomic<std::uint32_t> refs{0};
+};
+} // namespace internal
+
+/**
+ * Reference to an event from a StreamRuntime's pool.
+ *
+ * The pool hands out a slot only while nobody refers to it, so an event cannot be re-recorded
+ * underneath code that still intends to wait on it. Completion is not the criterion and cannot
+ * be: an event may well have been reached and still be needed, and asking the device whether it
+ * has been reached is not even allowed while a graph is being recorded - the query invalidates
+ * the capture.
+ *
+ * Hold a reference from recording the event until the wait on it has been enqueued. After that
+ * the wait no longer depends on the event, because both CUDA and HIP take the event's state at
+ * the time the wait is issued.
+ */
+class EventRef {
+  public:
+  EventRef() = default;
+  explicit EventRef(internal::EventSlot* slot) : slot_(slot) { acquire(); }
+
+  EventRef(const EventRef& other) : slot_(other.slot_) { acquire(); }
+  EventRef(EventRef&& other) noexcept : slot_(std::exchange(other.slot_, nullptr)) {}
+
+  auto operator=(const EventRef& other) -> EventRef& {
+    if (this != &other) {
+      release();
+      slot_ = other.slot_;
+      acquire();
+    }
+    return *this;
+  }
+
+  auto operator=(EventRef&& other) noexcept -> EventRef& {
+    if (this != &other) {
+      release();
+      slot_ = std::exchange(other.slot_, nullptr);
+    }
+    return *this;
+  }
+
+  ~EventRef() { release(); }
+
+  [[nodiscard]] bool isValid() const { return slot_ != nullptr; }
+
+  [[nodiscard]] void* get() const { return slot_ == nullptr ? nullptr : slot_->event.get(); }
+
+  private:
+  void acquire() {
+    if (slot_ != nullptr) {
+      slot_->refs.fetch_add(1, std::memory_order_relaxed);
+    }
+  }
+
+  void release() {
+    if (slot_ != nullptr) {
+      slot_->refs.fetch_sub(1, std::memory_order_release);
+      slot_ = nullptr;
+    }
+  }
+
+  internal::EventSlot* slot_{nullptr};
+};
+
 class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
@@ -95,8 +166,10 @@ class StreamRuntime {
       : ringbufferSize_(ringbufferSize), disposed_(false) {
     streamPtr_.emplace();
     ringbufferPtr_.resize(ringbufferSize);
-    events_.resize(EventPoolSize);
-    recorded_.resize(EventPoolSize, false);
+    events_.reserve(EventPoolSize);
+    for (std::size_t i = 0; i < EventPoolSize; ++i) {
+      events_.emplace_back(std::make_unique<internal::EventSlot>());
+    }
 
     allStreams_.resize(ringbufferSize + 1);
     allStreams_[0] = streamPtr_->get();
@@ -110,7 +183,6 @@ class StreamRuntime {
       streamPtr_.reset();
       ringbufferPtr_.clear();
       events_.clear();
-      recorded_.clear();
       disposed_ = true;
     }
   }
@@ -164,23 +236,19 @@ class StreamRuntime {
     });
   }
 
-  void* nextEvent() {
-    while (true) {
-      const auto pos = this->eventpos_;
-      void* event = this->events_[pos].get();
-
-      // Handing out an event that has been recorded but not yet reached would make a later
-      // wait observe a point in time that has already passed, silently and without any
-      // ordering guarantee. Grow the pool instead of wrapping onto it.
-      if (this->recorded_[pos] && !device().api->isEventCompleted(event)) {
-        growEventPool();
-        continue;
-      }
-
-      this->recorded_[pos] = true;
+  EventRef nextEvent() {
+    for (std::size_t probe = 0; probe < this->events_.size(); ++probe) {
+      auto* slot = this->events_[this->eventpos_].get();
       this->eventpos_ = (this->eventpos_ + 1) % this->events_.size();
-      return event;
+
+      if (slot->refs.load(std::memory_order_acquire) == 0) {
+        return EventRef(slot);
+      }
     }
+
+    // every slot is still spoken for
+    growEventPool();
+    return nextEvent();
   }
 
   template <typename F>
@@ -209,18 +277,18 @@ class StreamRuntime {
     }
 
     if (Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
-      void* forkEvent = nextEvent();
-      device().api->recordEventOnStream(forkEvent, streamPtr_->get());
+      const auto forkEvent = nextEvent();
+      device().api->recordEventOnStream(forkEvent.get(), streamPtr_->get());
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
-        device().api->syncStreamWithEvent(ringbufferPtr_[i].get(), forkEvent);
+        device().api->syncStreamWithEvent(ringbufferPtr_[i].get(), forkEvent.get());
       }
       for (size_t i = 0; i < count; ++i) {
         std::invoke(handler, ringbufferPtr_[i % ringbufferPtr_.size()].get(), i);
       }
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
-        void* joinEvent = nextEvent();
-        device().api->recordEventOnStream(joinEvent, ringbufferPtr_[i].get());
-        device().api->syncStreamWithEvent(streamPtr_->get(), joinEvent);
+        const auto joinEvent = nextEvent();
+        device().api->recordEventOnStream(joinEvent.get(), ringbufferPtr_[i].get());
+        device().api->syncStreamWithEvent(streamPtr_->get(), joinEvent.get());
       }
     } else {
       for (size_t i = 0; i < count; ++i) {
@@ -230,8 +298,8 @@ class StreamRuntime {
   }
 
   void wait() {
-    if (buildGraph_.isInitialized()) {
-      logError() << "Cannot wait on a stream while a compute graph is being built on it.";
+    if (buildGraph_.isInitialized() || capturing_) {
+      logError() << "Cannot synchronize a stream while a compute graph is being recorded on it.";
     }
     device().api->syncStreamWithHost(streamPtr_->get());
   }
@@ -274,7 +342,9 @@ class StreamRuntime {
       } else {
         computeGraphHandle = device().api->streamBeginCapture(allStreams_);
 
+        capturing_ = true;
         std::invoke(std::forward<F>(handler), *this);
+        capturing_ = false;
 
         device().api->streamEndCapture(computeGraphHandle);
       }
@@ -331,28 +401,31 @@ class StreamRuntime {
     return StreamMemoryHandle<T>(count, *this);
   }
 
-  void eventSync(void* event) { device().api->syncStreamWithEvent(stream(), event); }
+  void eventSync(const EventRef& event) {
+    device().api->syncStreamWithEvent(stream(), event.get());
+  }
 
   private:
   void growEventPool() {
     const auto oldSize = this->events_.size();
     if (oldSize >= MaxEventPoolSize) {
       logError() << "Ran out of device events (" << oldSize
-                 << " in flight). This points at events being recorded but never waited "
-                    "upon.";
+                 << " referenced at once). This points at event references being kept alive "
+                    "past the wait they belong to.";
     }
 
-    // Appending keeps the handles that have already been handed out valid: the event handle
-    // is stored by value, so moving a ManagedEvent during reallocation does not change it.
-    this->events_.resize(std::min(oldSize + EventPoolGrowth, MaxEventPoolSize));
-    this->recorded_.resize(this->events_.size(), false);
+    const auto newSize = std::min(oldSize + EventPoolGrowth, MaxEventPoolSize);
+    this->events_.reserve(newSize);
+    for (auto i = oldSize; i < newSize; ++i) {
+      this->events_.emplace_back(std::make_unique<internal::EventSlot>());
+    }
     this->eventpos_ = oldSize;
   }
 
   public:
-  void* eventRecord() {
-    void* event = nextEvent();
-    device().api->recordEventOnStream(event, stream());
+  EventRef eventRecord() {
+    auto event = nextEvent();
+    device().api->recordEventOnStream(event.get(), stream());
     return event;
   }
 
@@ -394,14 +467,16 @@ class StreamRuntime {
   device::DeviceGraphNodeHandle lastNode_;
   void* recordingStream_{nullptr};
   bool implicitNodeOpen_{false};
+  bool capturing_{false};
 
   std::size_t ringbufferSize_{0};
   bool disposed_;
   std::optional<ManagedStream> streamPtr_;
   std::vector<ManagedStream> ringbufferPtr_;
   std::vector<void*> allStreams_;
-  std::vector<ManagedEvent> events_;
-  std::vector<bool> recorded_;
+  // slots are held indirectly so that their addresses survive the pool growing; an EventRef
+  // points straight at its slot
+  std::vector<std::unique_ptr<internal::EventSlot>> events_;
   std::size_t eventpos_{0};
 #else
   public:
@@ -443,8 +518,8 @@ class StreamRuntime {
   void wait() {}
   void dispose() {}
 
-  void eventSync(void* event) {}
-  void* eventRecord() { return nullptr; }
+  void eventSync(const EventRef& event) {}
+  EventRef eventRecord() { return EventRef(); }
 #endif
 };
 
