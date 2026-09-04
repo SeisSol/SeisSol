@@ -102,14 +102,6 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
   static void initializeSpecificNeighborData(const MaterialT& material,
                                              typename MaterialT::Solver::NeighborData* localData) {}
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    seissol::model::getFaceRotationMatrix<AcousticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
-  }
 
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
@@ -266,14 +258,6 @@ struct MaterialSetup<
     }
   }
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrix<AcousticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
-  }
 
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,

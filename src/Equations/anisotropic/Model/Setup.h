@@ -360,14 +360,6 @@ struct MaterialSetup<AnisotropicMaterial> {
   static void getTransposedSourceCoefficientTensor(const AnisotropicMaterial& material,
                                                    T& sourceMatrix) {}
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
-  }
 };
 
 } // namespace seissol::model

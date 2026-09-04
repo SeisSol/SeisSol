@@ -119,23 +119,6 @@ struct MaterialSetup<ViscoElasticMaterial<N>,
   static void initializeSpecificNeighborData(const MaterialT& material,
                                              typename MaterialT::Solver::NeighborData* localData) {}
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
-
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      const std::size_t origin =
-          MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
-      seissol::transformations::symmetricTensor2RotationMatrix(
-          normal, tangent1, tangent2, matT, origin, origin);
-      seissol::transformations::inverseSymmetricTensor2RotationMatrix(
-          normal, tangent1, tangent2, matTinv, origin, origin);
-    }
-  }
 
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
@@ -309,21 +292,6 @@ struct MaterialSetup<
     }
   }
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
-
-    seissol::transformations::symmetricTensor2RotationMatrix(normal,
-                                                             tangent1,
-                                                             tangent2,
-                                                             matT,
-                                                             MaterialT::NumElasticQuantities,
-                                                             MaterialT::NumElasticQuantities);
-  }
 
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,

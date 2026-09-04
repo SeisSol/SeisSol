@@ -15,6 +15,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cmath>
@@ -36,6 +37,10 @@ struct ElasticMaterial : Material {
   static inline const std::string Text = "elastic";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+  static constexpr auto PrimaryGroups = ElasticQuantities;
+  static constexpr auto RotationGroups = PrimaryGroups;
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
   static constexpr std::size_t Parameters = 2 + Material::Parameters;
 
   static constexpr bool SupportsDR = true;

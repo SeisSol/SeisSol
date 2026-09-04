@@ -15,6 +15,7 @@
 #include "Geometry/MeshTools.h"
 #include "Initializer/Typedefs.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 
@@ -24,6 +25,7 @@
 #include <cmath>
 #include <complex>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <utils/logger.h>
 
@@ -175,13 +177,71 @@ void getFaceRotationMatrix(const Eigen::Vector3d& normal,
   getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
 }
 
+namespace detail {
+
+/// Writes one diagonal block per group, sized and shaped by its kind.
+template <bool Inverse, typename View, std::size_t N>
+void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
+                         const VrtxCoords normal,
+                         const VrtxCoords tangent1,
+                         const VrtxCoords tangent2,
+                         View& matrix) {
+  matrix.setZero();
+  std::size_t offset = 0;
+  for (const auto& group : groups) {
+    const auto origin = static_cast<std::uint32_t>(offset);
+    switch (group.kind) {
+    case QuantityKind::Scalar:
+      matrix(origin, origin) = 1.0;
+      break;
+    case QuantityKind::Vector:
+      if constexpr (Inverse) {
+        seissol::transformations::inverseTensor1RotationMatrix(
+            normal, tangent1, tangent2, matrix, origin, origin);
+      } else {
+        seissol::transformations::tensor1RotationMatrix(
+            normal, tangent1, tangent2, matrix, origin, origin);
+      }
+      break;
+    case QuantityKind::SymTensor2:
+      if constexpr (Inverse) {
+        seissol::transformations::inverseSymmetricTensor2RotationMatrix(
+            normal, tangent1, tangent2, matrix, origin, origin);
+      } else {
+        seissol::transformations::symmetricTensor2RotationMatrix(
+            normal, tangent1, tangent2, matrix, origin, origin);
+      }
+      break;
+    }
+    offset += group.extent();
+  }
+}
+
+} // namespace detail
+
+/**
+ * Assembles the face rotation from the material's group declaration.
+ *
+ * T and Tinv do not always span the same quantities. A solver that keeps the
+ * mechanism index in a separate tensor dimension needs the forward rotation to
+ * reach one anelastic block, because the flux solver contracts over it, but
+ * never applies the inverse there -- so Tinv covers the primary quantities
+ * alone and is correspondingly smaller. Each therefore follows its own group
+ * list.
+ *
+ * The inverse is not the transpose for a symmetric second-order tensor, the
+ * Voigt weights differ, so each kind supplies a forward and an inverse writer.
+ */
 template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const VrtxCoords normal,
                            const VrtxCoords tangent1,
                            const VrtxCoords tangent2,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv) {
-  MaterialSetup<MaterialT>::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
+  detail::writeRotationBlocks<false>(
+      MaterialT::RotationGroups, normal, tangent1, tangent2, matT);
+  detail::writeRotationBlocks<true>(
+      MaterialT::InverseRotationGroups, normal, tangent1, tangent2, matTinv);
 }
 
 template <typename MaterialT>

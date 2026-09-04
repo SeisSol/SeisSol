@@ -11,6 +11,7 @@
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Kernels/STP/Solver.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cassert>
@@ -41,6 +42,11 @@ struct PoroElasticMaterial : public ElasticMaterial {
                                                                         "v1_f",
                                                                         "v2_f",
                                                                         "v3_f"};
+  static constexpr auto PrimaryGroups =
+      detail::concat(ElasticQuantities, PoroelasticExtraQuantities);
+  static constexpr auto RotationGroups = PrimaryGroups;
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
   static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 7;
 
   static constexpr bool SupportsDR = true;

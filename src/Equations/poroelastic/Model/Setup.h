@@ -285,23 +285,6 @@ struct MaterialSetup<PoroElasticMaterial> {
       const PoroElasticMaterial& material,
       typename PoroElasticMaterial::Solver::NeighborData* neighborData) {}
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
-    // pressure
-    matT(9, 9) = 1;
-    matTinv(9, 9) = 1;
-    // fluid velocities
-    unsigned origin = 10;
-    seissol::transformations::tensor1RotationMatrix(
-        normal, tangent1, tangent2, matT, origin, origin);
-    seissol::transformations::inverseTensor1RotationMatrix(
-        normal, tangent1, tangent2, matTinv, origin, origin);
-  }
 
   static PoroElasticMaterial
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,

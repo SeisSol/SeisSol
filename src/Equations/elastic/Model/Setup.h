@@ -178,23 +178,6 @@ struct MaterialSetup<ElasticMaterial> {
     }
   }
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    matT.setZero();
-    matTinv.setZero();
-
-    seissol::transformations::symmetricTensor2RotationMatrix(
-        normal, tangent1, tangent2, matT, 0, 0);
-    seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 6, 6);
-
-    seissol::transformations::inverseSymmetricTensor2RotationMatrix(
-        normal, tangent1, tangent2, matTinv, 0, 0);
-    seissol::transformations::inverseTensor1RotationMatrix(
-        normal, tangent1, tangent2, matTinv, 6, 6);
-  }
 
   static ElasticMaterial
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,

@@ -147,23 +147,6 @@ struct MaterialSetup<AcousticMaterial> {
   static void getTransposedSourceCoefficientTensor(const AcousticMaterial& material,
                                                    T& sourceMatrix) {}
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    matT.setZero();
-    matTinv.setZero();
-
-    // Pressure (row 0) is a scalar, doesn't rotate - set to identity
-    matT(0, 0) = 1.0;
-    matTinv(0, 0) = 1.0;
-
-    // Velocity (rows 1-3) is a vector, rotate it
-    seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 1, 1);
-    seissol::transformations::inverseTensor1RotationMatrix(
-        normal, tangent1, tangent2, matTinv, 1, 1);
-  }
 };
 } // namespace seissol::model
 

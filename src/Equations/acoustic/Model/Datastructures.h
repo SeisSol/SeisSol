@@ -15,6 +15,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cmath>
@@ -37,6 +38,10 @@ struct AcousticMaterial : public Material {
   // By definition, the normal stress and pressure are negatives of each other.
   static inline const std::array<std::string, NumQuantities> Quantities = {
       "pprime", "v1", "v2", "v3"};
+  static constexpr auto PrimaryGroups = AcousticQuantities;
+  static constexpr auto RotationGroups = PrimaryGroups;
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
   static constexpr std::size_t Parameters = 1 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;

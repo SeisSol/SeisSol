@@ -21,6 +21,7 @@
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <atomic>
@@ -60,6 +61,21 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
   static inline const std::string Text = "viscoacoustic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumElasticQuantities> Quantities{
       "pprime", "v1", "v2", "v3"};
+  static constexpr auto PrimaryGroups = AcousticQuantities;
+  static constexpr auto MechanismGroups = AcousticMechanismQuantities;
+  /// The fused layout carries one anelastic block per mechanism on the
+  /// quantity axis. The split layout keeps the mechanism index in a separate
+  /// tensor dimension: the forward rotation still reaches a single anelastic
+  /// block, because the flux solver contracts over it, but the inverse is
+  /// never applied there and spans the elastic quantities alone.
+  static constexpr bool Fused = ViscoMode == ViscoImplementation::QuantityExtension;
+  static constexpr std::size_t RotationRepetitions = Fused ? Mechanisms : 1;
+  static constexpr std::size_t InverseRotationRepetitions = Fused ? Mechanisms : 0;
+  static constexpr auto RotationGroups =
+      withMechanisms<RotationRepetitions>(PrimaryGroups, MechanismGroups);
+  static constexpr auto InverseRotationGroups =
+      withMechanisms<InverseRotationRepetitions>(PrimaryGroups, MechanismGroups);
+
   static constexpr std::size_t Parameters = AcousticMaterial::Parameters + 2 * Mechanisms;
 
   static constexpr bool SupportsDR = false;
