@@ -244,7 +244,10 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
       h5space = _eh(H5Dget_space(h5data));
     } else {
-      logError() << "TODO";
+      logError() << "Hdf5 writer error: the dataset" << name
+                 << "already exists and is not appendable, so there is no way to write to it a "
+                    "second time. This happens when one write plan targets the same dataset "
+                    "twice, or when two writes end up sharing a file name.";
     }
   }
 

@@ -42,6 +42,15 @@ class GeometryWriter {
                           std::size_t localElementCount,
                           Shape shape,
                           const WriterConfig& config) {
+    if (config.time == WriterGroup::Monolith) {
+      // VtkHdfWriter can already emit the per-step bookkeeping, but the pieces around it are
+      // missing: the file name still carries the output counter, so every step lands in its own
+      // file and the appends never accumulate; the step datasets sit directly under /VTKHDF
+      // instead of /VTKHDF/Steps; NSteps is never written; and the offsets hold the per-step
+      // increment rather than a running total. Writing such a file would look successful and
+      // produce something no reader can interpret as a time series.
+      logError() << "A monolithic time series output is not implemented yet.";
+    }
     if (config.format == WriterFormat::Xdmf) {
       return mesh::XdmfWriter(name,
                               localElementCount,

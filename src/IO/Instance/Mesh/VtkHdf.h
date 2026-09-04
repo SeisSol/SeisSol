@@ -90,7 +90,9 @@ class VtkHdfWriter {
     const auto datasource = writer::WriteInline::createArray(dimensions, data);
     addData(name, FieldDataName, isConst, datasource);
     if (temporal_) {
-      // TODO:
+      // NOTE: unlike the point and cell offsets, this is not the number of values a step
+      // contributes -- field data has no fixed count per step. It needs FieldDataSizes next to
+      // it to be interpretable; see the guard in geometry::GeometryWriter.
       const auto offset = isConst ? 0UL : 1UL;
       addData(name,
               FieldDataName + "Offsets",

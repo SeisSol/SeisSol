@@ -227,6 +227,13 @@ XdmfWriter::XdmfWriter(const std::string& name,
   localPointCount_ = localElementCount * pointsPerElement_;
   globalPointCount_ = globalElementCount_ * pointsPerElement_;
 
+  if (binary_ && compress_ > 0) {
+    logWarning() << "Compression was requested for the" << name
+                 << "output, but its payload is written as a flat binary file, which has no place "
+                    "to put a compressed stream. The output will be written uncompressed; switch "
+                    "the backend to hdf5 to compress it.";
+  }
+
   const auto selfPointOffset = pointOffset_;
   const auto selfPointsPerElement = pointsPerElement_;
 
