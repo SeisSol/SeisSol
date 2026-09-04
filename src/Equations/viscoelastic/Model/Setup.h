@@ -22,7 +22,7 @@ namespace seissol::model {
 
 template <std::size_t N>
 struct MaterialSetup<ViscoElasticMaterial<N>,
-                     std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode ==
+                     std::enable_if_t<ViscoElasticMaterial<N>::ViscoMode ==
                                       ViscoImplementation::QuantityExtension>> {
   using MaterialT = ViscoElasticMaterial<N>;
 
@@ -139,7 +139,7 @@ struct MaterialSetup<ViscoElasticMaterial<N>,
 template <std::size_t N>
 struct MaterialSetup<
     ViscoElasticMaterial<N>,
-    std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode == ViscoImplementation::AnelasticTensor>> {
+    std::enable_if_t<ViscoElasticMaterial<N>::ViscoMode == ViscoImplementation::AnelasticTensor>> {
   using MaterialT = ViscoElasticMaterial<N>;
 
   template <typename T>

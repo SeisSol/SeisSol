@@ -114,9 +114,7 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
       : AcousticMaterial(materialValues) {
     for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
       this->omega[mech] = materialValues.at(2 + 2 * mech);
-      for (std::size_t i = 0; i < 3; ++i) {
-        this->theta[mech][i] = materialValues.at(3 + i + 2 * mech);
-      }
+      this->theta[mech][0] = materialValues.at(3 + 2 * mech);
     }
     // This constructor is used to initialize a ViscoAcousticMaterial
     // from the values in Fortran. Qp and Qs are not part of the
@@ -140,8 +138,9 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
    * constructor that reads theta directly), and both populate theta.
    */
   [[nodiscard]] double getDeltaLambda(std::size_t mech) const { return -theta[mech][0]; }
-  /// Bulk modulus defect, dLambda + 2/3 dMu.
-  [[nodiscard]] double getDeltaBulk(std::size_t mech) const { return -theta[mech][0] / 3.0; }
+  /// Bulk modulus defect. An acoustic material has no shear modulus, so lambda
+  /// is the bulk modulus and the two defects coincide.
+  [[nodiscard]] double getDeltaBulk(std::size_t mech) const { return getDeltaLambda(mech); }
 
   /// lambda/mu are the *unrelaxed* moduli once fitAttenuation has run.
   [[nodiscard]] double getLambdaUnrelaxed() const { return lambda; }
