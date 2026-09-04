@@ -101,13 +101,17 @@ def addKernels(
         )
 
     # To be used as Tinv in flux solver - this way we can save two rotations
-    # for the Dirichlet boundary, as ghost cell dofs are already rotated
-    identity_rotation = np.double(aderdg.transformation_spp())
-    quantities = aderdg.numQuantities()
+    # for the Dirichlet boundary, as ghost cell dofs are already rotated.
+    # It stands in for Tinv, so it has to be shaped like Tinv: the two need not
+    # agree, and where they do not, the flux solver would read this with the
+    # wrong stride.
+    inv_spp = aderdg.transformation_inv_spp()
+    identity_rotation = np.double(inv_spp)
+    quantities = min(aderdg.numQuantities(), inv_spp.shape[0])
     identity_rotation[0:quantities, 0:quantities] = np.eye(quantities)
     identity_rotation = Tensor(
         "identityT",
-        aderdg.transformation_spp().shape,
+        inv_spp.shape,
         identity_rotation,
     )
     include_tensors.add(identity_rotation)

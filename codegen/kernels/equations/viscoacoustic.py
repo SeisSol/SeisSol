@@ -11,12 +11,7 @@ from kernels.aderdg.linearck import LinearCK
 from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
-from kernels.quantities import (
-    FaceRole,
-    QuantityGroup,
-    QuantityKind,
-    rotation_spp,
-)
+from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 
 
 class ViscoacousticADERDG(LinearCK):
@@ -105,12 +100,6 @@ class ViscoacousticADERDG(LinearCK):
 
     def flux_solver_spp(self):
         return self.godunov_spp()
-
-    def transformation_spp(self):
-        return rotation_spp(self.extendedBlocks())
-
-    def transformation_inv_spp(self):
-        return self.transformation_spp()
 
 
 

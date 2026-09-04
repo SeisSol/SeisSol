@@ -14,6 +14,7 @@ from kernels.quantities import (
     FaceRole,
     layout,
     role_offset,
+    rotation_spp,
     total_extent,
     traction_selector,
     velocity_selector,
@@ -183,14 +184,10 @@ class ADERDGBase(ABC):
         return np.ones(shape, dtype=bool)
 
     def transformation_spp(self):
-        shape = (
-            self.numExtendedQuantities(),
-            self.numExtendedQuantities(),
-        )
-        return np.ones(shape, dtype=bool)
+        return rotation_spp(self.extendedBlocks())
 
     def transformation_inv_spp(self):
-        return self.godunov_spp()
+        return rotation_spp(self.inverseRotationBlocks())
 
     def mapToVelocities(self):
         return self.extractVelocities().T
