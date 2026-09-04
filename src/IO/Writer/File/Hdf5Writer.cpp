@@ -14,6 +14,7 @@
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
 #include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Dimension.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 
 #include <algorithm>
@@ -26,7 +27,9 @@
 #include <stack>
 #include <string>
 #include <utility>
+#include <utils/env.h>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace {
@@ -52,7 +55,54 @@ hid_t _ehh(hid_t data, const char* file, int line) {
 
 namespace seissol::io::writer::file {
 
+//! The metadata of one file is gathered into blocks of this size before it is written.
+constexpr hsize_t MetaBlockSize = 1024 * 1024;
+
 Hdf5File::Hdf5File(MPI_Comm comm) : comm_(comm) {}
+
+namespace {
+
+/**
+ * The MPI-IO hints for the output, from the environment.
+ *
+ * Which ones help depends entirely on the file system, so they are not something SeisSol can pick;
+ * the names are the ones ROMIO understands, under the prefix the previous writer already used, so
+ * that existing job scripts keep working.
+ */
+MPI_Info mpioHints() {
+  static const std::vector<std::string> Hints = {"ind_rd_buffer_size",
+                                                 "ind_wr_buffer_size",
+                                                 "romio_ds_read",
+                                                 "romio_ds_write",
+                                                 "cb_buffer_size",
+                                                 "cb_nodes",
+                                                 "romio_cb_read",
+                                                 "romio_cb_write",
+                                                 "striping_factor",
+                                                 "striping_unit"};
+
+  static MPI_Info info = MPI_INFO_NULL;
+  if (info == MPI_INFO_NULL) {
+    MPI_Info_create(&info);
+    utils::Env env("SEISSOL_IO_MPIO_");
+    utils::Env legacy("XDMFWRITER_MPIO_");
+    for (const auto& hint : Hints) {
+      auto name = hint;
+      utils::StringUtils::toUpper(name);
+      auto value = env.getOptional<std::string>(name);
+      if (!value.has_value()) {
+        value = legacy.getOptional<std::string>(name);
+      }
+      if (value.has_value()) {
+        logInfo() << "Output: MPI-IO hint" << hint << "=" << value.value();
+        MPI_Info_set(info, hint.c_str(), value.value().c_str());
+      }
+    }
+  }
+  return info;
+}
+
+} // namespace
 
 void Hdf5File::openFile(const std::string& name) {
   const hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
@@ -61,7 +111,22 @@ void Hdf5File::openFile(const std::string& name) {
 #else
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #endif
-  _eh(H5Pset_fapl_mpio(h5falist, comm_, MPI_INFO_NULL));
+
+  // Keep the metadata of one file together instead of scattering it between the datasets: on a
+  // parallel file system the small metadata writes are what hurts, not the bulk data.
+  _eh(H5Pset_meta_block_size(h5falist, MetaBlockSize));
+
+  // Align datasets to the stripe size of the file system, if it was given. Unaligned bulk writes
+  // make more than one storage target take part in a single write, which serialises them.
+  const auto alignment =
+      utils::Env("SEISSOL_IO_")
+          .getOptional<hsize_t>("ALIGNMENT")
+          .value_or(utils::Env("XDMFWRITER_").getOptional<hsize_t>("ALIGNMENT").value_or(0));
+  if (alignment > 0) {
+    _eh(H5Pset_alignment(h5falist, 1, alignment));
+  }
+
+  _eh(H5Pset_fapl_mpio(h5falist, comm_, mpioHints()));
 
   _eh(H5Pset_all_coll_metadata_ops(h5falist, false));
 
@@ -155,13 +220,16 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
                                 bool append) {
   const MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
 
-  // the trailing dimensions are fixed, so the leading one is what is left of the element count
+  // the replicated dimensions are fixed, so the distributed one is what is left of the count
   std::size_t rows = source->count(info);
   std::size_t rowLength = 1;
-  for (const auto dimension : source->shape()) {
-    assert(rows % dimension == 0);
-    rows /= dimension;
-    rowLength *= dimension;
+  for (const auto& dimension : source->dimensions()) {
+    if (dimension.isDistributed()) {
+      continue;
+    }
+    assert(rows % dimension.size == 0);
+    rows /= dimension.size;
+    rowLength *= dimension.size;
   }
 
   int rank = 0;
@@ -201,11 +269,14 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
     layout.chunkSizes.push_back(
         std::clamp(TargetChunkBytes / rowBytes, 1_UZ, std::max(1_UZ, layout.allcount)));
   }
-  for (const auto dimension : source->shape()) {
-    layout.globalSizesMax.push_back(dimension);
-    layout.globalSizes.push_back(dimension);
-    layout.localSizes.push_back(dimension);
-    layout.chunkSizes.push_back(std::max<hsize_t>(1, dimension));
+  for (const auto& dimension : source->dimensions()) {
+    if (dimension.isDistributed()) {
+      continue;
+    }
+    layout.globalSizesMax.push_back(dimension.size);
+    layout.globalSizes.push_back(dimension.size);
+    layout.localSizes.push_back(dimension.size);
+    layout.chunkSizes.push_back(std::max<hsize_t>(1, dimension.size));
   }
 
   return layout;
