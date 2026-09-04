@@ -65,6 +65,13 @@ jobs:
           export CFLAGS="-mcpu=native ${CFLAGS}"
           export CXXFLAGS="-mcpu=native ${CXXFLAGS}"
 
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           cmake --version
 
           cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol \
@@ -86,5 +93,12 @@ jobs:
       - name: seissol-test
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           cd build
           ctest -j --rerun-failed --output-on-failure

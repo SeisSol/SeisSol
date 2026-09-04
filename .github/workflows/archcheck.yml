@@ -13,7 +13,7 @@ jobs:
   archcheck:
     if: false # WIP
     name: archcheck-${{matrix.setup.arch}}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -175,6 +175,13 @@ jobs:
           # run w/o netcdf for consistency with the clang-tidy check
           export CMAKE_PREFIX_PATH=/opt/dependencies
 
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol \
             -DGEMM_TOOLS_LIST=PSpaMM \
             -DNETCDF=OFF \
@@ -194,5 +201,12 @@ jobs:
       - name: seissol-test
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           cd build
           ctest -j --rerun-failed --output-on-failure
