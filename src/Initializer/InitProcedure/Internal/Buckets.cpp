@@ -13,6 +13,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/LtsSetup.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
@@ -22,10 +23,10 @@
 #include "Memory/Tree/Layer.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <utility>
 #include <utils/logger.h>
 #include <vector>
 #include <yateto/InitTools.h>
@@ -77,8 +78,7 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
                            const LTS::Layer& layer,
                            std::size_t index,
                            const RemoteCellRegion& region) {
-  bool buffers = false;
-  bool derivatives = false;
+  std::array<bool, BufferCount> bufferPresence{};
 
   const auto& myPrimary = layer.var<LTS::CellInformation>()[index];
   const auto& mySecondary = layer.var<LTS::SecondaryInformation>()[index];
@@ -106,17 +106,12 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
             const auto& reverseSecondary =
                 storage.lookup<LTS::SecondaryInformation>(secondary.faceNeighbors[k]);
             if (reverseSecondary.globalId == mySecondary.globalId) {
-              if (primary.ltsSetup.neighborHasDerivatives(k)) {
-                if (!myPrimary.ltsSetup.hasDerivatives()) {
-                  logError() << "Setup error: derivatives were requested, but are not present.";
-                }
-                derivatives = true;
-              } else {
-                if (!myPrimary.ltsSetup.hasBuffers()) {
-                  logError() << "Setup error: buffers were requested, but are not present.";
-                }
-                buffers = true;
+              const auto bufferType = primary.ltsSetup.neighborBuffer(k);
+              if (!myPrimary.ltsSetup.hasBuffer(bufferType)) {
+                logError()
+                    << "Setup error: the given buffer type was requested, but are not present.";
               }
+              bufferPresence[static_cast<std::size_t>(bufferType)] = true;
             }
           }
         }
@@ -125,17 +120,18 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
   }
 
   // if there are suspected correctness issues, enable
-  // buffers = true;
-  // derivatives = true;
-  return std::pair<bool, bool>{buffers, derivatives};
+  // bufferPresence = true;
+  return bufferPresence;
 }
+
+template <typename TypeP, typename TypeDeviceP>
+struct LTSTypes {
+  using Type = TypeP;
+  using TypeDevice = TypeDeviceP;
+};
 
 std::vector<solver::RemoteCluster> allocateTransferInfo(
     const LTS::Storage& storage, LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
-  auto* buffers = layer.var<LTS::Buffers>();
-  auto* derivatives = layer.var<LTS::Derivatives>();
-  auto* buffersDevice = layer.var<LTS::BuffersDevice>();
-  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
   const auto* cellInformation = layer.var<LTS::CellInformation>();
   BucketManager manager;
 
@@ -145,34 +141,43 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   const auto bufferSize = typeSize * kernels::Solver::BuffersSize;
   const auto derivativeSize = typeSize * kernels::Solver::DerivativesSize;
 
-  const auto allocate = [&](std::size_t index, bool useDerivatives) {
-    if (useDerivatives) {
-      const bool hasDerivatives = cellInformation[index].ltsSetup.hasDerivatives();
-      if (hasDerivatives) {
-        derivatives[index] = manager.markAllocate(derivativeSize);
-        derivativesDevice[index] = derivatives[index];
-      }
-    } else {
-      const bool hasBuffers = cellInformation[index].ltsSetup.hasBuffers();
-      if (hasBuffers) {
-        buffers[index] = manager.markAllocate(bufferSize);
-        buffersDevice[index] = buffers[index];
-      }
+  std::array<real**, BufferCount> pointers{};
+  std::array<real**, BufferCount> pointersDevice{};
+  std::array<std::size_t, BufferCount> sizes{};
+
+  pointers[static_cast<std::size_t>(BufferType::Derivatives)] = layer.var<LTS::Derivatives>();
+  pointers[static_cast<std::size_t>(BufferType::StepIntegrals)] = layer.var<LTS::StepIntegrals>();
+  pointers[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] =
+      layer.var<LTS::AccumulatedIntegrals>();
+
+  pointersDevice[static_cast<std::size_t>(BufferType::Derivatives)] =
+      layer.var<LTS::DerivativesDevice>();
+  pointersDevice[static_cast<std::size_t>(BufferType::StepIntegrals)] =
+      layer.var<LTS::StepIntegralsDevice>();
+  pointersDevice[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] =
+      layer.var<LTS::AccumulatedIntegralsDevice>();
+
+  sizes[static_cast<std::size_t>(BufferType::Derivatives)] = derivativeSize;
+  sizes[static_cast<std::size_t>(BufferType::StepIntegrals)] = bufferSize;
+  sizes[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] = bufferSize;
+
+  const auto allocate = [&](std::size_t index, BufferType type) {
+    const bool hasBuffer = cellInformation[index].ltsSetup.hasBuffer(type);
+    if (hasBuffer) {
+      const auto bufferTypeIndex = static_cast<std::size_t>(type);
+      pointers[bufferTypeIndex][index] = manager.markAllocate(sizes[bufferTypeIndex]);
+      pointersDevice[bufferTypeIndex][index] = pointers[bufferTypeIndex][index];
     }
   };
 
   const auto allocationPass =
-      [&](std::size_t counter, const RemoteCellRegion& region, bool needed, bool useDerivatives) {
+      [&](std::size_t counter, const RemoteCellRegion& region, bool needed, BufferType type) {
         for (std::size_t i = 0; i < region.count; ++i) {
           const auto index = i + counter;
-          const auto [buffers, derivatives] = useBuffersDerivatives(storage, layer, index, region);
-          if (needed || layer.getIdentifier().halo != HaloType::Ghost) {
-            if (!useDerivatives && buffers == needed) {
-              allocate(index, false);
-            }
-            if (useDerivatives && derivatives == needed) {
-              allocate(index, true);
-            }
+          const auto buffers = useBuffersDerivatives(storage, layer, index, region);
+          if ((needed || layer.getIdentifier().halo != HaloType::Ghost) &&
+              buffers[static_cast<std::size_t>(type)] == needed) {
+            allocate(index, type);
           }
         }
       };
@@ -182,10 +187,13 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
 
   if (regions.empty()) {
     for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, false);
+      allocate(index, BufferType::AccumulatedIntegrals);
     }
     for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, true);
+      allocate(index, BufferType::StepIntegrals);
+    }
+    for (std::size_t index = 0; index < layer.size(); ++index) {
+      allocate(index, BufferType::Derivatives);
     }
   } else {
     std::size_t counter = 0;
@@ -193,13 +201,15 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
     // allocate all to-transfer buffers/derivatives contiguously (note: region.rank)
     // (thus do non-relevant buffers before and non-relevant derivatives afterwards)
     for (const auto& region : regions) {
-      allocationPass(counter, region, false, false);
+      allocationPass(counter, region, false, BufferType::AccumulatedIntegrals);
+      allocationPass(counter, region, false, BufferType::StepIntegrals);
 
       // transfer allocation
       manager.align();
       auto startPosition = manager.position();
-      allocationPass(counter, region, true, false);
-      allocationPass(counter, region, true, true);
+      allocationPass(counter, region, true, BufferType::StepIntegrals);
+      allocationPass(counter, region, true, BufferType::AccumulatedIntegrals);
+      allocationPass(counter, region, true, BufferType::Derivatives);
       manager.align();
       auto endPosition = manager.position();
       auto size = endPosition - startPosition;
@@ -210,7 +220,7 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
 
       remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
 
-      allocationPass(counter, region, false, true);
+      allocationPass(counter, region, false, BufferType::Derivatives);
 
       counter += region.count;
     }
@@ -218,43 +228,55 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
     assert(counter == layer.size());
   }
 
-  layer.setEntrySize<LTS::BuffersDerivatives>(manager.size());
+  layer.setEntrySize<LTS::Buffers>(manager.size());
 
   return remoteClusters;
 }
 
 void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   auto* buffers = layer.var<LTS::Buffers>();
-  auto* derivatives = layer.var<LTS::Derivatives>();
-
-  auto* buffersDerivatives = layer.var<LTS::BuffersDerivatives>();
-
-  auto* buffersDevice = layer.var<LTS::BuffersDevice>();
-  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
-
-  auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(AllocationPlace::Device);
+  auto* buffersDevice = layer.var<LTS::Buffers>(AllocationPlace::Device);
 
   const auto bufferSize = kernels::Solver::BuffersSize;
   const auto derivativeSize = kernels::Solver::DerivativesSize;
 
+  std::array<real**, BufferCount> pointers{};
+  std::array<real**, BufferCount> pointersDevice{};
+  std::array<std::size_t, BufferCount> sizes{};
+
+  pointers[static_cast<std::size_t>(BufferType::Derivatives)] = layer.var<LTS::Derivatives>();
+  pointers[static_cast<std::size_t>(BufferType::StepIntegrals)] = layer.var<LTS::StepIntegrals>();
+  pointers[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] =
+      layer.var<LTS::AccumulatedIntegrals>();
+
+  pointersDevice[static_cast<std::size_t>(BufferType::Derivatives)] =
+      layer.var<LTS::DerivativesDevice>();
+  pointersDevice[static_cast<std::size_t>(BufferType::StepIntegrals)] =
+      layer.var<LTS::StepIntegralsDevice>();
+  pointersDevice[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] =
+      layer.var<LTS::AccumulatedIntegralsDevice>();
+
+  sizes[static_cast<std::size_t>(BufferType::Derivatives)] = derivativeSize;
+  sizes[static_cast<std::size_t>(BufferType::StepIntegrals)] = bufferSize;
+  sizes[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] = bufferSize;
+
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    initBucketItem(buffers[cell], buffersDerivatives, bufferSize, true);
-    initBucketItem(derivatives[cell], buffersDerivatives, derivativeSize, true);
-
-    assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
-           buffers[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
-    assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
-           derivatives[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+    for (std::size_t type = 0; type < pointers.size(); ++type) {
+      initBucketItem(pointers[type][cell], buffers, sizes[type], true);
+      assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
+                 static_cast<BufferType>(type)) ||
+             pointers[type][cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+    }
 
     if constexpr (isDeviceOn()) {
-      initBucketItem(buffersDevice[cell], buffersDerivativesDevice, bufferSize, false);
-      initBucketItem(derivativesDevice[cell], buffersDerivativesDevice, derivativeSize, false);
-
-      assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
-             buffersDevice[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
-      assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
-             derivativesDevice[cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+      for (std::size_t type = 0; type < pointersDevice.size(); ++type) {
+        initBucketItem(pointersDevice[type][cell], buffersDevice, bufferSize, false);
+        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
+                   static_cast<BufferType>(type)) ||
+               pointersDevice[type][cell] != nullptr ||
+               layer.getIdentifier().halo == HaloType::Ghost);
+      }
     }
   }
 
@@ -262,9 +284,9 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
     const auto offset = reinterpret_cast<intptr_t>(info.data);
     uint8_t* base = nullptr;
     if constexpr (isDeviceOn()) {
-      base = reinterpret_cast<uint8_t*>(buffersDerivativesDevice);
+      base = reinterpret_cast<uint8_t*>(buffersDevice);
     } else {
-      base = reinterpret_cast<uint8_t*>(buffersDerivatives);
+      base = reinterpret_cast<uint8_t*>(buffers);
     }
     info.data = reinterpret_cast<void*>(base + offset);
   }
@@ -281,32 +303,34 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];
-      if (getBCType(cellInformation[cell].faceTypes[face]) != BCType::ExternalNone) {
-        if (faceNeighbor == StoragePosition::NullPosition) {
-          if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
-            faceNeighbors[cell][face] = layer.var<LTS::Derivatives>()[cell];
+      if (getBCType(cellInformation[cell].faceTypes[face]) != BCType::External) {
+        const auto type = cellInformation[cell].ltsSetup.neighborBuffer(face);
+
+        const auto setFaceNeighbors = [&](auto types) {
+          using Types = decltype(types);
+
+          if (faceNeighbor == StoragePosition::NullPosition) {
+            faceNeighbors[cell][face] = layer.var<typename Types::Type>()[cell];
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = layer.var<LTS::DerivativesDevice>()[cell];
+              faceNeighborsDevice[cell][face] = layer.var<typename Types::TypeDevice>()[cell];
             }
           } else {
-            faceNeighbors[cell][face] = layer.var<LTS::Buffers>()[cell];
-            if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = layer.var<LTS::BuffersDevice>()[cell];
-            }
-          }
-        } else {
-          if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
-            faceNeighbors[cell][face] = storage.lookup<LTS::Derivatives>(faceNeighbor);
+            faceNeighbors[cell][face] = storage.lookup<typename Types::Type>(faceNeighbor);
             if constexpr (isDeviceOn()) {
               faceNeighborsDevice[cell][face] =
-                  storage.lookup<LTS::DerivativesDevice>(faceNeighbor);
-            }
-          } else {
-            faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(faceNeighbor);
-            if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = storage.lookup<LTS::BuffersDevice>(faceNeighbor);
+                  storage.lookup<typename Types::TypeDevice>(faceNeighbor);
             }
           }
+        };
+
+        if (type == BufferType::Derivatives) {
+          setFaceNeighbors(LTSTypes<LTS::Derivatives, LTS::DerivativesDevice>{});
+        }
+        if (type == BufferType::StepIntegrals) {
+          setFaceNeighbors(LTSTypes<LTS::StepIntegrals, LTS::StepIntegralsDevice>{});
+        }
+        if (type == BufferType::AccumulatedIntegrals) {
+          setFaceNeighbors(LTSTypes<LTS::AccumulatedIntegrals, LTS::AccumulatedIntegralsDevice>{});
         }
 
         assert(faceNeighbors[cell][face] != nullptr);
