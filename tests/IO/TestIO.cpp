@@ -15,6 +15,7 @@
 #include "Datatype/HDF5Type.t.h"
 #include "Datatype/Inference.t.h"
 #include "Datatype/MPIType.t.h"
+#include "Deduplicate.t.h"
 #include "Distributor.t.h"
 #include "Hdf5Roundtrip.t.h"
 #include "HdfWriteRead.t.h"
