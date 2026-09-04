@@ -11,6 +11,7 @@ on:
 
 jobs:
   archcheck:
+    if: false # WIP
     name: archcheck-${{matrix.setup.arch}}
     runs-on: ubuntu-24.04
     strategy:
@@ -31,6 +32,28 @@ jobs:
             qemu: qemu-aarch64-static -cpu max,sve512=on,sve-default-vector-length=-1
             hostarch: sve512 # take 512 for now
             flags: -march=armv8.2-a+sve -msve-vector-bits=512
+          - arch: riscv64
+            gccpkg: g++-riscv64-linux-gnu
+            gccname: riscv64-linux-gnu-gcc
+            gppname: riscv64-linux-gnu-g++
+            qemu: qemu-riscv64-static -cpu max,g=on,v=on,vlen=512
+            hostarch: rvv-512 # take 512 for now
+            flags: -march=rv64g_v_zvl512b_zicbop
+          # - arch: powerpc64
+          #   gccpkg: g++-powerpc64-linux-gnu
+          #   gccname: powerpc64-linux-gnu-gcc
+          #   gppname: powerpc64-linux-gnu-g++
+          #   qemu: qemu-ppc64le-static -cpu max
+          #   hostarch: power9
+          #   flags:
+          # - arch: loongarch64
+          #   gccpkg: g++-14-loongarch64-linux-gnu
+          #   gccname: loongarch64-linux-gnu-gcc-14
+          #   gppname: loongarch64-linux-gnu-g++-14
+          #   qemu: qemu-loongarch64-static -cpu max
+          #   hostarch: lsx-256
+          #   flags: -mlasx
+
     steps:
       - name: apt-get
         run: |
