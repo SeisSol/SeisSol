@@ -11,7 +11,12 @@ from kernels.aderdg.linearck import LinearCK
 from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
-from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
+from kernels.quantities import (
+    FaceRole,
+    QuantityGroup,
+    QuantityKind,
+    rotation_spp,
+)
 
 
 class ViscoacousticADERDG(LinearCK):
@@ -102,13 +107,7 @@ class ViscoacousticADERDG(LinearCK):
         return self.godunov_spp()
 
     def transformation_spp(self):
-        spp = np.zeros((self.numQuantities(), self.numQuantities()), dtype=bool)
-        spp[0:3, 0:3] = 1
-        spp[3:4, 3:4] = 1
-        for mechs in range(self.numMechanisms):
-            offset = 4 + mechs * 1
-            spp[offset : (offset + 3), offset : (offset + 3)] = 1
-        return spp
+        return rotation_spp(self.extendedBlocks())
 
     def transformation_inv_spp(self):
         return self.transformation_spp()
