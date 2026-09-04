@@ -41,8 +41,8 @@ enum class LocalSolver {
 };
 
 struct Material {
-  static constexpr std::size_t NumQuantities = 0;             // ?
-  static constexpr std::size_t NumberPerMechanism = 0;        // ?
+  static constexpr std::size_t NumQuantities = 0;      // ?
+  static constexpr std::size_t NumberPerMechanism = 0; // ?
   static constexpr std::size_t VelocityOffset = 0;
   static constexpr std::size_t TractionComponents = 0;
   static constexpr std::size_t Mechanisms = 0;                // ?

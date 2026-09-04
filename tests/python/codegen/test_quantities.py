@@ -203,8 +203,6 @@ class TestWellFormed:
             well_formed(layout(groups))
 
     def test_rejects_two_velocity_groups(self):
-        groups = ELASTIC + [
-            QuantityGroup("vf", QuantityKind.VECTOR, FaceRole.VELOCITY)
-        ]
+        groups = ELASTIC + [QuantityGroup("vf", QuantityKind.VECTOR, FaceRole.VELOCITY)]
         with pytest.raises(ValueError, match="at most one velocity"):
             well_formed(layout(groups))

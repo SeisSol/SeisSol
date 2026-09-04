@@ -48,12 +48,10 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   /// Where the velocity components start. Everything reaching for them --
   /// energy output, point sources, initial fields -- goes through this.
-  static constexpr std::size_t VelocityOffset =
-      roleOffset(PrimaryGroups, FaceRole::Velocity);
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
   /// Components of the mechanical traction, i.e. the stress-like quantities
   /// dynamic rupture and plasticity operate on.
-  static constexpr std::size_t TractionComponents =
-      roleExtent(PrimaryGroups, FaceRole::Traction);
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
 
   static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 7;
 

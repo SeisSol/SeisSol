@@ -134,9 +134,7 @@ constexpr std::size_t roleOffset(const std::array<QuantityGroup, N>& groups, Fac
 /// trace three times over; a symmetric second-order tensor contributes its
 /// three diagonal components once each. Energy expressions written for one of
 /// them therefore carry over to the other by these weights alone.
-constexpr double traceWeight(QuantityKind kind) {
-  return kind == QuantityKind::Scalar ? 3.0 : 1.0;
-}
+constexpr double traceWeight(QuantityKind kind) { return kind == QuantityKind::Scalar ? 3.0 : 1.0; }
 
 /// Components of `kind` that enter the trace.
 constexpr std::size_t traceComponents(QuantityKind kind) {

@@ -7,8 +7,8 @@
 
 import numpy as np
 from kernels.aderdg.stp import STP
-from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
 
 
 def choose(n, k):

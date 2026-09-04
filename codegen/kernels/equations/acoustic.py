@@ -6,10 +6,9 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Jinwen Pan
 
-import numpy as np
 from kernels.aderdg.linearck import LinearCK
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
+from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
 
 class AcousticADERDG(LinearCK):

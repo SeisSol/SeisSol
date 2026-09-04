@@ -102,7 +102,6 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
   static void initializeSpecificNeighborData(const MaterialT& material,
                                              typename MaterialT::Solver::NeighborData* localData) {}
 
-
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
                                      MaterialT& material) {
@@ -257,7 +256,6 @@ struct MaterialSetup<
       w(mech) = localMaterial.omega[mech];
     }
   }
-
 
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,

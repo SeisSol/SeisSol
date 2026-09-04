@@ -71,8 +71,8 @@ struct EnergyCompute<PoroElasticMaterial> {
     // fluid velocity, the two coefficients would have to be M(alpha - phi) and
     // M phi instead.
     constexpr auto SolidVelocityIdx = PoroElasticMaterial::VelocityOffset; // 6
-    constexpr auto PressureIdx = SolidVelocityIdx + 3;                         // 9
-    constexpr auto DarcyVelocityIdx = PressureIdx + 1;                         // 10
+    constexpr auto PressureIdx = SolidVelocityIdx + 3;                     // 9
+    constexpr auto DarcyVelocityIdx = PressureIdx + 1;                     // 10
 
     const auto params = getAdditionalParameters(material);
 

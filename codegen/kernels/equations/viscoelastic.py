@@ -9,9 +9,9 @@
 import numpy as np
 from kernels.aderdg.linearck import LinearCK
 from kernels.aderdg.linearckanelastic import LinearCKAnelastic
+from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
-from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 
 
 class ViscoelasticADERDG(LinearCK):

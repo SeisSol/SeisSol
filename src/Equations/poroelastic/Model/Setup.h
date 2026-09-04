@@ -285,7 +285,6 @@ struct MaterialSetup<PoroElasticMaterial> {
       const PoroElasticMaterial& material,
       typename PoroElasticMaterial::Solver::NeighborData* neighborData) {}
 
-
   static PoroElasticMaterial
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
                                      PoroElasticMaterial& material) {

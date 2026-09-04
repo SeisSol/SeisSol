@@ -359,7 +359,6 @@ struct MaterialSetup<AnisotropicMaterial> {
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const AnisotropicMaterial& material,
                                                    T& sourceMatrix) {}
-
 };
 
 } // namespace seissol::model

@@ -146,7 +146,6 @@ struct MaterialSetup<AcousticMaterial> {
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const AcousticMaterial& material,
                                                    T& sourceMatrix) {}
-
 };
 } // namespace seissol::model
 

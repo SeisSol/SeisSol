@@ -61,9 +61,9 @@ constexpr bool kindsMatch(const std::array<QuantityGroup, N>& groups,
 // compile error rather than a rotation matrix with blocks in the wrong places.
 static_assert(detail::kindsMatch(MaterialT::RotationGroups, generated::RotationGroupKinds),
               "the material's quantity groups disagree with the generated layout");
-static_assert(
-    detail::kindsMatch(MaterialT::InverseRotationGroups, generated::InverseRotationGroupKinds),
-    "the material's inverse quantity groups disagree with the generated layout");
+static_assert(detail::kindsMatch(MaterialT::InverseRotationGroups,
+                                 generated::InverseRotationGroupKinds),
+              "the material's inverse quantity groups disagree with the generated layout");
 
 template <typename T>
 constexpr bool testIfAcoustic(T mu) {
@@ -269,8 +269,7 @@ void getFaceRotationMatrix(const VrtxCoords normal,
                            const VrtxCoords tangent2,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv) {
-  detail::writeRotationBlocks<false>(
-      MaterialT::RotationGroups, normal, tangent1, tangent2, matT);
+  detail::writeRotationBlocks<false>(MaterialT::RotationGroups, normal, tangent1, tangent2, matT);
   detail::writeRotationBlocks<true>(
       MaterialT::InverseRotationGroups, normal, tangent1, tangent2, matTinv);
 }

@@ -9,9 +9,9 @@
 import numpy as np
 from kernels.aderdg.linearck import LinearCK
 from kernels.aderdg.linearckanelastic import LinearCKAnelastic
+from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
-from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 
 
 class ViscoacousticADERDG(LinearCK):
@@ -102,7 +102,6 @@ class ViscoacousticADERDG(LinearCK):
         return self.godunov_spp()
 
 
-
 class Viscoacoustic2ADERDG(LinearCKAnelastic):
     def __init__(
         self,
@@ -143,7 +142,6 @@ class Viscoacoustic2ADERDG(LinearCKAnelastic):
 
     def name(self):
         return "viscoacoustic"
-
 
 
 def kernel_class(**kwargs):

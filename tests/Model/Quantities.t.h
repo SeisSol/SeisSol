@@ -9,8 +9,8 @@
 #include "Model/Common.h"
 #include "Model/Quantities.h"
 
-#include <cmath>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <random>
@@ -90,9 +90,9 @@ TEST_CASE("Quantity groups describe the configured material" * doctest::test_sui
   // dimension rotates one anelastic block forwards and none back.
   static_assert(model::quantitiesWellFormed(Groups, tensor::T::Shape[0]),
                 "the quantity groups do not describe the rotation matrix");
-  static_assert(model::quantitiesWellFormed(model::MaterialT::InverseRotationGroups,
-                                            tensor::Tinv::Shape[0]),
-                "the quantity groups do not describe the inverse rotation matrix");
+  static_assert(
+      model::quantitiesWellFormed(model::MaterialT::InverseRotationGroups, tensor::Tinv::Shape[0]),
+      "the quantity groups do not describe the inverse rotation matrix");
   static_assert(tensor::T::Shape[0] == tensor::T::Shape[1]);
   static_assert(tensor::Tinv::Shape[0] == tensor::Tinv::Shape[1]);
   static_assert(tensor::Tinv::Shape[0] <= tensor::T::Shape[0]);

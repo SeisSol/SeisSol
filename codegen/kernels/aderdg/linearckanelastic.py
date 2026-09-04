@@ -9,12 +9,12 @@
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
+from kernels.quantities import layout, total_extent
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
-from kernels.quantities import layout, total_extent
 
 from .aderdg import ADERDGBase
 

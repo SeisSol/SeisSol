@@ -255,7 +255,9 @@ class ADERDGBase(ABC):
         # The correction shares the flux solver's sparsity: it is added to the
         # same operator, so it cannot be populated where AplusT/AminusT are
         # structurally zero.
-        self.QcorrLocal = Tensor("QcorrLocal", flux_solver_spp.shape, spp=flux_solver_spp)
+        self.QcorrLocal = Tensor(
+            "QcorrLocal", flux_solver_spp.shape, spp=flux_solver_spp
+        )
         self.QcorrNeighbor = Tensor(
             "QcorrNeighbor", flux_solver_spp.shape, spp=flux_solver_spp
         )
