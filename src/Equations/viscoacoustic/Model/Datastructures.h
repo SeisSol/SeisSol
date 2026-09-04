@@ -55,7 +55,6 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
   static constexpr std::size_t NumElasticQuantities = 4;
   static constexpr std::size_t NumQuantities =
       NumElasticQuantities + MechanismsP * NumberPerMechanism;
-  static constexpr std::size_t TractionQuantities = 1;
   static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::Viscoacoustic;
   static inline const std::string Text = "viscoacoustic-" + std::to_string(MechanismsP);
@@ -75,6 +74,15 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
       withMechanisms<RotationRepetitions>(PrimaryGroups, MechanismGroups);
   static constexpr auto InverseRotationGroups =
       withMechanisms<InverseRotationRepetitions>(PrimaryGroups, MechanismGroups);
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset =
+      roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents =
+      roleExtent(PrimaryGroups, FaceRole::Traction);
 
   static constexpr std::size_t Parameters = AcousticMaterial::Parameters + 2 * Mechanisms;
 

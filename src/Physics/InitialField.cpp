@@ -584,9 +584,9 @@ void seissol::physics::Ocean::evaluate(double time,
       }
     };
 
-    constexpr auto UIdx = model::MaterialT::TractionQuantities;
-    constexpr auto VIdx = model::MaterialT::TractionQuantities + 1;
-    constexpr auto WIdx = model::MaterialT::TractionQuantities + 2;
+    constexpr auto UIdx = model::MaterialT::VelocityOffset;
+    constexpr auto VIdx = model::MaterialT::VelocityOffset + 1;
+    constexpr auto WIdx = model::MaterialT::VelocityOffset + 2;
 
     if (mode_ == 0) {
       // Gravity mode

@@ -49,7 +49,7 @@ struct EnergyCompute<AcousticMaterial> {
                       std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
 
-    constexpr auto UIdx = AcousticMaterial::TractionQuantities;
+    constexpr auto UIdx = AcousticMaterial::VelocityOffset;
     const auto rho = material.getDensity();
 
     const auto uu = quadSub(UIdx + 0, UIdx + 0);

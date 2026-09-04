@@ -31,7 +31,6 @@ struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Elastic;
   static inline const std::string Text = "elastic";
@@ -40,6 +39,15 @@ struct ElasticMaterial : Material {
   static constexpr auto PrimaryGroups = ElasticQuantities;
   static constexpr auto RotationGroups = PrimaryGroups;
   static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset =
+      roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents =
+      roleExtent(PrimaryGroups, FaceRole::Traction);
 
   static constexpr std::size_t Parameters = 2 + Material::Parameters;
 

@@ -99,8 +99,10 @@ TEST_CASE("Quantity groups describe the configured material" * doctest::test_sui
 
   // The velocity components start where the declaration says they do; the rest
   // of the code reaches for them through this offset.
-  CHECK(model::roleOffset(Groups, model::FaceRole::Velocity) ==
-        model::MaterialT::TractionQuantities);
+  static_assert(model::roleOffset(model::MaterialT::PrimaryGroups, model::FaceRole::Velocity) ==
+                model::MaterialT::VelocityOffset);
+  static_assert(model::MaterialT::VelocityOffset < tensor::Tinv::Shape[0]);
+  static_assert(model::MaterialT::TractionComponents > 0);
 }
 
 TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("model")) {

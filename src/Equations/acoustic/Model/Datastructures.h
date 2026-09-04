@@ -30,7 +30,6 @@ struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumElasticQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 1;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Acoustic;
   static inline const std::string Text = "acoustic";
@@ -41,6 +40,15 @@ struct AcousticMaterial : public Material {
   static constexpr auto PrimaryGroups = AcousticQuantities;
   static constexpr auto RotationGroups = PrimaryGroups;
   static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset =
+      roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents =
+      roleExtent(PrimaryGroups, FaceRole::Traction);
 
   static constexpr std::size_t Parameters = 1 + Material::Parameters;
 

@@ -244,7 +244,7 @@ struct FsrmFile : public SourceFile {
     }
     if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
       for (std::size_t i = 0; i < Cell::Dim; ++i) {
-        tensor[model::MaterialT::TractionQuantities + i] /= material.rho;
+        tensor[model::MaterialT::VelocityOffset + i] /= material.rho;
       }
     } else {
       logWarning() << "The poroelastic equation does not scale the force components with the "

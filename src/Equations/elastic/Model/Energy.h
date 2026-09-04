@@ -60,7 +60,7 @@ struct EnergyCompute<ElasticMaterial> {
                       std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
 
-    constexpr auto UIdx = ElasticMaterial::TractionQuantities;
+    constexpr auto UIdx = ElasticMaterial::VelocityOffset;
     const auto rho = material.getDensity();
 
     const auto u = linSub(0, UIdx + 0);

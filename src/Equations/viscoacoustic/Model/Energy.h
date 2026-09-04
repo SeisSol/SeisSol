@@ -128,7 +128,7 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
                       std::size_t sim) {
     std::array<double, EnergyCount> output{};
 
-    constexpr auto UIdx = ViscoMaterial::TractionQuantities;
+    constexpr auto UIdx = ViscoMaterial::VelocityOffset;
     const auto rho = material.getDensity();
 
     const auto u = linSub(0, UIdx + 0);

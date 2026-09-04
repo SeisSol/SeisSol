@@ -128,6 +128,17 @@ constexpr std::size_t roleOffset(const std::array<QuantityGroup, N>& groups, Fac
   return totalExtent(groups);
 }
 
+/// Number of components in the first group with `role`, or zero if absent.
+template <std::size_t N>
+constexpr std::size_t roleExtent(const std::array<QuantityGroup, N>& groups, FaceRole role) {
+  for (const auto& group : groups) {
+    if (group.role == role) {
+      return group.extent();
+    }
+  }
+  return 0;
+}
+
 /// True if the groups can describe a layout of `numQuantities` quantities.
 template <std::size_t N>
 constexpr bool quantitiesWellFormed(const std::array<QuantityGroup, N>& groups,

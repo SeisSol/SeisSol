@@ -70,7 +70,7 @@ struct EnergyCompute<PoroElasticMaterial> {
     // which is Biot's dp/dt = -M (alpha div v_s + div w). Were quantity 10 the
     // fluid velocity, the two coefficients would have to be M(alpha - phi) and
     // M phi instead.
-    constexpr auto SolidVelocityIdx = PoroElasticMaterial::TractionQuantities; // 6
+    constexpr auto SolidVelocityIdx = PoroElasticMaterial::VelocityOffset; // 6
     constexpr auto PressureIdx = SolidVelocityIdx + 3;                         // 9
     constexpr auto DarcyVelocityIdx = PressureIdx + 1;                         // 10
 
