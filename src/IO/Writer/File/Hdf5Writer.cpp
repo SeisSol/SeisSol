@@ -111,77 +111,128 @@ void Hdf5File::writeAttribute(const async::ExecInfo& info,
   _eh(H5Aclose(handle));
   _eh(H5Sclose(h5space));
 }
+namespace {
+
+/**
+ * The shape of a dataset and of this rank's share of it, in the order HDF5 wants the dimensions:
+ * an optional step dimension for an appendable dataset, then the distributed dimension, then the
+ * fixed trailing dimensions of the data source.
+ *
+ * Three shapes are needed, and they differ in ways that are easy to conflate:
+ *   - globalSizes / globalSizesMax describe the dataset,
+ *   - localSizes describes what this rank has in memory, and is zero where it has nothing,
+ *   - chunkSizes describes the storage layout. It has to agree across ranks and be positive
+ *     everywhere, so it cannot be derived from what the local rank contributes.
+ */
+struct DatasetLayout {
+  //! Rows this rank writes; zero for a rank that contributes nothing.
+  std::size_t count{0};
+  //! Rows over all ranks.
+  std::size_t allcount{0};
+  //! Where this rank's rows start.
+  std::size_t offset{0};
+  //! Rows one collective write may move, bounded so that it stays below the MPI-IO limit.
+  std::size_t roundSize{0};
+  //! Rows this rank writes in one round.
+  std::size_t roundCount{0};
+  //! Rounds needed by the rank that needs the most.
+  std::size_t rounds{0};
+
+  std::vector<hsize_t> globalSizes;
+  std::vector<hsize_t> globalSizesMax;
+  std::vector<hsize_t> localSizes;
+  std::vector<hsize_t> chunkSizes;
+
+  static DatasetLayout of(const async::ExecInfo& info,
+                          const std::shared_ptr<DataSource>& source,
+                          MPI_Comm comm,
+                          bool append);
+};
+
+DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
+                                const std::shared_ptr<DataSource>& source,
+                                MPI_Comm comm,
+                                bool append) {
+  const MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
+
+  // the trailing dimensions are fixed, so the leading one is what is left of the element count
+  std::size_t rows = source->count(info);
+  std::size_t rowLength = 1;
+  for (const auto dimension : source->shape()) {
+    assert(rows % dimension == 0);
+    rows /= dimension;
+    rowLength *= dimension;
+  }
+
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+
+  DatasetLayout layout;
+  // if we don't write distributed data, only one rank needs to do the work
+  layout.count = (source->distributed() || rank == 0) ? rows : 0;
+
+  // TODO: adjust roundSize according to dimensions and datatype size
+  layout.roundSize = std::max(1_UZ, 2'000'000'000_UZ / (source->datatype()->size() * rowLength));
+  layout.roundCount = std::min(layout.roundSize, layout.count);
+
+  std::size_t localRounds = (layout.count + layout.roundSize - 1) / layout.roundSize;
+  layout.rounds = localRounds;
+  layout.allcount = layout.count;
+  MPI_Allreduce(&localRounds, &layout.rounds, 1, sizetype, MPI_MAX, comm);
+  MPI_Allreduce(&layout.count, &layout.allcount, 1, sizetype, MPI_SUM, comm);
+  MPI_Exscan(&layout.count, &layout.offset, 1, sizetype, MPI_SUM, comm);
+
+  if (append) {
+    layout.globalSizesMax.push_back(H5S_UNLIMITED);
+    layout.globalSizes.push_back(1);
+    layout.localSizes.push_back(1);
+    layout.chunkSizes.push_back(1);
+  }
+  if (source->distributed()) {
+    layout.globalSizesMax.push_back(layout.allcount);
+    layout.globalSizes.push_back(layout.allcount);
+    layout.localSizes.push_back(layout.roundCount);
+    // HDF5 handles data one chunk at a time, and for a dataset with a filter written in parallel
+    // it gathers every chunk onto a single rank to compress it. Chunking the whole dataset into
+    // one piece would therefore serialise the compression and hold the entire array on one rank,
+    // so aim for a few MB instead.
+    constexpr std::size_t TargetChunkBytes = 4UL * 1024 * 1024;
+    const std::size_t rowBytes = std::max(1_UZ, source->datatype()->size() * rowLength);
+    layout.chunkSizes.push_back(
+        std::clamp(TargetChunkBytes / rowBytes, 1_UZ, std::max(1_UZ, layout.allcount)));
+  }
+  for (const auto dimension : source->shape()) {
+    layout.globalSizesMax.push_back(dimension);
+    layout.globalSizes.push_back(dimension);
+    layout.localSizes.push_back(dimension);
+    layout.chunkSizes.push_back(std::max<hsize_t>(1, dimension));
+  }
+
+  return layout;
+}
+
+} // namespace
+
 void Hdf5File::writeData(const async::ExecInfo& info,
                          const std::string& name,
                          const std::shared_ptr<DataSource>& source,
                          const std::shared_ptr<datatype::Datatype>& targetType,
                          int compress,
                          bool append) {
-  MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
 
-  std::size_t trueCount = source->count(info);
-  std::size_t dimprod = 1;
-  for (auto dimension : source->shape()) {
-    assert(trueCount % dimension == 0);
-    trueCount /= dimension;
-    dimprod *= dimension;
-  }
+  const auto layout = DatasetLayout::of(info, source, comm_, append);
 
-  int rank = 0;
-  MPI_Comm_rank(comm_, &rank);
-  // if we don't write distributed data, only one rank needs to do the work
-  const std::size_t count = (source->distributed() || rank == 0) ? trueCount : 0;
   const auto& dimensions = source->shape();
-  // TODO: adjust chunksize according to dimensions and datatype size
-  const std::size_t chunksize =
-      std::max(1_UZ, 2'000'000'000_UZ / (source->datatype()->size() * dimprod));
-
-  std::size_t allcount = count;
-  std::size_t offset = 0;
-
-  std::size_t localRounds = (count + chunksize - 1) / chunksize;
-  std::size_t rounds = localRounds;
-
-  MPI_Allreduce(&localRounds, &rounds, 1, sizetype, MPI_MAX, comm_);
-  MPI_Allreduce(&count, &allcount, 1, sizetype, MPI_SUM, comm_);
-  MPI_Exscan(&count, &offset, 1, sizetype, MPI_SUM, comm_);
-
-  std::vector<hsize_t> globalSizesMax;
-  std::vector<hsize_t> globalSizes;
-  std::vector<hsize_t> localSizes;
-  // The chunk shape is a property of the dataset, not of what this rank contributes: it has to be
-  // the same everywhere and, per the HDF5 API, strictly positive in every dimension. A rank with
-  // nothing to write -- an empty partition, or any rank but the first for non-distributed data --
-  // has a local size of zero, so the two cannot share one vector.
-  std::vector<hsize_t> chunkSizes;
-
-  const std::size_t chunkcount = std::min(chunksize, count);
-
-  if (append) {
-    globalSizesMax.push_back(H5S_UNLIMITED);
-    globalSizes.push_back(1);
-    localSizes.push_back(1);
-    chunkSizes.push_back(1);
-  }
-  if (source->distributed()) {
-    globalSizesMax.push_back(allcount);
-    globalSizes.push_back(allcount);
-    localSizes.push_back(chunkcount);
-    // HDF5 handles data one chunk at a time, and for a dataset with a filter written in parallel
-    // it gathers every chunk onto a single rank to compress it. Chunking the whole dataset into
-    // one piece would therefore serialise the compression and hold the entire array on one rank,
-    // so aim for a few MB instead. (This is unrelated to `chunksize` above, which only bounds how
-    // much one collective write may move at once.)
-    constexpr std::size_t TargetChunkBytes = 4UL * 1024 * 1024;
-    const std::size_t rowBytes = std::max(1_UZ, source->datatype()->size() * dimprod);
-    chunkSizes.push_back(std::clamp(TargetChunkBytes / rowBytes, 1_UZ, std::max(1_UZ, allcount)));
-  }
-  for (const auto& dim : dimensions) {
-    globalSizesMax.push_back(dim);
-    globalSizes.push_back(dim);
-    localSizes.push_back(dim);
-    chunkSizes.push_back(std::max<hsize_t>(1, dim));
-  }
+  const auto count = layout.count;
+  const auto allcount = layout.allcount;
+  const auto offset = layout.offset;
+  const auto rounds = layout.rounds;
+  const auto chunksize = layout.roundSize;
+  const auto chunkcount = layout.roundCount;
+  const auto& globalSizes = layout.globalSizes;
+  const auto& globalSizesMax = layout.globalSizesMax;
+  const auto& localSizes = layout.localSizes;
+  const auto& chunkSizes = layout.chunkSizes;
 
   const std::size_t actualDimensions = localSizes.size();
 
