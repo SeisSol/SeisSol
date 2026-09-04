@@ -11,6 +11,12 @@ from kernels.aderdg.linearck import LinearCK
 from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from kernels.quantities import (
+    FaceRole,
+    QuantityGroup,
+    QuantityKind,
+    rotation_spp,
+)
 
 
 class ViscoelasticADERDG(LinearCK):
@@ -71,8 +77,17 @@ class ViscoelasticADERDG(LinearCK):
 
         self.kwargs = kwargs
 
-    def numQuantities(self):
-        return 9 + 6 * self.numMechanisms
+    def primaryGroups(self):
+        return [
+            QuantityGroup("s", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
+            QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+        ]
+
+    def mechanismGroups(self):
+        return [QuantityGroup("theta", QuantityKind.SYM_TENSOR2)]
+
+    def mechanismRepetitions(self):
+        return self.numMechanisms
 
     def starMatrix(self, dim):
         return self.db.star[dim]
@@ -92,30 +107,10 @@ class ViscoelasticADERDG(LinearCK):
         return self.godunov_spp()
 
     def transformation_spp(self):
-        spp = np.zeros((self.numQuantities(), self.numQuantities()), dtype=bool)
-        spp[0:6, 0:6] = 1
-        spp[6:9, 6:9] = 1
-        for mechs in range(self.numMechanisms):
-            offset = 9 + mechs * 6
-            spp[offset : (offset + 6), offset : (offset + 6)] = 1
-        return spp
+        return rotation_spp(self.extendedBlocks())
 
     def transformation_inv_spp(self):
         return self.transformation_spp()
-
-    def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
-        extractVelocitiesSPP[0, 6] = 1
-        extractVelocitiesSPP[1, 7] = 1
-        extractVelocitiesSPP[2, 8] = 1
-        return extractVelocitiesSPP
-
-    def extractTractions(self):
-        extractTractionsSPP = np.zeros((3, self.numQuantities()))
-        extractTractionsSPP[0, 0] = 1
-        extractTractionsSPP[1, 3] = 1
-        extractTractionsSPP[2, 5] = 1
-        return extractTractionsSPP
 
 
 class Viscoelastic2ADERDG(LinearCKAnelastic):
@@ -147,25 +142,14 @@ class Viscoelastic2ADERDG(LinearCKAnelastic):
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs
 
-    def numQuantities(self):
-        return 9
+    def primaryGroups(self):
+        return [
+            QuantityGroup("s", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
+            QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+        ]
 
-    def numAnelasticQuantities(self):
-        return 6
-
-    def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
-        extractVelocitiesSPP[0, 6] = 1
-        extractVelocitiesSPP[1, 7] = 1
-        extractVelocitiesSPP[2, 8] = 1
-        return extractVelocitiesSPP
-
-    def extractTractions(self):
-        extractTractionsSPP = np.zeros((3, self.numQuantities()))
-        extractTractionsSPP[0, 0] = 1
-        extractTractionsSPP[1, 3] = 1
-        extractTractionsSPP[2, 5] = 1
-        return extractTractionsSPP
+    def mechanismGroups(self):
+        return [QuantityGroup("theta", QuantityKind.SYM_TENSOR2)]
 
     def name(self):
         return "viscoelastic"

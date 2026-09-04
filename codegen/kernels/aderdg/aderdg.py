@@ -10,6 +10,15 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 from kernels.multsim import OptionalDimTensor
+from kernels.quantities import (
+    FaceRole,
+    layout,
+    role_offset,
+    total_extent,
+    traction_selector,
+    velocity_selector,
+    well_formed,
+)
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
@@ -190,16 +199,38 @@ class ADERDGBase(ABC):
         return self.extractTractions().T
 
     @abstractmethod
-    def extractVelocities(self):
-        pass
+    def primaryGroups(self):
+        """Quantity groups of the underlying material, in quantity order."""
 
-    @abstractmethod
-    def extractTractions(self):
-        pass
+    def mechanismGroups(self):
+        """Quantity groups of a single relaxation mechanism, if any."""
+        return []
 
-    @abstractmethod
+    def mechanismRepetitions(self):
+        """How often the mechanism block sits on the quantity axis of Q."""
+        return 0
+
+    def quantityBlocks(self):
+        """Layout of Q."""
+        return layout(
+            self.primaryGroups(), self.mechanismGroups(), self.mechanismRepetitions()
+        )
+
+    def extendedBlocks(self):
+        """Layout the face rotation operates on."""
+        return self.quantityBlocks()
+
     def numQuantities(self):
-        pass
+        return total_extent(self.quantityBlocks())
+
+    def velocityOffset(self):
+        return role_offset(self.quantityBlocks(), FaceRole.VELOCITY)
+
+    def extractVelocities(self):
+        return velocity_selector(self.quantityBlocks())
+
+    def extractTractions(self):
+        return traction_selector(self.quantityBlocks())
 
     @abstractmethod
     def numExtendedQuantities(self):
@@ -214,6 +245,9 @@ class ADERDGBase(ABC):
         pass
 
     def addInit(self, generator):
+        well_formed(self.quantityBlocks())
+        well_formed(self.extendedBlocks(), self.numExtendedQuantities())
+
         flux_solver_spp = self.flux_solver_spp()
         # The correction shares the flux solver's sparsity: it is added to the
         # same operator, so it cannot be populated where AplusT/AminusT are

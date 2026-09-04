@@ -11,6 +11,7 @@ from kernels.aderdg.linearck import LinearCK
 from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from yateto import Tensor
 from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
+from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 
 
 class ViscoacousticADERDG(LinearCK):
@@ -71,8 +72,17 @@ class ViscoacousticADERDG(LinearCK):
 
         self.kwargs = kwargs
 
-    def numQuantities(self):
-        return 4 + 1 * self.numMechanisms
+    def primaryGroups(self):
+        return [
+            QuantityGroup("pprime", QuantityKind.SCALAR, FaceRole.TRACTION),
+            QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+        ]
+
+    def mechanismGroups(self):
+        return [QuantityGroup("theta", QuantityKind.SCALAR)]
+
+    def mechanismRepetitions(self):
+        return self.numMechanisms
 
     def starMatrix(self, dim):
         return self.db.star[dim]
@@ -103,17 +113,6 @@ class ViscoacousticADERDG(LinearCK):
     def transformation_inv_spp(self):
         return self.transformation_spp()
 
-    def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
-        extractVelocitiesSPP[0, 1] = 1
-        extractVelocitiesSPP[1, 2] = 1
-        extractVelocitiesSPP[2, 3] = 1
-        return extractVelocitiesSPP
-
-    def extractTractions(self):
-        extractTractionsSPP = np.zeros((3, self.numQuantities()))
-        extractTractionsSPP[0, 0] = 1
-        return extractTractionsSPP
 
 
 class Viscoacoustic2ADERDG(LinearCKAnelastic):
@@ -145,27 +144,18 @@ class Viscoacoustic2ADERDG(LinearCKAnelastic):
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs
 
-    def numQuantities(self):
-        return 4
+    def primaryGroups(self):
+        return [
+            QuantityGroup("pprime", QuantityKind.SCALAR, FaceRole.TRACTION),
+            QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+        ]
 
-    def numAnelasticQuantities(self):
-        return 1
+    def mechanismGroups(self):
+        return [QuantityGroup("theta", QuantityKind.SCALAR)]
 
     def name(self):
         return "viscoacoustic"
 
-    def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
-        extractVelocitiesSPP[0, 1] = 1
-        extractVelocitiesSPP[1, 2] = 1
-        extractVelocitiesSPP[2, 3] = 1
-        return extractVelocitiesSPP
-
-    def extractTractions(self):
-        # TODO: make (1, numQuantities)
-        extractTractionsSPP = np.zeros((3, self.numQuantities()))
-        extractTractionsSPP[0, 0] = 1
-        return extractTractionsSPP
 
 
 def kernel_class(**kwargs):

@@ -14,6 +14,7 @@ from yateto.ast.node import Add
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
+from kernels.quantities import layout, total_extent
 
 from .aderdg import ADERDGBase
 
@@ -96,6 +97,14 @@ class LinearCKAnelastic(ADERDGBase):
         )
 
         self.kwargs = kwargs
+
+    def extendedBlocks(self):
+        """The face rotation sees one anelastic block, not one per mechanism:
+        this solver keeps the mechanism index as a separate tensor dimension."""
+        return layout(self.primaryGroups(), self.mechanismGroups(), 1)
+
+    def numAnelasticQuantities(self):
+        return total_extent(layout(self.mechanismGroups()))
 
     def numExtendedQuantities(self):
         """Return the number of quantities for fused computation of elastic and anelastic update."""

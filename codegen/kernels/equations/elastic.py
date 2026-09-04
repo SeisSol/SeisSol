@@ -9,6 +9,7 @@
 import numpy as np
 from kernels.aderdg.linearck import LinearCK
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 
 
 class ElasticADERDG(LinearCK):
@@ -24,28 +25,17 @@ class ElasticADERDG(LinearCK):
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs
 
-    def numQuantities(self):
-        return 9
+    def primaryGroups(self):
+        return [
+            QuantityGroup("s", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
+            QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+        ]
 
     def name(self):
         return "elastic"
 
     def starMatrix(self, dim):
         return self.db.star[dim]
-
-    def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
-        extractVelocitiesSPP[0, 6] = 1
-        extractVelocitiesSPP[1, 7] = 1
-        extractVelocitiesSPP[2, 8] = 1
-        return extractVelocitiesSPP
-
-    def extractTractions(self):
-        extractTractionsSPP = np.zeros((3, self.numQuantities()))
-        extractTractionsSPP[0, 0] = 1
-        extractTractionsSPP[1, 3] = 1
-        extractTractionsSPP[2, 5] = 1
-        return extractTractionsSPP
 
 
 def kernel_class(**kwargs):

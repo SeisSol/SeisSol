@@ -9,6 +9,7 @@
 import numpy as np
 from kernels.aderdg.linearck import LinearCK
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 
 
 class AcousticADERDG(LinearCK):
@@ -26,24 +27,14 @@ class AcousticADERDG(LinearCK):
 
     # The 4 quantities are pressure and three velocity components
     # in acoustic materials.
-    def numQuantities(self):
-        return 4
+    def primaryGroups(self):
+        return [
+            QuantityGroup("pprime", QuantityKind.SCALAR, FaceRole.TRACTION),
+            QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+        ]
 
     def starMatrix(self, dim):
         return self.db.star[dim]
-
-    def extractVelocities(self):
-        extractVelocitiesSPP = np.zeros((3, self.numQuantities()))
-        extractVelocitiesSPP[0, 1] = 1
-        extractVelocitiesSPP[1, 2] = 1
-        extractVelocitiesSPP[2, 3] = 1
-        return extractVelocitiesSPP
-
-    def extractTractions(self):
-        # TODO: make (1, numQuantities)
-        extractTractionsSPP = np.zeros((3, self.numQuantities()))
-        extractTractionsSPP[0, 0] = 1
-        return extractTractionsSPP
 
     def name(self):
         return "acoustic"
