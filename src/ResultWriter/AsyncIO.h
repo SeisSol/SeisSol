@@ -19,8 +19,8 @@ class AsyncIO : public async::Dispatcher {
    * @return False if this rank is an MPI executor that does not contribute to the
    *  computation.
    */
-  bool init();
-  void finalize();
+  bool initDispatcher();
+  void finalizeDispatcher();
 };
 
 } // namespace seissol::io

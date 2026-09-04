@@ -8,6 +8,7 @@
 #include "LtsParameters.h"
 
 #include "Equations/Datastructures.h"
+#include "Initializer/Clustering/ClusterCostModel.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <algorithm>
@@ -36,6 +37,16 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
     return AutoMergeCostBaseline::MaxWiggleFactor;
   }
   throw std::invalid_argument(str + " is not a valid cluster merging baseline");
+}
+
+LtsClusteringSearch parseLtsClusteringSearch(std::string str) {
+  std::transform(str.begin(), str.end(), str.begin(), [](auto c) { return std::tolower(c); });
+  if (str == "legacy") {
+    return LtsClusteringSearch::Legacy;
+  } else if (str == "lattice") {
+    return LtsClusteringSearch::Lattice;
+  }
+  throw std::invalid_argument(str + " is not a valid LTS clustering search");
 }
 
 LtsParameters readLtsParameters(ParameterReader* baseReader) {
@@ -84,6 +95,17 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
                                       LtsWeightsTypes::ExponentialBalancedWeights,
                                       LtsWeightsTypes::EncodedBalancedWeights,
                                   });
+
+  const auto clusteringSearch = parseLtsClusteringSearch(
+      reader->readWithDefault("ltsclusteringsearch", std::string("legacy")));
+  // Defaults reproduce the update-count objective SeisSol has always minimized; see
+  // ClusterCostModel.
+  const double costUpdate = reader->readWithDefault("ltscostupdate", 1.0);
+  const double costLaunch = reader->readWithDefault("ltscostlaunch", 0.0);
+  const double costFill = reader->readWithDefault("ltscostfill", 0.0);
+  const auto maxRate = static_cast<std::uint64_t>(reader->readWithDefault("ltsmaxrate", 0));
+
+  reader->warnDeprecated({"dgmethod"});
   return {rates,
           wiggleFactorMinimum,
           wiggleFactorStepsize,
@@ -92,7 +114,12 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
           autoMergeClusters,
           allowedPerformanceLossRatioAutoMerge,
           autoMergeCostBaseline,
-          ltsWeightsType};
+          ltsWeightsType,
+          clusteringSearch,
+          costUpdate,
+          costLaunch,
+          costFill,
+          maxRate};
 }
 
 LtsParameters::LtsParameters(const std::vector<uint64_t>& rates,
@@ -103,24 +130,31 @@ LtsParameters::LtsParameters(const std::vector<uint64_t>& rates,
                              bool ltsAutoMergeClusters,
                              double allowedPerformanceLossRatioAutoMerge,
                              AutoMergeCostBaseline autoMergeCostBaseline,
-                             LtsWeightsTypes ltsWeightsType)
-    : rate(rates), wiggleFactorMinimum(wiggleFactorMinimum),
-      wiggleFactorStepsize(wiggleFactorStepsize),
-      wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
-      maxNumberOfClusters(maxNumberOfClusters), autoMergeClusters(ltsAutoMergeClusters),
-      allowedPerformanceLossRatioAutoMerge(allowedPerformanceLossRatioAutoMerge),
-      autoMergeCostBaseline(autoMergeCostBaseline), ltsWeightsType(ltsWeightsType) {
+                             LtsWeightsTypes ltsWeightsType,
+                             LtsClusteringSearch clusteringSearch,
+                             double costUpdate,
+                             double costLaunch,
+                             double costFill,
+                             std::uint64_t maxRate)
+    : rate_(rates), wiggleFactorMinimum_(wiggleFactorMinimum),
+      wiggleFactorStepsize_(wiggleFactorStepsize),
+      wiggleFactorEnforceMaximumDifference_(wigleFactorEnforceMaximumDifference),
+      maxNumberOfClusters_(maxNumberOfClusters), autoMergeClusters_(ltsAutoMergeClusters),
+      allowedPerformanceLossRatioAutoMerge_(allowedPerformanceLossRatioAutoMerge),
+      autoMergeCostBaseline_(autoMergeCostBaseline), ltsWeightsType_(ltsWeightsType),
+      clusteringSearch_(clusteringSearch), costUpdate_(costUpdate), costLaunch_(costLaunch),
+      costFill_(costFill), maxRate_(maxRate) {
 
-  if (rate.empty()) {
-    rate.emplace_back(1);
+  if (rate_.empty()) {
+    rate_.emplace_back(1);
   }
 
   const bool isWiggleFactorValid =
-      (rate[0] == 1 && wiggleFactorMinimum == 1.0) ||
-      (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate[0]));
+      (rate_[0] == 1 && wiggleFactorMinimum == 1.0) ||
+      (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate_[0]));
   if (!isWiggleFactorValid) {
     logError() << "Minimal wiggle factor of " << wiggleFactorMinimum << "is not valid for rate"
-               << rate;
+               << rate_;
   }
   if (maxNumberOfClusters <= 0) {
     logError() << "At least one cluster is required. Settings ltsMaxNumberOfClusters is invalid.";
@@ -128,31 +162,51 @@ LtsParameters::LtsParameters(const std::vector<uint64_t>& rates,
   if (allowedPerformanceLossRatioAutoMerge < 1.0) {
     logError() << "Negative performance loss for auto merge is invalid.";
   }
+  if (costUpdate_ <= 0.0) {
+    logError() << "The LTS update cost has to be positive.";
+  }
+  if (costLaunch_ < 0.0 || costFill_ < 0.0) {
+    logError() << "The LTS launch cost and fill threshold must not be negative.";
+  }
+  if (maxRate_ == 1) {
+    logError() << "A maximum LTS rate of 1 would forbid any clustering.";
+  }
+  if (clusteringSearch_ != LtsClusteringSearch::Lattice && maxRate_ != 0) {
+    logWarning() << "ltsMaxRate only has an effect for the lattice clustering search; ignoring it.";
+  }
 }
 
-bool LtsParameters::isWiggleFactorUsed() const { return wiggleFactorMinimum < 1.0; }
+bool LtsParameters::isWiggleFactorUsed() const { return wiggleFactorMinimum_ < 1.0; }
 
-std::vector<uint64_t> LtsParameters::getRate() const { return rate; }
+std::vector<uint64_t> LtsParameters::getRate() const { return rate_; }
 
-LtsWeightsTypes LtsParameters::getLtsWeightsType() const { return ltsWeightsType; }
+LtsWeightsTypes LtsParameters::getLtsWeightsType() const { return ltsWeightsType_; }
 
-double LtsParameters::getWiggleFactorMinimum() const { return wiggleFactorMinimum; }
+double LtsParameters::getWiggleFactorMinimum() const { return wiggleFactorMinimum_; }
 
-double LtsParameters::getWiggleFactorStepsize() const { return wiggleFactorStepsize; }
+double LtsParameters::getWiggleFactorStepsize() const { return wiggleFactorStepsize_; }
 
 bool LtsParameters::getWiggleFactorEnforceMaximumDifference() const {
-  return wiggleFactorEnforceMaximumDifference;
+  return wiggleFactorEnforceMaximumDifference_;
 }
 
-int LtsParameters::getMaxNumberOfClusters() const { return maxNumberOfClusters; }
+int LtsParameters::getMaxNumberOfClusters() const { return maxNumberOfClusters_; }
 
-bool LtsParameters::isAutoMergeUsed() const { return autoMergeClusters; }
+bool LtsParameters::isAutoMergeUsed() const { return autoMergeClusters_; }
 
 double LtsParameters::getAllowedPerformanceLossRatioAutoMerge() const {
-  return allowedPerformanceLossRatioAutoMerge;
+  return allowedPerformanceLossRatioAutoMerge_;
 }
 AutoMergeCostBaseline LtsParameters::getAutoMergeCostBaseline() const {
-  return autoMergeCostBaseline;
+  return autoMergeCostBaseline_;
+}
+
+LtsClusteringSearch LtsParameters::getClusteringSearch() const { return clusteringSearch_; }
+
+std::uint64_t LtsParameters::getMaxRate() const { return maxRate_; }
+
+ClusterCostModel LtsParameters::getClusterCostModel() const {
+  return ClusterCostModel{costUpdate_, costLaunch_, costFill_};
 }
 
 TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeight,
@@ -165,10 +219,12 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("discretization");
-  const auto weightElement = reader->readWithDefault("vertexweightelement", 100);
-  const auto weightDynamicRupture = reader->readWithDefault("vertexweightdynamicrupture", 100);
-  const auto weightFreeSurfaceWithGravity =
-      reader->readWithDefault("vertexweightfreesurfacewithgravity", 100);
+  const auto weightElement =
+      static_cast<std::uint64_t>(reader->readWithDefault("vertexweightelement", 100));
+  const auto weightDynamicRupture =
+      static_cast<std::uint64_t>(reader->readWithDefault("vertexweightdynamicrupture", 100));
+  const auto weightFreeSurfaceWithGravity = static_cast<std::uint64_t>(
+      reader->readWithDefault("vertexweightfreesurfacewithgravity", 100));
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 

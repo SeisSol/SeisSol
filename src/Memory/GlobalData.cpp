@@ -8,19 +8,38 @@
 
 #include "GlobalData.h"
 
+#include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/MemoryAllocator.h"
+#include "Model/CommonDatastructures.h"
 #include "Parallel/OpenMP.h"
 
 #include <cassert>
 #include <cstddef>
 #include <yateto.h>
+
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
+namespace seissol::init {
+class wHat;
+class timeInt;
+} // namespace seissol::init
+
+namespace seissol::tensor {
+class wHat;
+class timeInt;
+} // namespace seissol::tensor
 
 namespace seissol::initializer {
 namespace matrixmanip {
@@ -31,6 +50,9 @@ MemoryProperties OnHost::getProperties() {
 
 void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+    // TODO: move this initialization somewhere else, e.g. into the matrix files
+
+    // NOLINTNEXTLINE (cppcoreguidelines-pro-type-const-cast)
     real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
     for (unsigned i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
       matrix[i] *= -1.0;
@@ -45,7 +67,7 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
   const auto numThreads = OpenMP::threadCount();
-  const auto allocSize = 4 * static_cast<std::size_t>(tensor::I::size());
+  const auto allocSize = Cell::NumFaces * kernels::Solver::BuffersSize;
   auto* integrationBufferLTS = reinterpret_cast<real*>(
       allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 
@@ -79,6 +101,7 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     const real scaleFactor = -1.0;
     device.algorithms.scaleArray(
+        // NOLINTNEXTLINE (cppcoreguidelines-pro-type-const-cast)
         const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
         scaleFactor,
         init::kDivMT::size(transposedStiffness),
@@ -139,19 +162,19 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   globalMatrixMemSize +=
       yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(prop.alignment));
 
-#ifdef USE_VISCOELASTIC2
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::selectAne::size(), yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::selectEla::size(), yateto::alignedReals<real>(prop.alignment));
-#endif
-
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   globalMatrixMemSize +=
       yateto::computeFamilySize<init::plusFluxMatrices>(yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize += yateto::computeFamilySize<init::minusFluxMatrices>(
       yateto::alignedReals<real>(prop.alignment));
 #endif // ACL_DEVICE
+
+  if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    globalMatrixMemSize += yateto::alignedUpper(kernels::size<tensor::wHat>(),
+                                                yateto::alignedReals<real>(prop.alignment));
+    globalMatrixMemSize += yateto::alignedUpper(kernels::size<tensor::timeInt>(),
+                                                yateto::alignedReals<real>(prop.alignment));
+  }
 
   globalMatrixMemSize +=
       yateto::alignedUpper(tensor::resample::size(), yateto::alignedReals<real>(prop.alignment));
@@ -191,19 +214,19 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   copyManager.template copyTensorToMemAndSetPtr<init::projectQP>(
       globalMatrixMemPtr, globalData.projectQPMatrix, prop.alignment);
 
-#ifdef USE_VISCOELASTIC2
-  copyManager.template copyTensorToMemAndSetPtr<init::selectAne>(
-      globalMatrixMemPtr, globalData.selectAne, prop.alignment);
-  copyManager.template copyTensorToMemAndSetPtr<init::selectEla>(
-      globalMatrixMemPtr, globalData.selectEla, prop.alignment);
-#endif
-
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   copyManager.template copyFamilyToMemAndSetPtr<init::plusFluxMatrices>(
       globalMatrixMemPtr, globalData.plusFluxMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::minusFluxMatrices>(
       globalMatrixMemPtr, globalData.minusFluxMatrices, prop.alignment);
 #endif // ACL_DEVICE
+
+  if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    copyManager.template copyTensorToMemAndSetPtr<init::wHat>(
+        globalMatrixMemPtr, globalData.stpZero, prop.alignment);
+    copyManager.template copyTensorToMemAndSetPtr<init::timeInt>(
+        globalMatrixMemPtr, globalData.stpInt, prop.alignment);
+  }
 
   copyManager.template copyTensorToMemAndSetPtr<init::resample>(
       globalMatrixMemPtr, globalData.resampleMatrix, prop.alignment);

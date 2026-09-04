@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Local.h"
+#include "Monitoring/Metric.h"
 
 #include <memory>
 #pragma GCC diagnostic push
@@ -33,11 +34,9 @@ namespace seissol::kernels::solver::linearck {
 class Local : public LocalKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+  void computeIntegral(real* timeIntegratedDoFs,
                        LTS::Ref& data,
                        LocalTmp& tmp,
-                       const CellMaterialData* materialData,
-                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
                        double time,
                        double timeStepWidth) override;
 
@@ -54,28 +53,26 @@ class Local : public LocalKernel {
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                     std::uint64_t& nonZeroFlops,
-                     std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesIntegral() override;
+  [[nodiscard]] PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
-  kernel::volume m_volumeKernelPrototype;
-  kernel::localFlux m_localFluxKernelPrototype;
-  kernel::localFluxNodal m_nodalLfKrnlPrototype;
+  kernel::volume volumeKernelPrototype_;
+  kernel::localFlux localFluxKernelPrototype_;
+  kernel::localFluxNodal nodalLfKrnlPrototype_;
 
-  kernel::projectToNodalBoundary m_projectKrnlPrototype;
-  kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
+  kernel::projectToNodalBoundary projectKrnlPrototype_;
+  kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
 
-  kernels::DirichletBoundary dirichletBoundary;
+  kernels::DirichletBoundary dirichletBoundary_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volume deviceVolumeKernelPrototype;
-  kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
-  kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
-  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  kernel::gpu_volume deviceVolumeKernelPrototype_;
+  kernel::gpu_localFlux deviceLocalFluxKernelPrototype_;
+  kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype_;
+  kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
+  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };
 

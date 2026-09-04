@@ -26,12 +26,13 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/Metric.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <array>
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 
 namespace seissol::proxy {
@@ -60,21 +61,11 @@ void ProxyKernelHostAder::run(ProxyData& data,
 }
 auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
-  ret.nonzeroFlop = 0;
-  ret.hardwareFlop = 0;
 
-  // iterate over cells
   const auto nrOfCells = data.ltsStorage.layer(data.layerId).size();
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
-    std::uint64_t nonZeroFlops = 0;
-    std::uint64_t hardwareFlops = 0;
-    // get flops
-    data.spacetimeKernel.flopsAder(nonZeroFlops, hardwareFlops);
-    ret.nonzeroFlop += nonZeroFlops;
-    ret.hardwareFlop += hardwareFlops;
+    ret += data.spacetimeKernel.metrics();
   }
-
-  ret.bytes = static_cast<std::size_t>(data.spacetimeKernel.bytesAder() * nrOfCells);
 
   return ret;
 }
@@ -94,30 +85,21 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
-      data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
+      data.localKernel.computeIntegral(buffers[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("localwoader");
   }
 }
 auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
-  ret.nonzeroFlop = 0.0;
-  ret.hardwareFlop = 0.0;
 
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   const auto* cellInformation = layer.var<LTS::CellInformation>();
+
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
-    std::uint64_t nonZeroFlops = 0;
-    std::uint64_t hardwareFlops = 0;
-    data.localKernel.flopsIntegral(cellInformation[cell].faceTypes, nonZeroFlops, hardwareFlops);
-    ret.nonzeroFlop += nonZeroFlops;
-    ret.hardwareFlop += hardwareFlops;
+    ret += data.localKernel.metrics(cellInformation[cell].faceTypes);
   }
-
-  const auto bytes = data.localKernel.bytesIntegral();
-
-  ret.bytes = static_cast<std::size_t>(nrOfCells * bytes);
 
   return ret;
 }
@@ -142,7 +124,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
           integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
-      data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
+      data.localKernel.computeIntegral(buffers[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("local");
   }
@@ -152,12 +134,12 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
                                   seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real* const(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
-  const CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
+  const auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
+  const auto* drMapping = layer.var<LTS::DRMapping>();
   const CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
-  real* timeIntegrated[4];
-  real* faceNeighborsPrefetch[4];
+  std::array<real*, Cell::NumFaces> timeIntegrated{};
+  std::array<real*, Cell::NumFaces> faceNeighborsPrefetch{};
 
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
@@ -171,18 +153,22 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
-      seissol::kernels::TimeCommon::computeIntegrals(
-          data.timeKernel,
-          cellInformation[cell].ltsSetup,
-          cellInformation[cell].faceTypes,
-          timeCoeffs.data(),
-          timeCoeffs.data(),
-          faceNeighbors[cell],
-          *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-              &data.globalDataOnHost
-                   .integrationBufferLTS[OpenMP::threadId() *
-                                         static_cast<size_t>(tensor::I::size()) * 4]),
-          timeIntegrated);
+
+      std::array<real*, Cell::NumFaces> integrationBuffers{};
+      for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
+        integrationBuffers[i] =
+            &data.globalDataOnHost.integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
+                                                        kernels::Solver::BuffersSize];
+      }
+
+      seissol::kernels::TimeCommon::computeIntegrals(data.timeKernel,
+                                                     cellInformation[cell].ltsSetup,
+                                                     cellInformation[cell].faceTypes,
+                                                     timeCoeffs.data(),
+                                                     timeCoeffs.data(),
+                                                     faceNeighbors[cell],
+                                                     integrationBuffers,
+                                                     timeIntegrated);
 
       faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
                                      ? faceNeighbors[cell][1]
@@ -204,8 +190,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
         faceNeighborsPrefetch[3] = faceNeighbors[cell][3];
       }
 
-      data.neighborKernel.computeNeighborsIntegral(
-          local, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
+      data.neighborKernel.computeNeighborsIntegral(local, timeIntegrated, faceNeighborsPrefetch);
     }
 
     LIKWID_MARKER_STOP("neighboring");
@@ -213,32 +198,17 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 }
 auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
-  ret.nonzeroFlop = 0.0;
-  ret.hardwareFlop = 0.0;
 
-  // iterate over cells
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   const CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
-  const CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
-  for (std::size_t cell = 0; cell < nrOfCells; cell++) {
-    std::uint64_t nonZeroFlops = 0;
-    std::uint64_t hardwareFlops = 0;
-    std::uint64_t drNonZeroFlops = 0;
-    std::uint64_t drHardwareFlops = 0;
-    // get flops
-    data.neighborKernel.flopsNeighborsIntegral(cellInformation[cell].faceTypes,
-                                               cellInformation[cell].faceRelations,
-                                               drMapping[cell],
-                                               nonZeroFlops,
-                                               hardwareFlops,
-                                               drNonZeroFlops,
-                                               drHardwareFlops);
-    ret.nonzeroFlop += nonZeroFlops + drNonZeroFlops;
-    ret.hardwareFlop += hardwareFlops + drHardwareFlops;
-  }
+  const auto* drMapping = layer.var<LTS::DRMapping>();
 
-  ret.bytes = static_cast<std::size_t>(data.neighborKernel.bytesNeighborsIntegral() * nrOfCells);
+  for (std::size_t cell = 0; cell < nrOfCells; cell++) {
+    const auto [cellReg, cellDR] = data.neighborKernel.metrics(
+        cellInformation[cell].faceTypes, cellInformation[cell].faceRelations, drMapping[cell]);
+    ret += cellReg + cellDR;
+  }
 
   return ret;
 }
@@ -275,18 +245,12 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
 }
 auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
   PerformanceEstimate ret;
-  ret.nonzeroFlop = 0.0;
-  ret.hardwareFlop = 0.0;
 
   // iterate over cells
   auto& interior = data.drStorage.layer(data.layerId);
   const DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
   for (std::size_t face = 0; face < interior.size(); ++face) {
-    std::uint64_t drNonZeroFlops = 0;
-    std::uint64_t drHardwareFlops = 0;
-    data.dynRupKernel.flopsGodunovState(faceInformation[face], drNonZeroFlops, drHardwareFlops);
-    ret.nonzeroFlop += drNonZeroFlops;
-    ret.hardwareFlop += drHardwareFlops;
+    ret += data.dynRupKernel.metrics(faceInformation[face]);
   }
 
   return ret;

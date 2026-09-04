@@ -26,8 +26,8 @@ public:
     void complete();
 
 private:
-    bool completed{false};
-    std::function<void()> completion;
+    bool completed_{false};
+    std::function<void()> completion_;
   };
 
   explicit Distributor(MPI_Comm comm);
@@ -67,11 +67,11 @@ private:
                     const std::optional<std::function<void(void*, const void*)>>& transform);
 
   private:
-  std::vector<std::size_t> sendOffsets;
-  std::vector<std::size_t> recvOffsets;
-  std::vector<std::size_t> sendReorder;
-  std::vector<std::size_t> recvReorder;
-  MPI_Comm comm;
+  std::vector<std::size_t> sendOffsets_;
+  std::vector<std::size_t> recvOffsets_;
+  std::vector<std::size_t> sendReorder_;
+  std::vector<std::size_t> recvReorder_;
+  MPI_Comm comm_;
 };
 } // namespace seissol::io::reader
 

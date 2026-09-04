@@ -21,7 +21,7 @@ struct TestDescriptor {
   struct Scratchpad : public initializer::Scratchpad<float> {};
 };
 
-TEST_CASE("Storage") {
+TEST_CASE("Storage" * doctest::test_suite("memory")) {
   initializer::Storage<initializer::GenericVarmap> storage;
 
   // NOTE: the LTSColorMap is hard-coded to the storage right now.
@@ -31,13 +31,16 @@ TEST_CASE("Storage") {
       initializer::EnumLayer(std::vector<std::size_t>{1, 2, 3}),
       initializer::TraitLayer(std::vector<initializer::ConfigVariant>{Config()}));
 
-  storage.add<TestDescriptor::Var1>(Ghost, 1, initializer::AllocationMode::HostOnly);
-  storage.add<TestDescriptor::Var2>(Copy, 4, initializer::AllocationMode::HostOnly);
-  storage.add<TestDescriptor::Var3>(Interior, 8, initializer::AllocationMode::HostOnly);
+  constexpr auto Alignment1 = sizeof(void*);
+  constexpr auto Alignment2 = sizeof(void*) * 4;
+
+  storage.add<TestDescriptor::Var1>(Ghost, Alignment1, initializer::AllocationMode::HostOnly);
+  storage.add<TestDescriptor::Var2>(Copy, Alignment2, initializer::AllocationMode::HostOnly);
+  storage.add<TestDescriptor::Var3>(Interior, Alignment2, initializer::AllocationMode::HostOnly);
   storage.add<TestDescriptor::Bucket>(
-      initializer::LayerMask(), 1, initializer::AllocationMode::HostOnly);
+      initializer::LayerMask(), Alignment1, initializer::AllocationMode::HostOnly);
   storage.add<TestDescriptor::Scratchpad>(
-      initializer::LayerMask(), 1, initializer::AllocationMode::HostOnly);
+      initializer::LayerMask(), Alignment1, initializer::AllocationMode::HostOnly);
 
   storage.setLayerCount(colorMap);
 
@@ -46,9 +49,9 @@ TEST_CASE("Storage") {
   storage.fixate();
 
   for (const auto [i, layer] : common::enumerate(storage.leaves())) {
-    REQUIRE(layer.getIdentifier().lts == colorMap.argument(i).lts);
-    REQUIRE(layer.getIdentifier().halo == colorMap.argument(i).halo);
-    REQUIRE(layer.getIdentifier().config.index() == colorMap.argument(i).config.index());
+    CHECK(layer.getIdentifier().lts == colorMap.argument(i).lts);
+    CHECK(layer.getIdentifier().halo == colorMap.argument(i).halo);
+    CHECK(layer.getIdentifier().config.index() == colorMap.argument(i).config.index());
   }
 
   for (auto [i, layer] : common::enumerate(storage.leaves())) {
@@ -59,7 +62,7 @@ TEST_CASE("Storage") {
   storage.touchVariables();
 
   for (const auto [i, layer] : common::enumerate(storage.leaves())) {
-    REQUIRE(layer.size() == i + 1);
+    CHECK(layer.size() == i + 1);
   }
 
   storage.allocateBuckets();

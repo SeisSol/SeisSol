@@ -21,22 +21,26 @@ struct GhostTimeClusterFactory {
   public:
   static std::unique_ptr<AbstractGhostTimeCluster>
       get(double maxTimeStepSize,
-          int timeStepRate,
-          int globalTimeClusterId,
-          int otherGlobalTimeClusterId,
+          std::uint64_t timeStepRate,
+          std::size_t globalTimeClusterId,
+          std::size_t otherGlobalTimeClusterId,
+          const std::string& displayName,
+          const std::string& otherDisplayName,
           const solver::HaloCommunication& meshStructure,
           Mpi::DataTransferMode mode,
           bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
     case Mpi::DataTransferMode::CopyInCopyOutHost: {
-      using ghostCluster_t = GhostTimeClusterWithCopy<Mpi::DataTransferMode::CopyInCopyOutHost>;
-      return std::make_unique<ghostCluster_t>(maxTimeStepSize,
-                                              timeStepRate,
-                                              globalTimeClusterId,
-                                              otherGlobalTimeClusterId,
-                                              meshStructure,
-                                              persistent);
+      using GhostClusterT = GhostTimeClusterWithCopy<Mpi::DataTransferMode::CopyInCopyOutHost>;
+      return std::make_unique<GhostClusterT>(maxTimeStepSize,
+                                             timeStepRate,
+                                             globalTimeClusterId,
+                                             otherGlobalTimeClusterId,
+                                             displayName,
+                                             otherDisplayName,
+                                             meshStructure,
+                                             persistent);
     }
 #endif // ACL_DEVICE
     case Mpi::DataTransferMode::Direct: {
@@ -44,6 +48,8 @@ struct GhostTimeClusterFactory {
                                                       timeStepRate,
                                                       globalTimeClusterId,
                                                       otherGlobalTimeClusterId,
+                                                      displayName,
+                                                      otherDisplayName,
                                                       meshStructure,
                                                       persistent);
     }

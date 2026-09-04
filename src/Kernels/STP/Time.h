@@ -15,6 +15,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
+#include "Monitoring/Metric.h"
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -29,48 +30,40 @@ class Spacetime : public SpacetimeKernel {
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
+                          LTS::Layer& layer,
                           LocalTmp& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
                           recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesAder() override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
 
   private:
-  void executeSTP(double timeStepWidth,
-                  LTS::Ref& data,
-                  real timeIntegrated[tensor::I::size()],
-                  real* stp);
+  void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
 
-  kernel::spaceTimePredictor m_krnlPrototype;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  kernel::spaceTimePredictor krnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  kernel::gpu_spaceTimePredictor deviceKrnlPrototype_;
 #endif
 };
 
 class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void evaluate(const real* coeffs,
-                const real* timeDerivatives,
-                real timeEvaluated[tensor::I::size()]) override;
+  void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,
                        std::size_t numElements,
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
-  void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
 };
 
 } // namespace seissol::kernels::solver::stp

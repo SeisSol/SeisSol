@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_GEOMETRY_MESHDEFINITION_H_
 
 #include "Common/Constants.h"
+#include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>
 #include <vector>
@@ -25,7 +26,7 @@ using ElemVertices = LocalVertexId[Cell::NumVertices];
 using ElemNeighbors = LocalElemId[Cell::NumFaces];
 using ElemNeighborSides = SideId[Cell::NumFaces];
 using ElemSideOrientations = int[Cell::NumFaces];
-using ElemBoundaries = int[Cell::NumFaces];
+using ElemBoundaries = FaceType[Cell::NumFaces];
 using ElemNeighborRanks = int[Cell::NumFaces]; // type prescribed by MPI
 /** The index of this element (side) in the communication array */
 using ElemMPIIndices = int[Cell::NumFaces];
@@ -49,7 +50,7 @@ struct Element {
   /** Material of the element */
   ElemGroup group;
   ElemFaultTags faultTags; // member of struct Element
-  int clusterId;
+  std::size_t clusterId;
   double timestep;
 };
 

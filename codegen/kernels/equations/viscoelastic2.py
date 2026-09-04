@@ -92,39 +92,6 @@ class Viscoelastic2ADERDG(ADERDGBase):
             memoryLayoutClass=CSCMemoryLayout,
         )
 
-        selectElaSpp = np.zeros(
-            (self.numberOfExtendedQuantities(), self.numberOfQuantities())
-        )
-        selectElaSpp[0 : self.numberOfQuantities(), 0 : self.numberOfQuantities()] = (
-            np.eye(self.numberOfQuantities())
-        )
-        self.selectEla = Tensor(
-            "selectEla",
-            (self.numberOfExtendedQuantities(), self.numberOfQuantities()),
-            selectElaSpp,
-            CSCMemoryLayout,
-        )
-
-        selectAneSpp = np.zeros(
-            (
-                self.numberOfExtendedQuantities(),
-                self.numberOfAnelasticQuantities(),
-            )
-        )
-        selectAneSpp[
-            self.numberOfQuantities() : self.numberOfExtendedQuantities(),
-            0 : self.numberOfAnelasticQuantities(),
-        ] = np.eye(self.numberOfAnelasticQuantities())
-        self.selectAne = Tensor(
-            "selectAne",
-            (
-                self.numberOfExtendedQuantities(),
-                self.numberOfAnelasticQuantities(),
-            ),
-            selectAneSpp,
-            CSCMemoryLayout,
-        )
-
         self.db.update(
             parseJSONMatrixFile(
                 "{}/nodal/nodalBoundary_matrices_{}.json".format(
@@ -286,18 +253,42 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 target=target,
             )
 
+            local_ops = [
+                self.Qane["kpm"]
+                <= self.Qane["kpm"]
+                + self.w["m"]
+                * self.Qext["kp"].subslice(
+                    "p",
+                    self.numberOfQuantities(),
+                    self.numberOfExtendedQuantities(),
+                )
+                + self.Iane["kpl"] * self.W["lm"],
+                self.Q["kp"]
+                <= self.Q["kp"]
+                + self.Qext["kp"].subslice("p", 0, self.numberOfQuantities())
+                + self.Iane["kqm"] * self.E["qmp"],
+            ]
             generator.add(
                 f"{name_prefix}local",
-                [
-                    self.Qane["kpm"]
-                    <= self.Qane["kpm"]
-                    + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"]
-                    + self.Iane["kpl"] * self.W["lm"],
-                    self.Q["kp"]
-                    <= self.Q["kp"]
-                    + self.Qext["kq"] * self.selectEla["qp"]
-                    + self.Iane["kqm"] * self.E["qmp"],
-                ],
+                local_ops,
+                target=target,
+            )
+
+            flux_ops = [
+                self.Qext["kp"]
+                <= sum(
+                    [
+                        plusFluxMatrixAccessor(i)
+                        * self.I["lq"]
+                        * self.AplusTAll[i]["qp"]
+                        for i in range(4)
+                    ],
+                    start=self.Qext["kp"],
+                )
+            ]
+            generator.add(
+                f"{name_prefix}fluxLocalAll",
+                flux_ops + local_ops,
                 target=target,
             )
 
@@ -341,9 +332,15 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 [
                     self.Qane["kpm"]
                     <= self.Qane["kpm"]
-                    + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"],
+                    + self.w["m"]
+                    * self.Qext["kp"].subslice(
+                        "p",
+                        self.numberOfQuantities(),
+                        self.numberOfExtendedQuantities(),
+                    ),
                     self.Q["kp"]
-                    <= self.Q["kp"] + self.Qext["kq"] * self.selectEla["qp"],
+                    <= self.Q["kp"]
+                    + self.Qext["kp"].subslice("p", 0, self.numberOfQuantities()),
                 ],
                 target=target,
             )
@@ -417,18 +414,34 @@ class Viscoelastic2ADERDG(ADERDGBase):
             # which are smaller than the whole tensor families
             # (even indices share the same buffer,
             # and odd indices share the same buffer)
-            derivativeExpr = [
-                self.I["kp"] <= powers[0] * dQ[0]["kp"],
+
+            if target == "gpu":
+                derivativeExpr = [
+                    dQ[0]["kp"] <= self.Q["kp"],
+                    self.I["kp"] <= powers[0] * self.Q["kp"],  # == dQ[0]
+                ]
+            else:
+                derivativeExpr = [
+                    self.I["kp"] <= powers[0] * dQ[0]["kp"],
+                ]
+
+            derivativeExpr += [
                 self.Iane["kpm"] <= powers[0] * dQane[0]["kpm"],
             ]
+
             for d in range(1, self.order):
                 derivativeExpr += [
                     dQext[d]["kp"] <= derivative(d),
                     dQ[d]["kp"]
-                    <= dQext[d]["kq"] * self.selectEla["qp"]
+                    <= dQext[d]["kp"].subslice("p", 0, self.numberOfQuantities())
                     + dQane[d - 1]["kqm"] * self.E["qmp"],
                     dQane[d]["kpm"]
-                    <= self.w["m"] * dQext[d]["kq"] * self.selectAne["qp"]
+                    <= self.w["m"]
+                    * dQext[d]["kp"].subslice(
+                        "p",
+                        self.numberOfQuantities(),
+                        self.numberOfExtendedQuantities(),
+                    )
                     + dQane[d - 1]["kpl"] * self.W["lm"],
                     self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
                     self.Iane["kpm"] <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],

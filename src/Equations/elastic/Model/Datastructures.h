@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 
+#include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/LinearCK/Solver.h"
@@ -19,6 +20,7 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol::model {
@@ -47,6 +49,8 @@ struct ElasticMaterial : Material {
   double lambda{};
   double mu{};
 
+  static const std::unordered_map<std::string, double ElasticMaterial::*> ParameterMap;
+
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
   [[nodiscard]] double getMuBar() const override { return mu; }
@@ -55,12 +59,15 @@ struct ElasticMaterial : Material {
   explicit ElasticMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(2)), mu(materialValues.at(1)) {}
 
+  explicit ElasticMaterial(const AcousticMaterial& acoustic)
+      : Material(acoustic.rho), lambda(acoustic.lambda) {}
+
   ~ElasticMaterial() override = default;
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
 
     auto stiffnessTensorView =
-        seissol_general::init::stiffnessTensor::view::create(fullTensor.data());
+        seissol::general::init::stiffnessTensor::view::create(fullTensor.data());
     stiffnessTensorView.setZero();
     stiffnessTensorView(0, 0, 0, 0) = lambda + 2 * mu;
     stiffnessTensorView(0, 0, 1, 1) = lambda;
@@ -97,6 +104,12 @@ struct ElasticMaterial : Material {
     this->lambda = lambda;
   }
 };
+
+inline const std::unordered_map<std::string, double ElasticMaterial::*>
+    ElasticMaterial::ParameterMap{{"rho", &ElasticMaterial::rho},
+                                  {"lambda", &ElasticMaterial::lambda},
+                                  {"mu", &ElasticMaterial::mu}};
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_

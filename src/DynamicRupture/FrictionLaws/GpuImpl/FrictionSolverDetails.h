@@ -17,21 +17,37 @@ namespace seissol::dr::friction_law::gpu {
 
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
-  explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
-  ~FrictionSolverDetails() override;
+  explicit FrictionSolverDetails(const FrictionLawParameters& drParameters)
+      : FrictionSolverInterface(drParameters) {}
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override;
+  ~FrictionSolverDetails() override = default;
+
+  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+    // call the device module directly here
+    {
+#ifdef ACL_DEVICE
+      data_ = reinterpret_cast<FrictionLawData*>(
+          device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(FrictionLawData)));
+#endif
+    }
+
+    resampleMatrix_ = globalData->resampleMatrix;
+    devSpaceWeights_ = globalData->spaceWeights;
+    devTpInverseFourierCoefficients_ = globalData->tpInverseFourierCoefficients;
+    devHeatSource_ = globalData->heatSource;
+    devTpGridPoints_ = globalData->tpGridPoints;
+  }
 
   protected:
-  size_t currLayerSize{};
+  size_t currLayerSize_{};
 
-  real* resampleMatrix{nullptr};
-  real* devSpaceWeights{nullptr};
-  real* devTpInverseFourierCoefficients{nullptr};
-  real* devTpGridPoints{nullptr};
-  real* devHeatSource{nullptr};
+  real* resampleMatrix_{nullptr};
+  real* devSpaceWeights_{nullptr};
+  real* devTpInverseFourierCoefficients_{nullptr};
+  real* devTpGridPoints_{nullptr};
+  real* devHeatSource_{nullptr};
 
-  FrictionLawData* data{nullptr};
+  FrictionLawData* data_{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

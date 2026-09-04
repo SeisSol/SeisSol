@@ -14,6 +14,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Kernel.h"
+#include "Monitoring/Metric.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -38,9 +39,7 @@ class TimeKernel : public Kernel {
     @param timeDerivatives A pointer to the input space-time data.
     @param timeEvaluated A pointer to the returned time-evaluated data.
   */
-  virtual void evaluate(const real* coeffs,
-                        const real* timeDerivatives,
-                        real timeEvaluated[tensor::I::size()]) = 0;
+  virtual void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) = 0;
 
   /**
     @brief Evaluates a given space-time representation in time.
@@ -59,7 +58,7 @@ class TimeKernel : public Kernel {
                                real** timeIntegratedDofs,
                                std::size_t numElements,
                                seissol::parallel::runtime::StreamRuntime& runtime) = 0;
-  virtual void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
+  [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
 };
 
 } // namespace seissol::kernels

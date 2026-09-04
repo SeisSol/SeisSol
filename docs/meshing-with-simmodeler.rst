@@ -28,6 +28,9 @@ customized <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloading
 SimModeler version
 ------------------
 
+In most cases, we strongly recommend using
+the latest version of SimModeler.
+
 We have used several versions of SimModeler so far.
 Sometimes, quality meshes can be obtained on older versions of SimModeler
 whereas the latest version of SimModeler is not able to get quality
@@ -35,8 +38,7 @@ meshes (in that case the support of SimModeler is very reactive and
 helpful). It is then important to notice that smd file created in older
 versions of SimModeler can be read in all SimModeler versions. On the
 other hand, smd file from the latest SimModeler releases are not
-backward compatible. Anyway, in most cases, we strongly recommend using
-the latest version of SimModeler.
+backward compatible.
 
 Discrete tab
 ------------

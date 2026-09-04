@@ -9,7 +9,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test generation of Gauss Jacobi quadrature points") {
+TEST_CASE("Test generation of Gauss Jacobi quadrature points" * doctest::test_suite("numerical")) {
   constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 10;
   double points[5];
   double weights[5];
@@ -27,7 +27,7 @@ TEST_CASE("Test generation of Gauss Jacobi quadrature points") {
   CHECK(weights[4] == AbsApprox(0.024566464443197594119).epsilon(Epsilon));
 }
 
-TEST_CASE("test triangle quadrature") {
+TEST_CASE("test triangle quadrature" * doctest::test_suite("numerical")) {
   constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 10;
 
   double points[4][2];

@@ -7,6 +7,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 
 #include "Geometry/MeshReader.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/StableSum.h"
 #include "Numerical/Statistics.h"
@@ -39,14 +40,14 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
               << "±" << summary.std << "; range: [" << summary.min << ";" << summary.max << "])";
   }
 
-  std::uint64_t maxLtsId = 0;
+  std::size_t maxLtsId = 0;
   double minimumTimestep = std::numeric_limits<double>::max();
   for (const auto& element : mesh.getElements()) {
-    maxLtsId = std::max(maxLtsId, static_cast<std::uint64_t>(element.clusterId));
+    maxLtsId = std::max(maxLtsId, element.clusterId);
     minimumTimestep = std::min(minimumTimestep, element.timestep);
   }
   MPI_Allreduce(
-      MPI_IN_PLACE, &maxLtsId, 1, Mpi::castToMpiType<std::uint64_t>(), MPI_MAX, Mpi::mpi.comm());
+      MPI_IN_PLACE, &maxLtsId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
   MPI_Allreduce(MPI_IN_PLACE, &minimumTimestep, 1, MPI_DOUBLE, MPI_MIN, Mpi::mpi.comm());
   if (wiggle == 1) {
     if (infoprint) {
@@ -74,18 +75,18 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
     numerical::StableAccumulator<double> timefactorELTS;
     numerical::StableAccumulator<double> timefactorCLTS;
     for (const auto& element : mesh.getElements()) {
-      ++clusters[static_cast<std::size_t>(element.clusterId)];
+      ++clusters[element.clusterId];
       for (int i = 0; i < 4; ++i) {
-        if (element.boundaries[i] == 3) {
-          ++clustersDR[static_cast<std::size_t>(element.clusterId)];
+        if (element.boundaries[i] == FaceType::DynamicRupture) {
+          ++clustersDR[element.clusterId];
         }
       }
 
-      const auto elts = element.timestep * wiggle;
-      const auto clts = layout.timestepRate(static_cast<std::size_t>(element.clusterId));
+      const auto elts = element.timestep;
+      const auto clts = layout.timestepRate(element.clusterId);
 
-      timefactorELTS += elts;
-      timefactorCLTS += clts;
+      timefactorELTS += elts * wiggle;
+      timefactorCLTS += clts * wiggle;
     }
     MPI_Allreduce(MPI_IN_PLACE,
                   clusters.data(),

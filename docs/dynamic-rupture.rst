@@ -37,8 +37,11 @@ Definitions
    the effect of pore pressurization)
 -  Reference point = defines dip direction, starting point of the normal
    vector n pointing towards the fault, at +y
--  Note: SCEC benchmark descriptions define normal stress as positive in
-   compression, opposite to SeisSol 3D convention.
+
+.. note::
+
+  SCEC benchmark descriptions define normal stress as positive in
+  compression, opposite to SeisSol 3D convention.
 
 Fault geometry
 ^^^^^^^^^^^^^^

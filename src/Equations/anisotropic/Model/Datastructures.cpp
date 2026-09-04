@@ -33,10 +33,9 @@ double AnisotropicMaterial::getMuBar() const { return (c44 + c55 + c66) / 3.0; }
 AnisotropicMaterial::AnisotropicMaterial() = default;
 
 AnisotropicMaterial::AnisotropicMaterial(const ElasticMaterial& m)
-    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c22(m.lambda + 2 * m.mu),
-      c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu), c66(m.mu) {
-  rho = m.rho;
-}
+    : Material(m.rho), c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda),
+      c22(m.lambda + 2 * m.mu), c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu),
+      c66(m.mu) {}
 
 AnisotropicMaterial::AnisotropicMaterial(const std::vector<double>& materialValues)
     : Material(materialValues), c11(materialValues.at(1)), c12(materialValues.at(2)),
@@ -52,7 +51,7 @@ AnisotropicMaterial::~AnisotropicMaterial() = default;
 
 void AnisotropicMaterial::getFullStiffnessTensor(std::array<double, 81>& fullTensor) const {
   auto stiffnessTensorView =
-      seissol_general::init::stiffnessTensor::view::create(fullTensor.data());
+      seissol::general::init::stiffnessTensor::view::create(fullTensor.data());
   stiffnessTensorView.setZero();
   stiffnessTensorView(0, 0, 0, 0) = c11;
   stiffnessTensorView(0, 0, 0, 1) = c16;
@@ -143,8 +142,8 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
   // An analytic solution for the maximal wave speed is hard to obtain.
   // Instead of solving an optimization problem we sample the velocitiy for
   // different directions and take the maximum.
-  auto samplingDirections = seissol_general::init::samplingDirections::view::create(
-      const_cast<double*>(seissol_general::init::samplingDirections::Values));
+  const auto samplingDirections = seissol::general::init::samplingDirections::view::create(
+      seissol::general::init::samplingDirections::Values);
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
 
@@ -152,7 +151,7 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
 
   std::array<double, 81> fullTensor{};
   getFullStiffnessTensor(fullTensor);
-  seissol_general::kernel::computeChristoffel computeChristoffel;
+  seissol::general::kernel::computeChristoffel computeChristoffel;
   computeChristoffel.stiffnessTensor = fullTensor.data();
 
   for (unsigned j = 0; j < 200; ++j) {

@@ -32,8 +32,8 @@ struct SIUnit {
       formatScientific(double value, std::optional<double> error = {}, int digits = 4) const;
 
   private:
-  std::string unit;
-  bool binary;
+  std::string unit_;
+  bool binary_;
 };
 
 const inline SIUnit UnitTime = SIUnit("s", false);
@@ -43,6 +43,7 @@ const inline SIUnit UnitEnergy = SIUnit("J", false);
 const inline SIUnit UnitMoment = SIUnit("Nm", false);
 const inline SIUnit UnitMomentum = SIUnit("Ns", false);
 const inline SIUnit UnitByte = SIUnit("B", true);
+const inline SIUnit UnitBytePerS = SIUnit("B/s", true);
 } // namespace seissol
 
 #endif // SEISSOL_SRC_MONITORING_UNIT_H_

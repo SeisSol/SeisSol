@@ -44,7 +44,7 @@ struct ProxyData {
   real* fakeDerivatives = nullptr;
   real* fakeDerivativesHost = nullptr;
 
-  typename kernels::Solver::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
+  kernels::Solver::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
 
   kernels::Spacetime spacetimeKernel;
   kernels::Time timeKernel;

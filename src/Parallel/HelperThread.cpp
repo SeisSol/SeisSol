@@ -18,27 +18,27 @@
 namespace seissol::parallel {
 
 HelperThread::HelperThread(std::function<bool()> function, const Pinning* pinning)
-    : function(std::move(function)), pinning(pinning), isFinished(false), shouldReset(false) {}
+    : function_(std::move(function)), pinning_(pinning), isFinished_(false), shouldReset_(false) {}
 
-[[nodiscard]] bool HelperThread::finished() const { return isFinished.load(); }
+[[nodiscard]] bool HelperThread::finished() const { return isFinished_.load(); }
 
 void HelperThread::stop() {
   // Send signal to the helper thread to finish and wait
-  shouldReset.store(true);
-  if (thread.joinable()) {
-    thread.join();
+  shouldReset_.store(true);
+  if (thread_.joinable()) {
+    thread_.join();
   }
 }
 
 void HelperThread::start() {
-  if (!thread.joinable()) {
+  if (!thread_.joinable()) {
     // Reset flags and reset ghost clusters
-    shouldReset.store(false);
-    isFinished.store(false);
+    shouldReset_.store(false);
+    isFinished_.store(false);
 
     // Start a new helper thread.
     // Note: Easier than keeping one alive, and not that expensive.
-    thread = std::thread([this]() {
+    thread_ = std::thread([this]() {
 #ifdef ACL_DEVICE
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
       device.api->setDevice(0);
@@ -46,9 +46,9 @@ void HelperThread::start() {
       // Pin this thread to the last core
       // We compute the mask outside the thread because otherwise
       // it confuses profilers and debuggers.
-      pinning->pinToFreeCPUs();
-      while (!shouldReset.load() && !isFinished.load()) {
-        isFinished.store(std::invoke(function));
+      pinning_->pinToFreeCPUs();
+      while (!shouldReset_.load() && !isFinished_.load()) {
+        isFinished_.store(std::invoke(function_));
       }
     });
   }
@@ -60,8 +60,8 @@ void HelperThread::restart() {
 }
 
 HelperThread::~HelperThread() {
-  if (thread.joinable()) {
-    thread.join();
+  if (thread_.joinable()) {
+    thread_.join();
   }
 }
 

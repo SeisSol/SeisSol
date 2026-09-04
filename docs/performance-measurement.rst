@@ -35,25 +35,43 @@ This is mostly due to two reasons:
 
 From the latter point, it follows that only the HW-FLOP depend on the underlying hardware. To note, both the HW-FLOP and the NZ-FLOP depend on the scenario and the equation system to be solved.
 
-During the simulation (at synchronization points), we only print the HW-FLOP/s. After the simulation has finished, we print both the HW-GFLOP and the NZ-GFLOP, as well as
+During the simulation, we print both HW-FLOP/s and NZ-FLOP/s at synchronization points. After the simulation has finished, we print both the cumulative HW-GFLOP and the NZ-GFLOP, as well as
 HW-GLOP/s and NZ-GFLOP/s.
 
-Note that the Dynamic Rupture computation or the Point Sources both are _not_ counted into the HW-/NZ-FLOP numbers at the moment; only the matrix operations do (as used, e.g., during the ADER computation).
+Note that the Dynamic Rupture friction law computation or the Point Sources both are *not* counted into the HW-/NZ-FLOP numbers at the moment; only the matrix operations do (as used, e.g., during the ADER computation).
+
+Kernel Memory Throughput (B/s)
+------------------------------
+
+SeisSol outputs one throughput estimation number, namely the kernel memory throughput.
+
+It consists of all non-constant data that is read and written by a kernel;
+regardless of where the data resides in memory. As such, it is supposed
+to only be an over-estimation over the L2 and main memory bandwidth values.
+
+Constant matrices are assumed to be loaded once at the first kernel launch,
+and reside near the compute units (i.e. in L1 or L0, depending on the nomenclature)
+during all following executions — thus they are not counted in here.
+
+Due to the structure of SeisSol, the kernel memory throughput will work better for GPUs
+than CPUs: on the GPUs (and not on CPUs), a loop over all elements corresponds to a single kernel.
+As such, the kernel memory throughput should lie somewhere between L2 and main memory bandwidth
+for most kernels.
 
 Performance
 -----------
 
 One important value which we usually publish in our papers is the
-performance in "GFLOP/s per node". It comes in the flavor of our two metrics introduced in the previous section:
+performance in "TFLOP/s per node" (formerly "GFLOP/s per node"). It comes in the flavor of our two metrics introduced in the previous section:
 
 .. math::
 
-    \text{HW-GFLOP/s per node }= \frac{\text{HW-GFLOP}}{\text{#nodes } \cdot \text{ elapsed-time}}
+    \text{HW-TFLOP/s per node }= \frac{\text{HW-TFLOP}}{\text{#nodes } \cdot \text{ elapsed-time}}
 
 .. math::
 
-    \text{NZ-GFLOP/s per node }= \frac{\text{NZ-GFLOP}}{\text{#nodes } \cdot \text{ elapsed-time}}
+    \text{NZ-TFLOP/s per node }= \frac{\text{NZ-TFLOP}}{\text{#nodes } \cdot \text{ elapsed-time}}
 
-You can compare these values with the publications in order to see if your performance is ok.
+You can compare these values with the publications in order to see if your performance is in line with what to expect.
 
-Note that, empirically, the "HW-GFLOP/s per node" performance metric is used more often.
+Note that, empirically, the "HW-TFLOP/s per node" performance metric is used more often; especially in relation to the peak hardware performance.

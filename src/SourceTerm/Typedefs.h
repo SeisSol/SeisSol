@@ -94,7 +94,7 @@ struct PointSources {
 
 struct CellToPointSourcesMapping {
   //! Pointer to DOFs (tensor::Q)
-  real* dofs;
+  real* dofs{nullptr};
   //! First point source that has an effect on the cell
   std::size_t pointSourcesOffset{0};
   /** The point sources buffer is ordered by cells, hence the point sources

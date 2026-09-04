@@ -19,8 +19,11 @@
 #include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <complex>
+#include <cstddef>
 #include <limits>
 #include <utils/logger.h>
 
@@ -32,6 +35,67 @@ struct MaterialSetup;
 template <typename T>
 constexpr bool testIfAcoustic(T mu) {
   return std::abs(mu) <= std::numeric_limits<T>::epsilon();
+}
+
+/**
+ * Re-orthonormalizes the eigenvectors belonging to (numerically) degenerate eigenvalues.
+ *
+ * A general eigensolver (LAPACK zgeev, Eigen::ComplexEigenSolver) determines the eigenvectors of a
+ * repeated eigenvalue only up to an arbitrary basis of the corresponding eigenspace, and it makes
+ * no attempt to return a well-conditioned one. In practice it returns a nearly parallel pair: for
+ * the doubly degenerate poroelastic shear eigenvalue the two vectors agree to 1 - |cos| ~ 1e-12,
+ * which drives the condition number of the eigenvector matrix to ~1e12 and caps the accuracy of the
+ * Godunov matrices at ~1e-11 -- independently of which linear solver is used afterwards.
+ *
+ * Replacing a cluster by an orthonormal basis of its span leaves every quantity derived from it
+ * invariant: the Godunov construction only ever forms R * chi * R^-1 with a diagonal 0/1 selector
+ * chi, and such a projector is unchanged when a block of columns that chi treats identically is
+ * right-multiplied by an invertible matrix. To keep that guarantee we never merge eigenvalues
+ * across the sign classification used by the selector -- an eigenvalue close to (but above)
+ * zeroThreshold must not be pulled into the null-space cluster.
+ */
+template <typename T, std::size_t Dim>
+void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim>& eigenpair,
+                                          double zeroThreshold) {
+  constexpr auto Size = static_cast<Eigen::Index>(Dim);
+  using CMatrix = Eigen::Matrix<T, Size, Eigen::Dynamic>;
+
+  const auto signClass = [zeroThreshold](const T& value) -> int {
+    if (value.real() < -zeroThreshold) {
+      return -1;
+    }
+    if (value.real() > zeroThreshold) {
+      return 1;
+    }
+    return 0;
+  };
+
+  double spectralRadius = 1.0;
+  for (std::size_t i = 0; i < Dim; ++i) {
+    spectralRadius = std::max(spectralRadius, std::abs(eigenpair.values[i].real()));
+  }
+  // computeEigenvalues sorts by real part, so a cluster is always a contiguous index range
+  const double clusterTolerance = 1e-8 * spectralRadius;
+
+  auto vectors = Eigen::Map<Eigen::Matrix<T, Size, Size>>(eigenpair.vectors.data());
+
+  std::size_t begin = 0;
+  while (begin < Dim) {
+    std::size_t end = begin;
+    while (end + 1 < Dim &&
+           signClass(eigenpair.values[end + 1]) == signClass(eigenpair.values[begin]) &&
+           std::abs(eigenpair.values[end + 1] - eigenpair.values[begin]) <= clusterTolerance) {
+      ++end;
+    }
+    const auto first = static_cast<Eigen::Index>(begin);
+    const auto width = static_cast<Eigen::Index>(end - begin + 1);
+    if (width > 1) {
+      const CMatrix cluster = vectors.middleCols(first, width);
+      const Eigen::HouseholderQR<CMatrix> qr(cluster);
+      vectors.middleCols(first, width) = qr.householderQ() * CMatrix::Identity(Size, width);
+    }
+    begin = end + 1;
+  }
 }
 
 template <typename Tmaterial, typename Tmatrix>
@@ -92,6 +156,7 @@ void initializeSpecificNeighborData(const T& material,
  * The Bond matrix transforms materials from one orthogonal coordinate system to
  * another one.
  * c.f. 10.1111/j.1365-246X.2007.03381.x
+ * This method is not needed for isotropic materials.
  */
 void getBondMatrix(const VrtxCoords normal,
                    const VrtxCoords tangent1,
@@ -181,8 +246,7 @@ void setBlocks(T qGodLocal, Tmatrix mS, Tarray1 tractionIndices, Tarray2 velocit
 
 template <typename Tmaterial>
 seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
-    seissol::model::getEigenDecomposition(const Tmaterial& material,
-                                          [[maybe_unused]] double zeroThreshold) {
+    seissol::model::getEigenDecomposition(const Tmaterial& material, double zeroThreshold) {
   std::array<std::complex<double>,
              seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
       dataAT;
@@ -204,6 +268,11 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
       eigenpair;
 
   seissol::eigenvalues::computeEigenvalues(dataA, eigenpair);
+
+  // repair the eigenvector basis inside degenerate eigenspaces before anything derived from it is
+  // computed; without this matR becomes numerically singular (cond ~ 1e12 instead of ~1e7)
+  orthonormalizeDegenerateEigenvectors(eigenpair, zeroThreshold);
+
 #ifndef NDEBUG
   using CMatrix = Eigen::Matrix<std::complex<double>,
                                 seissol::model::MaterialT::NumQuantities,

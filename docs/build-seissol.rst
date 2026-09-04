@@ -131,9 +131,10 @@ For SeisSol to work optimally, you will need to find out your CPU and GPU archit
 you want to run on. That is, if you have a cluster, you will usually find the specifications
 within the documentation of it. A list of the supported architectures can be found on :ref:`the build parameters page <build_parameters>`.
 
-Generally speaking, if you encounter ``SIGILL`` errors, change your ``HOST_ARCH`` to a less demanding one (e.g. ``skx`` to ``hsw``).
+SeisSol normally supports detecting the host architecture to some degree. For that, you will need to run CMake on your *compute node* and, for GPUs, set the device backend in advance.
+Afterwards, SeisSol will automatically determine the host arch and (if a device backend has been set) the device arch.
 
-A few heuristics may help in the beginning:
+For determining the architecture on your own, a few heuristics may help:
 
 * ``hsw`` if you work with your personal computer or laptop. [#]_
 * ``skx`` if on an x86_64 cluster, or a high-end workstation which supports AVX-512, or AVX10/512. (e.g.: SuperMUC-NG, or any cluster with Intel CPUs, or AMD CPUs with Zen 4 or newer).
@@ -141,6 +142,8 @@ A few heuristics may help in the beginning:
 * ``noarch`` if nothing else works
 
 .. [#] If your computer is very old (i.e. 2013 or earlier), then you may have to check out ``snb``, ``wsm`` or ``noarch`` instead.
+
+Generally speaking, if you encounter ``SIGILL`` errors, change your ``HOST_ARCH`` to a less demanding one (e.g. ``skx`` to ``hsw``).
 
 It shall be noted that support for the latest Apple Macbooks using Apple M1 or M2 processors is highly experimental and may lead to an unstable build or incorrect results.
 

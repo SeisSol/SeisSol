@@ -24,9 +24,9 @@ class Hdf5Reader {
   void openFile(const std::string& name);
   void openGroup(const std::string& name);
   template <typename T>
-  std::vector<T>
-      readAttribute(const std::string& name,
-                    std::shared_ptr<datatype::Datatype> type = datatype::inferDatatype<T>()) {
+  std::vector<T> readAttribute(
+      const std::string& name,
+      const std::shared_ptr<datatype::Datatype>& type = datatype::inferDatatype<T>()) {
     const auto count = attributeCount(name);
     std::vector<T> output(count);
     readAttributeRaw(output.data(), name, type);
@@ -64,8 +64,8 @@ class Hdf5Reader {
   void checkExistence(const std::string& name, const std::string& type);
 
   private:
-  std::stack<hid_t> handles;
-  MPI_Comm comm;
+  std::stack<hid_t> handles_;
+  MPI_Comm comm_;
 };
 } // namespace seissol::io::reader::file
 

@@ -70,6 +70,14 @@
       return nullptr;                                                                              \
     }                                                                                              \
   }                                                                                                \
+  template <typename T>                                                                            \
+  constexpr auto get_offset_##NAME() -> size_t {                                                   \
+    if constexpr (has_##NAME<T>::value) {                                                          \
+      return offsetof(T, NAME);                                                                    \
+    } else {                                                                                       \
+      return 0;                                                                                    \
+    }                                                                                              \
+  }                                                                                                \
   } // namespace
 
 namespace seissol {
@@ -80,7 +88,7 @@ namespace kernels {
  * @param convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr unsigned int getNumberOfBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder) {
+constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder = ConvergenceOrder) {
   return convergenceOrder * (convergenceOrder + 1) * (convergenceOrder + 2) / 6;
 }
 
@@ -91,8 +99,8 @@ constexpr unsigned int getNumberOfBasisFunctions(unsigned int convergenceOrder =
  * @return aligned number of reals.
  **/
 template <typename RealT = real>
-constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
-                                               unsigned int alignment = Vectorsize) {
+constexpr std::size_t getNumberOfAlignedReals(std::size_t numberOfReals,
+                                              std::size_t alignment = Vectorsize) {
   // in principle, we could simplify this formula by substituting alignment = alignment /
   // sizeof(real). However, this will cause errors, if alignment is not dividable by sizeof(real)
   // which could happen e.g. if alignment < sizeof(real), or if we have real == long double (if
@@ -110,9 +118,9 @@ constexpr unsigned int getNumberOfAlignedReals(unsigned int numberOfReals,
  * @return aligned number of basis functions.
  **/
 template <typename RealT = real>
-constexpr unsigned int
-    getNumberOfAlignedBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
-                                     unsigned int alignment = Vectorsize) {
+constexpr std::size_t
+    getNumberOfAlignedBasisFunctions(std::size_t convergenceOrder = ConvergenceOrder,
+                                     std::size_t alignment = Vectorsize) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   const auto numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
@@ -120,29 +128,52 @@ constexpr unsigned int
 }
 
 /**
- * Check if a type has a .size() member.
+  Helper for HasSizeInternal (to allow an arbitrary number of parameters)
  */
-template <typename T, typename = void>
-struct HasSize {
+template <typename T, typename... Ts>
+using HasSizeExists = decltype(std::declval<T>().size(std::declval<Ts>()...), void());
+
+/**
+  Helper for HasSizeInternal (to allow an arbitrary number of parameters)
+ */
+template <typename T, typename... Ts>
+using HasSizeSizeT = decltype(std::declval<T>().size(std::declval<Ts>()...));
+
+/**
+  Helper struct for HasSize (interface wrapper).
+ */
+template <typename T, typename Void, typename... Ts>
+struct HasSizeHelper {
   static constexpr bool Value = false;
   using Type = std::size_t;
 };
 
-template <typename T>
-struct HasSize<T, decltype(std::declval<T>().size(), void())> {
+template <typename T, typename... Ts>
+struct HasSizeHelper<T, HasSizeExists<T, Ts...>, Ts...> {
   static constexpr bool Value = true;
-  using Type = decltype(std::declval<T>().size());
+  using Type = HasSizeSizeT<T, Ts...>;
+};
+
+/**
+ * Check if a type has a .size(...) member.
+ */
+template <typename T, typename... Args>
+struct HasSize {
+  using Helper = HasSizeHelper<T, void, Args...>;
+
+  static constexpr bool Value = Helper::Value;
+  using Type = typename Helper::Type;
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise.
  */
-template <class T>
-constexpr auto size() -> typename HasSize<T>::Type {
-  if constexpr (HasSize<T>::Value) {
-    return T::size();
+template <class T, typename... Args>
+constexpr auto size(Args... args) -> typename HasSize<T, Args...>::Type {
+  if constexpr (HasSize<T, Args...>::Value) {
+    return T::size(args...);
   } else {
-    return static_cast<typename HasSize<T>::Type>(0);
+    return static_cast<typename HasSize<T, Args...>::Type>(0);
   }
 }
 

@@ -11,7 +11,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("DR Variables") {
+TEST_CASE("DR Variables" * doctest::test_suite("dynamicrupture")) {
   SUBCASE("GeneralVariablesCount") {
     output::DrVarsT drVars;
 
@@ -19,7 +19,7 @@ TEST_CASE("DR Variables") {
     const auto countVariables = [&variableCounter](auto& /*var*/, int) { ++variableCounter; };
 
     misc::forEach(drVars, countVariables);
-    REQUIRE(variableCounter == 12);
+    CHECK(variableCounter == 12);
   }
 
   SUBCASE("TotalVariablesCount") {
@@ -42,7 +42,7 @@ TEST_CASE("DR Variables") {
     };
 
     misc::forEach(drVars, countVariables);
-    REQUIRE(variableCounter == 20);
+    CHECK(variableCounter == 20);
   }
 
   SUBCASE("AllocationDeallocationOfVariables") {
@@ -78,9 +78,6 @@ TEST_CASE("DR Variables") {
       }
     };
     misc::forEach(drVars, initVariables);
-
-    auto deallocateVariables = [](auto& var, int) { var.releaseData(); };
-    misc::forEach(drVars, deallocateVariables);
   }
 }
 } // namespace seissol::unit_test

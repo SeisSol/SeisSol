@@ -75,10 +75,10 @@ enum class ModuleHook : int {
 class Modules {
   private:
   std::array<std::multimap<ModulePriority, Module*>, static_cast<size_t>(ModuleHook::MaxHooks)>
-      hooks;
+      hooks_;
 
   /** The hook that should be called next */
-  ModuleHook nextHook{ModuleHook::FirstHook};
+  ModuleHook nextHook_{ModuleHook::FirstHook};
 
   Modules();
 
@@ -92,11 +92,11 @@ class Modules {
    */
   template <ModuleHook Hook>
   void _callHook() {
-    for (auto& [_, module] : hooks[static_cast<size_t>(Hook)]) {
+    for (auto& [_, module] : hooks_[static_cast<size_t>(Hook)]) {
       call<Hook>(module);
     }
 
-    nextHook = static_cast<ModuleHook>(static_cast<int>(Hook) + 1);
+    nextHook_ = static_cast<ModuleHook>(static_cast<int>(Hook) + 1);
   }
 
   double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint);

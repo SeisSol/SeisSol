@@ -33,13 +33,17 @@ class LtsSetup {
 
   LtsSetup() = default;
 
-  explicit LtsSetup(BitmapType data) : data(data) {}
+  explicit LtsSetup(BitmapType data) : data_(data) {}
 
   constexpr auto setNeighborHasDerivatives(std::uint32_t face, bool derivatives) -> LtsSetup& {
     assert(face < Cell::NumFaces);
     return set(face + IndexNeighborHasDerivatives, derivatives);
   }
 
+  /**
+    True, if the neighboring cell supplies a full space-time prediction ("derivatives").
+    False, if it supplies a time-integrated space-time prediction instead ("buffers").
+   */
   [[nodiscard]] constexpr auto neighborHasDerivatives(std::uint32_t face) const -> bool {
     assert(face < Cell::NumFaces);
     return test(face + IndexNeighborHasDerivatives);
@@ -50,6 +54,13 @@ class LtsSetup {
     return set(face + IndexNeighborGTSRelation, gts);
   }
 
+  /**
+    If true, we use the pre-computed time-integrated space-time prediction ("buffers") for the
+    neighboring flux integration; otherwise we integrate on-the-fly from the full space-time
+    prediction ("derivatives").
+
+    Effectively used if the local time cluster >= neighboring time cluster.
+   */
   [[nodiscard]] constexpr auto neighborGTSRelation(std::uint32_t face) const -> bool {
     assert(face < Cell::NumFaces);
     return test(face + IndexNeighborGTSRelation);
@@ -57,33 +68,46 @@ class LtsSetup {
 
   constexpr auto setHasBuffers(bool val) -> LtsSetup& { return set(IndexBuffers, val); }
 
+  /**
+    True, iff this cell pre-computes and stores the time-integrated space-time prediction
+    ("buffers").
+   */
   [[nodiscard]] constexpr auto hasBuffers() const -> bool { return test(IndexBuffers); }
 
   constexpr auto setHasDerivatives(bool val) -> LtsSetup& { return set(IndexDerivatives, val); }
 
+  /**
+    True, iff this cell stores the full space-time prediction ("derivatives") instead of discarding
+    it.
+   */
   [[nodiscard]] constexpr auto hasDerivatives() const -> bool { return test(IndexDerivatives); }
 
   constexpr auto setAccumulateBuffers(bool val) -> LtsSetup& { return set(IndexCache, val); }
 
+  /**
+    True, iff the buffers are accumulated over multiple time steps.
+
+    Used to handle the case: local time cluster > neighboring time cluster.
+   */
   [[nodiscard]] constexpr auto accumulateBuffers() const -> bool { return test(IndexCache); }
 
   [[nodiscard]] constexpr auto test(std::uint32_t index) const -> bool {
-    return (data & (1 << index)) != 0;
+    return (data_ & (1 << index)) != 0;
   }
 
   constexpr auto set(std::uint32_t index, bool value) -> LtsSetup& {
     if (value) {
-      data |= 1 << index;
+      data_ |= 1 << index;
     } else {
-      data &= ~(1 << index);
+      data_ &= ~(1 << index);
     }
     return *this;
   }
 
-  [[nodiscard]] constexpr auto unwrap() const -> BitmapType { return data; }
+  [[nodiscard]] constexpr auto unwrap() const -> BitmapType { return data_; }
 
   private:
-  BitmapType data{0};
+  BitmapType data_{0};
 };
 
 } // namespace seissol

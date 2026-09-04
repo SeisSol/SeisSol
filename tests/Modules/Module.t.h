@@ -72,63 +72,104 @@ class TestModule : public seissol::Module {
   }
 };
 
-TEST_CASE("Module runthrough") {
+class SyncOnlyModule : public seissol::Module {
+  public:
+  ModuleHook state{ModuleHook::NullHook};
+  double time{0};
+  explicit SyncOnlyModule(double interval) {
+    setSyncInterval(interval);
+    seissol::Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+  }
+  void syncPoint(double time) override {
+    state = ModuleHook::SynchronizationPoint;
+    this->time = time;
+  }
+};
+
+TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
   TestModule mod1(true, 2);
   TestModule mod2(false, 3);
+  SyncOnlyModule syncOnly(1000);
+  SyncOnlyModule syncOnlyShort(2);
 
   Modules::callHook<ModuleHook::PreMPI>();
-  REQUIRE(mod1.state == ModuleHook::PreMPI);
-  REQUIRE(mod2.state == ModuleHook::NullHook);
+  CHECK(mod1.state == ModuleHook::PreMPI);
+  CHECK(mod2.state == ModuleHook::NullHook);
 
   Modules::callHook<ModuleHook::PostMPIInit>();
-  REQUIRE(mod1.state == ModuleHook::PostMPIInit);
-  REQUIRE(mod2.state == ModuleHook::NullHook);
+  CHECK(mod1.state == ModuleHook::PostMPIInit);
+  CHECK(mod2.state == ModuleHook::NullHook);
 
   Modules::callHook<ModuleHook::PreMesh>();
-  REQUIRE(mod1.state == ModuleHook::PreMesh);
-  REQUIRE(mod2.state == ModuleHook::NullHook);
+  CHECK(mod1.state == ModuleHook::PreMesh);
+  CHECK(mod2.state == ModuleHook::NullHook);
 
   Modules::callHook<ModuleHook::PostMesh>();
-  REQUIRE(mod1.state == ModuleHook::PostMesh);
-  REQUIRE(mod2.state == ModuleHook::PostMesh);
+  CHECK(mod1.state == ModuleHook::PostMesh);
+  CHECK(mod2.state == ModuleHook::PostMesh);
 
   Modules::callHook<ModuleHook::PreLtsInit>();
-  REQUIRE(mod1.state == ModuleHook::PreLtsInit);
-  REQUIRE(mod2.state == ModuleHook::PostMesh);
+  CHECK(mod1.state == ModuleHook::PreLtsInit);
+  CHECK(mod2.state == ModuleHook::PostMesh);
 
   Modules::callHook<ModuleHook::PostLtsInit>();
-  REQUIRE(mod1.state == ModuleHook::PostLtsInit);
-  REQUIRE(mod2.state == ModuleHook::PostMesh);
+  CHECK(mod1.state == ModuleHook::PostLtsInit);
+  CHECK(mod2.state == ModuleHook::PostMesh);
 
   Modules::callHook<ModuleHook::PreModel>();
-  REQUIRE(mod1.state == ModuleHook::PreModel);
-  REQUIRE(mod2.state == ModuleHook::PostMesh);
+  CHECK(mod1.state == ModuleHook::PreModel);
+  CHECK(mod2.state == ModuleHook::PostMesh);
 
   Modules::callHook<ModuleHook::PostModel>();
-  REQUIRE(mod1.state == ModuleHook::PostModel);
-  REQUIRE(mod2.state == ModuleHook::PostMesh);
+  CHECK(mod1.state == ModuleHook::PostModel);
+  CHECK(mod2.state == ModuleHook::PostMesh);
 
   const auto startTime = 1.4;
 
   Modules::callSimulationStartHook(startTime);
-  REQUIRE(mod1.state == ModuleHook::SimulationStart);
-  REQUIRE(mod2.state == ModuleHook::SimulationStart);
+  CHECK(mod1.state == ModuleHook::SimulationStart);
+  CHECK(mod2.state == ModuleHook::SimulationStart);
 
   // exact comparison is ok here
-  REQUIRE(mod1.time == startTime);
-  REQUIRE(mod2.time == startTime);
+  CHECK(mod1.time == startTime);
+  CHECK(mod2.time == startTime);
+  CHECK(mod1.state == ModuleHook::SimulationStart);
+  CHECK(mod2.state == ModuleHook::SimulationStart);
+  CHECK(syncOnly.state == ModuleHook::NullHook);
+  CHECK(syncOnlyShort.state == ModuleHook::NullHook);
+
+  // exact comparison is ok here
+  CHECK(mod1.time == startTime);
+  CHECK(mod2.time == startTime);
+  CHECK(syncOnly.time == 0);
+  CHECK(syncOnlyShort.time == 0);
+
+  // Regression check: modules that register only for synchronization points
+  // must still receive their initial schedule via setSimulationStartTime().
+  // Without that, nextSyncPoint_ would remain at 0 and could cause a 0s->0s step.
+  CHECK(syncOnly.potentialSyncPoint(startTime, 1e-14, false) == AbsApprox(1000));
+  CHECK(syncOnlyShort.potentialSyncPoint(startTime, 1e-14, false) == AbsApprox(2.0));
+  CHECK(syncOnly.state == ModuleHook::NullHook);
+  CHECK(syncOnlyShort.state == ModuleHook::NullHook);
+  CHECK(syncOnly.time == 0);
+  CHECK(syncOnlyShort.time == 0);
 
   std::vector<int32_t> expectedTimes{2, 3, 4, 6, 8, 9, 10, 12, 14, 15};
 
   double time = startTime;
   double mod1Time = startTime;
   double mod2Time = startTime;
+  double syncOnlyShortTime = 0;
 
   // first check; noone will be called
   time = Modules::callSyncHook(time, 1e-14, false);
+  REQUIRE(syncOnly.state == ModuleHook::NullHook);
+  REQUIRE(syncOnlyShort.state == ModuleHook::NullHook);
+  REQUIRE(syncOnly.time == 0);
+  REQUIRE(syncOnlyShort.time == 0);
 
   for (std::size_t i = 0; i < expectedTimes.size(); ++i) {
-    REQUIRE(time == AbsApprox(expectedTimes[i]));
+    CHECK(time == AbsApprox(expectedTimes[i]));
 
     if (expectedTimes[i] % 2 == 0) {
       mod1Time = expectedTimes[i];
@@ -136,29 +177,42 @@ TEST_CASE("Module runthrough") {
     if (expectedTimes[i] % 3 == 0) {
       mod2Time = expectedTimes[i];
     }
+    if (expectedTimes[i] % 2 == 0) {
+      syncOnlyShortTime = expectedTimes[i];
+    }
 
     time = Modules::callSyncHook(time, 1e-14, false);
 
     // exact comparison is ok here (or rather, _should_ be)
 
-    REQUIRE(mod1.time == mod1Time);
-    REQUIRE(mod2.time == mod2Time);
+    CHECK(mod1.time == mod1Time);
+    CHECK(mod2.time == mod2Time);
 
     if (mod1Time > startTime) {
-      REQUIRE(mod1.state == ModuleHook::SynchronizationPoint);
+      CHECK(mod1.state == ModuleHook::SynchronizationPoint);
     }
     if (mod2Time > startTime) {
-      REQUIRE(mod2.state == ModuleHook::SynchronizationPoint);
+      CHECK(mod2.state == ModuleHook::SynchronizationPoint);
+    }
+
+    REQUIRE(syncOnly.state == ModuleHook::NullHook);
+    REQUIRE(syncOnly.time == 0);
+
+    REQUIRE(syncOnlyShort.time == AbsApprox(syncOnlyShortTime));
+    if (syncOnlyShortTime > 0) {
+      REQUIRE(syncOnlyShort.state == ModuleHook::SynchronizationPoint);
+    } else {
+      REQUIRE(syncOnlyShort.state == ModuleHook::NullHook);
     }
   }
 
   Modules::callHook<ModuleHook::SimulationEnd>();
-  REQUIRE(mod1.state == ModuleHook::SimulationEnd);
-  REQUIRE(mod2.state == ModuleHook::SimulationEnd);
+  CHECK(mod1.state == ModuleHook::SimulationEnd);
+  CHECK(mod2.state == ModuleHook::SimulationEnd);
 
   Modules::callHook<ModuleHook::Shutdown>();
-  REQUIRE(mod1.state == ModuleHook::Shutdown);
-  REQUIRE(mod2.state == ModuleHook::Shutdown);
+  CHECK(mod1.state == ModuleHook::Shutdown);
+  CHECK(mod2.state == ModuleHook::Shutdown);
 }
 
 } // namespace seissol::unit_test

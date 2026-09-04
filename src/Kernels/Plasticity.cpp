@@ -18,6 +18,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -25,14 +26,15 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <utility>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Solver/MultipleSimulations.h"
 
+#include <Device/Algorithms.h>
 #include <Device/device.h>
 using namespace device;
 #endif
@@ -117,7 +119,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                               meanStress[ip] * plasticityData->sinAngularFriction[ip]);
   }
 
-  int adjust = 0;
+  int32_t adjust = 0;
 
 #pragma omp simd reduction(max : adjust)
   for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
@@ -238,7 +240,7 @@ void Plasticity::computePlasticityBatched(
   static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
                 "modal dofs and vandermonde matrix must have the same leading dimensions");
 
-  ConditionalKey key(*KernelNames::Plasticity);
+  const ConditionalKey key(*KernelNames::Plasticity);
   auto defaultStream = runtime.stream();
 
   if (table.find(key) != table.end()) {
@@ -290,46 +292,38 @@ void Plasticity::computePlasticityBatched(
 #endif // ACL_DEVICE
 }
 
-void Plasticity::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
-                                 std::uint64_t& hardwareFlopsCheck,
-                                 std::uint64_t& nonZeroFlopsYield,
-                                 std::uint64_t& hardwareFlopsYield) {
+std::pair<PerformanceEstimate, PerformanceEstimate> Plasticity::metrics() {
   // reset flops
-  nonZeroFlopsCheck = 0;
-  hardwareFlopsCheck = 0;
-  nonZeroFlopsYield = 0;
-  hardwareFlopsYield = 0;
+  PerformanceEstimate check;
+  PerformanceEstimate yield;
 
   // flops from checking, i.e. outside if (adjust) {}
-  nonZeroFlopsCheck += kernel::plConvertToNodal::NonZeroFlops;
-  hardwareFlopsCheck += kernel::plConvertToNodal::HardwareFlops;
+  check += PerformanceEstimate::fromKernel<kernel::plConvertToNodal>();
 
   // compute mean stress
-  nonZeroFlopsCheck += kernel::plComputeMean::NonZeroFlops;
-  hardwareFlopsCheck += kernel::plComputeMean::HardwareFlops;
+  check += PerformanceEstimate::fromKernel<kernel::plComputeMean>();
 
   // subtract mean stress
-  nonZeroFlopsCheck += kernel::plSubtractMean::NonZeroFlops;
-  hardwareFlopsCheck += kernel::plSubtractMean::HardwareFlops;
+  check += PerformanceEstimate::fromKernel<kernel::plSubtractMean>();
 
   // compute second invariant
-  nonZeroFlopsCheck += kernel::plComputeSecondInvariant::NonZeroFlops;
-  hardwareFlopsCheck += kernel::plComputeSecondInvariant::HardwareFlops;
+  check += PerformanceEstimate::fromKernel<kernel::plComputeSecondInvariant>();
 
   // compute taulim (1 add, 1 mul, max NOT counted)
-  nonZeroFlopsCheck += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
-  hardwareFlopsCheck += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
+  check.nonzeroFlop += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
+  check.hardwareFlop += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
 
   // check for yield (NOT counted, as it would require counting the number of yielding points)
 
   // flops from plastic yielding, i.e. inside if (adjust) {}
-  nonZeroFlopsYield += kernel::plConvertToModal::NonZeroFlops;
-  hardwareFlopsYield += kernel::plConvertToModal::HardwareFlops;
+  yield += PerformanceEstimate::fromKernel<kernel::plConvertToModal>();
 
   // manually counted
-  nonZeroFlopsYield += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
-  hardwareFlopsYield += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
-  nonZeroFlopsYield += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
-  hardwareFlopsYield += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+  yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
+  yield.hardwareFlop += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
+  yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+  yield.hardwareFlop += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+
+  return {check, yield};
 }
 } // namespace seissol::kernels

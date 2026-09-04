@@ -22,26 +22,25 @@ class Spacetime : public SpacetimeKernel {
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
+                          LTS::Layer& layer,
                           LocalTmp& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
                           recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesAder() override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
 
   protected:
-  kernel::derivative m_krnlPrototype;
+  kernel::derivative krnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype;
+  kernel::gpu_derivative deviceKrnlPrototype_;
 #endif
 };
 
@@ -56,7 +55,7 @@ class Time : public TimeKernel {
                        real** timeIntegratedDofs,
                        std::size_t numElements,
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
-  void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
 };
 } // namespace seissol::kernels::solver::linearckanelastic
 

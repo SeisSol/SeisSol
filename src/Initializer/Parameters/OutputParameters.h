@@ -10,6 +10,7 @@
 
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
+#include "Model/Plasticity.h"
 #include "ParameterReader.h"
 #include "xdmfwriter/backends/Backend.h"
 
@@ -59,18 +60,21 @@ struct FreeSurfaceOutputParameters {
 
 struct PickpointParameters {
   int printTimeInterval{1};
-  int maxPickStore{50};
+  double writeInterval{VeryLongTime};
   std::array<bool, 12> outputMask{true, true, true};
   std::optional<std::string> pickpointFileName;
   bool aggregate{false};
   bool collectiveio{false};
 };
 
+enum class ReceiverOutputFormat { Csv, Hdf5 };
+
 struct ReceiverOutputParameters {
   bool enabled{false};
+  ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
   bool computeRotation{false};
   bool computeStrain{false};
-  double interval{0};
+  double writeInterval{VeryLongTime};
   double samplingInterval{0};
   std::string fileName;
   bool collectiveio{false};
@@ -110,8 +114,8 @@ struct WaveFieldOutputParameters {
   VolumeRefinement refinement{VolumeRefinement::NoRefine};
   OutputBounds bounds;
   std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask{};
-  std::array<bool, 7> plasticityMask{};
-  std::array<bool, 9> integrationMask{};
+  std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask{};
+  std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask{};
   std::unordered_set<int> groups;
 };
 

@@ -25,6 +25,7 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    */
   void initializeFault(DynamicRupture::Storage& drStorage) override;
 
+  protected:
   /**
    * Add additional parameters to be read from the easi file
    * This will be specialized in the derived friction law initializers
@@ -59,6 +60,8 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
+
+  protected:
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 
@@ -67,12 +70,16 @@ class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
 
 class ImposedSlipRatesGaussianInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
+
+  protected:
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 };
 
 class ImposedSlipRatesDeltaInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
+
+  protected:
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 };

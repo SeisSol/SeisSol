@@ -20,14 +20,14 @@ inline void assertTriangle(seissol::refinement::Triangle& a,
                            std::array<Eigen::Vector2d, 3>& b,
                            double area,
                            double epsilon) {
-  REQUIRE(a.area == AbsApprox(area).epsilon(epsilon));
+  CHECK(a.area == AbsApprox(area).epsilon(epsilon));
   for (std::size_t i = 0; i < 3; i++) {
-    REQUIRE(a.x[i][0] == AbsApprox(b[i][0]).epsilon(epsilon));
-    REQUIRE(a.x[i][1] == AbsApprox(b[i][1]).epsilon(epsilon));
+    CHECK(a.x[i][0] == AbsApprox(b[i][0]).epsilon(epsilon));
+    CHECK(a.x[i][1] == AbsApprox(b[i][1]).epsilon(epsilon));
   }
 }
 
-TEST_CASE("Triangle Refiner") {
+TEST_CASE("Triangle Refiner" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = std::numeric_limits<double>::epsilon();
   seissol::refinement::TriangleRefiner tr;
 

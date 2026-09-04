@@ -23,15 +23,17 @@ class DirectGhostTimeCluster : public AbstractGhostTimeCluster {
 
   public:
   DirectGhostTimeCluster(double maxTimeStepSize,
-                         int timeStepRate,
-                         int globalTimeClusterId,
-                         int otherGlobalTimeClusterId,
+                         std::uint64_t timeStepRate,
+                         std::size_t globalTimeClusterId,
+                         std::size_t otherGlobalTimeClusterId,
+                         const std::string& displayName,
+                         const std::string& otherDisplayName,
                          const seissol::solver::HaloCommunication& meshStructure,
                          bool persistent);
   void finalize() override;
 
   private:
-  bool persistent;
+  bool persistent_;
 };
 } // namespace seissol::time_stepping
 
