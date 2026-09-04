@@ -35,7 +35,7 @@ FaceMap parseFaceMap(const YAML::Node& node) {
     const auto stringType = entry.first.as<std::string>();
     const auto typeFind = StringToNameMap.find(stringType);
     if (typeFind == StringToNameMap.end()) {
-      logError() << "";
+      logError() << "Unknown face type while parsing the face map:" << stringType;
     }
     const auto type = typeFind->second;
 
