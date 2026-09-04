@@ -128,8 +128,8 @@ enum struct FaceKinds : size_t {
 };
 
 enum struct FaceId : size_t { Count = 4, Any = AllBits };
-enum struct FaceRelations : size_t { Count = 48, Any = AllBits };
-enum struct DrFaceRelations : size_t { Count = 16, Any = AllBits };
+enum struct FaceRelations : size_t { PerFace = 12, Count = 48, Any = AllBits };
+enum struct DrFaceRelations : size_t { PerFace = 4, Count = 16, Any = AllBits };
 
 enum struct ExchangeInfo : size_t {
   Buffers = 1 << 0,
