@@ -10,6 +10,7 @@
 
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Instruction.h"
+#include "IO/Writer/Module/AsyncWriter.h"
 #include "IO/Writer/Writer.h"
 
 #include <async/ExecInfo.h>
@@ -43,6 +44,11 @@ class LocalExecInfo : public async::ExecInfo {
     return static_cast<int>(buffers_.size()) - 1;
   }
 
+  void resizeBuffer(int id, std::size_t size) {
+    buffers_[id].resize(size);
+    resizeBufferInternal(id, size);
+  }
+
   std::vector<char>& bufferData(int id) { return buffers_[id]; }
 
   private:
@@ -57,6 +63,9 @@ inline std::string runPlan(seissol::io::writer::Writer& writer, MPI_Comm comm) {
   using namespace seissol::io::writer;
 
   LocalExecInfo info;
+  // buffer 0 is where WriterModule puts the serialised plan; the executor reads it from there
+  const auto planId = info.addBuffer(0);
+
   std::set<DataSource*> handled;
   for (const auto& instruction : writer.getInstructions()) {
     for (const auto& source : instruction->dataSources()) {
@@ -78,10 +87,20 @@ inline std::string runPlan(seissol::io::writer::Writer& writer, MPI_Comm comm) {
     }
   }
 
+  // ids are assigned by now, so the plan is final
   const auto plan = writer.serialize();
-  Writer executed(plan);
-  auto instance = executed.beginWrite(info, comm);
-  instance.close();
+  info.resizeBuffer(planId, plan.size());
+  std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+
+  // hand it to the real executor rather than calling beginWrite directly, so that the plan
+  // travels the way it does in production
+  module::AsyncWriter executor;
+  executor.setComm(comm);
+  executor.execInit(info, module::AsyncWriterInit{});
+  executor.exec(info, module::AsyncWriterExec{});
+  executor.execWait(info);
+  executor.finalize();
+
   writer.endWrite();
   return plan;
 }

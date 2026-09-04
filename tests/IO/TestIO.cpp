@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "AsyncWriter.t.h"
 #include "Csv.t.h"
 #include "Datatype.t.h"
 #include "Datatype/Datatype.t.h"
