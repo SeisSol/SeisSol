@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
 
     if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
       // Check if on a GNU system (Linux) or other platform
-#if defined(__GNUC__) || defined(__linux__)
+#if defined(__GNUC__) && defined(__linux__)
       feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
       logInfo() << "Enabling floating point exception handlers.";
 #else
