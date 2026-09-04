@@ -171,9 +171,11 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
     addStepOffset("CellOffsets", {}, 0);
     addStepOffset("ConnectivityIdOffsets", {}, 0);
 
-    // the two field data entries makeWriter always adds
+    // the two field data entries makeWriter always adds; both are single scalars
     addStepOffset("Time", FieldDataName + "Offsets", 1);
     addStepOffset("Index", FieldDataName + "Offsets", 1);
+    addStepFieldDataSize("Time", 1, 1);
+    addStepFieldDataSize("Index", 1, 1);
   }
 }
 
@@ -244,6 +246,21 @@ void VtkHdfWriter::addData(const std::string& name,
   }
 }
 
+void VtkHdfWriter::addStepFieldDataSize(const std::string& name,
+                                        std::size_t components,
+                                        std::size_t tuples) {
+  const std::vector<std::string> groups{GroupName, StepsName, FieldDataName + "Sizes"};
+  instructions_.emplace_back([=](const std::string& filename,
+                                 std::size_t /*counter*/,
+                                 double /*time*/) {
+    // (NSteps, 2), the append supplying the leading dimension
+    const auto data = writer::WriteInline::createArray<int64_t>(
+        {2}, {static_cast<int64_t>(components), static_cast<int64_t>(tuples)});
+    return std::make_shared<writer::instructions::Hdf5DataWrite>(
+        writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype(), true);
+  });
+}
+
 void VtkHdfWriter::addHook(const std::function<void(std::size_t, double)>& hook) {
   hooks_.push_back(hook);
 }
@@ -251,53 +268,62 @@ void VtkHdfWriter::addHook(const std::function<void(std::size_t, double)>& hook)
 std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWriter::makeWriter() {
   logInfo() << "Adding VTK writer" << name_ << "of order" << targetDegree_;
   const auto self = *this;
-  return [self, pvu = std::vector<metadata::PvuEntry>()](const std::string& prefix,
-                                                         std::size_t counter,
-                                                         double time) mutable -> writer::Writer {
-    for (const auto& hook : self.hooks_) {
-      hook(counter, time);
-    }
+  return
+      [self, pvu = std::vector<metadata::PvuEntry>(), constCounter = std::optional<std::size_t>()](
+          const std::string& prefix, std::size_t counter, double time) mutable -> writer::Writer {
+        // The unchanging data is written once per run, not once per counter: a run resuming from a
+        // checkpoint starts at whatever counter the schedule gives it and would otherwise link to a
+        // file nobody wrote. Its name carries that counter, so the const file of one run cannot
+        // collide with the one of a previous run -- rewriting it in place would fail, since none of
+        // its datasets are appendable.
+        const auto fullWrite = !constCounter.has_value();
+        if (fullWrite) {
+          constCounter = counter;
+        }
+        for (const auto& hook : self.hooks_) {
+          hook(counter, time);
+        }
 
-    const auto lastPrefix = utils::StringUtils::split(prefix, '/');
-    // a time series is one file holding every step; a snapshot is one file per step
-    const auto suffix = self.temporal_ ? std::string() : "-" + std::to_string(counter);
-    const auto filename = prefix + "-" + self.name_ + suffix + ".vtkhdf";
-    const auto filenameFile = lastPrefix.back() + "-" + self.name_ + suffix + ".vtkhdf";
-    const auto filenameConst = prefix + "-" + self.name_ + "-const.vtkhdf";
-    const auto filenameConstFile = lastPrefix.back() + "-" + self.name_ + "-const.vtkhdf";
-    const auto filenamePvu = prefix + "-" + self.name_ + ".pvd";
-    pvu.emplace_back(metadata::PvuEntry{filenameFile, time});
-    auto writer = writer::Writer();
+        const auto lastPrefix = utils::StringUtils::split(prefix, '/');
+        // a time series is one file holding every step; a snapshot is one file per step
+        const auto suffix = self.temporal_ ? std::string() : "-" + std::to_string(counter);
+        const auto filename = prefix + "-" + self.name_ + suffix + ".vtkhdf";
+        const auto filenameFile = lastPrefix.back() + "-" + self.name_ + suffix + ".vtkhdf";
+        const auto constSuffix = "-const-" + std::to_string(constCounter.value()) + ".vtkhdf";
+        const auto filenameConst = prefix + "-" + self.name_ + constSuffix;
+        const auto filenameConstFile = lastPrefix.back() + "-" + self.name_ + constSuffix;
+        const auto filenamePvu = prefix + "-" + self.name_ + ".pvd";
+        pvu.emplace_back(metadata::PvuEntry{filenameFile, time});
+        auto writer = writer::Writer();
 
-    const auto fullWrite = counter == 0;
-    if (fullWrite) {
-      // with a const file the unchanging data lives next to the snapshots; in a time series it
-      // goes into the one file, once
-      const auto& constTarget = self.constFile_ ? filenameConst : filename;
-      for (const auto& instruction : self.instructionsConst_) {
-        writer.addInstruction(instruction(constTarget, counter, time));
-      }
-    }
-    for (const auto& instruction : self.instructionsConstLink_) {
-      writer.addInstruction(instruction(filename, filenameConstFile));
-    }
-    for (const auto& instruction : self.instructions_) {
-      writer.addInstruction(instruction(filename, counter, time));
-    }
-    writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
-        "Time",
-        writer::WriteInline::createArray<double>({1}, {time}),
-        datatype::inferDatatype<decltype(time)>(),
-        self.temporal_));
-    writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
-        "Index",
-        writer::WriteInline::createArray<std::size_t>({1}, {counter}),
-        datatype::inferDatatype<decltype(counter)>(),
-        self.temporal_));
-    writer.addInstructions(metadata::makePvu(pvu).instructions(filenamePvu));
-    return writer;
-  };
+        if (fullWrite) {
+          // with a const file the unchanging data lives next to the snapshots; in a time series it
+          // goes into the one file, once
+          const auto& constTarget = self.constFile_ ? filenameConst : filename;
+          for (const auto& instruction : self.instructionsConst_) {
+            writer.addInstruction(instruction(constTarget, counter, time));
+          }
+        }
+        for (const auto& instruction : self.instructionsConstLink_) {
+          writer.addInstruction(instruction(filename, filenameConstFile));
+        }
+        for (const auto& instruction : self.instructions_) {
+          writer.addInstruction(instruction(filename, counter, time));
+        }
+        writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
+            writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+            "Time",
+            writer::WriteInline::createArray<double>({1}, {time}),
+            datatype::inferDatatype<decltype(time)>(),
+            self.temporal_));
+        writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
+            writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+            "Index",
+            writer::WriteInline::createArray<std::size_t>({1}, {counter}),
+            datatype::inferDatatype<decltype(counter)>(),
+            self.temporal_));
+        writer.addInstructions(metadata::makePvu(pvu).instructions(filenamePvu));
+        return writer;
+      };
 }
 } // namespace seissol::io::instance::mesh

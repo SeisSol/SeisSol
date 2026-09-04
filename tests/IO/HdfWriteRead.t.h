@@ -208,6 +208,16 @@ TEST_CASE("IO/VtkHdf: a time series is one file with a Steps group" * doctest::t
       CHECK_MESSAGE(offset == 0, name);
     }
   }
+  // a reader needs the component and tuple count of the field data to slice it
+  hdf5.openGroup("FieldDataSizes");
+  const auto sizes = hdf5.readData<std::int64_t>("Time");
+  REQUIRE(sizes.size() == times.size() * 2);
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    CHECK(sizes[step * 2] == 1);
+    CHECK(sizes[step * 2 + 1] == 1);
+  }
+  hdf5.closeGroup();
+
   const auto parts = hdf5.readData<std::int64_t>("NumberOfParts");
   REQUIRE(parts.size() == times.size());
   for (const auto part : parts) {
@@ -305,19 +315,22 @@ TEST_CASE("IO/VtkHdf: an incremental snapshot links to the constant data" *
 
   auto plan = vtk.makeWriter();
   const std::vector<double> times{0.0, 0.25};
+  // start at a counter other than zero, as a run resuming from a checkpoint does
+  constexpr std::size_t FirstCounter = 7;
   for (std::size_t step = 0; step < times.size(); ++step) {
     value = times[step];
-    auto write = plan(dir.prefix(), step, times[step]);
+    auto write = plan(dir.prefix(), FirstCounter + step, times[step]);
     unit_test::io::runPlan(write, MPI_COMM_SELF);
   }
 
-  // the geometry and the constant cell data go into one file of their own
-  const auto constFile = dir.prefix() + "-volume-const.vtkhdf";
+  // the geometry and the constant cell data go into one file of their own, named after the first
+  // output of this run rather than after counter zero
+  const auto constFile = dir.prefix() + "-volume-const-" + std::to_string(FirstCounter) + ".vtkhdf";
   REQUIRE(std::filesystem::exists(constFile));
   const auto constSize = std::filesystem::file_size(constFile);
 
   for (std::size_t step = 0; step < times.size(); ++step) {
-    const auto path = dir.prefix() + "-volume-" + std::to_string(step) + ".vtkhdf";
+    const auto path = dir.prefix() + "-volume-" + std::to_string(FirstCounter + step) + ".vtkhdf";
     REQUIRE_MESSAGE(std::filesystem::exists(path), "missing ", path);
 
     // a snapshot only holds what changes, so it stays smaller than the constant part

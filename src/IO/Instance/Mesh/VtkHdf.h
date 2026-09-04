@@ -83,8 +83,13 @@ class VtkHdfWriter {
     const auto datasource = writer::WriteInline::createArray(dimensions, data);
     addData(name, FieldDataName, isConst, datasource);
     if (temporal_) {
-      // one tuple per step, which is what a reader assumes in the absence of FieldDataSizes
-      addStepOffset(name, FieldDataName + "Offsets", isConst ? 0 : 1);
+      const auto tuples = dimensions.empty() ? 1 : dimensions.front();
+      std::size_t components = 1;
+      for (std::size_t i = 1; i < dimensions.size(); ++i) {
+        components *= dimensions[i];
+      }
+      addStepOffset(name, FieldDataName + "Offsets", isConst ? 0 : tuples);
+      addStepFieldDataSize(name, components, tuples);
     }
   }
 
@@ -98,6 +103,14 @@ class VtkHdfWriter {
   void addStepOffset(const std::string& name,
                      const std::optional<std::string>& group,
                      std::size_t perStep);
+
+  /**
+   * @brief Records the component and tuple count of a field data array for every step.
+   *
+   * Without it a reader assumes one tuple per step and the largest component count it finds,
+   * which is only right for a scalar.
+   */
+  void addStepFieldDataSize(const std::string& name, std::size_t components, std::size_t tuples);
 
   void addHook(const std::function<void(std::size_t, double)>& hook);
 
