@@ -262,10 +262,17 @@ class StreamRuntime {
         forkDependencies.push_back(lastNode_);
       }
 
+      // Sibling branches go onto different streams. The graph edges are what orders them, so
+      // for CUDA and HIP the choice of stream makes no difference - but SYCL derives edges from
+      // the recorded queue, and its queues are in order, so two branches sharing a queue would
+      // be serialized. Branches beyond the ringbuffer size share as they do on the stream path.
       std::vector<device::DeviceGraphNodeHandle> branches;
       branches.reserve(count);
       for (size_t i = 0; i < count; ++i) {
-        branches.push_back(addNode(forkDependencies, streamPtr_->get(), [&](void* streamPtr) {
+        void* branchStream = ringbufferPtr_.empty()
+                                 ? streamPtr_->get()
+                                 : ringbufferPtr_[i % ringbufferPtr_.size()].get();
+        branches.push_back(addNode(forkDependencies, branchStream, [&](void* streamPtr) {
           std::invoke(handler, streamPtr, i);
         }));
       }
