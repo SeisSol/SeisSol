@@ -58,11 +58,7 @@ class VtkHdfWriter {
         localElementCount_, pointsPerElement_, dimensions, std::forward<F>(pointMapper));
     addData(name, PointDataName, isConst, data);
     if (temporal_) {
-      const auto offset = isConst ? 0 : globalPointCount_;
-      addData(name,
-              PointDataName + "Offsets",
-              isConst,
-              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+      addStepOffset(name, PointDataName + "Offsets", isConst ? 0 : globalPointCount_);
     }
   }
 
@@ -75,11 +71,7 @@ class VtkHdfWriter {
         localElementCount_, 1, dimensions, std::forward<F>(cellMapper));
     addData(name, CellDataName, isConst, data);
     if (temporal_) {
-      const auto offset = isConst ? 0 : globalElementCount_;
-      addData(name,
-              CellDataName + "Offsets",
-              false,
-              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+      addStepOffset(name, CellDataName + "Offsets", isConst ? 0 : globalElementCount_);
     }
   }
 
@@ -91,16 +83,21 @@ class VtkHdfWriter {
     const auto datasource = writer::WriteInline::createArray(dimensions, data);
     addData(name, FieldDataName, isConst, datasource);
     if (temporal_) {
-      // NOTE: unlike the point and cell offsets, this is not the number of values a step
-      // contributes -- field data has no fixed count per step. It needs FieldDataSizes next to
-      // it to be interpretable; see the guard in geometry::GeometryWriter.
-      const auto offset = isConst ? 0UL : 1UL;
-      addData(name,
-              FieldDataName + "Offsets",
-              false,
-              writer::WriteInline::createArray<uint64_t>({1}, {offset}));
+      // one tuple per step, which is what a reader assumes in the absence of FieldDataSizes
+      addStepOffset(name, FieldDataName + "Offsets", isConst ? 0 : 1);
     }
   }
+
+  /**
+   * @brief Adds one of the offsets of the Steps group: the position in the flattened array at
+   * which the data of a step begins.
+   *
+   * @p perStep is how far the offset advances from one step to the next; zero for data that is
+   * written once and read again by every step.
+   */
+  void addStepOffset(const std::string& name,
+                     const std::optional<std::string>& group,
+                     std::size_t perStep);
 
   void addHook(const std::function<void(std::size_t, double)>& hook);
 
@@ -117,13 +114,13 @@ class VtkHdfWriter {
   std::size_t pointsPerElement_;
   std::vector<std::function<void(std::size_t, double)>> hooks_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
-      const std::string&, double)>>
+      const std::string&, std::size_t, double)>>
       instructionsConst_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, const std::string&)>>
       instructionsConstLink_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
-      const std::string&, double)>>
+      const std::string&, std::size_t, double)>>
       instructions_;
   std::size_t type_;
   std::size_t targetDegree_;
@@ -133,6 +130,7 @@ class VtkHdfWriter {
   bool temporal_{false};
   int32_t compress_{0};
   const static inline std::string GroupName = "VTKHDF";
+  const static inline std::string StepsName = "Steps";
   const static inline std::string FieldDataName = "FieldData";
   const static inline std::string CellDataName = "CellData";
   const static inline std::string PointDataName = "PointData";

@@ -128,29 +128,74 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
               [=](int64_t* target, std::size_t index) { target[0] = index + selfPointOffset; }));
 
   if (temporal) {
-    // we need to use a direct instruction here (no addData); since we store the time
-    instructions_.emplace_back([=](const std::string& filename, double time) {
-      const auto data = writer::WriteInline::createArray<double>({1}, {time});
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName}),
-          "Values",
-          data,
-          data->datatype(),
-          true);
-    });
+    // https://docs.vtk.org/en/latest/vtk_file_formats/vtkhdf_file_format/vtkhdf_specifications.html
+    // The mesh itself is written once and every step reads it again, so all of the geometry
+    // offsets stay at zero ("Offset value can be repeated for static data"); only the attribute
+    // data grows.
+    instructions_.emplace_back(
+        [](const std::string& filename, std::size_t counter, double /*time*/) {
+          return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+              writer::instructions::Hdf5Location(filename, {GroupName, StepsName}),
+              "NSteps",
+              writer::WriteInline::createArray<int64_t>({}, {static_cast<int64_t>(counter) + 1}));
+        });
 
-    // append for all
-    addData("PartOffsets", {}, false, writer::WriteInline::createArray<uint64_t>({1}, {0}));
-    addData("PointOffsets", {}, false, writer::WriteInline::createArray<uint64_t>({1}, {0}));
-    addData("CellOffsets", {}, false, writer::WriteInline::createArray<uint64_t>({1, 1}, {0}));
-    addData("ConnectivityIdOffsets",
-            {},
-            false,
-            writer::WriteInline::createArray<uint64_t>({1, 1}, {0}));
+    instructions_.emplace_back(
+        [](const std::string& filename, std::size_t /*counter*/, double time) {
+          const auto data = writer::WriteInline::createArray<double>({}, {time});
+          return std::make_shared<writer::instructions::Hdf5DataWrite>(
+              writer::instructions::Hdf5Location(filename, {GroupName, StepsName}),
+              "Values",
+              data,
+              data->datatype(),
+              true);
+        });
 
-    // ignore
-    // NumberOfParts
+    // NumberOfPoints and friends hold one entry for the single part the mesh was written as, not
+    // one per step, so the part count has to be given explicitly rather than inferred.
+    instructions_.emplace_back(
+        [](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+          const auto data = writer::WriteInline::createArray<int64_t>({}, {1});
+          return std::make_shared<writer::instructions::Hdf5DataWrite>(
+              writer::instructions::Hdf5Location(filename, {GroupName, StepsName}),
+              "NumberOfParts",
+              data,
+              data->datatype(),
+              true);
+        });
+
+    addStepOffset("PartOffsets", {}, 0);
+    addStepOffset("PointOffsets", {}, 0);
+    // CellOffsets and ConnectivityIdOffsets are (NSteps, NTopologies), and an unstructured grid
+    // has one topology
+    addStepOffset("CellOffsets", {}, 0);
+    addStepOffset("ConnectivityIdOffsets", {}, 0);
+
+    // the two field data entries makeWriter always adds
+    addStepOffset("Time", FieldDataName + "Offsets", 1);
+    addStepOffset("Index", FieldDataName + "Offsets", 1);
   }
+}
+
+void VtkHdfWriter::addStepOffset(const std::string& name,
+                                 const std::optional<std::string>& group,
+                                 std::size_t perStep) {
+  std::vector<std::string> groups{GroupName, StepsName};
+  if (group.has_value()) {
+    groups.emplace_back(group.value());
+  }
+  const std::vector<std::size_t> shape = (name == "CellOffsets" || name == "ConnectivityIdOffsets")
+                                             ? std::vector<std::size_t>{1}
+                                             : std::vector<std::size_t>{};
+
+  instructions_.emplace_back([=](const std::string& filename,
+                                 std::size_t counter,
+                                 double /*time*/) {
+    const auto data = writer::WriteInline::createArray<uint64_t>(
+        shape, {static_cast<uint64_t>(counter * perStep)});
+    return std::make_shared<writer::instructions::Hdf5DataWrite>(
+        writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype(), true);
+  });
 }
 
 void VtkHdfWriter::addData(const std::string& name,
@@ -158,7 +203,7 @@ void VtkHdfWriter::addData(const std::string& name,
                            bool isConst,
                            const std::shared_ptr<writer::DataSource>& data,
                            bool attribute) {
-  auto& instrarray = isConst && constFile_ ? instructionsConst_ : instructions_;
+  auto& instrarray = isConst && (constFile_ || temporal_) ? instructionsConst_ : instructions_;
 
   std::vector<std::string> groups{GroupName};
   if (group.has_value()) {
@@ -170,20 +215,22 @@ void VtkHdfWriter::addData(const std::string& name,
   const auto compress = this->compress_;
 
   if (attribute) {
-    instrarray.emplace_back([=](const std::string& filename, double /*time*/) {
-      return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
-          writer::instructions::Hdf5Location(filename, groups), name, data);
-    });
+    instrarray.emplace_back(
+        [=](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+          return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+              writer::instructions::Hdf5Location(filename, groups), name, data);
+        });
   } else {
-    instrarray.emplace_back([=](const std::string& filename, double /*time*/) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, groups),
-          name,
-          data,
-          data->datatype(),
-          append,
-          compress);
-    });
+    instrarray.emplace_back(
+        [=](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+          return std::make_shared<writer::instructions::Hdf5DataWrite>(
+              writer::instructions::Hdf5Location(filename, groups),
+              name,
+              data,
+              data->datatype(),
+              append,
+              compress);
+        });
 
     if (isConst && constFile_ && !temporal_) {
       instructionsConstLink_.emplace_back(
@@ -212,9 +259,10 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
     }
 
     const auto lastPrefix = utils::StringUtils::split(prefix, '/');
-    const auto filename = prefix + "-" + self.name_ + "-" + std::to_string(counter) + ".vtkhdf";
-    const auto filenameFile =
-        lastPrefix.back() + "-" + self.name_ + "-" + std::to_string(counter) + ".vtkhdf";
+    // a time series is one file holding every step; a snapshot is one file per step
+    const auto suffix = self.temporal_ ? std::string() : "-" + std::to_string(counter);
+    const auto filename = prefix + "-" + self.name_ + suffix + ".vtkhdf";
+    const auto filenameFile = lastPrefix.back() + "-" + self.name_ + suffix + ".vtkhdf";
     const auto filenameConst = prefix + "-" + self.name_ + "-const.vtkhdf";
     const auto filenameConstFile = lastPrefix.back() + "-" + self.name_ + "-const.vtkhdf";
     const auto filenamePvu = prefix + "-" + self.name_ + ".pvd";
@@ -223,26 +271,31 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
 
     const auto fullWrite = counter == 0;
     if (fullWrite) {
+      // with a const file the unchanging data lives next to the snapshots; in a time series it
+      // goes into the one file, once
+      const auto& constTarget = self.constFile_ ? filenameConst : filename;
       for (const auto& instruction : self.instructionsConst_) {
-        writer.addInstruction(instruction(filenameConst, time));
+        writer.addInstruction(instruction(constTarget, counter, time));
       }
     }
     for (const auto& instruction : self.instructionsConstLink_) {
       writer.addInstruction(instruction(filename, filenameConstFile));
     }
     for (const auto& instruction : self.instructions_) {
-      writer.addInstruction(instruction(filename, time));
+      writer.addInstruction(instruction(filename, counter, time));
     }
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
         "Time",
         writer::WriteInline::createArray<double>({1}, {time}),
-        datatype::inferDatatype<decltype(time)>()));
+        datatype::inferDatatype<decltype(time)>(),
+        self.temporal_));
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
         "Index",
         writer::WriteInline::createArray<std::size_t>({1}, {counter}),
-        datatype::inferDatatype<decltype(counter)>()));
+        datatype::inferDatatype<decltype(counter)>(),
+        self.temporal_));
     writer.addInstructions(metadata::makePvu(pvu).instructions(filenamePvu));
     return writer;
   };

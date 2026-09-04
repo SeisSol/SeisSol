@@ -194,12 +194,15 @@ TEST_CASE("IO/Instruction: the time series adds the step bookkeeping" * doctest:
   auto plan = vtk.makeWriter()("prefix", 0, 0.5);
   const auto paths = targets(plan);
 
-  CHECK(contains(paths, "/VTKHDF/Values"));
-  CHECK(contains(paths, "/VTKHDF/PartOffsets"));
-  CHECK(contains(paths, "/VTKHDF/PointOffsets"));
-  CHECK(contains(paths, "/VTKHDF/CellOffsets"));
-  CHECK(contains(paths, "/VTKHDF/ConnectivityIdOffsets"));
-  CHECK(contains(paths, "/VTKHDF/CellDataOffsets/v1"));
+  // the step bookkeeping lives in its own group, per the VTKHDF specification
+  CHECK(contains(paths, "/VTKHDF/Steps@NSteps"));
+  CHECK(contains(paths, "/VTKHDF/Steps/Values"));
+  CHECK(contains(paths, "/VTKHDF/Steps/NumberOfParts"));
+  CHECK(contains(paths, "/VTKHDF/Steps/PartOffsets"));
+  CHECK(contains(paths, "/VTKHDF/Steps/PointOffsets"));
+  CHECK(contains(paths, "/VTKHDF/Steps/CellOffsets"));
+  CHECK(contains(paths, "/VTKHDF/Steps/ConnectivityIdOffsets"));
+  CHECK(contains(paths, "/VTKHDF/Steps/CellDataOffsets/v1"));
 
   // non-const data is appended, const data is not
   for (const auto& instruction : plan.getInstructions()) {

@@ -136,9 +136,11 @@ TEST_CASE("IO/VtkHdf: the written file is a well-formed unstructured grid" *
   hdf5.closeFile();
 }
 
-TEST_CASE("IO/VtkHdf: every scheduled write is a self-contained file" * doctest::test_suite("io")) {
+TEST_CASE("IO/VtkHdf: a time series is one file with a Steps group" * doctest::test_suite("io")) {
   const unit_test::io::TempDir dir;
   constexpr std::size_t Cells = 2;
+  const auto pointsPerCell =
+      instance::geometry::numPoints(1, instance::geometry::Shape::Tetrahedron);
 
   instance::mesh::VtkHdfWriter vtk(
       "volume", Cells, instance::geometry::Shape::Tetrahedron, 0, true, 0);
@@ -149,44 +151,79 @@ TEST_CASE("IO/VtkHdf: every scheduled write is a self-contained file" * doctest:
   });
 
   auto plan = vtk.makeWriter();
-  const std::vector<double> times{0.0, 0.25};
+  const std::vector<double> times{0.0, 0.25, 0.5};
   for (std::size_t step = 0; step < times.size(); ++step) {
     value = times[step];
     auto write = plan(dir.prefix(), step, times[step]);
     unit_test::io::runPlan(write, MPI_COMM_SELF);
   }
 
-  // NOTE: the file name carries the step counter even for a time series, so each step produces
-  // its own file rather than appending into one. Once WriterGroup::Monolith writes a single file,
-  // this is the place to check that Values and CellData grow by one step per write instead.
+  // one file, without a step counter in its name
+  const auto path = dir.prefix() + "-volume.vtkhdf";
+  REQUIRE(std::filesystem::exists(path));
+  CHECK_FALSE(std::filesystem::exists(dir.prefix() + "-volume-0.vtkhdf"));
+
+  reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+  hdf5.openFile(path);
+  hdf5.openGroup("VTKHDF");
+
+  const auto version = hdf5.readAttribute<std::int64_t>("Version");
+  REQUIRE(version.size() == 2);
+  CHECK(version[0] == 2);
+
+  // the mesh is written once, as a single part
+  CHECK(hdf5.readData<std::int64_t>("NumberOfCells").size() == 1);
+  CHECK(hdf5.readData<std::int64_t>("NumberOfPoints").at(0) ==
+        static_cast<std::int64_t>(Cells * pointsPerCell));
+  CHECK(hdf5.readData<std::int64_t>("Connectivity").size() == Cells * pointsPerCell);
+  CHECK(hdf5.readData<std::uint8_t>("Types").size() == Cells);
+
+  // ... and the attribute data grows by one step per write
+  hdf5.openGroup("CellData");
+  const auto v1 = hdf5.readData<double>("v1");
+  REQUIRE(v1.size() == times.size() * Cells);
   for (std::size_t step = 0; step < times.size(); ++step) {
-    const auto path = dir.prefix() + "-volume-" + std::to_string(step) + ".vtkhdf";
-    REQUIRE_MESSAGE(std::filesystem::exists(path), "missing ", path);
-
-    reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
-    hdf5.openFile(path);
-    hdf5.openGroup("VTKHDF");
-
-    // a time series announces VTKHDF 2.0 and carries the step bookkeeping
-    const auto version = hdf5.readAttribute<std::int64_t>("Version");
-    REQUIRE(version.size() == 2);
-    CHECK(version[0] == 2);
-    CHECK(hdf5.readData<double>("Values").at(0) == doctest::Approx(times[step]));
-    CHECK(hdf5.readData<std::uint64_t>("PartOffsets").size() == 1);
-
-    // the geometry is complete in every file
-    CHECK(hdf5.readData<std::int64_t>("Connectivity").size() == Cells * 4);
-
-    hdf5.openGroup("CellData");
-    const auto v1 = hdf5.readData<double>("v1");
-    REQUIRE(v1.size() == Cells);
-    CHECK(v1[0] == doctest::Approx(times[step]));
-    CHECK(v1[1] == doctest::Approx(times[step] + 1.0));
-    hdf5.closeGroup();
-
-    hdf5.closeGroup();
-    hdf5.closeFile();
+    CHECK(v1[step * Cells] == doctest::Approx(times[step]));
+    CHECK(v1[step * Cells + 1] == doctest::Approx(times[step] + 1.0));
   }
+  hdf5.closeGroup();
+
+  hdf5.openGroup("Steps");
+  CHECK(hdf5.readAttributeScalar<std::int64_t>("NSteps") ==
+        static_cast<std::int64_t>(times.size()));
+
+  const auto values = hdf5.readData<double>("Values");
+  REQUIRE(values.size() == times.size());
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    CHECK(values[step] == doctest::Approx(times[step]));
+  }
+
+  // the mesh does not change, so every step reads it from the same place
+  for (const auto* name : {"PartOffsets", "PointOffsets", "CellOffsets", "ConnectivityIdOffsets"}) {
+    const auto offsets = hdf5.readData<std::uint64_t>(name);
+    REQUIRE_MESSAGE(offsets.size() == times.size(), name);
+    for (const auto offset : offsets) {
+      CHECK_MESSAGE(offset == 0, name);
+    }
+  }
+  const auto parts = hdf5.readData<std::int64_t>("NumberOfParts");
+  REQUIRE(parts.size() == times.size());
+  for (const auto part : parts) {
+    CHECK(part == 1);
+  }
+
+  // the changing data does, so its offset advances by one step's worth each time
+  hdf5.openGroup("CellDataOffsets");
+  const auto dataOffsets = hdf5.readData<std::uint64_t>("v1");
+  REQUIRE(dataOffsets.size() == times.size());
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    CHECK(dataOffsets[step] == step * Cells);
+  }
+  hdf5.closeGroup();
+
+  hdf5.closeGroup();
+  hdf5.closeGroup();
+  hdf5.closeFile();
 }
 
 TEST_CASE("IO/VtkHdf: a compressed file holds the same data" * doctest::test_suite("io")) {

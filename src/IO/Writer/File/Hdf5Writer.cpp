@@ -170,6 +170,11 @@ void Hdf5File::writeAttribute(const async::ExecInfo& info,
     h5space = _eh(H5Screate_simple(shape.size(), hshape.data(), nullptr));
   }
   const hid_t h5type = datatype::convertToHdf5(source->datatype());
+  // An attribute cannot be resized, and a temporal file rewrites some of them on every step
+  // (NSteps above all), so an existing one is replaced rather than added to.
+  if (_eh(H5Aexists(handles_.top(), name.c_str())) > 0) {
+    _eh(H5Adelete(handles_.top(), name.c_str()));
+  }
   const hid_t handle =
       _eh(H5Acreate(handles_.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, H5P_DEFAULT));
   _eh(H5Awrite(handle, h5type, source->getPointer(info)));
