@@ -220,6 +220,12 @@ class ADERDGBase(ABC):
         """Layout the face rotation operates on."""
         return self.quantityBlocks()
 
+    def inverseRotationBlocks(self):
+        """Layout the inverse face rotation operates on. It need not match the
+        forward one: a solver keeping the mechanism index in its own tensor
+        dimension rotates one anelastic block forwards and none back."""
+        return self.extendedBlocks()
+
     def numQuantities(self):
         return total_extent(self.quantityBlocks())
 

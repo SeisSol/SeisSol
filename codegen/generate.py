@@ -22,6 +22,7 @@ import kernels.memlayout
 import kernels.nodalbc
 import kernels.plasticity
 import kernels.point
+import kernels.quantities
 import kernels.surface_displacement
 import kernels.vtkproject
 import yateto
@@ -282,6 +283,8 @@ def main():
 
         subfolders += [outputDirName]
 
+        kernels.quantities.emit_header(adg, trueOutputDir)
+
         # Generate code (if we need to)
         if check_run_codegen(outputDirName):
             generator.generate(
@@ -350,6 +353,7 @@ def main():
         forward_files("init.h")
         forward_files("kernel.h")
         forward_files("tensor.h")
+        forward_files("quantities.h")
 
     if cmdLineArgs.mode == "collect":
         targets = {

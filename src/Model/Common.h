@@ -12,6 +12,7 @@
 
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/quantities.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Typedefs.h"
 #include "Model/CommonDatastructures.h"
@@ -33,6 +34,36 @@ namespace seissol::model {
 
 template <typename MaterialT, typename = void>
 struct MaterialSetup;
+
+namespace detail {
+
+/// True if the groups have the kinds the codegen laid the tensors out for.
+template <std::size_t N, std::size_t M>
+constexpr bool kindsMatch(const std::array<QuantityGroup, N>& groups,
+                          const std::array<QuantityKind, M>& kinds) {
+  if constexpr (N != M) {
+    return false;
+  } else {
+    for (std::size_t i = 0; i < N; ++i) {
+      if (groups[i].kind != kinds[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+} // namespace detail
+
+// The codegen and the material headers declare their groups independently --
+// the generator cannot read C++, and the material headers are not generated.
+// This is what keeps the two from drifting apart: a disagreement becomes a
+// compile error rather than a rotation matrix with blocks in the wrong places.
+static_assert(detail::kindsMatch(MaterialT::RotationGroups, generated::RotationGroupKinds),
+              "the material's quantity groups disagree with the generated layout");
+static_assert(
+    detail::kindsMatch(MaterialT::InverseRotationGroups, generated::InverseRotationGroupKinds),
+    "the material's inverse quantity groups disagree with the generated layout");
 
 template <typename T>
 constexpr bool testIfAcoustic(T mu) {

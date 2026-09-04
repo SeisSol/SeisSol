@@ -103,6 +103,9 @@ class LinearCKAnelastic(ADERDGBase):
         this solver keeps the mechanism index as a separate tensor dimension."""
         return layout(self.primaryGroups(), self.mechanismGroups(), 1)
 
+    def inverseRotationBlocks(self):
+        return layout(self.primaryGroups())
+
     def numAnelasticQuantities(self):
         return total_extent(layout(self.mechanismGroups()))
 
