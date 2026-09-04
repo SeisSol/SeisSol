@@ -29,7 +29,8 @@ class VtkHdfWriter {
                geometry::Shape shape,
                std::size_t targetDegree,
                bool temporal,
-               std::int32_t compress);
+               std::int32_t compress,
+               bool constFile = false);
 
   void addData(const std::string& name,
                const std::optional<std::string>& group,
@@ -126,6 +127,8 @@ class VtkHdfWriter {
       instructions_;
   std::size_t type_;
   std::size_t targetDegree_;
+  //! Write the data that does not change into a file of its own, and link to it from every
+  //! snapshot instead of repeating it.
   bool constFile_{false};
   bool temporal_{false};
   int32_t compress_{0};

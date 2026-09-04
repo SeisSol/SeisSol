@@ -22,8 +22,11 @@ enum class WriterFormat : int32_t { Xdmf, Vtk };
 enum class WriterBackend : int32_t { Binary, Hdf5 };
 
 enum class WriterGroup : int32_t {
+  //! Every output step is a file of its own, and repeats the data that does not change.
   FullSnapshot,
-  // IncrementalSnapshot, ?
+  //! The data that does not change is written once, and the snapshots link to it.
+  IncrementalSnapshot,
+  //! One file holding all output steps, as a VTKHDF time series.
   Monolith
 };
 
@@ -51,6 +54,11 @@ class GeometryWriter {
       // produce something no reader can interpret as a time series.
       logError() << "A monolithic time series output is not implemented yet.";
     }
+    if (config.time == WriterGroup::IncrementalSnapshot && config.format == WriterFormat::Xdmf) {
+      // Xdmf keeps its payload in one file per output anyway and references the unchanging parts
+      // from every time step, so there is nothing for a separate const file to save here.
+      logError() << "An incremental snapshot output is only available for the VTKHDF format.";
+    }
     if (config.format == WriterFormat::Xdmf) {
       return mesh::XdmfWriter(name,
                               localElementCount,
@@ -64,7 +72,8 @@ class GeometryWriter {
                                 shape,
                                 config.order,
                                 config.time == WriterGroup::Monolith,
-                                config.compress);
+                                config.compress,
+                                config.time == WriterGroup::IncrementalSnapshot);
     }
   }
 

@@ -245,6 +245,75 @@ TEST_CASE("IO/VtkHdf: a compressed file holds the same data" * doctest::test_sui
   }
 }
 
+TEST_CASE("IO/VtkHdf: an incremental snapshot links to the constant data" *
+          doctest::test_suite("io")) {
+  const unit_test::io::TempDir dir;
+  constexpr std::size_t Cells = 2;
+  const auto pointsPerCell =
+      instance::geometry::numPoints(1, instance::geometry::Shape::Tetrahedron);
+
+  instance::mesh::VtkHdfWriter vtk(
+      "volume", Cells, instance::geometry::Shape::Tetrahedron, 0, false, 0, true);
+  vtk.addPointProjector(projectTestCell);
+  vtk.addCellData<std::int32_t>(
+      "clustering", {}, true, [](std::int32_t* target, std::size_t index) {
+        target[0] = static_cast<std::int32_t>(10 + index);
+      });
+  double value = 0;
+  vtk.addCellData<double>("v1", {}, false, [&value](double* target, std::size_t index) {
+    target[0] = value + static_cast<double>(index);
+  });
+
+  auto plan = vtk.makeWriter();
+  const std::vector<double> times{0.0, 0.25};
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    value = times[step];
+    auto write = plan(dir.prefix(), step, times[step]);
+    unit_test::io::runPlan(write, MPI_COMM_SELF);
+  }
+
+  // the geometry and the constant cell data go into one file of their own
+  const auto constFile = dir.prefix() + "-volume-const.vtkhdf";
+  REQUIRE(std::filesystem::exists(constFile));
+  const auto constSize = std::filesystem::file_size(constFile);
+
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    const auto path = dir.prefix() + "-volume-" + std::to_string(step) + ".vtkhdf";
+    REQUIRE_MESSAGE(std::filesystem::exists(path), "missing ", path);
+
+    // a snapshot only holds what changes, so it stays smaller than the constant part
+    CHECK(std::filesystem::file_size(path) < constSize);
+
+    // ... and the links make it look complete to a reader
+    reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+    hdf5.openFile(path);
+    hdf5.openGroup("VTKHDF");
+
+    const auto connectivity = hdf5.readData<std::int64_t>("Connectivity");
+    REQUIRE(connectivity.size() == Cells * pointsPerCell);
+    CHECK(connectivity.back() == static_cast<std::int64_t>(Cells * pointsPerCell - 1));
+
+    const auto points = hdf5.readData<double>("Points");
+    REQUIRE(points.size() == Cells * pointsPerCell * 3);
+    CHECK(points[0] == doctest::Approx(unit_test::io::TestVertices[0][0][0]));
+
+    hdf5.openGroup("CellData");
+    const auto clustering = hdf5.readData<std::int32_t>("clustering");
+    REQUIRE(clustering.size() == Cells);
+    CHECK(clustering[0] == 10);
+
+    // the changing data is in the snapshot itself, and differs per step
+    const auto v1 = hdf5.readData<double>("v1");
+    REQUIRE(v1.size() == Cells);
+    CHECK(v1[0] == doctest::Approx(times[step]));
+    CHECK(v1[1] == doctest::Approx(times[step] + 1.0));
+    hdf5.closeGroup();
+
+    hdf5.closeGroup();
+    hdf5.closeFile();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Xdmf: the declared dimensions have to match the payload that is written
 // ---------------------------------------------------------------------------
