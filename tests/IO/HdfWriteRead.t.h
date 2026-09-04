@@ -178,8 +178,10 @@ TEST_CASE("IO/VtkHdf: a time series is one file with a Steps group" * doctest::t
   CHECK(hdf5.readData<std::int64_t>("Connectivity").size() == Cells * pointsPerCell);
   CHECK(hdf5.readData<std::uint8_t>("Types").size() == Cells);
 
-  // ... and the attribute data grows by one step per write
+  // ... and the attribute data grows by one step per write, as one flat array that the step
+  // offsets slice, not as an array with a step dimension of its own
   hdf5.openGroup("CellData");
+  CHECK(hdf5.dataRowSize("v1") == 1);
   const auto v1 = hdf5.readData<double>("v1");
   REQUIRE(v1.size() == times.size() * Cells);
   for (std::size_t step = 0; step < times.size(); ++step) {

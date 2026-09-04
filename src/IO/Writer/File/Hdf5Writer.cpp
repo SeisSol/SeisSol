@@ -255,14 +255,19 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   MPI_Allreduce(&layout.count, &layout.allcount, 1, sizetype, MPI_SUM, comm);
   MPI_Exscan(&layout.count, &layout.offset, 1, sizetype, MPI_SUM, comm);
 
-  if (append) {
+  // Appending to distributed data extends the dimension the ranks are already concatenated
+  // along, rather than adding one of its own: a reader of, say, a VTKHDF time series expects one
+  // flat array that it slices with the step offsets, not an array with a step dimension.
+  const bool appendAlongDistributed = append && source->distributed();
+
+  if (append && !appendAlongDistributed) {
     layout.globalSizesMax.push_back(H5S_UNLIMITED);
     layout.globalSizes.push_back(1);
     layout.localSizes.push_back(1);
     layout.chunkSizes.push_back(1);
   }
   if (source->distributed()) {
-    layout.globalSizesMax.push_back(layout.allcount);
+    layout.globalSizesMax.push_back(appendAlongDistributed ? H5S_UNLIMITED : layout.allcount);
     layout.globalSizes.push_back(layout.allcount);
     layout.localSizes.push_back(layout.roundCount);
     // HDF5 handles data one chunk at a time, and for a dataset with a filter written in parallel
@@ -317,7 +322,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   std::size_t dyndim = 0;
 
-  if (append) {
+  const bool appendAlongDistributed = append && source->distributed();
+  if (append && !appendAlongDistributed) {
     writeStart.push_back(0);
     writeLength.push_back(1);
     dyndim = 1;
@@ -341,6 +347,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   hid_t h5space = H5S_NULL;
   hid_t h5data = H5S_NULL;
+  //! Rows already in the dataset, for data appended along the distributed dimension.
+  std::size_t appendBase = 0;
 
   const auto exists = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
 
@@ -362,8 +370,12 @@ void Hdf5File::writeData(const async::ExecInfo& info,
             << "Hdf5 writer error: tried to append to a dataset where there is nothing to append.";
       }
 
-      writeStart[0] = newGlobalSizes[0];
-      newGlobalSizes[0] += 1;
+      // for distributed data the dataset grows by a whole round of it, and this rank writes at
+      // its usual offset inside the part that was just added
+      const auto grow = source->distributed() ? allcount : 1_UZ;
+      appendBase = newGlobalSizes[0];
+      writeStart[0] = appendBase;
+      newGlobalSizes[0] += grow;
 
       _eh(H5Dset_extent(h5data, newGlobalSizes.data()));
 
@@ -428,7 +440,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   for (std::size_t i = 0; i < rounds; ++i) {
     if (source->distributed()) {
-      writeStart[dyndim] = offset + written;
+      writeStart[dyndim] = appendBase + offset + written;
       writeLength[dyndim] = std::min(count - written, chunkcount);
     }
 
