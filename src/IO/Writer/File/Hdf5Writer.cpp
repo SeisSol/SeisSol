@@ -167,7 +167,14 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     globalSizesMax.push_back(allcount);
     globalSizes.push_back(allcount);
     localSizes.push_back(chunkcount);
-    chunkSizes.push_back(std::max(1_UZ, std::min(chunksize, allcount)));
+    // HDF5 handles data one chunk at a time, and for a dataset with a filter written in parallel
+    // it gathers every chunk onto a single rank to compress it. Chunking the whole dataset into
+    // one piece would therefore serialise the compression and hold the entire array on one rank,
+    // so aim for a few MB instead. (This is unrelated to `chunksize` above, which only bounds how
+    // much one collective write may move at once.)
+    constexpr std::size_t TargetChunkBytes = 4UL * 1024 * 1024;
+    const std::size_t rowBytes = std::max(1_UZ, source->datatype()->size() * dimprod);
+    chunkSizes.push_back(std::clamp(TargetChunkBytes / rowBytes, 1_UZ, std::max(1_UZ, allcount)));
   }
   for (const auto& dim : dimensions) {
     globalSizesMax.push_back(dim);
@@ -204,10 +211,6 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const hid_t h5memtype = datatype::convertToHdf5(source->datatype());
 
   const hid_t h5memspace = _eh(H5Screate_simple(localSizes.size(), localSizes.data(), nullptr));
-
-  // create empty spaces just in case (MPIO likes to get stuck otherwise)
-  const hid_t h5spaceEmpty = _eh(H5Screate(H5S_NULL));
-  const hid_t h5memspaceEmpty = _eh(H5Screate(H5S_NULL));
 
   hid_t h5space = H5S_NULL;
   hid_t h5data = H5S_NULL;
@@ -311,7 +314,14 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
         return {h5memspace, h5space};
       } else {
-        return {h5memspaceEmpty, h5spaceEmpty};
+        // This rank contributes nothing in this round, but still has to take part in the write.
+        // A null dataspace would express that, but it is neither simple nor scalar, so HDF5 drops
+        // the whole write to independent I/O -- which it cannot do at all once the dataset has a
+        // filter ("Can't perform independent write with filters in pipeline"). An empty selection
+        // on the real dataspaces says the same thing and keeps the write collective.
+        _eh(H5Sselect_none(h5memspace));
+        _eh(H5Sselect_none(h5space));
+        return {h5memspace, h5space};
       }
     }();
 
@@ -327,8 +337,6 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   _eh(H5Sclose(h5space));
   _eh(H5Sclose(h5memspace));
-  _eh(H5Sclose(h5spaceEmpty));
-  _eh(H5Sclose(h5memspaceEmpty));
   _eh(H5Dclose(h5data));
   _eh(H5Pclose(h5dxlist));
 }

@@ -189,6 +189,62 @@ TEST_CASE("IO/VtkHdf: every scheduled write is a self-contained file" * doctest:
   }
 }
 
+TEST_CASE("IO/VtkHdf: a compressed file holds the same data" * doctest::test_suite("io")) {
+  // Enough cells that the dataset does not fit into a single chunk, so that the chunking is
+  // exercised rather than bypassed.
+  constexpr std::size_t Cells = 200000;
+  const auto pointsPerCell =
+      instance::geometry::numPoints(1, instance::geometry::Shape::Tetrahedron);
+
+  const auto write = [&](const unit_test::io::TempDir& dir, std::int32_t compress) {
+    instance::mesh::VtkHdfWriter vtk(
+        "volume", Cells, instance::geometry::Shape::Tetrahedron, 0, false, compress);
+    vtk.addPointProjector([](double* target, std::size_t index) {
+      for (std::size_t vertex = 0; vertex < 4; ++vertex) {
+        target[vertex * 3 + 0] = static_cast<double>(index);
+        target[vertex * 3 + 1] = static_cast<double>(vertex);
+        target[vertex * 3 + 2] = 0.0;
+      }
+    });
+    vtk.addCellData<double>("v1", {}, false, [](double* target, std::size_t index) {
+      target[0] = static_cast<double>(index % 3);
+    });
+    auto plan = vtk.makeWriter()(dir.prefix(), 0, 0.0);
+    unit_test::io::runPlan(plan, MPI_COMM_SELF);
+    return dir.prefix() + "-volume-0.vtkhdf";
+  };
+
+  const unit_test::io::TempDir plainDir;
+  const unit_test::io::TempDir compressedDir;
+  const auto plain = write(plainDir, 0);
+  const auto compressed = write(compressedDir, 6);
+
+  CHECK(std::filesystem::file_size(compressed) < std::filesystem::file_size(plain));
+
+  // compression must not change what is stored
+  for (const auto& path : {plain, compressed}) {
+    reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+    hdf5.openFile(path);
+    hdf5.openGroup("VTKHDF");
+
+    const auto connectivity = hdf5.readData<std::int64_t>("Connectivity");
+    REQUIRE(connectivity.size() == Cells * pointsPerCell);
+    CHECK(connectivity.front() == 0);
+    CHECK(connectivity.back() == static_cast<std::int64_t>(Cells * pointsPerCell - 1));
+
+    hdf5.openGroup("CellData");
+    const auto values = hdf5.readData<double>("v1");
+    REQUIRE(values.size() == Cells);
+    for (std::size_t index = 0; index < Cells; index += 4096) {
+      CHECK(values[index] == doctest::Approx(static_cast<double>(index % 3)));
+    }
+    hdf5.closeGroup();
+
+    hdf5.closeGroup();
+    hdf5.closeFile();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Xdmf: the declared dimensions have to match the payload that is written
 // ---------------------------------------------------------------------------

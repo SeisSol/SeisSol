@@ -158,4 +158,61 @@ TEST_CASE("IO/VtkHdf: unequal partitions produce one consistent grid" * doctest:
   hdf5.closeFile();
 }
 
+/**
+ * A dataset with a filter is, in parallel HDF5, gathered chunk by chunk onto a single rank before
+ * it is compressed. That path is separate from the plain one and only runs on more than one rank.
+ */
+TEST_CASE("IO/VtkHdf: compression survives unequal partitions" * doctest::test_suite("io")) {
+  const auto rank = static_cast<std::size_t>(Mpi::mpi.rank());
+  const auto size = static_cast<std::size_t>(Mpi::mpi.size());
+  REQUIRE(size > 1);
+
+  // enough cells to span several chunks, and again an empty rank 0
+  const auto localCells = rank * 100000;
+  const auto globalCells = ((size * (size - 1)) / 2) * 100000;
+  const auto offset = ((rank * (rank - 1)) / 2) * 100000;
+  const auto pointsPerCell =
+      instance::geometry::numPoints(1, instance::geometry::Shape::Tetrahedron);
+
+  const SharedTempDir dir;
+
+  instance::mesh::VtkHdfWriter vtk(
+      "volume", localCells, instance::geometry::Shape::Tetrahedron, 0, false, 6);
+  vtk.addPointProjector([=](double* target, std::size_t index) {
+    const auto global = static_cast<double>(offset + index);
+    for (std::size_t vertex = 0; vertex < 4; ++vertex) {
+      target[vertex * 3 + 0] = global;
+      target[vertex * 3 + 1] = static_cast<double>(vertex);
+      target[vertex * 3 + 2] = 0.0;
+    }
+  });
+  vtk.addCellData<double>("v1", {}, false, [=](double* target, std::size_t index) {
+    target[0] = static_cast<double>((offset + index) % 7);
+  });
+
+  auto plan = vtk.makeWriter()(dir.prefix(), 0, 0.0);
+  unit_test::io::runPlan(plan, Mpi::mpi.comm());
+
+  MPI_Barrier(Mpi::mpi.comm());
+
+  reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+  hdf5.openFile(dir.prefix() + "-volume-0.vtkhdf");
+  hdf5.openGroup("VTKHDF");
+
+  const auto connectivity = hdf5.readData<std::int64_t>("Connectivity");
+  REQUIRE(connectivity.size() == globalCells * pointsPerCell);
+  CHECK(connectivity.back() == static_cast<std::int64_t>(globalCells * pointsPerCell - 1));
+
+  hdf5.openGroup("CellData");
+  const auto values = hdf5.readData<double>("v1");
+  REQUIRE(values.size() == globalCells);
+  for (std::size_t index = 0; index < globalCells; index += 4096) {
+    CHECK(values[index] == doctest::Approx(static_cast<double>(index % 7)));
+  }
+  hdf5.closeGroup();
+
+  hdf5.closeGroup();
+  hdf5.closeFile();
+}
+
 } // namespace seissol::unit_test
