@@ -13,6 +13,9 @@
 #include "Modules/Module.h"
 #include "Parallel/Pin.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -23,6 +26,25 @@ class SeisSol;
 } // namespace seissol
 
 namespace seissol::io::writer::module {
+
+/**
+ * @brief The number of outputs a run at @p startTime has behind it, i.e. the counter its first
+ * output should carry.
+ *
+ * Outputs are numbered from zero and happen every @p interval, so a run resuming from a
+ * checkpoint has to pick up where the previous one stopped instead of starting over and
+ * overwriting its files. The comparison is made with a tolerance, since a checkpoint time that
+ * should sit exactly on an output can arrive a rounding error below it.
+ */
+inline std::size_t outputCountBefore(double startTime, double interval) {
+  if (!(startTime > 0) || !(interval > 0)) {
+    return 0;
+  }
+  constexpr double Tolerance = 1e-9;
+  const auto elapsed = startTime / interval;
+  // the output at startTime itself has already happened, hence the + 1
+  return static_cast<std::size_t>(std::floor(elapsed + Tolerance * std::max(1.0, elapsed))) + 1;
+}
 
 class WriterModule : public seissol::Module, private AsyncWriterModule, private BufferAllocator {
   public:

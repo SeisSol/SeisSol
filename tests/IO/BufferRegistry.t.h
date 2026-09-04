@@ -11,6 +11,7 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Module/BufferRegistry.h"
+#include "IO/Writer/Module/WriterModule.h"
 #include "IO/Writer/Writer.h"
 
 #include <cstdint>
@@ -194,3 +195,37 @@ TEST_CASE("IO/BufferRegistry: the ids reach the plan" * doctest::test_suite("io"
 }
 
 } // namespace seissol::unit_test
+
+// ---------------------------------------------------------------------------
+// Resuming the output numbering after a restart
+// ---------------------------------------------------------------------------
+
+TEST_CASE("IO/WriterModule: the output numbering resumes after a restart" *
+          doctest::test_suite("io")) {
+  using seissol::io::writer::module::outputCountBefore;
+
+  // a fresh run has nothing behind it
+  CHECK(outputCountBefore(0.0, 0.5) == 0);
+
+  // outputs happen at 0, 0.5, 1.0, ...; a checkpoint at 0.5 has two of them behind it
+  CHECK(outputCountBefore(0.5, 0.5) == 2);
+  CHECK(outputCountBefore(1.0, 0.5) == 3);
+  CHECK(outputCountBefore(2.0, 0.5) == 5);
+
+  // a checkpoint between two outputs belongs to the earlier one
+  CHECK(outputCountBefore(0.7, 0.5) == 2);
+  CHECK(outputCountBefore(0.99, 0.5) == 2);
+
+  // a time that should sit exactly on an output can arrive a rounding error below it, and must
+  // not be counted as one output short -- that would overwrite the last file of the previous run
+  double accumulated = 0;
+  for (int step = 0; step < 30; ++step) {
+    accumulated += 0.1;
+  }
+  CHECK(accumulated != 3.0);
+  CHECK(outputCountBefore(accumulated, 0.1) == 31);
+
+  // nothing sensible to resume from
+  CHECK(outputCountBefore(3.0, 0.0) == 0);
+  CHECK(outputCountBefore(-1.0, 0.5) == 0);
+}

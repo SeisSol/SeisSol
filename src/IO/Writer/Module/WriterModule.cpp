@@ -17,6 +17,7 @@
 #include "SeisSol.h"
 
 #include <cassert>
+#include <cmath>
 #include <cstring>
 #include <optional>
 #include <string>
@@ -69,8 +70,14 @@ void WriterModule::startup() {
 }
 
 void WriterModule::simulationStart(std::optional<double> checkpointTime) {
-  if (checkpointTime.value_or(0) == 0) {
+  const auto startTime = checkpointTime.value_or(0);
+  if (startTime == 0) {
     syncPoint(0);
+  } else {
+    // resume the numbering instead of starting over, which would overwrite the output of the run
+    // this one continues
+    writeCount_ = outputCountBefore(startTime, settings_.interval);
+    logInfo() << "Output Writer" << settings_.name << ": resuming at output" << writeCount_;
   }
 }
 
