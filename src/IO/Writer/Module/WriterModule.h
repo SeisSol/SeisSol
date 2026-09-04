@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_IO_WRITER_MODULE_WRITERMODULE_H_
 
 #include "AsyncWriter.h"
+#include "BufferRegistry.h"
 #include "Modules/Module.h"
 #include "Parallel/Pin.h"
 
@@ -16,7 +17,6 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <unordered_map>
 
 namespace seissol {
 class SeisSol;
@@ -24,12 +24,7 @@ class SeisSol;
 
 namespace seissol::io::writer::module {
 
-struct BufferPointer {
-  size_t size{0};
-  int id{-1};
-};
-
-class WriterModule : public seissol::Module, private AsyncWriterModule {
+class WriterModule : public seissol::Module, private AsyncWriterModule, private BufferAllocator {
   public:
   WriterModule(const std::string& prefix,
                const ScheduledWriter& settings,
@@ -44,12 +39,16 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   private:
   void setUp() override;
 
+  // BufferAllocator, forwarding to ASYNC
+  int addBuffer(const void* pointer, std::size_t size) override;
+  void resizeBuffer(int id, const void* pointer, std::size_t size) override;
+  void* managedBuffer(int id) override;
+
   int rank_;
   std::string prefix_;
   unsigned planId_{std::numeric_limits<unsigned>::max()};
   AsyncWriter executor_;
-  std::unordered_map<const void*, BufferPointer> pointerMap_;
-  std::unordered_map<std::size_t, std::vector<int>> bufferMap_;
+  BufferRegistry registry_{*this};
   ScheduledWriter settings_;
   double lastWrite_{-1};
   std::size_t writeCount_{0};

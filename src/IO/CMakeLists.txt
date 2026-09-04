@@ -28,6 +28,7 @@ add_library(seissol-io OBJECT
     Writer/Instructions/Hdf5.cpp
     Writer/Instructions/Instruction.cpp
     Writer/Module/AsyncWriter.cpp
+    Writer/Module/BufferRegistry.cpp
     Writer/Module/WriterModule.cpp
     Writer/Writer.cpp
     Manager.cpp

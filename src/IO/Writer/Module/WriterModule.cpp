@@ -20,7 +20,6 @@
 #include <cstring>
 #include <optional>
 #include <string>
-#include <unordered_set>
 #include <utils/logger.h>
 #include <vector>
 
@@ -56,7 +55,7 @@ void WriterModule::startup() {
   init();
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here
-  planId_ = addBuffer(nullptr, 1, true);
+  planId_ = AsyncWriterModule::addBuffer(nullptr, 1, true);
   assert(planId_ == 0);
 
   callInit(AsyncWriterInit{});
@@ -86,86 +85,13 @@ void WriterModule::syncPoint(double time) {
   // request the write plan
   auto writer = settings_.planWrite(prefix_, writeCount_, time);
 
-  // prepare the data in the plan
-  std::unordered_set<DataSource*> handledSources;
-  std::vector<int> idsToSend;
-  std::unordered_set<int> idSet;
-  for (const auto& instruction : writer.getInstructions()) {
-    for (auto& dataSource : instruction->dataSources()) {
-      if (handledSources.find(dataSource.get()) == handledSources.end()) {
-        // TODO: make a better flag than distributed here
-        if (dataSource->distributed()) {
-          // NOTE: the following structure is suboptimal, because it's not respecting basic OOP
-          // practices. Not sure, if it's important to really care about that... But there may be
-          // more beautiful ways for some day.
-          const auto id = [&]() -> int {
-            if (dynamic_cast<WriteBuffer*>(dataSource.get()) != nullptr) {
-              // pass-through buffer
-              auto* writeBuffer = dynamic_cast<WriteBuffer*>(dataSource.get());
-              const auto* pointer = writeBuffer->getLocalPointer();
-              auto size = writeBuffer->getLocalSize();
-              if (pointerMap_.find(pointer) == pointerMap_.end()) {
-                BufferPointer repr;
-                repr.id = addBuffer(pointer, size);
-                repr.size = size;
-                pointerMap_[pointer] = repr;
-                return repr.id;
-              } else {
-                auto& repr = pointerMap_.at(pointer);
-                if (repr.size != size) {
-                  if (idSet.find(repr.id) != idSet.end()) {
-                    // it is ok to request the same buffer multiple times, but not with different
-                    // sizes (that's currently still unsupported)
-                    logError() << "The same buffer is requested with different sizes. This is not "
-                                  "supported at the moment.";
-                  }
-                  resizeBuffer(repr.id, pointer, size);
-                  repr.size = size;
-                }
-                return repr.id;
-              }
-            }
-            if (dynamic_cast<AdhocBuffer*>(dataSource.get()) != nullptr) {
-              // managed buffer
-              // for now, recycle existing buffers of the same size
-              // this does of course assume that we don't change the size too often...
-              auto* adhocBuffer = dynamic_cast<AdhocBuffer*>(dataSource.get());
-              auto targetSize = adhocBuffer->getTargetSize();
-              const auto foundId = [&]() -> int {
-                for (auto id : bufferMap_[targetSize]) {
-                  if (idSet.find(id) == idSet.end()) {
-                    return id;
-                  }
-                }
-                auto newId = addBuffer(nullptr, targetSize);
-                bufferMap_[targetSize].push_back(newId);
-                return newId;
-              }();
-
-              // avoid assert in ASYNC by checking targetSize == 0 explicitly
-              void* bufferPtr = targetSize == 0 ? nullptr : managedBuffer<void*>(foundId);
-              adhocBuffer->setData(bufferPtr);
-              return foundId;
-            }
-            logError() << "Unsupported buffer type.";
-            return -1;
-          }();
-          if (id == -1) {
-            logError() << "Internal buffer error.";
-          }
-          idSet.emplace(id);
-          idsToSend.push_back(id);
-          dataSource->assignId(id);
-          handledSources.emplace(dataSource.get());
-        }
-      }
-    }
-  }
+  // decide which buffer each data source of the plan uses
+  const auto idsToSend = registry_.assign(writer);
 
   // take care of the plan (i.e. resize our managed buffer and send it)
   auto serialized = writer.serialize();
-  resizeBuffer(planId_, nullptr, serialized.size());
-  char* planBuffer = managedBuffer<char*>(planId_);
+  AsyncWriterModule::resizeBuffer(planId_, nullptr, serialized.size());
+  auto* planBuffer = AsyncWriterModule::managedBuffer<char*>(planId_);
   std::memcpy(planBuffer, serialized.c_str(), serialized.size());
   sendBuffer(planId_, serialized.size());
 
@@ -179,6 +105,16 @@ void WriterModule::syncPoint(double time) {
   ++writeCount_;
   call(AsyncWriterExec{});
 }
+
+int WriterModule::addBuffer(const void* pointer, std::size_t size) {
+  return AsyncWriterModule::addBuffer(pointer, size, pointer == nullptr);
+}
+
+void WriterModule::resizeBuffer(int id, const void* pointer, std::size_t size) {
+  AsyncWriterModule::resizeBuffer(id, pointer, size);
+}
+
+void* WriterModule::managedBuffer(int id) { return AsyncWriterModule::managedBuffer<void*>(id); }
 
 void WriterModule::simulationEnd() {
   logInfo() << "Output Writer" << settings_.name << ": finishing output";
