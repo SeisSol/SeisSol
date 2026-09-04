@@ -128,6 +128,32 @@ constexpr std::size_t roleOffset(const std::array<QuantityGroup, N>& groups, Fac
   return totalExtent(groups);
 }
 
+/// Weight of a component of `kind` in the trace of the tensor it represents.
+///
+/// A scalar stands for an isotropic tensor, so its one component enters the
+/// trace three times over; a symmetric second-order tensor contributes its
+/// three diagonal components once each. Energy expressions written for one of
+/// them therefore carry over to the other by these weights alone.
+constexpr double traceWeight(QuantityKind kind) {
+  return kind == QuantityKind::Scalar ? 3.0 : 1.0;
+}
+
+/// Components of `kind` that enter the trace.
+constexpr std::size_t traceComponents(QuantityKind kind) {
+  return kind == QuantityKind::Scalar ? 1 : 3;
+}
+
+/// Kind of the first group with `role`.
+template <std::size_t N>
+constexpr QuantityKind roleKind(const std::array<QuantityGroup, N>& groups, FaceRole role) {
+  for (const auto& group : groups) {
+    if (group.role == role) {
+      return group.kind;
+    }
+  }
+  return QuantityKind::Scalar;
+}
+
 /// Number of components in the first group with `role`, or zero if absent.
 template <std::size_t N>
 constexpr std::size_t roleExtent(const std::array<QuantityGroup, N>& groups, FaceRole role) {

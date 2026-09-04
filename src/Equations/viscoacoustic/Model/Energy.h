@@ -150,9 +150,16 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
     const auto ane = multisim::simtensor(aneFused, sim);
     const auto cross = multisim::simtensor(crossFused, sim);
 
-    // moments of the traces
-    const auto traceSigmaSq = quadSub(0, 0);
-    const auto traceSigmaTheta = [&](std::size_t m) { return cross(0, 0, m); };
+    // Moments of the traces. The quantity is a single isotropic stress
+    // component, so the trace of the tensor it stands for is three times over
+    // it -- which is what the weights below carry, and what keeps the
+    // expressions further down identical to the ones for a stress tensor.
+    constexpr auto Weight = traceWeight(roleKind(ViscoMaterial::PrimaryGroups, FaceRole::Traction));
+    const auto traceSigmaSq = Weight * Weight * quadSub(0, 0);
+    const auto traceSigmaTheta = [&](std::size_t m) { return Weight * cross(0, 0, m); };
+    // No weight here: the memory variable is driven by the divergence of the
+    // velocity, so it already is the trace of its tensor counterpart rather
+    // than one component of it.
     const auto traceThetaTheta = [&](std::size_t m, std::size_t n) { return ane(0, 0, m, n); };
 
     // sigma_r = sigma - sum_m D^(m) vartheta^(m) / omega_m, split into its
