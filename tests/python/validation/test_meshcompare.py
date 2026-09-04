@@ -6,11 +6,12 @@
 
 meshcompare.compare() is monolithic — it:
   1. Opens two XDMF files via seissolxdmf
-  2. Reorders cells (by global-id field if present, else by barycenter heuristic)
-  3. Asserts geometries match
-  4. Computes L1/L2 errors per quantity
-  5. Has a hardcoded workaround for a known SeisSol bug: DS field zeros
-  6. Calls sys.exit(1) on threshold violation
+  2. Matches the cells of the two files geometrically, independently of the cell
+     order and of the vertex order within a cell; falls back to a per-element
+     comparison via global-id if they are not the same cells
+  3. Computes L2 errors per quantity
+  4. Has a hardcoded workaround for a known SeisSol bug: DS field zeros
+  5. Calls sys.exit(1) on threshold violation
 
 To test without building real HDF5/XDMF files, we monkey-patch
 seissolxdmf.seissolxdmf with a test double backed by numpy arrays.
@@ -117,9 +118,7 @@ class TestMeshCompareExact:
         # Should complete without sys.exit
         meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
 
-    def test_identical_without_global_id_falls_back_to_barycenter(
-        self, patch_seissolxdmf, capsys
-    ):
+    def test_identical_without_global_id_still_matches(self, patch_seissolxdmf, capsys):
         data = {
             "geom": GEOM,
             "connect": CONNECT,
@@ -130,7 +129,7 @@ class TestMeshCompareExact:
 
         meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
         out = capsys.readouterr().out
-        assert "Order the cells by their barycenter" in out
+        assert "Matched all 2 cells geometrically" in out
 
 
 class TestMeshCompareFailures:
@@ -153,8 +152,8 @@ class TestMeshCompareFailures:
             meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
         assert exc_info.value.code == 1
 
-    def test_geometry_mismatch_raises_assertion(self, patch_seissolxdmf):
-        """meshcompare has an inline `assert np.all(... < 1e-10)` on geometry"""
+    def test_geometry_mismatch_exits(self, patch_seissolxdmf):
+        """Cells that are not in the same place must not be compared."""
         shifted_geom = GEOM + 1.0  # different geometry
         patch_seissolxdmf["sim.xdmf"] = {
             "geom": GEOM,
@@ -168,12 +167,13 @@ class TestMeshCompareFailures:
             "fields": {"v1": np.array([1.0, 2.0])},
             "int_fields": {"global-id": np.array([0, 1])},
         }
-        with pytest.raises(AssertionError):
+        with pytest.raises(SystemExit) as exc_info:
             meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
+        assert exc_info.value.code == 1
 
     def test_mismatched_global_ids_fail(self, patch_seissolxdmf):
-        """If global-id field is present but cells don't align geometrically,
-        the inline assertion on geometry equality fires (AssertionError)."""
+        """If the cells do not align geometrically and cannot be aggregated into
+        matching elements either, the comparison gives up."""
         patch_seissolxdmf["sim.xdmf"] = {
             "geom": GEOM,
             "connect": CONNECT,
@@ -197,10 +197,9 @@ class TestMeshCompareFailures:
             "fields": {"v1": np.array([1.0, 2.0])},
             "int_fields": {"global-id": np.array([0, 1])},
         }
-        # The inline assert `np.all(np.abs(geom[connect]-geom_ref[connect_ref])<1e-10)`
-        # fires on mismatched cell geometry
-        with pytest.raises(AssertionError):
+        with pytest.raises(SystemExit) as exc_info:
             meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
+        assert exc_info.value.code == 1
 
 
 class TestMeshCompareMetafieldsExcluded:
@@ -319,3 +318,135 @@ class TestMeshCompareVelocityRenaming:
         }
         # meshcompare should use u from ref when comparing v1
         meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
+
+
+# A single tetrahedron split into four subcells by its barycenter, as the volume
+# output does for `refinement = 1`. All four carry the same global-id.
+REFINED_GEOM = np.array(
+    [
+        [0.0, 0.0, 0.0],  # 0
+        [1.0, 0.0, 0.0],  # 1
+        [0.0, 1.0, 0.0],  # 2
+        [0.0, 0.0, 1.0],  # 3
+        [0.25, 0.25, 0.25],  # 4 — barycenter
+    ]
+)
+REFINED_CONNECT = np.array(
+    [
+        [0, 1, 2, 4],
+        [0, 1, 4, 3],
+        [0, 2, 3, 4],
+        [1, 2, 4, 3],
+    ]
+)
+REFINED_VALUES = np.array([1.0, 2.0, 3.0, 4.0])
+REFINED_IDS = np.array([7, 7, 7, 7])
+
+
+class TestMeshCompareReordering:
+    """The whole point of the geometric matching: neither the cell order nor the
+    vertex order within a cell may influence the result."""
+
+    def test_shuffled_cells_still_match(self, patch_seissolxdmf, capsys):
+        order = [2, 0, 3, 1]
+        patch_seissolxdmf["sim.xdmf"] = {
+            "geom": REFINED_GEOM,
+            "connect": REFINED_CONNECT[order],
+            "fields": {"v1": REFINED_VALUES[order]},
+            "int_fields": {"global-id": REFINED_IDS},
+        }
+        patch_seissolxdmf["ref.xdmf"] = {
+            "geom": REFINED_GEOM,
+            "connect": REFINED_CONNECT,
+            "fields": {"v1": REFINED_VALUES},
+            "int_fields": {"global-id": REFINED_IDS},
+        }
+
+        meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=1e-12)
+        out = capsys.readouterr().out
+        assert "Matched all 4 cells geometrically" in out
+        assert "4 of them reordered" in out or "reordered" in out
+
+    def test_reoriented_cells_still_match(self, patch_seissolxdmf, capsys):
+        # swap the last two vertices of every cell, i.e. flip the orientation
+        reoriented = REFINED_CONNECT[:, [0, 1, 3, 2]]
+        patch_seissolxdmf["sim.xdmf"] = {
+            "geom": REFINED_GEOM,
+            "connect": reoriented,
+            "fields": {"v1": REFINED_VALUES},
+            "int_fields": {"global-id": REFINED_IDS},
+        }
+        patch_seissolxdmf["ref.xdmf"] = {
+            "geom": REFINED_GEOM,
+            "connect": REFINED_CONNECT,
+            "fields": {"v1": REFINED_VALUES},
+            "int_fields": {"global-id": REFINED_IDS},
+        }
+
+        meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=1e-12)
+        assert "Matched all 4 cells geometrically" in capsys.readouterr().out
+
+    def test_permuted_values_are_reported_not_hidden(self, patch_seissolxdmf, capsys):
+        """Values attached to the wrong subcell must fail, even though the cells
+        themselves match perfectly."""
+        patch_seissolxdmf["sim.xdmf"] = {
+            "geom": REFINED_GEOM,
+            "connect": REFINED_CONNECT,
+            "fields": {"v1": REFINED_VALUES[[1, 2, 0, 3]]},
+            "int_fields": {"global-id": REFINED_IDS},
+        }
+        patch_seissolxdmf["ref.xdmf"] = {
+            "geom": REFINED_GEOM,
+            "connect": REFINED_CONNECT,
+            "fields": {"v1": REFINED_VALUES},
+            "int_fields": {"global-id": REFINED_IDS},
+        }
+
+        with pytest.raises(SystemExit) as exc_info:
+            meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
+        assert exc_info.value.code == 1
+        assert "Matched all 4 cells geometrically" in capsys.readouterr().out
+
+
+class TestMeshCompareAggregation:
+    """Different subdivisions of the same element fall back to a per-element
+    comparison instead of failing outright."""
+
+    def test_different_tiling_aggregates(self, patch_seissolxdmf, capsys):
+        # the reference does not refine at all; the simulation splits by 4
+        patch_seissolxdmf["sim.xdmf"] = {
+            "geom": REFINED_GEOM,
+            "connect": REFINED_CONNECT,
+            # the four subcells have equal volume, so the mean is 2.5
+            "fields": {"v1": REFINED_VALUES},
+            "int_fields": {"global-id": REFINED_IDS},
+        }
+        patch_seissolxdmf["ref.xdmf"] = {
+            "geom": REFINED_GEOM[:4],
+            "connect": np.array([[0, 1, 2, 3]]),
+            "fields": {"v1": np.array([2.5])},
+            "int_fields": {"global-id": np.array([7])},
+        }
+
+        meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=1e-12)
+        out = capsys.readouterr().out
+        assert "Falling back to a per-element comparison" in out
+        assert "Aggregated 4 cells into 1 elements" in out
+
+    def test_different_tiling_with_wrong_mean_fails(self, patch_seissolxdmf):
+        patch_seissolxdmf["sim.xdmf"] = {
+            "geom": REFINED_GEOM,
+            "connect": REFINED_CONNECT,
+            "fields": {"v1": REFINED_VALUES},
+            "int_fields": {"global-id": REFINED_IDS},
+        }
+        patch_seissolxdmf["ref.xdmf"] = {
+            "geom": REFINED_GEOM[:4],
+            "connect": np.array([[0, 1, 2, 3]]),
+            "fields": {"v1": np.array([25.0])},  # 10x the actual mean
+            "int_fields": {"global-id": np.array([7])},
+        }
+
+        with pytest.raises(SystemExit) as exc_info:
+            meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
+        assert exc_info.value.code == 1

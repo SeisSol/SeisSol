@@ -22,6 +22,20 @@
 
 namespace seissol::initializer::parameters {
 
+namespace {
+ProjectionMethod readProjectionMethod(ParameterReader* reader,
+                                      const std::string& field,
+                                      const std::string& defaultValue) {
+  return reader->readWithDefaultStringEnum<ProjectionMethod>(
+      field,
+      defaultValue,
+      {
+          {"pointwise", ProjectionMethod::Pointwise},
+          {"l2", ProjectionMethod::L2},
+      });
+}
+} // namespace
+
 void warnIntervalAndDisable(bool& enabled,
                             double interval,
                             const std::string& valName,
@@ -113,7 +127,11 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
 
-  return FreeSurfaceOutputParameters{enabled, refinement, interval, vtkorder};
+  // The free-surface output has always been an average over each output subcell (cf. the former
+  // FreeSurfaceIntegrator::computeSubTriangleAverages), i.e. an L2 projection.
+  const auto projection = readProjectionMethod(reader, "surfaceprojection", "l2");
+
+  return FreeSurfaceOutputParameters{enabled, refinement, interval, vtkorder, projection};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
@@ -241,6 +259,13 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto vtkorder = reader->readWithDefault("wavefieldvtkorder", -1);
 
+  const auto computeRotation = reader->readWithDefault("wavefieldcomputerotation", false);
+  const auto computeStrain = reader->readWithDefault("wavefieldcomputestrain", false);
+
+  // The wavefield output has always been a point evaluation at the output points (cf. the former
+  // refinement::VariableSubsampler), unlike the free-surface output.
+  const auto projection = readProjectionMethod(reader, "wavefieldprojection", "pointwise");
+
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
   }
@@ -253,25 +278,29 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
                                    outputMask,
                                    plasticityMask,
                                    integrationMask,
-                                   groups};
+                                   groups,
+                                   computeRotation,
+                                   computeStrain,
+                                   projection};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
+  const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
   const auto loopStatisticsNetcdfOutput =
       reader->readWithDefault("loopstatisticsnetcdfoutput", false);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
-  const auto xdmfWriterBackend = reader->readWithDefaultStringEnum<xdmfwriter::BackendType>(
-      "xdmfwriterbackend",
-      "posix",
-      {
-          {"posix", xdmfwriter::BackendType::POSIX},
+  const auto xdmfWriterBackend =
+      reader->readWithDefaultStringEnum<XdmfBackend>("xdmfwriterbackend",
+                                                     "posix",
+                                                     {
+                                                         {"posix", XdmfBackend::Posix},
 #ifdef USE_HDF
-          {"hdf5", xdmfwriter::BackendType::H5},
+                                                         {"hdf5", XdmfBackend::Hdf5},
 #endif
-      });
+                                                     });
   const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 
@@ -283,7 +312,8 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   const auto receiverParameters = readReceiverParameters(baseReader);
   const auto waveFieldParameters = readWaveFieldParameters(baseReader);
 
-  reader->warnDeprecated({"rotation",
+  reader->warnDeprecated({"projection",
+                          "rotation",
                           "interval",
                           "nrecordpoints",
                           "printintervalcriterion",
@@ -294,6 +324,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   return OutputParameters(loopStatisticsNetcdfOutput,
                           format,
                           xdmfWriterBackend,
+                          hdfcompress,
                           prefix,
                           checkpointParameters,
                           elementwiseParameters,

@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 
+#include "Dimension.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 
@@ -25,18 +26,31 @@ namespace seissol::io::writer {
 
 class DataSource {
   public:
-  DataSource(std::shared_ptr<datatype::Datatype> datatype, const std::vector<std::size_t>& shape);
+  DataSource(std::shared_ptr<datatype::Datatype> datatype,
+             const std::vector<std::size_t>& shape,
+             bool leadingDistributed);
   virtual ~DataSource();
 
   virtual YAML::Node serialize() = 0;
   virtual const void* getPointer(const async::ExecInfo& info) = 0;
   virtual std::size_t count(const async::ExecInfo& info) = 0;
   virtual void assignId(int id) = 0;
-  virtual bool distributed() = 0;
   [[nodiscard]] virtual const void* getLocalPointer() const = 0;
   [[nodiscard]] virtual size_t getLocalSize() const = 0;
 
+  /**
+   * @brief Whether the data has to travel to the executor in a buffer of its own.
+   *
+   * This is a property of where the memory comes from, not of how the data is laid out across the
+   * ranks: data carried inside the plan needs no buffer, everything else does.
+   */
+  [[nodiscard]] virtual bool managed() const = 0;
+
+  //! @brief The full shape, at most one dimension of which is distributed, and that one first.
+  [[nodiscard]] const std::vector<Dimension>& dimensions() const;
+  //! @brief The replicated dimensions, i.e. dimensions() without a leading distributed one.
   [[nodiscard]] const std::vector<std::size_t>& shape() const;
+  [[nodiscard]] bool distributed() const;
   [[nodiscard]] std::shared_ptr<seissol::io::datatype::Datatype> datatype() const;
 
   static std::unique_ptr<DataSource> deserialize(YAML::Node node);
@@ -44,6 +58,7 @@ class DataSource {
   protected:
   std::shared_ptr<seissol::io::datatype::Datatype> datatypeP_;
   std::vector<std::size_t> shapeP_;
+  std::vector<Dimension> dimensionsP_;
 };
 
 class WriteInline : public DataSource {
@@ -61,7 +76,7 @@ class WriteInline : public DataSource {
 
   std::size_t count(const async::ExecInfo& info) override;
 
-  bool distributed() override;
+  [[nodiscard]] bool managed() const override;
 
   void assignId(int /*id*/) override;
 
@@ -76,11 +91,10 @@ class WriteInline : public DataSource {
   }
 
   static std::shared_ptr<DataSource> createString(const std::string& data) {
-    return std::make_shared<WriteInline>(
-        data.data(),
-        (data.size() + 1) * sizeof(char),
-        std::make_shared<datatype::StringDatatype>(data.size() + 1),
-        std::vector<std::size_t>());
+    return std::make_shared<WriteInline>(data.data(),
+                                         (data.size()) * sizeof(char),
+                                         std::make_shared<datatype::StringDatatype>(data.size()),
+                                         std::vector<std::size_t>());
   }
 
   template <typename T>
@@ -107,7 +121,7 @@ class WriteBufferRemote : public DataSource {
 
   void assignId(int /*id*/) override;
 
-  bool distributed() override;
+  [[nodiscard]] bool managed() const override;
 
   [[nodiscard]] const void* getLocalPointer() const override;
   [[nodiscard]] size_t getLocalSize() const override;
@@ -134,7 +148,7 @@ class WriteBuffer : public DataSource {
 
   void assignId(int givenId) override;
 
-  bool distributed() override;
+  [[nodiscard]] bool managed() const override;
 
   template <typename T>
   static std::shared_ptr<DataSource>
@@ -157,7 +171,7 @@ class AdhocBuffer : public DataSource {
   virtual void setData(void* target) = 0;
 
   AdhocBuffer(std::shared_ptr<datatype::Datatype> datatype, const std::vector<std::size_t>& shape)
-      : DataSource(std::move(datatype), shape) {}
+      : DataSource(std::move(datatype), shape, true) {}
 
   YAML::Node serialize() override {
     YAML::Node node;
@@ -179,7 +193,7 @@ class AdhocBuffer : public DataSource {
 
   void assignId(int givenId) override { id_ = givenId; }
 
-  bool distributed() override { return true; }
+  [[nodiscard]] bool managed() const override { return true; }
 
   private:
   int id_{-1};

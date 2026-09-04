@@ -255,8 +255,14 @@ endif()
 
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(seissol-common-properties INTERFACE debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
   )
+
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
+    target_link_libraries(seissol-common-properties INTERFACE debug
+            -static-libasan
+    )
+  endif()
 endif()
 
 find_package(Eigen3 REQUIRED)
@@ -339,7 +345,7 @@ target_include_directories(seissol-common-properties INTERFACE
 
 # for the same reason, do the same for all other submodules (for now)
 
-# not explicitly listed: PUML, utils, fty, xdmfwriter
+# not explicitly listed: PUML, utils, fty
 target_include_directories(seissol-common-properties SYSTEM INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include

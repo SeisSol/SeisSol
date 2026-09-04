@@ -27,6 +27,7 @@ namelist:
   SurfaceOutputRefinement = 1
   SurfaceOutputInterval = 0.5
   surfacevtkorder = -1
+  surfaceprojection = 'l2'
   /
 
 If ``SurfaceOutputRefinement = 0``, one triangle is outputted for each
@@ -34,6 +35,12 @@ mesh cell. The unknowns are evaluated at the center of each cell.
 ``SurfaceOutputRefinement = 1`` subdivides each triangle, into 4
 subtriangles. Higher SurfaceOutputRefinement would further subdivide
 each subtriangle.
+
+``surfaceprojection`` controls how the solution reaches the output points. ``l2`` (the default)
+averages over each subtriangle, which is what the free surface output has always done; the
+alternative, ``pointwise``, evaluates the solution at the output points instead. Note that the
+default differs from the one of ``wavefieldprojection``, so that both outputs keep the behaviour
+they had before they were unified.
 
 variables
 ---------

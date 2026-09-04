@@ -30,6 +30,7 @@ class Hdf5Location {
   [[nodiscard]] std::string file() const;
   [[nodiscard]] std::vector<std::string> groups() const;
   [[nodiscard]] std::optional<std::string> dataset() const;
+  [[nodiscard]] std::string infilePath() const;
 
   [[nodiscard]] std::optional<Hdf5Location> commonLocation(const Hdf5Location& other) const;
 
@@ -64,17 +65,36 @@ struct Hdf5DataWrite : public WriteInstruction {
   std::string name;
   std::shared_ptr<writer::DataSource> dataSource;
   std::shared_ptr<datatype::Datatype> targetType;
+  bool append;
   int compress;
 
   Hdf5DataWrite(const Hdf5Location& location,
                 const std::string& name,
                 std::shared_ptr<writer::DataSource> dataSource,
                 std::shared_ptr<datatype::Datatype> targetType,
+                bool append = false,
                 int compress = 0);
 
   YAML::Node serialize() override;
 
   explicit Hdf5DataWrite(YAML::Node node);
+
+  std::vector<std::shared_ptr<DataSource>> dataSources() override;
+};
+
+struct Hdf5LinkExternalWrite : public WriteInstruction {
+  ~Hdf5LinkExternalWrite() override = default;
+  Hdf5Location location;
+  std::string name;
+  Hdf5Location remote;
+
+  YAML::Node serialize() override;
+
+  Hdf5LinkExternalWrite(const Hdf5Location& location,
+                        const std::string& name,
+                        const Hdf5Location& remote);
+
+  explicit Hdf5LinkExternalWrite(YAML::Node node);
 
   std::vector<std::shared_ptr<DataSource>> dataSources() override;
 };

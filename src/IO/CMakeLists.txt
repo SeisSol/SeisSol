@@ -5,12 +5,15 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-add_library(seissol-io STATIC
+add_library(seissol-io OBJECT
     Datatype/Datatype.cpp
     Datatype/HDF5Type.cpp
     Datatype/MPIType.cpp
     Instance/Checkpoint/CheckpointManager.cpp
+    Instance/Geometry/Points.cpp
+    Instance/Geometry/Refinement.cpp
     Instance/Mesh/VtkHdf.cpp
+    Instance/Mesh/Xdmf.cpp
     Instance/Metadata/Pvd.cpp
     Instance/Metadata/Xml.cpp
     Instance/Point/Csv.cpp
@@ -25,6 +28,7 @@ add_library(seissol-io STATIC
     Writer/Instructions/Hdf5.cpp
     Writer/Instructions/Instruction.cpp
     Writer/Module/AsyncWriter.cpp
+    Writer/Module/BufferRegistry.cpp
     Writer/Module/WriterModule.cpp
     Writer/Writer.cpp
     Manager.cpp
