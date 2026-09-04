@@ -22,27 +22,36 @@
 namespace seissol::io::writer {
 
 DataSource::DataSource(std::shared_ptr<datatype::Datatype> datatype,
-                       const std::vector<std::size_t>& shape)
-    : datatypeP_(std::move(datatype)), shapeP_(shape) {}
+                       const std::vector<std::size_t>& shape,
+                       bool leadingDistributed)
+    : datatypeP_(std::move(datatype)), shapeP_(shape),
+      dimensionsP_(makeDimensions(shape, leadingDistributed)) {}
 
 DataSource::~DataSource() = default;
 
 std::shared_ptr<seissol::io::datatype::Datatype> DataSource::datatype() const { return datatypeP_; }
 
+const std::vector<Dimension>& DataSource::dimensions() const { return dimensionsP_; }
+
 const std::vector<std::size_t>& DataSource::shape() const { return shapeP_; }
+
+bool DataSource::distributed() const {
+  return !dimensionsP_.empty() && dimensionsP_.front().isDistributed();
+}
 
 WriteInline::WriteInline(const void* dataPtr,
                          std::size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
-    : DataSource(std::move(datatype), shape) {
+    : DataSource(std::move(datatype), shape, false) {
   data_.resize(size);
   std::memcpy(data_.data(), dataPtr, size);
 }
 
 WriteInline::WriteInline(YAML::Node node)
     : DataSource(datatype::Datatype::deserialize(node["datatype"]),
-                 node["shape"].as<std::vector<std::size_t>>()) {
+                 node["shape"].as<std::vector<std::size_t>>(),
+                 false) {
   const auto rawData = node["data"].as<YAML::Binary>();
   data_.resize(rawData.size());
   std::copy_n(rawData.data(), rawData.size(), data_.begin());
@@ -68,13 +77,14 @@ std::size_t WriteInline::count(const async::ExecInfo& /*info*/) {
 
 void WriteInline::assignId(int /*id*/) {}
 
-bool WriteInline::distributed() { return false; }
+bool WriteInline::managed() const { return false; }
 
-bool WriteBufferRemote::distributed() { return true; }
+bool WriteBufferRemote::managed() const { return true; }
 
 WriteBufferRemote::WriteBufferRemote(YAML::Node node)
     : DataSource(datatype::Datatype::deserialize(node["datatype"]),
-                 node["shape"].as<std::vector<std::size_t>>()) {
+                 node["shape"].as<std::vector<std::size_t>>(),
+                 true) {
   id_ = node["id"].as<int>();
   datatypeP_ = datatype::Datatype::deserialize(node["datatype"]);
 }
@@ -99,13 +109,13 @@ void WriteBufferRemote::assignId(int /*id*/) {}
 const void* WriteBufferRemote::getLocalPointer() const { return nullptr; }
 std::size_t WriteBufferRemote::getLocalSize() const { return 0; }
 
-bool WriteBuffer::distributed() { return true; }
+bool WriteBuffer::managed() const { return true; }
 
 WriteBuffer::WriteBuffer(const void* data,
                          size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
-    : DataSource(std::move(datatype), shape), data_(data), size_(size) {}
+    : DataSource(std::move(datatype), shape, true), data_(data), size_(size) {}
 
 YAML::Node WriteBuffer::serialize() {
   YAML::Node node;

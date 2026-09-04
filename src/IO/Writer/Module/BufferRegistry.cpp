@@ -23,8 +23,7 @@ std::vector<int> BufferRegistry::assign(Writer& writer) {
 
   for (const auto& instruction : writer.getInstructions()) {
     for (auto& dataSource : instruction->dataSources()) {
-      // TODO: make a better flag than distributed here
-      if (!dataSource->distributed() || handled.find(dataSource.get()) != handled.end()) {
+      if (!dataSource->managed() || handled.find(dataSource.get()) != handled.end()) {
         continue;
       }
       const auto id = idFor(dataSource.get(), used);
