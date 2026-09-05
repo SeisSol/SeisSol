@@ -11,19 +11,19 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {
-class ImposedSlipRates : public ReceiverOutput {
-  protected:
-  real computeLocalStrength(LocalInfo& /*local*/) override { return 0.0; }
+class ImposedSlipRates : public ReceiverOutputImpl<ImposedSlipRates> {
+  public:
+  real computeLocalStrength(LocalInfo& /*local*/) { return 0.0; }
 
   void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                  const std::array<real, 6>& rotatedStress) override {
+                                  const std::array<real, 6>& rotatedStress) {
     // we plot the Stress from Godunov state, because we want
     // to see the traction change from the imposed slip distribution
     using namespace misc::quantity_indices;
 
     rotatedUpdatedStress[QuantityIndices::XY] = rotatedStress[QuantityIndices::XY];
     rotatedUpdatedStress[QuantityIndices::XZ] = rotatedStress[QuantityIndices::XZ];
-  };
+  }
 };
 } // namespace seissol::dr::output
 
