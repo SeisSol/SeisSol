@@ -187,6 +187,9 @@ void Hdf5Reader::readDataRaw(void* data,
   _eh(H5Sclose(dataspace));
   _eh(H5Dclose(dataset));
 }
+bool Hdf5Reader::hasEntry(const std::string& name) {
+  return _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT)) == 0;
+}
 void Hdf5Reader::closeGroup() {
   _eh(H5Gclose(handles_.top()));
   handles_.pop();

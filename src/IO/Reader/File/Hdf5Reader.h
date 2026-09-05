@@ -54,6 +54,7 @@ class Hdf5Reader {
     return output;
   }
   std::size_t dataCount(const std::string& name);
+  bool hasEntry(const std::string& name);
   void readDataRaw(void* data,
                    const std::string& name,
                    std::size_t count,

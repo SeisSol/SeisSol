@@ -304,6 +304,9 @@ struct LTS {
     if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
       manager.registerData<Plasticity>("pstrain", storage);
     }
+    if (storage.info<Integrals>().mask == initializer::LayerMask(Ghost)) {
+      manager.registerData<Integrals>("integrals", storage);
+    }
   }
 };
 

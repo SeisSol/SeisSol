@@ -33,7 +33,7 @@ struct CheckpointVariable {
   std::optional<std::function<void(void*, const void*)>> unpack;
 };
 
-struct CheckpointTree {
+struct CheckpointStorage {
   std::string name;
   std::size_t cells{};
   std::vector<std::size_t> ids;
@@ -42,10 +42,12 @@ struct CheckpointTree {
 
 class CheckpointManager {
   public:
+  static constexpr std::size_t FormatVersion = 1;
+
   template <typename VarmapT>
-  void registerTree(const std::string& name,
-                    initializer::Storage<VarmapT>& storage,
-                    const std::vector<std::size_t>& ids) {
+  void registerStorage(const std::string& name,
+                       initializer::Storage<VarmapT>& storage,
+                       const std::vector<std::size_t>& ids) {
     dataRegistry_[&storage].name = name;
     dataRegistry_[&storage].cells = storage.size(Ghost);
     dataRegistry_[&storage].ids = ids;
@@ -138,7 +140,7 @@ class CheckpointManager {
   double loadCheckpoint(const std::string& file);
 
   private:
-  std::map<void*, CheckpointTree> dataRegistry_;
+  std::map<void*, CheckpointStorage> dataRegistry_;
 };
 
 } // namespace seissol::io::instance::checkpoint
