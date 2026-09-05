@@ -75,6 +75,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
             const real** dataBuffer,
             const char* outputPrefix,
             double interval,
+            const std::vector<double>& extraTimes,
             xdmfwriter::BackendType backend,
             const std::string& backupTimeStamp);
 
