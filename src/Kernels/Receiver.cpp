@@ -273,7 +273,7 @@ void ReceiverCluster::allocateData() {
     // one entry per cell; the gather index equals the cell index
     std::vector<real*> dofs;
     dofs.reserve(receiverCells_.size());
-    for (const auto& receiverCell : receiverCells_) {
+    for (auto& receiverCell : receiverCells_) {
       dofs.push_back(receiverCell.dataDevice.get<LTS::Dofs>());
     }
 
