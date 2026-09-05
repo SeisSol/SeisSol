@@ -8,22 +8,9 @@
 # SPDX-FileContributor: Sebastian Wolf
 
 from kernels.equations.elastic import ElasticADERDG
-from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 
 class AnisotropicADERDG(ElasticADERDG):
-    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
-        super().__init__(order, multipleSimulations, matricesDir, memLayout)
-        clones = {
-            "star": ["star(0)", "star(1)", "star(2)"],
-        }
-        self.db.update(
-            parseJSONMatrixFile(f"{matricesDir}/equation-anisotropic.json", clones)
-        )
-        memoryLayoutFromFile(memLayout, self.db, clones)
-
-        self.kwargs = kwargs
-
     def name(self):
         return "anisotropic"
 

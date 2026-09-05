@@ -21,7 +21,11 @@ from kernels.quantities import (
     well_formed,
 )
 from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
+from yateto.input import (
+    memoryLayoutFromFile,
+    parseJSONMatrixFile,
+    parseXMLMatrixFile,
+)
 from yateto.memory import CSCMemoryLayout
 from yateto.util import (
     tensor_collection_from_constant_expression,
@@ -189,6 +193,25 @@ class ADERDGBase(ABC):
     def transformation_inv_spp(self):
         return rotation_spp(self.inverseRotationBlocks())
 
+    #: The three directional star matrices share one sparsity pattern.
+    StarClones = {"star": ["star(0)", "star(1)", "star(2)"]}
+
+    def configure(self, matricesDir, memLayout, kwargs, extra=()):
+        """Reads this equation's matrix file, plus any the solver needs, and
+        resolves the memory layout across all of them."""
+        clones = dict(self.StarClones)
+        self.db.update(
+            parseJSONMatrixFile(f"{matricesDir}/equation-{self.name()}.json", clones)
+        )
+        for path in extra:
+            self.db.update(parseJSONMatrixFile(path, clones))
+        memoryLayoutFromFile(memLayout, self.db, clones)
+        self.kwargs = kwargs
+        return clones
+
+    def starMatrix(self, dim):
+        return self.db.star[dim]
+
     def mapToVelocities(self):
         return self.extractVelocities().T
 
@@ -241,10 +264,6 @@ class ADERDGBase(ABC):
 
     @abstractmethod
     def extendedQTensor(self):
-        pass
-
-    @abstractmethod
-    def starMatrix(self, dim):
         pass
 
     def addInit(self, generator):

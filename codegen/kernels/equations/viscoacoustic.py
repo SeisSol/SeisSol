@@ -84,9 +84,6 @@ class ViscoacousticADERDG(LinearCK):
     def mechanismRepetitions(self):
         return self.numMechanisms
 
-    def starMatrix(self, dim):
-        return self.db.star[dim]
-
     def sourceMatrix(self):
         return self.db.ET
 
@@ -121,15 +118,7 @@ class Viscoacoustic2ADERDG(LinearCKAnelastic):
             **kwargs,
         )
 
-        clones = {
-            "star": ["star(0)", "star(1)", "star(2)"],
-        }
-        self.db.update(
-            parseJSONMatrixFile(f"{matricesDir}/equation-viscoacoustic.json", clones)
-        )
-
-        memoryLayoutFromFile(memLayout, self.db, clones)
-        self.kwargs = kwargs
+        self.configure(matricesDir, memLayout, kwargs)
 
     def primaryGroups(self):
         return [

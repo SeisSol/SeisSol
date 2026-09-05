@@ -8,21 +8,12 @@
 
 from kernels.aderdg.linearck import LinearCK
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
-from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 
 class ElasticADERDG(LinearCK):
     def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
         super().__init__(order, multipleSimulations, matricesDir)
-        clones = {
-            "star": ["star(0)", "star(1)", "star(2)"],
-        }
-        self.db.update(
-            parseJSONMatrixFile(f"{matricesDir}/equation-elastic.json", clones)
-        )
-
-        memoryLayoutFromFile(memLayout, self.db, clones)
-        self.kwargs = kwargs
+        self.configure(matricesDir, memLayout, kwargs)
 
     def primaryGroups(self):
         return [
@@ -32,9 +23,6 @@ class ElasticADERDG(LinearCK):
 
     def name(self):
         return "elastic"
-
-    def starMatrix(self, dim):
-        return self.db.star[dim]
 
 
 def kernel_class(**kwargs):
