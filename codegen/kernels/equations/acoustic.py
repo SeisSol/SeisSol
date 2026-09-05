@@ -8,7 +8,7 @@
 
 from kernels.aderdg.linearck import LinearCK
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 
 class AcousticADERDG(LinearCK):
@@ -18,7 +18,7 @@ class AcousticADERDG(LinearCK):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-acoustic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-acoustic.json", clones)
         )
 
         memoryLayoutFromFile(memLayout, self.db, clones)

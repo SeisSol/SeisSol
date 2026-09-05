@@ -8,7 +8,7 @@
 
 from kernels.aderdg.linearck import LinearCK
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 
 class ElasticADERDG(LinearCK):
@@ -18,7 +18,7 @@ class ElasticADERDG(LinearCK):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-elastic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-elastic.json", clones)
         )
 
         memoryLayoutFromFile(memLayout, self.db, clones)

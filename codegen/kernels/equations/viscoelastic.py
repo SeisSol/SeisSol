@@ -11,7 +11,7 @@ from kernels.aderdg.linearck import LinearCK
 from kernels.aderdg.linearckanelastic import LinearCKAnelastic
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Tensor
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 
 class ViscoelasticADERDG(LinearCK):
@@ -32,7 +32,7 @@ class ViscoelasticADERDG(LinearCK):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-viscoelastic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-viscoelastic.json", clones)
         )
 
         star_spp = self.db.star[0].spp().as_ndarray()
@@ -125,7 +125,7 @@ class Viscoelastic2ADERDG(LinearCKAnelastic):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-viscoelastic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-viscoelastic.json", clones)
         )
 
         memoryLayoutFromFile(memLayout, self.db, clones)

@@ -8,7 +8,7 @@
 import numpy as np
 from kernels.aderdg.stp import STP
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
-from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 
 def choose(n, k):
@@ -35,7 +35,7 @@ class PoroelasticADERDG(STP):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-poroelastic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-poroelastic.json", clones)
         )
         self.db.update(parseJSONMatrixFile(f"{matricesDir}/stp_{order}.json", clones))
 

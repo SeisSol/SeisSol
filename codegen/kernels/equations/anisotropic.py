@@ -8,7 +8,7 @@
 # SPDX-FileContributor: Sebastian Wolf
 
 from kernels.equations.elastic import ElasticADERDG
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 
 class AnisotropicADERDG(ElasticADERDG):
@@ -18,7 +18,7 @@ class AnisotropicADERDG(ElasticADERDG):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-anisotropic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-anisotropic.json", clones)
         )
         memoryLayoutFromFile(memLayout, self.db, clones)
 

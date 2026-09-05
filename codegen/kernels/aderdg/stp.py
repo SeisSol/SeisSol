@@ -9,7 +9,7 @@ import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
-from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
+from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 from .linearck import LinearCK
 
@@ -44,7 +44,7 @@ class STP(LinearCK):
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(f"{matricesDir}/equation-poroelastic.xml", clones)
+            parseJSONMatrixFile(f"{matricesDir}/equation-poroelastic.json", clones)
         )
         self.db.update(parseJSONMatrixFile(f"{matricesDir}/stp_{order}.json", clones))
 
