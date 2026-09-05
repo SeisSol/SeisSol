@@ -20,12 +20,28 @@
 
 namespace seissol::model {
 
+/**
+ * The parts of the setup that do not depend on how the solver lays out the
+ * memory variables: the Riemann problem is the base material's, and the
+ * anelastic coupling block is the same matrix either way. Only its
+ * coefficient and how often it is written differ, and that is the solver's
+ * business.
+ */
 template <std::size_t N>
-struct MaterialSetup<ViscoAcousticMaterial<N>,
-                     std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode ==
-                                      ViscoImplementation::QuantityExtension>> {
+struct ViscoAcousticSetupCommon : public MaterialSetupDefaults<ViscoAcousticMaterial<N>> {
   using MaterialT = ViscoAcousticMaterial<N>;
 
+  static void getTransposedGodunovState(const MaterialT& local,
+                                        const MaterialT& neighbor,
+                                        FaceType faceType,
+                                        init::QgodLocal::view::type& qGodLocal,
+                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+    seissol::model::getTransposedGodunovState(dynamic_cast<const AcousticMaterial&>(local),
+                                              dynamic_cast<const AcousticMaterial&>(neighbor),
+                                              faceType,
+                                              qGodLocal,
+                                              qGodNeighbor);
+  }
   template <typename T>
   static void getTransposedViscoacousticCoefficientMatrix(double omega,
                                                           std::size_t dim,
@@ -46,6 +62,15 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
       break;
     }
   }
+};
+
+template <std::size_t N>
+struct MaterialSetup<
+    ViscoAcousticMaterial<N>,
+    std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode == ViscoImplementation::QuantityExtension>>
+    : public ViscoAcousticSetupCommon<N> {
+  using MaterialT = ViscoAcousticMaterial<N>;
+  using ViscoAcousticSetupCommon<N>::getTransposedViscoacousticCoefficientMatrix;
 
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& sourceMatrix) {
@@ -81,39 +106,11 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
     }
   }
 
-  static void getTransposedGodunovState(const MaterialT& local,
-                                        const MaterialT& neighbor,
-                                        FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
-    seissol::model::getTransposedGodunovState(dynamic_cast<const AcousticMaterial&>(local),
-                                              dynamic_cast<const AcousticMaterial&>(neighbor),
-                                              faceType,
-                                              qGodLocal,
-                                              qGodNeighbor);
-  }
-
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double /*timeStepWidth*/,
                                           typename MaterialT::Solver::LocalData* localData) {
     auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
-  }
-
-  static void initializeSpecificNeighborData(const MaterialT& material,
-                                             typename MaterialT::Solver::NeighborData* localData) {}
-
-  static MaterialT
-      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     MaterialT& material) {
-    return material;
-  }
-
-  static void getPlaneWaveOperator(
-      const MaterialT& material,
-      const double n[3],
-      std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
   }
 };
 
@@ -122,29 +119,10 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
 template <std::size_t N>
 struct MaterialSetup<
     ViscoAcousticMaterial<N>,
-    std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode == ViscoImplementation::AnelasticTensor>> {
+    std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode == ViscoImplementation::AnelasticTensor>>
+    : public ViscoAcousticSetupCommon<N> {
   using MaterialT = ViscoAcousticMaterial<N>;
-
-  template <typename T>
-  static void getTransposedViscoacousticCoefficientMatrix(double omega,
-                                                          std::size_t dim,
-                                                          std::size_t mech,
-                                                          T& M) {
-    const std::size_t col = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
-    switch (dim) {
-    case 0:
-      M(1, col) = -omega;
-      break;
-
-    case 1:
-      M(2, col) = -omega;
-      break;
-
-    case 2:
-      M(3, col) = -omega;
-      break;
-    }
-  }
+  using ViscoAcousticSetupCommon<N>::getTransposedViscoacousticCoefficientMatrix;
 
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& E) {
@@ -160,19 +138,6 @@ struct MaterialSetup<
         dynamic_cast<const AcousticMaterial&>(material), dim, AT);
 
     getTransposedViscoacousticCoefficientMatrix(1.0, dim, 0, AT);
-  }
-
-  static void getTransposedGodunovState(const MaterialT& local,
-                                        const MaterialT& neighbor,
-                                        FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
-    ::seissol::model::getTransposedGodunovState<AcousticMaterial>(
-        dynamic_cast<const AcousticMaterial&>(local),
-        dynamic_cast<const AcousticMaterial&>(neighbor),
-        faceType,
-        qGodLocal,
-        qGodNeighbor);
   }
 
   static void getPlaneWaveOperator(
@@ -256,12 +221,6 @@ struct MaterialSetup<
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       w(mech) = localMaterial.omega[mech];
     }
-  }
-
-  static MaterialT
-      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     MaterialT& material) {
-    return material;
   }
 };
 

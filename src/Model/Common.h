@@ -280,6 +280,40 @@ MaterialT getRotatedMaterialCoefficients(const std::array<double, 36>& rotationP
   return MaterialSetup<MaterialT>::getRotatedMaterialCoefficients(rotationParameters, material);
 }
 
+/**
+ * What a material setup looks like when the material has nothing special to
+ * say. Specialisations derive from this and override only what they actually
+ * do differently; before, every one of them had to spell out all of it, and
+ * most of the bodies were empty.
+ */
+template <typename MaterialT>
+struct MaterialSetupDefaults {
+  static void getPlaneWaveOperator(
+      const MaterialT& material,
+      const double n[3],
+      std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
+    getElasticPlaneWaveOperator(material, n, mdata);
+  }
+
+  static MaterialT
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     MaterialT& material) {
+    return material;
+  }
+
+  template <typename T>
+  static void getTransposedSourceCoefficientTensor(const MaterialT& /*material*/,
+                                                   T& /*sourceMatrix*/) {}
+
+  static void initializeSpecificLocalData(const MaterialT& /*material*/,
+                                          double /*timeStepWidth*/,
+                                          typename MaterialT::Solver::LocalData* /*localData*/) {}
+
+  static void
+      initializeSpecificNeighborData(const MaterialT& /*material*/,
+                                     typename MaterialT::Solver::NeighborData* /*neighborData*/) {}
+};
+
 template <typename MaterialT>
 void getElasticPlaneWaveOperator(
     const MaterialT& material,

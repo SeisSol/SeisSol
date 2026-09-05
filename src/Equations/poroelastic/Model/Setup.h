@@ -26,7 +26,7 @@ namespace seissol::model {
 #ifdef SEISSOL_KERNELS_STP
 
 template <>
-struct MaterialSetup<PoroElasticMaterial> {
+struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroElasticMaterial> {
   template <typename T>
   static void setToZero(T& AT) {
     AT.setZero();
@@ -279,23 +279,6 @@ struct MaterialSetup<PoroElasticMaterial> {
     localData->G[12] = sourceMatrix(12, 8);
 
     localData->typicalTimeStepWidth = timeStepWidth;
-  }
-
-  static void initializeSpecificNeighborData(
-      const PoroElasticMaterial& material,
-      typename PoroElasticMaterial::Solver::NeighborData* neighborData) {}
-
-  static PoroElasticMaterial
-      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     PoroElasticMaterial& material) {
-    return material;
-  }
-
-  static void getPlaneWaveOperator(const PoroElasticMaterial& material,
-                                   const double n[3],
-                                   std::complex<double> mdata[PoroElasticMaterial::NumQuantities *
-                                                              PoroElasticMaterial::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
   }
 };
 

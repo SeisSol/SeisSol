@@ -23,7 +23,7 @@ namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
 template <>
-struct MaterialSetup<AnisotropicMaterial> {
+struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<AnisotropicMaterial> {
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {
@@ -340,25 +340,6 @@ struct MaterialSetup<AnisotropicMaterial> {
     rotatedMaterial.c66 = rotatedC(5, 5);
     return rotatedMaterial;
   }
-
-  static void
-      initializeSpecificLocalData(const AnisotropicMaterial& material,
-                                  double timeStepWidth,
-                                  typename AnisotropicMaterial::Solver::LocalData* localData) {}
-
-  static void initializeSpecificNeighborData(
-      const AnisotropicMaterial& material,
-      typename AnisotropicMaterial::Solver::NeighborData* neighborData) {}
-
-  static void getPlaneWaveOperator(const AnisotropicMaterial& material,
-                                   const double n[3],
-                                   std::complex<double> mdata[AnisotropicMaterial::NumQuantities *
-                                                              AnisotropicMaterial::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
-  }
-  template <typename T>
-  static void getTransposedSourceCoefficientTensor(const AnisotropicMaterial& material,
-                                                   T& sourceMatrix) {}
 };
 
 } // namespace seissol::model
