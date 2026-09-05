@@ -511,6 +511,7 @@ if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
           LCOV_ARGS --ignore-errors inconsistent
                     --ignore-errors unused
                     --ignore-errors mismatch
+          GENHTML_ARGS --ignore-errors inconsistent
   )
 endif()
 
