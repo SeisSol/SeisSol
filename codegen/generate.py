@@ -333,13 +333,17 @@ def main():
             )
 
     def forward_files(filename):
+        # Not every subfolder emits every file: the quantity layout, for one,
+        # only exists for the equation.
+        present = [
+            folder
+            for folder in subfolders
+            if os.path.exists(os.path.join(cmdLineArgs.outputDir, folder, filename))
+        ]
         with open(os.path.join(cmdLineArgs.outputDir, filename), "w") as file:
             file.writelines(["// IWYU pragma: begin_exports\n"])
             file.writelines(
-                [
-                    f'#include "{os.path.join(folder, filename)}"\n'
-                    for folder in subfolders
-                ]
+                [f'#include "{os.path.join(folder, filename)}"\n' for folder in present]
             )
             file.writelines(["// IWYU pragma: end_exports\n"])
 

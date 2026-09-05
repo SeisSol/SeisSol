@@ -90,7 +90,8 @@ struct MaterialSetup<ViscoElasticMaterial<N>,
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
-    getTransposedCoefficientMatrix(dynamic_cast<const ElasticMaterial&>(material), dim, AT);
+    ::seissol::model::getTransposedCoefficientMatrix(
+        dynamic_cast<const ElasticMaterial&>(material), dim, AT);
 
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       getTransposedViscoelasticCoefficientMatrix(material.omega[mech], dim, mech, AT);

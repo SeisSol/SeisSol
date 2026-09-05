@@ -73,7 +73,8 @@ struct MaterialSetup<ViscoAcousticMaterial<N>,
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
-    getTransposedCoefficientMatrix(dynamic_cast<const AcousticMaterial&>(material), dim, AT);
+    ::seissol::model::getTransposedCoefficientMatrix(
+        dynamic_cast<const AcousticMaterial&>(material), dim, AT);
 
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       getTransposedViscoacousticCoefficientMatrix(material.omega[mech], dim, mech, AT);
