@@ -196,17 +196,24 @@ class ADERDGBase(ABC):
     #: The three directional star matrices share one sparsity pattern.
     StarClones = {"star": ["star(0)", "star(1)", "star(2)"]}
 
+    def readMatrices(self, matricesDir, clones):
+        """Reads this equation's matrix file."""
+        return parseJSONMatrixFile(f"{matricesDir}/equation-{self.name()}.json", clones)
+
+    def finishConfigure(self, memLayout, clones, kwargs):
+        """Resolves the memory layout and stores the generator arguments. Split
+        out so that an equation can reshape its matrices in between."""
+        memoryLayoutFromFile(memLayout, self.db, clones)
+        self.kwargs = kwargs
+
     def configure(self, matricesDir, memLayout, kwargs, extra=()):
         """Reads this equation's matrix file, plus any the solver needs, and
         resolves the memory layout across all of them."""
         clones = dict(self.StarClones)
-        self.db.update(
-            parseJSONMatrixFile(f"{matricesDir}/equation-{self.name()}.json", clones)
-        )
+        self.db.update(self.readMatrices(matricesDir, clones))
         for path in extra:
             self.db.update(parseJSONMatrixFile(path, clones))
-        memoryLayoutFromFile(memLayout, self.db, clones)
-        self.kwargs = kwargs
+        self.finishConfigure(memLayout, clones, kwargs)
         return clones
 
     def starMatrix(self, dim):
