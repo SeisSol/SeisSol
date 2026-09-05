@@ -211,7 +211,7 @@ void OutputManager::initElementwiseOutput() {
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
-      faceIdentifiers[i] = receivers[i].elementGlobalIndex * 4 + receivers[i].localFaceSideId;
+      faceIdentifiers[i] = receivers[i].globalFaultFaceId();
     }
 
     seissolInstance_.faultWriter().init(cellConnectivity.data(),
@@ -254,7 +254,7 @@ void OutputManager::initElementwiseOutput() {
 
     writer.addCellData<std::size_t>(
         "global-id", {}, [=, &receivers](std::size_t* target, std::size_t index) {
-          *target = receivers[index].elementGlobalIndex * 4 + receivers[index].localFaceSideId;
+          *target = receivers[index].globalFaultFaceId();
         });
 
     misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
@@ -415,6 +415,11 @@ void OutputManager::initPickpointOutput() {
                 file << "# x1\t" << makeFormatted(point[0]) << '\n';
                 file << "# x2\t" << makeFormatted(point[1]) << '\n';
                 file << "# x3\t" << makeFormatted(point[2]) << '\n';
+                file << "# face-global-id\t" << receiver.globalFaultFaceId() << '\n';
+                file << "# plus-cell-global-id\t" << receiver.elementGlobalIndex << '\n';
+                file << "# plus-face-side\t" << receiver.localFaceSideId << '\n';
+                file << "# minus-cell-global-id\t" << receiver.elementNeighborGlobalIndex << '\n';
+                file << "# minus-face-side\t" << receiver.localNeighborFaceSideId << '\n';
               }
 
               // stress info

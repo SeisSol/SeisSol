@@ -18,6 +18,7 @@
 #include <mpi.h>
 #include <stdlib.h>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test {

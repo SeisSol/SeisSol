@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_MONITORING_METRIC_H_
 
 #include <cstdint>
+
 namespace seissol {
 
 /**
@@ -40,12 +41,12 @@ struct PerformanceEstimate {
     return *this;
   }
 
-  constexpr auto operator*(std::size_t other) const -> PerformanceEstimate {
+  constexpr auto operator*(std::uint64_t other) const -> PerformanceEstimate {
     return PerformanceEstimate{
         hardwareFlop * other, nonzeroFlop * other, bytes * other, kernelBytes * other};
   }
 
-  constexpr auto operator*=(std::size_t other) -> PerformanceEstimate& {
+  constexpr auto operator*=(std::uint64_t other) -> PerformanceEstimate& {
     *this = *this * other;
     return *this;
   }
