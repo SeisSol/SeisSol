@@ -22,6 +22,7 @@ import kernels.memlayout
 import kernels.nodalbc
 import kernels.plasticity
 import kernels.point
+import kernels.quantities
 import kernels.surface_displacement
 import kernels.vtkproject
 import yateto
@@ -53,7 +54,7 @@ def main():
     cmdLineParser.add_argument(
         "--precision", type=str, choices=["s", "d", "f32", "f64"]
     )
-    cmdLineParser.add_argument("--numberOfMechanisms", type=int)
+    cmdLineParser.add_argument("--numMechanisms", type=int)
     cmdLineParser.add_argument("--vectorsize", default=0, type=int)
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)
@@ -69,6 +70,9 @@ def main():
     )
     cmdLineParser.add_argument("--executable_libxsmm", default="")
     cmdLineParser.add_argument("--executable_pspamm", default="")
+    cmdLineParser.add_argument(
+        "--visco_mode", type=str, choices=["none", "split", "extend"]
+    )
 
     # "dry run" parameter for use directly in CMake (before building)
     cmdLineParser.add_argument(
@@ -165,17 +169,6 @@ def main():
 
     subfolders = []
 
-    equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
-
-    equationsSpec = importlib.util.find_spec(equationsModuleName)
-    if equationsSpec is None:
-        raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
-
-    # actually load the module
-    equations = importlib.import_module(equationsModuleName)
-
-    equation_class = equations.EQUATION_CLASS
-
     routine_cache = GlobalRoutineCache()
 
     gemmTools = GeneratorCollection(gemm_generators)
@@ -186,7 +179,7 @@ def main():
             name,
         )
 
-    def generate_equation(subfolders, equation, order):
+    def generate_equation(subfolders, order):
         precision = "double" if cmdLineArgs.precision in ["d", "f64"] else "single"
         fusedSuffix = (
             "-f" + str(cmdLineArgs.multipleSimulations)
@@ -215,7 +208,18 @@ def main():
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
 
-        adg = equation(**cmdArgsDict)
+        equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
+
+        equationsSpec = importlib.util.find_spec(equationsModuleName)
+        if equationsSpec is None:
+            raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
+
+        # actually load the module
+        equations = importlib.import_module(equationsModuleName)
+
+        equation_class = equations.kernel_class(**cmdArgsDict)
+
+        adg = equation_class(**cmdArgsDict)
 
         include_tensors = set()
         generator = Generator(arch)
@@ -279,6 +283,8 @@ def main():
 
         subfolders += [outputDirName]
 
+        kernels.quantities.emit_header(adg, trueOutputDir)
+
         # Generate code (if we need to)
         if check_run_codegen(outputDirName):
             generator.generate(
@@ -327,17 +333,21 @@ def main():
             )
 
     def forward_files(filename):
+        # Not every subfolder emits every file: the quantity layout, for one,
+        # only exists for the equation.
+        present = [
+            folder
+            for folder in subfolders
+            if os.path.exists(os.path.join(cmdLineArgs.outputDir, folder, filename))
+        ]
         with open(os.path.join(cmdLineArgs.outputDir, filename), "w") as file:
             file.writelines(["// IWYU pragma: begin_exports\n"])
             file.writelines(
-                [
-                    f'#include "{os.path.join(folder, filename)}"\n'
-                    for folder in subfolders
-                ]
+                [f'#include "{os.path.join(folder, filename)}"\n' for folder in present]
             )
             file.writelines(["// IWYU pragma: end_exports\n"])
 
-    generate_equation(subfolders, equation_class, cmdLineArgs.order)
+    generate_equation(subfolders, cmdLineArgs.order)
     generate_general(subfolders)
 
     if cmdLineArgs.mode == "codegen":
@@ -347,6 +357,7 @@ def main():
         forward_files("init.h")
         forward_files("kernel.h")
         forward_files("tensor.h")
+        forward_files("quantities.h")
 
     if cmdLineArgs.mode == "collect":
         targets = {

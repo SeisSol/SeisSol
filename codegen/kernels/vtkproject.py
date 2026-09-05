@@ -34,10 +34,10 @@ def addKernels(generator, aderdg, PlasticityMethod, matricesDir, targets=["cpu"]
         maxOrder = 8
         rangeLimit = maxOrder + 1
 
-        qb = Tensor("qb", (simcount, aderdg.numberOf3DBasisFunctions()))
+        qb = Tensor("qb", (simcount, aderdg.num3DBasisFunctions()))
         qn = Tensor("qn", (simcount, plasticityDB.v.shape()[0]))
-        pb = Tensor("pb", (simcount, aderdg.numberOf2DBasisFunctions()))
-        pn = Tensor("pn", (simcount, aderdg.numberOf2DBasisFunctions()))
+        pb = Tensor("pb", (simcount, aderdg.num2DBasisFunctions()))
+        pn = Tensor("pn", (simcount, aderdg.num2DBasisFunctions()))
         xv = [
             Tensor(f"xv({i})", (((i + 1) * (i + 2) * (i + 3)) // 6,))
             for i in range(rangeLimit)

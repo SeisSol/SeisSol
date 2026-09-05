@@ -8,11 +8,10 @@
 // SPDX-FileContributor: Sebastian Wolf
 // SPDX-FileContributor: Jinwen Pan
 
-#ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_SETUP_H_
 
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "Equations/acoustic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -23,7 +22,7 @@ namespace seissol::model {
 using Matrix44 = Eigen::Matrix<double, 4, 4>;
 
 template <>
-struct MaterialSetup<AcousticMaterial> {
+struct MaterialSetup<AcousticMaterial> : public MaterialSetupDefaults<AcousticMaterial> {
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& matM) {
@@ -123,47 +122,7 @@ struct MaterialSetup<AcousticMaterial> {
       }
     }
   }
-
-  static AcousticMaterial
-      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     AcousticMaterial& material) {
-    return material;
-  }
-  static void initializeSpecificLocalData(const AcousticMaterial& material,
-                                          double timeStepWidth,
-                                          AcousticLocalData* localData) {}
-
-  static void initializeSpecificNeighborData(const AcousticMaterial& material,
-                                             AcousticNeighborData* localData) {}
-
-  static void getPlaneWaveOperator(const AcousticMaterial& material,
-                                   const double n[3],
-                                   std::complex<double> mdata[AcousticMaterial::NumQuantities *
-                                                              AcousticMaterial::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
-  }
-  template <typename T>
-  static void getTransposedSourceCoefficientTensor(const AcousticMaterial& material,
-                                                   T& sourceMatrix) {}
-
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    matT.setZero();
-    matTinv.setZero();
-
-    // Pressure (row 0) is a scalar, doesn't rotate - set to identity
-    matT(0, 0) = 1.0;
-    matTinv(0, 0) = 1.0;
-
-    // Velocity (rows 1-3) is a vector, rotate it
-    seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 1, 1);
-    seissol::transformations::inverseTensor1RotationMatrix(
-        normal, tangent1, tangent2, matTinv, 1, 1);
-  }
 };
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_SETUP_H_

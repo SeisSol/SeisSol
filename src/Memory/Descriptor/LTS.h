@@ -97,9 +97,7 @@ struct LTS {
   struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
   struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
   // size is zero if Qane is not defined
-  struct DofsAne
-      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
-  };
+  struct DofsAne : public initializer::Variable<real[zeroGuard(kernels::size<tensor::Qane>())]> {};
   struct Buffers : public initializer::Variable<real*> {};
   struct Derivatives : public initializer::Variable<real*> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
@@ -127,6 +125,8 @@ struct LTS {
   };
   struct BoundaryMappingDevice
       : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
+
+  struct EnergyData : public initializer::Variable<model::MaterialT::EnergyData> {};
 
   struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
   struct DerivativesScratch : public initializer::Scratchpad<real> {};
@@ -192,6 +192,7 @@ struct LTS {
                                                         PrevCoefficientsScratch,
                                                         DofsFaceBoundaryNodalScratch,
                                                         Integrals,
+                                                        EnergyData,
                                                         ZinvExtra> {};
 
   using Storage = initializer::Storage<LTSVarmap>;
@@ -266,6 +267,7 @@ struct LTS {
     storage.add<DRMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<BoundaryMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
 
+    storage.add<EnergyData>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
 
     if constexpr (isDeviceOn()) {

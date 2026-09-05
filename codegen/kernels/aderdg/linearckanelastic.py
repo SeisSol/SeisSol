@@ -7,48 +7,40 @@
 # SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
-from kernels.aderdg import ADERDGBase
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
+from kernels.quantities import layout, total_extent
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
-from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile, parseXMLMatrixFile
+from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
 
+from .aderdg import ADERDGBase
 
-class Viscoelastic2ADERDG(ADERDGBase):
+
+class LinearCKAnelastic(ADERDGBase):
     def __init__(
         self,
         order,
         multipleSimulations,
         matricesDir,
         memLayout,
-        numberOfMechanisms,
+        numMechanisms,
         **kwargs,
     ):
         super().__init__(order, multipleSimulations, matricesDir)
 
-        self.numberOfMechanisms = numberOfMechanisms
-
-        clones = {
-            "star": ["star(0)", "star(1)", "star(2)"],
-        }
-        self.db.update(
-            parseXMLMatrixFile(
-                "{}/matrices_viscoelastic.xml".format(matricesDir), clones
-            )
-        )
-        memoryLayoutFromFile(memLayout, self.db, clones)
+        self.numMechanisms = numMechanisms
 
         self._qShapeExtended = (
-            self.numberOf3DBasisFunctions(),
-            self.numberOfExtendedQuantities(),
+            self.num3DBasisFunctions(),
+            self.numExtendedQuantities(),
         )
         self._qShapeAnelastic = (
-            self.numberOf3DBasisFunctions(),
-            self.numberOfAnelasticQuantities(),
-            self.numberOfMechanisms,
+            self.num3DBasisFunctions(),
+            self.numAnelasticQuantities(),
+            self.numMechanisms,
         )
         self.Qext = OptionalDimTensor(
             "Qext",
@@ -78,17 +70,17 @@ class Viscoelastic2ADERDG(ADERDGBase):
         self.E = Tensor(
             "E",
             (
-                self.numberOfAnelasticQuantities(),
-                self.numberOfMechanisms,
-                self.numberOfQuantities(),
+                self.numAnelasticQuantities(),
+                self.numMechanisms,
+                self.numQuantities(),
             ),
         )
-        self.w = Tensor("w", (self.numberOfMechanisms,))
+        self.w = Tensor("w", (self.numMechanisms,))
 
         self.W = Tensor(
             "W",
-            (self.numberOfMechanisms, self.numberOfMechanisms),
-            spp=np.eye(self.numberOfMechanisms, dtype=bool),
+            (self.numMechanisms, self.numMechanisms),
+            spp=np.eye(self.numMechanisms, dtype=bool),
             memoryLayoutClass=CSCMemoryLayout,
         )
 
@@ -106,22 +98,24 @@ class Viscoelastic2ADERDG(ADERDGBase):
 
         self.kwargs = kwargs
 
-    def numberOfQuantities(self):
-        return 9
+    def extendedBlocks(self):
+        """The face rotation sees one anelastic block, not one per mechanism:
+        this solver keeps the mechanism index as a separate tensor dimension."""
+        return layout(self.primaryGroups(), self.mechanismGroups(), 1)
 
-    def numberOfAnelasticQuantities(self):
-        return 6
+    def inverseRotationBlocks(self):
+        return layout(self.primaryGroups())
 
-    def numberOfExtendedQuantities(self):
+    def numAnelasticQuantities(self):
+        return total_extent(layout(self.mechanismGroups()))
+
+    def numExtendedQuantities(self):
         """Return the number of quantities for fused computation of elastic and anelastic update."""
-        return self.numberOfQuantities() + self.numberOfAnelasticQuantities()
+        return self.numQuantities() + self.numAnelasticQuantities()
 
-    def numberOfFullQuantities(self):
+    def numFullQuantities(self):
         """Return the number of quantities when unrolling anelastic tensor into a matrix."""
-        return (
-            self.numberOfQuantities()
-            + self.numberOfMechanisms * self.numberOfAnelasticQuantities()
-        )
+        return self.numQuantities() + self.numMechanisms * self.numAnelasticQuantities()
 
     def extendedQTensor(self):
         return self.Qext
@@ -130,50 +124,46 @@ class Viscoelastic2ADERDG(ADERDGBase):
         return self.db.star[dim]
 
     def name(self):
-        return "viscoelastic2"
+        return "linearckanelastic"
 
     def addInit(self, generator):
         super().addInit(generator)
 
-        selectElaFullSpp = np.zeros(
-            (self.numberOfFullQuantities(), self.numberOfQuantities())
+        selectElaFullSpp = np.zeros((self.numFullQuantities(), self.numQuantities()))
+        selectElaFullSpp[0 : self.numQuantities(), 0 : self.numQuantities()] = np.eye(
+            self.numQuantities()
         )
-        selectElaFullSpp[
-            0 : self.numberOfQuantities(), 0 : self.numberOfQuantities()
-        ] = np.eye(self.numberOfQuantities())
         selectElaFull = Tensor(
             "selectElaFull",
-            (self.numberOfFullQuantities(), self.numberOfQuantities()),
+            (self.numFullQuantities(), self.numQuantities()),
             selectElaFullSpp,
             CSCMemoryLayout,
         )
 
         selectAneFullSpp = np.zeros(
             (
-                self.numberOfFullQuantities(),
-                self.numberOfAnelasticQuantities(),
-                self.numberOfMechanisms,
+                self.numFullQuantities(),
+                self.numAnelasticQuantities(),
+                self.numMechanisms,
             )
         )
-        for mech in range(self.numberOfMechanisms):
-            q1 = self.numberOfQuantities() + mech * self.numberOfAnelasticQuantities()
-            q2 = q1 + self.numberOfAnelasticQuantities()
-            selectAneFullSpp[q1:q2, :, mech] = np.eye(
-                self.numberOfAnelasticQuantities()
-            )
+        for mech in range(self.numMechanisms):
+            q1 = self.numQuantities() + mech * self.numAnelasticQuantities()
+            q2 = q1 + self.numAnelasticQuantities()
+            selectAneFullSpp[q1:q2, :, mech] = np.eye(self.numAnelasticQuantities())
         selectAneFull = Tensor(
             "selectAneFull",
             (
-                self.numberOfFullQuantities(),
-                self.numberOfAnelasticQuantities(),
-                self.numberOfMechanisms,
+                self.numFullQuantities(),
+                self.numAnelasticQuantities(),
+                self.numMechanisms,
             ),
             selectAneFullSpp,
         )
 
         iniShape = (
-            self.numberOf3DQuadraturePoints(),
-            self.numberOfFullQuantities(),
+            self.num3DQuadraturePoints(),
+            self.numFullQuantities(),
         )
         iniCond = OptionalDimTensor(
             "iniCond",
@@ -184,8 +174,8 @@ class Viscoelastic2ADERDG(ADERDGBase):
             alignStride=True,
         )
         dofsShape = (
-            self.numberOf3DQuadraturePoints(),
-            self.numberOfQuantities(),
+            self.num3DQuadraturePoints(),
+            self.numQuantities(),
         )
         dofsQP = OptionalDimTensor(
             "dofsQP",
@@ -208,6 +198,59 @@ class Viscoelastic2ADERDG(ADERDGBase):
         generator.add(
             "evalAtQP",
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
+        )
+
+        self.addAnelasticEnergyProducts(generator)
+
+    def addAnelasticEnergyProducts(self, generator):
+        """Mass-matrix moments involving the anelastic variables.
+
+        The viscoelastic energies are quadratic forms in the combined state
+        z = (sigma, vartheta^(1..L)). ADERDGBase.addEnergyProducts already covers
+        the sigma-sigma block via momentQQCompute; these two add the remaining ones:
+
+          momentQaneQane[I,J,m,n]  == \\int_{T_ref} Qane_{I,m} Qane_{J,n}
+          momentQQane[I,J,m]  == \\int_{T_ref} Q_I Qane_{J,m}
+
+        Cross-mechanism terms (m != n) are needed: the relaxed strain is
+        eps = C_r^-1 (sigma - sum_l D^(l) Qane^(l) / omega_l), so squaring it
+        couples every pair of mechanisms.
+
+        Both are quadratic in an OptionalDimTensor, i.e. they rely on yateto
+        handling the fused-simulation index as a batch index.
+        """
+        momentQaneQane = OptionalDimTensor(
+            "momentQaneQane",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (
+                self.numAnelasticQuantities(),
+                self.numAnelasticQuantities(),
+                self.numMechanisms,
+                self.numMechanisms,
+            ),
+        )
+        generator.add(
+            "momentQaneQaneCompute",
+            momentQaneQane["IJmn"]
+            <= self.db.M3["ij"] * self.Qane["iIm"] * self.Qane["jJn"],
+        )
+
+        momentQQane = OptionalDimTensor(
+            "momentQQane",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (
+                self.numQuantities(),
+                self.numAnelasticQuantities(),
+                self.numMechanisms,
+            ),
+        )
+        generator.add(
+            "momentQQaneCompute",
+            momentQQane["IJm"] <= self.db.M3["ij"] * self.Q["iI"] * self.Qane["jJm"],
         )
 
     def addLocal(self, generator, targets):
@@ -259,13 +302,13 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 + self.w["m"]
                 * self.Qext["kp"].subslice(
                     "p",
-                    self.numberOfQuantities(),
-                    self.numberOfExtendedQuantities(),
+                    self.numQuantities(),
+                    self.numExtendedQuantities(),
                 )
                 + self.Iane["kpl"] * self.W["lm"],
                 self.Q["kp"]
                 <= self.Q["kp"]
-                + self.Qext["kp"].subslice("p", 0, self.numberOfQuantities())
+                + self.Qext["kp"].subslice("p", 0, self.numQuantities())
                 + self.Iane["kqm"] * self.E["qmp"],
             ]
             generator.add(
@@ -335,18 +378,18 @@ class Viscoelastic2ADERDG(ADERDGBase):
                     + self.w["m"]
                     * self.Qext["kp"].subslice(
                         "p",
-                        self.numberOfQuantities(),
-                        self.numberOfExtendedQuantities(),
+                        self.numQuantities(),
+                        self.numExtendedQuantities(),
                     ),
                     self.Q["kp"]
                     <= self.Q["kp"]
-                    + self.Qext["kp"].subslice("p", 0, self.numberOfQuantities()),
+                    + self.Qext["kp"].subslice("p", 0, self.numQuantities()),
                 ],
                 target=target,
             )
 
     def addTime(self, generator, targets):
-        qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+        qShape = (self.num3DBasisFunctions(), self.numQuantities())
         dQ = [
             OptionalDimTensor(
                 "dQ({})".format(d),
@@ -433,14 +476,14 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 derivativeExpr += [
                     dQext[d]["kp"] <= derivative(d),
                     dQ[d]["kp"]
-                    <= dQext[d]["kp"].subslice("p", 0, self.numberOfQuantities())
+                    <= dQext[d]["kp"].subslice("p", 0, self.numQuantities())
                     + dQane[d - 1]["kqm"] * self.E["qmp"],
                     dQane[d]["kpm"]
                     <= self.w["m"]
                     * dQext[d]["kp"].subslice(
                         "p",
-                        self.numberOfQuantities(),
-                        self.numberOfExtendedQuantities(),
+                        self.numQuantities(),
+                        self.numExtendedQuantities(),
                     )
                     + dQane[d - 1]["kpl"] * self.W["lm"],
                     self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
@@ -467,6 +510,3 @@ class Viscoelastic2ADERDG(ADERDGBase):
         include_tensors.add(self.db.nodes2D)
         # Nodal flux kernel uses this matrix but is not supported by visco2
         include_tensors.update([self.db.project2nFaceTo3m[i] for i in range(4)])
-
-
-EQUATION_CLASS = Viscoelastic2ADERDG

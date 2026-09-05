@@ -7,11 +7,10 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_
 
 #include "Datastructures.h"
-#include "Equations/anisotropic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -24,7 +23,7 @@ namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
 template <>
-struct MaterialSetup<AnisotropicMaterial> {
+struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<AnisotropicMaterial> {
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {
@@ -341,34 +340,8 @@ struct MaterialSetup<AnisotropicMaterial> {
     rotatedMaterial.c66 = rotatedC(5, 5);
     return rotatedMaterial;
   }
-
-  static void initializeSpecificLocalData(const AnisotropicMaterial& material,
-                                          double timeStepWidth,
-                                          AnisotropicLocalData* localData) {}
-
-  static void initializeSpecificNeighborData(const AnisotropicMaterial& material,
-                                             AnisotropicNeighborData* localData) {}
-
-  static void getPlaneWaveOperator(const AnisotropicMaterial& material,
-                                   const double n[3],
-                                   std::complex<double> mdata[AnisotropicMaterial::NumQuantities *
-                                                              AnisotropicMaterial::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
-  }
-  template <typename T>
-  static void getTransposedSourceCoefficientTensor(const AnisotropicMaterial& material,
-                                                   T& sourceMatrix) {}
-
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
-  }
 };
 
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ANISOTROPICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_

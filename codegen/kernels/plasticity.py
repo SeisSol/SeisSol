@@ -19,10 +19,10 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         clones=dict(),
         alignStride=aderdg.alignStride,
     )
-    numberOfNodes = db.v.shape()[0]
+    numNodes = db.v.shape()[0]
 
-    numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
-    sShape = (numberOf3DBasisFunctions, 6)
+    num3DBasisFunctions = aderdg.num3DBasisFunctions()
+    sShape = (num3DBasisFunctions, 6)
     QStress = OptionalDimTensor(
         "QStress",
         aderdg.Q.optName(),
@@ -32,7 +32,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         alignStride=True,
     )
 
-    iShape = (numberOfNodes, 6)
+    iShape = (numNodes, 6)
 
     initialLoading = OptionalDimTensor(
         "initialLoading",
@@ -55,7 +55,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfNodes,),
+        (numNodes,),
         alignStride=True,
     )
     secondInvariant = OptionalDimTensor(
@@ -63,7 +63,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfNodes,),
+        (numNodes,),
         alignStride=True,
     )
 
@@ -72,7 +72,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfNodes,),
+        (numNodes,),
         alignStride=True,
     )
     QEtaNodalProject = OptionalDimTensor(
@@ -80,7 +80,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (aderdg.numberOf3DQuadraturePoints(),),
+        (aderdg.num3DQuadraturePoints(),),
         alignStride=True,
     )
 
@@ -117,7 +117,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfNodes,),
+        (numNodes,),
         alignStride=True,
     )
     modalVar = OptionalDimTensor(
@@ -125,7 +125,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOf3DBasisFunctions,),
+        (num3DBasisFunctions,),
         alignStride=True,
     )
     generator.add(
@@ -168,14 +168,14 @@ def includeTensors(matricesDir, aderdg, PlasticityMethod, includeTensors):
     )
     includeTensors.add(db.vNodes)
 
-    numberOfNodes = db.v.shape()[0]
+    numNodes = db.v.shape()[0]
 
     yieldFactor = OptionalDimTensor(
         "yieldFactor",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfNodes,),
+        (numNodes,),
         alignStride=True,
     )
     includeTensors.add(yieldFactor)

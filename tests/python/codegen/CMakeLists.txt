@@ -42,6 +42,7 @@ endif()
 # subtree — this gives ctest per-file granularity, parallelism via
 # `ctest -j`, and finer timeout control.
 set(_pytest_codegen_files
+    test_quantities.py
     test_memlayout.py
     test_aderdg_math.py
     test_equations_structure.py

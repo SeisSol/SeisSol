@@ -60,8 +60,12 @@ set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined a
 set(OVERRIDE_ALIGNMENT 0 CACHE STRING "If not 0, it overrides the pre-defined architecture alignment")
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic)
+set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic viscoacoustic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
+
+set(VISCO_MODE "split" CACHE STRING "")
+set(VISCO_MODE_OPTIONS "split" "extend")
+set_property(CACHE VISCO_MODE PROPERTY STRINGS ${VISCO_MODE_OPTIONS})
 
 
 set(HOST_ARCH "auto" CACHE STRING "Type of host architecture")
@@ -171,6 +175,11 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
+
+if (EQUATIONS STREQUAL "viscoelastic2")
+    message(STATUS "viscoelastic2 is equivalent to viscoelastic and mapped to it as such.")
+    set(EQUATIONS "viscoelastic" CACHE STRING "" FORCE)
+endif()
 
 string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 
@@ -431,11 +440,11 @@ message(STATUS "Memory alignment has been set to ${ALIGNMENT} B.")
 message(STATUS "Vector size has been set to ${VECTORSIZE} B.")
 
 # check NUMBER_OF_MECHANISMS
-if ((NOT "${EQUATIONS}" MATCHES "viscoelastic.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
+if ((NOT "${EQUATIONS}" MATCHES "visco.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
     message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
 endif()
 
-if ("${EQUATIONS}" MATCHES "viscoelastic.?" AND ${NUMBER_OF_MECHANISMS} LESS 1)
+if ("${EQUATIONS}" MATCHES "visco.?" AND ${NUMBER_OF_MECHANISMS} LESS 1)
     message(FATAL_ERROR "${EQUATIONS} needs a NUMBER_OF_MECHANISMS > 0.")
 endif()
 

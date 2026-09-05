@@ -7,11 +7,10 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
-#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
-#define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
+#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Equations/elastic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -22,7 +21,7 @@ namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
 template <>
-struct MaterialSetup<ElasticMaterial> {
+struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMaterial> {
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const ElasticMaterial& material, unsigned dim, T& matM) {
@@ -178,49 +177,8 @@ struct MaterialSetup<ElasticMaterial> {
       }
     }
   }
-
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
-    matT.setZero();
-    matTinv.setZero();
-
-    seissol::transformations::symmetricTensor2RotationMatrix(
-        normal, tangent1, tangent2, matT, 0, 0);
-    seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 6, 6);
-
-    seissol::transformations::inverseSymmetricTensor2RotationMatrix(
-        normal, tangent1, tangent2, matTinv, 0, 0);
-    seissol::transformations::inverseTensor1RotationMatrix(
-        normal, tangent1, tangent2, matTinv, 6, 6);
-  }
-
-  static ElasticMaterial
-      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     ElasticMaterial& material) {
-    return material;
-  }
-
-  static void initializeSpecificLocalData(const ElasticMaterial& material,
-                                          double timeStepWidth,
-                                          ElasticLocalData* localData) {}
-
-  static void initializeSpecificNeighborData(const ElasticMaterial& material,
-                                             ElasticNeighborData* localData) {}
-  static void getPlaneWaveOperator(
-      const ElasticMaterial& material,
-      const double n[3],
-      std::complex<double> mdata[ElasticMaterial::NumQuantities * ElasticMaterial::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
-  }
-
-  template <typename T>
-  static void getTransposedSourceCoefficientTensor(const ElasticMaterial& material,
-                                                   T& sourceMatrix) {}
 };
 
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ELASTICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_

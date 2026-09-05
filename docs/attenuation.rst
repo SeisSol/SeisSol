@@ -54,7 +54,7 @@ In ccmake, use:
 
 .. code::
 
-    EQUATIONS                        viscoelastic2
+    EQUATIONS                        viscoelastic
     NUMBER_OF_MECHANISMS             3
 
 Note that the equations='viscoelastic' is operational but deprecated.

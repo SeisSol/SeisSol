@@ -25,51 +25,34 @@ SeisSol.cpp
 )
 target_link_libraries(seissol-lib PUBLIC seissol-config)
 
-# Eqations have to be set at compile time currently.
-if ("${EQUATIONS}" STREQUAL "elastic")
+# include necessary kernel files (we can't include all of them right now, because of some undefined kernels + tensors)
+
+if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "${EQUATIONS}" STREQUAL "anisotropic")
   target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Local.cpp
     Kernels/LinearCK/Neighbor.cpp
     Kernels/LinearCK/Time.cpp
     )
   target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ELASTIC)
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
 
-elseif ("${EQUATIONS}" STREQUAL "acoustic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Time.cpp
+elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
+  if (VISCO_MODE STREQUAL "split")
+    target_sources(seissol-lib PRIVATE
+      Kernels/LinearCKAnelastic/Neighbor.cpp
+      Kernels/LinearCKAnelastic/Local.cpp
+      Kernels/LinearCKAnelastic/Time.cpp
     )
-  target_include_directories(seissol-common-properties INTERFACE Equations/acoustic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ACOUSTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Time.cpp
+    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
+  else()
+    target_sources(seissol-lib PRIVATE
+      Kernels/LinearCK/Local.cpp
+      Kernels/LinearCK/Neighbor.cpp
+      Kernels/LinearCK/Time.cpp
     )
+    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
+  endif()
   target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCKAnelastic/Neighbor.cpp
-    Kernels/LinearCKAnelastic/Local.cpp
-    Kernels/LinearCKAnelastic/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic2)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC2)
-
-elseif ("${EQUATIONS}" STREQUAL "anisotropic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/anisotropic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ANISOTROPIC)
 
 elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(seissol-lib PRIVATE
@@ -78,7 +61,7 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
     Kernels/STP/Time.cpp
   )
   target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_POROELASTIC)
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_STP)
 endif()
 
 
@@ -106,19 +89,6 @@ if (WITH_GPU)
   target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
 
   target_compile_options(seissol-device-lib PRIVATE -fPIC)
-  if ("${EQUATIONS}" STREQUAL "elastic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_ELASTIC)
-  elseif ("${EQUATIONS}" STREQUAL "acoustic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_ACOUSTIC)
-  elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_VISCOELASTIC)
-  elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_VISCOELASTIC2)
-  elseif ("${EQUATIONS}" STREQUAL "anisotropic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_ANISOTROPIC)
-  elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_POROELASTIC)
-  endif()
   target_include_directories(seissol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
 
   if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)

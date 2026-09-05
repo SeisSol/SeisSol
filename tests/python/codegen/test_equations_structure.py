@@ -24,7 +24,6 @@ EQUATION_MODULES = [
     "anisotropic",
     "poroelastic",
     "viscoelastic",
-    "viscoelastic2",
 ]
 
 
@@ -69,16 +68,16 @@ class TestEquationModuleContract:
 
 
 class TestEquationClassInheritance:
-    """All equation classes ultimately derive from LinearADERDG, which
+    """All equation classes ultimately derive from LinearCK, which
     provides the default spp/basis-count methods. Anisotropic derives from
     Elastic (re-uses its indexing).
     """
 
     def test_elastic_is_linear_aderdg(self):
-        from kernels.aderdg import LinearADERDG
+        from kernels.aderdg import LinearCK
         from kernels.equations.elastic import ElasticADERDG
 
-        assert issubclass(ElasticADERDG, LinearADERDG)
+        assert issubclass(ElasticADERDG, LinearCK)
 
     def test_anisotropic_extends_elastic(self):
         from kernels.equations.anisotropic import AnisotropicADERDG
@@ -97,25 +96,25 @@ class TestEquationClassInheritance:
         ],
     )
     def test_linear_equations_inherit_from_linear_aderdg(self, module_name):
-        """All LINEAR equations inherit from LinearADERDG."""
-        from kernels.aderdg import LinearADERDG
+        """All LINEAR equations inherit from LinearCK."""
+        from kernels.aderdg import LinearCK
 
         mod = importlib.import_module(f"kernels.equations.{module_name}")
         assert issubclass(
-            mod.EQUATION_CLASS, LinearADERDG
-        ), f"{module_name}: EQUATION_CLASS must inherit from LinearADERDG"
+            mod.EQUATION_CLASS, LinearCK
+        ), f"{module_name}: EQUATION_CLASS must inherit from LinearCK"
 
     def test_viscoelastic2_inherits_from_aderdgbase_directly(self):
         """Structural asymmetry: viscoelastic2 uses the Space-Time-Predictor
         (STP) formulation and inherits ADERDGBase directly, bypassing
-        LinearADERDG. Any refactor that tries to 'normalize' the hierarchy
+        LinearCK. Any refactor that tries to 'normalize' the hierarchy
         would break the STP machinery. This test documents the decision.
         """
-        from kernels.aderdg import ADERDGBase, LinearADERDG
+        from kernels.aderdg import ADERDGBase, LinearCK
         from kernels.equations.viscoelastic2 import Viscoelastic2ADERDG
 
         assert issubclass(Viscoelastic2ADERDG, ADERDGBase)
-        assert not issubclass(Viscoelastic2ADERDG, LinearADERDG), (
+        assert not issubclass(Viscoelastic2ADERDG, LinearCK), (
             "If this now fails, the hierarchy has been unified. Verify that "
             "the STP-specific behavior (see numberOfExtendedQuantities, etc.) "
             "has been preserved, then drop this test."
@@ -145,8 +144,6 @@ class TestCrossEquationDoFConsistency:
         instance = object.__new__(mod.EQUATION_CLASS)
         defaults = {"order": 4}
         if module_name == "viscoelastic":
-            defaults.update(numberOfMechanisms=3, numberOfElasticQuantities=9)
-        if module_name == "viscoelastic2":
             defaults.update(numberOfMechanisms=3, numberOfElasticQuantities=9)
         defaults.update(kwargs)
         for k, v in defaults.items():

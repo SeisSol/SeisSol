@@ -25,6 +25,10 @@
 
 // NOLINTBEGIN (-misc-const-correctness)
 
+namespace seissol::tensor {
+struct Qext;
+}
+
 using namespace seissol::initializer;
 using namespace seissol::recording;
 
@@ -122,9 +126,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
   const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>();
 
-#ifdef USE_VISCOELASTIC2
   auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-#endif
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
@@ -152,10 +154,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
               idofsAddressRegistry_[neighborBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-#ifdef USE_VISCOELASTIC2
-          regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                       tensor::Qext::size() * cell);
-#endif
+          if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+            regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                         kernels::size<tensor::Qext>() * cell);
+          }
         }
         break;
       }
@@ -167,10 +169,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
-#ifdef USE_VISCOELASTIC2
-        drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                tensor::Qext::size() * cell);
-#endif
+        if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+          drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                  kernels::size<tensor::Qext>() * cell);
+        }
         break;
       }
       case FaceType::FreeSurface:
@@ -208,9 +210,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
                                   regularPeriodicDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
                                   regularPeriodicAminusT[face][faceRelation]);
-#ifdef USE_VISCOELASTIC2
-        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, regularDofsExt[face][faceRelation]);
-#endif
+        if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+          (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt,
+                                    regularDofsExt[face][faceRelation]);
+        }
       }
     }
 
@@ -224,9 +227,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
-#ifdef USE_VISCOELASTIC2
-        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
-#endif
+        if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+          (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
+        }
       }
     }
   }

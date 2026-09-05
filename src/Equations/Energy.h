@@ -1,0 +1,36 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_EQUATIONS_ENERGY_H_
+#define SEISSOL_SRC_EQUATIONS_ENERGY_H_
+
+#include "Equations/EnergyBase.h"
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <string_view>
+
+// IWYU pragma: begin_exports
+
+// Gather all Energy headers here.
+// Note: these specializations are keyed on the *material*, not on the solver
+// variant. The guards are only needed where the header
+// pulls in generated tensors that exist for that build alone.
+#include "Equations/acoustic/Model/Energy.h"
+#include "Equations/anisotropic/Model/Energy.h"
+#include "Equations/elastic/Model/Energy.h"
+#ifdef SEISSOL_KERNELS_STP
+#include "Equations/poroelastic/Model/Energy.h"
+#endif
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+#include "Equations/viscoacoustic/Model/Energy.h"
+#include "Equations/viscoelastic/Model/Energy.h"
+#endif
+
+// IWYU pragma: end_exports
+
+#endif // SEISSOL_SRC_EQUATIONS_ENERGY_H_

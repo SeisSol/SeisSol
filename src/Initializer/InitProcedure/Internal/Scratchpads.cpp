@@ -18,6 +18,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 
 #include <algorithm>
 #include <array>
@@ -153,10 +154,10 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(sizeof(real) * freeSurfaceCount *
                                                      NodalDisplacementsSize);
 
-#ifdef USE_POROELASTIC
-    layer.setEntrySize<LTS::ZinvExtra>(layer.size() * yateto::computeFamilySize<tensor::Zinv>() *
-                                       sizeof(real));
-#endif
+    if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
+      layer.setEntrySize<LTS::ZinvExtra>(layer.size() * kernels::familySize<tensor::Zinv>() *
+                                         sizeof(real));
+    }
   }
 }
 

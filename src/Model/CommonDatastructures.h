@@ -18,7 +18,15 @@
 #include <vector>
 
 namespace seissol::model {
-enum class MaterialType { Solid, Acoustic, Elastic, Viscoelastic, Anisotropic, Poroelastic };
+enum class MaterialType {
+  Solid,
+  Acoustic,
+  Elastic,
+  Viscoelastic,
+  Viscoacoustic,
+  Anisotropic,
+  Poroelastic
+};
 
 // the local solvers. CK is the default for elastic, acoustic etc.
 // viscoelastic uses CauchyKovalevskiAnelastic (maybe all other materials may be extended to use
@@ -33,9 +41,10 @@ enum class LocalSolver {
 };
 
 struct Material {
-  static constexpr std::size_t NumQuantities = 0;             // ?
-  static constexpr std::size_t NumberPerMechanism = 0;        // ?
-  static constexpr std::size_t TractionQuantities = 0;        // ?
+  static constexpr std::size_t NumQuantities = 0;      // ?
+  static constexpr std::size_t NumberPerMechanism = 0; // ?
+  static constexpr std::size_t VelocityOffset = 0;
+  static constexpr std::size_t TractionComponents = 0;
   static constexpr std::size_t Mechanisms = 0;                // ?
   static constexpr MaterialType Type = MaterialType::Solid;   // ?
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?

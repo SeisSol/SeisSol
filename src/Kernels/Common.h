@@ -177,6 +177,35 @@ constexpr auto size(Args... args) -> typename HasSize<T, Args...>::Type {
   }
 }
 
+template <typename T, typename = void>
+struct IsFamilyInternal {
+  static constexpr bool Value = false;
+};
+
+template <typename T>
+struct IsFamilyInternal<T, std::void_t<typename T::Container>> {
+  static constexpr bool Value = true;
+};
+
+template <class T>
+constexpr auto familyMembers() -> std::size_t {
+  if constexpr (IsFamilyInternal<T>::Value) {
+    return yateto::numFamilyMembers<T>();
+  } else {
+    return static_cast<std::size_t>(0);
+  }
+}
+
+template <class T>
+constexpr auto familySize(std::size_t alignedReals = 1, std::size_t n = familyMembers<T>())
+    -> std::size_t {
+  if constexpr (IsFamilyInternal<T>::Value) {
+    return yateto::computeFamilySize<T>();
+  } else {
+    return static_cast<std::size_t>(0);
+  }
+}
+
 } // namespace kernels
 
 constexpr bool isDeviceOn() { return HardwareSupport == BuildType::Gpu; }

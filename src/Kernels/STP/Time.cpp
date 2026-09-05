@@ -8,7 +8,7 @@
 #include "Time.h"
 
 #include "Common/Marker.h"
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
+#include "Equations/poroelastic/Model/Helper.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 #include "Monitoring/Metric.h"
@@ -89,9 +89,8 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
     auto sourceMatrix =
         init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
-    model::zInvInitializerForLoop<0,
-                                  seissol::model::MaterialT::NumQuantities,
-                                  decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
+    model::ZInvInitializer<0, seissol::model::MaterialT::NumQuantities, decltype(sourceMatrix)>(
+        ZinvData, sourceMatrix, timeStepWidth);
     for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
