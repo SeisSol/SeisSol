@@ -120,7 +120,9 @@ std::vector<std::string> ReceiverWriter::variableNames() const {
   return fullNames;
 }
 
-void ReceiverWriter::writeHeader(std::size_t pointId, const Eigen::Vector3d& point) {
+void ReceiverWriter::writeHeader(std::size_t pointId,
+                                 const Eigen::Vector3d& point,
+                                 std::size_t globalId) {
   auto name = fileName(pointId);
 
   /// \todo Find a nicer solution that is not so hard-coded.
@@ -130,7 +132,7 @@ void ReceiverWriter::writeHeader(std::size_t pointId, const Eigen::Vector3d& poi
     std::ofstream file;
     file.open(name);
     file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5)
-         << (pointId + 1) << "\"" << std::endl;
+         << (pointId + 1) << "\"" << '\n';
     file << "VARIABLES = ";
 
     auto names = variableNames();
@@ -140,11 +142,14 @@ void ReceiverWriter::writeHeader(std::size_t pointId, const Eigen::Vector3d& poi
       }
       file << "\"" << names[i] << "\"";
     }
-    file << std::endl;
+    file << '\n';
+
+    // metadata header
     for (int d = 0; d < 3; ++d) {
       file << "# x" << (d + 1) << "       " << std::scientific << std::setprecision(12) << point[d]
-           << std::endl;
+           << '\n';
     }
+    file << "# cell-global-id " << globalId << '\n';
     file.close();
   }
 }
@@ -242,7 +247,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
       }
 
       if (format_ == seissol::initializer::parameters::ReceiverOutputFormat::Csv) {
-        writeHeader(point, points[point]);
+        writeHeader(point, points[point], mesh.getElements()[meshId].globalId);
       }
       localReceiverCount++;
 

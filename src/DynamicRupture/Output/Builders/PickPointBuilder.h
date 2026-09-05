@@ -114,6 +114,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           receiver.globalReceiverIndex = receiverIdx;
           receiver.elementIndex = element.localId;
           receiver.elementGlobalIndex = element.globalId;
+          receiver.localNeighborFaceSideId = faultItem.neighborSide;
+          receiver.elementNeighborGlobalIndex = faultItem.neighborGlobalId;
 
           receiver.reference = transformations::tetrahedronGlobalToReference(
               meshVertices[element.vertices[0]].coords,
