@@ -532,7 +532,8 @@ SEISSOL_HOSTDEVICE inline void
 
 /**
  * output rupture front, saves update time of the rupture front
- * rupture front is the first registered change in slip rates that exceeds the configured threshold
+ * rupture front is the first registered change in slip rates that exceeds parameter file variable
+ * ruptureFrontThreshold (default: 0.001)
  *
  * param[in,out] ruptureTimePending
  * param[out] ruptureTime
