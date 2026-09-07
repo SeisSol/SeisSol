@@ -80,6 +80,7 @@ FrictionLawParameters::FrictionLawParameters(
       terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),
       etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
       nucleationCount(parameters.nucleationCount),
+      ruptureFrontThreshold(parameters.ruptureFrontThreshold),
       rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
       rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
       rsSlipRateTolerance(parameters.rsSlipRateTolerance),

@@ -274,6 +274,7 @@ struct FrictionLawParameters {
   std::array<real, MaxNucleations> t0{};
   std::array<real, MaxNucleations> s0{};
   std::uint32_t nucleationCount{0};
+  real ruptureFrontThreshold{0.001};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
   real rsSlipRateTolerance{1e-8};

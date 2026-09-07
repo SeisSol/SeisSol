@@ -532,7 +532,8 @@ SEISSOL_HOSTDEVICE inline void
 
 /**
  * output rupture front, saves update time of the rupture front
- * rupture front is the first registered change in slip rates that exceeds 0.001
+ * rupture front is the first registered change in slip rates that exceeds parameter file variable
+ * ruptureFrontThreshold (default: 0.001)
  *
  * param[in,out] ruptureTimePending
  * param[out] ruptureTime
@@ -549,6 +550,7 @@ SEISSOL_HOSTDEVICE inline void
                            real ruptureTime[misc::NumPaddedPoints],
                            const real slipRateMagnitude[misc::NumPaddedPoints],
                            real fullUpdateTime,
+                           real ruptureFrontThreshold,
                            uint32_t startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
@@ -558,8 +560,7 @@ SEISSOL_HOSTDEVICE inline void
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto pointIndex{startIndex + index};
-    constexpr real RuptureFrontThreshold = 0.001;
-    if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > RuptureFrontThreshold) {
+    if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > ruptureFrontThreshold) {
       ruptureTime[pointIndex] = fullUpdateTime;
       ruptureTimePending[pointIndex] = false;
     }
