@@ -63,6 +63,7 @@ struct DRParameters {
   std::string faultFileName;
   std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
   Eigen::Vector3d referencePoint;
+  double ruptureFrontThreshold{0.001};
   double terminatorSlipRateThreshold{0.0};
   double etaDamp{1.0};
   double etaDampEnd{std::numeric_limits<double>::infinity()};
