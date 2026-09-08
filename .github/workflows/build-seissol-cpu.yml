@@ -61,8 +61,7 @@ jobs:
             --toolchain ${{ matrix.setup.name }} \
             --install-prefix /opt/seissol \
             --max-parallel ${{ matrix.setup.parallel-builds }} \
-            --report build-report.json \
-            --step-summary
+            --report build-report.json
 
       - name: upload-build-report
         uses: actions/upload-artifact@v7
