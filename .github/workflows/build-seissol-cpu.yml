@@ -56,6 +56,14 @@ jobs:
         id: build
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         run: |
+
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           python3 scripts/compile/compile_variants.py \
             --preset ci-cpu \
             --toolchain ${{ matrix.setup.name }} \
