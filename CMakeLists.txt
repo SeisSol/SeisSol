@@ -491,6 +491,7 @@ add_subdirectory(external)
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
+  include(cmake/SmokeTest.cmake)
 
   add_subdirectory(tests)
 endif()
