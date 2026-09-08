@@ -13,6 +13,7 @@
 #include "KernelHost.h"
 #include "Kernels/Common.h"
 #include "Parallel/Runtime/Stream.h"
+#include "Proxy/Cycles.h"
 #include "Proxy/Kernel.h"
 
 #include <cstddef>
@@ -26,11 +27,6 @@
 #endif
 
 #include "Common.h"
-
-#ifdef __MIC__
-#define __USE_RDTSC
-#endif
-
 #include "Monitoring/FlopCounter.h"
 
 #include <cassert>
@@ -83,9 +79,8 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
 
   struct timeval startTime{};
   struct timeval endTime{};
-#ifdef __USE_RDTSC
-  size_t cyclesStart, cyclesEnd;
-#endif
+  std::uint64_t cyclesStart = 0;
+  std::uint64_t cyclesEnd = 0;
   double total = 0.0;
   double totalCycles = 0.0;
 
@@ -97,25 +92,16 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   const seissol::monitoring::FlopCounter flopCounter{};
 
   gettimeofday(&startTime, nullptr);
-#ifdef __USE_RDTSC
-  cyclesStart = __rdtsc();
-#endif
+  cyclesStart = readCycles();
 
   testKernel(data, runtime, kernel, config.timesteps);
 
   runtime->wait();
 
-#ifdef __USE_RDTSC
-  cyclesEnd = __rdtsc();
-#endif
+  cyclesEnd = readCycles();
   gettimeofday(&endTime, nullptr);
   total = sec(startTime, endTime);
-#ifdef __USE_RDTSC
-  std::cout << "Cycles via __rdtsc()" << std::endl;
   totalCycles = static_cast<double>(cyclesEnd - cyclesStart);
-#else
-  totalCycles = derive_cycles_from_time(total);
-#endif
 
   const auto performanceEstimate = kernel->performanceEstimate(*data);
 
@@ -127,6 +113,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   ProxyOutput output{};
   output.time = total;
   output.cycles = totalCycles;
+  output.cycleSource = cycleSourceName();
   output.libxsmmNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops) * 1.e-9;
   output.pspammNumTotalGFlop = static_cast<double>(pspamm_num_total_flops) * 1.e-9;
   output.libxsmmAndpspammNumTotalGFlop =
@@ -135,14 +122,24 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   output.actualHardwareGFlop = static_cast<double>(hardwareFlops) * 1.e-9;
   output.gib = bytesEstimate / (1024.0 * 1024.0 * 1024.0);
   output.kernelGib = bytesKernel / (1024.0 * 1024.0 * 1024.0);
-  output.nonZeroFlopPerCycle = static_cast<double>(nonzeroFlops) / totalCycles;
-  output.hardwareFlopPerCycle = static_cast<double>(hardwareFlops) / totalCycles;
-  output.bytesPerCycle = bytesEstimate / totalCycles;
-  output.kernelBytesPerCycle = bytesKernel / totalCycles;
-  output.nonZeroGFlops = (static_cast<double>(nonzeroFlops) * 1.e-9) / total;
-  output.hardwareGFlops = (static_cast<double>(hardwareFlops) * 1.e-9) / total;
-  output.gibPerSecond = (bytesEstimate / (1024.0 * 1024.0 * 1024.0)) / total;
-  output.kernelGibPerSecond = (bytesKernel / (1024.0 * 1024.0 * 1024.0)) / total;
+
+  // Without a tick counter there is nothing to divide by, and on a run short
+  // enough to fit between two ticks the elapsed count is legitimately zero.
+  // Reporting zero keeps every field finite, which is what the JSON output
+  // needs to stay parseable; cycleSource tells a reader which case this is.
+  const auto perCycle = [totalCycles](double value) {
+    return totalCycles > 0.0 ? value / totalCycles : 0.0;
+  };
+  output.nonZeroFlopPerCycle = perCycle(static_cast<double>(nonzeroFlops));
+  output.hardwareFlopPerCycle = perCycle(static_cast<double>(hardwareFlops));
+  output.bytesPerCycle = perCycle(bytesEstimate);
+  output.kernelBytesPerCycle = perCycle(bytesKernel);
+
+  const auto perSecond = [total](double value) { return total > 0.0 ? value / total : 0.0; };
+  output.nonZeroGFlops = perSecond(static_cast<double>(nonzeroFlops) * 1.e-9);
+  output.hardwareGFlops = perSecond(static_cast<double>(hardwareFlops) * 1.e-9);
+  output.gibPerSecond = perSecond(bytesEstimate / (1024.0 * 1024.0 * 1024.0));
+  output.kernelGibPerSecond = perSecond(bytesKernel / (1024.0 * 1024.0 * 1024.0));
 
   runtime.reset();
 

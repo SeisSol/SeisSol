@@ -11,8 +11,6 @@
 
 #include <ctime>
 
-auto derive_cycles_from_time(double time) -> double;
-
 void print_hostname();
 
 auto sec(struct timeval start, struct timeval end) -> double;
