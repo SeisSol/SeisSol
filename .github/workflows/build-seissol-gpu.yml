@@ -14,7 +14,7 @@ env:
 
 jobs:
   seissol-build-test:
-    name: seissol-build-test<${{matrix.setup.cc}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
+    name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
     runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     defaults:
@@ -23,63 +23,44 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        precision:
-          - single
         arch:
           - hsw
         build_type:
           - Release
           #- Debug
+        # `name` selects the entry from the `toolchains:` block in
+        # scripts/compile/compile-variants.yaml.
         setup:
           - arch: sm_60
             backend: cuda
-            cc: gcc-13
-            cxx: g++-13
-            fc: gfortran-13
+            name: gcc-13
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
           - arch: sm_60
             backend: cuda
-            cc: clang-18
-            cxx: clang++-18
-            fc: gfortran-13 # TODO?
+            name: clang-18
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
           - arch: gfx906
             backend: hip
-            cc: gcc-13
-            cxx: g++-13
-            fc: gfortran-13
+            name: gcc-13
             container: seissol/gha-gpu-amd:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
           - arch: gfx906
             backend: hip
-            cc: clang-18
-            cxx: clang++-18
-            fc: gfortran-13 # TODO?
+            name: clang-18
             container: seissol/gha-gpu-amd:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
           - arch: skl
             backend: oneapi
-            cc: icx
-            cxx: icpx
-            fc: ifx
+            name: icx-2024
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: false
-    env:
-      cc: ${{matrix.setup.cc}}
-      cxx: ${{matrix.setup.cxx}}
-      fc: ${{matrix.setup.fc}}
-      hostarch: ${{matrix.arch}}
-      buildtype: ${{matrix.build_type}}
-      tests: OFF
-      devicearch: ${{matrix.setup.arch}}
-      devicebackend: ${{matrix.setup.backend}}
     steps:
       - name: setup
         run: |
@@ -99,75 +80,37 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: ./.github/actions/seissol-build
-        name: elastic-s-p6
+      - name: build-variants
+        id: build
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
-        with:
-          cfg-order: 6
-          cfg-equation: elastic
-          cfg-mechanisms: 0
-          cfg-precision: single
-          cfg-simulations: 1
+        run: |
+          python3 scripts/compile/compile_variants.py \
+            --preset ci-gpu \
+            --toolchain ${{ matrix.setup.name }} \
+            --set device_backend=${{ matrix.setup.backend }} \
+            --set device_arch=${{ matrix.setup.arch }} \
+            --install-prefix /opt/seissol \
+            --max-parallel 2 \
+            --report build-report.json \
+            --step-summary
 
-      - uses: ./.github/actions/seissol-build
-        name: viscoelastic-3-s-p6
+      - name: upload-build-report
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         with:
-          cfg-order: 6
-          cfg-equation: viscoelastic2
-          cfg-mechanisms: 3
-          cfg-precision: single
-          cfg-simulations: 1
-
-      - uses: ./.github/actions/seissol-build
-        name: anisotropic-s-p6
-        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
-        with:
-          cfg-order: 6
-          cfg-equation: anisotropic
-          cfg-mechanisms: 0
-          cfg-precision: single
-          cfg-simulations: 1
-
-      - uses: ./.github/actions/seissol-build
-        name: poroelastic-s-p6
-        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
-        with:
-          cfg-order: 6
-          cfg-equation: poroelastic
-          cfg-mechanisms: 0
-          cfg-precision: single
-          cfg-simulations: 1
-
-      - uses: ./.github/actions/seissol-build
-        name: acoustic-s-p6
-        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
-        with:
-          cfg-order: 6
-          cfg-equation: acoustic
-          cfg-mechanisms: 0
-          cfg-precision: single
-          cfg-simulations: 1
-
-      - uses: ./.github/actions/seissol-build
-        name: elastic-s-p3-f32
-        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
-        with:
-          cfg-order: 3
-          cfg-equation: elastic
-          cfg-mechanisms: 0
-          cfg-precision: single
-          cfg-simulations: 32
+          name: build-report-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.name}}
+          path: build-report.json
+          if-no-files-found: ignore
 
       - name: upload-seissol
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.name}}
           path: /opt/seissol
 
   seissol-run-test:
-    name: seissol-run-test<${{matrix.setup.cc}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
+    name: seissol-run-test<${{matrix.setup.name}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
     runs-on: ${{matrix.setup.container-runner}}
     container:
       image: ${{ matrix.setup.container }}
@@ -186,22 +129,18 @@ jobs:
         setup:
           - arch: sm_60
             backend: cuda
-            cc: gcc-13
-            cxx: g++-13
-            fc: gfortran-13
+            name: gcc-13
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             pythonbreak: true
-            ompi: true
+            mpi: openmpi
             container-options: --runtime=nvidia --gpus=all
             container-runner: gpu-nv
           - arch: sm_60
             backend: cuda
-            cc: clang-18
-            cxx: clang++-18
-            fc: gfortran-13 # TODO?
+            name: clang-18
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             pythonbreak: true
-            ompi: true
+            mpi: openmpi
             container-options: --runtime=nvidia --gpus=all
             container-runner: gpu-nv
         parallel:
@@ -233,22 +172,23 @@ jobs:
       - name: get-verification-scripts
         uses: actions/checkout@v6
         with:
-          path: scripts
+          path: seissol-scripts
+          sparse-checkout: scripts/validate
+          sparse-checkout-cone-mode: false
 
       - name: get-seissol
         id: get-seissol
         uses: actions/download-artifact@v8
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.name}}
           path: install
 
       - name: verify
         id: verify
         run: |
-          if [ ${{ matrix.setup.mpi }} = openmpi ]; then
+          MPI_OPTIONS=""
+          if [ "${{ matrix.setup.mpi }}" = openmpi ]; then
             MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none"
-          elif [ ${{ matrix.setup.mpi }} = intel ]; then
-            MPI_OPTIONS=""
           fi
 
           export PATH=$(pwd)/install/bin:$PATH
@@ -263,7 +203,7 @@ jobs:
           export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
           export OMPI_MCA_rmaps_base_oversubscribe=true
 
-          python3 $GITHUB_WORKSPACE/scripts/scripts/validate/verify.py \
+          python3 $GITHUB_WORKSPACE/seissol-scripts/scripts/validate/verify.py \
             --precomputed-dir precomputed \
             --binary-dir $GITHUB_WORKSPACE/install \
             --all \
@@ -278,6 +218,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
-          name: report-${{ matrix.setup.cc }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
+          name: report-${{ matrix.setup.name }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
           path: report.txt
           if-no-files-found: ignore
