@@ -7,32 +7,72 @@
 # Structure mirrors a GitHub Actions matrix on purpose: each preset is either an
 # explicit `variants:` list or a `matrix:` (cross-product) with optional
 # `include:` / `exclude:`. Settings cascade: top-level `defaults:` ->
-# per-preset `defaults:` -> the individual variant.
+# per-preset `defaults:` -> the selected `toolchains:` entry -> the individual
+# variant.
 #
 # Run:   ./compile_variants.py --preset cpu-all --max-parallel 4
+#        ./compile_variants.py --preset cpu-all --toolchain clang-19 --test
 #        ./compile_variants.py --preset quick --dry-run
-#        ./compile_variants.py --preset cpu-all --list
+#        ./compile_variants.py --list-toolchains
 
 version: 1
 
+# Paths are resolved relative to THIS FILE, not to the working directory, so
+# the same command works from anywhere in the tree. Absolute paths pass through
+# unchanged; CI overrides the prefix with --install-prefix.
 defaults:
-  source_dir: ../..        # where the top-level CMakeLists.txt lives
-  build_root: build        # per-variant build trees go under here
-  install_prefix: install  # shared prefix; binaries land in <prefix>/bin
+  source_dir: ../..                       # top-level CMakeLists.txt
+  build_root: ../../build                 # per-variant build trees
+  install_prefix: ../../install/{toolchain}
   generator: Ninja
   build_type: Release
   jobs: 0                  # 0 = auto (cores / --max-parallel)
-  env:                     # environment for the cmake/build subprocess
-    CC: gcc
-    CXX: g++
-    FC: gfortran
+  toolchain: gcc           # override per preset, per variant, or with --toolchain
   defines:
     ASAGI: "ON"
+  testing:
+    enabled: false         # --test turns this on for any preset
+
+# ---------------------------------------------------------------------------
+# Compilers. A toolchain is a settings bundle merged in like any other defaults
+# layer, so besides `env` it may carry `defines` or plain variant fields.
+#
+# `install_prefix` above keeps the {toolchain} placeholder: binaries built by
+# different compilers carry the same name (the compiler is not part of
+# NAME_SUFFIX), so they need separate prefixes rather than a custom_suffix --
+# a suffix would land in the binary name and break the lookup verify.py does
+# through cases.json.
+# ---------------------------------------------------------------------------
+toolchains:
+  # Takes CC/CXX/FC from the environment. This is what CI containers want when
+  # the image already exports them.
+  env: {}
+
+  gcc:
+    env: { CC: gcc, CXX: g++, FC: gfortran }
+  gcc-13:
+    env: { CC: gcc-13, CXX: g++-13, FC: gfortran-13 }
+  clang-18:
+    env: { CC: clang-18, CXX: clang++-18, FC: gfortran-13 }
+  clang-19:
+    env: { CC: clang-19, CXX: clang++-19, FC: gfortran-13 }
+  icx-2024:
+    env: { CC: icx, CXX: icpx, FC: ifx }
+  nvhpc:
+    env: { CC: nvc, CXX: nvc++, FC: nvfortran }
+    # The NVHPC runtime needs an MPI launcher even for a single rank, both for
+    # CTest's discovery pass and for running the tests themselves.
+    defines:
+      TESTING_COMMAND: "mpirun -np 1 --oversubscribe --allow-run-as-root"
 
 presets:
+  # Mirrors build-seissol-cpu.yml. The compiler stays out of the matrix: in CI
+  # it is pinned by the container image and passed with --toolchain.
   ci-cpu:
     defaults:
       host_arch: hsw
+      testing:
+        enabled: true
     matrix:
       order: [6]
       precision: [single, double]
@@ -42,82 +82,66 @@ presets:
         - { type: poroelastic }
         - { type: viscoelastic2, mechanisms: 3 }
         - { type: anisotropic }
-        - { type: elastic, order: 3, multisim: 8 }
+        - { type: elastic, multisim: 8 }
 
+  # Mirrors build-seissol-gpu.yml. The build hosts have no device, so the test
+  # code is compiled but not run; that still catches device-side compile errors.
   ci-gpu:
     defaults:
       host_arch: hsw
-      device_backend: cuda
-      device_arch: sm_86
+      device_codegen: tensorforge
+      testing:
+        enabled: true
+        build_only: true
     matrix:
-      order: [6]
-      precision: [single, double]
+      precision: [single]
       equation:
-        - { type: acoustic }
-        - { type: elastic }
-        - { type: poroelastic }
-        - { type: viscoelastic2, mechanisms: 3 }
-        - { type: anisotropic }
-        - { type: elastic, order: 3, multisim: 8 }
+        - { type: acoustic, order: 6 }
+        - { type: elastic, order: 6 }
+        - { type: poroelastic, order: 6 }
+        - { type: viscoelastic2, order: 6, mechanisms: 3 }
+        - { type: anisotropic, order: 6 }
+        - { type: elastic, order: 3, multisim: 32 }
 
   tensorforge:
+    defaults:
+      host_arch: hsw
     matrix:
-      order: [3,4,5,6]
+      order: [3, 4, 5, 6]
       precision: [single, double]
       equation:
         - { type: elastic }
         - { type: viscoelastic2, mechanisms: 3 }
         - { type: elastic, multisim: 8 }
       exclude:
-        - order: 6
-          equations: elastic
-          precision: single
-          multisim: 8
-        - order: 6
-          equations: elastic
-          precision: double
-          multisim: 8
+        - { order: 6, equations: elastic, precision: single, multisim: 8 }
+        - { order: 6, equations: elastic, precision: double, multisim: 8 }
 
   # Minimal smoke build.
   quick:
     variants:
       - { equations: elastic, order: 4, precision: double, host_arch: hsw }
 
-  # Mirrors build-seissol-cpu.yml: one order/arch, both precisions, the same
-  # set of equation configs (note the GitHub-style `equation` dict bundling
-  # type + multisim + mechanisms).
-  cpu-all:
+  # Same variant set as ci-cpu, but built with every host compiler at once.
+  # Each compiler installs into its own prefix, so verify.py can be pointed at
+  # install/<toolchain> per compiler.
+  compilers:
     defaults:
       host_arch: hsw
+      testing:
+        enabled: true
     matrix:
+      toolchain: [gcc-13, clang-19, icx-2024]
       order: [6]
-      precision: [single, double]
+      precision: [double]
       equation:
-        - { type: acoustic }
         - { type: elastic }
-        - { type: poroelastic }
         - { type: viscoelastic2, mechanisms: 3 }
-        - { type: anisotropic }
-        - { type: elastic, multisim: 8 }
 
-  # Mirrors build-seissol-gpu.yml (NVIDIA leg). `equation` carries its own
-  # order here, exactly like the CI.
-  gpu-nv:
-    defaults:
-      host_arch: snb
-      device_backend: cuda
-      device_arch: sm_80
-    matrix:
-      precision: [single, double]
-      equation:
-        - { type: acoustic, order: 6 }
-        - { type: elastic, order: 6 }
-        - { type: viscoelastic2, order: 6, mechanisms: 3 }
-        - { type: anisotropic, order: 6 }
-        - { type: elastic, order: 3, multisim: 32 }
-
-  # Example of exclude + a compiler override on a single leg via include.
+  # Example of exclude + a per-leg toolchain override via include.
   matrix-demo:
+    defaults:
+      host_arch: hsw
     matrix:
       order: [4, 6]
       precision: [single, double]
@@ -128,9 +152,8 @@ presets:
         # skip single-precision anisotropic
         - { precision: single, type: anisotropic }
       include:
-        # add one clang-built elastic variant with a custom suffix
+        # add one clang-built elastic variant
         - equations: elastic
           order: 6
           precision: double
-          custom_suffix: clang
-          env: { CC: clang, CXX: clang++ }
+          toolchain: clang-19
