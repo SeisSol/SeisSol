@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Tests for postprocessing/validation/compare-energies.py
+"""Tests for scripts/validate/compare-energies.py
 
 This script gates energy-conservation and seismic-moment regression
 checks in the E2E CI. Handles two distinct CSV schemas (pre/post PR #773).
@@ -18,7 +18,7 @@ import pytest
 SEISSOL_ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location(
     "compare_energies",
-    SEISSOL_ROOT / "postprocessing" / "validation" / "compare-energies.py",
+    SEISSOL_ROOT / "scripts" / "validate" / "compare-energies.py",
 )
 ce = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ce)
@@ -178,6 +178,16 @@ class TestGetSubSimulation:
 
 
 class TestPerformCheck:
+    """perform_check returns (exceeded, relative_difference).
+
+    Unpack it. A bare `assert perform_check(...)` passes for any two-element
+    tuple and therefore asserts nothing.
+    """
+
+    @staticmethod
+    def exceeded(sim, ref, epsilon):
+        result, _ = ce.perform_check(sim, ref, epsilon=epsilon)
+        return result
 
     def test_identical_frames_pass(self):
         df = pd.DataFrame(
@@ -186,25 +196,25 @@ class TestPerformCheck:
                 "total_frictional_work": [0.0, 0.5, 1.0],
             }
         )
-        assert not ce.perform_check(df, df, epsilon=0.01)
+        assert self.exceeded(df, df, 0.01) is False
 
     def test_large_difference_fails(self):
         ref = pd.DataFrame({"elastic_energy": [1.0, 1.1, 1.2]})
         sim = pd.DataFrame({"elastic_energy": [1.0, 1.5, 1.8]})
-        assert ce.perform_check(sim, ref, epsilon=0.05)
+        assert self.exceeded(sim, ref, 0.05) is True
 
     def test_exact_threshold_comparison(self):
         ref = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
         sim_high = pd.DataFrame({"elastic_energy": [1.0, 1.051, 1.051]})
         sim_low = pd.DataFrame({"elastic_energy": [1.0, 1.049, 1.049]})
-        assert ce.perform_check(sim_high, ref, epsilon=0.05)
-        assert not ce.perform_check(sim_low, ref, epsilon=0.05)
+        assert self.exceeded(sim_high, ref, 0.05) is True
+        assert self.exceeded(sim_low, ref, 0.05) is False
 
     def test_first_row_excluded(self):
         # A huge difference in row 0 should not fail (iloc[1:] drops it)
         ref = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
         sim = pd.DataFrame({"elastic_energy": [999.0, 1.0, 1.0]})
-        assert not ce.perform_check(sim, ref, epsilon=0.01)
+        assert self.exceeded(sim, ref, 0.01) is False
 
     def test_multiple_quantities_any_failure_is_failure(self):
         ref = pd.DataFrame(
@@ -219,7 +229,22 @@ class TestPerformCheck:
                 "total_frictional_work": [1.0, 2.0, 2.0],
             }
         )
-        assert ce.perform_check(sim, ref, epsilon=0.01)
+        assert self.exceeded(sim, ref, 0.01) is True
+
+    def test_relative_difference_is_handed_back(self):
+        """The caller builds the machine-readable summary from this."""
+        ref = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
+        sim = pd.DataFrame({"elastic_energy": [1.0, 1.5, 1.25]})
+        _, rel_diff = ce.perform_check(sim, ref, epsilon=0.05)
+        # t=0 is dropped, so two rows remain
+        assert list(rel_diff.index) == [1, 2]
+        assert rel_diff["elastic_energy"].tolist() == pytest.approx([0.5, 0.25])
+
+    def test_relative_difference_is_returned_even_when_passing(self):
+        ref = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
+        exceeded, rel_diff = ce.perform_check(ref, ref, epsilon=0.01)
+        assert exceeded is False
+        assert rel_diff["elastic_energy"].tolist() == pytest.approx([0.0, 0.0])
 
     def test_prints_content_for_debugging(self, capsys):
         df = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})

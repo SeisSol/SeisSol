@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Tests for postprocessing/validation/meshcompare.py
+"""Tests for scripts/validate/meshcompare.py
 
 meshcompare.compare() is monolithic — it:
   1. Opens two XDMF files via seissolxdmf
@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 
 SEISSOL_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(SEISSOL_ROOT / "postprocessing" / "validation"))
+sys.path.insert(0, str(SEISSOL_ROOT / "scripts" / "validate"))
 
 import meshcompare  # noqa: E402
 

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Tests for postprocessing/validation/compare-receivers.py
+"""Tests for scripts/validate/compare-receivers.py
 
 This script is what decides whether E2E regression tests pass or fail.
 Every bug in this script either fakes success or hides real regressions.
@@ -20,7 +20,7 @@ import pytest
 SEISSOL_ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location(
     "compare_receivers",
-    SEISSOL_ROOT / "postprocessing" / "validation" / "compare-receivers.py",
+    SEISSOL_ROOT / "scripts" / "validate" / "compare-receivers.py",
 )
 cr = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cr)
@@ -282,17 +282,27 @@ class TestFindAllReceivers:
 
 
 class TestReportErrors:
+    """report_errors returns (exceeded, per_column_max).
 
-    def test_empty_returns_false(self, capsys):
-        assert cr.report_errors("label", {}, 0.01) is False
+    The second element is the worst error per column across all receivers and
+    is built regardless of pass/fail, since the machine-readable summary needs
+    it either way.
+    """
 
-    def test_all_within_epsilon_returns_false(self, capsys):
+    def test_empty_returns_no_failure_and_no_maxima(self, capsys):
+        assert cr.report_errors("label", {}, 0.01) == (False, {})
+
+    def test_all_within_epsilon_does_not_report_a_failure(self, capsys):
         errors = {1: {"v1": 0.001, "v2": 0.002}}
-        assert cr.report_errors("label", errors, 0.01) is False
+        exceeded, maxima = cr.report_errors("label", errors, 0.01)
+        assert exceeded is False
+        assert maxima == pytest.approx({"v1": 0.001, "v2": 0.002})
 
-    def test_exceeds_epsilon_returns_true(self, capsys):
+    def test_exceeds_epsilon_reports_a_failure(self, capsys):
         errors = {1: {"v1": 0.1, "v2": 0.001}}
-        assert cr.report_errors("label", errors, 0.01) is True
+        exceeded, maxima = cr.report_errors("label", errors, 0.01)
+        assert exceeded is True
+        assert maxima == pytest.approx({"v1": 0.1, "v2": 0.001})
 
     def test_prints_offending_column_name(self, capsys):
         errors = {42: {"v1": 0.999}}
@@ -307,4 +317,14 @@ class TestReportErrors:
             2: {"v1": 0.999, "v2": 0.001},  # only v1 at id=2 fails
             3: {"v1": 0.001, "v2": 0.001},
         }
-        assert cr.report_errors("label", errors, 0.01) is True
+        exceeded, maxima = cr.report_errors("label", errors, 0.01)
+        assert exceeded is True
+        # the maximum is taken across receivers, so v1 carries the id=2 value
+        assert maxima == pytest.approx({"v1": 0.999, "v2": 0.001})
+
+    def test_maxima_ignore_missing_columns(self, capsys):
+        """A column absent from one receiver must not poison its maximum."""
+        errors = {1: {"v1": 0.002}, 2: {"v1": 0.001, "v2": 0.003}}
+        exceeded, maxima = cr.report_errors("label", errors, 0.01)
+        assert exceeded is False
+        assert maxima == pytest.approx({"v1": 0.002, "v2": 0.003})
