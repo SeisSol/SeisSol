@@ -79,7 +79,7 @@ def main():
     args = parser.parse_args()
 
     relevant_quantities = [
-        "elastic_energy",
+        "elastic_strain_energy",
         "elastic_kinetic_energy",
         "total_frictional_work",
         "static_frictional_work",

@@ -137,7 +137,7 @@ std::array<real, multisim::NumSimulations>
 // their descriptors carry no label.
 
 constexpr std::string_view PlasticMoment = "plastic_moment";
-constexpr std::string_view GravitationalEnergy = "gravitational_energy";
+constexpr std::string_view GravitationalPotentialEnergy = "gravitational_potential_energy";
 constexpr std::string_view SeismicMoment = "seismic_moment";
 constexpr std::string_view TotalFrictionalWork = "total_frictional_work";
 constexpr std::string_view StaticFrictionalWork = "static_frictional_work";
@@ -145,10 +145,10 @@ constexpr std::string_view Potency = "potency";
 
 constexpr std::array GlobalEnergies{
     model::EnergyDescriptor{PlasticMoment, model::EnergyUnit::Moment, {}, {}, {}},
-    model::EnergyDescriptor{GravitationalEnergy,
+    model::EnergyDescriptor{GravitationalPotentialEnergy,
                             model::EnergyUnit::Energy,
                             "gravitational",
-                            "Gravitational energy:",
+                            "Gravitational potential energy:",
                             {}},
     model::EnergyDescriptor{SeismicMoment, model::EnergyUnit::Moment, {}, {}, {}},
     model::EnergyDescriptor{TotalFrictionalWork, model::EnergyUnit::Energy, {}, {}, {}},
@@ -487,13 +487,13 @@ void EnergyOutput::computeVolumeEnergies() {
 
     double energyValues[EnergyCount]{};
     double localPlasticMoment[SimCount]{};
-    double localGravitationalEnergy[SimCount]{};
+    double localGravitationalPotentialEnergy[SimCount]{};
 
 #if !NVHPC_AVOID_OMP
-#pragma omp parallel for schedule(static) reduction(+ : localGravitationalEnergy[ : SimCount],     \
-                                                        energyValues[ : EnergyCount],              \
-                                                        localPlasticMoment[ : SimCount])           \
-    shared(elements, vertices, global_)
+#pragma omp parallel for schedule(static)                                                          \
+    reduction(+ : localGravitationalPotentialEnergy[ : SimCount],                                  \
+                  energyValues[ : EnergyCount],                                                    \
+                  localPlasticMoment[ : SimCount]) shared(elements, vertices, global_)
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate > 0) {
@@ -550,7 +550,7 @@ void EnergyOutput::computeVolumeEnergies() {
       constexpr auto UIdx = model::MaterialT::TractionQuantities;
 
       const auto& boundaryMappings = boundaryMappingData[cell];
-      // Compute gravitational energy
+      // Compute the gravitational potential energy
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity) {
           continue;
@@ -602,7 +602,7 @@ void EnergyOutput::computeVolumeEnergies() {
           const auto squaredView = multisim::simtensor(squaredViewFused, sim);
 
           // contains an elided 0.5 * 2.0 (1/2 due to energy; 2 due to surface)
-          localGravitationalEnergy[sim] += rho * g * surface * squaredView(0);
+          localGravitationalPotentialEnergy[sim] += rho * g * surface * squaredView(0);
         }
       }
 
@@ -646,7 +646,8 @@ void EnergyOutput::computeVolumeEnergies() {
       }
 
       energiesStorage_.energy(PlasticMoment, sim) += localPlasticMoment[sim];
-      energiesStorage_.energy(GravitationalEnergy, sim) += localGravitationalEnergy[sim];
+      energiesStorage_.energy(GravitationalPotentialEnergy, sim) +=
+          localGravitationalPotentialEnergy[sim];
     }
   }
 }

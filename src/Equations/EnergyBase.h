@@ -138,25 +138,38 @@ inline constexpr std::array MomentumEnergies{
     EnergyDescriptor{"momentumZ", EnergyUnit::Momentum, {}, {}, {}},
 };
 
+/**
+ * In the acoustics literature, "acoustic energy" denotes the sum of the kinetic
+ * and the potential contribution; the p^2 / 2K term alone is the *potential*
+ * energy of the sound field. The two are therefore reported as the two members
+ * of one group, and only their sum carries the plain name.
+ */
 inline constexpr std::array AcousticEnergies{
-    EnergyDescriptor{
-        "acoustic_kinetic_energy", EnergyUnit::Energy, "acoustic", "Acoustic energy:", "kinematic"},
-    EnergyDescriptor{"acoustic_energy", EnergyUnit::Energy, "acoustic", {}, "potential"},
+    EnergyDescriptor{"acoustic_kinetic_energy",
+                     EnergyUnit::Energy,
+                     "acoustic",
+                     "Acoustic mechanical energy:",
+                     "kinetic"},
+    EnergyDescriptor{"acoustic_potential_energy", EnergyUnit::Energy, "acoustic", {}, "potential"},
 };
 
+/// Kinetic plus strain energy, i.e. the mechanical energy of the solid.
 inline constexpr std::array ElasticEnergies{
-    EnergyDescriptor{
-        "elastic_kinetic_energy", EnergyUnit::Energy, "elastic", "Elastic energy:", "kinematic"},
-    EnergyDescriptor{"elastic_energy", EnergyUnit::Energy, "elastic", {}, "potential"},
+    EnergyDescriptor{"elastic_kinetic_energy",
+                     EnergyUnit::Energy,
+                     "elastic",
+                     "Elastic mechanical energy:",
+                     "kinetic"},
+    EnergyDescriptor{"elastic_strain_energy", EnergyUnit::Energy, "elastic", {}, "strain"},
 };
 
 /**
- * The Maxwell branch springs join the elastic group: they are part of the stored
- * potential energy, so reporting the kinetic/potential split without them would
- * understate the potential share.
+ * The Maxwell branch springs join the elastic group: the strain energy they hold
+ * is part of the stored energy, so reporting the kinetic/strain split without
+ * them would understate the stored share.
  */
 inline constexpr std::array ViscoelasticEnergies{
-    EnergyDescriptor{"viscoelastic_energy", EnergyUnit::Energy, "elastic", {}, "viscoelastic"},
+    EnergyDescriptor{"anelastic_strain_energy", EnergyUnit::Energy, "elastic", {}, "anelastic"},
     EnergyDescriptor{"viscous_dissipation_rate",
                      EnergyUnit::Power,
                      "viscous_dissipation",
