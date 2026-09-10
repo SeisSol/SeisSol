@@ -128,3 +128,26 @@ The potency and the seismic moment were computed by averaging the value over all
 Now, to make the integration more exact, they are instead weighed by the quadrature rule
 the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
 may slightly change compared to before.
+
+Names of the Energy Output Columns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Four columns of the energy output CSV file were named after a quantity that, in the literature,
+denotes a sum of which they are only one part. They now carry the name of what they actually contain
+(see :ref:`energy_output`); the values themselves are unchanged.
+
++--------------------------+------------------------------------+
+| old                      | new                                |
++==========================+====================================+
+| ``elastic_energy``       | ``elastic_strain_energy``          |
++--------------------------+------------------------------------+
+| ``acoustic_energy``      | ``acoustic_potential_energy``      |
++--------------------------+------------------------------------+
+| ``viscoelastic_energy``  | ``anelastic_strain_energy``        |
++--------------------------+------------------------------------+
+| ``gravitational_energy`` | ``gravitational_potential_energy`` |
++--------------------------+------------------------------------+
+
+The terminal output changed accordingly: the group headings now read
+``Acoustic mechanical energy``, ``Elastic mechanical energy`` and
+``Gravitational potential energy``, and the share printed as ``kinematic`` is now ``kinetic``.
