@@ -101,6 +101,15 @@ def main():
     )
     relevant_quantities = list(sorted(relevant_quantities))
 
+    if not relevant_quantities:
+        print(
+            "No energy quantity is present in both files; there is nothing to compare.\n"
+            f"  {args.energy}: {sorted(energy.columns)}\n"
+            f"  {args.energy_ref}: {sorted(energy_ref.columns)}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     if number_of_fused_sims < 0:
         result = perform_check(energy, energy_ref, args.epsilon)
         if result:
