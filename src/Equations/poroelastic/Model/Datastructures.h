@@ -47,10 +47,13 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
   using LocalSpecificData = PoroelasticLocalData;
   using NeighborSpecificData = PoroelasticNeighborData;
   using Solver = kernels::solver::stp::Solver;
+
+  using EnergyData = std::monostate;
 
   double bulkSolid{};
   double porosity{};

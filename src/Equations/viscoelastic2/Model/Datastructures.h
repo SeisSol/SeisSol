@@ -23,8 +23,11 @@
 #include "Physics/Attenuation.h"
 
 #include <array>
+#include <atomic>
+#include <cmath>
 #include <cstddef>
 #include <string>
+#include <utils/logger.h>
 
 namespace seissol::model {
 struct ViscoElasticLocalData;
@@ -61,11 +64,14 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
   using LocalSpecificData = ViscoElasticLocalData;
   using NeighborSpecificData = ViscoElasticNeighborData;
 
   using Solver = ViscoSolver<Config::ViscoMode>::Type;
+
+  using EnergyData = std::monostate;
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)]{};
@@ -104,10 +110,90 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   ~ViscoElasticMaterialParametrized() override = default;
 
+  /**
+   * Modulus defect of relaxation mechanism `mech`, i.e. the stiffness of the
+   * spring in that Maxwell branch.
+   *
+   * fitAttenuation keeps varP/varMu/alpha/beta as locals and stores only theta,
+   * but the defects are exactly recoverable:
+   *   theta[0] = -(dLambda + 2 dMu),  theta[1] = -dLambda,  theta[2] = -2 dMu
+   * These are accessors rather than stored fields on purpose -- the material has
+   * two construction paths (easi + fitAttenuation, and the legacy vector
+   * constructor that reads theta directly), and both populate theta.
+   */
+  [[nodiscard]] double getDeltaLambda(std::size_t mech) const { return -theta[mech][1]; }
+  [[nodiscard]] double getDeltaMu(std::size_t mech) const { return -0.5 * theta[mech][2]; }
+  /// Bulk modulus defect, dLambda + 2/3 dMu.
+  [[nodiscard]] double getDeltaBulk(std::size_t mech) const {
+    return -theta[mech][1] - theta[mech][2] / 3.0;
+  }
+
+  /// lambda/mu are the *unrelaxed* moduli once fitAttenuation has run.
+  [[nodiscard]] double getLambdaUnrelaxed() const { return lambda; }
+  [[nodiscard]] double getMuUnrelaxed() const { return mu; }
+
+  [[nodiscard]] double getLambdaRelaxed() const {
+    double result = lambda;
+    for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
+      result -= getDeltaLambda(mech);
+    }
+    return result;
+  }
+  [[nodiscard]] double getMuRelaxed() const {
+    double result = mu;
+    for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
+      result -= getDeltaMu(mech);
+    }
+    return result;
+  }
+  [[nodiscard]] double getBulkRelaxed() const {
+    return getLambdaRelaxed() + 2.0 / 3.0 * getMuRelaxed();
+  }
+
+  /**
+   * Whether the fitted mechanisms form a physically admissible generalized
+   * Maxwell body: every branch stiffness positive definite, and the relaxed
+   * moduli still positive.
+   *
+   * alpha/beta in fitAttenuation come out of a least-squares solve and are not
+   * sign-constrained, so a poor Q/frequency-band combination can produce a fit
+   * that reproduces the target Q but is thermodynamically inconsistent. The
+   * energy output would then report a negative viscous dissipation.
+   */
+  [[nodiscard]] bool attenuationWellPosed() const {
+    for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
+      if (getDeltaMu(mech) <= 0 || getDeltaBulk(mech) <= 0 || omega[mech] <= 0) {
+        return false;
+      }
+      // theta[0] must be the sum of the other two; a violation means theta was
+      // not produced by the documented parametrization at all
+      if (std::abs(theta[mech][0] - (theta[mech][1] + theta[mech][2])) >
+          1e-10 * std::max(1.0, std::abs(theta[mech][0]))) {
+        return false;
+      }
+    }
+    return getMuRelaxed() > 0 && getBulkRelaxed() > 0;
+  }
+
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
   void initialize(const initializer::parameters::ModelParameters& parameters) override {
     physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
+
+    if constexpr (Mechanisms > 0) {
+      if (!attenuationWellPosed()) {
+        // initialize() runs per cell, and from an OpenMP loop -- warn once
+        static std::atomic<bool> warned{false};
+        if (!warned.exchange(true)) {
+          logWarning() << "The attenuation fit produced at least one mechanism that is not"
+                       << "positive definite, or non-positive relaxed moduli. The fit may still"
+                       << "reproduce the target Q, but it is thermodynamically inconsistent:"
+                       << "the reported viscous dissipation can become negative. Consider a"
+                       << "different central frequency or frequency ratio. Further occurrences"
+                       << "are not reported.";
+        }
+      }
+    }
   }
 };
 
