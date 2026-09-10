@@ -21,21 +21,21 @@ Energy in the water layer
 
 The water layer is modelled as an acoustic medium over the domain :math:`\Omega_a`. The constitutive behaviour is governed by the relation :math:`p = -K \nabla \cdot \mathbf{u}`, with bulk modulus :math:`K`, pressure :math:`p`, and displacement :math:`\mathbf{u}`.
 
-**Gravitational energy** is associated with the deformed sea surface :math:`\Gamma_\mathrm{free}` (the top boundary of :math:`\Omega_a`):
+**Gravitational potential energy** is associated with the deformed sea surface :math:`\Gamma_\mathrm{free}` (the top boundary of :math:`\Omega_a`):
 
 .. math::
 
    W_\mathrm{grav} = \int_{\Gamma_\mathrm{free}} \frac{1}{2} \rho\, g\, \eta^2 \,\mathrm{d}S
 
-with :math:`\rho` the density, :math:`g` the gravitational acceleration and :math:`\eta` the sea-surface elevation. This formulation follows from the linearised free-surface boundary condition with gravitational restoring force [LottoDunham2015]_.
+with :math:`\rho` the density, :math:`g` the gravitational acceleration and :math:`\eta` the sea-surface elevation. It is the work needed to deform the sea surface against gravity, measured from the undisturbed state, and is quadratic in :math:`\eta` under the same linearisation that gives the free-surface boundary condition with gravitational restoring force [LottoDunham2015]_. Reported as ``gravitational_potential_energy``.
 
-**Acoustic energy:**
+**Acoustic potential energy** is the energy stored in the compression of the fluid:
 
 .. math::
 
-   W_\mathrm{ac} = \int_{\Omega_a} \frac{1}{2K}\, p^2 \,\mathrm{d}\mathbf{x}
+   W_\mathrm{ac,pot} = \int_{\Omega_a} \frac{1}{2K}\, p^2 \,\mathrm{d}\mathbf{x}
 
-with :math:`p` the acoustic pressure and :math:`K` the bulk modulus (compressibility).
+with :math:`p` the acoustic pressure. Reported as ``acoustic_potential_energy``.
 
 **Acoustic kinetic energy:**
 
@@ -43,13 +43,24 @@ with :math:`p` the acoustic pressure and :math:`K` the bulk modulus (compressibi
 
    W_\mathrm{ac,kin} = \int_{\Omega_a} \frac{1}{2} \rho\, v_i\, v_i \,\mathrm{d}\mathbf{x}
 
-with :math:`\rho` the density and :math:`v_i` the velocity.
+with :math:`\rho` the density and :math:`v_i` the velocity. Reported as
+``acoustic_kinetic_energy``.
 
-**Total acoustic energy:**
+**Acoustic energy.** In the acoustics literature the term denotes the sum of the
+two:
 
 .. math::
 
-   W_\mathrm{ac,tot} = W_\mathrm{grav} + W_\mathrm{ac} + W_\mathrm{ac,kin}
+   W_\mathrm{ac} = W_\mathrm{ac,pot} + W_\mathrm{ac,kin}
+
+so neither part carries that name on its own. SeisSol writes the two parts to
+separate columns and prints their sum, with the share of each part next to it.
+
+**Mechanical energy of the water layer:**
+
+.. math::
+
+   W_\mathrm{water} = W_\mathrm{grav} + W_\mathrm{ac}
 
 **Dissipation.** The acoustic medium is modelled as inviscid and non-dissipative:
 
@@ -61,7 +72,7 @@ with :math:`\rho` the density and :math:`v_i` the velocity.
 
 .. math::
 
-   \frac{\mathrm{d}}{\mathrm{d}t} W_\mathrm{ac,tot} = P_\mathrm{ext,ac} - \Phi_{\Gamma}
+   \frac{\mathrm{d}}{\mathrm{d}t} W_\mathrm{water} = P_\mathrm{ext,ac} - \Phi_{\Gamma}
 
 where :math:`P_\mathrm{ext,ac}` is the power of external sources in the acoustic domain and :math:`\Phi_{\Gamma}` is the energy flux through the acoustic-elastic coupling interface :math:`\Gamma`. At this interface, continuity of normal velocity and normal traction ensures that energy leaving the water layer enters the solid domain and vice versa:
 
@@ -69,7 +80,7 @@ where :math:`P_\mathrm{ext,ac}` is the power of external sources in the acoustic
 
    \Phi_{\Gamma} = \int_{\Gamma} p\, v_i\, n_i \,\mathrm{d}S
 
-with :math:`n_i` the outward normal of :math:`\Omega_a`. In a closed coupled system without external sources, the total energy :math:`W_\mathrm{ac,tot} + W_\mathrm{kin} + W_e` (summed over both domains) is conserved; any drift in the discrete balance indicates numerical dissipation or energy injection by the scheme.
+with :math:`n_i` the outward normal of :math:`\Omega_a`. In a closed coupled system without external sources, the total energy :math:`W_\mathrm{water} + W_\mathrm{kin} + W_\mathrm{strain}` (summed over both domains) is conserved; any drift in the discrete balance indicates numerical dissipation or energy injection by the scheme.
 
 Energy in the Earth
 ~~~~~~~~~~~~~~~~~~~
@@ -87,16 +98,19 @@ For single-phase solid material models (elastic, anisotropic, viscoelastic), the
 
 with :math:`\rho` the density and :math:`v_i` the velocity. The poroelastic case is two-phase (solid skeleton + pore fluid) and requires additional terms for solid-fluid coupling and relative fluid motion; the corresponding expression is given in the poroelastic subsection below.
 
-Elastic energy
-^^^^^^^^^^^^^^
+Strain energy
+^^^^^^^^^^^^^
 
-**General form.** The elastic (strain) energy is defined as:
+**General form.** The strain energy stored in the deformed solid is:
 
 .. math::
 
-   W_e = \int_{\Omega_e} \frac{1}{2} \epsilon_{ij}\, \sigma_{ij} \,\mathrm{d}\mathbf{x}
+   W_\mathrm{strain} = \int_{\Omega_e} \frac{1}{2} \epsilon_{ij}\, \sigma_{ij} \,\mathrm{d}\mathbf{x}
 
-with :math:`\epsilon_{ij}` the strain tensor and :math:`\sigma_{ij}` the stress tensor.
+with :math:`\epsilon_{ij}` the strain tensor and :math:`\sigma_{ij}` the stress
+tensor. Together with :math:`W_\mathrm{kin}` it makes up the mechanical energy of
+the solid; the two are reported as ``elastic_strain_energy`` and
+``elastic_kinetic_energy``.
 
 **Isotropic elastic materials.** For isotropic materials with constitutive law :math:`\sigma_{ij} = \lambda \delta_{ij} \epsilon_{kk} + 2\mu \epsilon_{ij}`, the strain can be expressed purely in terms of stress by inverting the constitutive relation:
 
@@ -108,13 +122,13 @@ Substituting into the energy expression yields:
 
 .. math::
 
-   W_e = \int_{\Omega_e} \frac{1}{4\mu} \left(\sigma_{ij}\, \sigma_{ij} - \frac{\lambda}{3\lambda+2\mu}\, \sigma_{kk}^2\right) \mathrm{d}\mathbf{x}
+   W_\mathrm{strain} = \int_{\Omega_e} \frac{1}{4\mu} \left(\sigma_{ij}\, \sigma_{ij} - \frac{\lambda}{3\lambda+2\mu}\, \sigma_{kk}^2\right) \mathrm{d}\mathbf{x}
 
 with :math:`\lambda` and :math:`\mu` the Lamé parameters. Written out explicitly (:math:`\sigma_{kk}^2` is shorthand for :math:`\sigma_{kk}\,\sigma_{ll} = (\mathrm{tr}\,\boldsymbol{\sigma})^2`):
 
 .. math::
 
-   W_e = \int_{\Omega_e} \frac{1}{4\mu}\Big(\sigma_{xx}^2 + \sigma_{yy}^2 + \sigma_{zz}^2 + 2\sigma_{xy}^2 + 2\sigma_{xz}^2 + 2\sigma_{yz}^2 - \frac{\lambda}{3\lambda+2\mu}\left(\sigma_{xx}+\sigma_{yy}+\sigma_{zz}\right)^2\Big)\,\mathrm{d}\mathbf{x}
+   W_\mathrm{strain} = \int_{\Omega_e} \frac{1}{4\mu}\Big(\sigma_{xx}^2 + \sigma_{yy}^2 + \sigma_{zz}^2 + 2\sigma_{xy}^2 + 2\sigma_{xz}^2 + 2\sigma_{yz}^2 - \frac{\lambda}{3\lambda+2\mu}\left(\sigma_{xx}+\sigma_{yy}+\sigma_{zz}\right)^2\Big)\,\mathrm{d}\mathbf{x}
 
 **Anisotropic elastic materials.** For anisotropic materials with constitutive law :math:`\sigma_{ij} = c_{ijkl}\,\epsilon_{kl}`, the strain is obtained by introducing the compliance tensor :math:`s_{ijkl}`, defined as the inverse of the stiffness tensor on the space of symmetric second-order tensors:
 
@@ -126,13 +140,13 @@ so that :math:`\epsilon_{ij} = s_{ijkl}\,\sigma_{kl}`. The elastic energy become
 
 .. math::
 
-   W_e = \int_{\Omega_e} \frac{1}{2}\, s_{ijkl}\, \sigma_{ij}\, \sigma_{kl} \,\mathrm{d}\mathbf{x}
+   W_\mathrm{strain} = \int_{\Omega_e} \frac{1}{2}\, s_{ijkl}\, \sigma_{ij}\, \sigma_{kl} \,\mathrm{d}\mathbf{x}
 
 In Voigt notation, with the stress vector :math:`\boldsymbol{\sigma} = (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{yz}, \sigma_{xz}, \sigma_{xy})^T`, the :math:`6 \times 6` Voigt stiffness matrix :math:`\mathbf{C}` (with components :math:`C_{IJ}` corresponding to :math:`c_{ijkl}` under the standard index pairing) and its inverse :math:`\mathbf{S} = \mathbf{C}^{-1}`, the energy reads:
 
 .. math::
 
-   W_e = \int_{\Omega_e} \frac{1}{2}\, \boldsymbol{\sigma}^T \mathbf{S}\, \boldsymbol{\sigma} \,\mathrm{d}\mathbf{x}
+   W_\mathrm{strain} = \int_{\Omega_e} \frac{1}{2}\, \boldsymbol{\sigma}^T \mathbf{S}\, \boldsymbol{\sigma} \,\mathrm{d}\mathbf{x}
 
 This relation uses the engineering convention in which the off-diagonal entries of the Voigt strain vector are :math:`2\epsilon_{ij}` (engineering shear strains); only under this convention does the matrix identity :math:`\mathbf{S} = \mathbf{C}^{-1}` reproduce the tensor relation :math:`\epsilon_{ij} = s_{ijkl}\,\sigma_{kl}`.
 
@@ -159,15 +173,15 @@ The isotropic result is recovered when :math:`c_{ijkl} = \lambda\,\delta_{ij}\,\
 
 .. math::
 
-   \frac{\mathrm{d}}{\mathrm{d}t}\left(W_\mathrm{kin} + W_e\right) = P_\mathrm{ext}
+   \frac{\mathrm{d}}{\mathrm{d}t}\left(W_\mathrm{kin} + W_\mathrm{strain}\right) = P_\mathrm{ext}
 
 where :math:`P_\mathrm{ext}` is the power of external sources (boundary tractions, body forces, fault slip). Without external sources:
 
 .. math::
 
-   W_\mathrm{kin}(t) + W_e(t) = W_\mathrm{kin}(0) + W_e(0) = \mathrm{const}
+   W_\mathrm{kin}(t) + W_\mathrm{strain}(t) = W_\mathrm{kin}(0) + W_\mathrm{strain}(0) = \mathrm{const}
 
-This conservation property makes the elastic energy balance a useful diagnostic for numerical accuracy: any drift in :math:`W_\mathrm{kin} + W_e` indicates numerical dissipation or energy injection by the scheme.
+This conservation property makes the energy balance a useful diagnostic for numerical accuracy: any drift in :math:`W_\mathrm{kin} + W_\mathrm{strain}` indicates numerical dissipation or energy injection by the scheme.
 
 
 Viscoelastic energy
@@ -235,30 +249,32 @@ from the relaxed constitutive relation:
    \sigma^R_{ij} := \sigma_{ij} - \sum_{l=1}^{L} \frac{1}{\omega_l}\,
        d_{ijkl}^{(l)}\,\vartheta_{kl}^{(l)} \;=\; c^R_{ijkl}\,\epsilon_{kl}.
 
-**Stored energy.** The free energy held in the relaxed spring and in the
-:math:`L` Maxwell springs:
+**Stored energy.** The free energy splits into the strain energy of the relaxed
+spring and the strain energy of the :math:`L` Maxwell springs,
+:math:`W_\mathrm{stored} = W_\mathrm{strain} + W_\mathrm{ane}`, with
 
 .. math::
 
-   W_\mathrm{stored} = \frac{1}{2}\int_{\Omega_e}\left(
-       c^R_{ijkl}\,\epsilon_{ij}\,\epsilon_{kl}
-     + \sum_{l=1}^{L} d^{(l)}_{ijkl}\,e^{(l)}_{ij}\,e^{(l)}_{kl}
-   \right)\mathrm{d}\mathbf{x}
+   W_\mathrm{strain} = \frac{1}{2}\int_{\Omega_e}
+       c^R_{ijkl}\,\epsilon_{ij}\,\epsilon_{kl}\,\mathrm{d}\mathbf{x},
+   \qquad
+   W_\mathrm{ane} = \frac{1}{2}\int_{\Omega_e}
+       \sum_{l=1}^{L} d^{(l)}_{ijkl}\,e^{(l)}_{ij}\,e^{(l)}_{kl}\,\mathrm{d}\mathbf{x}
 
-The first term is reported as ``elastic_energy``, the second as
-``viscoelastic_energy``. For :math:`L = 0` the first term reduces to the purely
-elastic expression, as it must.
+These are reported as ``elastic_strain_energy`` and ``anelastic_strain_energy``.
+For :math:`L = 0` the first reduces to the purely elastic expression, as it must,
+and the second vanishes.
 
 Both belong to the same reporting group as the kinetic energy, so the terminal
 line reads
 
 .. code-block:: none
 
-   Elastic energy: <total>, kinematic x%, potential y%, viscoelastic z%
+   Elastic mechanical energy: <total> , kinetic x % , strain y % , anelastic z %
 
 with the total being :math:`W_\mathrm{kin} + W_\mathrm{stored}`. Reporting only
-the relaxed spring as "potential" would understate the stored energy by the
-branch contribution, which grows with the attenuation.
+the equilibrium spring would understate the stored energy by the branch
+contribution, which grows with the attenuation.
 
 .. warning::
 
@@ -341,7 +357,7 @@ For poroelastic materials following Biot's theory [Biot1962]_, the constitutive 
 
 with drained stiffness :math:`c_{ijkl}^d`, Biot coefficient :math:`\alpha`, Biot modulus :math:`M`, pore pressure :math:`p`, and fluid content increment :math:`\zeta`.
 
-**Elastic (potential) energy.** The total stored energy has a skeleton and a fluid contribution:
+**Strain energy.** The total stored energy has a skeleton and a fluid contribution:
 
 .. math::
 
@@ -372,6 +388,10 @@ For isotropic drained material (Lamé parameters :math:`\lambda_d, \mu`):
    W_\mathrm{kin} = \frac{1}{2}\int_{\Omega_e}\left(\rho\, v_i^s\, v_i^s + 2\rho_f\, v_i^s\, w_i + \frac{\rho_f}{\phi}\, T_{ij}\, w_i\, w_j\right)\mathrm{d}\mathbf{x}
 
 The three terms represent the kinetic energy of the skeleton, the solid-fluid coupling, and the fluid motion relative to the skeleton, respectively.
+
+Both are reported under the generic solid names, ``elastic_strain_energy`` and
+``elastic_kinetic_energy``, even though the two-phase expressions above are what
+is evaluated.
 
 **Dissipation rate.** Viscous dissipation due to Darcy friction:
 
@@ -442,6 +462,49 @@ with :math:`\mu` the shear modulus (second Lamé parameter).
 with :math:`\mu` the shear modulus and :math:`\eta_p` a scalar measure of accumulated plastic strain (off-fault material damage).
 
 
+Names in the output
+~~~~~~~~~~~~~~~~~~~
+
+Each of the quantities above is written to its own column of the CSV file. Which
+columns exist depends on the equation system that SeisSol was built with, and,
+for the acoustic/elastic split, on the materials present in the mesh: a cell with
+:math:`\mu = 0` contributes to the acoustic columns, every other cell to the
+solid ones.
+
++------------------------------------+---------------------------+------------------------------------------------+
+| CSV column                         | Symbol                    | Quantity                                       |
++====================================+===========================+================================================+
+| ``gravitational_potential_energy`` | :math:`W_\mathrm{grav}`   | Potential energy of the deformed sea surface   |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``acoustic_potential_energy``      | :math:`W_\mathrm{ac,pot}` | Energy stored in the compression of the fluid  |
+|                                    |                           | cells                                          |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``acoustic_kinetic_energy``        | :math:`W_\mathrm{ac,kin}` | Kinetic energy of the fluid cells              |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``elastic_strain_energy``          | :math:`W_\mathrm{strain}` | Strain energy of the solid cells -- of the     |
+|                                    |                           | equilibrium spring for a viscoelastic          |
+|                                    |                           | material, of skeleton plus pore fluid for a    |
+|                                    |                           | poroelastic one                                |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``elastic_kinetic_energy``         | :math:`W_\mathrm{kin}`    | Kinetic energy of the solid cells              |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``anelastic_strain_energy``        | :math:`W_\mathrm{ane}`    | Strain energy held in the Maxwell branches     |
+|                                    |                           | (viscoelastic only)                            |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``viscous_dissipation_rate``       | :math:`\dot{D}`           | Power absorbed by the Maxwell dashpots         |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``darcy_dissipation_rate``         | :math:`\dot{D}`           | Power absorbed by Darcy friction in the pore   |
+|                                    |                           | fluid                                          |
++------------------------------------+---------------------------+------------------------------------------------+
+
+Every column holds one contribution only. The terminal output, in contrast, prints
+one line per group -- ``Acoustic mechanical energy`` for
+:math:`W_\mathrm{ac,pot} + W_\mathrm{ac,kin}` and ``Elastic mechanical energy``
+for :math:`W_\mathrm{kin} + W_\mathrm{strain} + W_\mathrm{ane}` -- followed by
+the share each contribution has in that sum. So a name that stands for a sum never
+also stands for one of its parts.
+
+
 Summary of energy balances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -449,13 +512,14 @@ Summary of energy balances
 | Material model      | Total energy                        | Dissipation mechanism                       |
 +=====================+=====================================+=============================================+
 | Acoustic            | :math:`W_\mathrm{grav} +            | None internally; energy exchanged via       |
-|                     | W_\mathrm{ac} +                     | interface flux :math:`\Phi_\Gamma`          |
+|                     | W_\mathrm{ac,pot} +                 | interface flux :math:`\Phi_\Gamma`          |
 |                     | W_\mathrm{ac,kin}`                  |                                             |
 +---------------------+-------------------------------------+---------------------------------------------+
-| Elastic (iso/aniso) | :math:`W_\mathrm{kin} + W_e`        | None (energy conserved)                     |
+| Elastic (iso/aniso) | :math:`W_\mathrm{kin} +             | None (energy conserved)                     |
+|                     | W_\mathrm{strain}`                  |                                             |
 +---------------------+-------------------------------------+---------------------------------------------+
 | Viscoelastic        | :math:`W_\mathrm{kin} +             | Internal relaxation of the Maxwell          |
-|                     | W_\mathrm{stored}`                  | branches, ``viscous_dissipation_rate``      |
+|                     | W_\mathrm{strain} + W_\mathrm{ane}` | branches, ``viscous_dissipation_rate``      |
 +---------------------+-------------------------------------+---------------------------------------------+
 | Poroelastic         | :math:`W_\mathrm{kin} + W_p`        | Viscous Darcy friction in the pore fluid,   |
 |                     |                                     | ``darcy_dissipation_rate``                  |
@@ -483,7 +547,7 @@ For coupled acoustic-elastic simulations, the global energy balance over both do
 
 .. math::
 
-   \frac{\mathrm{d}}{\mathrm{d}t}\left(W_\mathrm{ac,tot} + W_\mathrm{kin} + W_\mathrm{pot}\right) = P_\mathrm{ext} - \dot{D}
+   \frac{\mathrm{d}}{\mathrm{d}t}\left(W_\mathrm{water} + W_\mathrm{kin} + W_\mathrm{pot}\right) = P_\mathrm{ext} - \dot{D}
 
 The interface flux :math:`\Phi_\Gamma` cancels in the sum since the energy leaving one domain enters the other.
 
@@ -549,7 +613,7 @@ The code below suggests a way to process and plot variables of the energy output
 
    # if ComputeVolumeEnergiesEveryOutput > 1
    volume_output = df.dropna()
-   volume_output.plot(y="elastic_energy", use_index=True)
+   volume_output.plot(y="elastic_strain_energy", use_index=True)
 
    plt.show()
 
