@@ -148,6 +148,11 @@ denotes a sum of which they are only one part. They now carry the name of what t
 | ``gravitational_energy`` | ``gravitational_potential_energy`` |
 +--------------------------+------------------------------------+
 
+For a poroelastic material, the two columns that used to be called ``elastic_energy`` and
+``elastic_kinetic_energy`` are now ``poroelastic_strain_energy`` and
+``poroelastic_kinetic_energy``: both hold a two-phase expression that differs from the
+single-phase one.
+
 The terminal output changed accordingly: the group headings now read
 ``Acoustic mechanical energy``, ``Elastic mechanical energy`` and
 ``Gravitational potential energy``, and the share printed as ``kinematic`` is now ``kinetic``.

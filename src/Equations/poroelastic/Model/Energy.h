@@ -18,7 +18,8 @@ namespace seissol::model {
 
 template <>
 struct EnergyCompute<PoroElasticMaterial> {
-  static constexpr auto Energies = detail::concat(MomentumEnergies, ElasticEnergies, DarcyEnergies);
+  static constexpr auto Energies =
+      detail::concat(MomentumEnergies, PoroelasticEnergies, DarcyEnergies);
   static constexpr std::size_t EnergyCount = Energies.size();
   static_assert(detail::descriptorsWellFormed(Energies),
                 "energy descriptors must be named, unique, and grouped consistently");
@@ -27,14 +28,18 @@ struct EnergyCompute<PoroElasticMaterial> {
   static constexpr auto MomentumXIdx = detail::indexOf(Energies, "momentumX");
   static constexpr auto MomentumYIdx = detail::indexOf(Energies, "momentumY");
   static constexpr auto MomentumZIdx = detail::indexOf(Energies, "momentumZ");
-  static constexpr auto ElasticStrainIdx = detail::indexOf(Energies, "elastic_strain_energy");
-  static constexpr auto ElasticKineticIdx = detail::indexOf(Energies, "elastic_kinetic_energy");
+  static constexpr auto PoroelasticStrainIdx =
+      detail::indexOf(Energies, "poroelastic_strain_energy");
+  static constexpr auto PoroelasticKineticIdx =
+      detail::indexOf(Energies, "poroelastic_kinetic_energy");
   static constexpr auto DarcyDissipationIdx = detail::indexOf(Energies, "darcy_dissipation_rate");
   static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
   static_assert(MomentumYIdx < EnergyCount, "MomentumY missing from the descriptor list");
   static_assert(MomentumZIdx < EnergyCount, "MomentumZ missing from the descriptor list");
-  static_assert(ElasticStrainIdx < EnergyCount, "ElasticStrain missing from the descriptor list");
-  static_assert(ElasticKineticIdx < EnergyCount, "ElasticKinetic missing from the descriptor list");
+  static_assert(PoroelasticStrainIdx < EnergyCount,
+                "PoroelasticStrain missing from the descriptor list");
+  static_assert(PoroelasticKineticIdx < EnergyCount,
+                "PoroelasticKinetic missing from the descriptor list");
   static_assert(DarcyDissipationIdx < EnergyCount,
                 "DarcyDissipation missing from the descriptor list");
   static_assert(MomentumYIdx == MomentumXIdx + 1 && MomentumZIdx == MomentumXIdx + 2,
@@ -106,7 +111,7 @@ struct EnergyCompute<PoroElasticMaterial> {
                                  material.rhoFluid * linSub(0, DarcyVelocityIdx + i);
     }
 
-    // Elastic
+    // Strain energy
     auto getStressIndex = [](int i, int j) {
       const static auto Lookup =
           std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
@@ -155,8 +160,8 @@ struct EnergyCompute<PoroElasticMaterial> {
     // extra pressure term
     curStrainEnergy += quadSub(PressureIdx, PressureIdx) / params.M;
 
-    output[ElasticStrainIdx] = 0.5 * curStrainEnergy;
-    output[ElasticKineticIdx] = curKineticEnergy;
+    output[PoroelasticStrainIdx] = 0.5 * curStrainEnergy;
+    output[PoroelasticKineticIdx] = curKineticEnergy;
 
     return output;
   }

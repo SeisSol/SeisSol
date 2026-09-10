@@ -81,6 +81,8 @@ def main():
     relevant_quantities = [
         "elastic_strain_energy",
         "elastic_kinetic_energy",
+        "poroelastic_strain_energy",
+        "poroelastic_kinetic_energy",
         "total_frictional_work",
         "static_frictional_work",
         "seismic_moment",

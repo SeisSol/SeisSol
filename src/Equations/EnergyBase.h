@@ -177,6 +177,20 @@ inline constexpr std::array ViscoelasticEnergies{
                      {}},
 };
 
+/**
+ * The two-phase counterparts. The kinetic energy carries the solid-fluid coupling
+ * and the relative fluid motion, the strain energy the storage term of the pore
+ * fluid, so neither coincides with the single-phase expression.
+ */
+inline constexpr std::array PoroelasticEnergies{
+    EnergyDescriptor{"poroelastic_kinetic_energy",
+                     EnergyUnit::Energy,
+                     "poroelastic",
+                     "Poroelastic mechanical energy:",
+                     "kinetic"},
+    EnergyDescriptor{"poroelastic_strain_energy", EnergyUnit::Energy, "poroelastic", {}, "strain"},
+};
+
 inline constexpr std::array DarcyEnergies{
     EnergyDescriptor{"darcy_dissipation_rate",
                      EnergyUnit::Power,

@@ -389,9 +389,8 @@ For isotropic drained material (Lamé parameters :math:`\lambda_d, \mu`):
 
 The three terms represent the kinetic energy of the skeleton, the solid-fluid coupling, and the fluid motion relative to the skeleton, respectively.
 
-Both are reported under the generic solid names, ``elastic_strain_energy`` and
-``elastic_kinetic_energy``, even though the two-phase expressions above are what
-is evaluated.
+Both differ from their single-phase counterparts and are reported under their own
+names, ``poroelastic_strain_energy`` and ``poroelastic_kinetic_energy``.
 
 **Dissipation rate.** Viscous dissipation due to Darcy friction:
 
@@ -481,15 +480,20 @@ solid ones.
 +------------------------------------+---------------------------+------------------------------------------------+
 | ``acoustic_kinetic_energy``        | :math:`W_\mathrm{ac,kin}` | Kinetic energy of the fluid cells              |
 +------------------------------------+---------------------------+------------------------------------------------+
-| ``elastic_strain_energy``          | :math:`W_\mathrm{strain}` | Strain energy of the solid cells -- of the     |
-|                                    |                           | equilibrium spring for a viscoelastic          |
-|                                    |                           | material, of skeleton plus pore fluid for a    |
-|                                    |                           | poroelastic one                                |
+| ``elastic_strain_energy``          | :math:`W_\mathrm{strain}` | Strain energy of the solid cells; for a        |
+|                                    |                           | viscoelastic material, that of the equilibrium |
+|                                    |                           | spring                                         |
 +------------------------------------+---------------------------+------------------------------------------------+
 | ``elastic_kinetic_energy``         | :math:`W_\mathrm{kin}`    | Kinetic energy of the solid cells              |
 +------------------------------------+---------------------------+------------------------------------------------+
 | ``anelastic_strain_energy``        | :math:`W_\mathrm{ane}`    | Strain energy held in the Maxwell branches     |
 |                                    |                           | (viscoelastic only)                            |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``poroelastic_strain_energy``      | :math:`W_p`               | Strain energy of skeleton and pore fluid       |
+|                                    |                           | (poroelastic only)                             |
++------------------------------------+---------------------------+------------------------------------------------+
+| ``poroelastic_kinetic_energy``     | :math:`W_\mathrm{kin}`    | Kinetic energy of skeleton and pore fluid,     |
+|                                    |                           | including their coupling (poroelastic only)    |
 +------------------------------------+---------------------------+------------------------------------------------+
 | ``viscous_dissipation_rate``       | :math:`\dot{D}`           | Power absorbed by the Maxwell dashpots         |
 +------------------------------------+---------------------------+------------------------------------------------+
@@ -499,8 +503,9 @@ solid ones.
 
 Every column holds one contribution only. The terminal output, in contrast, prints
 one line per group -- ``Acoustic mechanical energy`` for
-:math:`W_\mathrm{ac,pot} + W_\mathrm{ac,kin}` and ``Elastic mechanical energy``
-for :math:`W_\mathrm{kin} + W_\mathrm{strain} + W_\mathrm{ane}` -- followed by
+:math:`W_\mathrm{ac,pot} + W_\mathrm{ac,kin}`, ``Elastic mechanical energy`` for
+:math:`W_\mathrm{kin} + W_\mathrm{strain} + W_\mathrm{ane}`, and
+``Poroelastic mechanical energy`` for :math:`W_\mathrm{kin} + W_p` -- followed by
 the share each contribution has in that sum. So a name that stands for a sum never
 also stands for one of its parts.
 
