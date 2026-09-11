@@ -452,16 +452,6 @@ if ("${EQUATIONS}" MATCHES "visco.?" AND ${NUMBER_OF_MECHANISMS} LESS 1)
     message(FATAL_ERROR "${EQUATIONS} needs a NUMBER_OF_MECHANISMS > 0.")
 endif()
 
-
-# derive a byte representation of real numbers
-if ("${PRECISION}" STREQUAL "double")
-    set(REAL_SIZE_IN_BYTES 8)
-elseif ("${PRECISION}" STREQUAL "single")
-    set(REAL_SIZE_IN_BYTES 4)
-endif()
-
-
-
 #-------------------------------------------------------------------------------
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
 #-------------------------------------------------------------------------------

@@ -55,7 +55,8 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: ALIGNMENT, VECTORSIZE, WITH_GPU, DEVICE_VENDOR
+#
+#       derived input: WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 
