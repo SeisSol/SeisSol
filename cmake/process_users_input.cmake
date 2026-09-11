@@ -63,10 +63,6 @@ set(EQUATIONS "elastic" CACHE STRING "Equation set used")
 set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic viscoacoustic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
-set(VISCO_MODE "" CACHE STRING "Deprecated alias for SOLVER; use SOLVER instead")
-set(VISCO_MODE_OPTIONS "" "split" "extend")
-set_property(CACHE VISCO_MODE PROPERTY STRINGS ${VISCO_MODE_OPTIONS})
-
 set(SOLVER "auto" CACHE STRING "Scheme that advances a cell in time")
 set(SOLVER_OPTIONS auto linearck linearckanelastic stp)
 set_property(CACHE SOLVER PROPERTY STRINGS ${SOLVER_OPTIONS})
@@ -183,18 +179,6 @@ check_parameter("DEVICE_BACKEND" ${DEVICE_BACKEND} "${DEVICE_BACKEND_OPTIONS};hi
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 
 check_parameter("SOLVER" ${SOLVER} "${SOLVER_OPTIONS}")
-
-if (NOT VISCO_MODE STREQUAL "")
-  if (NOT SOLVER STREQUAL "auto")
-    message(FATAL_ERROR "Set either SOLVER or the deprecated VISCO_MODE, not both.")
-  endif()
-  message(DEPRECATION "VISCO_MODE is deprecated; use SOLVER instead.")
-  if (VISCO_MODE STREQUAL "extend")
-    set(SOLVER "linearck")
-  else()
-    set(SOLVER "linearckanelastic")
-  endif()
-endif()
 
 set(_allowed_solvers ${SOLVERS_${EQUATIONS}})
 if (NOT _allowed_solvers)
