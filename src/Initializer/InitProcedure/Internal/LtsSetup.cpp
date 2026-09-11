@@ -29,68 +29,31 @@ namespace seissol::initializer::internal {
 namespace {
 
 /**
- * Gets the lts setup in relation to the four face neighbors.
+ * Derives the storage requirements of a single cell from its face types and the time cluster IDs
+ * of its face neighbors.
  *
- * -------------------------------------------------------------------------------
+ * The result is encoded in the LtsSetup bitmap. The field positions follow from BufferCountBits,
+ * Cell::NumFaces and BufferCount (see LtsSetup.h); with the current values the layout is:
  *
- *  0 in one of the first four bits: Face neighboring data are buffers.
- *  1 in one of the first four bits: Face neighboring data are derivatives.
+ *   bits  0 - 7:  the BufferType supplied by each face neighbor, two bits per face
+ *   bits  8 - 11: one flag per face, set iff that neighbor runs at the same time step
+ *   bits 12 - 14: one flag per BufferType, set iff this cell stores data of that type
  *
- *     Example 1:
- *     [           12 rem. bits               | buf/der bits ]
- *     [  -  -  -  -  -  -  -  -  -  -  -  -  |  0  1  1  0  ]
- *     [ 15 14 13 12 11 10  9  8  7  6  5  4  |  3  2  1  0  ]
- *  In Example 1 the data for face neighbors 0 and 3 are buffers and for 1 and 2 derivatives.
+ *     Example: a cell with GTS neighbors over faces 0 and 1, a neighbor in a coarser cluster
+ *     over face 2, and a free-surface boundary over face 3.
  *
- *  0 in one of bits 4 - 7: No global time stepping
- *  1 in one of bits 4 - 7: The  current cell has a global time stepping relation with the face
- *neighbor.
+ *     [ 15 | 14 13 12 | 11 10  9  8 |  7  6  5  4 |  3  2  1  0 ]
+ *     [  - |  1  0  1 |  0  0  1  1 |  0  0  0  1 |  0  0  0  0 ]
  *
- *     Example 2:
- *     [       8 rem. bits       |   GTS bits  | buf/der bits ]
- *     [  -  -  -  -  -  -  -  - | 0  0  1  1  |  0  1  1  0  ]
- *     [ 15 14 13 12 11 10  9  8 | 7  6  5  4  |  3  2  1  0  ]
- *  In Example 2 the data of face neighbors 0 and 3 are buffers, 1 and 2 deliver derivatives
- *  Face neighbor 0 has a GTS-relation and this cell works directly on the delivered buffer.
- *  Face neighbor 1 has a GTS-relation, but delivers derivatives -> The derivatives have to
- *translated to time integrated DOFs first. Face neighbor 2 has a LTS-relation and receives
- *derivatives from its neighbor -> The derivates have to be used for a partial time integration.
- *  Face neighbor 3 has a LTS-relation and can operate on the buffers directly.
+ *  Faces 0 and 1 supply StepIntegrals and are marked as same-timestep. Face 2 supplies
+ *  Derivatives, since this cell integrates over its own sub-interval. Face 3 is a boundary face
+ *  and keeps the default. The cell itself stores StepIntegrals for its GTS neighbors and
+ *  AccumulatedIntegrals for the coarser one, but no Derivatives.
  *
- * -------------------------------------------------------------------------------
- *
- *  1 in the eigth bit: the cell is required to work on time integration buffers.
- *  1 in the nineth bit: the cell is required to compute time derivatives.
- *
- *     Example 3:
- *     [     remaining     | der. buf. |       first 8 bits       ]
- *     [  -  -  -  -  -  - |  0    1   |  -  -  -  -  -  -  -  -  ]
- *     [ 15 14 13 12 11 10 |  9    8   |  7  6  5  4  3  2  1  0  ]
- *  In Example 3 only a buffer is stored as for example in global time stepping.
- *
- *     Example 4:
- *     [     remaining     | der. buf. |       first 8 bits       ]
- *     [  -  -  -  -  -  - |  1    1   |  -  -  -  -  -  -  -  -  ]
- *     [ 15 14 13 12 11 10 |  9    8   |  7  6  5  4  3  2  1  0  ]
- *  In Example 4 both (buffer+derivative) is stored.
- *
- * -------------------------------------------------------------------------------
- *
- *  1 in the tenth bit: the cell local buffer is a LTS buffer (reset on request only).
- *
- *     Example 5:
- *     [   remaining    | LTS buf. |          first 10 bits         ]
- *     [  -  -  -  -  - |     1    |  -  1  -  -  -  -  -  -  -  -  ]
- *     [ 15 14 13 12 11 |    10    |  9  8  7  6  5  4  3  2  1  0  ]
- *  In Example 5 the buffer is a LTS buffer (reset on request only). GTS buffers are updated in
- *every time step.
- *
- * @return LTS setup (without correction)
+ * @return LTS setup of the cell
  * @param ownPrimary primary cell information struct of the cell in consideration
  * @param ownSecondary secondary cell information struct of the cell in consideration
  * @param neighborClusters face-neighbor LTS cluster IDs
- * @param copy true if the cell is part of the copy layer (only required for correctness in dynamic
- *rupture computations).
  **/
 LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
                      const SecondaryCellLocalInformation& ownSecondary,
@@ -169,7 +132,6 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
 
   // iterate over time clusters
   for (auto& layer : storage.leaves(Ghost)) {
-    const auto isCopy = layer.getIdentifier().halo == HaloType::Copy;
     auto* primaryInformationLocal = layer.var<LTS::CellInformation>();
     const auto* secondaryInformationLocal = layer.var<LTS::SecondaryInformation>();
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {

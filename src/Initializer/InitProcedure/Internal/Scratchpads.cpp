@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <unordered_set>
 
 namespace seissol::tensor {
 struct Iane;
