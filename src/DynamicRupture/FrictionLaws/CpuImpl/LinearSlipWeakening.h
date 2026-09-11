@@ -91,62 +91,19 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       real slipRateMagnitude{};
 
       if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-        // Anisotropy: the slip rate is no longer parallel to the trial traction, and the strength
-        // depends on the slip rate through the normal stress. Both are resolved by sweeping
-        //   n -> V -> n
-        // twice; the first sweep alone reproduces the isotropic formula.
-        const real invAbsolute = (absoluteTraction > 0) ? static_cast<real>(1.0) / absoluteTraction
-                                                        : static_cast<real>(0.0);
-        real n1 = totalTraction1 * invAbsolute;
-        real n2 = totalTraction2 * invAbsolute;
-        real projectedTraction = absoluteTraction;
-        real localEta = eta;
-        real localEtaNormal = common::projectEtaNormal(this->impAndEta_[ltsFace],
-                                                       this->impedanceMatrices_[ltsFace],
-                                                       totalTraction1,
-                                                       totalTraction2,
-                                                       absoluteTraction);
-
-        constexpr std::uint32_t DirectionSweeps = 2;
-        for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
-          // S(V) = S0 + slope * (eta * n)_n * V is exact, so the closed form survives
-          etaEff = localEta + strengthSlope[pointIndex] * localEtaNormal;
-          // a pathologically large coupling must never flip the sign of the divisor
-          etaEff = (etaEff > 0) ? etaEff : localEta;
-          slipRateMagnitude =
-              std::max(static_cast<real>(0.0), (projectedTraction - strength[pointIndex]) / etaEff);
-
-          if (sweep + 1 == DirectionSweeps) {
-            break;
-          }
-
-          const real localStrength = projectedTraction - slipRateMagnitude * localEta;
-          const auto [d1, d2] = common::updateSlipDirection(this->impAndEta_[ltsFace],
-                                                            this->impedanceMatrices_[ltsFace],
-                                                            localStrength,
-                                                            slipRateMagnitude,
-                                                            totalTraction1,
-                                                            totalTraction2,
-                                                            absoluteTraction);
-          n1 = d1;
-          n2 = d2;
-          projectedTraction = n1 * totalTraction1 + n2 * totalTraction2;
-          const auto [e, _] = common::projectEta(this->impAndEta_[ltsFace],
-                                                 this->impedanceMatrices_[ltsFace],
-                                                 n1,
-                                                 n2,
-                                                 static_cast<real>(1.0));
-          localEta = e;
-          localEtaNormal = common::projectEtaNormal(this->impAndEta_[ltsFace],
+        const auto solution = common::solveSlipRate(this->impAndEta_[ltsFace],
                                                     this->impedanceMatrices_[ltsFace],
-                                                    n1,
-                                                    n2,
-                                                    static_cast<real>(1.0));
-        }
+                                                    totalTraction1,
+                                                    totalTraction2,
+                                                    absoluteTraction,
+                                                    strength[pointIndex],
+                                                    strengthSlope[pointIndex]);
+        slipRateMagnitude = solution.slipRate;
+        etaEff = solution.etaEff;
 
         // divisor below equals projectedTraction, so this restores V * n
-        dirTraction1 = n1 * projectedTraction;
-        dirTraction2 = n2 * projectedTraction;
+        dirTraction1 = solution.direction1 * solution.projectedTraction;
+        dirTraction2 = solution.direction2 * solution.projectedTraction;
       } else {
         dirTraction1 = totalTraction1;
         dirTraction2 = totalTraction2;

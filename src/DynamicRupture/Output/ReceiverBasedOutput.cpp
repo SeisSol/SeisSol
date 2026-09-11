@@ -514,56 +514,18 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
   const auto tracEla = misc::magnitude(component1, component2);
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    // Same solve as LinearSlipWeakening::calcSlipRateAndTraction, through the same helpers: the
-    // slip is not parallel to the trial traction, and the strength follows the normal traction,
-    // which follows the slip rate. Sweeping n -> V -> n twice resolves both; the strength being
-    // affine in the normal stress keeps the closed form for V exact.
+    // the very solve the friction laws run, so the reconstruction cannot drift away from it: with
+    // an anisotropic impedance the slip is not parallel to the trial traction, and the strength
+    // follows the fault-normal traction, which follows the slip rate
     const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
     const auto& impedanceMatrices =
         ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
-    const real invAbsolute =
-        (tracEla > 0) ? static_cast<real>(1.0) / tracEla : static_cast<real>(0.0);
-    real n1 = component1 * invAbsolute;
-    real n2 = component2 * invAbsolute;
-    real projectedTraction = tracEla;
-    real eta = friction_law::common::projectEta(
-                   impAndEta, impedanceMatrices, component1, component2, tracEla)
-                   .first;
-    real etaNormal = friction_law::common::projectEtaNormal(
-        impAndEta, impedanceMatrices, component1, component2, tracEla);
-    real slipRate{};
+    const auto solution = friction_law::common::solveSlipRate(
+        impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
 
-    constexpr std::uint32_t DirectionSweeps = 2;
-    for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
-      real etaEff = eta + strengthSlope * etaNormal;
-      etaEff = (etaEff > 0) ? etaEff : eta;
-      slipRate = std::max(static_cast<real>(0.0), (projectedTraction - strength) / etaEff);
-
-      if (sweep + 1 == DirectionSweeps) {
-        break;
-      }
-
-      const auto [d1, d2] =
-          friction_law::common::updateSlipDirection(impAndEta,
-                                                    impedanceMatrices,
-                                                    projectedTraction - slipRate * eta,
-                                                    slipRate,
-                                                    component1,
-                                                    component2,
-                                                    tracEla);
-      n1 = d1;
-      n2 = d2;
-      projectedTraction = n1 * component1 + n2 * component2;
-      eta = friction_law::common::projectEta(
-                impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0))
-                .first;
-      etaNormal = friction_law::common::projectEtaNormal(
-          impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0));
-    }
-
-    local.slipRateTangent1 = slipRate * n1;
-    local.slipRateTangent2 = slipRate * n2;
+    local.slipRateTangent1 = solution.slipRate * solution.direction1;
+    local.slipRateTangent2 = solution.slipRate * solution.direction2;
 
     const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta(
         impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);

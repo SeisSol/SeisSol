@@ -894,6 +894,82 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
   return {n1, n2};
 }
 
+/**
+ * Slip rate magnitude and slip direction of a strength that is affine in the fault-normal traction.
+ */
+struct SlipRateSolution {
+  real slipRate{};
+  real direction1{};
+  real direction2{};
+  /// the trial traction along the converged slip direction; equals strength + etaEff * slipRate
+  real projectedTraction{};
+  /// the divisor the slip rate was obtained with, eta + slope * (eta n)_n
+  real etaEff{};
+};
+
+/**
+ * Solves
+ *
+ *   tau0 = (S I + V eta_ss) n ,   S = strength + strengthSlope * V * (eta n)_n ,   |n| = 1
+ *
+ * for the slip rate V and the slip direction n. With an anisotropic impedance the slip is not
+ * parallel to the trial traction, and the strength follows the fault-normal traction, which in turn
+ * follows the slip rate. Sweeping n -> V -> n twice resolves both: the strength being affine in the
+ * normal traction keeps the closed form for V exact, so only the direction has to be iterated, and
+ * the first sweep alone reproduces the isotropic formula.
+ *
+ * Every projection is a no-op for an isotropic impedance, where n is the direction of tau0 and the
+ * result reduces to V = (|tau0| - strength) / eta.
+ */
+SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta& impAndEta,
+                                                         const ImpedanceMatrices& impedanceMatrices,
+                                                         real traction1,
+                                                         real traction2,
+                                                         real tractionMagnitude,
+                                                         real strength,
+                                                         real strengthSlope) {
+  const real invAbsolute =
+      (tractionMagnitude > 0) ? static_cast<real>(1.0) / tractionMagnitude : static_cast<real>(0.0);
+  real n1 = traction1 * invAbsolute;
+  real n2 = traction2 * invAbsolute;
+  real projectedTraction = tractionMagnitude;
+  real eta =
+      projectEta(impAndEta, impedanceMatrices, traction1, traction2, tractionMagnitude).first;
+  real etaNormal =
+      projectEtaNormal(impAndEta, impedanceMatrices, traction1, traction2, tractionMagnitude);
+  real slipRate{};
+  real etaEff{};
+
+  constexpr std::uint32_t DirectionSweeps = 2;
+  for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
+    // S(V) = S0 + slope * (eta * n)_n * V is exact, so the closed form survives
+    etaEff = eta + strengthSlope * etaNormal;
+    // a pathologically large coupling must never flip the sign of the divisor
+    etaEff = (etaEff > 0) ? etaEff : eta;
+    slipRate = std::max(static_cast<real>(0.0), (projectedTraction - strength) / etaEff);
+
+    if (sweep + 1 == DirectionSweeps) {
+      break;
+    }
+
+    const real localStrength = projectedTraction - slipRate * eta;
+    const auto [d1, d2] = updateSlipDirection(impAndEta,
+                                              impedanceMatrices,
+                                              localStrength,
+                                              slipRate,
+                                              traction1,
+                                              traction2,
+                                              tractionMagnitude);
+    n1 = d1;
+    n2 = d2;
+    projectedTraction = n1 * traction1 + n2 * traction2;
+    eta = projectEta(impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0)).first;
+    etaNormal = projectEtaNormal(impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0));
+  }
+
+  return {slipRate, n1, n2, projectedTraction, etaEff};
+}
+
 } // namespace seissol::dr::friction_law::common
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_

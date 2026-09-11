@@ -77,57 +77,19 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     real slipRateMagnitude{};
 
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-      // see the CPU implementation for the derivation: sweeping n -> V -> n twice resolves both
-      // the non-collinearity of slip and trial traction and the normal/shear coupling
-      const real invAbsolute = (absoluteShearStress > 0)
-                                   ? static_cast<real>(1.0) / absoluteShearStress
-                                   : static_cast<real>(0.0);
-      real n1 = totalStress1 * invAbsolute;
-      real n2 = totalStress2 * invAbsolute;
-      real projectedStress = absoluteShearStress;
-      real localEta = eta;
-      real localEtaNormal = common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
-                                                     ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                     totalStress1,
-                                                     totalStress2,
-                                                     absoluteShearStress);
-
-      constexpr std::uint32_t DirectionSweeps = 2;
-      for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
-        etaEff = localEta + ctx.strengthSlopeBuffer * localEtaNormal;
-        etaEff = (etaEff > 0) ? etaEff : localEta;
-        slipRateMagnitude = std::max(static_cast<real>(0.0), (projectedStress - strength) / etaEff);
-
-        if (sweep + 1 == DirectionSweeps) {
-          break;
-        }
-
-        const real localStrength = projectedStress - slipRateMagnitude * localEta;
-        const auto [d1, d2] = common::updateSlipDirection(ctx.data->impAndEta[ctx.ltsFace],
-                                                          ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                          localStrength,
-                                                          slipRateMagnitude,
-                                                          totalStress1,
-                                                          totalStress2,
-                                                          absoluteShearStress);
-        n1 = d1;
-        n2 = d2;
-        projectedStress = n1 * totalStress1 + n2 * totalStress2;
-        const auto [e, unusedInv] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
-                                                       ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                       n1,
-                                                       n2,
-                                                       static_cast<real>(1.0));
-        localEta = e;
-        localEtaNormal = common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
+      const auto solution = common::solveSlipRate(ctx.data->impAndEta[ctx.ltsFace],
                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                  n1,
-                                                  n2,
-                                                  static_cast<real>(1.0));
-      }
+                                                  totalStress1,
+                                                  totalStress2,
+                                                  absoluteShearStress,
+                                                  strength,
+                                                  ctx.strengthSlopeBuffer);
+      slipRateMagnitude = solution.slipRate;
+      etaEff = solution.etaEff;
 
-      dirStress1 = n1 * projectedStress;
-      dirStress2 = n2 * projectedStress;
+      // divisor below equals projectedStress, so this restores V * n
+      dirStress1 = solution.direction1 * solution.projectedTraction;
+      dirStress2 = solution.direction2 * solution.projectedTraction;
     } else {
       slipRateMagnitude =
           std::max(static_cast<real>(0.0), (absoluteShearStress - strength) * invEta);
