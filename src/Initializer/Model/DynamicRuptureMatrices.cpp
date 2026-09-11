@@ -19,6 +19,7 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/LtsSetup.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
@@ -200,14 +201,15 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         if (positionOpt.has_value()) {
           const auto position = positionOpt.value();
           const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
-          if (timeDerivative1 == nullptr && cellInformation.ltsSetup.hasDerivatives()) {
+          if (timeDerivative1 == nullptr &&
+              cellInformation.ltsSetup.hasBuffer(BufferType::Derivatives)) {
             timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(position);
             timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(position);
 
             timeDofs1 = getDofs(position);
           }
           if (timeDerivative2 == nullptr &&
-              cellInformation.ltsSetup.neighborHasDerivatives(derivativesSide)) {
+              cellInformation.ltsSetup.neighborBuffer(derivativesSide) == BufferType::Derivatives) {
             timeDerivative2 = ltsStorage.lookup<LTS::FaceNeighbors>(position)[derivativesSide];
             timeDerivative2Device =
                 ltsStorage.lookup<LTS::FaceNeighborsDevice>(position)[derivativesSide];

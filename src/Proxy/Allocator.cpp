@@ -48,21 +48,20 @@ namespace {
 
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
-  real** buffers = layer.var<LTS::Buffers>();
+  real** buffers = layer.var<LTS::StepIntegrals>();
   real** derivatives = layer.var<LTS::Derivatives>();
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* localIntegration = layer.var<LTS::LocalIntegration>();
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-  real* bucket =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Host));
+  real* bucket = static_cast<real*>(layer.var<LTS::Buffers>(initializer::AllocationPlace::Host));
 
-  real** buffersDevice = layer.var<LTS::BuffersDevice>();
+  real** buffersDevice = layer.var<LTS::StepIntegralsDevice>();
   real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
   auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
+      static_cast<real*>(layer.var<LTS::Buffers>(initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -70,9 +69,9 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    buffers[cell] = bucket + cell * kernels::Solver::BuffersSize;
+    buffers[cell] = bucket + cell * kernels::Solver::IntegralsSize;
     derivatives[cell] = nullptr;
-    buffersDevice[cell] = bucketDevice + cell * kernels::Solver::BuffersSize;
+    buffersDevice[cell] = bucketDevice + cell * kernels::Solver::IntegralsSize;
     derivativesDevice[cell] = nullptr;
 
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
@@ -109,7 +108,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   }
 
   kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
-  kernels::fillWithStuff(bucket, kernels::Solver::BuffersSize * layer.size(), false);
+  kernels::fillWithStuff(bucket, kernels::Solver::IntegralsSize * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
@@ -177,8 +176,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
-  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * kernels::Solver::BuffersSize *
-                                              layer.size());
+  layer.setEntrySize<LTS::Buffers>(sizeof(real) * kernels::Solver::IntegralsSize * layer.size());
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
