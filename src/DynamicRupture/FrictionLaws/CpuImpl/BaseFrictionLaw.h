@@ -70,7 +70,6 @@ class BaseFrictionLaw : public FrictionSolver {
         const auto etaPDamp = drParameters_.etaDampEnd > this->fullUpdateTime_
                                   ? drParameters_.etaDamp
                                   : static_cast<real>(1.0);
-        SCOREP_USER_REGION_END(myRegionHandle)
 
         SCOREP_USER_REGION_BEGIN(
             myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
@@ -166,8 +165,13 @@ class BaseFrictionLaw : public FrictionSolver {
         LIKWID_MARKER_STOP("computeDynamicRupturePostHook");
         SCOREP_USER_REGION_END(myRegionHandle)
 
+        SCOREP_USER_REGION_BEGIN(myRegionHandle,
+                                 "computeDynamicRupturePostcomputeImposedState",
+                                 SCOREP_USER_REGION_TYPE_COMMON)
+        LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
         common::finalizeImposedState(
             imposedState, imposedStatePlus_[ltsFace], imposedStateMinus_[ltsFace]);
+        LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
         SCOREP_USER_REGION_END(myRegionHandle)
 
         if (this->drParameters_.isFrictionEnergyRequired) {
