@@ -99,6 +99,33 @@ TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicr
     CHECK(impedance.admittancePlus(2, 2) == doctest::Approx(1.0 / shearImpedance).epsilon(1e-12));
   }
 
+  SUBCASE("scalar shear impedances of a bimaterial fault") {
+    // the values initializeDynamicRuptureMatrices copies into ImpedancesAndEta, which the friction
+    // update, the slip accumulation and the receiver output read
+    const auto plus = testPoroMaterial(0.1, 1.0);
+    const auto minus = testPoroMaterial(0.3, 2.0);
+    const auto bimaterial = computeFaultImpedance(plus, minus);
+
+    const auto shearImpedance = [](const model::PoroElasticMaterial& material) {
+      const double m = material.rhoFluid * material.tortuosity / material.porosity;
+      const double rhoBar =
+          (1 - material.porosity) * material.rho + material.porosity * material.rhoFluid;
+      return std::sqrt(material.mu * (rhoBar - material.rhoFluid * material.rhoFluid / m));
+    };
+    const double zs = shearImpedance(plus);
+    const double zsNeig = shearImpedance(minus);
+
+    CHECK(bimaterial.admittancePlus(1, 1) == doctest::Approx(1.0 / zs).epsilon(1e-12));
+    CHECK(bimaterial.admittanceMinus(1, 1) == doctest::Approx(1.0 / zsNeig).epsilon(1e-12));
+    CHECK(bimaterial.eta(1, 1) == doctest::Approx(zs * zsNeig / (zs + zsNeig)).epsilon(1e-12));
+
+    // a scalar is exact only because the shear rows carry the same entry twice and do not couple
+    // to the fault normal or to the fluid
+    CHECK(bimaterial.eta(2, 2) == doctest::Approx(bimaterial.eta(1, 1)).epsilon(1e-12));
+    CHECK(std::abs(bimaterial.eta(1, 0)) < 1e-10 * bimaterial.eta(1, 1));
+    CHECK(std::abs(bimaterial.eta(1, 3)) < 1e-10 * bimaterial.eta(1, 1));
+  }
+
   SUBCASE("lateral stress structure of an isotropic solid frame") {
     const auto& lateral = impedance.lateralStressPlus;
     const double scale = lateral.cwiseAbs().maxCoeff();

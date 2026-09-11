@@ -376,7 +376,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         // Zplus/Zminus hold the *admittance* Y (traction -> velocity); eta is
         // (Y+ + Y-)^-1. For anisotropic materials Y is obtained in closed form
         // from the Christoffel matrix, which is exact also when qS1 and qS2 are
-        // degenerate; poroelastic still uses the general eigendecomposition.
+        // degenerate; for poroelasticity it comes from the Biot mass and stiffness
+        // blocks in the same closed form.
         const auto faultImpedance =
             seissol::initializer::model::computeFaultImpedance(plusLocal, minusLocal);
 
@@ -419,6 +420,26 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
             impedanceMatrices[ltsFace].lateralStress[col * 3 + row] =
                 static_cast<real>(faultImpedance.lateralStressPlus(row, col));
           }
+        }
+
+        if constexpr (seissol::model::MaterialT::Type ==
+                      seissol::model::MaterialType::Poroelastic) {
+          // The solid frame is isotropic, so the shear rows of the Biot admittance decouple from
+          // the fault-normal/fluid block and carry the same entry twice. A scalar impedance is
+          // therefore exact here, and taking it from the admittance is what keeps the paths that
+          // read ImpedancesAndEta -- the friction update, the slip accumulation and the receiver
+          // output -- on the same Z_s = sqrt(mu * rho1) as the Riemann solver. Note that rho1 is
+          // the statically condensed density, not the density of the solid grains.
+          const double invZs = faultImpedance.admittancePlus(1, 1);
+          const double invZsNeig = faultImpedance.admittanceMinus(1, 1);
+          const double etaS = faultImpedance.eta(1, 1);
+
+          impAndEta[ltsFace].zs = 1.0 / invZs;
+          impAndEta[ltsFace].zsNeig = 1.0 / invZsNeig;
+          impAndEta[ltsFace].invZs = invZs;
+          impAndEta[ltsFace].invZsNeig = invZsNeig;
+          impAndEta[ltsFace].etaS = etaS;
+          impAndEta[ltsFace].invEtaS = 1.0 / etaS;
         }
 
         break;
