@@ -131,12 +131,25 @@ class ReceiverOutput {
   real computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
   virtual void computeSlipRate(LocalInfo& local,
                                const std::array<real, 6>& /*rotatedUpdatedStress*/,
-                               const std::array<real, 6>& /*rotatedStress*/);
+                               const std::array<real, 6>& /*rotatedStress*/,
+                               const std::array<double, 3>& /*tangent1*/,
+                               const std::array<double, 3>& /*tangent2*/,
+                               const std::array<double, 3>& /*strike*/,
+                               const std::array<double, 3>& /*dip*/);
   static void computeSlipRate(LocalInfo& local,
                               const std::array<double, 3>& tangent1,
                               const std::array<double, 3>& tangent2,
                               const std::array<double, 3>& strike,
                               const std::array<double, 3>& dip);
+  /// Writes a fault plane vector given in the (tangent1, tangent2) frame to the slip rate along
+  /// strike and dip.
+  static void projectOntoStrikeAndDip(LocalInfo& local,
+                                      real alongTangent1,
+                                      real alongTangent2,
+                                      const std::array<double, 3>& tangent1,
+                                      const std::array<double, 3>& tangent2,
+                                      const std::array<double, 3>& strike,
+                                      const std::array<double, 3>& dip);
   virtual void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
                                const LocalInfo& local,
                                size_t outputSpecifics,

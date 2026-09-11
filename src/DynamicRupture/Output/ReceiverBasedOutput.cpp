@@ -261,7 +261,8 @@ void ReceiverOutput::calcFaultOutput(
 
     switch (slipRateOutputType) {
     case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
-      this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
+      this->computeSlipRate(
+          local, rotatedUpdatedStress, rotatedStress, tangent1, tangent2, strike, dip);
       break;
     }
     case seissol::initializer::parameters::SlipRateOutputType::VelocityDifference: {
@@ -517,15 +518,69 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {
   }
 }
 
-void ReceiverOutput::computeSlipRate(LocalInfo& local,
-                                     const std::array<real, 6>& rotatedUpdatedStress,
-                                     const std::array<real, 6>& rotatedStress) {
+void ReceiverOutput::projectOntoStrikeAndDip(LocalInfo& local,
+                                             real alongTangent1,
+                                             real alongTangent2,
+                                             const std::array<double, 3>& tangent1,
+                                             const std::array<double, 3>& tangent2,
+                                             const std::array<double, 3>& strike,
+                                             const std::array<double, 3>& dip) {
+  local.slipRateStrike = static_cast<real>(0.0);
+  local.slipRateDip = static_cast<real>(0.0);
 
-  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-  local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
-                                               rotatedStress[QuantityIndices::XY]);
-  local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
-                                            rotatedStress[QuantityIndices::XZ]);
+  for (size_t i = 0; i < 3; ++i) {
+    const real component = alongTangent1 * tangent1[i] + alongTangent2 * tangent2[i];
+    local.slipRateStrike += component * strike[i];
+    local.slipRateDip += component * dip[i];
+  }
+}
+
+void ReceiverOutput::computeSlipRate(
+    LocalInfo& local,
+    [[maybe_unused]] const std::array<real, 6>& rotatedUpdatedStress,
+    [[maybe_unused]] const std::array<real, 6>& rotatedStress,
+    [[maybe_unused]] const std::array<double, 3>& tangent1,
+    [[maybe_unused]] const std::array<double, 3>& tangent2,
+    [[maybe_unused]] const std::array<double, 3>& strike,
+    [[maybe_unused]] const std::array<double, 3>& dip) {
+
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    // The traction difference maps to the slip rate through eta^-1, which here is Y+ + Y- and not
+    // a multiple of the identity: a traction change along strike also drives slip along dip. Both
+    // the admittances and the traction difference live in the fault-local frame, so the rotation
+    // onto strike and dip has to come last -- a scalar commutes with it, a matrix does not.
+    //
+    // The traction difference is purely tangential, since updateLocalTractions only limits the two
+    // shear components, so the fault-normal column of the sum does not contribute.
+    const auto& impedanceMatrices =
+        ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
+    constexpr std::size_t Count = tensor::Zplus::Shape[0];
+
+    // dense and column major, so [col * Count + row]
+    const auto admittanceSum = [&impedanceMatrices](std::size_t row, std::size_t col) {
+      return impedanceMatrices.impedance[col * Count + row] +
+             impedanceMatrices.impedanceNeig[col * Count + row];
+    };
+
+    const real tractionDiff1 = local.faceAlignedStress12 - local.updatedTraction1;
+    const real tractionDiff2 = local.faceAlignedStress13 - local.updatedTraction2;
+
+    const real alongTangent1 =
+        admittanceSum(1, 1) * tractionDiff1 + admittanceSum(1, 2) * tractionDiff2;
+    const real alongTangent2 =
+        admittanceSum(2, 1) * tractionDiff1 + admittanceSum(2, 2) * tractionDiff2;
+
+    projectOntoStrikeAndDip(local, alongTangent1, alongTangent2, tangent1, tangent2, strike, dip);
+  } else {
+    // the shear block of eta is a multiple of the identity for every material with an isotropic
+    // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
+    // a scalar is exact and the order of scaling and rotation does not matter
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
+                                                 rotatedStress[QuantityIndices::XY]);
+    local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
+                                              rotatedStress[QuantityIndices::XZ]);
+  }
 }
 
 void ReceiverOutput::computeSlipRate(LocalInfo& local,

@@ -196,6 +196,24 @@ TEST_CASE("Anisotropic DR impedance has orientation dependent normal coupling" *
   CHECK(couplingRatio(30.0) > 0.05);
   CHECK(couplingRatio(30.0) > couplingRatio(10.0));
   CHECK(couplingRatio(30.0) > couplingRatio(70.0));
+
+  SUBCASE("the traction to slip rate map is the sum of the admittances") {
+    // what the fault receiver output applies for SlipRateOutputType=1: eta^-1 = Y+ + Y-, so no
+    // inversion is needed there. Its shear block is not diagonal, which is exactly why the two
+    // shear directions cannot be handled by one scalar. The fault is tilted out of the symmetry
+    // plane of the material, otherwise the two shear directions would decouple.
+    const auto oblique = makeFaultFrame(Eigen::Vector3d(0.3, -0.7, 0.6));
+    const auto plus = rotateToFault(tiltedVti(35.0), oblique);
+    const auto minus = isotropicMaterial(2500.0, 1.6e10, 2.0e10);
+    const auto impedance = computeFaultImpedance(plus, minus);
+
+    const DrMatrix sum = impedance.admittancePlus + impedance.admittanceMinus;
+    CHECK(relError(DrMatrix(impedance.eta.inverse()), sum) < 1e-10);
+
+    const double shear = std::max(std::abs(sum(1, 1)), std::abs(sum(2, 2)));
+    CHECK(std::abs(sum(1, 2)) > 1e-3 * shear);
+    CHECK(std::abs(sum(1, 1) - sum(2, 2)) > 1e-3 * shear);
+  }
 }
 
 // ---------------------------------------------------------------------------
