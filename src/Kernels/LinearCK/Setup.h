@@ -25,6 +25,19 @@ namespace seissol::model {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::linearck::Solver, MaterialT> {
+  /// One anelastic block per mechanism, each weighted by its own relaxation
+  /// frequency, because the memory variables share the quantity axis.
+  template <typename T>
+  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
+    MaterialSetup<MaterialT>::getTransposedCoefficientMatrix(material, dim, matM);
+    if constexpr (MaterialT::Mechanisms > 0) {
+      for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+        MaterialSetup<MaterialT>::getTransposedAnelasticCoefficientMatrix(
+            material.omega[mech], dim, mech, matM);
+      }
+    }
+  }
+
   /// E^T = [E_1^T ... E_L^T] stacked below the elastic quantities, with the
   /// relaxation on the diagonal.
   template <typename T>

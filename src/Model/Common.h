@@ -143,7 +143,8 @@ void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim
 
 template <typename Tmaterial, typename Tmatrix>
 void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tmatrix& matM) {
-  MaterialSetup<Tmaterial>::getTransposedCoefficientMatrix(material, dim, matM);
+  SolverSetup<typename Tmaterial::Solver, Tmaterial>::getTransposedCoefficientMatrix(
+      material, dim, matM);
 }
 
 template <typename Tmaterial, typename T>
@@ -338,6 +339,12 @@ struct SolverSetupDefaults {
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& sourceMatrix) {
     MaterialSetup<MaterialT>::getTransposedSourceCoefficientTensor(material, sourceMatrix);
+  }
+
+  /// Materials without relaxation describe their flux directly.
+  template <typename T>
+  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
+    MaterialSetup<MaterialT>::getTransposedCoefficientMatrix(material, dim, matM);
   }
 };
 

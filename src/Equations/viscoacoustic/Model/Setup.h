@@ -28,8 +28,18 @@ namespace seissol::model {
  * business.
  */
 template <std::size_t N>
-struct ViscoAcousticSetupCommon : public MaterialSetupDefaults<ViscoAcousticMaterial<N>> {
+struct MaterialSetup<ViscoAcousticMaterial<N>>
+    : public MaterialSetupDefaults<ViscoAcousticMaterial<N>> {
   using MaterialT = ViscoAcousticMaterial<N>;
+
+  /// The flux of the base material alone. How the anelastic blocks are added
+  /// on top -- once per mechanism weighted by its relaxation frequency, or
+  /// once with the frequency held elsewhere -- is the solver's decision.
+  template <typename T>
+  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
+    MaterialSetup<AcousticMaterial>::getTransposedCoefficientMatrix(
+        dynamic_cast<const AcousticMaterial&>(material), dim, AT);
+  }
 
   /**
    * The source entries one relaxation mechanism contributes, as (row, column,
@@ -75,43 +85,7 @@ struct ViscoAcousticSetupCommon : public MaterialSetupDefaults<ViscoAcousticMate
   }
 };
 
-template <std::size_t N>
-struct MaterialSetup<
-    ViscoAcousticMaterial<N>,
-    std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode == ViscoImplementation::QuantityExtension>>
-    : public ViscoAcousticSetupCommon<N> {
-  using MaterialT = ViscoAcousticMaterial<N>;
-  using ViscoAcousticSetupCommon<N>::getTransposedAnelasticCoefficientMatrix;
-
-  template <typename T>
-  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
-    ::seissol::model::getTransposedCoefficientMatrix(
-        dynamic_cast<const AcousticMaterial&>(material), dim, AT);
-
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      getTransposedAnelasticCoefficientMatrix(material.omega[mech], dim, mech, AT);
-    }
-  }
-};
-
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
-
-template <std::size_t N>
-struct MaterialSetup<
-    ViscoAcousticMaterial<N>,
-    std::enable_if_t<ViscoAcousticMaterial<N>::ViscoMode == ViscoImplementation::AnelasticTensor>>
-    : public ViscoAcousticSetupCommon<N> {
-  using MaterialT = ViscoAcousticMaterial<N>;
-  using ViscoAcousticSetupCommon<N>::getTransposedAnelasticCoefficientMatrix;
-
-  template <typename T>
-  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
-    ::seissol::model::getTransposedCoefficientMatrix(
-        dynamic_cast<const AcousticMaterial&>(material), dim, AT);
-
-    getTransposedAnelasticCoefficientMatrix(1.0, dim, 0, AT);
-  }
-};
 
 #endif
 

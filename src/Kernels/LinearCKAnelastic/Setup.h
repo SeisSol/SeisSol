@@ -28,6 +28,14 @@ namespace seissol::model {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::linearckanelastic::Solver, MaterialT> {
+  /// A single anelastic block with unit weight: the relaxation frequencies
+  /// are held in w, not folded into the flux.
+  template <typename T>
+  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
+    MaterialSetup<MaterialT>::getTransposedCoefficientMatrix(material, dim, matM);
+    MaterialSetup<MaterialT>::getTransposedAnelasticCoefficientMatrix(1.0, dim, 0, matM);
+  }
+
   /// E(i, mech, j): the prototype in its own tensor dimension, with the
   /// relaxation held separately in w.
   template <typename T>
