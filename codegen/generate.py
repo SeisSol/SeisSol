@@ -16,6 +16,7 @@ import os
 import re
 import sys
 
+import kernels.arch
 import kernels.dynamic_rupture
 import kernels.general
 import kernels.memlayout
@@ -56,6 +57,7 @@ def main():
     )
     cmdLineParser.add_argument("--numMechanisms", type=int)
     cmdLineParser.add_argument("--vectorsize", default=0, type=int)
+    cmdLineParser.add_argument("--alignment", default=0, type=int)
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)
     cmdLineParser.add_argument("--PlasticityMethod")
@@ -106,6 +108,26 @@ def main():
 
     arch = deriveArchitecture(host_arch, device_arch)
     fixArchitectureGlobal(arch)
+
+    if cmdLineArgs.multipleSimulations > 1 and (
+        cmdLineArgs.multipleSimulations % arch.alignedReals != 0
+    ):
+        print(
+            f"Warning: a number of fused simulations should be a multiple of "
+            f"{arch.alignedReals}. Expect degraded performance when continuing.",
+            file=sys.stderr,
+        )
+
+    os.makedirs(cmdLineArgs.outputDir, exist_ok=True)
+    kernels.arch.emit_header(
+        arch,
+        cmdLineArgs.outputDir,
+        device_vendor=(
+            None if cmdLineArgs.device_backend == "none" else cmdLineArgs.device_vendor
+        ),
+        override_alignment=cmdLineArgs.alignment,
+        override_vectorsize=cmdLineArgs.vectorsize or 0,
+    )
 
     # pick up the gemm tools defined by the user
     gemm_tool_list = re.split(r"[,;]", cmdLineArgs.gemm_tools.replace(" ", ""))

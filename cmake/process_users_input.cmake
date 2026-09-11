@@ -83,9 +83,6 @@ set(SOLVERS_viscoacoustic linearckanelastic linearck)
 
 set(HOST_ARCH "auto" CACHE STRING "Type of host architecture")
 set(HOST_ARCH_OPTIONS noarch auto wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 power10 power11 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512 lsx lasx)
-# size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16   64 16  32  32  64  64  64     32   32    32      64    64    16     16 16 16   256     16     16     32     64     128     256      128      128      128      128     16     32     64     128     256     512    64       64       64        64        64 16 32)
-set(HOST_ARCH_VECTORSIZE  16   16 16  32  32  64  64  64     32   32    32      64    64    16     16 16 16    64     16     16     32     64     128     256       16       16       16       16     16     32     64     128     256     512    16       32       16        32        64 16 32)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
@@ -452,40 +449,15 @@ if (NOT ${DEVICE_ARCH} STREQUAL "none")
     if (${DEVICE_BACKEND} STREQUAL "none")
         message(FATAL_ERROR "DEVICE_BACKEND is not provided for ${DEVICE_ARCH}")
     endif()
-
-    if (${DEVICE_VENDOR} STREQUAL "nvidia")
-        set(ALIGNMENT  64)
-        set(VECTORSIZE 64)
-    elseif(${DEVICE_VENDOR} STREQUAL "amd")
-        set(ALIGNMENT  128)
-        set(VECTORSIZE 128)
-    elseif(${DEVICE_VENDOR} STREQUAL "intel")
-        set(ALIGNMENT  128)
-        set(VECTORSIZE 32)
-    elseif(${DEVICE_VENDOR} STREQUAL "generic")
-        set(ALIGNMENT  64)
-        set(VECTORSIZE 16)
-    else()
-        set(ALIGNMENT  128)
-        set(VECTORSIZE 32)
-        message(STATUS "Assume device alignment = 128, for DEVICE_ARCH=${DEVICE_ARCH}")
-    endif()
 else()
-    list(FIND HOST_ARCH_OPTIONS ${HOST_ARCH} INDEX)
-    list(GET HOST_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
-    list(GET HOST_ARCH_VECTORSIZE ${INDEX} VECTORSIZE)
     set(DEVICE_BACKEND "none")
 endif()
 
-if (OVERRIDE_ALIGNMENT GREATER 0)
-    set(ALIGNMENT ${OVERRIDE_ALIGNMENT})
-endif()
-if (OVERRIDE_VECTORSIZE GREATER 0)
-    set(VECTORSIZE ${OVERRIDE_VECTORSIZE})
-endif()
-
-message(STATUS "Memory alignment has been set to ${ALIGNMENT} B.")
-message(STATUS "Vector size has been set to ${VECTORSIZE} B.")
+# The alignment and the vector size are derived by the code generator, which
+# needs them anyway to lay the tensors out, and written to
+# GeneratedCode/alignment.h. Deriving them a second time here is what let the
+# padding the kernels were built with drift away from the alignment their
+# callers assume.
 
 # check NUMBER_OF_MECHANISMS
 if ((NOT "${EQUATIONS}" MATCHES "visco.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
@@ -505,14 +477,6 @@ elseif ("${PRECISION}" STREQUAL "single")
 endif()
 
 
-# check NUMBER_OF_FUSED_SIMULATIONS
-math(EXPR IS_ALIGNED_MULT_SIMULATIONS
-        "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
-
-if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
-    math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
-    message(WARNING "a number of fused simulations should be multiple of ${FACTOR}. Expect code generation errors and/or degraded performance when continuing.")
-endif()
 
 #-------------------------------------------------------------------------------
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
