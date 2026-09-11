@@ -66,9 +66,9 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
-  krnl.Gk = data.get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
-  krnl.Gl = data.get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
-  krnl.Gm = data.get<LTS::LocalIntegration>().specific.G[12] * timeStepWidth;
+  for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
+    krnl.G(i) = data.get<LTS::LocalIntegration>().specific.G[i] * timeStepWidth;
+  }
 
   krnl.Q = const_cast<real*>(data.get<LTS::Dofs>());
   krnl.I = timeIntegrated;
@@ -191,12 +191,12 @@ void Spacetime::computeBatchedAder(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
     krnl.Gmt = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
-    krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
-    krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[10]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[11]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[12]);
+    krnl.extraOffset_Gt(0) = SEISSOL_OFFSET(LocalIntegrationData, specific.G[0]);
+    krnl.extraOffset_Gt(1) = SEISSOL_OFFSET(LocalIntegrationData, specific.G[1]);
+    krnl.extraOffset_Gt(2) = SEISSOL_OFFSET(LocalIntegrationData, specific.G[2]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[0]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[1]);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[2]);
 
     // checking the first cell should suffice; if we always work on the same cluster.
     // (which we currently always do)

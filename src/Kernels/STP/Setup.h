@@ -13,7 +13,6 @@
 #include "Model/Common.h"
 
 #include <Eigen/Dense>
-#include <algorithm>
 #include <cstddef>
 #include <yateto.h>
 
@@ -92,9 +91,11 @@ struct SolverSetup<kernels::solver::stp::Solver, MaterialT>
     ZInvInitializer<MaterialT, 0, MaterialT::NumQuantities, decltype(sourceMatrix)>(
         localData->Zinv, sourceMatrix, timeStepWidth);
 
-    std::fill(localData->G, localData->G + MaterialT::NumQuantities, 0.0);
-    for (const auto& row : MaterialT::StiffSourceRows) {
-      localData->G[row.quantity] = sourceMatrix(row.quantity, row.target);
+    static_assert(MaterialT::StiffSourceRows.size() == generated::StiffSourceRowCount,
+                  "the material and the generated kernels disagree on the stiff rows");
+    for (std::size_t i = 0; i < MaterialT::StiffSourceRows.size(); ++i) {
+      const auto& row = MaterialT::StiffSourceRows[i];
+      localData->G[i] = sourceMatrix(row.quantity, row.target);
     }
 
     localData->typicalTimeStepWidth = timeStepWidth;

@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_DATA_H_
 #define SEISSOL_SRC_KERNELS_STP_DATA_H_
 
+#include "GeneratedCode/quantities.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 
@@ -23,9 +24,9 @@ namespace seissol::kernels::solver::stp {
 struct STPLocalData {
   real sourceMatrix[zeroGuard(kernels::size<tensor::ET>())]{};
 
-  // currently hard-coded to poroelasticity
+  /// One entry per stiff source row, in the order the material declares them.
   // NOLINTNEXTLINE
-  real G[13]{};
+  real G[zeroGuard(generated::StiffSourceRowCount)]{};
 
   // currently hard-coded to poroelasticity
   // NOLINTNEXTLINE

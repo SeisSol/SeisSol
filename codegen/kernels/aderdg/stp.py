@@ -131,16 +131,19 @@ class STP(LinearCK):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
+            # One entry per stiff row, as a family indexed by position: the
+            # kernels then do not care how many rows a material declares.
             stiffRows = {
-                q: (target_q, name) for q, target_q, name in self.stiffSourceRows()
+                quantity: (targetQuantity, index)
+                for index, (quantity, targetQuantity) in enumerate(
+                    self.stiffSourceRows()
+                )
             }
             if target == "cpu":
-                G = {q: Scalar(name) for q, (_, name) in stiffRows.items()}
+                G = {q: Scalar(f"G({i})") for q, (_, i) in stiffRows.items()}
                 OptTimestep = lambda x: x
             else:
-                G = {
-                    q: Tensor(f"{name}t", ())[""] for q, (_, name) in stiffRows.items()
-                }
+                G = {q: Tensor(f"Gt({i})", ())[""] for q, (_, i) in stiffRows.items()}
 
                 # needed due to a current Yateto bug not allowing e.g. (Gkt * timestep)
                 OptTimestep = lambda x: x * timestep

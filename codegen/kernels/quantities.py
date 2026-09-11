@@ -226,6 +226,7 @@ def emit_header(aderdg, output_dir):
         '#include "Model/Quantities.h"',
         "",
         "#include <array>",
+        "#include <cstddef>",
         "",
         "namespace seissol::generated {",
         "",
@@ -233,6 +234,10 @@ def emit_header(aderdg, output_dir):
         "",
         render("RotationGroupKinds", aderdg.extendedBlocks()),
         render("InverseRotationGroupKinds", aderdg.inverseRotationBlocks()),
+        "/// Source rows the space-time predictor factorises separately.",
+        f"inline constexpr std::size_t StiffSourceRowCount = "
+        f"{len(aderdg.stiffSourceRows())};",
+        "",
         "} // namespace seissol::generated",
         "",
     ]
