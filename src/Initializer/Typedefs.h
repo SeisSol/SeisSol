@@ -100,12 +100,6 @@ struct GlobalData {
   seissol::tensor::kDivMT::Container<const real*> stiffnessMatricesTransposed;
 
   /**
-   * Address of the (thread-local) local time stepping integration buffers used in the neighbor
-   *integral computation
-   **/
-  real* integrationBufferLTS{nullptr};
-
-  /**
    * Addresses of the global nodal flux matrices
    *
    *    0:  \f$ P^{+,1} \f$

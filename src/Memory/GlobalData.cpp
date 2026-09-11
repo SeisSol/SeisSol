@@ -21,7 +21,6 @@
 #include "Kernels/Solver.h"
 #include "Memory/MemoryAllocator.h"
 #include "Model/CommonDatastructures.h"
-#include "Parallel/OpenMP.h"
 
 #include <cassert>
 #include <cstddef>
@@ -48,30 +47,6 @@ MemoryProperties OnHost::getProperties() {
   return {};
 }
 
-void OnHost::initSpecificGlobalData(GlobalData& globalData,
-                                    memory::ManagedAllocator& allocator,
-                                    CopyManagerT& /*copyManager*/,
-                                    size_t alignment,
-                                    seissol::memory::Memkind memkind) {
-  // thread-local LTS integration buffers
-  const auto numThreads = OpenMP::threadCount();
-  const auto allocSize = Cell::NumFaces * kernels::Solver::BuffersSize;
-  auto* integrationBufferLTS = reinterpret_cast<real*>(
-      allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
-
-  // initialize w.r.t. NUMA
-
-#pragma omp parallel
-  {
-    const auto threadOffset = OpenMP::threadId() * allocSize;
-    for (std::size_t dof = 0; dof < allocSize; ++dof) {
-      integrationBufferLTS[dof + threadOffset] = static_cast<real>(0.0);
-    }
-  }
-
-  globalData.integrationBufferLTS = integrationBufferLTS;
-}
-
 MemoryProperties OnDevice::getProperties() {
   MemoryProperties prop{};
 #ifdef ACL_DEVICE
@@ -82,12 +57,6 @@ MemoryProperties OnDevice::getProperties() {
 #endif
   return prop;
 }
-
-void OnDevice::initSpecificGlobalData(GlobalData& /*globalData*/,
-                                      memory::ManagedAllocator& /*allocator*/,
-                                      CopyManagerT& /*copyManager*/,
-                                      size_t /*alignment*/,
-                                      seissol::memory::Memkind /*memkind*/) {}
 
 real* OnDevice::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const real* first,
                                        SEISSOL_GPU_PARAM const real* last,
@@ -286,9 +255,6 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrixInverse, prop.alignment);
 
   assert(plasticityGlobalMatrixMemPtr == plasticityGlobalMatrixMem + plasticityGlobalMatrixMemSize);
-
-  MatrixManipPolicyT::initSpecificGlobalData(
-      globalData, memoryAllocator, copyManager, prop.pagesizeStack, memkind);
 }
 
 template void

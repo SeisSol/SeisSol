@@ -37,11 +37,6 @@ namespace matrixmanip {
 struct OnHost {
   using CopyManagerT = yateto::DefaultCopyManager<real>;
   static MemoryProperties getProperties();
-  static void initSpecificGlobalData(GlobalData& globalData,
-                                     memory::ManagedAllocator& allocator,
-                                     CopyManagerT& copyManager,
-                                     size_t alignment,
-                                     seissol::memory::Memkind memkind);
 };
 
 struct OnDevice {
@@ -50,11 +45,6 @@ struct OnDevice {
   };
   using CopyManagerT = yateto::CopyManager<real, DeviceCopyPolicy>;
   static MemoryProperties getProperties();
-  static void initSpecificGlobalData(GlobalData& globalData,
-                                     memory::ManagedAllocator& allocator,
-                                     CopyManagerT& copyManager,
-                                     size_t alignment,
-                                     seissol::memory::Memkind memkind);
 };
 } // namespace matrixmanip
 

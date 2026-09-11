@@ -42,7 +42,6 @@
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/Quadrature.h"
-#include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
@@ -925,11 +924,13 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = clusterData_->cellRef(cell);
 
+    // Scratch for the neighbours whose time integral has to be computed here.
+    // Written before it is read, so it needs no initialisation; the frame
+    // holds it for the whole loop, one copy per thread.
+    alignas(Alignment) real integrationBuffer[Cell::NumFaces][kernels::Solver::BuffersSize];
     std::array<real*, Cell::NumFaces> integrationBuffers{};
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-      integrationBuffers[i] =
-          &globalDataOnHost_->integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
-                                                   kernels::Solver::BuffersSize];
+      integrationBuffers[i] = integrationBuffer[i];
     }
 
     seissol::kernels::TimeCommon::computeIntegrals(timeKernel_,

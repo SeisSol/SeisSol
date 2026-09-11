@@ -28,7 +28,6 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/Quadrature.h"
-#include "Parallel/OpenMP.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <array>
@@ -154,11 +153,12 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
 
+      // See TimeCluster: scratch for the neighbours integrated here, written
+      // before it is read, one copy per thread.
+      alignas(Alignment) real integrationBuffer[Cell::NumFaces][kernels::Solver::BuffersSize];
       std::array<real*, Cell::NumFaces> integrationBuffers{};
       for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-        integrationBuffers[i] =
-            &data.globalDataOnHost.integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
-                                                        kernels::Solver::BuffersSize];
+        integrationBuffers[i] = integrationBuffer[i];
       }
 
       seissol::kernels::TimeCommon::computeIntegrals(data.timeKernel,
