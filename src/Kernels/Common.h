@@ -182,8 +182,11 @@ struct IsFamilyInternal {
   static constexpr bool Value = false;
 };
 
+// A generated family is recognised by its Size array, which is what yateto
+// reads to add the members up. Its Container is a class template, so naming it
+// without arguments never matched and every family measured as empty.
 template <typename T>
-struct IsFamilyInternal<T, std::void_t<typename T::Container>> {
+struct IsFamilyInternal<T, std::void_t<decltype(T::Size)>> {
   static constexpr bool Value = true;
 };
 
@@ -197,10 +200,9 @@ constexpr auto familyMembers() -> std::size_t {
 }
 
 template <class T>
-constexpr auto familySize(std::size_t alignedReals = 1, std::size_t n = familyMembers<T>())
-    -> std::size_t {
+constexpr auto familySize(std::size_t alignedReals = 1) -> std::size_t {
   if constexpr (IsFamilyInternal<T>::Value) {
-    return yateto::computeFamilySize<T>();
+    return yateto::computeFamilySize<T>(alignedReals);
   } else {
     return static_cast<std::size_t>(0);
   }
