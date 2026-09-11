@@ -7,6 +7,7 @@
 # SPDX-FileContributor: Carsten Uphoff
 # SPDX-FileContributor: Sebastian Wolf
 
+import numpy as np
 from kernels.equations.elastic import ElasticADERDG as ADERDGBase
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
@@ -32,6 +33,19 @@ class AnisotropicADERDG(ADERDGBase):
 
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
+
+    def extractTractions(self):
+        extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
+        extractTractionsSPP[0, 0] = 1
+        extractTractionsSPP[1, 0] = 1
+        extractTractionsSPP[2, 0] = 1
+        extractTractionsSPP[0, 3] = 1
+        extractTractionsSPP[1, 3] = 1
+        extractTractionsSPP[2, 3] = 1
+        extractTractionsSPP[0, 5] = 1
+        extractTractionsSPP[1, 5] = 1
+        extractTractionsSPP[2, 5] = 1
+        return extractTractionsSPP
 
 
 EQUATION_CLASS = AnisotropicADERDG

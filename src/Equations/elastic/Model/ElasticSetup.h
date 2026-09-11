@@ -199,7 +199,7 @@ struct MaterialSetup<ElasticMaterial> {
 
   static ElasticMaterial
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     ElasticMaterial& material) {
+                                     const ElasticMaterial& material) {
     return material;
   }
 

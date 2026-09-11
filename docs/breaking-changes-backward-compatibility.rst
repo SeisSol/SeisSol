@@ -119,6 +119,35 @@ The strain rate output was named just "strain" output for the off-fault receiver
 The corresponding option was likewise called :code:`ReceiverComputeStrain`,
 not :code:`ReceiverComputeStrainRate`.
 
+Poroelastic Time Basis
+~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased, `#1374 <https://github.com/SeisSol/SeisSol/pull/1374>`_, August 2025)
+
+Poroelasticity is solved with a space-time predictor, whose coefficients are expressed in a Legendre
+basis in time, while all other materials use a monomial (Taylor) basis.
+
+Up to this fix, two areas were evaluated
+with the same (monomial) basis on all cases, affecting LTS and the fault stress output.
+
+Poroelastic results may therefore differ from earlier versions.
+
+Poroelastic Dynamic Rupture Impedance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+The shear impedance of a poroelastic fault is now :math:`Z_s = \sqrt{\mu \rho_1}`, with the
+statically condensed density :math:`\rho_1 = \bar\rho - \rho_f^2 / m` that the Biot system
+propagates shear waves with, instead of the density of the solid grains. The scalar impedances used
+by the friction update, the slip accumulation and the fault receiver output now come from the same
+matrix as the Riemann solver, and the wave impedance itself is computed in closed form rather than
+from an eigendecomposition.
+
+Results of poroelastic dynamic rupture simulations change accordingly; how much depends on the
+porosity and the tortuosity. For the material values of the poroelastic test cases the impedance
+drops by 5 to 15 percent.
+
 Potency and Seismic Moment Quadrature
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

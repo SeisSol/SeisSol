@@ -125,6 +125,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   impl_->setMeshReader(&userMesher);
 
   const auto& seissolParameters = seissolInstance_.parameters();
+  impl_->setDrParameters(&seissolParameters.drParameters);
+
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
   const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
