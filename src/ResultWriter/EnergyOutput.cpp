@@ -411,7 +411,7 @@ void EnergyOutput::computeVolumeEnergies() {
         auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP krnl;
-        krnl.evalAtQP = global_->evalAtQP;
+        krnl.bindGlobals(*global_);
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();

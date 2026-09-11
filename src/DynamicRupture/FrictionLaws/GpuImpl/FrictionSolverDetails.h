@@ -56,7 +56,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
    * the process rather than once per solver.
    */
   static const TpTables& thermalPressurizationTables() {
-    static const TpTables tables = [] {
+    static const TpTables Tables = [] {
       TpTables result;
 #ifdef ACL_DEVICE
       auto& device = device::DeviceInstance::getInstance();
@@ -73,14 +73,13 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 #endif
       return result;
     }();
-    return tables;
+    return Tables;
   }
 
-  protected:
   size_t currLayerSize_{};
 
-  real* resampleMatrix_{nullptr};
-  real* devSpaceWeights_{nullptr};
+  const real* resampleMatrix_{nullptr};
+  const real* devSpaceWeights_{nullptr};
   real* devTpInverseFourierCoefficients_{nullptr};
   real* devTpGridPoints_{nullptr};
   real* devHeatSource_{nullptr};

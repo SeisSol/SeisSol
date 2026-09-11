@@ -82,25 +82,25 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Computes m = s_{ii} / 3.0 for every node
   kernel::plComputeMean cmKrnl;
+  cmKrnl.bindGlobals(*global);
   cmKrnl.meanStress = meanStress;
   cmKrnl.QStressNodal = qStressNodal;
-  cmKrnl.selectBulkAverage = init::selectBulkAverage::Values;
   cmKrnl.execute();
 
   /* Compute s_{ij} := s_{ij} - m delta_{ij},
    * where delta_{ij} = 1 if i == j else 0.
    * Thus, s_{ij} contains the deviatoric stresses. */
   kernel::plSubtractMean smKrnl;
+  smKrnl.bindGlobals(*global);
   smKrnl.meanStress = meanStress;
   smKrnl.QStressNodal = qStressNodal;
-  smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
   smKrnl.execute();
 
   // Compute I_2 = 0.5 s_{ij} s_ji for every node
   kernel::plComputeSecondInvariant siKrnl;
+  siKrnl.bindGlobals(*global);
   siKrnl.secondInvariant = secondInvariant;
   siKrnl.QStressNodal = qStressNodal;
-  siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
   siKrnl.execute();
 
 // tau := sqrt(I_2) for every node
@@ -255,6 +255,7 @@ void Plasticity::computePlasticityBatched(
     static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal m2nKrnl;
+    m2nKrnl.bindGlobals(*global);
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
     m2nKrnl.initialLoading = const_cast<const real**>(initLoad);

@@ -492,7 +492,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
                 entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtr());
-            displacementKrnl.V3mTo2nFace = globalData_.onDevice->v3mTo2nFace;
+            displacementKrnl.bindGlobals(*globalData_.onDevice);
 
             // Note: this kernel doesn't require tmp. memory
             displacementKrnl.numElements =
