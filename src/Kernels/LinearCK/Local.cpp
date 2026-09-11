@@ -56,21 +56,14 @@ namespace seissol::kernels::solver::linearck {
 void Local::setGlobalData(const CompoundGlobalData& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
-
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
-
   projectKrnlPrototype_.bindGlobals(*global.onHost);
   projectRotatedKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
-#ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
   deviceLocalFluxAllKernelPrototype_.bindGlobals(*global.onDevice);
-#else
-#endif
   deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceProjectRotatedKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif

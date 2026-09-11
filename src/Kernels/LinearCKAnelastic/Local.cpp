@@ -31,11 +31,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
-#ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
   deviceFluxLocalAllKernelPrototype_.bindGlobals(*global.onDevice);
-#else
-#endif
 #endif
 }
 

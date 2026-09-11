@@ -48,12 +48,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   drKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
-#ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype_.bindGlobals(*global.onDevice);
-#else
-#endif
   deviceDrKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }

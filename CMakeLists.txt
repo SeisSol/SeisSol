@@ -346,10 +346,6 @@ target_include_directories(seissol-common-properties SYSTEM INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
 
-if (PREMULTIPLY_FLUX)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
-endif()
-
 if (NOT NEW_BINARY_NAMING)
   # adjust prefix name of executables
   if ("${DEVICE_ARCH}" STREQUAL "none")
