@@ -10,6 +10,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/LtsSetup.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
@@ -66,7 +67,8 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
             if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Regular) {
 
               const bool isNeighbProvidesDerivatives =
-                  dataHost.get<LTS::CellInformation>().ltsSetup.neighborHasDerivatives(face);
+                  dataHost.get<LTS::CellInformation>().ltsSetup.neighborBuffer(face) ==
+                  BufferType::Derivatives;
 
               if (isNeighbProvidesDerivatives) {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter_];
@@ -74,6 +76,10 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                 const bool isGtsNeighbor =
                     dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTSRelation(face);
                 if (isGtsNeighbor) {
+
+                  // might effectively not occur anymore; but we keep it anyways (for now)
+                  // (formerly, this was due to AccumulatedIntegrals and StepIntegrals not being
+                  // allowed to coexist; so we used Derivatives instead)
 
                   idofsAddressRegistry_[neighborBuffer] = nextTempIDofsPtr;
                   gtsIDofsPtrs.push_back(nextTempIDofsPtr);
@@ -84,7 +90,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
+                integratedDofsAddressCounter_ += kernels::Solver::IntegralsSize;
               } else {
                 idofsAddressRegistry_[neighborBuffer] = neighborBuffer;
               }

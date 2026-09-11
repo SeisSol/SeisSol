@@ -36,7 +36,7 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
-  static constexpr std::size_t BuffersSize = tensor::I::size();
+  static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
 
   using LocalData = LinearLocalData;
