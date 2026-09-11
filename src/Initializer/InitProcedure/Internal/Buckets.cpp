@@ -268,17 +268,17 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
 
 #ifndef NDEBUG
   // every pointer we handed out has to have been resolved against the bucket base by now
-  const auto* bucketBase = reinterpret_cast<const uint8_t*>(buffers);
+  const auto bucketBase = reinterpret_cast<std::uintptr_t>(buffers);
   const auto bucketSize = layer.getEntrySize<LTS::Buffers>();
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t type = 0; type < BufferCount; ++type) {
       callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
         using Buf = decltype(typeHelper);
-        const auto* pointer =
-            reinterpret_cast<const uint8_t*>(layer.var<typename Buf::Type>()[cell]);
+        const auto address =
+            reinterpret_cast<std::uintptr_t>(layer.var<typename Buf::Type>()[cell]);
         const bool insideBucket =
-            pointer >= bucketBase && pointer + Buf::Size * sizeof(real) <= bucketBase + bucketSize;
-        assert(pointer == nullptr || insideBucket);
+            address >= bucketBase && address + Buf::Size * sizeof(real) <= bucketBase + bucketSize;
+        assert(address == 0 || insideBucket);
       });
     }
   }
