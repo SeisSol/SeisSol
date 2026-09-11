@@ -413,8 +413,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       }
     }
 
-    // We've used a temporary buffer -> need to accumulate update in
-    // shared buffer.
+    // We've used a step integral so far -> accumulate update if needed.
     if (data.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::AccumulatedIntegrals)) {
       assert(accumulatedIntegrals[cell] != nullptr);
 

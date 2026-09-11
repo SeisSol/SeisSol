@@ -20,11 +20,11 @@ namespace seissol {
   between ADER-DG prediction and correction.
   */
 enum class BufferType : int8_t {
-  /// the full space-time evolution (for e.g. DR, clusterLocal > clusterNeighbor)
-  Derivatives = 0,
-
   /// time-integrated dofs, over one step only (GTS-like, e.g. for clusterLocal == clusterNeighbor)
-  StepIntegrals = 1,
+  StepIntegrals = 0,
+
+  /// the full space-time evolution (for e.g. DR, clusterLocal > clusterNeighbor)
+  Derivatives = 1,
 
   /// time-integrated dofs, buffered over multiple timesteps (for clusterLocal < clusterNeighbor)
   AccumulatedIntegrals = 2,
@@ -92,6 +92,10 @@ class LtsSetup {
    */
   [[nodiscard]] constexpr auto hasBuffer(BufferType type) const -> bool {
     return test(IndexHasBuffer + static_cast<std::uint32_t>(type));
+  }
+
+  [[nodiscard]] constexpr auto hasAnyBuffer() const -> bool {
+    return getBits(IndexHasBuffer, BufferCount) != 0;
   }
 
   [[nodiscard]] constexpr auto test(std::uint32_t index) const -> bool {

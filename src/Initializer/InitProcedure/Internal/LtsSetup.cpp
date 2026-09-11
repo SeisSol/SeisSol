@@ -30,7 +30,6 @@ namespace {
 
 /**
  * Gets the lts setup in relation to the four face neighbors.
- *   Remark: Remember to perform the required normalization step.
  *
  * -------------------------------------------------------------------------------
  *
@@ -95,8 +94,7 @@ namespace {
  **/
 LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
                      const SecondaryCellLocalInformation& ownSecondary,
-                     const std::array<uint64_t, Cell::NumFaces>& neighborClusters,
-                     bool copy = false) {
+                     const std::array<uint64_t, Cell::NumFaces>& neighborClusters) {
   // reset the LTS setup
   LtsSetup ltsSetup{};
 
@@ -117,12 +115,6 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
 
       // cell is required to provide derivatives for dynamic rupture
       ltsSetup.setHasBuffer(true, BufferType::Derivatives);
-
-      if (copy) {
-        // set the buffer invalid in copy layers
-        // TODO: Minor improvements possible: Non-DR MPI-neighbor for example
-        ltsSetup.setHasBuffer(true, BufferType::AccumulatedIntegrals);
-      }
     }
     // derive the LTS setup based on the cluster ids
     else {
@@ -194,15 +186,11 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
       }
 
       // set the lts setup for this cell
-      primaryInformationLocal[cell].ltsSetup = LtsSetup(getLtsSetup(primaryInformationLocal[cell],
-                                                                    secondaryInformationLocal[cell],
-                                                                    neighborClusters,
-                                                                    isCopy));
+      primaryInformationLocal[cell].ltsSetup = getLtsSetup(
+          primaryInformationLocal[cell], secondaryInformationLocal[cell], neighborClusters);
 
-      // assert that the cell operates at least on buffers or derivatives
-      assert(primaryInformationLocal[cell].ltsSetup.hasBuffer(BufferType::StepIntegrals) ||
-             primaryInformationLocal[cell].ltsSetup.hasBuffer(BufferType::AccumulatedIntegrals) ||
-             primaryInformationLocal[cell].ltsSetup.hasBuffer(BufferType::Derivatives));
+      // assert that the cell operates at least on one buffer
+      assert(primaryInformationLocal[cell].ltsSetup.hasAnyBuffer());
     }
   }
 

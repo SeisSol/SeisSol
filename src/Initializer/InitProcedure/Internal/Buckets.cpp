@@ -120,7 +120,7 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
   }
 
   // if there are suspected correctness issues, enable
-  // bufferPresence = true;
+  // bufferPresence.fill(true);
   return bufferPresence;
 }
 
@@ -271,7 +271,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
 
     if constexpr (isDeviceOn()) {
       for (std::size_t type = 0; type < pointersDevice.size(); ++type) {
-        initBucketItem(pointersDevice[type][cell], buffersDevice, bufferSize, false);
+        initBucketItem(pointersDevice[type][cell], buffersDevice, sizes[type], false);
         assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
                    static_cast<BufferType>(type)) ||
                pointersDevice[type][cell] != nullptr ||

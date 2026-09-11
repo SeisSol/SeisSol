@@ -41,8 +41,13 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
 
     const auto* cellInformation = layer.var<LTS::CellInformation>();
 
+    // look at const pointers (instead of non-const) to make clang-tidy happy
+    std::unordered_set<const real*> registry{};
+    auto* faceNeighbors = layer.var<LTS::FaceNeighborsDevice>();
+
     std::size_t derivativesCounter{0};
-    std::size_t integratedDofsCounter{0};
+    std::size_t integratedDofsCounterLocal{0};
+    std::size_t integratedDofsCounterNeighbor{0};
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
     std::size_t numPlasticCells = 0;
@@ -59,11 +64,31 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
         ++derivativesCounter;
       }
       if (needsScratchMemForStepIntegral) {
-        ++integratedDofsCounter;
+        ++integratedDofsCounterLocal;
       }
 
       // include data provided by ghost layers
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+
+        const real* neighborBuffer = faceNeighbors[cell][face];
+
+        // check whether a neighbor element idofs has not been counted twice
+        if ((registry.find(neighborBuffer) == registry.end())) {
+
+          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
+          if (neighborBuffer != nullptr) {
+            if (cellInformation[cell].faceTypes[face] == FaceType::Regular) {
+
+              const bool isNeighbProvidesDerivatives =
+                  cellInformation[cell].ltsSetup.neighborBuffer(face) == BufferType::Derivatives;
+              if (isNeighbProvidesDerivatives) {
+                ++integratedDofsCounterNeighbor;
+              }
+              registry.insert(neighborBuffer);
+            }
+          }
+        }
+
         if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
           ++nodalDisplacementsCounter;
         }
@@ -85,6 +110,10 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
         }
       }
     }
+
+    const auto integratedDofsCounter =
+        std::max(integratedDofsCounterLocal, integratedDofsCounterNeighbor);
+
     const auto freeSurfaceCount =
         *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
     const auto dirichletCountPre =
