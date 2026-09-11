@@ -33,10 +33,6 @@ namespace seissol::kernels::solver::linearckanelastic {
 void Time::setGlobalData(const CompoundGlobalData& global) {}
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  assert((reinterpret_cast<uintptr_t>(global.onHost->kDivMT(0))) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->kDivMT(1))) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->kDivMT(2))) % Alignment == 0);
-
   krnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE

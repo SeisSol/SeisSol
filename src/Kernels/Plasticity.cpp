@@ -53,8 +53,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                           real* pstrain) {
 
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(global->v) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vInv) % Alignment == 0);
 
   alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
 

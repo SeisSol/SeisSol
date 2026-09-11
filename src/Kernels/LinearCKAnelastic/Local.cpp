@@ -26,17 +26,6 @@
 namespace seissol::kernels::solver::linearckanelastic {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-
-#ifndef NDEBUG
-  for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->kDivM(stiffness))) % Alignment == 0);
-  }
-  for (std::size_t flux = 0; flux < Cell::NumFaces; ++flux) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->fMrT(flux))) % Alignment == 0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->rDivM(flux))) % Alignment == 0);
-  }
-#endif
-
   volumeKernelPrototype_.bindGlobals(*global.onHost);
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
 

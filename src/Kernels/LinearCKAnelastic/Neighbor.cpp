@@ -25,23 +25,6 @@
 namespace seissol::kernels::solver::linearckanelastic {
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
-#ifndef NDEBUG
-  for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->rDivM(neighbor))) % Alignment == 0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->fMrT(neighbor))) % Alignment == 0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->rT(neighbor))) % Alignment == 0);
-  }
-
-  for (std::size_t h = 0; h < Cell::Dim; ++h) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->fP(h))) % Alignment == 0);
-  }
-
-  for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-    for (std::size_t h = 0; h < Cell::Dim; ++h) {
-      assert((reinterpret_cast<uintptr_t>(global.onHost->V3mTo2nTWDivM(i, h))) % Alignment == 0);
-    }
-  }
-#endif
   nfKrnlPrototype_.bindGlobals(*global.onHost);
   drKrnlPrototype_.bindGlobals(*global.onHost);
 

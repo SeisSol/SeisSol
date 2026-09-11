@@ -56,9 +56,6 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
-GENERATE_HAS_MEMBER(vInv)
-GENERATE_HAS_MEMBER(evalAtQP)
-
 namespace seissol::writer {
 
 namespace {
@@ -543,8 +540,7 @@ void EnergyOutput::computeVolumeEnergies() {
           alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject::size()]{};
 
           kernel::plProject krnl;
-          set_evalAtQP(krnl, global_->evalAtQP);
-          set_vInv(krnl, global_->vInv);
+          krnl.bindGlobals(*global_);
           krnl.QEtaNodal = qEta;
           krnl.QEtaNodalProject = qEtaQuad;
           krnl.execute();

@@ -64,8 +64,8 @@ void DynamicRupture::spaceTimeInterpolation(
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
+
   // assert alignments
-#ifndef NDEBUG
   assert(timeDerivativePlus != nullptr);
   assert(timeDerivativeMinus != nullptr);
   assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Alignment == 0);
@@ -74,7 +74,6 @@ void DynamicRupture::spaceTimeInterpolation(
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
   static_assert(tensor::Q::size() == tensor::I::size(),
                 "The tensors Q and I need to match in size");
-#endif
 
   alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
