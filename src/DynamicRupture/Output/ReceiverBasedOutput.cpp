@@ -565,6 +565,14 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
     local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
     local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
     local.transientNormalTraction -= normalUpdate;
+
+    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
+    // state through the first row of Y+. The friction solve moves that traction, and with an
+    // anisotropic admittance the two shear components move the fault-normal velocity as well.
+    constexpr std::size_t Count = tensor::Zplus::Shape[0];
+    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
+                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
+                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
   } else {
     if (tracEla > std::abs(strength)) {
       local.updatedTraction1 =
