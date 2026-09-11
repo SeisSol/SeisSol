@@ -27,49 +27,6 @@ class Zinv;
 
 namespace seissol::model {
 
-#ifdef SEISSOL_KERNELS_STP
-
-template <typename Tview>
-inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
-                     const Tview& sourceMatrix,
-                     size_t quantity,
-                     double timeStepWidth) {
-  using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
-  using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
-
-  Matrix matZ{init::Z::Values};
-  // sourceMatrix[i,i] = 0 for i < 10
-  // This is specific to poroelasticity, so change this for another equation
-  // We need this check, because otherwise the lookup sourceMatrix(quantity, quantity) fails
-  if (quantity >= 10) {
-    matZ -= timeStepWidth * sourceMatrix(quantity, quantity) * Matrix::Identity();
-  }
-
-  auto solver = matZ.colPivHouseholderQr();
-  for (std::size_t col = 0; col < ConvergenceOrder; col++) {
-    Vector rhs = Vector::Zero();
-    rhs(col) = 1.0;
-    auto zInvCol = solver.solve(rhs);
-    for (std::size_t row = 0; row < ConvergenceOrder; row++) {
-      // save as transposed
-      zInv(col, row) = zInvCol(row);
-    }
-  }
-}
-
-// constexpr for loop since we need to instatiate the view templates
-template <size_t Istart, size_t Iend, typename Tview>
-struct ZInvInitializer {
-  ZInvInitializer(real* zInvData, const Tview& sourceMatrix, real timeStepWidth) {
-    auto zInv = init::Zinv::view<Istart>::create(zInvData);
-    calcZinv(zInv, sourceMatrix, Istart, timeStepWidth);
-    if constexpr (Istart < Iend - 1) {
-      auto* nextZInvData = zInvData + init::Zinv::size(Istart);
-      ZInvInitializer<Istart + 1, Iend, Tview>(nextZInvData, sourceMatrix, timeStepWidth);
-    }
-  };
-};
-
 struct AdditionalPoroelasticParameters {
   Eigen::Matrix<double, 6, 1> alpha;
   // NOLINTNEXTLINE
@@ -115,8 +72,6 @@ inline AdditionalPoroelasticParameters
 
   return {alpha, cKBar, cM, m, cBar, rhoBar, rho1, rho2, beta1, beta2};
 }
-
-#endif
 
 } // namespace seissol::model
 #endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_HELPER_H_

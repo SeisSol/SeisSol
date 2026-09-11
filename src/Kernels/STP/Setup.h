@@ -8,20 +8,76 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SETUP_H_
 #define SEISSOL_SRC_KERNELS_STP_SETUP_H_
 
-#include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/STP/Solver.h"
 #include "Model/Common.h"
 
+#include <Eigen/Dense>
+#include <algorithm>
 #include <cstddef>
+#include <yateto.h>
 
 namespace seissol::model {
 
+/// True if the predictor has to factorise this row separately.
+template <typename MaterialT>
+constexpr bool isStiffRow(std::size_t quantity) {
+  for (const auto& row : MaterialT::StiffSourceRows) {
+    if (row.quantity == quantity) {
+      return true;
+    }
+  }
+  return false;
+}
+
+template <typename Tview>
+inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
+                     const Tview& sourceMatrix,
+                     size_t quantity,
+                     bool isStiff,
+                     double timeStepWidth) {
+  using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
+  using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
+
+  Matrix matZ{init::Z::Values};
+  // Only a stiff row carries a diagonal source entry. The check is not
+  // cosmetic: for every other row the source matrix has no entry at
+  // (quantity, quantity), so the lookup itself would be out of pattern.
+  if (isStiff) {
+    matZ -= timeStepWidth * sourceMatrix(quantity, quantity) * Matrix::Identity();
+  }
+
+  auto solver = matZ.colPivHouseholderQr();
+  for (std::size_t col = 0; col < ConvergenceOrder; col++) {
+    Vector rhs = Vector::Zero();
+    rhs(col) = 1.0;
+    auto zInvCol = solver.solve(rhs);
+    for (std::size_t row = 0; row < ConvergenceOrder; row++) {
+      // save as transposed
+      zInv(col, row) = zInvCol(row);
+    }
+  }
+}
+
+// constexpr for loop since we need to instatiate the view templates
+template <typename MaterialT, size_t Istart, size_t Iend, typename Tview>
+struct ZInvInitializer {
+  ZInvInitializer(real* zInvData, const Tview& sourceMatrix, real timeStepWidth) {
+    auto zInv = init::Zinv::view<Istart>::create(zInvData);
+    calcZinv(zInv, sourceMatrix, Istart, isStiffRow<MaterialT>(Istart), timeStepWidth);
+    if constexpr (Istart < Iend - 1) {
+      auto* nextZInvData = zInvData + init::Zinv::size(Istart);
+      ZInvInitializer<MaterialT, Istart + 1, Iend, Tview>(
+          nextZInvData, sourceMatrix, timeStepWidth);
+    }
+  };
+};
+
 /**
- * The space-time predictor peels the stiff rows of the source term into a
- * factorisation of its own, so the per-cell data holds those rows and the
- * inverses that go with them. Which rows they are is still written out here;
- * it ought to come from the material.
+ * The space-time predictor factorises the stiff rows of the source term
+ * separately, so the per-cell data holds the inverses that go with them and
+ * the off-diagonal entries they feed back. Which rows those are comes from the
+ * material.
  */
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::stp::Solver, MaterialT>
@@ -33,12 +89,13 @@ struct SolverSetup<kernels::solver::stp::Solver, MaterialT>
     sourceMatrix.setZero();
     MaterialSetup<MaterialT>::getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-    ZInvInitializer<0, PoroElasticMaterial::NumQuantities, decltype(sourceMatrix)>(
+    ZInvInitializer<MaterialT, 0, MaterialT::NumQuantities, decltype(sourceMatrix)>(
         localData->Zinv, sourceMatrix, timeStepWidth);
-    std::fill(localData->G, localData->G + PoroElasticMaterial::NumQuantities, 0.0);
-    localData->G[10] = sourceMatrix(10, 6);
-    localData->G[11] = sourceMatrix(11, 7);
-    localData->G[12] = sourceMatrix(12, 8);
+
+    std::fill(localData->G, localData->G + MaterialT::NumQuantities, 0.0);
+    for (const auto& row : MaterialT::StiffSourceRows) {
+      localData->G[row.quantity] = sourceMatrix(row.quantity, row.target);
+    }
 
     localData->typicalTimeStepWidth = timeStepWidth;
   }

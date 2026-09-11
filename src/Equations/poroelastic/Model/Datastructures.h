@@ -48,6 +48,10 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   /// Where the velocity components start. Everything reaching for them --
   /// energy output, point sources, initial fields -- goes through this.
+  /// The fluid velocities relax against the solid ones through Biot drag.
+  static constexpr std::array StiffSourceRows{
+      StiffSourceRow{10, 6}, StiffSourceRow{11, 7}, StiffSourceRow{12, 8}};
+
   static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
   /// Components of the mechanical traction, i.e. the stress-like quantities
   /// dynamic rupture and plasticity operate on.

@@ -57,6 +57,10 @@ class PoroelasticADERDG(STP):
     def sourceMatrix(self):
         return self.db.ET
 
+    def stiffSourceRows(self):
+        # The fluid velocities relax against the solid ones through Biot drag.
+        return [(10, 6, "Gk"), (11, 7, "Gl"), (12, 8, "Gm")]
+
     def name(self):
         return "poroelastic"
 

@@ -40,9 +40,22 @@ enum class LocalSolver {
   SpaceTimePredictorPoroelastic
 };
 
+/**
+ * A source row stiff enough that a space-time predictor has to factorise it
+ * separately: it carries a damping term on the diagonal and feeds one other
+ * quantity through an off-diagonal entry.
+ */
+struct StiffSourceRow {
+  std::size_t quantity;
+  std::size_t target;
+};
+
 struct Material {
   static constexpr std::size_t NumQuantities = 0;      // ?
   static constexpr std::size_t NumberPerMechanism = 0; // ?
+  /// Materials whose source term is not stiff declare none.
+  static constexpr std::array<StiffSourceRow, 0> StiffSourceRows{};
+
   static constexpr std::size_t VelocityOffset = 0;
   static constexpr std::size_t TractionComponents = 0;
   static constexpr std::size_t Mechanisms = 0;                // ?

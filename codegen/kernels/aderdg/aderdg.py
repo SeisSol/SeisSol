@@ -219,6 +219,12 @@ class ADERDGBase(ABC):
     def starMatrix(self, dim):
         return self.db.star[dim]
 
+    def stiffSourceRows(self):
+        """Source rows a space-time predictor has to factorise separately, as
+        (quantity, target, scalar name). Empty unless the source term is
+        stiff."""
+        return []
+
     def mapToVelocities(self):
         return self.extractVelocities().T
 

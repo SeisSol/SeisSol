@@ -9,7 +9,6 @@ import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
-from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
 
 from .linearck import LinearCK
 
@@ -25,8 +24,8 @@ class STP(LinearCK):
     Space-time predictor for ADER-DG. The volume and flux kernels
     are the same as in the LinearCK case.
 
-    FIXME: currently hard-coded to poroelasticity. To fix, just replace
-    G by something more general, and slice.
+    The stiff source rows are factorised separately and substituted back
+    through G; which rows those are comes from the equation, not from here.
     """
 
     def __init__(
@@ -40,17 +39,9 @@ class STP(LinearCK):
     ):
 
         super().__init__(order, multipleSimulations, matricesDir)
-        clones = {
-            "star": ["star(0)", "star(1)", "star(2)"],
-        }
-        self.db.update(
-            parseJSONMatrixFile(f"{matricesDir}/equation-poroelastic.json", clones)
+        self.configure(
+            matricesDir, memLayout, kwargs, extra=[f"{matricesDir}/stp_{order}.json"]
         )
-        self.db.update(parseJSONMatrixFile(f"{matricesDir}/stp_{order}.json", clones))
-
-        memoryLayoutFromFile(memLayout, self.db, clones)
-
-        self.kwargs = kwargs
 
     def numExtendedQuantities(self):
         return self.numQuantities()
@@ -140,17 +131,15 @@ class STP(LinearCK):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
+            stiffRows = {
+                q: (target_q, name) for q, target_q, name in self.stiffSourceRows()
+            }
             if target == "cpu":
-                G = {10: Scalar("Gk"), 11: Scalar("Gl"), 12: Scalar("Gm")}
+                G = {q: Scalar(name) for q, (_, name) in stiffRows.items()}
                 OptTimestep = lambda x: x
             else:
-                Gkt = Tensor("Gkt", ())
-                Glt = Tensor("Glt", ())
-                Gmt = Tensor("Gmt", ())
                 G = {
-                    10: Gkt[""],
-                    11: Glt[""],
-                    12: Gmt[""],
+                    q: Tensor(f"{name}t", ())[""] for q, (_, name) in stiffRows.items()
                 }
 
                 # needed due to a current Yateto bug not allowing e.g. (Gkt * timestep)
@@ -175,11 +164,11 @@ class STP(LinearCK):
                         .subslice("p", o, o + 1)
                         * Zinv(o)["ut"]
                     )
-                    # G only has one relevant non-zero entry in each iteration, so we make it a scalar
-                    # G[o] = E[o-4, o] * timestep
-                    # In addition E only has non-zero entries, if o > 10
-                    if o >= 10:
-                        o2 = o - 4
+                    # G has one relevant non-zero entry per stiff row, so it is a
+                    # scalar: G[o] = E[target, o] * timestep. Rows that are not
+                    # stiff contribute nothing.
+                    if o in stiffRows:
+                        o2 = stiffRows[o][0]
                         kernels.append(
                             spaceTimePredictorRhs["kpt"]
                             .subslice("k", *modeRange(n))
