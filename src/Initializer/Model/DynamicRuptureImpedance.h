@@ -119,7 +119,7 @@ inline Eigen::Matrix3d christoffelMatrix(const seissol::model::AnisotropicMateri
  *   [d sigma_ss; d sigma_dd; d sigma_sd] = C[{2,3,4},{1,6,5}] * Gamma^-1 * [traction difference].
  *
  * For an isotropic material this reduces to d sigma_ss = d sigma_dd = d sigma_nn * (1 - 2
- * (cs/cp)^2) and d sigma_sd = 0, which is what the fault output used before.
+ * (cs/cp)^2) and d sigma_sd = 0.
  */
 inline Eigen::Matrix3d
     lateralStressFromChristoffel(const seissol::model::AnisotropicMaterial& materialLocal) {

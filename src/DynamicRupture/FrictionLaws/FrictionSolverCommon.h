@@ -728,8 +728,8 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
                [[maybe_unused]] real t2,
                [[maybe_unused]] real tmag) {
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    constexpr std::uint32_t Count =
-        model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
+    // the anisotropic block is always 3x3 (no fluid pressure component)
+    constexpr std::uint32_t Count = 3;
 
     const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
     const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
@@ -794,8 +794,8 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
               real v1,
               real v2) {
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    constexpr std::uint32_t Count =
-        model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
+    // the anisotropic block is always 3x3 (no fluid pressure component)
+    constexpr std::uint32_t Count = 3;
 
     const real w1 =
         impedanceMatrices.eta[Count * 1 + 1] * v1 + impedanceMatrices.eta[Count * 1 + 2] * v2;

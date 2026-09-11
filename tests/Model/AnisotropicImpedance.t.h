@@ -247,7 +247,7 @@ TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
 // ---------------------------------------------------------------------------
 // 4. Reconstruction of the stress components outside the fault-normal Riemann problem, used by
 //    the fault receiver output. Checked against the direct plane-wave stress, and against the
-//    1 - 2 (cs/cp)^2 formula the output used before.
+//    isotropic 1 - 2 (cs/cp)^2 formula.
 // ---------------------------------------------------------------------------
 TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dynamicrupture")) {
   using seissol::initializer::model::DrLateralMatrix;
