@@ -21,6 +21,4 @@ ViscoacousticADERDG, ViscoacousticAnelasticADERDG = visco_classes(
 
 
 def kernel_class(**kwargs):
-    return select(
-        ViscoacousticADERDG, ViscoacousticAnelasticADERDG, kwargs["visco_mode"]
-    )
+    return select(ViscoacousticADERDG, ViscoacousticAnelasticADERDG, kwargs["solver"])

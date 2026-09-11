@@ -13,7 +13,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/LinearCK/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -33,6 +33,12 @@ struct AnisotropicMaterial : public Material {
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+  /// The scheme this build advances cells with. The material does not pick
+  /// it; which combinations are allowed is checked when the build is
+  /// configured. It cannot live on the base material, because Config.h
+  /// includes CommonDatastructures.h.
+  using Solver = kernels::SolverSelector<Config::Solver>::Type;
+
   static constexpr auto PrimaryGroups = ElasticQuantities;
   static constexpr auto RotationGroups = PrimaryGroups;
   static constexpr auto InverseRotationGroups = PrimaryGroups;
@@ -52,7 +58,6 @@ struct AnisotropicMaterial : public Material {
 
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
-  using Solver = kernels::solver::linearck::Solver;
 
   using EnergyData = AnisotropicEnergyData;
 

@@ -71,7 +71,7 @@ def main():
     cmdLineParser.add_argument("--executable_libxsmm", default="")
     cmdLineParser.add_argument("--executable_pspamm", default="")
     cmdLineParser.add_argument(
-        "--visco_mode", type=str, choices=["none", "split", "extend"]
+        "--solver", type=str, choices=["linearck", "linearckanelastic", "stp"]
     )
 
     # "dry run" parameter for use directly in CMake (before building)

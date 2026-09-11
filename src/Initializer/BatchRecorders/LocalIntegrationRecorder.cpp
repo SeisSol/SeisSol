@@ -116,7 +116,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // stars
       localPtrs[cell] = reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>());
-      if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+      if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
         auto* dofsAne = currentLayer_->var<LTS::DofsAne>(AllocationPlace::Device);
         dofsAnePtrs[cell] = dofsAne[cell];
 
@@ -173,7 +173,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsForLtsBuffers);
     }
 
-    if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+    if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
       (*currentTable_)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
@@ -208,7 +208,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         idofsPtrs.push_back(idofsAddressRegistry_[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
-        if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
           dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell);
         }
@@ -222,7 +222,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
-      if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+      if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
         (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
       }
     }

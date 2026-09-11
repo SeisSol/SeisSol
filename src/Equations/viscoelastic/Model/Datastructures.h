@@ -18,8 +18,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/PreProcessorMacros.h"
-#include "Kernels/LinearCK/Solver.h"
-#include "Kernels/LinearCKAnelastic/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -33,21 +32,6 @@
 
 namespace seissol::model {
 
-template <ViscoImplementation Implementation>
-struct ViscoSolver {
-  using Type = kernels::solver::linearck::Solver;
-};
-
-template <>
-struct ViscoSolver<ViscoImplementation::QuantityExtension> {
-  using Type = kernels::solver::linearck::Solver;
-};
-
-template <>
-struct ViscoSolver<ViscoImplementation::AnelasticTensor> {
-  using Type = kernels::solver::linearckanelastic::Solver;
-};
-
 template <std::size_t MechanismsP>
 struct ViscoElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 6;
@@ -59,6 +43,12 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumElasticQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+  /// The scheme this build advances cells with. The material does not pick
+  /// it; which combinations are allowed is checked when the build is
+  /// configured. It cannot live on the base material, because Config.h
+  /// includes CommonDatastructures.h.
+  using Solver = kernels::SolverSelector<Config::Solver>::Type;
+
   static constexpr auto PrimaryGroups = ElasticQuantities;
   static constexpr auto MechanismGroups = ElasticMechanismQuantities;
 
@@ -75,14 +65,14 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
-  static constexpr ViscoImplementation ViscoMode = Config::ViscoMode;
-
   /// The fused layout carries one anelastic block per mechanism on the
   /// quantity axis. The split layout keeps the mechanism index in a separate
   /// tensor dimension: the forward rotation still reaches a single anelastic
   /// block, because the flux solver contracts over it, but the inverse is
   /// never applied there and spans the elastic quantities alone.
-  static constexpr bool Fused = ViscoMode == ViscoImplementation::QuantityExtension;
+  /// Whether the memory variables share the quantity axis with the elastic
+  /// quantities, which is a property of the solver rather than the material.
+  static constexpr bool Fused = Config::Solver == SolverType::LinearCK;
   static constexpr std::size_t RotationRepetitions = Fused ? Mechanisms : 1;
   static constexpr std::size_t InverseRotationRepetitions = Fused ? Mechanisms : 0;
   static constexpr auto RotationGroups =
@@ -92,8 +82,6 @@ struct ViscoElasticMaterial : public ElasticMaterial {
 
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
-
-  using Solver = ViscoSolver<ViscoMode>::Type;
 
   using EnergyData = std::monostate;
 

@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Kernels/STP/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -41,6 +41,12 @@ struct PoroElasticMaterial : public ElasticMaterial {
                                                                         "v1_f",
                                                                         "v2_f",
                                                                         "v3_f"};
+  /// The scheme this build advances cells with. The material does not pick
+  /// it; which combinations are allowed is checked when the build is
+  /// configured. It cannot live on the base material, because Config.h
+  /// includes CommonDatastructures.h.
+  using Solver = kernels::SolverSelector<Config::Solver>::Type;
+
   static constexpr auto PrimaryGroups =
       detail::concat(ElasticQuantities, PoroelasticExtraQuantities);
   static constexpr auto RotationGroups = PrimaryGroups;
@@ -65,7 +71,6 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
-  using Solver = kernels::solver::stp::Solver;
 
   using EnergyData = std::monostate;
 

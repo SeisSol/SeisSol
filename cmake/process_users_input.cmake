@@ -63,9 +63,22 @@ set(EQUATIONS "elastic" CACHE STRING "Equation set used")
 set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic viscoacoustic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
-set(VISCO_MODE "split" CACHE STRING "")
-set(VISCO_MODE_OPTIONS "split" "extend")
+set(VISCO_MODE "" CACHE STRING "Deprecated alias for SOLVER; use SOLVER instead")
+set(VISCO_MODE_OPTIONS "" "split" "extend")
 set_property(CACHE VISCO_MODE PROPERTY STRINGS ${VISCO_MODE_OPTIONS})
+
+set(SOLVER "auto" CACHE STRING "Scheme that advances a cell in time")
+set(SOLVER_OPTIONS auto linearck linearckanelastic stp)
+set_property(CACHE SOLVER PROPERTY STRINGS ${SOLVER_OPTIONS})
+
+# Which solvers each equation set can be built with, and which one it takes by
+# default. The mapping is fixed, but it lives here rather than in the material.
+set(SOLVERS_acoustic      linearck)
+set(SOLVERS_elastic       linearck)
+set(SOLVERS_anisotropic   linearck)
+set(SOLVERS_poroelastic   stp)
+set(SOLVERS_viscoelastic  linearckanelastic linearck)
+set(SOLVERS_viscoacoustic linearckanelastic linearck)
 
 
 set(HOST_ARCH "auto" CACHE STRING "Type of host architecture")
@@ -171,6 +184,41 @@ check_parameter("DEVICE_BACKEND" ${DEVICE_BACKEND} "${DEVICE_BACKEND_OPTIONS};hi
 # NOTE: do not check GPU arch correctness here
 
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
+
+check_parameter("SOLVER" ${SOLVER} "${SOLVER_OPTIONS}")
+
+if (NOT VISCO_MODE STREQUAL "")
+  if (NOT SOLVER STREQUAL "auto")
+    message(FATAL_ERROR "Set either SOLVER or the deprecated VISCO_MODE, not both.")
+  endif()
+  message(DEPRECATION "VISCO_MODE is deprecated; use SOLVER instead.")
+  if (VISCO_MODE STREQUAL "extend")
+    set(SOLVER "linearck")
+  else()
+    set(SOLVER "linearckanelastic")
+  endif()
+endif()
+
+set(_allowed_solvers ${SOLVERS_${EQUATIONS}})
+if (NOT _allowed_solvers)
+  message(FATAL_ERROR "No solver is declared for EQUATIONS=${EQUATIONS}.")
+endif()
+
+if (SOLVER STREQUAL "auto")
+  list(GET _allowed_solvers 0 SOLVER)
+elseif (NOT SOLVER IN_LIST _allowed_solvers)
+  if (EQUATIONS MATCHES "visco.?" AND SOLVER STREQUAL "stp")
+    message(FATAL_ERROR
+      "SOLVER=stp cannot be combined with ${EQUATIONS} yet: the space-time "
+      "predictor substitutes one entry per stiff source row, and relaxation "
+      "needs several per row.")
+  endif()
+  message(FATAL_ERROR
+    "SOLVER=${SOLVER} cannot be combined with EQUATIONS=${EQUATIONS}. "
+    "Available: ${_allowed_solvers}.")
+endif()
+
+message(STATUS "Solver: ${SOLVER}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")

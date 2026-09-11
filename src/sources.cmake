@@ -37,7 +37,7 @@ if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
-  if (VISCO_MODE STREQUAL "split")
+  if (SOLVER STREQUAL "linearckanelastic")
     target_sources(seissol-lib PRIVATE
       Kernels/LinearCKAnelastic/Neighbor.cpp
       Kernels/LinearCKAnelastic/Local.cpp

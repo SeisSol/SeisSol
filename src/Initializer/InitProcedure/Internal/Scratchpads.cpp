@@ -119,7 +119,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    NodalDisplacementsSize * sizeof(real));
 
-    if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+    if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
       layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * kernels::size<tensor::Iane>() *
                                                sizeof(real));
       layer.setEntrySize<LTS::DerivativesExtScratch>(

@@ -154,7 +154,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
               idofsAddressRegistry_[neighborBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-          if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+          if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
             regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
                                                          kernels::size<tensor::Qext>() * cell);
           }
@@ -169,7 +169,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
-        if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
                                                   kernels::size<tensor::Qext>() * cell);
         }
@@ -210,7 +210,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
                                   regularPeriodicDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
                                   regularPeriodicAminusT[face][faceRelation]);
-        if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt,
                                     regularDofsExt[face][faceRelation]);
         }
@@ -227,7 +227,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
-        if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
         }
       }

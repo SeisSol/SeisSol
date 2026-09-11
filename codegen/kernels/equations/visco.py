@@ -146,11 +146,11 @@ def visco_classes(equation_name, primary_groups, mechanism_groups):
     return Fused, Split
 
 
-def select(fused, split, visco_mode):
-    """Picks the class the requested VISCO_MODE asks for."""
-    mode = visco_mode.lower()
-    if mode == "extend":
+def select(fused, split, solver):
+    """Picks the class the configured solver asks for."""
+    name = solver.lower()
+    if name == "linearck":
         return fused
-    if mode == "split":
+    if name == "linearckanelastic":
         return split
-    raise NotImplementedError(f"Unknown visco_mode {visco_mode}.")
+    raise NotImplementedError(f"{solver} cannot advance a material with relaxation.")
