@@ -25,6 +25,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
+#include "Monitoring/Metric.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Settings.h"
 #include "SourceTerm/Typedefs.h"
@@ -100,7 +101,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   seissol::kernels::PointSourceClusterPair sourceCluster_;
 
-  enum class ComputePart : int {
+  enum class ComputePart : std::size_t {
     Local = 0,
     Neighbor,
     DRNeighbor,
@@ -111,8 +112,9 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero_{};
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware_{};
+  std::array<PerformanceEstimate, static_cast<std::size_t>(ComputePart::NumComputeParts)>
+      estimate_{};
+  std::array<std::size_t, static_cast<std::size_t>(ComputePart::NumComputeParts)> perfHandle_{};
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics_;
@@ -190,16 +192,12 @@ class TimeCluster : public AbstractTimeCluster {
   template <bool UsePlasticity, bool IntegrateOutput>
   void computeNeighboringIntegrationImplementation(double subTimeStart);
 
-  void computeLocalIntegrationFlops(unsigned numberOfCells,
-                                    const CellLocalInformation* cellInformation,
-                                    std::uint64_t& nonZeroFlops,
-                                    std::uint64_t& hardwareFlops);
+  PerformanceEstimate computeLocalIntegrationFlops(std::size_t numberOfCells,
+                                                   const CellLocalInformation* cellInformation);
 
   void computeNeighborIntegrationFlops();
 
-  void computeDynamicRuptureFlops(DynamicRupture::Layer& layerData,
-                                  std::uint64_t& nonZeroFlops,
-                                  std::uint64_t& hardwareFlops);
+  PerformanceEstimate computeDynamicRuptureFlops(DynamicRupture::Layer& layerData);
 
   void computeFlops();
 
@@ -219,6 +217,8 @@ class TimeCluster : public AbstractTimeCluster {
   unsigned int profilingId_;
 
   DynamicRuptureScheduler* dynamicRuptureScheduler_;
+
+  void incrementPerformanceMetrics(ComputePart part);
 
   protected:
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;

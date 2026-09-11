@@ -17,9 +17,11 @@
 #include <PUML/PUML.h>
 #include <PUML/Topology.h>
 
-namespace seissol::initializer::time_stepping {
-class LtsWeights;
-} // namespace seissol::initializer::time_stepping
+namespace seissol::initializer {
+class Clustering;
+struct ClusteringResult;
+class VertexWeightModel;
+} // namespace seissol::initializer
 
 namespace seissol::geometry {
 constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
@@ -53,7 +55,8 @@ class PUMLReader : public seissol::geometry::MeshReader {
                  seissol::initializer::parameters::BoundaryFormat::I32,
              seissol::initializer::parameters::TopologyFormat topologyFormat =
                  seissol::initializer::parameters::TopologyFormat::Geometric,
-             initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
+             initializer::Clustering* clustering = nullptr,
+             initializer::VertexWeightModel* weightModel = nullptr,
              double tpwgt = 1.0);
 
   bool inlineTimestepCompute() const override;
@@ -73,7 +76,8 @@ class PUMLReader : public seissol::geometry::MeshReader {
    */
   static void partition(PumlMesh& meshTopology,
                         PumlMesh& meshGeometry,
-                        initializer::time_stepping::LtsWeights* ltsWeights,
+                        const initializer::ClusteringResult* clustering,
+                        initializer::VertexWeightModel* weightModel,
                         double tpwgt,
                         const std::string& partitioningLib);
   /**

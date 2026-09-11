@@ -7,11 +7,10 @@
 #ifndef SEISSOL_SRC_COMMON_SEGMENTMAP_H_
 #define SEISSOL_SRC_COMMON_SEGMENTMAP_H_
 
-#include <cmath>
+#include <iterator>
+#include <limits>
 #include <map>
-#include <numeric>
 #include <optional>
-#include <utility>
 #include <utils/logger.h>
 
 namespace seissol {
@@ -24,7 +23,9 @@ namespace seissol {
     Add the start and end range points for each value.
     Add sentinel (i.e. empty optional) ranges to fill the rest.
 
-    Query via upper_bound and lower_bound
+    Invariants: numeric_limits<KeyT>::min() and numeric_limits<KeyT>::max() are always keys, and a
+    key covers the half-open interval (predecessor key, key]. Hence lower_bound() never returns
+    end() for any key, and it is the only lookup a query needs.
  */
 template <typename KeyT, typename ValueT>
 class SegmentMap {
@@ -45,15 +46,23 @@ class SegmentMap {
       logError() << "Invalid range:" << trueStart << "to" << trueEnd;
     }
 
-    // check if we're empty first (i.e. look for a lower bound; then increment once; we should be
-    // outside the interval again)
+    // the first key at or above trueEnd covers trueEnd itself; a value there means we overlap
     const auto lb = ranges_.lower_bound(trueEnd);
-    const auto pb = std::prev(lb);
+    const auto occupiedAbove = lb->second.has_value();
 
-    if ((lb->first == trueEnd && lb->second.has_value()) || pb->first > trueStart ||
-        (pb->first == trueStart && pb->second.has_value())) {
+    // any key inside [trueStart, trueEnd) delimits a neighboring range; it may only sit exactly on
+    // trueStart, and only as a sentinel. lb == begin() means trueEnd, and hence trueStart as well,
+    // is the smallest representable key -- there is nothing below it to look at.
+    const auto occupiedBelow = [&]() {
+      if (lb == ranges_.begin()) {
+        return false;
+      }
+      const auto pb = std::prev(lb);
+      return pb->first > trueStart || (pb->first == trueStart && pb->second.has_value());
+    }();
+
+    if (occupiedAbove || occupiedBelow) {
       logError() << "Map error: range not empty." << trueStart << "to" << trueEnd;
-      throw;
     }
 
     // insert the ranges and sentinel ranges. Also take care of any overflows/underflows that could
@@ -61,13 +70,13 @@ class SegmentMap {
 
     ranges_[trueEnd] = type;
     if (trueEnd < std::numeric_limits<KeyT>::max()) {
-      const auto pos = trueEnd + 1;
+      const auto pos = static_cast<KeyT>(trueEnd + 1);
       ranges_.try_emplace(pos);
     }
 
     ranges_[trueStart] = type;
     if (trueStart > std::numeric_limits<KeyT>::min()) {
-      const auto pos = trueStart - 1;
+      const auto pos = static_cast<KeyT>(trueStart - 1);
       ranges_.try_emplace(pos);
     }
   }
@@ -82,19 +91,7 @@ class SegmentMap {
    */
   [[nodiscard]] std::optional<ValueT> at(KeyT index) const {
     // (ab)use a std::map as a sort of segment tree; to support ranges
-    const auto exact = ranges_.find(index);
-    const auto upper = ranges_.upper_bound(index);
-    const auto lower = ranges_.lower_bound(index);
-
-    if (exact != ranges_.end()) {
-      return exact->second;
-    } else if (upper->second == lower->second) {
-      return lower->second;
-    } else {
-      // error (we should not end up here)
-      logError() << "Map error: internal issue.";
-      throw;
-    }
+    return ranges_.lower_bound(index)->second;
   }
 
   private:

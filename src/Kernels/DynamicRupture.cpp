@@ -18,6 +18,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <cassert>
@@ -25,6 +26,7 @@
 #include <stdint.h>
 #include <utils/logger.h>
 #include <yateto.h>
+#include <yateto/InitTools.h>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -165,27 +167,35 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 #endif
 }
 
-void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
-                                       std::uint64_t& nonZeroFlops,
-                                       std::uint64_t& hardwareFlops) {
-  timeKernel_.flopsEvaluate(nonZeroFlops, hardwareFlops);
+PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) const {
+  if (isDeviceOn()) {
+    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(faceInfo.plusSide,
+                                                                                0) +
+           PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(
+               faceInfo.minusSide, faceInfo.faceRelation);
+  } else {
+    auto estimate = timeKernel_.metrics();
 
-  // 2x evaluateTaylorExpansion
-  nonZeroFlops *= 2;
-  hardwareFlops *= 2;
+    // 2x evaluateTaylorExpansion
+    estimate *= 2;
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
-      faceInfo.plusSide, 0);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
-      faceInfo.plusSide, 0);
+    estimate += PerformanceEstimate::fromKernel<
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.plusSide, 0);
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
-      faceInfo.minusSide, faceInfo.faceRelation);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
-      faceInfo.minusSide, faceInfo.faceRelation);
+    estimate += PerformanceEstimate::fromKernel<
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.minusSide,
+                                                                         faceInfo.faceRelation);
 
-  nonZeroFlops *= dr::misc::TimeSteps;
-  hardwareFlops *= dr::misc::TimeSteps;
+    estimate *= dr::misc::TimeSteps;
+
+    // legacy CPU memory estimate
+    estimate.bytes =
+        (tensor::TinvT::size() + tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
+         yateto::computeFamilySize<tensor::dQ>() * 2) *
+        sizeof(real);
+
+    return estimate;
+  }
 }
 
 } // namespace seissol::kernels

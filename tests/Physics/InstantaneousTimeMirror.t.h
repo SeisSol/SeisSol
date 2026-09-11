@@ -15,7 +15,8 @@
 namespace seissol::unit_test {
 
 TEST_CASE("Anisotropic Instantaneous Time Mirror supports only BothWaves reflection type" *
-          doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>)) {
+          doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) *
+          doctest::test_suite("physics")) {
   using seissol::initializer::parameters::ReflectionType;
 
   CHECK(seissol::physics::isAnisotropicReflectionTypeSupported(ReflectionType::BothWaves));
@@ -25,7 +26,8 @@ TEST_CASE("Anisotropic Instantaneous Time Mirror supports only BothWaves reflect
       seissol::physics::isAnisotropicReflectionTypeSupported(ReflectionType::BothWavesVelocity));
 }
 
-TEST_CASE("Instantaneous Time Mirror Swave lambda scaling matches implementation formula") {
+TEST_CASE("Instantaneous Time Mirror Swave lambda scaling matches implementation formula" *
+          doctest::test_suite("physics")) {
   const double lambda = 8.0;
   const double mu = 3.0;
   const double velocityScalingFactor = 2.0;
@@ -36,7 +38,8 @@ TEST_CASE("Instantaneous Time Mirror Swave lambda scaling matches implementation
         AbsApprox(expected).epsilon(1.0e-15));
 }
 
-TEST_CASE("Elastic Instantaneous Time Mirror time-step scaling depends on reflection type") {
+TEST_CASE("Elastic Instantaneous Time Mirror time-step scaling depends on reflection type" *
+          doctest::test_suite("physics")) {
   using seissol::initializer::parameters::ReflectionType;
 
   const double velocityScalingFactor = 2.5;

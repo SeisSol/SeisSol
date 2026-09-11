@@ -31,7 +31,10 @@ inline T gaussianNucleation(T time, T dt, T tau) {
   return step(time) - step(time - dt);
 }
 
-TEST_CASE_TEMPLATE("Gaussian Nucleation Function", RealT, float, double) {
+TEST_CASE_TEMPLATE("Gaussian Nucleation Function" * doctest::test_suite("numerical"),
+                   RealT,
+                   float,
+                   double) {
   constexpr RealT Dt = 0.01;
   constexpr RealT Epsilon = 1e-4;
   for (const RealT effectiveRiseTime : {0.8, 1.0}) {

@@ -23,7 +23,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Variable Subsampler") {
+TEST_CASE("Variable Subsampler" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = std::numeric_limits<real>::epsilon() * 1e1;
 
   // NOLINTNEXTLINE (-cert-dcl59-cpp)
@@ -75,7 +75,7 @@ TEST_CASE("Variable Subsampler") {
       subsampler.get(dofs.data(), cellMap.data(), var, &outDofs[var * SubTriangles]);
     }
     for (std::size_t i = 0; i < Quantities * SubTriangles; ++i) {
-      REQUIRE(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(Epsilon));
+      CHECK(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(Epsilon));
     }
   };
 }

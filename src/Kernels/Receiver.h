@@ -18,6 +18,7 @@
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
+#include "Monitoring/Metric.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
@@ -116,8 +117,8 @@ class ReceiverCluster {
   seissol::kernels::Spacetime spacetimeKernel_;
   seissol::kernels::Time timeKernel_;
   std::vector<std::size_t> quantities_;
-  std::uint64_t nonZeroFlops_{};
-  std::uint64_t hardwareFlops_{};
+  PerformanceEstimate estimate_{};
+  std::size_t perfHandle_{};
   double samplingInterval_;
   double syncPointInterval_;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities_;

@@ -32,16 +32,16 @@ class MockReader2 : public seissol::geometry::MeshReader {
   }
 };
 
-TEST_CASE("MeshReader") {
+TEST_CASE("MeshReader" * doctest::test_suite("geometry")) {
   SUBCASE("No DR") {
     MockReader2 rdr(FaceType::DynamicRupture);
 
     rdr.disableDR();
 
-    REQUIRE(rdr.getElements()[0].boundaries[0] == FaceType::Regular);
-    REQUIRE(rdr.getElements()[0].boundaries[1] == FaceType::Regular);
-    REQUIRE(rdr.getElements()[0].boundaries[2] == FaceType::Regular);
-    REQUIRE(rdr.getElements()[0].boundaries[3] == FaceType::Regular);
+    CHECK(rdr.getElements()[0].boundaries[0] == FaceType::Regular);
+    CHECK(rdr.getElements()[0].boundaries[1] == FaceType::Regular);
+    CHECK(rdr.getElements()[0].boundaries[2] == FaceType::Regular);
+    CHECK(rdr.getElements()[0].boundaries[3] == FaceType::Regular);
   }
 }
 

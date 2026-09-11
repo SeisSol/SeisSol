@@ -10,7 +10,17 @@
 
 #include "Parallel/MPI.h"
 
+// NOLINTNEXTLINE
+extern long long libxsmm_num_total_flops;
+// NOLINTNEXTLINE
+extern long long pspamm_num_total_flops;
+
 int main(int argc, char** argv) {
+  // make sure these two variables are always included into the tests
+  // (sometimes not the case for single-module test binaries)
+  libxsmm_num_total_flops = 0;
+  pspamm_num_total_flops = 0;
+
   seissol::Mpi::mpi.init(argc, argv);
   doctest::Context context;
 

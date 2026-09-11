@@ -13,7 +13,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Point mapper") {
+TEST_CASE("Point mapper" * doctest::test_suite("initializer")) {
   // We do all tests in double precision
   std::array<Eigen::Vector3d, 4> vertices;
 
@@ -41,8 +41,8 @@ TEST_CASE("Point mapper") {
   std::vector<bool> expectedContained{false, true, true};
   std::array<std::size_t, 3> expectedMeshId = {std::numeric_limits<std::size_t>::max(), 0, 0};
 
-  REQUIRE(contained == expectedContained);
-  REQUIRE(meshId == expectedMeshId);
+  CHECK(contained == expectedContained);
+  CHECK(meshId == expectedMeshId);
 }
 
 } // namespace seissol::unit_test

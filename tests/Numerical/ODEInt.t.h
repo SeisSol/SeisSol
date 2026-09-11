@@ -12,7 +12,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test ODE Solver") {
+TEST_CASE("Test ODE Solver" * doctest::test_suite("numerical")) {
   constexpr real Eps = Config::Precision == RealType::F32 ? 10e-4 : 10e-11;
   SUBCASE("Test simple integration") {
     constexpr auto SizeSolution = 5;
@@ -63,8 +63,8 @@ TEST_CASE("Test ODE Solver") {
     const double uShould = std::exp(2 * timeSpan.end);
     const double uIntegratedShould = std::exp(2 * timeSpan.end) / 2 - 0.5;
     for (int i = 0; i < SizeSolution; ++i) {
-      REQUIRE(curUSolution[i] == AbsApprox(uShould).epsilon(Eps));
-      REQUIRE(curUSolutionIntegrated[i] == AbsApprox(uIntegratedShould).epsilon(Eps));
+      CHECK(curUSolution[i] == AbsApprox(uShould).epsilon(Eps));
+      CHECK(curUSolutionIntegrated[i] == AbsApprox(uIntegratedShould).epsilon(Eps));
     }
   }
   SUBCASE("Test integration of Lotka-Voltera model") {
@@ -114,8 +114,8 @@ TEST_CASE("Test ODE Solver") {
     sol = solve(prob, DifferentialEquations.Vern7(), dt=0.01, adaptive=false)
      */
     const auto uShould = std::array<double, 2>{2.070817357298899e-8, 15.074149470779822};
-    REQUIRE(curU[0] == AbsApprox(uShould[0]).epsilon(Eps));
-    REQUIRE(curU[1] == AbsApprox(uShould[1]).epsilon(Eps));
+    CHECK(curU[0] == AbsApprox(uShould[0]).epsilon(Eps));
+    CHECK(curU[1] == AbsApprox(uShould[1]).epsilon(Eps));
   }
 }
 

@@ -147,3 +147,13 @@ from an eigendecomposition.
 Results of poroelastic dynamic rupture simulations change accordingly; how much depends on the
 porosity and the tortuosity. For the material values of the poroelastic test cases the impedance
 drops by 5 to 15 percent.
+
+Potency and Seismic Moment Quadrature
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(since before 0.9.0, `#527 <https://github.com/SeisSol/SeisSol/pull/527>`_, April 2022)
+
+The potency and the seismic moment were computed by averaging the value over all points.
+Now, to make the integration more exact, they are instead weighed by the quadrature rule
+the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
+may slightly change compared to before.

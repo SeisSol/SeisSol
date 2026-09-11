@@ -14,6 +14,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Model/Plasticity.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <cmath>
@@ -46,10 +47,8 @@ class Plasticity {
                                        unsigned* isAdjustableVector,
                                        seissol::parallel::runtime::StreamRuntime& runtime);
 
-  static void flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
-                              std::uint64_t& hardwareFlopsCheck,
-                              std::uint64_t& nonZeroFlopsYield,
-                              std::uint64_t& hardwareFlopsYield);
+  // check, yield
+  static std::pair<PerformanceEstimate, PerformanceEstimate> metrics();
 };
 
 } // namespace seissol::kernels

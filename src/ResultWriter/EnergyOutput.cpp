@@ -310,8 +310,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                     drEnergyOutput[i].slip,
                                                     global_)[sim];
 
-          const double areaWeight =
-              0.5 * godunovData[i].doubledSurfaceArea / seissol::dr::misc::NumBoundaryGaussPoints;
+          const double areaWeight = godunovData[i].doubledSurfaceArea;
           double potencyIncrease = 0.0;
           double momentIncrease = 0.0;
 
@@ -351,7 +350,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               const double muPlus = project(gammaPlus);
               const double muMinus = project(gammaMinus);
 
-              const double slipIncrease = drEnergyOutput[i].accumulatedSlip[index];
+              const double slipIncrease =
+                  drEnergyOutput[i].accumulatedSlip[index] * init::quadweights::Values[k];
               potencyIncrease += slipIncrease;
               momentIncrease += slipIncrease * 2.0 * muPlus * muMinus / (muPlus + muMinus);
             }
@@ -367,7 +367,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
             for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
               potencyIncrease +=
-                  drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim];
+                  drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
+                  init::quadweights::Values[k];
             }
             potencyIncrease *= areaWeight;
             momentIncrease = potencyIncrease * mu;

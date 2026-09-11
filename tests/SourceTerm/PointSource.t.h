@@ -14,7 +14,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Transform moment tensor") {
+TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   // strike = dip = rake = pi / 3
@@ -44,20 +44,20 @@ TEST_CASE("Transform moment tensor") {
                                              momentTensor.data());
 
   // Compare to hand-computed reference solution
-  REQUIRE(momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
+  CHECK(momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
   if (model::MaterialT::Type != model::MaterialType::Acoustic) {
-    REQUIRE(momentTensor[1] == AbsApprox(-7.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[2] == AbsApprox(3.0 * std::sqrt(3.0) / 8.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[3] == AbsApprox(19.0 / 32.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[4] == AbsApprox(-9.0 / 16.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[5] == AbsApprox(-std::sqrt(3.0) / 16.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[6] == 0);
-    REQUIRE(momentTensor[7] == 0);
-    REQUIRE(momentTensor[8] == 0);
+    CHECK(momentTensor[1] == AbsApprox(-7.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
+    CHECK(momentTensor[2] == AbsApprox(3.0 * std::sqrt(3.0) / 8.0).epsilon(Epsilon));
+    CHECK(momentTensor[3] == AbsApprox(19.0 / 32.0).epsilon(Epsilon));
+    CHECK(momentTensor[4] == AbsApprox(-9.0 / 16.0).epsilon(Epsilon));
+    CHECK(momentTensor[5] == AbsApprox(-std::sqrt(3.0) / 16.0).epsilon(Epsilon));
+    CHECK(momentTensor[6] == 0);
+    CHECK(momentTensor[7] == 0);
+    CHECK(momentTensor[8] == 0);
   } else {
-    REQUIRE(momentTensor[1] == 0);
-    REQUIRE(momentTensor[2] == 0);
-    REQUIRE(momentTensor[3] == 0);
+    CHECK(momentTensor[1] == 0);
+    CHECK(momentTensor[2] == 0);
+    CHECK(momentTensor[3] == 0);
   }
 
   // strike = dip = rake = pi / 3
@@ -82,20 +82,20 @@ TEST_CASE("Transform moment tensor") {
                                              momentTensor.data());
 
   // Compare to hand-computed reference solution
-  REQUIRE(momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(Epsilon));
+  CHECK(momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(Epsilon));
   if (model::MaterialT::Type != model::MaterialType::Acoustic) {
-    REQUIRE(momentTensor[1] == AbsApprox(0.648994284092410).epsilon(Epsilon));
-    REQUIRE(momentTensor[2] == AbsApprox(3.061692966762920).epsilon(Epsilon));
-    REQUIRE(momentTensor[3] == AbsApprox(1.909053142737053).epsilon(Epsilon));
-    REQUIRE(momentTensor[4] == AbsApprox(0.677535767462651).epsilon(Epsilon));
-    REQUIRE(momentTensor[5] == AbsApprox(-1.029826812214912).epsilon(Epsilon));
-    REQUIRE(momentTensor[6] == 0.0);
-    REQUIRE(momentTensor[7] == 0.0);
-    REQUIRE(momentTensor[8] == 0.0);
+    CHECK(momentTensor[1] == AbsApprox(0.648994284092410).epsilon(Epsilon));
+    CHECK(momentTensor[2] == AbsApprox(3.061692966762920).epsilon(Epsilon));
+    CHECK(momentTensor[3] == AbsApprox(1.909053142737053).epsilon(Epsilon));
+    CHECK(momentTensor[4] == AbsApprox(0.677535767462651).epsilon(Epsilon));
+    CHECK(momentTensor[5] == AbsApprox(-1.029826812214912).epsilon(Epsilon));
+    CHECK(momentTensor[6] == 0.0);
+    CHECK(momentTensor[7] == 0.0);
+    CHECK(momentTensor[8] == 0.0);
   } else {
-    REQUIRE(momentTensor[1] == 0);
-    REQUIRE(momentTensor[2] == 0);
-    REQUIRE(momentTensor[3] == 0);
+    CHECK(momentTensor[1] == 0);
+    CHECK(momentTensor[2] == 0);
+    CHECK(momentTensor[3] == 0);
   }
 }
 

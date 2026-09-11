@@ -99,21 +99,27 @@ struct MaterialSetup<AcousticMaterial> {
       qGodLocal(0, 1) = -matR(1, 0) / matR(0, 0);
       qGodLocal(1, 1) = 1.0; // normal velocity
     } else {
-      // Godunov flux: select outgoing characteristics (positive eigenvalue)
+      // Godunov flux: select outgoing characteristics (positive eigenvalue).
+      // The complementary selector (incoming wave + transverse null-space modes) is not formed
+      // explicitly; qGodLocal follows exactly as I - godunov, which keeps
+      // qGodLocal + qGodNeighbor == I bit-exact and saves one solve.
       Matrix44 chi = Matrix44::Zero();
-      chi(0, 0) = 1.0; // Select column 0 (outgoing wave)
 
-      const auto godunov = ((matR * chi) * matR.inverse()).eval();
+      // Select column 0 (outgoing wave)
+      chi(0, 0) = 1.0;
+
+      const auto matRT = matR.transpose();
+      // Deliberately partialPivLu and not a rank-revealing factorization; cf. ElasticSetup.h
+      const auto matRlu = matRT.partialPivLu();
+      const auto godunov = matRlu.solve(chi * matRT).eval();
 
       // Godunov matrices: qGodLocal = I - godunov^T, qGodNeighbor = godunov^T
       for (unsigned i = 0; i < godunov.cols(); ++i) {
         for (unsigned j = 0; j < godunov.rows(); ++j) {
-          qGodLocal(i, j) = -godunov(j, i);
-          qGodNeighbor(i, j) = godunov(j, i);
+          const double identity = (i == j) ? 1.0 : 0.0;
+          qGodLocal(i, j) = identity - godunov(i, j);
+          qGodNeighbor(i, j) = godunov(i, j);
         }
-      }
-      for (unsigned idx = 0; idx < 4; ++idx) {
-        qGodLocal(idx, idx) += 1.0;
       }
     }
   }

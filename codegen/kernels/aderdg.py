@@ -370,7 +370,8 @@ class LinearADERDG(ADERDGBase):
             target="cpu",
         )
 
-        if "gpu" in targets:
+        for target in targets:
+            name_prefix = generate_kernel_name_prefix(target)
             plusFluxMatrixAccessor = (
                 lambda i: self.db.rDivM[i][self.t("km")] * self.db.fMrT[i][self.t("ml")]
             )
@@ -389,12 +390,13 @@ class LinearADERDG(ADERDGBase):
                 <= self.Q["kp"]
                 + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
             )
-            generator.addFamily(
-                "gpu_localFlux",
-                simpleParameterSpace(4),
-                localFlux,
-                target="gpu",
-            )
+            if target == "gpu":
+                generator.addFamily(
+                    f"{name_prefix}localFlux",
+                    simpleParameterSpace(4),
+                    localFlux,
+                    target=target,
+                )
 
             localFluxAll = self.Q["kp"] <= sum(
                 [
@@ -404,9 +406,9 @@ class LinearADERDG(ADERDGBase):
                 start=self.Q["kp"],
             )
             generator.add(
-                "gpu_localFluxAll",
+                f"{name_prefix}localFluxAll",
                 localFluxAll,
-                target="gpu",
+                target=target,
             )
 
     def addNeighbor(self, generator, targets):

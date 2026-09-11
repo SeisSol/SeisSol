@@ -12,9 +12,10 @@
 #include "Common/Iterator.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/Clustering/Clustering.h"
+#include "Initializer/Clustering/VertexWeights/VertexWeightModel.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
-#include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Monitoring/Instrumentation.h"
 #include "PartitioningLib.h"
 
@@ -167,7 +168,8 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                        const seissol::FaceMap& faceMap,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        seissol::initializer::parameters::TopologyFormat topologyFormat,
-                       initializer::time_stepping::LtsWeights* ltsWeights,
+                       initializer::Clustering* clustering,
+                       initializer::VertexWeightModel* weightModel,
                        double tpwgt) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
@@ -179,10 +181,12 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   meshTopologyExtra.setComm(seissol::Mpi::mpi.comm());
   meshGeometry.setComm(seissol::Mpi::mpi.comm());
 
+  logInfo() << "Read (geometric) connectivity data.";
   read(meshGeometry, meshFile, false, boundaryFormat);
 
   // Note: we need to call generatePUML in order to create the dual graph of the mesh
   // Note 2: we also need it for vertex identification
+  logInfo() << "Generate (geometric) mesh.";
   meshGeometry.generateMesh();
 
   if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
@@ -191,20 +195,26 @@ PUMLReader::PUMLReader(const std::string& meshFile,
     const bool readTopology =
         topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace;
 
+    logInfo() << "Read (topologic) connectivity data.";
     read(meshTopologyExtra, meshFile, readTopology, boundaryFormat);
 
     int id = -1;
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
+      logInfo() << "Read topologic identification data.";
       id = meshTopologyExtra.addData<unsigned long>(
           (std::string(meshFile) + ":/identify").c_str(), PUML::VERTEX, {});
     }
 
     // generate the topology mesh for the dual graph
+    logInfo() << "Generate (topologic) mesh.";
     meshTopologyExtra.generateMesh();
 
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
       // re-identify vertices; then re-distribute
+      logInfo() << "Identify topologic vertex data.";
       meshTopologyExtra.identify(id);
+
+      logInfo() << "Generate (topologic) mesh again.";
       meshTopologyExtra.generateMesh();
     }
   }
@@ -213,13 +223,21 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                            ? meshGeometry
                            : meshTopologyExtra;
 
-  if (ltsWeights != nullptr) {
-    ltsWeights->computeWeights(meshTopology, meshGeometry);
+  // The clustering needs the meshes, which only exist here -- hence the orchestrator is passed
+  // in and run rather than its result.
+  const initializer::ClusteringResult* clusteringResult = nullptr;
+  if (clustering != nullptr) {
+    logInfo() << "Compute clustering.";
+    clusteringResult = &clustering->compute(meshTopology, meshGeometry);
   }
-  partition(meshTopology, meshGeometry, ltsWeights, tpwgt, partitioningLib);
 
+  logInfo() << "Partition the mesh.";
+  partition(meshTopology, meshGeometry, clusteringResult, weightModel, tpwgt, partitioningLib);
+
+  logInfo() << "Generate the correctly-distributed meshes.";
   generatePUML(meshTopology, meshGeometry);
 
+  logInfo() << "Set up mesh data structures.";
   getMesh(meshTopology, meshGeometry, faceMap, boundaryFormat);
 }
 
@@ -261,7 +279,8 @@ void PUMLReader::read(PumlMesh& meshTopology,
 
 void PUMLReader::partition(PumlMesh& meshTopology,
                            PumlMesh& meshGeometry,
-                           initializer::time_stepping::LtsWeights* ltsWeights,
+                           const initializer::ClusteringResult* clustering,
+                           initializer::VertexWeightModel* weightModel,
                            double tpwgt,
                            const std::string& partitioningLib) {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
@@ -278,7 +297,8 @@ void PUMLReader::partition(PumlMesh& meshTopology,
     logError() << "Unrecognized partition library: " << partitioningLib;
   }
   auto graph = PUML::TETPartitionGraph(meshTopology);
-  graph.setVertexWeights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
+  weightModel->build(*clustering);
+  graph.setVertexWeights(weightModel->vertexWeights(), weightModel->nWeightsPerVertex());
 
   auto nodeWeights = std::vector<double>(Mpi::mpi.size());
   MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::Mpi::mpi.comm());
@@ -292,12 +312,14 @@ void PUMLReader::partition(PumlMesh& meshTopology,
 
   auto target = PUML::PartitionTarget{};
   target.setVertexWeights(nodeWeights);
-  target.setImbalance(ltsWeights->imbalances()[0] - 1.0);
+  target.setImbalance(weightModel->imbalances()[0] - 1.0);
 
   auto newPartition = partitioner->partition(graph, target);
 
-  meshGeometry.addDataArray(ltsWeights->clusterIds().data(), PUML::CELL, {});
-  meshGeometry.addDataArray(ltsWeights->timesteps().data(), PUML::CELL, {});
+  // Written as std::size_t and read back as std::size_t below -- the two have to stay in step,
+  // since the read is a reinterpret_cast that would silently misparse a mismatched width.
+  meshGeometry.addDataArray(clustering->clusterIds.data(), PUML::CELL, {});
+  meshGeometry.addDataArray(clustering->timesteps.cellTimeStepWidths.data(), PUML::CELL, {});
 
   meshGeometry.partition(newPartition.data());
   if (&meshTopology != &meshGeometry) {
@@ -309,8 +331,10 @@ void PUMLReader::generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry) {
   SCOREP_USER_REGION("PUMLReader_generate", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   if (&meshTopology != &meshGeometry) {
+    logInfo() << "Generate the correct (topologic) mesh.";
     meshTopology.generateMesh();
   }
+  logInfo() << "Generate the correct (geometric) mesh.";
   meshGeometry.generateMesh();
 }
 
@@ -332,7 +356,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   const int* group = reinterpret_cast<const int*>(meshGeometry.cellData(0));
   const void* boundaryCond = meshGeometry.cellData(1);
   const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(meshGeometry.cellData(2));
-  const auto* clusterIds = reinterpret_cast<const int*>(meshGeometry.cellData(3));
+  const auto* clusterIds = reinterpret_cast<const std::size_t*>(meshGeometry.cellData(3));
   const auto* timestep = reinterpret_cast<const double*>(meshGeometry.cellData(4));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids

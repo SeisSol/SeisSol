@@ -11,7 +11,7 @@ namespace seissol::unit_test {
 
 using namespace seissol;
 
-TEST_CASE("Pre-C++20/23 Iterators") {
+TEST_CASE("Pre-C++20/23 Iterators" * doctest::test_suite("common")) {
   std::vector<int32_t> v1{2, 4, 6, 8, 10};
   std::vector<float> v2{.3, .6, .9, .12, .15};
 
@@ -31,18 +31,18 @@ TEST_CASE("Pre-C++20/23 Iterators") {
   SUBCASE("Zip") {
     std::size_t i = 0;
     for (const auto t : common::zip(v1, v2)) {
-      REQUIRE(t == v12[i]);
+      CHECK(t == v12[i]);
       ++i;
     }
 
-    REQUIRE(i == v12.size());
+    CHECK(i == v12.size());
   }
 
   SUBCASE("Enumerate") {
     std::size_t j = 0;
     for (const auto [i, e] : common::enumerate(v1)) {
-      REQUIRE(i == j);
-      REQUIRE(e == v1[j]);
+      CHECK(i == j);
+      CHECK(e == v1[j]);
       ++j;
     }
   }
@@ -56,11 +56,11 @@ TEST_CASE("Pre-C++20/23 Iterators") {
         common::FilteredIterator(v1.end(), v1.end(), [](auto value) { return value % 4 == 0; });
     std::size_t i = 0;
     for (; it != itEnd; ++it) {
-      REQUIRE(*it % 4 == 0);
+      CHECK(*it % 4 == 0);
       ++i;
     }
 
-    REQUIRE(i == n4);
+    CHECK(i == n4);
   }
 }
 

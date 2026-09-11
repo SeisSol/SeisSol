@@ -47,6 +47,7 @@ struct Material {
 
   double rho{};
   Material() = default;
+  explicit Material(double rho) : rho(rho) {}
   explicit Material(const std::vector<double>& data) : rho(data.at(0)) {}
 
   virtual void initialize(const initializer::parameters::ModelParameters& parameters) {}
@@ -77,6 +78,19 @@ struct Plasticity {
   double sXY;
   double sYZ;
   double sXZ;
+
+  static const std::unordered_map<std::string, double Plasticity::*> ParameterMap;
+};
+
+inline const std::unordered_map<std::string, double Plasticity::*> Plasticity::ParameterMap{
+    {"bulkFriction", &Plasticity::bulkFriction},
+    {"plastCo", &Plasticity::plastCo},
+    {"s_xx", &Plasticity::sXX},
+    {"s_yy", &Plasticity::sYY},
+    {"s_zz", &Plasticity::sZZ},
+    {"s_xy", &Plasticity::sXY},
+    {"s_yz", &Plasticity::sYZ},
+    {"s_xz", &Plasticity::sXZ},
 };
 
 struct IsotropicWaveSpeeds {

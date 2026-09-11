@@ -14,6 +14,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Kernel.h"
 #include "Kernels/Solver.h"
+#include "Monitoring/Metric.h"
 
 namespace seissol::kernels {
 
@@ -48,9 +49,7 @@ class DynamicRupture : public Kernel {
                                      const real* coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 
-  void flopsGodunovState(const DRFaceInformation& faceInfo,
-                         std::uint64_t& nonZeroFlops,
-                         std::uint64_t& hardwareFlops);
+  [[nodiscard]] PerformanceEstimate metrics(const DRFaceInformation& faceInfo) const;
 };
 
 } // namespace seissol::kernels

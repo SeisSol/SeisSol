@@ -13,6 +13,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
+#include "Monitoring/Metric.h"
 #include "Numerical/ODEInt.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/Stream.h"
@@ -38,11 +39,10 @@ class GravitationalFreeSurfaceBc {
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
       : gravitationalAcceleration_(gravitationalAcceleration) {};
 
-  static std::pair<std::uint64_t, std::uint64_t>
-      getFlopsDisplacementFace(unsigned face, [[maybe_unused]] FaceType faceType);
+  static PerformanceEstimate metrics(int8_t face, [[maybe_unused]] FaceType faceType);
 
   template <typename TimeKrnl, typename MappingKrnl>
-  void evaluate(unsigned faceIdx,
+  void evaluate(int8_t faceIdx,
                 MappingKrnl&& projectKernelPrototype,
                 const CellBoundaryMapping& boundaryMapping,
                 real* displacementNodalData,

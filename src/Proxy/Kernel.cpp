@@ -8,6 +8,7 @@
 #include "Kernel.h"
 
 #include "Allocator.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
@@ -15,11 +16,6 @@
 #include <vector>
 
 namespace seissol::proxy {
-
-auto PerformanceEstimate::operator+(const PerformanceEstimate& other) const -> PerformanceEstimate {
-  return PerformanceEstimate{
-      hardwareFlop + other.hardwareFlop, nonzeroFlop + other.nonzeroFlop, bytes + other.bytes};
-}
 
 ChainKernel::ChainKernel(const std::vector<std::shared_ptr<ProxyKernel>>& kernels)
     : kernels_(kernels) {}
