@@ -244,7 +244,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
     for (std::size_t type = 0; type < BufferCount; ++type) {
       callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
         using Buf = decltype(typeHelper);
-        auto* pointer = layer.var<typename Buf::Type>()[cell];
+        auto*& pointer = layer.var<typename Buf::Type>()[cell];
         initBucketItem(pointer, buffers, Buf::Size, true);
         assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
                    static_cast<BufferType>(type)) ||
@@ -256,7 +256,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
       for (std::size_t type = 0; type < BufferCount; ++type) {
         callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
           using Buf = decltype(typeHelper);
-          auto* pointer = layer.var<typename Buf::TypeDevice>()[cell];
+          auto*& pointer = layer.var<typename Buf::TypeDevice>()[cell];
           initBucketItem(pointer, buffersDevice, Buf::Size, false);
           assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
                      static_cast<BufferType>(type)) ||
