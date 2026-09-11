@@ -122,9 +122,6 @@ def main():
     kernels.arch.emit_header(
         arch,
         cmdLineArgs.outputDir,
-        device_vendor=(
-            None if cmdLineArgs.device_backend == "none" else cmdLineArgs.device_vendor
-        ),
         override_alignment=cmdLineArgs.alignment,
         override_vectorsize=cmdLineArgs.vectorsize or 0,
     )

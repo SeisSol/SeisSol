@@ -12,54 +12,22 @@ The vector width says how wide a load is, which is what tensors are padded to;
 yateto derives it and calls it `alignment`. The cache line says what a buffer
 should start on, which is what `alignas` wants. They coincide on most targets,
 which is why one value has served for both, but they are not the same thing --
-a machine with 128-byte lines and 128-bit vectors has them eight apart.
+a machine with 128-byte lines and 128-bit vectors has them eight apart. Both
+come from yateto, which derives them from the architecture name.
 """
 
-#: Cache line in bytes, where it is not simply the vector width. yateto carries
-#: a `cacheline` field for this and leaves it at the vector width for host
-#: architectures; until it fills it in, the values live here.
-CACHELINE = {
-    "a64fx": 256,
-    "apple-m1": 128,
-    "apple-m2": 128,
-    "apple-m3": 128,
-    "apple-m4": 128,
-    "avx2-128": 64,
-    "avx2-256": 64,
-    "avx10-128": 64,
-    "avx10-256": 64,
-}
 
-
-#: Device builds answer both questions by vendor. yateto derives its own
-#: values and they mostly agree; where they do not, the build's numbers are
-#: kept here so that moving the derivation changes nothing on its own.
-DEVICE = {
-    "nvidia": (64, 64),
-    "amd": (128, 128),
-    "intel": (128, 32),
-    "generic": (64, 16),
-}
-DEVICE_DEFAULT = (128, 32)
-
-
-def cacheline(arch, device_vendor=None):
+def cacheline(arch):
     """Bytes a buffer should be aligned to on this target."""
-    if device_vendor is not None:
-        return DEVICE.get(device_vendor, DEVICE_DEFAULT)[0]
-    return CACHELINE.get(arch.host_name, arch.cacheline)
+    return arch.cacheline
 
 
-def vector_size(arch, device_vendor=None):
+def vector_size(arch):
     """Bytes a vector load covers, i.e. what tensors are padded to."""
-    if device_vendor is not None:
-        return DEVICE.get(device_vendor, DEVICE_DEFAULT)[1]
     return arch.alignment
 
 
-def emit_header(
-    arch, output_dir, device_vendor=None, override_alignment=0, override_vectorsize=0
-):
+def emit_header(arch, output_dir, override_alignment=0, override_vectorsize=0):
     """Writes the memory characteristics for the C++ side to read.
 
     The build used to derive these a second time in CMake, from its own copy of
@@ -80,11 +48,11 @@ def emit_header(
         "",
         "/// Bytes a buffer should start on.",
         f"constexpr std::size_t Alignment = "
-        f"{override_alignment if override_alignment > 0 else cacheline(arch, device_vendor)};",
+        f"{override_alignment if override_alignment > 0 else cacheline(arch)};",
         "",
         "/// Bytes a vector load covers; tensors are padded to a multiple of it.",
         f"constexpr std::size_t Vectorsize = "
-        f"{override_vectorsize if override_vectorsize > 0 else vector_size(arch, device_vendor)};",
+        f"{override_vectorsize if override_vectorsize > 0 else vector_size(arch)};",
         "",
         "} // namespace seissol",
         "",
