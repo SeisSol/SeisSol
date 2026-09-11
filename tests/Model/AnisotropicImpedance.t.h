@@ -314,6 +314,51 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
   }
 }
 
+// ---------------------------------------------------------------------------
+// 5. The energy output turns potency into seismic moment with d^T Gamma d, and gets Gamma back
+//    from the admittance stored for the face. Both directions of that round trip are checked
+//    here, plus the isotropic limit the moment magnitude has to keep reproducing.
+// ---------------------------------------------------------------------------
+TEST_CASE("Christoffel matrix recovered from the admittance" *
+          doctest::test_suite("dynamicrupture")) {
+  using seissol::initializer::model::christoffelFromAdmittance;
+  using seissol::initializer::model::impedance_detail::christoffelMatrix;
+
+  SUBCASE("isotropic limit yields mu for every orientation and rake") {
+    const double rho = 2670.0;
+    const double mu = 3.203e10;
+    const double lambda = 3.204e10;
+    const auto material = isotropicMaterial(rho, mu, lambda);
+
+    for (const auto& rawNormal : {Eigen::Vector3d(0.0, 0.0, 1.0),
+                                  Eigen::Vector3d(1.0, 2.0, 3.0),
+                                  Eigen::Vector3d(-1.0, 0.4, 0.2)}) {
+      const auto local = rotateToFault(material, makeFaultFrame(rawNormal));
+      const Eigen::Matrix3d gamma = christoffelFromAdmittance(computeAdmittance(local), rho);
+
+      CHECK(gamma(1, 1) == doctest::Approx(mu).epsilon(1e-10));
+      CHECK(gamma(2, 2) == doctest::Approx(mu).epsilon(1e-10));
+      CHECK(std::abs(gamma(1, 2)) < 1e-10 * mu);
+      CHECK(gamma(0, 0) == doctest::Approx(lambda + 2 * mu).epsilon(1e-10));
+    }
+  }
+
+  SUBCASE("tilted VTI") {
+    const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.7, 0.6));
+    const auto local = rotateToFault(tiltedVti(35.0), frame);
+
+    const Eigen::Matrix3d reference = christoffelMatrix(local);
+    const Eigen::Matrix3d recovered =
+        christoffelFromAdmittance(computeAdmittance(local), local.rho);
+    CHECK((recovered - reference).cwiseAbs().maxCoeff() < 1e-10 * reference.cwiseAbs().maxCoeff());
+
+    // the two rake directions work against different moduli, so a single number per face cannot
+    // describe this fault
+    CHECK(std::abs(reference(1, 1) - reference(2, 2)) > 1e-3 * reference(1, 1));
+    CHECK(std::abs(reference(1, 2)) > 1e-3 * reference(1, 1));
+  }
+}
+
 } // namespace seissol::unit_test
 
 #endif // USE_ANISOTROPIC

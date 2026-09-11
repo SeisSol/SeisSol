@@ -296,6 +296,24 @@ DrMatrix computeAdmittance(const MaterialT& materialLocal,
   }
 }
 
+/**
+ * Christoffel matrix of the fault normal direction, recovered from the admittance stored for one
+ * side of the face.
+ *
+ * `admittanceFromChristoffel` yields Y = (rho * Gamma)^-1/2, hence Gamma = (Y * Y)^-1 / rho. The
+ * point of going back is the shear block: for a unit slip direction d in the fault plane,
+ *
+ *   d^T Gamma d = C_ijkl n_i d_j n_k d_l
+ *
+ * is the stiffness a shear dislocation works against, i.e. the modulus turning potency into
+ * seismic moment. It equals mu for an isotropic material and any fault orientation.
+ *
+ * Only meaningful where the mass matrix is rho * I, so not for poroelasticity.
+ */
+inline Eigen::Matrix3d christoffelFromAdmittance(const Eigen::Matrix3d& admittance, double rho) {
+  return (admittance * admittance).inverse() / rho;
+}
+
 inline FaultImpedance assembleFaultImpedance(const DrMatrix& admittancePlus,
                                              const DrMatrix& admittanceMinus) {
   FaultImpedance impedance;
