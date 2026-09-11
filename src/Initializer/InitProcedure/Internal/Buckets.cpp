@@ -124,11 +124,33 @@ auto useBuffersDerivatives(const LTS::Storage& storage,
   return bufferPresence;
 }
 
-template <typename TypeP, typename TypeDeviceP>
-struct LTSTypes {
+template <typename TypeP, typename TypeDeviceP, std::size_t SizeP>
+struct LTSBuffer {
   using Type = TypeP;
   using TypeDevice = TypeDeviceP;
+  static constexpr auto Size = SizeP;
 };
+
+template <typename F>
+constexpr auto callForBuffer(BufferType type, F caller) {
+  switch (type) {
+  case BufferType::Derivatives:
+    caller(LTSBuffer<LTS::Derivatives, LTS::DerivativesDevice, kernels::Solver::DerivativesSize>());
+    break;
+  case BufferType::StepIntegrals:
+    caller(
+        LTSBuffer<LTS::StepIntegrals, LTS::StepIntegralsDevice, kernels::Solver::IntegralsSize>());
+    break;
+  case BufferType::AccumulatedIntegrals:
+    caller(LTSBuffer<LTS::AccumulatedIntegrals,
+                     LTS::AccumulatedIntegralsDevice,
+                     kernels::Solver::IntegralsSize>());
+    break;
+  default:
+    logError() << "Unknown LTS buffer type.";
+    break;
+  }
+}
 
 std::vector<solver::RemoteCluster> allocateTransferInfo(
     const LTS::Storage& storage, LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
@@ -138,35 +160,15 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   const auto datatype = Config::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto bufferSize = typeSize * kernels::Solver::IntegralsSize;
-  const auto derivativeSize = typeSize * kernels::Solver::DerivativesSize;
-
-  std::array<real**, BufferCount> pointers{};
-  std::array<real**, BufferCount> pointersDevice{};
-  std::array<std::size_t, BufferCount> sizes{};
-
-  pointers[static_cast<std::size_t>(BufferType::Derivatives)] = layer.var<LTS::Derivatives>();
-  pointers[static_cast<std::size_t>(BufferType::StepIntegrals)] = layer.var<LTS::StepIntegrals>();
-  pointers[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] =
-      layer.var<LTS::AccumulatedIntegrals>();
-
-  pointersDevice[static_cast<std::size_t>(BufferType::Derivatives)] =
-      layer.var<LTS::DerivativesDevice>();
-  pointersDevice[static_cast<std::size_t>(BufferType::StepIntegrals)] =
-      layer.var<LTS::StepIntegralsDevice>();
-  pointersDevice[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] =
-      layer.var<LTS::AccumulatedIntegralsDevice>();
-
-  sizes[static_cast<std::size_t>(BufferType::Derivatives)] = derivativeSize;
-  sizes[static_cast<std::size_t>(BufferType::StepIntegrals)] = bufferSize;
-  sizes[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] = bufferSize;
-
   const auto allocate = [&](std::size_t index, BufferType type) {
     const bool hasBuffer = cellInformation[index].ltsSetup.hasBuffer(type);
     if (hasBuffer) {
-      const auto bufferTypeIndex = static_cast<std::size_t>(type);
-      pointers[bufferTypeIndex][index] = manager.markAllocate(sizes[bufferTypeIndex]);
-      pointersDevice[bufferTypeIndex][index] = pointers[bufferTypeIndex][index];
+      callForBuffer(type, [&](auto typeHelper) {
+        using Buf = decltype(typeHelper);
+        auto* offset = manager.markAllocate(Buf::Size * typeSize);
+        layer.var<typename Buf::Type>()[index] = offset;
+        layer.var<typename Buf::TypeDevice>()[index] = offset;
+      });
     }
   };
 
@@ -237,45 +239,29 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   auto* buffers = layer.var<LTS::Buffers>();
   auto* buffersDevice = layer.var<LTS::Buffers>(AllocationPlace::Device);
 
-  const auto bufferSize = kernels::Solver::IntegralsSize;
-  const auto derivativeSize = kernels::Solver::DerivativesSize;
-
-  std::array<real**, BufferCount> pointers{};
-  std::array<real**, BufferCount> pointersDevice{};
-  std::array<std::size_t, BufferCount> sizes{};
-
-  pointers[static_cast<std::size_t>(BufferType::Derivatives)] = layer.var<LTS::Derivatives>();
-  pointers[static_cast<std::size_t>(BufferType::StepIntegrals)] = layer.var<LTS::StepIntegrals>();
-  pointers[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] =
-      layer.var<LTS::AccumulatedIntegrals>();
-
-  pointersDevice[static_cast<std::size_t>(BufferType::Derivatives)] =
-      layer.var<LTS::DerivativesDevice>();
-  pointersDevice[static_cast<std::size_t>(BufferType::StepIntegrals)] =
-      layer.var<LTS::StepIntegralsDevice>();
-  pointersDevice[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] =
-      layer.var<LTS::AccumulatedIntegralsDevice>();
-
-  sizes[static_cast<std::size_t>(BufferType::Derivatives)] = derivativeSize;
-  sizes[static_cast<std::size_t>(BufferType::StepIntegrals)] = bufferSize;
-  sizes[static_cast<std::size_t>(BufferType::AccumulatedIntegrals)] = bufferSize;
-
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    for (std::size_t type = 0; type < pointers.size(); ++type) {
-      initBucketItem(pointers[type][cell], buffers, sizes[type], true);
-      assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
-                 static_cast<BufferType>(type)) ||
-             pointers[type][cell] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+    for (std::size_t type = 0; type < BufferCount; ++type) {
+      callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
+        using Buf = decltype(typeHelper);
+        auto* pointer = layer.var<typename Buf::Type>()[cell];
+        initBucketItem(pointer, buffers, Buf::Size, true);
+        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
+                   static_cast<BufferType>(type)) ||
+               pointer != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+      });
     }
 
     if constexpr (isDeviceOn()) {
-      for (std::size_t type = 0; type < pointersDevice.size(); ++type) {
-        initBucketItem(pointersDevice[type][cell], buffersDevice, sizes[type], false);
-        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
-                   static_cast<BufferType>(type)) ||
-               pointersDevice[type][cell] != nullptr ||
-               layer.getIdentifier().halo == HaloType::Ghost);
+      for (std::size_t type = 0; type < BufferCount; ++type) {
+        callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
+          using Buf = decltype(typeHelper);
+          auto* pointer = layer.var<typename Buf::TypeDevice>()[cell];
+          initBucketItem(pointer, buffersDevice, Buf::Size, false);
+          assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
+                     static_cast<BufferType>(type)) ||
+                 pointer != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+        });
       }
     }
   }
@@ -306,32 +292,22 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
       if (getBCType(cellInformation[cell].faceTypes[face]) != BCType::External) {
         const auto type = cellInformation[cell].ltsSetup.neighborBuffer(face);
 
-        const auto setFaceNeighbors = [&](auto types) {
-          using Types = decltype(types);
+        callForBuffer(type, [&](auto typeHandler) {
+          using Buf = decltype(typeHandler);
 
           if (faceNeighbor == StoragePosition::NullPosition) {
-            faceNeighbors[cell][face] = layer.var<typename Types::Type>()[cell];
+            faceNeighbors[cell][face] = layer.var<typename Buf::Type>()[cell];
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = layer.var<typename Types::TypeDevice>()[cell];
+              faceNeighborsDevice[cell][face] = layer.var<typename Buf::TypeDevice>()[cell];
             }
           } else {
-            faceNeighbors[cell][face] = storage.lookup<typename Types::Type>(faceNeighbor);
+            faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(faceNeighbor);
             if constexpr (isDeviceOn()) {
               faceNeighborsDevice[cell][face] =
-                  storage.lookup<typename Types::TypeDevice>(faceNeighbor);
+                  storage.lookup<typename Buf::TypeDevice>(faceNeighbor);
             }
           }
-        };
-
-        if (type == BufferType::Derivatives) {
-          setFaceNeighbors(LTSTypes<LTS::Derivatives, LTS::DerivativesDevice>{});
-        }
-        if (type == BufferType::StepIntegrals) {
-          setFaceNeighbors(LTSTypes<LTS::StepIntegrals, LTS::StepIntegralsDevice>{});
-        }
-        if (type == BufferType::AccumulatedIntegrals) {
-          setFaceNeighbors(LTSTypes<LTS::AccumulatedIntegrals, LTS::AccumulatedIntegralsDevice>{});
-        }
+        });
 
         assert(faceNeighbors[cell][face] != nullptr);
         if constexpr (isDeviceOn()) {
