@@ -280,6 +280,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       quadraturePointsXyz.resize(NumQuadPoints);
 
       kernel::projectIniCond krnl;
+      krnl.bindGlobals(globalData);
       krnl.iniCond = iniCondData;
       set_selectAneFull(krnl, get_static_ptr_Values<init::selectAneFull>());
       set_selectElaFull(krnl, get_static_ptr_Values<init::selectElaFull>());

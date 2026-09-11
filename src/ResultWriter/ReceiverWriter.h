@@ -27,7 +27,6 @@
 
 namespace seissol {
 struct LocalIntegrationData;
-struct GlobalData;
 class SeisSol;
 } // namespace seissol
 

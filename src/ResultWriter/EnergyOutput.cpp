@@ -23,7 +23,6 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -76,10 +75,6 @@ std::array<real, multisim::NumSimulations>
                       const DRGodunovData& godunovData,
                       const real slip[seissol::tensor::slipInterpolated::size()],
                       const GlobalData* global) {
-  real points[seissol::kernels::NumSpaceQuadraturePoints][2];
-  alignas(Alignment) real quadweights[seissol::kernels::NumSpaceQuadraturePoints];
-  seissol::quadrature::TriangleQuadrature(points, quadweights, ConvergenceOrder + 1);
-
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.bindGlobals(*global);
 
@@ -116,9 +111,9 @@ std::array<real, multisim::NumSimulations>
   alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
 
   dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
+  feKrnl.bindGlobals(*global);
   feKrnl.slipInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
-  feKrnl.quadweights = quadweights;
   feKrnl.staticFrictionalWork = staticFrictionalWork;
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();

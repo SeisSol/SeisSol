@@ -81,8 +81,7 @@ class TimeCluster : public AbstractTimeCluster {
    * global data
    */
   //! global data structures
-  GlobalData* globalDataOnHost_{nullptr};
-  GlobalData* globalDataOnDevice_{nullptr};
+  CompoundGlobalData globalData_;
 #ifdef ACL_DEVICE
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif

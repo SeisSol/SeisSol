@@ -235,7 +235,6 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         alignStride=True,
     )
     minusSurfaceArea = Scalar("minusSurfaceArea")
-    spaceWeights = Tensor("spaceWeights", (numberOfPoints, 1), alignStride=True)
 
     computeTractionInterpolated = (
         tractionInterpolated["kp"]
@@ -250,7 +249,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         + minusSurfaceArea
         * tractionInterpolated["kp"]
         * slipInterpolated["kp"]
-        * spaceWeights["kl"]
+        * db.quadweights["k"]
     )
     generator.add("accumulateStaticFrictionalWork", accumulateStaticFrictionalWork)
 

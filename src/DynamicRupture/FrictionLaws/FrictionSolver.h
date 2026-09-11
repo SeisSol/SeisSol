@@ -93,7 +93,7 @@ class FrictionSolver {
   real (*__restrict traction2_)[misc::NumPaddedPoints]{};
   real (*__restrict imposedStatePlus_)[tensor::QInterpolated::size()]{};
   real (*__restrict imposedStateMinus_)[tensor::QInterpolated::size()]{};
-  real* __restrict spaceWeights_{};
+  const real* __restrict spaceWeights_{};
   DREnergyOutput* __restrict energyData_{};
   DRGodunovData* __restrict godunovData_{};
   real (*__restrict initialPressure_)[misc::NumPaddedPoints]{};
