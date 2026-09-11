@@ -43,10 +43,10 @@ struct ViscoElasticSetupCommon : public MaterialSetupDefaults<ViscoElasticMateri
                                               qGodNeighbor);
   }
   template <typename T>
-  static void getTransposedViscoelasticCoefficientMatrix(double omega,
-                                                         std::size_t dim,
-                                                         std::size_t mech,
-                                                         T& M) {
+  static void getTransposedAnelasticCoefficientMatrix(double omega,
+                                                      std::size_t dim,
+                                                      std::size_t mech,
+                                                      T& M) {
     const auto col = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
     switch (dim) {
     case 0:
@@ -76,7 +76,7 @@ struct MaterialSetup<
     std::enable_if_t<ViscoElasticMaterial<N>::ViscoMode == ViscoImplementation::QuantityExtension>>
     : public ViscoElasticSetupCommon<N> {
   using MaterialT = ViscoElasticMaterial<N>;
-  using ViscoElasticSetupCommon<N>::getTransposedViscoelasticCoefficientMatrix;
+  using ViscoElasticSetupCommon<N>::getTransposedAnelasticCoefficientMatrix;
 
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& sourceMatrix) {
@@ -119,15 +119,8 @@ struct MaterialSetup<
         dynamic_cast<const ElasticMaterial&>(material), dim, AT);
 
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      getTransposedViscoelasticCoefficientMatrix(material.omega[mech], dim, mech, AT);
+      getTransposedAnelasticCoefficientMatrix(material.omega[mech], dim, mech, AT);
     }
-  }
-
-  static void initializeSpecificLocalData(const MaterialT& material,
-                                          double /*timeStepWidth*/,
-                                          typename MaterialT::Solver::LocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
-    getTransposedSourceCoefficientTensor(material, sourceMatrix);
   }
 };
 
@@ -139,7 +132,7 @@ struct MaterialSetup<
     std::enable_if_t<ViscoElasticMaterial<N>::ViscoMode == ViscoImplementation::AnelasticTensor>>
     : public ViscoElasticSetupCommon<N> {
   using MaterialT = ViscoElasticMaterial<N>;
-  using ViscoElasticSetupCommon<N>::getTransposedViscoelasticCoefficientMatrix;
+  using ViscoElasticSetupCommon<N>::getTransposedAnelasticCoefficientMatrix;
 
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& E) {
@@ -165,90 +158,7 @@ struct MaterialSetup<
     ::seissol::model::getTransposedCoefficientMatrix(
         dynamic_cast<const ElasticMaterial&>(material), dim, AT);
 
-    getTransposedViscoelasticCoefficientMatrix(1.0, dim, 0, AT);
-  }
-
-  static void getPlaneWaveOperator(
-      const MaterialT& material,
-      const double n[3],
-      std::complex<double> Mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-    yateto::DenseTensorView<2, std::complex<double>> M(
-        Mdata, {MaterialT::NumQuantities, MaterialT::NumQuantities});
-    M.setZero();
-
-    double data[MaterialT::NumQuantities * MaterialT::NumQuantities];
-    yateto::DenseTensorView<2, double> Coeff(data,
-                                             {MaterialT::NumQuantities, MaterialT::NumQuantities});
-
-    for (std::size_t d = 0; d < 3; ++d) {
-      Coeff.setZero();
-      getTransposedCoefficientMatrix(material, d, Coeff);
-      for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-        getTransposedViscoelasticCoefficientMatrix(material.omega[mech], d, mech, Coeff);
-      }
-
-      for (std::size_t i = 0; i < MaterialT::NumQuantities; ++i) {
-        for (std::size_t j = 0; j < MaterialT::NumQuantities; ++j) {
-          M(i, j) += n[d] * Coeff(j, i);
-        }
-      }
-    }
-    double Edata[MaterialT::NumQuantities * MaterialT::NumQuantities];
-    yateto::DenseTensorView<3, double> E(Edata, tensor::E::Shape);
-    E.setZero();
-    getTransposedSourceCoefficientTensor(material, E);
-    Coeff.setZero();
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      std::size_t offset = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
-      for (std::size_t i = 0; i < tensor::E::Shape[0]; ++i) {
-        for (std::size_t j = 0; j < tensor::E::Shape[2]; ++j) {
-          Coeff(offset + i, j) = E(i, mech, j);
-        }
-      }
-    }
-
-    // E' = diag(-omega_1 I, ..., -omega_L I)
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      std::size_t offset = MaterialT::NumElasticQuantities + MaterialT::NumberPerMechanism * mech;
-      yateto::DenseTensorView<2, double> ETblock(
-          data + offset + offset * MaterialT::NumQuantities,
-          {MaterialT::NumQuantities, MaterialT::NumberPerMechanism});
-      for (std::size_t i = 0; i < MaterialT::NumberPerMechanism; ++i) {
-        ETblock(i, i) = -material.omega[mech];
-      }
-    }
-
-    for (std::size_t i = 0; i < MaterialT::NumQuantities; ++i) {
-      for (std::size_t j = 0; j < MaterialT::NumQuantities; ++j) {
-        M(i, j) -= std::complex<double>(0.0, Coeff(j, i));
-      }
-    }
-  }
-
-  static void initializeSpecificLocalData(const MaterialT& material,
-                                          double timeStepWidth,
-                                          typename MaterialT::Solver::LocalData* localData) {
-    auto E = init::E::view::create(localData->E);
-    E.setZero();
-    getTransposedSourceCoefficientTensor(material, E);
-
-    auto w = init::w::view::create(localData->w);
-    auto W = init::W::view::create(localData->W);
-    W.setZero();
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      w(mech) = material.omega[mech];
-      W(mech, mech) = -material.omega[mech];
-    }
-  }
-
-  static void
-      initializeSpecificNeighborData(const MaterialT& localMaterial,
-                                     typename MaterialT::Solver::NeighborData* neighborData) {
-    // We only need the local omegas
-    auto w = init::w::view::create(neighborData->w);
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      w(mech) = localMaterial.omega[mech];
-    }
+    getTransposedAnelasticCoefficientMatrix(1.0, dim, 0, AT);
   }
 };
 

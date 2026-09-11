@@ -35,6 +35,16 @@ namespace seissol::model {
 template <typename MaterialT, typename = void>
 struct MaterialSetup;
 
+/**
+ * How a solver turns a material into the operators and the per-cell data it
+ * works on. What belongs here rather than in MaterialSetup is anything that
+ * changes when only the solver changes: the same material, described the same
+ * way, is laid out differently depending on whether the memory variables sit
+ * in Q or in a tensor dimension of their own.
+ */
+template <typename SolverT, typename MaterialT, typename = void>
+struct SolverSetup;
+
 namespace detail {
 
 /// True if the groups have the kinds the codegen laid the tensors out for.
@@ -166,20 +176,21 @@ template <typename T>
 void getPlaneWaveOperator(const T& material,
                           const double n[3],
                           std::complex<double> mdata[T::NumQuantities * T::NumQuantities]) {
-  MaterialSetup<T>::getPlaneWaveOperator(material, n, mdata);
+  SolverSetup<typename T::Solver, T>::getPlaneWaveOperator(material, n, mdata);
 }
 
 template <typename T>
 void initializeSpecificLocalData(const T& material,
                                  double timeStepWidth,
                                  typename T::Solver::LocalData* localData) {
-  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, localData);
+  SolverSetup<typename T::Solver, T>::initializeSpecificLocalData(
+      material, timeStepWidth, localData);
 }
 
 template <typename T>
 void initializeSpecificNeighborData(const T& material,
                                     typename T::Solver::NeighborData* neighborData) {
-  MaterialSetup<T>::initializeSpecificNeighborData(material, neighborData);
+  SolverSetup<typename T::Solver, T>::initializeSpecificNeighborData(material, neighborData);
 }
 
 /*
@@ -288,13 +299,6 @@ MaterialT getRotatedMaterialCoefficients(const std::array<double, 36>& rotationP
  */
 template <typename MaterialT>
 struct MaterialSetupDefaults {
-  static void getPlaneWaveOperator(
-      const MaterialT& material,
-      const double n[3],
-      std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
-  }
-
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
                                      MaterialT& material) {
@@ -304,6 +308,22 @@ struct MaterialSetupDefaults {
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& /*material*/,
                                                    T& /*sourceMatrix*/) {}
+};
+
+/**
+ * What a solver setup looks like when the solver needs nothing beyond the
+ * material's own operators: the plane wave operator follows from the
+ * coefficient matrices and the source term, and there is no per-cell data to
+ * prepare.
+ */
+template <typename SolverT, typename MaterialT>
+struct SolverSetupDefaults {
+  static void getPlaneWaveOperator(
+      const MaterialT& material,
+      const double n[3],
+      std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
+    getElasticPlaneWaveOperator(material, n, mdata);
+  }
 
   static void initializeSpecificLocalData(const MaterialT& /*material*/,
                                           double /*timeStepWidth*/,

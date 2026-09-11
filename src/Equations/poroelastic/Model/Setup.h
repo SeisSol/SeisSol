@@ -262,24 +262,6 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
       }
     }
   }
-
-  static void
-      initializeSpecificLocalData(const PoroElasticMaterial& material,
-                                  double timeStepWidth,
-                                  typename PoroElasticMaterial::Solver::LocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
-    sourceMatrix.setZero();
-    getTransposedSourceCoefficientTensor(material, sourceMatrix);
-
-    ZInvInitializer<0, PoroElasticMaterial::NumQuantities, decltype(sourceMatrix)>(
-        localData->Zinv, sourceMatrix, timeStepWidth);
-    std::fill(localData->G, localData->G + PoroElasticMaterial::NumQuantities, 0.0);
-    localData->G[10] = sourceMatrix(10, 6);
-    localData->G[11] = sourceMatrix(11, 7);
-    localData->G[12] = sourceMatrix(12, 8);
-
-    localData->typicalTimeStepWidth = timeStepWidth;
-  }
 };
 
 #endif

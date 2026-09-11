@@ -11,6 +11,16 @@
 // IWYU pragma: begin_exports
 
 // Gather all Setup Headers here
+#ifdef SEISSOL_KERNELS_LINEARCK
+#include "Kernels/LinearCK/Setup.h"
+#endif
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+#include "Kernels/LinearCKAnelastic/Setup.h"
+#endif
+#ifdef SEISSOL_KERNELS_STP
+#include "Kernels/STP/Setup.h"
+#endif
+
 #include "Equations/acoustic/Model/Setup.h"
 #include "Equations/anisotropic/Model/Setup.h"
 #include "Equations/elastic/Model/Setup.h"
