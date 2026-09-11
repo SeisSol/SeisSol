@@ -10,7 +10,6 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
-#include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -123,12 +122,6 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       yateto::alignedUpper(tensor::resample::size(), yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
       yateto::alignedUpper(tensor::quadweights::size(), yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
 
   real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(
       globalMatrixMemSize * sizeof(real), prop.pagesizeHeap, memkind));
@@ -175,46 +168,6 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       globalMatrixMemPtr, globalData.resampleMatrix, prop.alignment);
   copyManager.template copyTensorToMemAndSetPtr<init::quadweights>(
       globalMatrixMemPtr, globalData.spaceWeights, prop.alignment);
-
-  // a bit more manual
-  {
-    const auto data =
-        seissol::dr::friction_law::tp::InverseFourierCoefficients<dr::misc::NumTpGridPoints>();
-    globalData.tpInverseFourierCoefficients = globalMatrixMemPtr;
-    globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
-    seissol::memory::memcopyTyped<real>(globalData.tpInverseFourierCoefficients,
-                                        data.data().data(),
-                                        dr::misc::NumTpGridPoints,
-                                        memkind,
-                                        memory::Memkind::Standard);
-  }
-
-  {
-    const auto data = seissol::dr::friction_law::tp::GridPoints<dr::misc::NumTpGridPoints>();
-    globalData.tpGridPoints = globalMatrixMemPtr;
-    globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
-    seissol::memory::memcopyTyped<real>(globalData.tpGridPoints,
-                                        data.data().data(),
-                                        dr::misc::NumTpGridPoints,
-                                        memkind,
-                                        memory::Memkind::Standard);
-  }
-
-  {
-    const auto data =
-        seissol::dr::friction_law::tp::GaussianHeatSource<dr::misc::NumTpGridPoints>();
-    globalData.heatSource = globalMatrixMemPtr;
-    globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
-
-    seissol::memory::memcopyTyped<real>(globalData.heatSource,
-                                        data.data().data(),
-                                        dr::misc::NumTpGridPoints,
-                                        memkind,
-                                        memory::Memkind::Standard);
-  }
 
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
 
