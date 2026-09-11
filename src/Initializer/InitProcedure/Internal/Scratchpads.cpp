@@ -94,7 +94,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
     layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter *
-                                                   kernels::Solver::BuffersSize * sizeof(real));
+                                                   kernels::Solver::IntegralsSize * sizeof(real));
     layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * TotalDerivativesSize *
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *

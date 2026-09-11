@@ -93,7 +93,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
         stepPtr = stepIntegrals[cell];
       } else {
         stepPtr = nextIdofPtr;
-        integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
+        integratedDofsAddressCounter_ += kernels::Solver::IntegralsSize;
       }
 
       idofsPtrs.push_back(stepPtr);

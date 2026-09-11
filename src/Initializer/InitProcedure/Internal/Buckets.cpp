@@ -138,7 +138,7 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   const auto datatype = Config::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto bufferSize = typeSize * kernels::Solver::BuffersSize;
+  const auto bufferSize = typeSize * kernels::Solver::IntegralsSize;
   const auto derivativeSize = typeSize * kernels::Solver::DerivativesSize;
 
   std::array<real**, BufferCount> pointers{};
@@ -237,7 +237,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   auto* buffers = layer.var<LTS::Buffers>();
   auto* buffersDevice = layer.var<LTS::Buffers>(AllocationPlace::Device);
 
-  const auto bufferSize = kernels::Solver::BuffersSize;
+  const auto bufferSize = kernels::Solver::IntegralsSize;
   const auto derivativeSize = kernels::Solver::DerivativesSize;
 
   std::array<real**, BufferCount> pointers{};

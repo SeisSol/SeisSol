@@ -158,7 +158,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
       for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
         integrationBuffers[i] =
             &data.globalDataOnHost.integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
-                                                        kernels::Solver::BuffersSize];
+                                                        kernels::Solver::IntegralsSize];
       }
 
       seissol::kernels::TimeCommon::computeIntegrals(data.timeKernel,

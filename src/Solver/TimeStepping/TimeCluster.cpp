@@ -362,7 +362,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   loopStatistics_->begin(regionComputeLocalIntegration_);
 
   // local integration buffer
-  alignas(Alignment) real integrationBuffer[kernels::Solver::BuffersSize]{};
+  alignas(Alignment) real integrationBuffer[kernels::Solver::IntegralsSize]{};
 
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
@@ -419,11 +419,12 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       assert(accumulatedIntegrals[cell] != nullptr);
 
       if (resetBuffers) {
-        std::memcpy(
-            accumulatedIntegrals[cell], bufferPointer, kernels::Solver::BuffersSize * sizeof(real));
+        std::memcpy(accumulatedIntegrals[cell],
+                    bufferPointer,
+                    kernels::Solver::IntegralsSize * sizeof(real));
       } else {
 #pragma omp simd
-        for (std::size_t dof = 0; dof < kernels::Solver::BuffersSize; ++dof) {
+        for (std::size_t dof = 0; dof < kernels::Solver::IntegralsSize; ++dof) {
           accumulatedIntegrals[cell][dof] += bufferPointer[dof];
         }
       }
@@ -925,7 +926,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
       integrationBuffers[i] =
           &globalDataOnHost_->integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
-                                                   kernels::Solver::BuffersSize];
+                                                   kernels::Solver::IntegralsSize];
     }
 
     seissol::kernels::TimeCommon::computeIntegrals(timeKernel_,
