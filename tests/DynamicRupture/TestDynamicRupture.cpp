@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "FrictionLaws/AnisotropicSlipRate.t.h" // IWYU pragma: keep
 #include "FrictionLaws/FrictionSolverCommon.t.h"
 #include "Output/Geometry.t.h"
 #include "Output/Variables.t.h"
