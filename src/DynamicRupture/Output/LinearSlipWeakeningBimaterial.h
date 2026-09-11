@@ -20,6 +20,14 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
     return regularizedStrengths[local.gpIndex];
   }
 
+  real computeLocalStrengthSlope(LocalInfo& /*local*/) override {
+    // The Prakash-Clifton regularisation low-passes the strength, so only the fraction
+    // -expm1(-(V + vStar) dt / prakashLength) of a normal stress change arrives instantaneously.
+    // That factor needs the time step of the friction solve, which the receiver output does not
+    // see, so the reconstruction leaves the coupling out rather than overstating it.
+    return 0.0;
+  }
+
   public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = LinearSlipWeakening::getOutputVariables();

@@ -92,6 +92,10 @@ class ReceiverOutput {
 
     real slipRateStrike{};
     real slipRateDip{};
+    /// slip rate in the fault-local frame, filled where the friction reconstruction resolves the
+    /// slip direction itself instead of inheriting it from the trial traction
+    real slipRateTangent1{};
+    real slipRateTangent2{};
 
     real
         faceAlignedValuesPlus[tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
@@ -125,9 +129,15 @@ class ReceiverOutput {
   void getNeighborDofs(const real*(&derivatives), std::size_t meshId, std::size_t side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
+  /**
+    d(strength) / d(-sigma_eff), the counterpart of the friction laws' strengthSlope. Only read for
+    materials whose impedance couples shear slip to the fault-normal traction; zero means that the
+    strength does not follow the normal stress.
+   */
+  virtual real computeLocalStrengthSlope(LocalInfo& /*local*/) { return 0.0; }
   virtual real computeFluidPressure(LocalInfo& /*local*/) { return 0.0; }
   virtual real computeStateVariable(LocalInfo& /*local*/) { return 0.0; }
-  static void updateLocalTractions(LocalInfo& local, real strength);
+  static void updateLocalTractions(LocalInfo& local, real strength, real strengthSlope);
   real computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
   virtual void computeSlipRate(LocalInfo& local,
                                const std::array<real, 6>& /*rotatedUpdatedStress*/,

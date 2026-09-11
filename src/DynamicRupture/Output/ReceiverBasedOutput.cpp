@@ -9,6 +9,7 @@
 
 #include "Alignment.h"
 #include "Common/Constants.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Typedefs.h"
@@ -225,7 +226,8 @@ void ReceiverOutput::calcFaultOutput(
 
     this->computeLocalStresses(local);
     const real strength = this->computeLocalStrength(local);
-    seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength);
+    const real strengthSlope = this->computeLocalStrengthSlope(local);
+    seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength, strengthSlope);
 
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
     alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -498,23 +500,85 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
   }
 }
 
-void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {
+void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real strengthSlope) {
   const auto component1 = local.iniTraction1 + local.faceAlignedStress12;
   const auto component2 = local.iniTraction2 + local.faceAlignedStress13;
   const auto tracEla = misc::magnitude(component1, component2);
 
-  if (tracEla > std::abs(strength)) {
-    local.updatedTraction1 =
-        ((local.iniTraction1 + local.faceAlignedStress12) / tracEla) * strength;
-    local.updatedTraction2 =
-        ((local.iniTraction2 + local.faceAlignedStress13) / tracEla) * strength;
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    // Same solve as LinearSlipWeakening::calcSlipRateAndTraction, through the same helpers: the
+    // slip is not parallel to the trial traction, and the strength follows the normal traction,
+    // which follows the slip rate. Sweeping n -> V -> n twice resolves both; the strength being
+    // affine in the normal stress keeps the closed form for V exact.
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    const auto& impedanceMatrices =
+        ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
-    // update stress change
-    local.updatedTraction1 -= local.iniTraction1;
-    local.updatedTraction2 -= local.iniTraction2;
+    const real invAbsolute =
+        (tracEla > 0) ? static_cast<real>(1.0) / tracEla : static_cast<real>(0.0);
+    real n1 = component1 * invAbsolute;
+    real n2 = component2 * invAbsolute;
+    real projectedTraction = tracEla;
+    real eta = friction_law::common::projectEta(
+                   impAndEta, impedanceMatrices, component1, component2, tracEla)
+                   .first;
+    real etaNormal = friction_law::common::projectEtaNormal(
+        impAndEta, impedanceMatrices, component1, component2, tracEla);
+    real slipRate{};
+
+    constexpr std::uint32_t DirectionSweeps = 2;
+    for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
+      real etaEff = eta + strengthSlope * etaNormal;
+      etaEff = (etaEff > 0) ? etaEff : eta;
+      slipRate = std::max(static_cast<real>(0.0), (projectedTraction - strength) / etaEff);
+
+      if (sweep + 1 == DirectionSweeps) {
+        break;
+      }
+
+      const auto [d1, d2] =
+          friction_law::common::updateSlipDirection(impAndEta,
+                                                    impedanceMatrices,
+                                                    projectedTraction - slipRate * eta,
+                                                    slipRate,
+                                                    component1,
+                                                    component2,
+                                                    tracEla);
+      n1 = d1;
+      n2 = d2;
+      projectedTraction = n1 * component1 + n2 * component2;
+      eta = friction_law::common::projectEta(
+                impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0))
+                .first;
+      etaNormal = friction_law::common::projectEtaNormal(
+          impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0));
+    }
+
+    local.slipRateTangent1 = slipRate * n1;
+    local.slipRateTangent2 = slipRate * n2;
+
+    const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta(
+        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
+    const auto normalUpdate = friction_law::common::matmulEtaNormal(
+        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
+
+    local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
+    local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
+    local.transientNormalTraction -= normalUpdate;
   } else {
-    local.updatedTraction1 = local.faceAlignedStress12;
-    local.updatedTraction2 = local.faceAlignedStress13;
+    if (tracEla > std::abs(strength)) {
+      local.updatedTraction1 =
+          ((local.iniTraction1 + local.faceAlignedStress12) / tracEla) * strength;
+      local.updatedTraction2 =
+          ((local.iniTraction2 + local.faceAlignedStress13) / tracEla) * strength;
+
+      // update stress change
+      local.updatedTraction1 -= local.iniTraction1;
+      local.updatedTraction2 -= local.iniTraction2;
+    } else {
+      local.updatedTraction1 = local.faceAlignedStress12;
+      local.updatedTraction2 = local.faceAlignedStress13;
+    }
   }
 }
 
@@ -545,32 +609,12 @@ void ReceiverOutput::computeSlipRate(
     [[maybe_unused]] const std::array<double, 3>& dip) {
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    // The traction difference maps to the slip rate through eta^-1, which here is Y+ + Y- and not
-    // a multiple of the identity: a traction change along strike also drives slip along dip. Both
-    // the admittances and the traction difference live in the fault-local frame, so the rotation
-    // onto strike and dip has to come last -- a scalar commutes with it, a matrix does not.
-    //
-    // The traction difference is purely tangential, since updateLocalTractions only limits the two
-    // shear components, so the fault-normal column of the sum does not contribute.
-    const auto& impedanceMatrices =
-        ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
-    constexpr std::size_t Count = tensor::Zplus::Shape[0];
-
-    // dense and column major, so [col * Count + row]
-    const auto admittanceSum = [&impedanceMatrices](std::size_t row, std::size_t col) {
-      return impedanceMatrices.impedance[col * Count + row] +
-             impedanceMatrices.impedanceNeig[col * Count + row];
-    };
-
-    const real tractionDiff1 = local.faceAlignedStress12 - local.updatedTraction1;
-    const real tractionDiff2 = local.faceAlignedStress13 - local.updatedTraction2;
-
-    const real alongTangent1 =
-        admittanceSum(1, 1) * tractionDiff1 + admittanceSum(1, 2) * tractionDiff2;
-    const real alongTangent2 =
-        admittanceSum(2, 1) * tractionDiff1 + admittanceSum(2, 2) * tractionDiff2;
-
-    projectOntoStrikeAndDip(local, alongTangent1, alongTangent2, tangent1, tangent2, strike, dip);
+    // updateLocalTractions resolves the slip direction along with the magnitude, so all that is
+    // left is the rotation onto strike and dip. Recovering the slip rate from the traction
+    // difference instead would have to invert the full eta, fault-normal row included, since the
+    // shear slip also changes the normal traction.
+    projectOntoStrikeAndDip(
+        local, local.slipRateTangent1, local.slipRateTangent2, tangent1, tangent2, strike, dip);
   } else {
     // the shear block of eta is a multiple of the identity for every material with an isotropic
     // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
