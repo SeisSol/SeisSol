@@ -191,12 +191,11 @@ void Spacetime::computeBatchedAder(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
     krnl.Gmt = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.extraOffset_Gt(0) = SEISSOL_OFFSET(LocalIntegrationData, specific.G[0]);
-    krnl.extraOffset_Gt(1) = SEISSOL_OFFSET(LocalIntegrationData, specific.G[1]);
-    krnl.extraOffset_Gt(2) = SEISSOL_OFFSET(LocalIntegrationData, specific.G[2]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[0]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[1]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[2]);
+
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.G);
+    for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
+      krnl.extraOffset_Gt(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, specific.G, i);
+    }
 
     // checking the first cell should suffice; if we always work on the same cluster.
     // (which we currently always do)
