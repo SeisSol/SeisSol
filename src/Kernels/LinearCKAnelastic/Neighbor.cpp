@@ -27,44 +27,30 @@ namespace seissol::kernels::solver::linearckanelastic {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(neighbor))) %
-               Alignment ==
-           0);
-    assert((reinterpret_cast<uintptr_t>(
-               global.onHost->localChangeOfBasisMatricesTransposed(neighbor))) %
-               Alignment ==
-           0);
-    assert((reinterpret_cast<uintptr_t>(
-               global.onHost->neighborChangeOfBasisMatricesTransposed(neighbor))) %
-               Alignment ==
-           0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->rDivM(neighbor))) % Alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->fMrT(neighbor))) % Alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->rT(neighbor))) % Alignment == 0);
   }
 
   for (std::size_t h = 0; h < Cell::Dim; ++h) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->neighborFluxMatrices(h))) % Alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->fP(h))) % Alignment == 0);
   }
 
   for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
     for (std::size_t h = 0; h < Cell::Dim; ++h) {
-      assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
-             0);
+      assert((reinterpret_cast<uintptr_t>(global.onHost->V3mTo2nTWDivM(i, h))) % Alignment == 0);
     }
   }
 #endif
-  nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  nfKrnlPrototype_.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  nfKrnlPrototype_.fP = global.onHost->neighborFluxMatrices;
-  drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  nfKrnlPrototype_.bindGlobals(*global.onHost);
+  drKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+  deviceNfKrnlPrototype_.bindGlobals(*global.onDevice);
 #else
-  deviceNfKrnlPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype_.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype_.fP = global.onDevice->neighborFluxMatrices;
 #endif
-  deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceDrKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 

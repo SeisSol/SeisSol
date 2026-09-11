@@ -54,30 +54,25 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
-  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+  volumeKernelPrototype_.bindGlobals(*global.onHost);
+  localFluxKernelPrototype_.bindGlobals(*global.onHost);
 
-  nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
+  nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
 
-  projectKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
-  projectRotatedKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  projectKrnlPrototype_.bindGlobals(*global.onHost);
+  projectRotatedKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
-  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
+  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-  deviceLocalFluxAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxAllKernelPrototype_.bindGlobals(*global.onDevice);
 #else
-  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-  deviceLocalFluxAllKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
-  deviceNodalLfKrnlPrototype_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceProjectRotatedKrnlPrototype_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceProjectRotatedKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 

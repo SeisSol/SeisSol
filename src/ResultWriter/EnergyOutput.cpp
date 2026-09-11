@@ -77,11 +77,11 @@ std::array<real, multisim::NumSimulations>
                       const real slip[seissol::tensor::slipInterpolated::size()],
                       const GlobalData* global) {
   real points[seissol::kernels::NumSpaceQuadraturePoints][2];
-  alignas(Alignment) real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
+  alignas(Alignment) real quadweights[seissol::kernels::NumSpaceQuadraturePoints];
+  seissol::quadrature::TriangleQuadrature(points, quadweights, ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
-  krnl.V3mTo2n = global->faceToNodalMatrices;
+  krnl.bindGlobals(*global);
 
   alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus::size()];
@@ -118,7 +118,7 @@ std::array<real, multisim::NumSimulations>
   dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
   feKrnl.slipInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
-  feKrnl.spaceWeights = spaceWeights;
+  feKrnl.quadweights = quadweights;
   feKrnl.staticFrictionalWork = staticFrictionalWork;
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
@@ -419,7 +419,7 @@ void EnergyOutput::computeVolumeEnergies() {
         auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP krnl;
-        krnl.evalAtQP = global_->evalAtQPMatrix;
+        krnl.evalAtQP = global_->evalAtQP;
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();
@@ -548,8 +548,8 @@ void EnergyOutput::computeVolumeEnergies() {
           alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject::size()]{};
 
           kernel::plProject krnl;
-          set_evalAtQP(krnl, global_->evalAtQPMatrix);
-          set_vInv(krnl, global_->vandermondeMatrixInverse);
+          set_evalAtQP(krnl, global_->evalAtQP);
+          set_vInv(krnl, global_->vInv);
           krnl.QEtaNodal = qEta;
           krnl.QEtaNodalProject = qEtaQuad;
           krnl.execute();

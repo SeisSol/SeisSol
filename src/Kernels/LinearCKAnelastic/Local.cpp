@@ -29,33 +29,23 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 #ifndef NDEBUG
   for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) % Alignment ==
-           0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->kDivM(stiffness))) % Alignment == 0);
   }
   for (std::size_t flux = 0; flux < Cell::NumFaces; ++flux) {
-    assert(
-        (reinterpret_cast<uintptr_t>(global.onHost->localChangeOfBasisMatricesTransposed(flux))) %
-            Alignment ==
-        0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(flux))) % Alignment ==
-           0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->fMrT(flux))) % Alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->rDivM(flux))) % Alignment == 0);
   }
 #endif
 
-  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
-  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+  volumeKernelPrototype_.bindGlobals(*global.onHost);
+  localFluxKernelPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
+  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-  deviceFluxLocalAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceFluxLocalAllKernelPrototype_.bindGlobals(*global.onDevice);
 #else
-  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-  deviceFluxLocalAllKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceFluxLocalAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
 #endif
 }

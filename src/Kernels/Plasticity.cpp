@@ -53,8 +53,8 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                           real* pstrain) {
 
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(global->v) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(global->vInv) % Alignment == 0);
 
   alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
 
@@ -76,7 +76,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
    */
 
   kernel::plConvertToNodal m2nKrnl;
-  m2nKrnl.v = global->vandermondeMatrix;
+  m2nKrnl.bindGlobals(*global);
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
@@ -213,7 +213,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
     kernel::plConvertToModal adjKrnl;
     adjKrnl.QStress = degreesOfFreedom;
-    adjKrnl.vInv = global->vandermondeMatrixInverse;
+    adjKrnl.bindGlobals(*global);
     adjKrnl.QStressNodal = qStressNodal;
     adjKrnl.execute();
 
@@ -257,7 +257,6 @@ void Plasticity::computePlasticityBatched(
     static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal m2nKrnl;
-    m2nKrnl.v = global->vandermondeMatrix;
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
     m2nKrnl.initialLoading = const_cast<const real**>(initLoad);
@@ -279,7 +278,7 @@ void Plasticity::computePlasticityBatched(
                                                  defaultStream);
 
     kernel::gpu_plConvertToModal n2mKrnl;
-    n2mKrnl.vInv = global->vandermondeMatrixInverse;
+    n2mKrnl.bindGlobals(*global);
     n2mKrnl.QStressNodal = const_cast<const real**>(nodalStressTensors);
     n2mKrnl.QStress = modalStressTensors;
     n2mKrnl.streamPtr = defaultStream;

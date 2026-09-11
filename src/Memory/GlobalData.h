@@ -12,43 +12,25 @@
 #include "Initializer/Typedefs.h"
 #include "MemoryAllocator.h"
 
-#include <yateto.h>
-
-#ifdef ACL_DEVICE
-#include <Device/device.h>
-#endif // ACL_DEVICE
-
 namespace seissol::initializer {
-/*
- * \class MemoryProperties
- *
- * \brief An auxiliary data structure for a policy-based design
- *
- * Attributes are initialized with CPU memory properties by default.
- * See, an example of a policy-based design in GlobalData.cpp
- * */
-struct MemoryProperties {
-  size_t alignment{Alignment};
-  size_t pagesizeHeap{PagesizeHeap};
-  size_t pagesizeStack{PagesizeStack};
-};
 
 namespace matrixmanip {
+/**
+ * Where the pool is read from.
+ *
+ * On the host there is nothing to do: the image is in the binary already, and
+ * a table built on it needs neither an allocation nor a copy. On the device it
+ * is one allocation and one copy for the whole image, whatever it contains.
+ * */
 struct OnHost {
-  using CopyManagerT = yateto::DefaultCopyManager<real>;
-  static MemoryProperties getProperties();
+  static GlobalData pool(memory::ManagedAllocator& allocator, memory::Memkind memkind);
 };
 
 struct OnDevice {
-  struct DeviceCopyPolicy {
-    static real* copy(const real* first, const real* last, real*& mem);
-  };
-  using CopyManagerT = yateto::CopyManager<real, DeviceCopyPolicy>;
-  static MemoryProperties getProperties();
+  static GlobalData pool(memory::ManagedAllocator& allocator, memory::Memkind memkind);
 };
 } // namespace matrixmanip
 
-// Generalized Global data initializers of SeisSol.
 template <typename MatrixManipPolicyT>
 struct GlobalDataInitializer {
   static void init(GlobalData& globalData,
@@ -56,7 +38,6 @@ struct GlobalDataInitializer {
                    enum memory::Memkind memkind);
 };
 
-// Specific Global data initializers of SeisSol.
 using GlobalDataInitializerOnHost = GlobalDataInitializer<matrixmanip::OnHost>;
 using GlobalDataInitializerOnDevice = GlobalDataInitializer<matrixmanip::OnDevice>;
 } // namespace seissol::initializer

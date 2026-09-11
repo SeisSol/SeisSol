@@ -55,7 +55,7 @@ class FrictionSolver {
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   virtual void allocateAuxiliaryMemory(GlobalData* globalData) {
-    spaceWeights_ = globalData->spaceWeights;
+    spaceWeights_ = globalData->quadweights;
   }
 
   virtual seissol::initializer::AllocationPlace allocationPlace() {

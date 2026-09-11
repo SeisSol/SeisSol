@@ -32,8 +32,8 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 #endif
     }
 
-    resampleMatrix_ = globalData->resampleMatrix;
-    devSpaceWeights_ = globalData->spaceWeights;
+    resampleMatrix_ = globalData->resample;
+    devSpaceWeights_ = globalData->quadweights;
 
     const auto& tables = thermalPressurizationTables();
     devTpInverseFourierCoefficients_ = tables.inverseFourierCoefficients;
