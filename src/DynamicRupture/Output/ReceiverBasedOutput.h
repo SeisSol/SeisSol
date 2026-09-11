@@ -33,6 +33,9 @@ class ReceiverOutput {
     meshReader_ = userMeshReader;
   }
   void setFaceToLtsMap(::seissol::initializer::StorageBackmap<1>* map) { faceToLtsMap_ = map; }
+  void setDrParameters(const seissol::initializer::parameters::DRParameters* userDrParameters) {
+    drParameters_ = userDrParameters;
+  }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
@@ -48,6 +51,7 @@ class ReceiverOutput {
   LTS::Backmap* wpBackmap_{nullptr};
   DynamicRupture::Storage* drStorage_{nullptr};
   seissol::geometry::MeshReader* meshReader_{nullptr};
+  const seissol::initializer::parameters::DRParameters* drParameters_{nullptr};
   ::seissol::initializer::StorageBackmap<1>* faceToLtsMap_{nullptr};
   real* deviceCopyMemory_{nullptr};
 
@@ -64,6 +68,9 @@ class ReceiverOutput {
     int internalGpIndexFused{};
 
     double time{};
+    /// width of the last sub time step of the friction solve, which is the one the stored friction
+    /// state belongs to
+    double deltaT{};
     bool* printWarning{nullptr};
 
     std::size_t index{};

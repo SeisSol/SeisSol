@@ -11,6 +11,9 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
   protected:
@@ -20,12 +23,23 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
     return regularizedStrengths[local.gpIndex];
   }
 
-  real computeLocalStrengthSlope(LocalInfo& /*local*/) override {
+  real computeLocalStrengthSlope(LocalInfo& local) override {
     // The Prakash-Clifton regularisation low-passes the strength, so only the fraction
-    // -expm1(-(V + vStar) dt / prakashLength) of a normal stress change arrives instantaneously.
-    // That factor needs the time step of the friction solve, which the receiver output does not
-    // see, so the reconstruction leaves the coupling out rather than overstating it.
-    return 0.0;
+    // -expm1(-(V + vStar) dt / prakashLength) of a normal stress change arrives instantaneously --
+    // evaluated with the slip rate and the sub time step of the friction solve that produced the
+    // stored regularized strength. It scales the slope of the unregularized law.
+    const auto* const slipRateMagnitude = getCellData<DynamicRupture::SlipRateMagnitude>(local);
+    const auto effectiveNormalStress =
+        local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
+    if (effectiveNormalStress >= 0) {
+      return 0.0;
+    }
+
+    const auto expval = -(std::max(static_cast<real>(0.0), slipRateMagnitude[local.gpIndex]) +
+                          static_cast<real>(drParameters_->vStar)) *
+                        static_cast<real>(local.deltaT) /
+                        static_cast<real>(drParameters_->prakashLength);
+    return local.frictionCoefficient * -std::expm1(expval);
   }
 
   public:

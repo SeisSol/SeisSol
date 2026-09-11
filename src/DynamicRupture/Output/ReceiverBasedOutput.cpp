@@ -9,6 +9,7 @@
 
 #include "Alignment.h"
 #include "Common/Constants.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
@@ -29,6 +30,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Numerical/BasisFunction.h"
+#include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -87,6 +89,11 @@ void ReceiverOutput::calcFaultOutput(
                            : 0;
   const auto& faultInfos = meshReader_->getFault();
 
+  // the friction solve advances in the sub intervals of the time quadrature; the stored friction
+  // state belongs to the last of them
+  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(
+      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, dt).first);
+
   const auto timeCoeffs = kernels::timeBasis().point(indt, dt);
   auto integrateCoeffs = kernels::timeBasis().integrate(0, indt, dt);
   for (auto& coeff : integrateCoeffs) {
@@ -138,6 +145,7 @@ void ReceiverOutput::calcFaultOutput(
     local.state = outputData.get();
 
     local.time = time;
+    local.deltaT = frictionTime.deltaT.back();
     local.printWarning = &this->printRSFWarning_;
 
     local.nearestGpIndex = outputData->receiverPoints[i].nearestGpIndex;
