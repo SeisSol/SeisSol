@@ -35,19 +35,20 @@ jobs:
         setup:
           - name: gcc-13
             container: seissol/gha-cpu:davschneller-gpu-image
-            parallel-builds: 4
+            parallel-builds: 1
             pythonbreak: true
           - name: clang-19
             container: seissol/gha-cpu:davschneller-gpu-image
-            parallel-builds: 4
+            parallel-builds: 1
             pythonbreak: true
           - name: icx-2024
             container: seissol/gha-gpu-intel:davschneller-gpu-image
-            parallel-builds: 4
+            parallel-builds: 1
             pythonbreak: false
-          #- name: nvhpc
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-          #  parallel-builds: 2
+          - name: nvhpc
+            container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+            parallel-builds: 1
+            pythonbreak: true
     steps:
       - name: setup
         run: |

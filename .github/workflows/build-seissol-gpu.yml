@@ -88,7 +88,7 @@ jobs:
             --set device_backend=${{ matrix.setup.backend }} \
             --set device_arch=${{ matrix.setup.arch }} \
             --install-prefix /opt/seissol \
-            --max-parallel 2 \
+            --max-parallel 1 \
             --report build-report.json
 
       - name: upload-build-report
