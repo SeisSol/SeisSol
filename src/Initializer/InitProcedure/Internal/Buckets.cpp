@@ -314,10 +314,7 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
           using Buf = decltype(typeHandler);
 
           if (faceNeighbor == StoragePosition::NullPosition) {
-            faceNeighbors[cell][face] = layer.var<typename Buf::Type>()[cell];
-            if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = layer.var<typename Buf::TypeDevice>()[cell];
-            }
+            logError() << "A face that needs the Neighbor kernel has no face neighbor.";
           } else {
             faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(faceNeighbor);
             if constexpr (isDeviceOn()) {
