@@ -26,8 +26,6 @@
 
 namespace seissol::initializer::internal {
 
-namespace {
-
 /**
  * Derives the storage requirements of a single cell from its face types and the time cluster IDs
  * of its face neighbors.
@@ -57,7 +55,7 @@ namespace {
  **/
 LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
                      const SecondaryCellLocalInformation& ownSecondary,
-                     const std::array<uint64_t, Cell::NumFaces>& neighborClusters) {
+                     const std::array<std::uint64_t, Cell::NumFaces>& neighborClusters) {
   // reset the LTS setup
   LtsSetup ltsSetup{};
 
@@ -103,8 +101,6 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
 
   return ltsSetup;
 }
-
-} // namespace
 
 /**
  * Derives the lts setups of all given cells.
