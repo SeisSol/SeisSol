@@ -17,8 +17,6 @@
 
 namespace seissol::unit_test {
 
-namespace {
-
 constexpr std::array<BufferType, BufferCount> AllBufferTypes{
     BufferType::StepIntegrals, BufferType::Derivatives, BufferType::AccumulatedIntegrals};
 
@@ -29,15 +27,13 @@ struct CellSetup {
   std::uint64_t clusterId{};
 };
 
-auto derive(const CellSetup& setup) -> LtsSetup {
+constexpr auto derive(const CellSetup& setup) -> LtsSetup {
   CellLocalInformation primary{};
   primary.faceTypes = setup.faceTypes;
   SecondaryCellLocalInformation secondary{};
   secondary.clusterId = setup.clusterId;
   return initializer::internal::getLtsSetup(primary, secondary, setup.neighborClusters);
 }
-
-} // namespace
 
 TEST_CASE("LtsSetup fields do not overlap" * doctest::test_suite("initializer")) {
   LtsSetup setup;
