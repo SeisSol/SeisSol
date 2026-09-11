@@ -18,7 +18,7 @@ jobs:
   # ---------------------------------------------------------------------------
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
-    runs-on: self-hosted #ubuntu-26.04
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
     strategy:
       fail-fast: false
@@ -36,16 +36,28 @@ jobs:
           - name: gcc-13
             container: seissol/gha-cpu:davschneller-gpu-image
             parallel-builds: 4
+            pythonbreak: true
           - name: clang-19
             container: seissol/gha-cpu:davschneller-gpu-image
             parallel-builds: 4
+            pythonbreak: true
           - name: icx-2024
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             parallel-builds: 4
+            pythonbreak: false
           #- name: nvhpc
           #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
           #  parallel-builds: 2
     steps:
+      - name: setup
+        run: |
+          if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
+            # the Intel image still works with an older Python version. Hence, use the following hack.
+            pip3 install pyyaml
+          else
+            pip3 install --break-system-packages pyyaml
+          fi
+
       - id: checkout
         name: checkout-seissol
         uses: actions/checkout@v6
@@ -137,15 +149,11 @@ jobs:
           #  mpi: openmpi
         parallel:
           - ranks: 1
-            threads: 4
+            threads: 12
             commthread: false
-          - ranks: 4
+          - ranks: 12
             threads: 1
             commthread: false
-    env:
-      commsize: ${{matrix.parallel.ranks}}
-      rankthreads: ${{matrix.parallel.threads}}
-      device: 'cpu'
     steps:
       - name: install-packages
         run: |
