@@ -28,6 +28,18 @@ namespace seissol::model {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::linearckanelastic::Solver, MaterialT> {
+  /// E(i, mech, j): the prototype in its own tensor dimension, with the
+  /// relaxation held separately in w.
+  template <typename T>
+  static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& E) {
+    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+      MaterialSetup<MaterialT>::forEachSourceEntry(
+          material, mech, [&](std::size_t i, std::size_t j, double value) {
+            E(i, mech, j) = value;
+          });
+    }
+  }
+
   static void getPlaneWaveOperator(
       const MaterialT& material,
       const double n[3],
@@ -57,7 +69,7 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
     double Edata[MaterialT::NumQuantities * MaterialT::NumQuantities];
     yateto::DenseTensorView<3, double> E(Edata, tensor::E::Shape);
     E.setZero();
-    MaterialSetup<MaterialT>::getTransposedSourceCoefficientTensor(material, E);
+    getTransposedSourceCoefficientTensor(material, E);
     Coeff.setZero();
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       std::size_t offset = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
@@ -90,7 +102,7 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
                                           typename MaterialT::Solver::LocalData* localData) {
     auto E = init::E::view::create(localData->E);
     E.setZero();
-    MaterialSetup<MaterialT>::getTransposedSourceCoefficientTensor(material, E);
+    getTransposedSourceCoefficientTensor(material, E);
 
     auto w = init::w::view::create(localData->w);
     auto W = init::W::view::create(localData->W);

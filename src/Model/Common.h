@@ -148,7 +148,8 @@ void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tma
 
 template <typename Tmaterial, typename T>
 void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
-  MaterialSetup<Tmaterial>::getTransposedSourceCoefficientTensor(material, mE);
+  SolverSetup<typename Tmaterial::Solver, Tmaterial>::getTransposedSourceCoefficientTensor(material,
+                                                                                           mE);
 }
 
 template <typename Tmaterial>
@@ -332,6 +333,12 @@ struct SolverSetupDefaults {
   static void
       initializeSpecificNeighborData(const MaterialT& /*material*/,
                                      typename MaterialT::Solver::NeighborData* /*neighborData*/) {}
+
+  /// Materials without relaxation describe their source term directly.
+  template <typename T>
+  static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& sourceMatrix) {
+    MaterialSetup<MaterialT>::getTransposedSourceCoefficientTensor(material, sourceMatrix);
+  }
 };
 
 template <typename MaterialT>

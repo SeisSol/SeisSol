@@ -31,6 +31,17 @@ template <std::size_t N>
 struct ViscoAcousticSetupCommon : public MaterialSetupDefaults<ViscoAcousticMaterial<N>> {
   using MaterialT = ViscoAcousticMaterial<N>;
 
+  /**
+   * The source entries one relaxation mechanism contributes, as (row, column,
+   * value) within its own block. Where the block ends up -- appended to the
+   * quantity axis or in a tensor dimension of its own -- is the solver's
+   * business, so it is handed a writer rather than a matrix.
+   */
+  template <typename F>
+  static void forEachSourceEntry(const MaterialT& material, std::size_t mech, F&& write) {
+    write(0, 0, material.theta[mech][0]);
+  }
+
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
@@ -73,30 +84,6 @@ struct MaterialSetup<
   using ViscoAcousticSetupCommon<N>::getTransposedAnelasticCoefficientMatrix;
 
   template <typename T>
-  static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& sourceMatrix) {
-    sourceMatrix.setZero();
-
-    //       | E_1^T |
-    // E^T = |  ...  |
-    //       | E_L^T |
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      const std::size_t offset =
-          MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
-      const double* theta = material.theta[mech];
-      sourceMatrix(offset, 0) = theta[0];
-    }
-
-    // E' = diag(-omega_1 I, ..., -omega_L I)
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      for (std::size_t i = 0; i < MaterialT::NumberPerMechanism; ++i) {
-        const std::size_t idx =
-            MaterialT::NumElasticQuantities + MaterialT::NumberPerMechanism * mech + i;
-        sourceMatrix(idx, idx) = -material.omega[mech];
-      }
-    }
-  }
-
-  template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
     ::seissol::model::getTransposedCoefficientMatrix(
         dynamic_cast<const AcousticMaterial&>(material), dim, AT);
@@ -116,14 +103,6 @@ struct MaterialSetup<
     : public ViscoAcousticSetupCommon<N> {
   using MaterialT = ViscoAcousticMaterial<N>;
   using ViscoAcousticSetupCommon<N>::getTransposedAnelasticCoefficientMatrix;
-
-  template <typename T>
-  static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& E) {
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      const double* theta = material.theta[mech];
-      E(0, mech, 0) = theta[0];
-    }
-  }
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {

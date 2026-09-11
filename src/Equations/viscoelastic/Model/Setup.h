@@ -31,6 +31,29 @@ template <std::size_t N>
 struct ViscoElasticSetupCommon : public MaterialSetupDefaults<ViscoElasticMaterial<N>> {
   using MaterialT = ViscoElasticMaterial<N>;
 
+  /**
+   * The source entries one relaxation mechanism contributes, as (row, column,
+   * value) within its own block. Where the block ends up -- appended to the
+   * quantity axis or in a tensor dimension of its own -- is the solver's
+   * business, so it is handed a writer rather than a matrix.
+   */
+  template <typename F>
+  static void forEachSourceEntry(const MaterialT& material, std::size_t mech, F&& write) {
+    const double* theta = material.theta[mech];
+    write(0, 0, theta[0]);
+    write(1, 0, theta[1]);
+    write(2, 0, theta[1]);
+    write(0, 1, theta[1]);
+    write(1, 1, theta[0]);
+    write(2, 1, theta[1]);
+    write(0, 2, theta[1]);
+    write(1, 2, theta[1]);
+    write(2, 2, theta[0]);
+    write(3, 3, theta[2]);
+    write(4, 4, theta[2]);
+    write(5, 5, theta[2]);
+  }
+
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
@@ -79,41 +102,6 @@ struct MaterialSetup<
   using ViscoElasticSetupCommon<N>::getTransposedAnelasticCoefficientMatrix;
 
   template <typename T>
-  static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& sourceMatrix) {
-    sourceMatrix.setZero();
-
-    //       | E_1^T |
-    // E^T = |  ...  |
-    //       | E_L^T |
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      const std::size_t offset =
-          MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
-      const double* theta = material.theta[mech];
-      sourceMatrix(offset, 0) = theta[0];
-      sourceMatrix(offset + 1, 0) = theta[1];
-      sourceMatrix(offset + 2, 0) = theta[1];
-      sourceMatrix(offset, 1) = theta[1];
-      sourceMatrix(offset + 1, 1) = theta[0];
-      sourceMatrix(offset + 2, 1) = theta[1];
-      sourceMatrix(offset, 2) = theta[1];
-      sourceMatrix(offset + 1, 2) = theta[1];
-      sourceMatrix(offset + 2, 2) = theta[0];
-      sourceMatrix(offset + 3, 3) = theta[2];
-      sourceMatrix(offset + 4, 4) = theta[2];
-      sourceMatrix(offset + 5, 5) = theta[2];
-    }
-
-    // E' = diag(-omega_1 I, ..., -omega_L I)
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      for (std::size_t i = 0; i < MaterialT::NumberPerMechanism; ++i) {
-        const std::size_t idx =
-            MaterialT::NumElasticQuantities + MaterialT::NumberPerMechanism * mech + i;
-        sourceMatrix(idx, idx) = -material.omega[mech];
-      }
-    }
-  }
-
-  template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
     ::seissol::model::getTransposedCoefficientMatrix(
         dynamic_cast<const ElasticMaterial&>(material), dim, AT);
@@ -133,25 +121,6 @@ struct MaterialSetup<
     : public ViscoElasticSetupCommon<N> {
   using MaterialT = ViscoElasticMaterial<N>;
   using ViscoElasticSetupCommon<N>::getTransposedAnelasticCoefficientMatrix;
-
-  template <typename T>
-  static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& E) {
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      const double* theta = material.theta[mech];
-      E(0, mech, 0) = theta[0];
-      E(1, mech, 0) = theta[1];
-      E(2, mech, 0) = theta[1];
-      E(0, mech, 1) = theta[1];
-      E(1, mech, 1) = theta[0];
-      E(2, mech, 1) = theta[1];
-      E(0, mech, 2) = theta[1];
-      E(1, mech, 2) = theta[1];
-      E(2, mech, 2) = theta[0];
-      E(3, mech, 3) = theta[2];
-      E(4, mech, 4) = theta[2];
-      E(5, mech, 5) = theta[2];
-    }
-  }
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
