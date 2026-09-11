@@ -125,7 +125,8 @@ void ReceiverOutput::calcFaultOutput(
                         level,
                         timeCoeffs,
                         integrateCoeffs,
-                        time](std::size_t i) {
+                        time,
+                        frictionTime](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
