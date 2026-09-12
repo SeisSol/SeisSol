@@ -72,7 +72,13 @@ class ADERDGBase(ABC):
         )
 
         self.I = OptionalDimTensor(
-            "I", "s", multipleSimulations, 0, qShape, alignStride=True
+            "I",
+            "s",
+            multipleSimulations,
+            0,
+            (self.num3DBasisFunctions(), self.numTransportQuantities()),
+            spp=self.transportSpp(),
+            alignStride=True,
         )
 
         Aplusminus_spp = self.flux_solver_spp()
@@ -252,6 +258,32 @@ class ADERDGBase(ABC):
     def extendedBlocks(self):
         """Layout the face rotation operates on."""
         return self.quantityBlocks()
+
+    def transportBlocks(self):
+        """Layout of the time-integrated quantities, i.e. of :attr:`I`.
+
+        A solver whose flux is nonlinear in the state carries more across a
+        face than the state itself, because the integral of a nonlinear flux is
+        not the flux of the integrated state. What it carries is described
+        here; for everyone else the two coincide.
+        """
+        return self.quantityBlocks()
+
+    def numTransportQuantities(self):
+        return total_extent(self.transportBlocks())
+
+    def transportSpp(self):
+        """Sparsity of :attr:`I`. Dense unless a solver says otherwise."""
+        return None
+
+    def transportMatchesQuantities(self):
+        """Whether :attr:`I` is laid out like :attr:`Q`.
+
+        Where it is not, a tensor shaped by the quantity layout cannot be
+        contracted with the integrals, and the kernels that do so are not
+        available.
+        """
+        return self.numTransportQuantities() == self.numQuantities()
 
     def inverseRotationBlocks(self):
         """Layout the inverse face rotation operates on. It need not match the

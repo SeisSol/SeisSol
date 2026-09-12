@@ -15,8 +15,18 @@ coupled through a Rusanov flux instead of a Riemann solver. Those parts are not
 in this class yet; they arrive with the constitutive law that defines them.
 """
 
+from dataclasses import replace
+
+import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
+from kernels.quantities import (
+    FaceRole,
+    QuantityGroup,
+    QuantityKind,
+    layout,
+    total_extent,
+)
 from yateto import Scalar, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
@@ -36,6 +46,62 @@ class NonLinearCK(ADERDGBase):
 
     def numExtendedQuantities(self):
         return self.numQuantities()
+
+    def transportGroups(self):
+        """Groups of the transported integrals.
+
+        The face-coupled groups of the state, then the stress and the
+        dissipation coefficient. The stress takes the traction role here: it is
+        the mechanical traction, and it is present rather than derived, so the
+        group that stands in for it in the state layout gives the role up.
+
+        Groups without a face role are left out. They evolve through source
+        terms local to the cell, so no neighbour ever reads them, and their
+        own time integral stays where it is computed.
+        """
+        coupled = [
+            (
+                replace(group, role=FaceRole.NONE)
+                if group.role is FaceRole.TRACTION
+                else group
+            )
+            for group in self.primaryGroups()
+            if group.role is not FaceRole.NONE
+        ]
+        return coupled + [
+            QuantityGroup("sigma", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
+            QuantityGroup("lambdaMax", QuantityKind.INVARIANT),
+        ]
+
+    def transportBlocks(self):
+        return layout(self.transportGroups())
+
+    def transportStateExtent(self):
+        """Quantities the transported tensor shares with the state, and in the
+        same order: the Taylor expansion writes exactly these."""
+        return total_extent(
+            [
+                block
+                for block in self.transportBlocks()
+                if block.group.name != "sigma" and block.group.name != "lambdaMax"
+            ]
+        )
+
+    def transportGroupSlice(self, name):
+        """``(start, stop)`` of a transport group along the quantity axis."""
+        for block in self.transportBlocks():
+            if block.group.name == name:
+                return block.offset, block.offset + block.extent
+        raise ValueError(f"no transport group named {name}")
+
+    def transportSpp(self):
+        """The dissipation coefficient is one number per cell, so its column
+        carries the constant mode alone."""
+        spp = np.ones(
+            (self.num3DBasisFunctions(), self.numTransportQuantities()), dtype=bool
+        )
+        spp[1:, -1] = False
+        return spp
 
     def addInit(self, generator):
         super().addInit(generator)
@@ -73,18 +139,6 @@ class NonLinearCK(ADERDGBase):
         nodalShape = (
             self.num3DQuadraturePoints(),
             self.numQuantities(),
-        )
-        # The time-integrated stress, carried alongside the integrated state.
-        # It is what lets a neighbour evaluate its half of the flux without the
-        # other cell's material, and it is modal because that is the form it
-        # travels and is stored in.
-        self.sigmaI = OptionalDimTensor(
-            "sigmaI",
-            self.Q.optName(),
-            self.Q.optSize(),
-            self.Q.optPos(),
-            (self.num3DBasisFunctions(), 6),
-            alignStride=True,
         )
 
         self.QNodal = OptionalDimTensor(
@@ -143,8 +197,8 @@ class NonLinearCK(ADERDGBase):
         on, so the family is twelve rather than forty-eight, and the lift that
         does depend on it is four on its own.
         """
-        atFace = self.faceTensor("QAtFace", self.numQuantities())
-        fromNeighbor = self.faceTensor("QAtFaceNeighbor", self.numQuantities())
+        atFace = self.faceTensor("QAtFace", self.numTransportQuantities())
+        fromNeighbor = self.faceTensor("QAtFaceNeighbor", self.numTransportQuantities())
         flux = self.faceTensor("fluxAtFace", self.numQuantities())
 
         generator.addFamily(
@@ -227,8 +281,16 @@ class NonLinearCK(ADERDGBase):
 
             derivatives = [dQ0True]
 
-            derivativeExpr = [self.I["kp"] <= power * dQ0True["kp"]]
-            derivativeTaylorExpansion = power * dQ0["kp"]
+            # The transported tensor is wider than the state and shares its
+            # first columns; the stress and the dissipation coefficient are
+            # filled where they are computed.
+            shared = self.transportStateExtent()
+
+            def state(tensor):
+                return tensor["kp"].subslice("p", 0, shared)
+
+            derivativeExpr = [state(self.I) <= power * state(dQ0True)]
+            derivativeTaylorExpansion = power * state(dQ0)
 
             if target == "gpu":
                 derivativeExpr += [dQ0["kp"] <= self.Q["kp"]]
@@ -262,13 +324,13 @@ class NonLinearCK(ADERDGBase):
 
                 derivativeExpr += [
                     dQ["kp"] <= derivativeSum,
-                    self.I["kp"] <= self.I["kp"] + power * dQ["kp"],
+                    state(self.I) <= state(self.I) + power * state(dQ),
                 ]
-                derivativeTaylorExpansion += power * dQ["kp"]
+                derivativeTaylorExpansion += power * state(dQ)
 
                 derivatives.append(dQ)
 
-            derivativeTaylorExpansionExpr = self.I["kp"] <= derivativeTaylorExpansion
+            derivativeTaylorExpansionExpr = state(self.I) <= derivativeTaylorExpansion
             generator.add(f"{name_prefix}derivative", derivativeExpr, target=target)
             generator.add(
                 f"{name_prefix}derivativeTaylorExpansion",
@@ -279,4 +341,3 @@ class NonLinearCK(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
-        include_tensors.add(self.sigmaI)

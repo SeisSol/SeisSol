@@ -343,10 +343,13 @@ class DamageADERDG(NonLinearCK):
             np.stack([fluxMap(STRESS_FLUX[d], 6, nq) for d in range(3)]),
         )
 
-        sigmaFace = self.faceTensor("sigmaAtFace", 6)
-        sigmaFaceNeighbor = self.faceTensor("sigmaAtFaceNeighbor", 6)
         fluxLocal = self.faceTensor("fluxAtFaceLocal", nq)
         fluxNeighbor = self.faceTensor("fluxAtFaceNeighbor", nq)
+
+        # Both traces come out of one projection, so the stress is read off the
+        # transported tensor rather than handed over separately.
+        stress = self.transportGroupSlice("sigma")
+        coupled = self.transportStateExtent()
 
         generator.add(
             f"{prefix}damageRusanov",
@@ -355,18 +358,31 @@ class DamageADERDG(NonLinearCK):
                 <= self.QAtFace["km"].subslice("m", 6, 9)
                 * velocityMap["dmp"]
                 * normal["d"]
-                + rhoInv * sigmaFace["kc"] * stressMap["dcp"] * normal["d"],
+                + rhoInv
+                * self.QAtFace["kc"].subslice("c", *stress)
+                * stressMap["dcp"]
+                * normal["d"],
                 fluxNeighbor["kp"]
                 <= self.QAtFaceNeighbor["km"].subslice("m", 6, 9)
                 * velocityMap["dmp"]
                 * normal["d"]
                 + rhoInvNeighbor
-                * sigmaFaceNeighbor["kc"]
+                * self.QAtFaceNeighbor["kc"].subslice("c", *stress)
                 * stressMap["dcp"]
                 * normal["d"],
-                self.fluxAtFace["kp"]
-                <= 0.5 * (fluxLocal["kp"] + fluxNeighbor["kp"])
-                - 0.5 * lambdaMax * (self.QAtFaceNeighbor["kp"] - self.QAtFace["kp"]),
+                self.fluxAtFace["kp"] <= 0.5 * (fluxLocal["kp"] + fluxNeighbor["kp"]),
+                # The dissipation is a jump of the state, so it reaches the
+                # quantities the two cells couple through and no others: alpha
+                # and B carry no flux, and a jump of them across a face is not
+                # something the scheme may smooth out on its own.
+                self.fluxAtFace["kp"].subslice("p", 0, coupled)
+                <= self.fluxAtFace["kp"].subslice("p", 0, coupled)
+                - 0.5
+                * lambdaMax
+                * (
+                    self.QAtFaceNeighbor["kp"].subslice("p", 0, coupled)
+                    - self.QAtFace["kp"].subslice("p", 0, coupled)
+                ),
             ],
             target=target,
         )

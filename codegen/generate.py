@@ -262,16 +262,24 @@ def main():
         kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
 
         # Common kernels
-        include_tensors.update(
-            kernels.dynamic_rupture.addKernels(
-                NamespacedGenerator(generator, namespace="dynamicRupture"),
-                adg,
-                cmdLineArgs.matricesDir,
-                cmdLineArgs.drQuadRule,
-                targets,
-                isOldGpuInterface,
+        #
+        # The three modules below contract the time-integrated quantities with
+        # tensors shaped by the quantity layout -- the nodal boundary
+        # projection, the face displacement, and the rupture flux. Where a
+        # solver transports more than the state, those shapes disagree, and the
+        # kernels have to be rebuilt against the transport layout before they
+        # can be emitted again.
+        if adg.transportMatchesQuantities():
+            include_tensors.update(
+                kernels.dynamic_rupture.addKernels(
+                    NamespacedGenerator(generator, namespace="dynamicRupture"),
+                    adg,
+                    cmdLineArgs.matricesDir,
+                    cmdLineArgs.drQuadRule,
+                    targets,
+                    isOldGpuInterface,
+                )
             )
-        )
 
         kernels.plasticity.addKernels(
             generator,
@@ -284,17 +292,18 @@ def main():
             cmdLineArgs.matricesDir, adg, cmdLineArgs.PlasticityMethod, include_tensors
         )
 
-        kernels.nodalbc.addKernels(
-            generator,
-            adg,
-            include_tensors,
-            cmdLineArgs.matricesDir,
-            cmdLineArgs,
-            targets,
-        )
-        kernels.surface_displacement.addKernels(
-            generator, adg, include_tensors, targets
-        )
+        if adg.transportMatchesQuantities():
+            kernels.nodalbc.addKernels(
+                generator,
+                adg,
+                include_tensors,
+                cmdLineArgs.matricesDir,
+                cmdLineArgs,
+                targets,
+            )
+            kernels.surface_displacement.addKernels(
+                generator, adg, include_tensors, targets
+            )
         kernels.point.addKernels(generator, adg)
 
         outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"
