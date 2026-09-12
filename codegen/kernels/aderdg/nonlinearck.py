@@ -281,6 +281,13 @@ class NonLinearCK(ADERDGBase):
             alignStride=True,
         )
 
+    def addCellIntegral(self, generator, target, prefix):
+        """What the cell adds to its own state from its own integrals.
+
+        Empty here: which map that is follows from the flux, so the material
+        fills it in.
+        """
+
     def addFaceProjection(self, generator, target, prefix):
         """Face-nodal values of the time-integrated state, and the way back.
 
@@ -346,6 +353,7 @@ class NonLinearCK(ADERDGBase):
                 self.Q["kp"] <= self.db.projectQP[self.t("kl")] * self.QNodal["lp"],
                 target=target,
             )
+            self.addCellIntegral(generator, target, prefix)
             self.addFaceProjection(generator, target, prefix)
             self.addFaceFlux(generator, target, prefix)
 

@@ -1,0 +1,31 @@
+<!--
+SPDX-FileCopyrightText: 2026 SeisSol Group
+
+SPDX-License-Identifier: BSD-3-Clause
+-->
+<memory_layouts>
+  <!-- The stiffness matrices carry the element geometry, which is sparse in
+       the reference element, and the recursion applies them once per
+       derivative. -->
+  <matrix name="kDivM(0)" sparse="True"/>
+  <matrix name="kDivM(1)" sparse="True"/>
+  <matrix name="kDivM(2)" sparse="True"/>
+
+  <matrix name="kDivMT(0)" sparse="True"/>
+  <matrix name="kDivMT(1)" sparse="True"/>
+  <matrix name="kDivMT(2)" sparse="True"/>
+
+  <!-- The flux Jacobian of a strain-velocity material is a table: of the 121
+       entries per direction, twelve are non-zero. -->
+  <matrix name="star" sparse="True"/>
+
+  <!-- Face permutations and the restriction to a face. -->
+  <matrix name="rT(0)" sparse="True"/>
+  <matrix name="rT(1)" sparse="True"/>
+  <matrix name="rT(2)" sparse="True"/>
+  <matrix name="rT(3)" sparse="True"/>
+
+  <matrix name="fP(0)" sparse="True"/>
+  <matrix name="fP(1)" sparse="True"/>
+  <matrix name="fP(2)" sparse="True"/>
+</memory_layouts>

@@ -25,9 +25,14 @@ namespace seissol::kernels::solver::nonlinearck {
 /// The cell's own contribution: the volume term and the faces it owns.
 ///
 /// The volume term is a constant map on the transported tensor, because the
-/// flux is linear in the stress once the stress is there, and the boundary
-/// conditions want a ghost rule for the stress columns that is not written
-/// yet. Both are missing here.
+/// flux is linear in the velocity and the stress and both are transported --
+/// no nodal detour, nothing to evaluate. The source integral of the internal
+/// variables is added in the same kernel, being the other half of the same
+/// update.
+///
+/// The boundary conditions are missing: they want a ghost rule for the stress
+/// columns, which is where the transport layout has to reach the nodal
+/// projection first.
 ///
 /// Both differ from the linear solver in the same way. The volume term lifts a
 /// flux that was evaluated at the nodes rather than applying a constant
@@ -61,11 +66,13 @@ class Local : public LocalKernel {
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
+  kernel::damageCellIntegral cellIntegral_;
   kernel::projectToFace projectToFace_;
   kernel::damageRusanov rusanov_;
   kernel::faceIntegral faceIntegral_;
 
 #ifdef ACL_DEVICE
+  kernel::gpu_damageCellIntegral deviceCellIntegral_;
   kernel::gpu_projectToFace deviceProjectToFace_;
   kernel::gpu_damageRusanov deviceRusanov_;
   kernel::gpu_faceIntegral deviceFaceIntegral_;

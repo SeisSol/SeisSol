@@ -30,6 +30,7 @@ import yateto.functions as yf
 from kernels.aderdg.nonlinearck import NonLinearCK
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Scalar, Tensor
+from yateto.memory import CSCMemoryLayout
 
 #: Position of the two internal variables on the quantity axis.
 ALPHA = 9
@@ -120,6 +121,26 @@ class DamageADERDG(NonLinearCK):
         self.pickAlpha = Tensor("selectAlpha", (nq,), unit(ALPHA, nq))
         self.pickBreakage = Tensor("selectBreakage", (nq,), unit(BREAKAGE, nq))
         self.epsInit = Tensor("epsInit", (6,))
+        # The directional maps hold nine non-zeros at most, scattered, so a
+        # bounding box buys nothing and they are stored by their pattern.
+        self.toFluxV = [
+            Tensor(
+                f"velocityToFlux{axis}",
+                (3, nq),
+                fluxMap(VELOCITY_FLUX[d], 3, nq),
+                CSCMemoryLayout,
+            )
+            for d, axis in enumerate("XYZ")
+        ]
+        self.toFluxS = [
+            Tensor(
+                f"stressToFlux{axis}",
+                (6, nq),
+                fluxMap(STRESS_FLUX[d], 6, nq),
+                CSCMemoryLayout,
+            )
+            for d, axis in enumerate("XYZ")
+        ]
         self.unitColumn = Tensor("unitColumn", (1,), np.ones(1))
         self.weights = Tensor("quadratureWeights", (nodes,), self.nodalMeanWeights())
 
@@ -364,6 +385,37 @@ class DamageADERDG(NonLinearCK):
             <= projection * self.sigmaIntegral["lc"],
             self.sourceI["kn"] <= projection * self.sourceIntegral["ln"],
         ]
+
+    def addCellIntegral(self, generator, target, prefix):
+        """What the cell adds to its own state, from its own integrals.
+
+        The flux is linear in the velocity and the stress, and both are
+        transported, so the volume term is a constant map: no nodal detour and
+        nothing to evaluate. The source integral of the internal variables
+        rides along, because it is the other half of the same update and it is
+        addition.
+        """
+        rhoInv = Scalar("rhoInv")
+        velocity = self.transportGroupSlice("v")
+        stress = self.transportGroupSlice("sigma")
+        internal = (self.transportStateExtent(), self.numQuantities())
+
+        volume = self.Q["kp"]
+        for d in range(3):
+            volume = volume + self.db.kDivM[d][self.t("kl")] * (
+                self.I["lm"].subslice("m", *velocity) * self.toFluxV[d]["mp"]
+                + rhoInv * self.I["lc"].subslice("c", *stress) * self.toFluxS[d]["cp"]
+            )
+
+        generator.add(
+            f"{prefix}damageCellIntegral",
+            [
+                self.Q["kp"] <= volume,
+                self.Q["kn"].subslice("n", *internal)
+                <= self.Q["kn"].subslice("n", *internal) + self.sourceI["kn"],
+            ],
+            target=target,
+        )
 
     def addFaceFlux(self, generator, target, prefix):
         """The Rusanov flux at the face nodes.
