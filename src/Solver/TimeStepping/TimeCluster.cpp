@@ -43,7 +43,6 @@
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/Quadrature.h"
-#include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
@@ -90,8 +89,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
       settings_(settings), seissolInstance_(seissolInstance), streamRuntime_(4),
-      globalDataOnHost_(globalData.onHost), globalDataOnDevice_(globalData.onDevice),
-      clusterData_(clusterData),
+      globalData_(globalData), clusterData_(clusterData),
       // global data
       dynRupInteriorData_(dynRupInteriorData), dynRupCopyData_(dynRupCopyData),
       frictionSolver_(frictionSolverTemplate->clone()),
@@ -111,9 +109,9 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       dynamicRuptureScheduler_(dynamicRuptureScheduler) {
   // assert all pointers are valid
   assert(clusterData_ != nullptr);
-  assert(globalDataOnHost_ != nullptr);
+  assert(globalData_.onHost != nullptr);
   if constexpr (seissol::isDeviceOn()) {
-    assert(globalDataOnDevice_ != nullptr);
+    assert(globalData_.onDevice != nullptr);
   }
 
   // set timings to zero
@@ -127,11 +125,11 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   neighborKernel_.setGlobalData(globalData);
   dynamicRuptureKernel_.setGlobalData(globalData);
 
-  frictionSolver_->allocateAuxiliaryMemory(globalDataOnHost_);
-  frictionSolverCopy_->allocateAuxiliaryMemory(globalDataOnHost_);
+  frictionSolver_->allocateAuxiliaryMemory(globalData_.onHost);
+  frictionSolverCopy_->allocateAuxiliaryMemory(globalData_.onHost);
   if constexpr (seissol::isDeviceOn()) {
-    frictionSolverDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
-    frictionSolverCopyDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+    frictionSolverDevice_->allocateAuxiliaryMemory(globalData_.onDevice);
+    frictionSolverCopyDevice_->allocateAuxiliaryMemory(globalData_.onDevice);
   }
 
   frictionSolver_->setupLayer(*dynRupInteriorData, streamRuntime_);
@@ -405,8 +403,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
           data.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
-        addVelocityKrnl.V3mTo2nFace = globalDataOnHost_->v3mTo2nFace;
-        addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
+        addVelocityKrnl.bindGlobals(*globalData_.onHost);
         addVelocityKrnl.faceDisplacement = data.get<LTS::FaceDisplacements>()[face];
         addVelocityKrnl.I = bufferPointer;
         addVelocityKrnl.execute(face);
@@ -491,7 +488,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
                 entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtr());
-            displacementKrnl.V3mTo2nFace = globalDataOnDevice_->v3mTo2nFace;
+            displacementKrnl.bindGlobals(*globalData_.onDevice);
 
             // Note: this kernel doesn't require tmp. memory
             displacementKrnl.numElements =
@@ -590,7 +587,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
                               seissol::kernels::Plasticity::computePlasticityBatched(
                                   timeStepWidth,
                                   seissolInstance_.parameters().model.tv,
-                                  globalDataOnDevice_,
+                                  globalData_.onDevice,
                                   table,
                                   plasticity,
                                   conditionalCounterDevice_.data(),
@@ -921,11 +918,13 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = clusterData_->cellRef(cell);
 
+    // Scratch for the neighbours whose time integral has to be computed here.
+    // Written before it is read, so it needs no initialisation; the frame
+    // holds it for the whole loop, one copy per thread.
+    alignas(Alignment) real integrationBuffer[Cell::NumFaces][kernels::Solver::IntegralsSize];
     std::array<real*, Cell::NumFaces> integrationBuffers{};
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-      integrationBuffers[i] =
-          &globalDataOnHost_->integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
-                                                   kernels::Solver::IntegralsSize];
+      integrationBuffers[i] = integrationBuffer[i];
     }
 
     seissol::kernels::TimeCommon::computeIntegrals(timeKernel_,
@@ -965,7 +964,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
             seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
                                                             timestep,
                                                             tV,
-                                                            globalDataOnHost_,
+                                                            globalData_.onHost,
                                                             &plasticity[cell],
                                                             data.get<LTS::Dofs>(),
                                                             pstrain[cell]);

@@ -25,10 +25,6 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
-
 namespace seissol::kernels::solver::linearck {
 
 class Local : public LocalKernel {

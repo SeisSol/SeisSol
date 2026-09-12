@@ -375,6 +375,7 @@ def main():
         # for now
         forward_files("init.h")
         forward_files("kernel.h")
+        forward_files("pool.h")
         forward_files("tensor.h")
         forward_files("quantities.h")
 
@@ -384,12 +385,14 @@ def main():
                 "kernels": [
                     os.path.join(folder, "init.cpp"),
                     os.path.join(folder, "kernel.cpp"),
+                    os.path.join(folder, "pool.cpp"),
                     os.path.join(folder, "tensor.cpp"),
                 ],
                 "tests": [os.path.join(folder, "test-kernel.cpp")],
                 "headers": [
                     os.path.join(folder, "init.h"),
                     os.path.join(folder, "kernel.h"),
+                    os.path.join(folder, "pool.h"),
                     os.path.join(folder, "tensor.h"),
                 ],
             }

@@ -8,8 +8,8 @@
 
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.util import (
     tensor_collection_from_constant_expression,
@@ -240,7 +240,7 @@ class LinearCK(ADERDGBase):
 
             for i in range(1, self.order):
                 power = powers[i]
-                derivativeSum = Add()
+                derivativeSum = Accumulate(ops.Add())
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
                 for j in range(3):
