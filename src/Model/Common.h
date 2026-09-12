@@ -236,6 +236,7 @@ void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
     const auto origin = static_cast<std::uint32_t>(offset);
     switch (group.kind) {
     case QuantityKind::Scalar:
+    case QuantityKind::Invariant:
       matrix(origin, origin) = 1.0;
       break;
     case QuantityKind::Vector:

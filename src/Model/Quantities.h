@@ -17,12 +17,18 @@ namespace seissol::model {
 
 /// How a group of quantities transforms under the face rotation.
 enum class QuantityKind : std::uint8_t {
-  /// One rotation invariant component, e.g. a pressure.
+  /// One component standing for an isotropic tensor, e.g. a pressure. It is
+  /// rotation invariant, but it carries a normal traction and it enters a
+  /// trace three times over.
   Scalar,
   /// Three components transforming as a first-order tensor.
   Vector,
   /// Six components in Voigt order (xx, yy, zz, xy, yz, xz).
   SymTensor2,
+  /// One component that rides along: rotation invariant, no traction, no
+  /// trace. An internal variable of the rheology, or a coefficient the face
+  /// coupling needs to read but not to transform.
+  Invariant,
 };
 
 constexpr std::size_t extentOf(QuantityKind kind) {
@@ -33,6 +39,8 @@ constexpr std::size_t extentOf(QuantityKind kind) {
     return 3;
   case QuantityKind::SymTensor2:
     return 6;
+  case QuantityKind::Invariant:
+    return 1;
   }
   return 0;
 }
@@ -199,8 +207,8 @@ inline constexpr std::array ElasticQuantities{
 inline constexpr std::array DamageQuantities{
     QuantityGroup{"eps", QuantityKind::SymTensor2, FaceRole::Traction},
     QuantityGroup{"v", QuantityKind::Vector, FaceRole::Velocity},
-    QuantityGroup{"alpha", QuantityKind::Scalar},
-    QuantityGroup{"breakage", QuantityKind::Scalar},
+    QuantityGroup{"alpha", QuantityKind::Invariant},
+    QuantityGroup{"breakage", QuantityKind::Invariant},
 };
 
 inline constexpr std::array PoroelasticExtraQuantities{

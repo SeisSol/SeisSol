@@ -28,9 +28,16 @@ import numpy as np
 class QuantityKind(Enum):
     """How a group of quantities transforms under the face rotation."""
 
+    #: One component standing for an isotropic tensor, e.g. a pressure. It is
+    #: rotation invariant, but it carries a normal traction and it enters a
+    #: trace three times over.
     SCALAR = "scalar"
     VECTOR = "vector"
     SYM_TENSOR2 = "sym_tensor2"
+    #: One component that rides along: rotation invariant, no traction, no
+    #: trace. An internal variable of the rheology, or a coefficient the face
+    #: coupling needs to read but not to transform.
+    INVARIANT = "invariant"
 
 
 #: Number of components each kind occupies along the quantity axis.
@@ -38,6 +45,7 @@ EXTENT = {
     QuantityKind.SCALAR: 1,
     QuantityKind.VECTOR: 3,
     QuantityKind.SYM_TENSOR2: 6,
+    QuantityKind.INVARIANT: 1,
 }
 
 #: Component order of a symmetric second-order tensor.
@@ -142,6 +150,11 @@ def _face_vector_rows(block):
         # An isotropic stress carries a normal traction only, so the shear rows
         # of the face-local vector stay structurally empty.
         return [(0, block.offset)]
+    if kind is QuantityKind.INVARIANT:
+        raise ValueError(
+            "an invariant group carries no traction and no velocity; give the "
+            "group that does the face role"
+        )
     raise ValueError(f"no face vector defined for {kind}")
 
 
@@ -199,6 +212,7 @@ _CXX_KIND = {
     QuantityKind.SCALAR: "Scalar",
     QuantityKind.VECTOR: "Vector",
     QuantityKind.SYM_TENSOR2: "SymTensor2",
+    QuantityKind.INVARIANT: "Invariant",
 }
 
 

@@ -84,8 +84,8 @@ class DamageADERDG(NonLinearCK):
         return [
             QuantityGroup("eps", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
             QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
-            QuantityGroup("alpha", QuantityKind.SCALAR),
-            QuantityGroup("breakage", QuantityKind.SCALAR),
+            QuantityGroup("alpha", QuantityKind.INVARIANT),
+            QuantityGroup("breakage", QuantityKind.INVARIANT),
         ]
 
     def name(self):
