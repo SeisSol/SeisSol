@@ -12,16 +12,16 @@
 namespace seissol::kernels::solver::nonlinearck {
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
-  projectToFace_.bindGlobals(global.onHost);
-  projectNeighborToFace_.bindGlobals(global.onHost);
-  rusanov_.bindGlobals(global.onHost);
-  faceIntegral_.bindGlobals(global.onHost);
+  projectToFace_.bindGlobals(*global.onHost);
+  projectNeighborToFace_.bindGlobals(*global.onHost);
+  rusanov_.bindGlobals(*global.onHost);
+  faceIntegral_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceProjectToFace_.bindGlobals(global.onDevice);
-  deviceProjectNeighborToFace_.bindGlobals(global.onDevice);
-  deviceRusanov_.bindGlobals(global.onDevice);
-  deviceFaceIntegral_.bindGlobals(global.onDevice);
+  deviceProjectToFace_.bindGlobals(*global.onDevice);
+  deviceProjectNeighborToFace_.bindGlobals(*global.onDevice);
+  deviceRusanov_.bindGlobals(*global.onDevice);
+  deviceFaceIntegral_.bindGlobals(*global.onDevice);
 #endif
 }
 
