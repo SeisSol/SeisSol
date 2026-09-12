@@ -55,8 +55,11 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "visco
   target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
 
 elseif ("${EQUATIONS}" STREQUAL "damage")
-  # The kernel sources follow with the kernels themselves; the material and the
-  # solver declaration are what the rest of the build needs first.
+  target_sources(seissol-lib PRIVATE
+    Kernels/NonLinearCK/Local.cpp
+    Kernels/NonLinearCK/Neighbor.cpp
+    Kernels/NonLinearCK/Time.cpp
+    )
   target_include_directories(seissol-common-properties INTERFACE Equations/damage)
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_NONLINEARCK)
 

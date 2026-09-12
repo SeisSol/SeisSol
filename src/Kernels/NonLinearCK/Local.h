@@ -1,0 +1,85 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_KERNELS_NONLINEARCK_LOCAL_H_
+#define SEISSOL_SRC_KERNELS_NONLINEARCK_LOCAL_H_
+
+#include "Common/Constants.h"
+#include "GeneratedCode/kernel.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/LinearCK/DirichletBoundary.h"
+#include "Kernels/Local.h"
+#include "Monitoring/Metric.h"
+
+#include <array>
+
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
+namespace seissol::kernels::solver::nonlinearck {
+
+/// The cell's own contribution: the volume term and the faces it owns.
+///
+/// Both differ from the linear solver in the same way. The volume term lifts a
+/// flux that was evaluated at the nodes rather than applying a constant
+/// operator to the state, and the faces carry a Rusanov flux rather than a
+/// Riemann solution. What the two have in common is that the flux is already
+/// there by the time this kernel runs: the predictor evaluated and integrated
+/// it, and both the state and the stress arrive as integrals.
+class Local : public LocalKernel {
+  public:
+  void setGlobalData(const CompoundGlobalData& global) override;
+  void computeIntegral(real* timeIntegratedDoFs,
+                       LTS::Ref& data,
+                       LocalTmp& tmp,
+                       double time,
+                       double timeStepWidth) override;
+
+  void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
+                              recording::ConditionalMaterialTable& materialTable,
+                              recording::ConditionalIndicesTable& indicesTable,
+                              double timeStepWidth,
+                              seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
+                                      recording::ConditionalIndicesTable& indicesTable,
+                                      LTS::Layer& layer,
+                                      double time,
+                                      double timeStepWidth,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  [[nodiscard]] PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
+
+  protected:
+  kernel::convertToNodal convertToNodal_;
+  kernel::convertToModal convertToModal_;
+  kernel::damageFlux flux_;
+  kernel::projectToFace projectToFace_;
+  kernel::damageRusanov rusanov_;
+  kernel::faceIntegral faceIntegral_;
+
+  kernel::projectToNodalBoundary projectKrnlPrototype_;
+  kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
+  kernels::DirichletBoundary dirichletBoundary_;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_convertToNodal deviceConvertToNodal_;
+  kernel::gpu_convertToModal deviceConvertToModal_;
+  kernel::gpu_damageFlux deviceFlux_;
+  kernel::gpu_projectToFace deviceProjectToFace_;
+  kernel::gpu_damageRusanov deviceRusanov_;
+  kernel::gpu_faceIntegral deviceFaceIntegral_;
+  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
+  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+#endif
+};
+
+} // namespace seissol::kernels::solver::nonlinearck
+
+#endif // SEISSOL_SRC_KERNELS_NONLINEARCK_LOCAL_H_
