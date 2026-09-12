@@ -11,8 +11,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
@@ -521,7 +521,7 @@ class LinearADERDG(ADERDGBase):
 
             for i in range(1, self.order):
                 power = powers[i]
-                derivativeSum = Add()
+                derivativeSum = Accumulate(ops.Add())
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
                 for j in range(3):
