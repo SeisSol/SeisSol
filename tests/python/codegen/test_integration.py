@@ -316,12 +316,12 @@ class TestMatrixFileInventory:
     def test_equation_specific_matrices_exist(self):
         """star matrices for each equation that needs one."""
         for fname in [
-            "equation-elastic.xml",
-            "equation-acoustic.xml",
-            "equation-anisotropic.xml",
-            "equation-viscoacoustic.xml",
-            "equation-viscoelastic.xml",
-            "equation-poroelastic.xml",
+            "equation-elastic.json",
+            "equation-acoustic.json",
+            "equation-anisotropic.json",
+            "equation-viscoacoustic.json",
+            "equation-viscoelastic.json",
+            "equation-poroelastic.json",
         ]:
             f = MATRICES_DIR / fname
             assert f.exists(), f"Missing equation matrix file: {f}"

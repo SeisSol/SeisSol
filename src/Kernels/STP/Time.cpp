@@ -185,15 +185,10 @@ void Spacetime::computeBatchedAder(
       krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
-    krnl.Gkt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.Glt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.Gmt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.G);
     for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
+      krnl.Gt(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       krnl.extraOffset_Gt(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, specific.G, i);
     }
 
