@@ -17,14 +17,23 @@ import importlib.util
 import numpy as np
 import pytest
 
-# The six equation modules shipped by SeisSol's codegen
-EQUATION_MODULES = [
-    "acoustic",
-    "elastic",
-    "anisotropic",
-    "poroelastic",
-    "viscoelastic",
-]
+# The six equation modules shipped by SeisSol's codegen, with the arguments
+# kernel_class needs to pick one of several classes.
+EQUATION_KWARGS = {
+    "acoustic": {"solver": "linearck"},
+    "elastic": {"solver": "linearck"},
+    "anisotropic": {"solver": "linearck"},
+    "poroelastic": {"solver": "stp"},
+    "viscoelastic": {"solver": "linearckanelastic"},
+    "viscoacoustic": {"solver": "linearckanelastic"},
+}
+EQUATION_MODULES = list(EQUATION_KWARGS)
+
+
+def equation_class(module_name):
+    """The class generate.py would pick for this equation."""
+    mod = importlib.import_module(f"kernels.equations.{module_name}")
+    return mod.kernel_class(**EQUATION_KWARGS[module_name])
 
 
 # =============================================================================
@@ -35,10 +44,11 @@ EQUATION_MODULES = [
 class TestEquationModuleContract:
     """generate.py loads equation modules dynamically by name via:
         equations = importlib.import_module()
-        equation_class = equations.EQUATION_CLASS
-    So every module in kernels/equations MUST export EQUATION_CLASS.
-    This contract is only enforced at runtime — breaking it silently
-    passes linters and static checks.
+        equation_class = equations.kernel_class(**args)
+    So every module in kernels/equations MUST export kernel_class, and it has
+    to return a class for the arguments generate.py passes. This contract is
+    only enforced at runtime -- breaking it silently passes linters and
+    static checks.
     """
 
     @pytest.mark.parametrize("module_name", EQUATION_MODULES)
@@ -47,24 +57,31 @@ class TestEquationModuleContract:
         assert mod is not None
 
     @pytest.mark.parametrize("module_name", EQUATION_MODULES)
-    def test_exposes_equation_class(self, module_name):
+    def test_exposes_kernel_class(self, module_name):
         mod = importlib.import_module(f"kernels.equations.{module_name}")
-        assert hasattr(mod, "EQUATION_CLASS"), (
-            f"kernels.equations.{module_name} does not export EQUATION_CLASS; "
+        assert callable(getattr(mod, "kernel_class", None)), (
+            f"kernels.equations.{module_name} does not export kernel_class; "
             f"generate.py will raise AttributeError when selecting this equation."
         )
 
     @pytest.mark.parametrize("module_name", EQUATION_MODULES)
-    def test_equation_class_is_a_class(self, module_name):
-        mod = importlib.import_module(f"kernels.equations.{module_name}")
-        assert isinstance(mod.EQUATION_CLASS, type)
+    def test_kernel_class_returns_a_class(self, module_name):
+        assert isinstance(equation_class(module_name), type)
 
     @pytest.mark.parametrize("module_name", EQUATION_MODULES)
     def test_equation_class_name_has_aderdg_suffix(self, module_name):
-        """Convention: <Equation>ADERDG. Documented for discoverability —
+        """Convention: <Equation>ADERDG. Documented for discoverability --
         not a hard requirement, but a useful one."""
+        assert equation_class(module_name).__name__.endswith("ADERDG")
+
+    @pytest.mark.parametrize("module_name", ["viscoelastic", "viscoacoustic"])
+    def test_relaxation_rejects_a_solver_that_cannot_carry_it(self, module_name):
+        """The predictor substitutes one entry per stiff source row, and
+        relaxation contributes several, so the combination has to be refused
+        rather than silently generated."""
         mod = importlib.import_module(f"kernels.equations.{module_name}")
-        assert mod.EQUATION_CLASS.__name__.endswith("ADERDG")
+        with pytest.raises(NotImplementedError):
+            mod.kernel_class(solver="stp")
 
 
 class TestEquationClassInheritance:
@@ -74,7 +91,7 @@ class TestEquationClassInheritance:
     """
 
     def test_elastic_is_linear_aderdg(self):
-        from kernels.aderdg import LinearCK
+        from kernels.aderdg.linearck import LinearCK
         from kernels.equations.elastic import ElasticADERDG
 
         assert issubclass(ElasticADERDG, LinearCK)
@@ -92,41 +109,46 @@ class TestEquationClassInheritance:
             "elastic",
             "anisotropic",
             "poroelastic",
-            "viscoelastic",
         ],
     )
     def test_linear_equations_inherit_from_linear_aderdg(self, module_name):
-        """All LINEAR equations inherit from LinearCK."""
-        from kernels.aderdg import LinearCK
+        """Equations whose solver builds on LinearCK inherit from it. The
+        relaxing ones do not when they are built on LinearCKAnelastic -- see
+        the solver hierarchy test below."""
+        from kernels.aderdg.linearck import LinearCK
 
-        mod = importlib.import_module(f"kernels.equations.{module_name}")
         assert issubclass(
-            mod.EQUATION_CLASS, LinearCK
-        ), f"{module_name}: EQUATION_CLASS must inherit from LinearCK"
+            equation_class(module_name), LinearCK
+        ), f"{module_name}: the chosen class must inherit from LinearCK"
 
-    def test_viscoelastic2_inherits_from_aderdgbase_directly(self):
-        """Structural asymmetry: viscoelastic2 uses the Space-Time-Predictor
-        (STP) formulation and inherits ADERDGBase directly, bypassing
-        LinearCK. Any refactor that tries to 'normalize' the hierarchy
-        would break the STP machinery. This test documents the decision.
+    def test_solver_hierarchy_asymmetry(self):
+        """Two of the three solvers extend LinearCK; the anelastic one does
+        not. It keeps the memory variables in a tensor dimension of their own,
+        so it has its own time kernel rather than a variation on LinearCK's.
+        Any refactor that tries to normalise the hierarchy has to account for
+        that, which is why it is written down.
         """
-        from kernels.aderdg import ADERDGBase, LinearCK
-        from kernels.equations.viscoelastic2 import Viscoelastic2ADERDG
+        from kernels.aderdg.aderdg import ADERDGBase
+        from kernels.aderdg.linearck import LinearCK
+        from kernels.aderdg.linearckanelastic import LinearCKAnelastic
+        from kernels.aderdg.stp import STP
 
-        assert issubclass(Viscoelastic2ADERDG, ADERDGBase)
-        assert not issubclass(Viscoelastic2ADERDG, LinearCK), (
+        assert issubclass(LinearCK, ADERDGBase)
+        assert issubclass(STP, LinearCK)
+
+        assert issubclass(LinearCKAnelastic, ADERDGBase)
+        assert not issubclass(LinearCKAnelastic, LinearCK), (
             "If this now fails, the hierarchy has been unified. Verify that "
-            "the STP-specific behavior (see numberOfExtendedQuantities, etc.) "
-            "has been preserved, then drop this test."
+            "the anelastic time kernel still keeps the mechanism index in its "
+            "own tensor dimension, then drop this test."
         )
 
     @pytest.mark.parametrize("module_name", EQUATION_MODULES)
     def test_all_equations_are_aderdg_base(self, module_name):
         """The universally-applicable invariant: every equation is an ADERDGBase."""
-        from kernels.aderdg import ADERDGBase
+        from kernels.aderdg.aderdg import ADERDGBase
 
-        mod = importlib.import_module(f"kernels.equations.{module_name}")
-        assert issubclass(mod.EQUATION_CLASS, ADERDGBase)
+        assert issubclass(equation_class(module_name), ADERDGBase)
 
 
 # =============================================================================
@@ -140,11 +162,10 @@ class TestCrossEquationDoFConsistency:
     """
 
     def _make(self, module_name, **kwargs):
-        mod = importlib.import_module(f"kernels.equations.{module_name}")
-        instance = object.__new__(mod.EQUATION_CLASS)
+        instance = object.__new__(equation_class(module_name))
         defaults = {"order": 4}
         if module_name == "viscoelastic":
-            defaults.update(numberOfMechanisms=3, numberOfElasticQuantities=9)
+            defaults.update(numMechanisms=3, numElasticQuantities=9)
         defaults.update(kwargs)
         for k, v in defaults.items():
             setattr(instance, k, v)
@@ -159,9 +180,9 @@ class TestCrossEquationDoFConsistency:
         ],
     )
     def test_extract_patterns_have_correct_quantity_dim(self, module_name):
-        """extractVelocities/Tractions must have second dim == numberOfQuantities."""
+        """extractVelocities/Tractions must have second dim == numQuantities."""
         adg = self._make(module_name)
-        nq = adg.numberOfQuantities()
+        nq = adg.numQuantities()
         v = adg.extractVelocities()
         t = adg.extractTractions()
         assert v.shape[1] == nq, f"{module_name}: velocity cols != nq"
