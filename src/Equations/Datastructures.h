@@ -17,6 +17,7 @@
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
+#include "Equations/damage/Model/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/viscoacoustic/Model/Datastructures.h"
@@ -51,6 +52,11 @@ struct MaterialTypeSelector<MaterialType::Viscoacoustic> {
 template <>
 struct MaterialTypeSelector<MaterialType::Acoustic> {
   using Type = AcousticMaterial;
+};
+
+template <>
+struct MaterialTypeSelector<MaterialType::Damage> {
+  using Type = DamageMaterial;
 };
 
 template <>

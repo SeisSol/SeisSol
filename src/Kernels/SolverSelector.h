@@ -11,6 +11,7 @@
 #include "Common/Typedefs.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
+#include "Kernels/NonLinearCK/Solver.h"
 #include "Kernels/STP/Solver.h"
 
 namespace seissol::kernels {
@@ -29,6 +30,11 @@ struct SolverSelector<SolverType::LinearCK> {
 template <>
 struct SolverSelector<SolverType::LinearCKAnelastic> {
   using Type = solver::linearckanelastic::Solver;
+};
+
+template <>
+struct SolverSelector<SolverType::NonLinearCK> {
+  using Type = solver::nonlinearck::Solver;
 };
 
 template <>

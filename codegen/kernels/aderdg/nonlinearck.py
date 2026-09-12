@@ -74,6 +74,19 @@ class NonLinearCK(ADERDGBase):
             self.num3DQuadraturePoints(),
             self.numQuantities(),
         )
+        # The time-integrated stress, carried alongside the integrated state.
+        # It is what lets a neighbour evaluate its half of the flux without the
+        # other cell's material, and it is modal because that is the form it
+        # travels and is stored in.
+        self.sigmaI = OptionalDimTensor(
+            "sigmaI",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.num3DBasisFunctions(), 6),
+            alignStride=True,
+        )
+
         self.QNodal = OptionalDimTensor(
             "QNodal",
             self.Q.optName(),
@@ -266,3 +279,4 @@ class NonLinearCK(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
+        include_tensors.add(self.sigmaI)

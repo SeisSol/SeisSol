@@ -13,7 +13,7 @@ enum class DRQuadRuleType { Stroud, Dunavant, WitherdenVincent };
 
 /// The scheme that advances a cell in time. Which one a material may use is
 /// decided at configure time, not here.
-enum class SolverType { LinearCK, LinearCKAnelastic, STP };
+enum class SolverType { LinearCK, LinearCKAnelastic, NonLinearCK, STP };
 
 enum class BuildType { Cpu, Gpu };
 

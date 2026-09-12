@@ -192,6 +192,17 @@ inline constexpr std::array ElasticQuantities{
     QuantityGroup{"v", QuantityKind::Vector, FaceRole::Velocity},
 };
 
+/// A strain-velocity material with two internal variables. The strain carries
+/// the traction role because it rotates like one; that the mechanical traction
+/// is derived from it rather than stored is a distinction the face machinery
+/// does not yet draw.
+inline constexpr std::array DamageQuantities{
+    QuantityGroup{"eps", QuantityKind::SymTensor2, FaceRole::Traction},
+    QuantityGroup{"v", QuantityKind::Vector, FaceRole::Velocity},
+    QuantityGroup{"alpha", QuantityKind::Scalar},
+    QuantityGroup{"breakage", QuantityKind::Scalar},
+};
+
 inline constexpr std::array PoroelasticExtraQuantities{
     QuantityGroup{"p", QuantityKind::Scalar, FaceRole::ExtraTraction},
     QuantityGroup{"vf", QuantityKind::Vector, FaceRole::ExtraVelocity},

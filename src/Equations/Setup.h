@@ -17,12 +17,16 @@
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
 #include "Kernels/LinearCKAnelastic/Setup.h"
 #endif
+#ifdef SEISSOL_KERNELS_NONLINEARCK
+#include "Kernels/NonLinearCK/Setup.h"
+#endif
 #ifdef SEISSOL_KERNELS_STP
 #include "Kernels/STP/Setup.h"
 #endif
 
 #include "Equations/acoustic/Model/Setup.h"
 #include "Equations/anisotropic/Model/Setup.h"
+#include "Equations/damage/Model/Setup.h"
 #include "Equations/elastic/Model/Setup.h"
 #include "Equations/poroelastic/Model/Setup.h"
 #include "Equations/viscoacoustic/Model/Setup.h"

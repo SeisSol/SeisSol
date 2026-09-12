@@ -25,7 +25,8 @@ enum class MaterialType {
   Viscoelastic,
   Viscoacoustic,
   Anisotropic,
-  Poroelastic
+  Poroelastic,
+  Damage
 };
 
 // the local solvers. CK is the default for elastic, acoustic etc.
