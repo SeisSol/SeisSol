@@ -39,7 +39,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
                               seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real* const* buffers = layer.var<LTS::Buffers>();
+  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
   real* const* derivatives = layer.var<LTS::Derivatives>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
@@ -53,7 +53,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
+          integrationCoeffs.data(), Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
     }
     LIKWID_MARKER_STOP("ader");
   }
@@ -74,7 +74,7 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real* const* buffers = layer.var<LTS::Buffers>();
+  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
 
 #pragma omp parallel
   {
@@ -84,7 +84,7 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
-      data.localKernel.computeIntegral(buffers[cell], local, tmp, 0, 0);
+      data.localKernel.computeIntegral(stepIntegrals[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("localwoader");
   }
@@ -108,7 +108,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
                                seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real* const* buffers = layer.var<LTS::Buffers>();
+  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
   real* const* derivatives = layer.var<LTS::Derivatives>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
@@ -122,8 +122,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
-      data.localKernel.computeIntegral(buffers[cell], local, tmp, 0, 0);
+          integrationCoeffs.data(), Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+      data.localKernel.computeIntegral(stepIntegrals[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("local");
   }
@@ -155,7 +155,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 
       // See TimeCluster: scratch for the neighbours integrated here, written
       // before it is read, one copy per thread.
-      alignas(Alignment) real integrationBuffer[Cell::NumFaces][kernels::Solver::BuffersSize];
+      alignas(Alignment) real integrationBuffer[Cell::NumFaces][kernels::Solver::IntegralsSize];
       std::array<real*, Cell::NumFaces> integrationBuffers{};
       for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
         integrationBuffers[i] = integrationBuffer[i];

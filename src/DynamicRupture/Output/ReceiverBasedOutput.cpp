@@ -16,6 +16,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/LtsSetup.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
@@ -53,7 +54,8 @@ void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
   const auto position = wpBackmap_->get(meshId);
   auto& layer = wpStorage_->layer(position.color);
   // get DOFs from 0th derivatives
-  assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
+  assert(
+      layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasBuffer(BufferType::Derivatives));
 
   derivatives = layer.var<LTS::Derivatives>()[position.cell];
 }
