@@ -9,8 +9,9 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Kernels/STP/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cassert>
@@ -19,14 +20,11 @@
 #include <vector>
 
 namespace seissol::model {
-struct PoroelasticLocalData;
-struct PoroelasticNeighborData;
 
 struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
   static constexpr std::size_t NumElasticQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
   static inline const std::string Text = "poroelastic";
@@ -43,14 +41,38 @@ struct PoroElasticMaterial : public ElasticMaterial {
                                                                         "v1_f",
                                                                         "v2_f",
                                                                         "v3_f"};
+  /// The scheme this build advances cells with. The material does not pick
+  /// it; which combinations are allowed is checked when the build is
+  /// configured. It cannot live on the base material, because Config.h
+  /// includes CommonDatastructures.h.
+  using Solver = kernels::SolverSelector<Config::Solver>::Type;
+
+  static constexpr auto PrimaryGroups =
+      detail::concat(ElasticQuantities, PoroelasticExtraQuantities);
+  static constexpr auto RotationGroups = PrimaryGroups;
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  /// The fluid velocities relax against the solid ones through Biot drag.
+  static constexpr std::array StiffSourceRows{
+      StiffSourceRow{10, 6}, StiffSourceRow{11, 7}, StiffSourceRow{12, 8}};
+
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
+
   static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 7;
 
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = PoroelasticLocalData;
-  using NeighborSpecificData = PoroelasticNeighborData;
-  using Solver = kernels::solver::stp::Solver;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
+
+  using EnergyData = std::monostate;
 
   double bulkSolid{};
   double porosity{};

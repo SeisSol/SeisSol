@@ -8,9 +8,9 @@
 #include "Time.h"
 
 #include "Common/Marker.h"
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
+#include "Kernels/STP/Setup.h"
 #include "Monitoring/Metric.h"
 
 #include <Eigen/Dense>
@@ -66,9 +66,9 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
-  krnl.Gk = data.get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
-  krnl.Gl = data.get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
-  krnl.Gm = data.get<LTS::LocalIntegration>().specific.G[12] * timeStepWidth;
+  for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
+    krnl.G(i) = data.get<LTS::LocalIntegration>().specific.G[i] * timeStepWidth;
+  }
 
   krnl.Q = const_cast<real*>(data.get<LTS::Dofs>());
   krnl.I = timeIntegrated;
@@ -89,9 +89,10 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
     auto sourceMatrix =
         init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
-    model::zInvInitializerForLoop<0,
-                                  seissol::model::MaterialT::NumQuantities,
-                                  decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
+    model::ZInvInitializer<seissol::model::MaterialT,
+                           0,
+                           seissol::model::MaterialT::NumQuantities,
+                           decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
     for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
@@ -184,18 +185,12 @@ void Spacetime::computeBatchedAder(
       krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
-    krnl.Gkt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.Glt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.Gmt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
-    krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
-    krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[10]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[11]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[12]);
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.G);
+    for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
+      krnl.Gt(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      krnl.extraOffset_Gt(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, specific.G, i);
+    }
 
     // checking the first cell should suffice; if we always work on the same cluster.
     // (which we currently always do)

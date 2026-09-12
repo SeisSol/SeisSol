@@ -443,10 +443,10 @@ struct ElasticSolutionData {
         0.3573195536254192}}};
 };
 
-template <>
-struct SolutionData<model::ViscoElasticMaterial> : public ElasticSolutionData {
+template <std::size_t Mechanisms>
+struct SolutionData<model::ViscoElasticMaterial<Mechanisms>> : public ElasticSolutionData {
   static auto zeroExtend(std::vector<double> input) -> std::vector<double> {
-    constexpr auto TargetSize = model::ViscoElasticMaterial::Mechanisms * 4 + 3;
+    constexpr auto TargetSize = Mechanisms * 4 + 3;
     input.reserve(TargetSize);
     while (input.size() < TargetSize) {
       input.emplace_back(0);
@@ -1599,6 +1599,22 @@ struct SolutionData<model::AcousticMaterial> : public ElasticSolutionData {
         0.0000000000000000e+00,
         0.0000000000000000e+00,
         0.0000000000000000e+00}}};
+};
+
+template <std::size_t Mechanisms>
+struct SolutionData<model::ViscoAcousticMaterial<Mechanisms>>
+    : public SolutionData<model::AcousticMaterial> {
+  static auto zeroExtend(std::vector<double> input) -> std::vector<double> {
+    constexpr auto TargetSize = Mechanisms * 2 + 2;
+    input.reserve(TargetSize);
+    while (input.size() < TargetSize) {
+      input.emplace_back(0);
+    }
+    return input;
+  }
+
+  const inline static std::vector<double> MaterialVal1 = zeroExtend({2700, 3.24038016e10});
+  const inline static std::vector<double> MaterialVal2 = zeroExtend({2600, 2.08e10});
 };
 
 } // namespace seissol::unit_test

@@ -24,7 +24,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         alignStride=aderdg.alignStride,
         transpose=aderdg.transpose,
     )
-    numberOfPoints = aderdg.t(db.resample.shape())[0]
+    numPoints = aderdg.t(db.resample.shape())[0]
 
     # Determine matrices
     # Note: This does only work because the flux does not depend
@@ -34,7 +34,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
     flux_solver_spp = aderdg.flux_solver_spp()
     fluxSolver = Tensor("fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp)
 
-    gShape = (numberOfPoints, aderdg.numberOfQuantities())
+    gShape = (numPoints, aderdg.numQuantities())
     QInterpolated = OptionalDimTensor(
         "QInterpolated",
         aderdg.Q.optName(),
@@ -66,7 +66,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints,),
+        (numPoints,),
         alignStride=True,
     )
     resampledQ = OptionalDimTensor(
@@ -74,7 +74,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints,),
+        (numPoints,),
         alignStride=True,
     )
     resampleKernel = resampledQ["i"] <= db.resample[aderdg.t("ij")] * originalQ["j"]
@@ -88,15 +88,15 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
     )
 
-    numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
-    numberOfQuantities = aderdg.numberOfQuantities()
-    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (numberOf3DBasisFunctions,))
+    num3DBasisFunctions = aderdg.num3DBasisFunctions()
+    numQuantities = aderdg.numQuantities()
+    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (num3DBasisFunctions,))
     QAtPoint = OptionalDimTensor(
         "QAtPoint",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfQuantities,),
+        (numQuantities,),
     )
 
     generator.add(
@@ -214,7 +214,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, 3),
+        (numPoints, 3),
         alignStride=True,
     )
 
@@ -223,7 +223,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, 3),
+        (numPoints, 3),
         alignStride=True,
     )
     staticFrictionalWork = OptionalDimTensor(
@@ -235,7 +235,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         alignStride=True,
     )
     minusSurfaceArea = Scalar("minusSurfaceArea")
-    spaceWeights = Tensor("spaceWeights", (numberOfPoints, 1), alignStride=True)
+    spaceWeights = Tensor("spaceWeights", (numPoints, 1), alignStride=True)
 
     computeTractionInterpolated = (
         tractionInterpolated["kp"]
@@ -292,7 +292,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, N),
+        (numPoints, N),
         alignStride=True,
     )
 

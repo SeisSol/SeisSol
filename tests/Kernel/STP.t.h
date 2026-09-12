@@ -6,12 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/poroelastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
-#include "Model/PoroelasticSetup.h"
 #include "Numerical/Transformation.h"
 
 #include <cmath>

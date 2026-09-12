@@ -38,7 +38,11 @@ jobs:
             multisim: 1
             mechanisms: 0
             order: 6
-          - type: viscoelastic2
+          - type: viscoelastic
+            multisim: 1
+            mechanisms: 3
+            order: 6
+          - type: viscoacoustic
             multisim: 1
             mechanisms: 3
             order: 6
@@ -112,7 +116,7 @@ jobs:
       - id: build
         name: build-seissol
         run: |
-          if [ "${{ matrix.equation.type }}" = viscoelastic2 ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
+          if [ "${{ matrix.equation.type }}" = viscoelastic ] || [ "${{ matrix.equation.type }}" = viscoacoustic ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
               if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
                   # the Intel image still works with an older Python version. Hence, use the following hack.
                   pip3 install pyyaml
@@ -223,7 +227,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv5-visco
-            equation: viscoelastic2
+            equation: viscoelastic
             multisim: 1
             energies: true
             receivers: true

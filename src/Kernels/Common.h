@@ -177,6 +177,37 @@ constexpr auto size(Args... args) -> typename HasSize<T, Args...>::Type {
   }
 }
 
+template <typename T, typename = void>
+struct IsFamilyInternal {
+  static constexpr bool Value = false;
+};
+
+// A generated family is recognised by its Size array, which is what yateto
+// reads to add the members up. Its Container is a class template, so naming it
+// without arguments never matched and every family measured as empty.
+template <typename T>
+struct IsFamilyInternal<T, std::void_t<decltype(T::Size)>> {
+  static constexpr bool Value = true;
+};
+
+template <class T>
+constexpr auto familyMembers() -> std::size_t {
+  if constexpr (IsFamilyInternal<T>::Value) {
+    return yateto::numFamilyMembers<T>();
+  } else {
+    return static_cast<std::size_t>(0);
+  }
+}
+
+template <class T>
+constexpr auto familySize(std::size_t alignedReals = 1) -> std::size_t {
+  if constexpr (IsFamilyInternal<T>::Value) {
+    return yateto::computeFamilySize<T>(alignedReals);
+  } else {
+    return static_cast<std::size_t>(0);
+  }
+}
+
 } // namespace kernels
 
 constexpr bool isDeviceOn() { return HardwareSupport == BuildType::Gpu; }

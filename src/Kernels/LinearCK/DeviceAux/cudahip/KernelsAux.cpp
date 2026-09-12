@@ -476,7 +476,7 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
   const int elementId = blockIdx.x;
   if (elementId < numElements) {
     constexpr int PIdx = 0;
-    constexpr int UIdx = model::MaterialT::TractionQuantities;
+    constexpr int UIdx = model::MaterialT::VelocityOffset;
     constexpr auto Num2dNodes = linearDim<seissol::init::averageNormalDisplacement>();
 
     const int tid = linearidx();
