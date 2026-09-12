@@ -498,6 +498,13 @@ endif()
 
 add_subdirectory(app)
 
+# the verification cases drive the executable, so they are registered after it
+# exists. They need enable_testing(), hence the TESTING guard.
+option(VERIFICATION_TESTS "Register the mini-mesh verification cases" ON)
+if (TESTING AND VERIFICATION_TESTS)
+  add_subdirectory(tests/verification)
+endif()
+
 # Coverage (should run last; after all folders have been added)
 if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   setup_target_for_coverage_lcov(
