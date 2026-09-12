@@ -91,7 +91,7 @@ class DamageADERDG(NonLinearCK):
     def name(self):
         return "damage"
 
-    def addConstitutive(self, generator):
+    def addConstitutive(self, generator, target, prefix):
         nodes = self.num3DQuadraturePoints()
         nq = self.numQuantities()
 
@@ -128,7 +128,7 @@ class DamageADERDG(NonLinearCK):
         intact = self.nodalTensor("intact")
 
         generator.add(
-            "damageInvariants",
+            f"{prefix}damageInvariants",
             [
                 eps["lc"]
                 <= yf.add(self.QNodal["lc"].subslice("c", 0, 6), epsInit["c"]),
@@ -146,6 +146,7 @@ class DamageADERDG(NonLinearCK):
                 breakage["l"] <= self.QNodal["lp"] * pickBreakage["p"],
                 intact["l"] <= 1.0 - breakage["l"],
             ],
+            target=target,
         )
 
         twoMuEff = self.nodalTensor("twoMuEff")
@@ -157,7 +158,7 @@ class DamageADERDG(NonLinearCK):
         sigma = self.nodalTensor("sigmaNodal", 6)
 
         generator.add(
-            "damageStress",
+            f"{prefix}damageStress",
             [
                 twoMuEff["l"]
                 <= 2.0 * mu0
@@ -184,6 +185,7 @@ class DamageADERDG(NonLinearCK):
                     yf.mul(breakage["l"], sigmaGranular["lc"]),
                 ),
             ],
+            target=target,
         )
         self.sigmaNodal = sigma
 
@@ -206,7 +208,7 @@ class DamageADERDG(NonLinearCK):
                 <= velocity["lm"] * toFluxV[d]["mp"]
                 + rhoInv * self.sigmaNodal["lc"] * toFluxS[d]["cp"]
             )
-        generator.add("damageFlux", assembly)
+        generator.add(f"{prefix}damageFlux", assembly, target=target)
         self.fluxNodal = flux
 
         # Stage D: the two reductions the cell needs as a whole.
@@ -222,7 +224,7 @@ class DamageADERDG(NonLinearCK):
         maxWaveSpeed = Tensor("maxWaveSpeed", (1,))
 
         generator.add(
-            "damageCellState",
+            f"{prefix}damageCellState",
             [
                 meanAlpha["u"] <= alpha["l"] * weights["l"] * unitColumn["u"],
                 meanBreakage["u"] <= breakage["l"] * weights["l"] * unitColumn["u"],
@@ -230,6 +232,7 @@ class DamageADERDG(NonLinearCK):
                 maxWaveSpeed["u"]
                 <= yf.mul(yf.max(waveSpeed["l"], "l"), unitColumn["u"]),
             ],
+            target=target,
         )
 
         quadA = self.nodalTensor("criticalA")
@@ -246,7 +249,7 @@ class DamageADERDG(NonLinearCK):
         sourceBreakage = self.nodalTensor("sourceBreakage")
 
         generator.add(
-            "damageSource",
+            f"{prefix}damageSource",
             [
                 quadA["l"]
                 <= 3.0 * gammaR * gammaR * yf.mul(xi["l"], xi["l"])
@@ -306,9 +309,10 @@ class DamageADERDG(NonLinearCK):
                 sourceBreakage["l"]
                 <= breakageRate * yf.mul(growing["l"], yf.mul(switch["l"], drive["l"])),
             ],
+            target=target,
         )
 
-    def addFaceFlux(self, generator):
+    def addFaceFlux(self, generator, target, prefix):
         """The Rusanov flux at the face nodes.
 
         Both sides are read from their own transported stress rather than
@@ -345,7 +349,7 @@ class DamageADERDG(NonLinearCK):
         fluxNeighbor = self.faceTensor("fluxAtFaceNeighbor", nq)
 
         generator.add(
-            "damageRusanov",
+            f"{prefix}damageRusanov",
             [
                 fluxLocal["kp"]
                 <= self.QAtFace["km"].subslice("m", 6, 9)
@@ -364,6 +368,7 @@ class DamageADERDG(NonLinearCK):
                 <= 0.5 * (fluxLocal["kp"] + fluxNeighbor["kp"])
                 - 0.5 * lambdaMax * (self.QAtFaceNeighbor["kp"] - self.QAtFace["kp"]),
             ],
+            target=target,
         )
 
 

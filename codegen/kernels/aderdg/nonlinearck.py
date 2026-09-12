@@ -83,18 +83,7 @@ class NonLinearCK(ADERDGBase):
             alignStride=True,
         )
 
-        generator.add(
-            "convertToNodal",
-            self.QNodal["lp"] <= self.db.evalAtQP[self.t("lk")] * self.Q["kp"],
-        )
-        generator.add(
-            "convertToModal",
-            self.Q["kp"] <= self.db.projectQP[self.t("kl")] * self.QNodal["lp"],
-        )
-
-        self.addConstitutive(generator)
-
-    def addConstitutive(self, generator):
+    def addConstitutive(self, generator, target, prefix):
         """Pointwise material response at the nodes of :attr:`QNodal`.
 
         Empty here: what the flux and the source terms look like is a
@@ -130,7 +119,7 @@ class NonLinearCK(ADERDGBase):
             alignStride=True,
         )
 
-    def addFaceProjection(self, generator):
+    def addFaceProjection(self, generator, target, prefix):
         """Face-nodal values of the time-integrated state, and the way back.
 
         The local side reads its own face directly. The neighbour is restricted
@@ -146,32 +135,35 @@ class NonLinearCK(ADERDGBase):
         flux = self.faceTensor("fluxAtFace", self.numQuantities())
 
         generator.addFamily(
-            "projectToFace",
+            f"{prefix}projectToFace",
             simpleParameterSpace(4),
             lambda i: atFace["kp"]
             <= self.db.V3mTo2nFace[i][self.t("kl")] * self.I["lp"],
+            target=target,
         )
         generator.addFamily(
-            "projectNeighborToFace",
+            f"{prefix}projectNeighborToFace",
             simpleParameterSpace(3, 4),
             lambda h, j: fromNeighbor["kp"]
             <= self.db.V2mTo2n[self.t("km")]
             * self.db.fP[h][self.t("mn")]
             * self.db.rT[j][self.t("nl")]
             * self.I["lp"],
+            target=target,
         )
         generator.addFamily(
-            "faceIntegral",
+            f"{prefix}faceIntegral",
             simpleParameterSpace(4),
             lambda i: self.Q["kp"]
             <= self.Q["kp"] + self.db.project2nFaceTo3m[i]["kn"] * flux["np"],
+            target=target,
         )
 
         self.QAtFace = atFace
         self.QAtFaceNeighbor = fromNeighbor
         self.fluxAtFace = flux
 
-    def addFaceFlux(self, generator):
+    def addFaceFlux(self, generator, target, prefix):
         """The numerical flux at the face nodes.
 
         Empty here: which flux couples two cells follows from the constitutive
@@ -180,8 +172,21 @@ class NonLinearCK(ADERDGBase):
         """
 
     def addLocal(self, generator, targets):
-        self.addFaceProjection(generator)
-        self.addFaceFlux(generator)
+        for target in targets:
+            prefix = generate_kernel_name_prefix(target)
+            generator.add(
+                f"{prefix}convertToNodal",
+                self.QNodal["lp"] <= self.db.evalAtQP[self.t("lk")] * self.Q["kp"],
+                target=target,
+            )
+            generator.add(
+                f"{prefix}convertToModal",
+                self.Q["kp"] <= self.db.projectQP[self.t("kl")] * self.QNodal["lp"],
+                target=target,
+            )
+            self.addConstitutive(generator, target, prefix)
+            self.addFaceProjection(generator, target, prefix)
+            self.addFaceFlux(generator, target, prefix)
 
     def addNeighbor(self, generator, targets):
         pass
