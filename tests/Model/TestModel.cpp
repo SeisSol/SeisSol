@@ -8,5 +8,6 @@
 #include <doctest.h>
 
 #include "Attenuation.t.h"
+#include "AttenuationFit.t.h"
 #include "GodunovState.t.h"
 #include "Quantities.t.h"

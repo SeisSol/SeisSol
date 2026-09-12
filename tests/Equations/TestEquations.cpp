@@ -11,3 +11,4 @@
 #include "AnisotropicMaterial.t.h"
 #include "ElasticMaterial.t.h"
 #include "MaterialConfig.t.h"
+#include "MaterialInvariants.t.h"
