@@ -171,8 +171,17 @@ class NonLinearCK(ADERDGBase):
         self.QAtFaceNeighbor = fromNeighbor
         self.fluxAtFace = flux
 
+    def addFaceFlux(self, generator):
+        """The numerical flux at the face nodes.
+
+        Empty here: which flux couples two cells follows from the constitutive
+        law, so the material fills this in. It runs after
+        :meth:`addFaceProjection`, whose tensors it reads.
+        """
+
     def addLocal(self, generator, targets):
         self.addFaceProjection(generator)
+        self.addFaceFlux(generator)
 
     def addNeighbor(self, generator, targets):
         pass

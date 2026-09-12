@@ -308,6 +308,64 @@ class DamageADERDG(NonLinearCK):
             ],
         )
 
+    def addFaceFlux(self, generator):
+        """The Rusanov flux at the face nodes.
+
+        Both sides are read from their own transported stress rather than
+        rebuilt from the other cell's state, so neither side ever needs the
+        other's material. The only thing crossing the face besides the state
+        and the stress is one wave speed, and taking the larger of the two is
+        what keeps the scheme stable.
+
+        The directional maps from the flux assembly are reused, contracted with
+        the face normal instead of applied one direction at a time. They carry
+        the sign of the flux, so the combination below reads as the plain
+        average it is.
+        """
+        nq = self.numQuantities()
+        rhoInv = Scalar("rhoInv")
+        rhoInvNeighbor = Scalar("rhoInvNeighbor")
+        lambdaMax = Scalar("lambdaMax")
+
+        normal = Tensor("faceNormal", (3,))
+        velocityMap = Tensor(
+            "velocityFluxMap",
+            (3, 3, nq),
+            np.stack([fluxMap(VELOCITY_FLUX[d], 3, nq) for d in range(3)]),
+        )
+        stressMap = Tensor(
+            "stressFluxMap",
+            (3, 6, nq),
+            np.stack([fluxMap(STRESS_FLUX[d], 6, nq) for d in range(3)]),
+        )
+
+        sigmaFace = self.faceTensor("sigmaAtFace", 6)
+        sigmaFaceNeighbor = self.faceTensor("sigmaAtFaceNeighbor", 6)
+        fluxLocal = self.faceTensor("fluxAtFaceLocal", nq)
+        fluxNeighbor = self.faceTensor("fluxAtFaceNeighbor", nq)
+
+        generator.add(
+            "damageRusanov",
+            [
+                fluxLocal["kp"]
+                <= self.QAtFace["km"].subslice("m", 6, 9)
+                * velocityMap["dmp"]
+                * normal["d"]
+                + rhoInv * sigmaFace["kc"] * stressMap["dcp"] * normal["d"],
+                fluxNeighbor["kp"]
+                <= self.QAtFaceNeighbor["km"].subslice("m", 6, 9)
+                * velocityMap["dmp"]
+                * normal["d"]
+                + rhoInvNeighbor
+                * sigmaFaceNeighbor["kc"]
+                * stressMap["dcp"]
+                * normal["d"],
+                self.fluxAtFace["kp"]
+                <= 0.5 * (fluxLocal["kp"] + fluxNeighbor["kp"])
+                - 0.5 * lambdaMax * (self.QAtFaceNeighbor["kp"] - self.QAtFace["kp"]),
+            ],
+        )
+
 
 def kernel_class(**kwargs):
     solver = kwargs["solver"].lower()
