@@ -113,6 +113,15 @@ struct DamageMaterial : public Material {
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
 
+inline const std::unordered_map<std::string, double DamageMaterial::*> DamageMaterial::ParameterMap{
+    {"rho", &DamageMaterial::rho},
+    {"lambda0", &DamageMaterial::lambda0},
+    {"mu0", &DamageMaterial::mu0},
+    {"gammaR", &DamageMaterial::gammaR},
+    {"xi0", &DamageMaterial::xi0},
+    {"Cd", &DamageMaterial::damageRate},
+};
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_DAMAGE_MODEL_DATASTRUCTURES_H_
