@@ -42,6 +42,33 @@ TRACE = np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
 VOIGT_SQUARE = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0])
 
 
+#: Rows of the directional flux fed by the velocity, as (source, target, factor).
+#: The strain equations transport the symmetric velocity gradient, so the shear
+#: rows pick up a half.
+VELOCITY_FLUX = (
+    ((0, 0, -1.0), (1, 3, -0.5), (2, 5, -0.5)),
+    ((1, 1, -1.0), (0, 3, -0.5), (2, 4, -0.5)),
+    ((2, 2, -1.0), (1, 4, -0.5), (0, 5, -0.5)),
+)
+
+#: Rows of the directional flux fed by the stress, as (Voigt source, target).
+#: The momentum equations transport the traction of a face normal to the
+#: direction, scaled by the inverse density.
+STRESS_FLUX = (
+    ((0, 6), (3, 7), (5, 8)),
+    ((3, 6), (1, 7), (4, 8)),
+    ((5, 6), (4, 7), (2, 8)),
+)
+
+
+def fluxMap(rows, sourceExtent, targetExtent, factor=-1.0):
+    values = np.zeros((sourceExtent, targetExtent))
+    for row in rows:
+        source, target = row[0], row[1]
+        values[source, target] = row[2] if len(row) > 2 else factor
+    return values
+
+
 def unit(position, extent):
     values = np.zeros(extent)
     values[position] = 1.0
@@ -158,6 +185,28 @@ class DamageADERDG(NonLinearCK):
             ],
         )
         self.sigmaNodal = sigma
+
+        rhoInv = Scalar("rhoInv")
+        velocity = self.nodalTensor("velocityNodal", 3)
+        flux = [self.nodalTensor(f"fluxNodal{axis}", nq) for axis in "XYZ"]
+        toFluxV = [
+            Tensor(f"velocityToFlux{axis}", (3, nq), fluxMap(VELOCITY_FLUX[d], 3, nq))
+            for d, axis in enumerate("XYZ")
+        ]
+        toFluxS = [
+            Tensor(f"stressToFlux{axis}", (6, nq), fluxMap(STRESS_FLUX[d], 6, nq))
+            for d, axis in enumerate("XYZ")
+        ]
+
+        assembly = [velocity["lm"] <= self.QNodal["lm"].subslice("m", 6, 9)]
+        for d in range(3):
+            assembly.append(
+                flux[d]["lp"]
+                <= velocity["lm"] * toFluxV[d]["mp"]
+                + rhoInv * self.sigmaNodal["lc"] * toFluxS[d]["cp"]
+            )
+        generator.add("damageFlux", assembly)
+        self.fluxNodal = flux
 
         quadA = self.nodalTensor("criticalA")
         quadB = self.nodalTensor("criticalB")
