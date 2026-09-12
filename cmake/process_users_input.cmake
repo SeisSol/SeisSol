@@ -60,11 +60,11 @@ set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined a
 set(OVERRIDE_ALIGNMENT 0 CACHE STRING "If not 0, it overrides the pre-defined architecture alignment")
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic viscoacoustic)
+set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic viscoacoustic damage)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 set(SOLVER "auto" CACHE STRING "Scheme that advances a cell in time")
-set(SOLVER_OPTIONS auto linearck linearckanelastic stp)
+set(SOLVER_OPTIONS auto linearck linearckanelastic nonlinearck stp)
 set_property(CACHE SOLVER PROPERTY STRINGS ${SOLVER_OPTIONS})
 
 # Which solvers each equation set can be built with, and which one it takes by
@@ -75,6 +75,7 @@ set(SOLVERS_anisotropic   linearck)
 set(SOLVERS_poroelastic   stp)
 set(SOLVERS_viscoelastic  linearckanelastic linearck)
 set(SOLVERS_viscoacoustic linearckanelastic linearck)
+set(SOLVERS_damage        nonlinearck)
 
 
 set(HOST_ARCH "auto" CACHE STRING "Type of host architecture")
