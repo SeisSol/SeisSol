@@ -217,7 +217,7 @@ class DamageADERDG(NonLinearCK):
         # which is a property of the cell and not of a node, so alpha and B
         # enter it through their means. The Rusanov dissipation needs one wave
         # speed per cell, and the largest one over the nodes is the safe pick.
-        weights = Tensor("quadratureWeights", (nodes,))
+        weights = Tensor("quadratureWeights", (nodes,), self.nodalMeanWeights())
         meanAlpha = Tensor("meanAlpha", (1,))
         meanBreakage = Tensor("meanBreakage", (1,))
         waveSpeed = self.nodalTensor("waveSpeedNodal")

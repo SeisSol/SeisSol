@@ -87,6 +87,21 @@ class NonLinearCK(ADERDGBase):
             ]
         )
 
+    def nodalMeanWeights(self):
+        """Weights that average a nodal field over the cell.
+
+        The constant row of the modal projection is that average already:
+        it is the quadrature weights, normalised. Reading it off the matrix
+        that is there anyway keeps one definition of where the nodes are.
+        """
+        projection = self.db.projectQP
+        shape = projection.shape()
+        values = np.zeros(shape)
+        for entry, value in projection.values().items():
+            values[entry] = float(value)
+        row = values[:, 0] if shape[0] == self.num3DQuadraturePoints() else values[0, :]
+        return row / row.sum()
+
     def transportGroupSlice(self, name):
         """``(start, stop)`` of a transport group along the quantity axis."""
         for block in self.transportBlocks():

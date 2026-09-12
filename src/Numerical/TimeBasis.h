@@ -8,8 +8,10 @@
 #define SEISSOL_SRC_NUMERICAL_TIMEBASIS_H_
 
 #include "Functions.h"
+#include "Quadrature.h"
 
 #include <cstddef>
+#include <utility>
 #include <vector>
 namespace seissol::numerical {
 
@@ -20,7 +22,11 @@ derivatives.
 template <typename RealT>
 class TimeBasis {
   public:
+  explicit TimeBasis(std::size_t order) : order_(order) {}
   virtual ~TimeBasis() = default;
+
+  [[nodiscard]] std::size_t order() const { return order_; }
+
   [[nodiscard]] virtual std::vector<RealT> derivative(double position, double timestep) const = 0;
   [[nodiscard]] virtual std::vector<RealT> point(double position, double timestep) const = 0;
   [[nodiscard]] virtual std::vector<RealT>
@@ -38,6 +44,39 @@ class TimeBasis {
     }
     return data;
   }
+
+  /*
+    Nodes and weights of a quadrature rule over one timestep, as (nodes,
+    weights). Gauss-Legendre with as many nodes as the basis has functions,
+    which integrates a polynomial of degree 2n-1 exactly.
+
+    A solver whose flux is nonlinear in the state cannot integrate it in
+    closed form and samples it instead. Where it samples is a question about
+    the timestep rather than about the basis, so the rule lives here, with the
+    coefficients that go with it, and not in the kernel that happens to need
+    it first.
+  */
+  [[nodiscard]] std::pair<std::vector<double>, std::vector<double>>
+      quadrature(double timestep) const {
+    std::vector<double> reference(order_);
+    std::vector<double> referenceWeights(order_);
+    seissol::quadrature::GaussJacobi(reference.data(), referenceWeights.data(), order_, 0, 0);
+
+    // The rule comes back over [-1, 1] and in descending order. Time runs
+    // forwards here: a predictor that carries an internal variable from one
+    // node to the next needs them that way round.
+    std::vector<double> nodes(order_);
+    std::vector<double> weights(order_);
+    for (std::size_t i = 0; i < order_; ++i) {
+      const std::size_t source = order_ - 1 - i;
+      nodes[i] = 0.5 * (reference[source] + 1.0) * timestep;
+      weights[i] = 0.5 * referenceWeights[source] * timestep;
+    }
+    return {nodes, weights};
+  }
+
+  private:
+  std::size_t order_;
 };
 
 /*
@@ -52,7 +91,7 @@ template <typename RealT>
 class MonomialBasis : public TimeBasis<RealT> {
   public:
   ~MonomialBasis() override = default;
-  explicit MonomialBasis(std::size_t order) : order_(order) {}
+  explicit MonomialBasis(std::size_t order) : TimeBasis<RealT>(order), order_(order) {}
 
   [[nodiscard]] std::vector<RealT> derivative(double position, double /*timestep*/) const override {
     std::vector<RealT> coeffs(order_);
@@ -105,7 +144,7 @@ template <typename RealT>
 class LegendreBasis : public TimeBasis<RealT> {
   public:
   ~LegendreBasis() override = default;
-  explicit LegendreBasis(std::size_t order) : order_(order) {}
+  explicit LegendreBasis(std::size_t order) : TimeBasis<RealT>(order), order_(order) {}
 
   [[nodiscard]] std::vector<RealT> derivative(double position, double timestep) const override {
     const double tau = position / timestep;
