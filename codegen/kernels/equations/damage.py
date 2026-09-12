@@ -115,6 +115,7 @@ class DamageADERDG(NonLinearCK):
         pickAlpha = Tensor("selectAlpha", (nq,), unit(ALPHA, nq))
         pickBreakage = Tensor("selectBreakage", (nq,), unit(BREAKAGE, nq))
         epsInit = Tensor("epsInit", (6,))
+        unitColumn = Tensor("unitColumn", (1,), np.ones(1))
 
         eps = self.nodalTensor("epsTotal", 6)
         epsSquare = self.nodalTensor("epsSquare", 6)
@@ -208,6 +209,29 @@ class DamageADERDG(NonLinearCK):
         generator.add("damageFlux", assembly)
         self.fluxNodal = flux
 
+        # Stage D: the two reductions the cell needs as a whole.
+        #
+        # The source guard asks whether the cell still has room to damage,
+        # which is a property of the cell and not of a node, so alpha and B
+        # enter it through their means. The Rusanov dissipation needs one wave
+        # speed per cell, and the largest one over the nodes is the safe pick.
+        weights = Tensor("quadratureWeights", (nodes,))
+        meanAlpha = Tensor("meanAlpha", (1,))
+        meanBreakage = Tensor("meanBreakage", (1,))
+        waveSpeed = self.nodalTensor("waveSpeedNodal")
+        maxWaveSpeed = Tensor("maxWaveSpeed", (1,))
+
+        generator.add(
+            "damageCellState",
+            [
+                meanAlpha["u"] <= alpha["l"] * weights["l"] * unitColumn["u"],
+                meanBreakage["u"] <= breakage["l"] * weights["l"] * unitColumn["u"],
+                waveSpeed["l"] <= yf.sqrt(rhoInv * (lambda0 + twoMuEff["l"])),
+                maxWaveSpeed["u"]
+                <= yf.mul(yf.max(waveSpeed["l"], "l"), unitColumn["u"]),
+            ],
+        )
+
         quadA = self.nodalTensor("criticalA")
         quadB = self.nodalTensor("criticalB")
         quadC = self.nodalTensor("criticalC")
@@ -267,7 +291,14 @@ class DamageADERDG(NonLinearCK):
                 ),
                 drive["l"]
                 <= gammaR * yf.mul(intact["l"], yf.mul(i2["l"], xi["l"] + xi0)),
-                growing["l"] <= yf.greater(xi["l"] + xi0, floor),
+                growing["l"]
+                <= yf.logical_and(
+                    yf.greater(xi["l"] + xi0, floor),
+                    yf.logical_and(
+                        yf.less(yf.sum(meanAlpha["u"], "u"), 1.0),
+                        yf.less(yf.sum(meanBreakage["u"], "u"), 1.0),
+                    ),
+                ),
                 sourceAlpha["l"]
                 <= yf.where(
                     growing["l"], damageRate * drive["l"], healingRate * drive["l"]
