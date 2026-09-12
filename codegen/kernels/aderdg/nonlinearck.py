@@ -17,7 +17,7 @@ in this class yet; they arrive with the constitutive law that defines them.
 
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, ops
+from yateto import Scalar, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
@@ -116,8 +116,63 @@ class NonLinearCK(ADERDGBase):
             alignStride=True,
         )
 
+    def faceTensor(self, name, columns=None):
+        """A tensor over the nodes of one face."""
+        shape = (self.num2DBasisFunctions(),)
+        if columns is not None:
+            shape = shape + (columns,)
+        return OptionalDimTensor(
+            name,
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            shape,
+            alignStride=True,
+        )
+
+    def addFaceProjection(self, generator):
+        """Face-nodal values of the time-integrated state, and the way back.
+
+        The local side reads its own face directly. The neighbour is restricted
+        to its face and re-parameterised to ours before being evaluated at the
+        nodes, which is the chain LinearCK walks for the neighbouring flux, cut
+        short of the lift. Evaluating nodally decouples the two halves: the
+        neighbour projection no longer depends on which of our faces it lands
+        on, so the family is twelve rather than forty-eight, and the lift that
+        does depend on it is four on its own.
+        """
+        atFace = self.faceTensor("QAtFace", self.numQuantities())
+        fromNeighbor = self.faceTensor("QAtFaceNeighbor", self.numQuantities())
+        flux = self.faceTensor("fluxAtFace", self.numQuantities())
+
+        generator.addFamily(
+            "projectToFace",
+            simpleParameterSpace(4),
+            lambda i: atFace["kp"]
+            <= self.db.V3mTo2nFace[i][self.t("kl")] * self.I["lp"],
+        )
+        generator.addFamily(
+            "projectNeighborToFace",
+            simpleParameterSpace(3, 4),
+            lambda h, j: fromNeighbor["kp"]
+            <= self.db.V2mTo2n[self.t("km")]
+            * self.db.fP[h][self.t("mn")]
+            * self.db.rT[j][self.t("nl")]
+            * self.I["lp"],
+        )
+        generator.addFamily(
+            "faceIntegral",
+            simpleParameterSpace(4),
+            lambda i: self.Q["kp"]
+            <= self.Q["kp"] + self.db.project2nFaceTo3m[i]["kn"] * flux["np"],
+        )
+
+        self.QAtFace = atFace
+        self.QAtFaceNeighbor = fromNeighbor
+        self.fluxAtFace = flux
+
     def addLocal(self, generator, targets):
-        pass
+        self.addFaceProjection(generator)
 
     def addNeighbor(self, generator, targets):
         pass
