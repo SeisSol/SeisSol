@@ -272,16 +272,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
-        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
-    shared(layerSize,                                                                              \
-               drEnergyOutput,                                                                     \
-               faceInformation,                                                                    \
-               timeDofsMinus,                                                                      \
-               timeDofsPlus,                                                                       \
-               godunovData,                                                                        \
-               waveSpeedsPlus,                                                                     \
-               waveSpeedsMinus,                                                                    \
-               sim)
+        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency)
 #endif
       for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
@@ -370,8 +361,6 @@ void EnergyOutput::computeVolumeEnergies() {
     seissol::quadrature::TriangleQuadrature(
         quadraturePointsTri, quadratureWeightsTri, QuadPolyDegree);
 
-    // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
-    // it
     for (const auto& layer : ltsStorage_->leaves(Ghost)) {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* cellInformationData = layer.var<LTS::CellInformation>();
@@ -389,8 +378,7 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalMomentumXLocal,                       \
                                                         totalMomentumYLocal,                       \
                                                         totalMomentumZLocal,                       \
-                                                        totalPlasticMoment)                        \
-    shared(elements, vertices, global_)
+                                                        totalPlasticMoment)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {

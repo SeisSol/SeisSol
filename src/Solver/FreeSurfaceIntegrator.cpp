@@ -89,8 +89,7 @@ void FreeSurfaceIntegrator::calculateOutput() const {
     const auto* outputPosition = surfaceLayer.var<SurfaceLTS::OutputPosition>();
 
 #if !NVHPC_AVOID_OMP
-#pragma omp parallel for schedule(static) default(none)                                            \
-    shared(surfaceLayer, dofs, displacementDofs, side, outputPosition)
+#pragma omp parallel for schedule(static)
 #endif
     for (std::size_t face = 0; face < surfaceLayer.size(); ++face) {
       if (outputPosition[face] != std::numeric_limits<std::size_t>::max()) {
