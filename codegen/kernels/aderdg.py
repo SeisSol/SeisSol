@@ -11,8 +11,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
@@ -20,6 +20,25 @@ from yateto.util import (
     tensor_collection_from_constant_expression,
     tensor_from_constant_expression,
 )
+
+
+def negateFamily(db, baseName, alignStride):
+    """Replaces a tensor family in `db` with its negation.
+
+    The sparsity pattern is unaffected by a sign, so the rebuilt tensors carry
+    the same pattern, shape and stride alignment and can take the place of the
+    originals without anything downstream noticing. Values stay decimal text,
+    the form the matrix files deliver them in and the form the emitter prints.
+    """
+    db[baseName] = {
+        group: Tensor(
+            tensor.name(),
+            tensor.shape(),
+            {index: repr(-float(value)) for index, value in tensor.values().items()},
+            alignStride=alignStride(tensor.name()),
+        )
+        for group, tensor in db[baseName].items()
+    }
 
 
 class ADERDGBase(ABC):
@@ -39,6 +58,14 @@ class ADERDGBase(ABC):
             transpose=self.transpose,
             alignStride=self.alignStride,
         )
+        # The derivative kernels contract against -kDivMT throughout. Folding
+        # the sign into the matrix here rather than scaling the operand keeps
+        # the global matrices read-only, which is what lets them be shared and
+        # placed wherever a target wants them. It has to happen before the
+        # memory layout configuration is applied, since that mutates whatever
+        # tensors are in the database at the time.
+        negateFamily(self.db, "kDivMT", self.alignStride)
+
         clonesQP = {"v": ["evalAtQP"], "vInv": ["projectQP"]}
         self.db.update(
             parseJSONMatrixFile(
@@ -494,7 +521,7 @@ class LinearADERDG(ADERDGBase):
 
             for i in range(1, self.order):
                 power = powers[i]
-                derivativeSum = Add()
+                derivativeSum = Accumulate(ops.Add())
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
                 for j in range(3):

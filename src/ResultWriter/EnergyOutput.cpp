@@ -21,9 +21,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -57,9 +55,6 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
-GENERATE_HAS_MEMBER(vInv)
-GENERATE_HAS_MEMBER(evalAtQP)
-
 namespace seissol::writer {
 
 namespace {
@@ -76,12 +71,8 @@ std::array<real, multisim::NumSimulations>
                       const DRGodunovData& godunovData,
                       const real slip[seissol::tensor::slipInterpolated::size()],
                       const GlobalData* global) {
-  real points[seissol::kernels::NumSpaceQuadraturePoints][2];
-  alignas(Alignment) real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints];
-  seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
-
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
-  krnl.V3mTo2n = global->faceToNodalMatrices;
+  krnl.bindGlobals(*global);
 
   alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus::size()];
@@ -116,9 +107,9 @@ std::array<real, multisim::NumSimulations>
   alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
 
   dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
+  feKrnl.bindGlobals(*global);
   feKrnl.slipInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
-  feKrnl.spaceWeights = spaceWeights;
   feKrnl.staticFrictionalWork = staticFrictionalWork;
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
@@ -281,16 +272,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
-        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency) default(none)       \
-    shared(layerSize,                                                                              \
-               drEnergyOutput,                                                                     \
-               faceInformation,                                                                    \
-               timeDofsMinus,                                                                      \
-               timeDofsPlus,                                                                       \
-               godunovData,                                                                        \
-               waveSpeedsPlus,                                                                     \
-               waveSpeedsMinus,                                                                    \
-               sim)
+        + : totalFrictionalWork, staticFrictionalWork, seismicMoment, potency)
 #endif
       for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
@@ -379,8 +361,6 @@ void EnergyOutput::computeVolumeEnergies() {
     seissol::quadrature::TriangleQuadrature(
         quadraturePointsTri, quadratureWeightsTri, QuadPolyDegree);
 
-    // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
-    // it
     for (const auto& layer : ltsStorage_->leaves(Ghost)) {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* cellInformationData = layer.var<LTS::CellInformation>();
@@ -398,8 +378,7 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalMomentumXLocal,                       \
                                                         totalMomentumYLocal,                       \
                                                         totalMomentumZLocal,                       \
-                                                        totalPlasticMoment)                        \
-    shared(elements, vertices, global_)
+                                                        totalPlasticMoment)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {
@@ -419,7 +398,7 @@ void EnergyOutput::computeVolumeEnergies() {
         auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP krnl;
-        krnl.evalAtQP = global_->evalAtQPMatrix;
+        krnl.bindGlobals(*global_);
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();
@@ -548,8 +527,7 @@ void EnergyOutput::computeVolumeEnergies() {
           alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject::size()]{};
 
           kernel::plProject krnl;
-          set_evalAtQP(krnl, global_->evalAtQPMatrix);
-          set_vInv(krnl, global_->vandermondeMatrixInverse);
+          krnl.bindGlobals(*global_);
           krnl.QEtaNodal = qEta;
           krnl.QEtaNodalProject = qEtaQuad;
           krnl.execute();
