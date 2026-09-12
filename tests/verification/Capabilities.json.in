@@ -1,0 +1,11 @@
+{
+  "equations": "@EQUATIONS@",
+  "order": @ORDER@,
+  "precision": "@PRECISION@",
+  "mechanisms": @NUMBER_OF_MECHANISMS@,
+  "fused": @NUMBER_OF_FUSED_SIMULATIONS@,
+  "rupture-method": "@DYNAMIC_RUPTURE_METHOD@",
+  "mpi": @SEISSOL_CAP_MPI@,
+  "openmp": @SEISSOL_CAP_OPENMP@,
+  "device-backend": "@SEISSOL_CAP_DEVICE@"
+}

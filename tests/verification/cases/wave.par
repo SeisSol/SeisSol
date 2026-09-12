@@ -1,0 +1,40 @@
+&equations
+MaterialFileName = 'material.yaml'
+Plasticity = 0
+/
+
+&IniCondition
+cICType = 'Planarwave'
+/
+
+&MeshNml
+MeshFile = 'mesh.puml.h5'
+meshgenerator = 'PUML'
+PartitioningLib = 'none'
+/
+
+&Discretization
+CFL = 0.5
+FixTimeStep = 1e-4                             ! set by the runner
+ClusteredLTS = 1                               ! GTS; LTS makes rank counts incomparable
+/
+
+&Output
+OutputFile = 'output/mini'
+wavefieldoutput = 0
+SurfaceOutput = 0
+ReceiverOutput = 1
+pickdt = 1e-4
+RFileName = 'receiver.dat'
+xdmfWriterBackend = 'posix'
+/
+
+&AbortCriteria
+EndTime = 2e-3                                 ! set by the runner
+/
+
+&Analysis
+/
+
+&Debugging
+/
