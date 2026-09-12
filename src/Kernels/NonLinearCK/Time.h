@@ -23,6 +23,11 @@ namespace seissol::kernels::solver::nonlinearck {
 
 /// The predictor for a material whose flux is nonlinear in the state.
 ///
+/// Everything nonlinear about a timestep is one kernel. Its time nodes are
+/// written out, so the scratch it needs does not grow with their number, and
+/// the integrals accumulate inside it -- the launch code hands it the
+/// expansion and takes the transported tensor back.
+///
 /// The Cauchy-Kovalevskaya recursion runs unchanged, on star matrices that
 /// linearise the material about the cell mean. What it produces is a time
 /// expansion of the state, not of the flux -- for a nonlinear flux the two are
@@ -57,23 +62,11 @@ class Spacetime : public SpacetimeKernel {
 
   protected:
   kernel::derivative derivative_;
-  kernel::convertToNodal convertToNodal_;
-  kernel::damageInvariants invariants_;
-  kernel::damageStress stress_;
-  kernel::damageFlux flux_;
-  kernel::damageCellState cellState_;
-  kernel::damageSource source_;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated_;
+  kernel::damageStep step_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceDerivative_;
-  kernel::gpu_convertToNodal deviceConvertToNodal_;
-  kernel::gpu_damageInvariants deviceInvariants_;
-  kernel::gpu_damageStress deviceStress_;
-  kernel::gpu_damageFlux deviceFlux_;
-  kernel::gpu_damageCellState deviceCellState_;
-  kernel::gpu_damageSource deviceSource_;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated_;
+  kernel::gpu_damageStep deviceStep_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };

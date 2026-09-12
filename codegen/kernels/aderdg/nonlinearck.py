@@ -151,9 +151,23 @@ class NonLinearCK(ADERDGBase):
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
         )
 
+        self.addStepTensors()
+
         nodalShape = (
             self.num3DQuadraturePoints(),
             self.numQuantities(),
+        )
+
+        # The time-integrated source of the internal variables. They carry no
+        # flux, so this never leaves the cell; it is the only thing the
+        # corrector needs besides the transported tensor.
+        self.sourceI = OptionalDimTensor(
+            "sourceI",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.num3DBasisFunctions(), self.numInternalVariables()),
+            alignStride=True,
         )
 
         self.QNodal = OptionalDimTensor(
@@ -165,6 +179,71 @@ class NonLinearCK(ADERDGBase):
             alignStride=True,
         )
 
+    def numInternalVariables(self):
+        """Quantities of the state that no face reads: the difference between
+        the state and what the cell hands over."""
+        return self.numQuantities() - self.transportStateExtent()
+
+    def addStepTensors(self):
+        """Tensors the step kernel needs. Filled in by the material."""
+
+    def finishStatements(self):
+        """What the step leaves behind once all nodes are done. Filled in by
+        the material."""
+        return []
+
+    def addStep(self, generator, target, prefix):
+        """One kernel for the whole nonlinear part of a timestep.
+
+        The time nodes are written out rather than looped over: how many there
+        are is fixed at generation time, and writing them out lets one set of
+        temporaries serve all of them, so the scratch the kernel needs does not
+        grow with the number of nodes. What the nodes do not share is the
+        coefficients, and those are scalars the launch code sets.
+
+        The state at a node comes from the stored expansion, the material
+        response from the constitutive law, and the integrals accumulate here
+        rather than in a pass of their own -- there is nothing to be gained
+        from writing a nodal stress out only to read it back and weigh it.
+        """
+        nodes = self.order
+        evaluate = [
+            [Scalar(f"evaluate({q},{i})") for i in range(self.order)]
+            for q in range(nodes)
+        ]
+        weights = [Scalar(f"weight({q})") for q in range(nodes)]
+        march = [Scalar(f"march({q})") for q in range(nodes)]
+
+        # The nodal state at a time node lives inside the kernel: the step is
+        # the only thing that looks at it.
+        self.nodalState = self.nodalTensor(
+            "QNodalAtTime", self.numQuantities(), temporary=True
+        )
+
+        state = OptionalDimTensor(
+            "QAtTime",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.num3DBasisFunctions(), self.numQuantities()),
+            alignStride=True,
+            temporary=True,
+        )
+
+        statements = []
+        for q in range(nodes):
+            expansion = evaluate[q][0] * self.dQs[0]["kp"]
+            for i in range(1, self.order):
+                expansion = expansion + evaluate[q][i] * self.dQs[i]["kp"]
+            statements += [
+                state["kp"] <= expansion,
+                self.nodalState["lp"] <= self.db.evalAtQP[self.t("lk")] * state["kp"],
+            ]
+            statements += self.stepStatements(q, weights[q], march[q])
+
+        statements += self.finishStatements()
+        generator.add(f"{prefix}damageStep", statements, target=target)
+
     def addConstitutive(self, generator, target, prefix):
         """Pointwise material response at the nodes of :attr:`QNodal`.
 
@@ -172,7 +251,7 @@ class NonLinearCK(ADERDGBase):
         property of the constitutive law, so the material fills this in.
         """
 
-    def nodalTensor(self, name, columns=None):
+    def nodalTensor(self, name, columns=None, temporary=False):
         """A tensor over the nodes of :attr:`QNodal`, optionally with a
         second axis of ``columns`` entries."""
         shape = (self.num3DQuadraturePoints(),)
@@ -185,6 +264,7 @@ class NonLinearCK(ADERDGBase):
             self.Q.optPos(),
             shape,
             alignStride=True,
+            temporary=temporary,
         )
 
     def faceTensor(self, name, columns=None):
@@ -266,7 +346,6 @@ class NonLinearCK(ADERDGBase):
                 self.Q["kp"] <= self.db.projectQP[self.t("kl")] * self.QNodal["lp"],
                 target=target,
             )
-            self.addConstitutive(generator, target, prefix)
             self.addFaceProjection(generator, target, prefix)
             self.addFaceFlux(generator, target, prefix)
 
@@ -352,6 +431,7 @@ class NonLinearCK(ADERDGBase):
                 derivativeTaylorExpansionExpr,
                 target=target,
             )
+            self.addStep(generator, target, name_prefix)
 
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)

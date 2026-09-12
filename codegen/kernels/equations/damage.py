@@ -91,226 +91,279 @@ class DamageADERDG(NonLinearCK):
     def name(self):
         return "damage"
 
-    def addConstitutive(self, generator, target, prefix):
+    def addStepTensors(self):
+        """Everything the step kernel reads or keeps between its statements.
+
+        The nodal quantities are temporaries: one set, rewritten at every time
+        node, so the kernel needs no scratch of its own beyond what yateto
+        allocates for it. Only alpha and B survive a node, because they march.
+        """
         nodes = self.num3DQuadraturePoints()
         nq = self.numQuantities()
 
-        lambda0 = Scalar("lambda0")
-        mu0 = Scalar("mu0")
-        gammaR = Scalar("gammaR")
-        xi0 = Scalar("xi0")
-        damageRate = Scalar("damageRate")
-        breakageRate = Scalar("breakageRate")
-        healingRate = Scalar("healingRate")
-        betaAlpha = Scalar("betaAlpha")
-        aB = [Scalar(f"aB{i}") for i in range(4)]
+        self.lambda0 = Scalar("lambda0")
+        self.mu0 = Scalar("mu0")
+        self.gammaR = Scalar("gammaR")
+        self.xi0 = Scalar("xi0")
+        self.damageRate = Scalar("damageRate")
+        self.breakageRate = Scalar("breakageRate")
+        self.healingRate = Scalar("healingRate")
+        self.betaAlpha = Scalar("betaAlpha")
+        self.aB = [Scalar(f"aB{i}") for i in range(4)]
 
         # Guards xi against a vanishing second invariant. Tied to the working
         # precision rather than to the model, hence not a model parameter.
-        floor = Scalar("invariantFloor")
+        self.floor = Scalar("invariantFloor")
 
-        ones = Tensor("ones", (nodes,), np.ones(nodes))
-        trace = Tensor("traceSelect", (6,), TRACE)
-        voigt = Tensor("voigtSquare", (6,), VOIGT_SQUARE)
-        pickAlpha = Tensor("selectAlpha", (nq,), unit(ALPHA, nq))
-        pickBreakage = Tensor("selectBreakage", (nq,), unit(BREAKAGE, nq))
-        epsInit = Tensor("epsInit", (6,))
-        unitColumn = Tensor("unitColumn", (1,), np.ones(1))
+        self.trace = Tensor("traceSelect", (6,), TRACE)
+        self.voigt = Tensor("voigtSquare", (6,), VOIGT_SQUARE)
+        self.pickAlpha = Tensor("selectAlpha", (nq,), unit(ALPHA, nq))
+        self.pickBreakage = Tensor("selectBreakage", (nq,), unit(BREAKAGE, nq))
+        self.epsInit = Tensor("epsInit", (6,))
+        self.unitColumn = Tensor("unitColumn", (1,), np.ones(1))
+        self.weights = Tensor("quadratureWeights", (nodes,), self.nodalMeanWeights())
 
-        eps = self.nodalTensor("epsTotal", 6)
-        epsSquare = self.nodalTensor("epsSquare", 6)
-        i1 = self.nodalTensor("invariantI1")
-        i2 = self.nodalTensor("invariantI2")
-        rootI2 = self.nodalTensor("rootI2")
-        xi = self.nodalTensor("xi")
-        alpha = self.nodalTensor("alphaNodal")
-        breakage = self.nodalTensor("breakageNodal")
-        intact = self.nodalTensor("intact")
+        def temporary(name, columns=None):
+            return self.nodalTensor(name, columns, temporary=True)
 
-        generator.add(
-            f"{prefix}damageInvariants",
-            [
-                eps["lc"]
-                <= yf.add(self.QNodal["lc"].subslice("c", 0, 6), epsInit["c"]),
-                epsSquare["lc"] <= yf.mul(eps["lc"], eps["lc"]),
-                i1["l"] <= eps["lc"] * trace["c"],
-                i2["l"] <= epsSquare["lc"] * voigt["c"],
-                rootI2["l"] <= yf.sqrt(yf.maximum(i2["l"], floor)),
-                xi["l"]
-                <= yf.where(
-                    yf.greater(i2["l"], floor),
-                    yf.div(i1["l"], rootI2["l"]),
-                    0.0,
+        self.eps = temporary("epsTotal", 6)
+        self.i1 = temporary("invariantI1")
+        self.i2 = temporary("invariantI2")
+        self.rootI2 = temporary("rootI2")
+        self.xi = temporary("xi")
+        self.intact = temporary("intact")
+        self.twoMuEff = temporary("twoMuEff")
+        self.sigmaNodal = temporary("sigmaNodal", 6)
+        self.critical = temporary("criticalDamage")
+        self.drive = temporary("damageDrive")
+        self.growing = temporary("damageGrowing")
+        self.sourceAlpha = temporary("sourceAlpha")
+        self.sourceBreakage = temporary("sourceBreakage")
+        # The integrals are accumulated at the nodes and projected once. The
+        # projection is linear, so it commutes with the quadrature sum, and
+        # doing it per node would run the same matrix over the same tensor
+        # once per node for nothing.
+        self.sigmaIntegral = temporary("sigmaIntegral", 6)
+        self.sourceIntegral = temporary("sourceIntegral", 2)
+        self.meanAlpha = Tensor("meanAlpha", (1,), temporary=True)
+        self.meanBreakage = Tensor("meanBreakage", (1,), temporary=True)
+
+        # The two that march live across the nodes but not beyond the kernel.
+        # The wave speed does: the face coupling is scaled with it.
+        self.alphaNodal = temporary("alphaNodal")
+        self.breakageNodal = temporary("breakageNodal")
+        self.maxWaveSpeed = Tensor("maxWaveSpeed", (1,))
+
+    def stepStatements(self, node, weight, march):
+        """The material response at one time node, and what it contributes.
+
+        ``weight`` is the quadrature weight of the node, ``march`` the step
+        from it to the next one. Both are scalars the caller sets, so which
+        rule is being used is a property of the launch code and not of the
+        kernel.
+        """
+        first = node == 0
+        eps, i1, i2 = self.eps, self.i1, self.i2
+        rootI2, xi, intact = self.rootI2, self.xi, self.intact
+        alpha, breakage = self.alphaNodal, self.breakageNodal
+        trace, floor = self.trace, self.floor
+        mu0, lambda0, gammaR, xi0 = self.mu0, self.lambda0, self.gammaR, self.xi0
+        aB = self.aB
+
+        statements = []
+
+        # The internal variables enter the step from the state and then march;
+        # everything else is rebuilt at every node.
+        if first:
+            statements += [
+                alpha["l"] <= self.nodalState["lp"] * self.pickAlpha["p"],
+                breakage["l"] <= self.nodalState["lp"] * self.pickBreakage["p"],
+            ]
+
+        statements += [
+            eps["lc"]
+            <= yf.add(self.nodalState["lc"].subslice("c", 0, 6), self.epsInit["c"]),
+            i1["l"] <= eps["lc"] * trace["c"],
+            i2["l"] <= yf.mul(eps["lc"], eps["lc"]) * self.voigt["c"],
+            rootI2["l"] <= yf.sqrt(yf.maximum(i2["l"], floor)),
+            xi["l"]
+            <= yf.where(
+                yf.greater(i2["l"], floor),
+                yf.div(i1["l"], rootI2["l"]),
+                0.0,
+            ),
+            intact["l"] <= 1.0 - breakage["l"],
+        ]
+
+        # Stress: a convex blend of the solid and the granular branch. The
+        # solid shear modulus degrades with alpha through gammaR, the granular
+        # branch is the aB0..aB3 polynomial in xi.
+        twoMuEff, sigma = self.twoMuEff, self.sigmaNodal
+        statements += [
+            twoMuEff["l"]
+            <= 2.0 * mu0
+            - 2.0 * gammaR * xi0 * alpha["l"]
+            - gammaR * yf.mul(alpha["l"], xi["l"]),
+            sigma["lc"] <= yf.mul(twoMuEff["l"], eps["lc"]),
+            sigma["lc"]
+            <= sigma["lc"]
+            + (lambda0 * i1["l"] - gammaR * yf.mul(alpha["l"], rootI2["l"]))
+            * trace["c"],
+            sigma["lc"]
+            <= yf.mul(intact["l"], sigma["lc"])
+            + yf.mul(
+                breakage["l"],
+                yf.mul(
+                    3.0 * aB[0]
+                    + aB[1] * xi["l"]
+                    - aB[3] * yf.mul(xi["l"], yf.mul(xi["l"], xi["l"])),
+                    eps["lc"],
                 ),
-                alpha["l"] <= self.QNodal["lp"] * pickAlpha["p"],
-                breakage["l"] <= self.QNodal["lp"] * pickBreakage["p"],
-                intact["l"] <= 1.0 - breakage["l"],
-            ],
-            target=target,
-        )
-
-        twoMuEff = self.nodalTensor("twoMuEff")
-        isoSolid = self.nodalTensor("isotropicSolid")
-        isoGranular = self.nodalTensor("isotropicGranular")
-        shearGranular = self.nodalTensor("shearGranular")
-        sigmaSolid = self.nodalTensor("sigmaSolid", 6)
-        sigmaGranular = self.nodalTensor("sigmaGranular", 6)
-        sigma = self.nodalTensor("sigmaNodal", 6)
-
-        generator.add(
-            f"{prefix}damageStress",
-            [
-                twoMuEff["l"]
-                <= 2.0 * mu0
-                - 2.0 * gammaR * xi0 * alpha["l"]
-                - gammaR * yf.mul(alpha["l"], xi["l"]),
-                isoSolid["l"]
-                <= lambda0 * i1["l"] - gammaR * yf.mul(alpha["l"], rootI2["l"]),
-                sigmaSolid["lc"] <= yf.mul(twoMuEff["l"], eps["lc"]),
-                sigmaSolid["lc"] <= sigmaSolid["lc"] + isoSolid["l"] * trace["c"],
-                isoGranular["l"]
-                <= 2.0 * aB[2] * i1["l"]
+            ),
+            sigma["lc"]
+            <= sigma["lc"]
+            + yf.mul(
+                breakage["l"],
+                2.0 * aB[2] * i1["l"]
                 + aB[3] * yf.mul(xi["l"], i1["l"])
                 + aB[1] * rootI2["l"],
-                shearGranular["l"]
-                <= 3.0 * aB[0]
-                + aB[1] * xi["l"]
-                - aB[3] * yf.mul(xi["l"], yf.mul(xi["l"], xi["l"])),
-                sigmaGranular["lc"] <= yf.mul(shearGranular["l"], eps["lc"]),
-                sigmaGranular["lc"]
-                <= sigmaGranular["lc"] + isoGranular["l"] * trace["c"],
-                sigma["lc"]
-                <= yf.add(
-                    yf.mul(intact["l"], sigmaSolid["lc"]),
-                    yf.mul(breakage["l"], sigmaGranular["lc"]),
-                ),
-            ],
-            target=target,
-        )
-        self.sigmaNodal = sigma
-
-        rhoInv = Scalar("rhoInv")
-        velocity = self.nodalTensor("velocityNodal", 3)
-        flux = [self.nodalTensor(f"fluxNodal{axis}", nq) for axis in "XYZ"]
-        toFluxV = [
-            Tensor(f"velocityToFlux{axis}", (3, nq), fluxMap(VELOCITY_FLUX[d], 3, nq))
-            for d, axis in enumerate("XYZ")
-        ]
-        toFluxS = [
-            Tensor(f"stressToFlux{axis}", (6, nq), fluxMap(STRESS_FLUX[d], 6, nq))
-            for d, axis in enumerate("XYZ")
-        ]
-
-        assembly = [velocity["lm"] <= self.QNodal["lm"].subslice("m", 6, 9)]
-        for d in range(3):
-            assembly.append(
-                flux[d]["lp"]
-                <= velocity["lm"] * toFluxV[d]["mp"]
-                + rhoInv * self.sigmaNodal["lc"] * toFluxS[d]["cp"]
             )
-        generator.add(f"{prefix}damageFlux", assembly, target=target)
-        self.fluxNodal = flux
+            * trace["c"],
+        ]
 
-        # Stage D: the two reductions the cell needs as a whole.
-        #
-        # The source guard asks whether the cell still has room to damage,
-        # which is a property of the cell and not of a node, so alpha and B
-        # enter it through their means. The Rusanov dissipation needs one wave
-        # speed per cell, and the largest one over the nodes is the safe pick.
-        weights = Tensor("quadratureWeights", (nodes,), self.nodalMeanWeights())
-        meanAlpha = Tensor("meanAlpha", (1,))
-        meanBreakage = Tensor("meanBreakage", (1,))
-        waveSpeed = self.nodalTensor("waveSpeedNodal")
-        maxWaveSpeed = Tensor("maxWaveSpeed", (1,))
+        # The cell as a whole: the means the source guard asks for, and the
+        # largest wave speed over the nodes of the step.
+        speed = yf.sqrt(Scalar("rhoInv") * (lambda0 + twoMuEff["l"]))
+        statements += [
+            self.meanAlpha["u"]
+            <= alpha["l"] * self.weights["l"] * self.unitColumn["u"],
+            self.meanBreakage["u"]
+            <= breakage["l"] * self.weights["l"] * self.unitColumn["u"],
+        ]
+        nodeSpeed = yf.mul(yf.max(speed, "l"), self.unitColumn["u"])
+        statements += [
+            (
+                self.maxWaveSpeed["u"] <= nodeSpeed
+                if first
+                else self.maxWaveSpeed["u"]
+                <= yf.maximum(self.maxWaveSpeed["u"], nodeSpeed)
+            )
+        ]
 
-        generator.add(
-            f"{prefix}damageCellState",
-            [
-                meanAlpha["u"] <= alpha["l"] * weights["l"] * unitColumn["u"],
-                meanBreakage["u"] <= breakage["l"] * weights["l"] * unitColumn["u"],
-                waveSpeed["l"] <= yf.sqrt(rhoInv * (lambda0 + twoMuEff["l"])),
-                maxWaveSpeed["u"]
-                <= yf.mul(yf.max(waveSpeed["l"], "l"), unitColumn["u"]),
-            ],
-            target=target,
+        # The critical damage at which breakage sets in: the smaller root of a
+        # quadratic in alpha, capped against the modulus ratio and against one.
+        quadA = (
+            3.0 * gammaR * gammaR * yf.mul(xi["l"], xi["l"])
+            - 3.0 * gammaR * gammaR
+            + 6.0 * gammaR * gammaR * xi0 * xi["l"]
+            + 4.0 * gammaR * gammaR * xi0 * xi0
         )
-
-        quadA = self.nodalTensor("criticalA")
-        quadB = self.nodalTensor("criticalB")
-        quadC = self.nodalTensor("criticalC")
-        rootTerm = self.nodalTensor("criticalRoot")
-        critical1 = self.nodalTensor("criticalFromRoot")
-        critical2 = self.nodalTensor("criticalFromModuli")
-        critical = self.nodalTensor("criticalDamage")
-        switch = self.nodalTensor("granularSwitch")
-        drive = self.nodalTensor("damageDrive")
-        growing = self.nodalTensor("damageGrowing")
-        sourceAlpha = self.nodalTensor("sourceAlpha")
-        sourceBreakage = self.nodalTensor("sourceBreakage")
-
-        generator.add(
-            f"{prefix}damageSource",
-            [
-                quadA["l"]
-                <= 3.0 * gammaR * gammaR * yf.mul(xi["l"], xi["l"])
-                - 3.0 * gammaR * gammaR
-                + 6.0 * gammaR * gammaR * xi0 * xi["l"]
-                + 4.0 * gammaR * gammaR * xi0 * xi0,
-                quadB["l"]
-                <= -(8.0 * mu0 + 6.0 * lambda0) * gammaR * xi0
-                - gammaR * lambda0 * yf.mul(xi["l"], yf.mul(xi["l"], xi["l"]))
-                - 6.0 * gammaR * mu0 * xi["l"],
-                quadC["l"] <= (4.0 * mu0 * mu0 + 6.0 * mu0 * lambda0) * ones["l"],
-                rootTerm["l"]
-                <= yf.sqrt(
-                    yf.maximum(
-                        yf.mul(quadB["l"], quadB["l"])
-                        - 4.0 * yf.mul(quadA["l"], quadC["l"]),
-                        floor,
-                    )
-                ),
-                critical1["l"] <= yf.div(-quadB["l"] - rootTerm["l"], 2.0 * quadA["l"]),
-                critical2["l"] <= yf.div(2.0 * mu0, gammaR * (xi["l"] + 2.0 * xi0)),
-                critical["l"]
-                <= yf.minimum(
-                    yf.minimum(
-                        yf.where(
-                            yf.greater(critical1["l"], floor),
-                            critical1["l"],
-                            1.0,
-                        ),
-                        yf.where(
-                            yf.greater(critical2["l"], floor),
-                            critical2["l"],
-                            1.0,
-                        ),
-                    ),
-                    1.0,
-                ),
-                switch["l"]
-                <= yf.div(
-                    1.0,
-                    1.0 + yf.exp(yf.div(critical["l"] - alpha["l"], betaAlpha)),
-                ),
-                drive["l"]
-                <= gammaR * yf.mul(intact["l"], yf.mul(i2["l"], xi["l"] + xi0)),
-                growing["l"]
-                <= yf.logical_and(
-                    yf.greater(xi["l"] + xi0, floor),
-                    yf.logical_and(
-                        yf.less(yf.sum(meanAlpha["u"], "u"), 1.0),
-                        yf.less(yf.sum(meanBreakage["u"], "u"), 1.0),
-                    ),
-                ),
-                sourceAlpha["l"]
-                <= yf.where(
-                    growing["l"], damageRate * drive["l"], healingRate * drive["l"]
-                ),
-                sourceBreakage["l"]
-                <= breakageRate * yf.mul(growing["l"], yf.mul(switch["l"], drive["l"])),
-            ],
-            target=target,
+        quadB = (
+            -(8.0 * mu0 + 6.0 * lambda0) * gammaR * xi0
+            - gammaR * lambda0 * yf.mul(xi["l"], yf.mul(xi["l"], xi["l"]))
+            - 6.0 * gammaR * mu0 * xi["l"]
         )
+        quadC = 4.0 * mu0 * mu0 + 6.0 * mu0 * lambda0
+        fromRoot = yf.div(
+            -quadB
+            - yf.sqrt(yf.maximum(yf.mul(quadB, quadB) - 4.0 * quadA * quadC, floor)),
+            2.0 * quadA,
+        )
+        fromModuli = yf.div(2.0 * mu0, gammaR * (xi["l"] + 2.0 * xi0))
+
+        critical = self.critical
+        statements += [
+            critical["l"]
+            <= yf.minimum(
+                yf.minimum(
+                    yf.where(yf.greater(fromRoot, floor), fromRoot, 1.0),
+                    yf.where(yf.greater(fromModuli, floor), fromModuli, 1.0),
+                ),
+                1.0,
+            ),
+        ]
+
+        # Damage and breakage grow with the strain energy above the onset
+        # threshold; below it the damage heals at its own rate, and the cell
+        # stops once either variable saturates.
+        drive, growing = self.drive, self.growing
+        statements += [
+            drive["l"] <= gammaR * yf.mul(intact["l"], yf.mul(i2["l"], xi["l"] + xi0)),
+            growing["l"]
+            <= yf.logical_and(
+                yf.greater(xi["l"] + xi0, floor),
+                yf.logical_and(
+                    yf.less(yf.sum(self.meanAlpha["u"], "u"), 1.0),
+                    yf.less(yf.sum(self.meanBreakage["u"], "u"), 1.0),
+                ),
+            ),
+            self.sourceAlpha["l"]
+            <= yf.where(
+                growing["l"],
+                self.damageRate * drive["l"],
+                self.healingRate * drive["l"],
+            ),
+            self.sourceBreakage["l"]
+            <= self.breakageRate
+            * yf.mul(
+                growing["l"],
+                yf.mul(
+                    yf.div(
+                        1.0,
+                        1.0
+                        + yf.exp(yf.div(critical["l"] - alpha["l"], self.betaAlpha)),
+                    ),
+                    drive["l"],
+                ),
+            ),
+        ]
+
+        # What leaves the node: the stress and the source under the quadrature
+        # weight, and the two internal variables marched to the next node.
+        accSigma, accSource = self.sigmaIntegral, self.sourceIntegral
+        alphaColumn = accSource["ln"].subslice("n", 0, 1)
+        breakageColumn = accSource["ln"].subslice("n", 1, 2)
+        statements += [
+            (
+                accSigma["lc"] <= weight * sigma["lc"]
+                if first
+                else accSigma["lc"] <= accSigma["lc"] + weight * sigma["lc"]
+            )
+        ]
+        statements += [
+            (
+                alphaColumn <= weight * self.sourceAlpha["l"] * self.unitColumn["n"]
+                if first
+                else accSource["ln"].subslice("n", 0, 1)
+                <= accSource["ln"].subslice("n", 0, 1)
+                + weight * self.sourceAlpha["l"] * self.unitColumn["n"]
+            )
+        ]
+        statements += [
+            (
+                breakageColumn
+                <= weight * self.sourceBreakage["l"] * self.unitColumn["n"]
+                if first
+                else accSource["ln"].subslice("n", 1, 2)
+                <= accSource["ln"].subslice("n", 1, 2)
+                + weight * self.sourceBreakage["l"] * self.unitColumn["n"]
+            )
+        ]
+        statements += [
+            alpha["l"] <= alpha["l"] + march * self.sourceAlpha["l"],
+            breakage["l"] <= breakage["l"] + march * self.sourceBreakage["l"],
+        ]
+        return statements
+
+    def finishStatements(self):
+        """What the step leaves behind, projected back to modal form once."""
+        stress = self.transportGroupSlice("sigma")
+        projection = self.db.projectQP[self.t("kl")]
+        return [
+            self.I["kc"].subslice("c", *stress)
+            <= projection * self.sigmaIntegral["lc"],
+            self.sourceI["kn"] <= projection * self.sourceIntegral["ln"],
+        ]
 
     def addFaceFlux(self, generator, target, prefix):
         """The Rusanov flux at the face nodes.

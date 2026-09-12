@@ -11,7 +11,6 @@
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/LinearCK/DirichletBoundary.h"
 #include "Kernels/Local.h"
 #include "Monitoring/Metric.h"
 
@@ -24,6 +23,11 @@
 namespace seissol::kernels::solver::nonlinearck {
 
 /// The cell's own contribution: the volume term and the faces it owns.
+///
+/// The volume term is a constant map on the transported tensor, because the
+/// flux is linear in the stress once the stress is there, and the boundary
+/// conditions want a ghost rule for the stress columns that is not written
+/// yet. Both are missing here.
 ///
 /// Both differ from the linear solver in the same way. The volume term lifts a
 /// flux that was evaluated at the nodes rather than applying a constant
@@ -57,25 +61,14 @@ class Local : public LocalKernel {
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
-  kernel::convertToNodal convertToNodal_;
-  kernel::convertToModal convertToModal_;
-  kernel::damageFlux flux_;
   kernel::projectToFace projectToFace_;
   kernel::damageRusanov rusanov_;
   kernel::faceIntegral faceIntegral_;
 
-  kernel::projectToNodalBoundary projectKrnlPrototype_;
-  kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
-  kernels::DirichletBoundary dirichletBoundary_;
-
 #ifdef ACL_DEVICE
-  kernel::gpu_convertToNodal deviceConvertToNodal_;
-  kernel::gpu_convertToModal deviceConvertToModal_;
-  kernel::gpu_damageFlux deviceFlux_;
   kernel::gpu_projectToFace deviceProjectToFace_;
   kernel::gpu_damageRusanov deviceRusanov_;
   kernel::gpu_faceIntegral deviceFaceIntegral_;
-  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };
