@@ -70,6 +70,52 @@ class NonLinearCK(ADERDGBase):
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
         )
 
+        nodalShape = (
+            self.num3DQuadraturePoints(),
+            self.numQuantities(),
+        )
+        self.QNodal = OptionalDimTensor(
+            "QNodal",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            nodalShape,
+            alignStride=True,
+        )
+
+        generator.add(
+            "convertToNodal",
+            self.QNodal["lp"] <= self.db.evalAtQP[self.t("lk")] * self.Q["kp"],
+        )
+        generator.add(
+            "convertToModal",
+            self.Q["kp"] <= self.db.projectQP[self.t("kl")] * self.QNodal["lp"],
+        )
+
+        self.addConstitutive(generator)
+
+    def addConstitutive(self, generator):
+        """Pointwise material response at the nodes of :attr:`QNodal`.
+
+        Empty here: what the flux and the source terms look like is a
+        property of the constitutive law, so the material fills this in.
+        """
+
+    def nodalTensor(self, name, columns=None):
+        """A tensor over the nodes of :attr:`QNodal`, optionally with a
+        second axis of ``columns`` entries."""
+        shape = (self.num3DQuadraturePoints(),)
+        if columns is not None:
+            shape = shape + (columns,)
+        return OptionalDimTensor(
+            name,
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            shape,
+            alignStride=True,
+        )
+
     def addLocal(self, generator, targets):
         pass
 
