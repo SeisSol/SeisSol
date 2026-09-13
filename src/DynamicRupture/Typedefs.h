@@ -97,6 +97,30 @@ struct NodalImpedanceParameters {
   double xi0Minus{};
 };
 
+/// Fills what the impedance of a node needs from the material of the two
+/// sides of a face. Nothing to fill where the impedance belongs to the face.
+///
+/// A template so that the members it reads are looked up when a material is
+/// put in, and not before: no material whose impedance belongs to its face
+/// has them, and there is no build in which both kinds are compiled.
+template <typename MaterialT>
+void setNodalImpedanceParameters([[maybe_unused]] const MaterialT& plus,
+                                 [[maybe_unused]] const MaterialT& minus,
+                                 [[maybe_unused]] NodalImpedanceParameters& parameters) {
+  if constexpr (NodalImpedance) {
+    parameters.rhoPlus = plus.rho;
+    parameters.lambda0Plus = plus.lambda0;
+    parameters.mu0Plus = plus.mu0;
+    parameters.gammaRPlus = plus.gammaR;
+    parameters.xi0Plus = plus.xi0;
+    parameters.rhoMinus = minus.rho;
+    parameters.lambda0Minus = minus.lambda0;
+    parameters.mu0Minus = minus.mu0;
+    parameters.gammaRMinus = minus.gammaR;
+    parameters.xi0Minus = minus.xi0;
+  }
+}
+
 /**
  * The impedances of a face's nodes, where they belong to the nodes.
  *

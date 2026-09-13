@@ -141,9 +141,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
     auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
     auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
-#ifdef SEISSOL_KERNELS_NONLINEARCK
-    auto* nodalImpedanceParams = layer.var<DynamicRupture::NodalImpedanceParams>();
-#endif
+    seissol::dr::NodalImpedanceParameters* nodalImpedanceParams = nullptr;
+    if constexpr (seissol::dr::NodalImpedance) {
+      nodalImpedanceParams = layer.var<DynamicRupture::NodalImpedanceParams>();
+    }
     auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
 
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
@@ -362,21 +363,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       // What is left of the constitutive law once a node hands over its
       // state: the density and the undamaged moduli are in the wave speeds of
-      // this face already. Behind a macro, not a compile-time condition -- a
-      // discarded branch still has its names looked up, and no other material
-      // has these two.
-#ifdef SEISSOL_KERNELS_NONLINEARCK
-      nodalImpedanceParams[ltsFace].rhoPlus = plusMaterial->rho;
-      nodalImpedanceParams[ltsFace].lambda0Plus = plusMaterial->lambda0;
-      nodalImpedanceParams[ltsFace].mu0Plus = plusMaterial->mu0;
-      nodalImpedanceParams[ltsFace].gammaRPlus = plusMaterial->gammaR;
-      nodalImpedanceParams[ltsFace].xi0Plus = plusMaterial->xi0;
-      nodalImpedanceParams[ltsFace].rhoMinus = minusMaterial->rho;
-      nodalImpedanceParams[ltsFace].lambda0Minus = minusMaterial->lambda0;
-      nodalImpedanceParams[ltsFace].mu0Minus = minusMaterial->mu0;
-      nodalImpedanceParams[ltsFace].gammaRMinus = minusMaterial->gammaR;
-      nodalImpedanceParams[ltsFace].xi0Minus = minusMaterial->xi0;
-#endif
+      // this face already.
+      if constexpr (seissol::dr::NodalImpedance) {
+        seissol::dr::setNodalImpedanceParameters(
+            *plusMaterial, *minusMaterial, nodalImpedanceParams[ltsFace]);
+      }
 
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
       seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
