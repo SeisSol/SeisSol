@@ -98,6 +98,7 @@ class BaseFrictionLaw : public FrictionSolver {
           common::precomputeStressFromQInterpolated(faultStresses,
                                                     impAndEta_[ltsFace],
                                                     impedanceMatrices_[ltsFace],
+                                                    nodalImpedanceParams_ + ltsFace,
                                                     qInterpolatedPlus_[ltsFace],
                                                     qInterpolatedMinus_[ltsFace],
                                                     etaPDamp,

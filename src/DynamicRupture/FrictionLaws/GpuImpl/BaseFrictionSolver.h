@@ -165,6 +165,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
             ctx.faultStresses,
             ctx.data->impAndEta[ctx.ltsFace],
             ctx.data->impedanceMatrices[ctx.ltsFace],
+            ctx.data->nodalImpedanceParams + ctx.ltsFace,
             ctx.data->qInterpolatedPlus[ctx.ltsFace],
             ctx.data->qInterpolatedMinus[ctx.ltsFace],
             etaPDamp,

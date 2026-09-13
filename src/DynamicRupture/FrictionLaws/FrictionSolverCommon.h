@@ -111,6 +111,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
     const ImpedancesAndEta& __restrict impAndEta,
     [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
+    [[maybe_unused]] const NodalImpedanceParameters* __restrict nodalImpedanceParams,
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
     real etaPDamp,
