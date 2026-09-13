@@ -691,6 +691,26 @@ class NonLinearCK(ADERDGBase):
                 derivativeTaylorExpansionExpr,
                 target=target,
             )
+
+            # The other half of a reconstruction: the columns that are not the
+            # state, out of the expansion that was projected for them. The
+            # coefficients are of the other basis, and they are scalars
+            # because an interval is a property of a cluster and not of a
+            # cell.
+            extraPowers = [Scalar(f"extraPower({i})") for i in range(self.order)]
+            carried = (self.transportStateExtent(), self.numTransportQuantities())
+
+            def rest(tensor):
+                return tensor["kp"].subslice("p", *carried)
+
+            carriedExpansion = Accumulate(ops.Add())
+            for i in range(self.order):
+                carriedExpansion += extraPowers[i] * self.transportDer[i]["kp"]
+            generator.add(
+                f"{name_prefix}carriedTaylorExpansion",
+                rest(self.I) <= carriedExpansion,
+                target=target,
+            )
             self.addStep(generator, target, name_prefix)
 
     def add_include_tensors(self, include_tensors):

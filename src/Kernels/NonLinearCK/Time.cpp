@@ -250,10 +250,8 @@ void Time::evaluate(const TimeCoefficients& coeffs,
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
 
-  // The expansion is of the state, so this is the Taylor sum the linear
-  // solver evaluates -- over the columns the two tensors share. The stress
-  // has no expansion stored, so a subinterval of it cannot be reconstructed
-  // here; that is what SupportsLTS being false says.
+  // The columns the transported tensor shares with the state: the Taylor sum
+  // the linear solver evaluates, over its own expansion and its own basis.
   kernel::derivativeTaylorExpansion krnl;
   krnl.I = timeEvaluated;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -261,6 +259,20 @@ void Time::evaluate(const TimeCoefficients& coeffs,
     krnl.power(i) = coeffs.state[i];
   }
   krnl.execute();
+
+  // And the columns that are not: out of the expansion projected for them,
+  // with the coefficients of the basis it was projected into. Reconstructing
+  // them rather than rebuilding the stress is the point -- the stress of a
+  // cell is a question about that cell's material, and a neighbour has no
+  // business answering it.
+  kernel::carriedTaylorExpansion carried;
+  carried.I = timeEvaluated;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transportDer>(); ++i) {
+    carried.transportDer(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>() +
+                              yateto::computeFamilySize<tensor::transportDer>(0, i);
+    carried.extraPower(i) = coeffs.extra[i];
+  }
+  carried.execute();
 }
 
 void Time::evaluateBatched(SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
@@ -273,10 +285,9 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
   assert(timeIntegratedDofs != nullptr);
   static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
 
-  // The expansion is of the state, so this is the Taylor sum of the linear
-  // solver, over the columns the two tensors share. What it does not write is
-  // the stress, which has no expansion stored, and that is what SupportsLTS
-  // being false says.
+  // Both halves of a reconstruction, as they are serially. The second
+  // expansion sits behind the first in the same buffer, so it is the same
+  // pointer table an offset further in -- no entry of its own.
   kernel::gpu_derivativeTaylorExpansion krnl;
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
@@ -287,6 +298,18 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
   }
   krnl.streamPtr = runtime.stream();
   krnl.execute();
+
+  kernel::gpu_carriedTaylorExpansion carried;
+  carried.numElements = numElements;
+  carried.I = timeIntegratedDofs;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transportDer>(); ++i) {
+    carried.transportDer(i) = timeDerivatives;
+    carried.extraOffset_transportDer(i) = yateto::computeFamilySize<tensor::dQ>() +
+                                          yateto::computeFamilySize<tensor::transportDer>(0, i);
+    carried.extraPower(i) = coeffs.extra[i];
+  }
+  carried.streamPtr = runtime.stream();
+  carried.execute();
 #else
   logError() << "No GPU implementation provided";
 #endif

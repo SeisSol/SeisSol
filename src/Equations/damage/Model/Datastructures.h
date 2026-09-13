@@ -71,13 +71,13 @@ struct DamageMaterial : public Material {
   /// here and not a state variable. Until that is settled the material says so
   /// rather than producing something that looks like a traction and is not.
   static constexpr bool SupportsDR = false;
-  /// Local time stepping asks a cell for the stress it integrated over a
-  /// subinterval of its own step. The stress is transported, but only as the
-  /// integral over the whole step: reconstructing a part of it means storing
-  /// its expansion in time the way the state's is stored, and until that
-  /// exists the alternative would be for the neighbour to rebuild the stress
-  /// from the other cell's material.
-  static constexpr bool SupportsLTS = false;
+  // What a cell transports beyond its state is projected into an expansion of
+  // its own, so a neighbour on a coarser cluster reconstructs a subinterval of
+  // the stress from that -- rather than rebuilding the stress out of this
+  // cell's material, which is a question this cell answers and not its
+  // neighbour. Whether the two agree to the scheme's order is what a run
+  // against global time stepping says, and that has not been run.
+  static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
   using LocalSpecificData = kernels::solver::nonlinearck::NonLinearLocalData;
