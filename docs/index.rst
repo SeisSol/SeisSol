@@ -125,6 +125,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   performance-measurement
   attenuation
   physical-models
+  damage
   scaling
   known-issues
   breaking-changes-backward-compatibility

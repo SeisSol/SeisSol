@@ -113,3 +113,16 @@ Viscoelastic
 
 Viscoelasticity is used to model the dissipation of wave energy over time.
 A full documentation can be found in :ref:`attenuation`.
+
+Damaged
+^^^^^^^
+
+In a damaged material the strain that carries a wave also breaks the rock it
+travels through, and the broken rock carries the next wave differently.
+The continuum damage-breakage rheology describes that feedback with two
+internal variables, damage and breakage, and a stress that depends on them;
+the model is written in strain rather than stress, because a stress that is a
+nonlinear function of the state cannot be the state.
+It is meant for the damage zone around a fault rather than for the fault
+itself.
+A full documentation can be found in :ref:`damage`.
