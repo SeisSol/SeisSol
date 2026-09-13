@@ -126,7 +126,7 @@ def addKernels(
     )
 
     num3DBasisFunctions = aderdg.num3DBasisFunctions()
-    numQuantities = aderdg.numQuantities()
+
     basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (num3DBasisFunctions,))
     # What a receiver reads of a cell is what the cell transports, evaluated
     # at a point in space and rotated into the face frame -- the same tensor

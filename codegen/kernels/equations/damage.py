@@ -32,8 +32,8 @@ from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Scalar, Tensor
-from yateto.type import Datatype
 from yateto.memory import CSCMemoryLayout
+from yateto.type import Datatype
 
 #: Position of the two internal variables on the quantity axis.
 ALPHA = 9
@@ -372,13 +372,12 @@ class DamageADERDG(NonLinearCK):
         kernel.
         """
         first = node == 0
-        eps, i1, i2 = self.eps, self.i1, self.i2
-        rootI2, xi, intact = self.rootI2, self.xi, self.intact
+        i2 = self.i2
+        xi, intact = self.xi, self.intact
         alpha, breakage = self.alphaNodal, self.breakageNodal
-        trace, floor = self.trace, self.floor
+        floor = self.floor
         mu0, lambda0, gammaR, xi0 = self.mu0, self.lambda0, self.gammaR, self.xi0
-        aB = self.aB
-        twoMuEff, sigma = self.twoMuEff, self.sigmaNodal
+        sigma = self.sigmaNodal
 
         statements = []
 
