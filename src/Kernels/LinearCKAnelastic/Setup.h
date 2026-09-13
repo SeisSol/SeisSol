@@ -11,6 +11,7 @@
 #include "GeneratedCode/init.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/Common.h"
+#include "Model/GodunovFaceFlux.h"
 
 #include <complex>
 #include <cstddef>
@@ -28,6 +29,38 @@ namespace seissol::model {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::linearckanelastic::Solver, MaterialT> {
+  static void assembleGodunovFaceFlux(bool rusanov,
+                                      double fluxScale,
+                                      FaceType faceType,
+                                      real* aPlusT,
+                                      real* aMinusT,
+                                      const real* centralFlux,
+                                      const real* rusanovPlus,
+                                      const real* rusanovMinus,
+                                      const real* qGodLocal,
+                                      const real* qGodNeighbor,
+                                      const real* rusanovPlusNull,
+                                      const real* rusanovMinusNull,
+                                      const real* matT,
+                                      const real* matTinv,
+                                      const real* matATtilde) {
+    detail::assembleGodunovFaceFlux(rusanov,
+                                    fluxScale,
+                                    faceType,
+                                    aPlusT,
+                                    aMinusT,
+                                    centralFlux,
+                                    rusanovPlus,
+                                    rusanovMinus,
+                                    qGodLocal,
+                                    qGodNeighbor,
+                                    rusanovPlusNull,
+                                    rusanovMinusNull,
+                                    matT,
+                                    matTinv,
+                                    matATtilde);
+  }
+
   /// A single anelastic block with unit weight: the relaxation frequencies
   /// are held in w, not folded into the flux.
   template <typename T>

@@ -17,7 +17,9 @@
 // IWYU pragma: end_exports
 
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/quantities.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Kernels/NonLinearCK/Solver.h"
 #include "Model/Common.h"
 
@@ -74,6 +76,135 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
     set("betaAlpha", material.betaAlpha);
     for (std::size_t i = 0; i < material.aB.size(); ++i) {
       set("aB" + std::to_string(i), material.aB.at(i));
+    }
+  }
+
+  /// The pair of matrices a face applies, built from the flux of the face
+  /// normal rather than from a Godunov state. A Godunov state is a state, so
+  /// the solver it builds maps the state onto itself; what a cell transports
+  /// here is wider than its state, so the flux of the face normal is
+  /// assembled instead.
+  static void assembleTabulatedFaceFlux(FaceType faceType,
+                                        std::size_t /*side*/,
+                                        double surface,
+                                        double volume,
+                                        const double* normal,
+                                        const double* tangent1,
+                                        const double* tangent2,
+                                        const MaterialT& materialLocal,
+                                        real* aPlusT,
+                                        real* aMinusT) {
+    static_assert(tensor::fluxConstant::size() == tensor::AplusT::size(),
+                  "The constant half of the flux solver is stored in the slot of the "
+                  "solver it is half of.");
+
+    real normalData[3];
+    for (std::size_t i = 0; i < 3; ++i) {
+      normalData[i] = static_cast<real>(normal[i]);
+    }
+
+    // A face without a neighbour has a ghost rule, and the rule folds
+    // into the pair: outflow is the local state on both sides, so its
+    // average is the local flux and its jump is nothing. Everything
+    // else that has no neighbour needs a mirror, and the mirror needs
+    // the rotation of the transported quantities.
+    const bool outflow = faceType == FaceType::Outflow;
+    const bool freeSurface = faceType == FaceType::FreeSurface;
+
+    // A fault carries its own flux, imposed by the friction it is
+    // under, so the pair of a rupture face is zero on both matrices
+    // and the face contributes nothing from here. The linear solver
+    // says the same thing by scaling its flux solver with zero.
+    const bool rupture = faceType == FaceType::DynamicRupture;
+
+    if (faceType != FaceType::Regular && !outflow && !freeSurface && !rupture) {
+      logError() << "The nonlinear solver has no ghost rule for face type"
+                 << static_cast<int>(faceType) << "yet.";
+    }
+
+    kernel::damageFluxSolver fluxSolver;
+    // Scale with |S_side|/|J|, negated because the flux matrices are
+    // subtracted -- as the linear path does a few lines further down.
+    // An outflow face applies its own half twice, since the ghost
+    // state is its own and there is no second half to come.
+    const double faceScale = -2.0 * surface / (6.0 * volume);
+    fluxSolver.fluxScale = rupture ? 0.0 : (outflow ? 2.0 : 1.0) * faceScale;
+    fluxSolver.rhoInv = 1.0 / materialLocal.rho;
+    fluxSolver.faceNormal = normalData;
+    fluxSolver.fluxConstant = aPlusT;
+    fluxSolver.bindGlobals(Pool::host());
+    fluxSolver.execute();
+
+    // The dissipation of a face with a neighbour is the identity on
+    // the quantities the two cells couple through, scaled the way the
+    // flux is; an outflow face dissipates nothing, because there is no
+    // jump to dissipate.
+    auto dissipation = init::fluxDissipation::view::create(aMinusT);
+    dissipation.setZero();
+    if (!outflow && !rupture) {
+      for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
+        dissipation(row, row) = 0.5 * faceScale;
+      }
+    }
+
+    if (freeSurface) {
+      // The traction of the face has to vanish, and with the stress
+      // transported the condition is that and nothing else: a ghost
+      // state whose traction is the negated local one averages to
+      // zero traction, and its velocity is the local one, so the
+      // jump the dissipation sees is the traction alone.
+      //
+      // Negating a traction is a reflection in the face-local frame,
+      // so the map is the rotation there, the signs, and the rotation
+      // back. It is folded into the pair here, which is why a free
+      // surface costs a regular face's arithmetic afterwards.
+      real toGlobalData[tensor::ghostMap::size()]{};
+      real toFaceData[tensor::ghostMap::size()]{};
+      auto toGlobal = init::ghostMap::view::create(toGlobalData);
+      auto toFace = init::ghostMap::view::create(toFaceData);
+      toGlobal.setZero();
+      toFace.setZero();
+      model::detail::writeRotationBlocks<false>(
+          model::MaterialT::TransportGroups, normal, tangent1, tangent2, toGlobal);
+      model::detail::writeRotationBlocks<true>(
+          model::MaterialT::TransportGroups, normal, tangent1, tangent2, toFace);
+
+      std::array<real, tensor::ghostMap::Shape[0]> mirror{};
+      mirror.fill(1.0);
+      std::size_t offset = 0;
+      for (const auto& group : model::MaterialT::TransportGroups) {
+        if (group.kind == model::QuantityKind::SymTensor2) {
+          for (const auto component : model::SymTensor2Traction) {
+            mirror[offset + component] = -1.0;
+          }
+        }
+        offset += group.extent();
+      }
+
+      real ghostData[tensor::ghostMap::size()]{};
+      auto ghost = init::ghostMap::view::create(ghostData);
+      ghost.setZero();
+      for (std::size_t row = 0; row < tensor::ghostMap::Shape[0]; ++row) {
+        for (std::size_t column = 0; column < tensor::ghostMap::Shape[1]; ++column) {
+          real sum = 0.0;
+          for (std::size_t k = 0; k < tensor::ghostMap::Shape[0]; ++k) {
+            sum += toGlobal(row, k) * mirror[k] * toFace(k, column);
+          }
+          ghost(row, column) = sum;
+        }
+      }
+
+      real foldedData[tensor::fluxFolded::size()]{};
+      kernel::damageFluxGhost fold;
+      fold.ghostMap = ghostData;
+      fold.fluxFolded = foldedData;
+      for (const auto& [sign, slot] :
+           {std::pair<double, real*>{1.0, aPlusT}, std::pair<double, real*>{-1.0, aMinusT}}) {
+        fold.ghostSign = sign;
+        fold.fluxSource = slot;
+        fold.execute();
+        std::copy_n(foldedData, tensor::fluxFolded::size(), slot);
+      }
     }
   }
 

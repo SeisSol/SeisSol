@@ -11,6 +11,7 @@
 #include "GeneratedCode/init.h"
 #include "Kernels/STP/Solver.h"
 #include "Model/Common.h"
+#include "Model/GodunovFaceFlux.h"
 
 #include <Eigen/Dense>
 #include <cstddef>
@@ -81,6 +82,38 @@ struct ZInvInitializer {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::stp::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::stp::Solver, MaterialT> {
+  static void assembleGodunovFaceFlux(bool rusanov,
+                                      double fluxScale,
+                                      FaceType faceType,
+                                      real* aPlusT,
+                                      real* aMinusT,
+                                      const real* centralFlux,
+                                      const real* rusanovPlus,
+                                      const real* rusanovMinus,
+                                      const real* qGodLocal,
+                                      const real* qGodNeighbor,
+                                      const real* rusanovPlusNull,
+                                      const real* rusanovMinusNull,
+                                      const real* matT,
+                                      const real* matTinv,
+                                      const real* matATtilde) {
+    detail::assembleGodunovFaceFlux(rusanov,
+                                    fluxScale,
+                                    faceType,
+                                    aPlusT,
+                                    aMinusT,
+                                    centralFlux,
+                                    rusanovPlus,
+                                    rusanovMinus,
+                                    qGodLocal,
+                                    qGodNeighbor,
+                                    rusanovPlusNull,
+                                    rusanovMinusNull,
+                                    matT,
+                                    matTinv,
+                                    matATtilde);
+  }
+
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
                                           typename MaterialT::Solver::LocalData* localData) {

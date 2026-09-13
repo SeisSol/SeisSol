@@ -348,6 +348,39 @@ struct SolverSetupDefaults {
                                           double /*timeStepWidth*/,
                                           typename MaterialT::Solver::LocalData* /*localData*/) {}
 
+  /// The pair of matrices a face applies, where the solver builds it from a
+  /// Godunov state. Empty here; the solvers that do define it, in headers
+  /// that are compiled only in their own build -- the kernels either kind
+  /// names are generated for one of them and not the other.
+  static void assembleGodunovFaceFlux(bool /*rusanov*/,
+                                      double /*fluxScale*/,
+                                      FaceType /*faceType*/,
+                                      real* /*aPlusT*/,
+                                      real* /*aMinusT*/,
+                                      const real* /*centralFlux*/,
+                                      const real* /*rusanovPlus*/,
+                                      const real* /*rusanovMinus*/,
+                                      const real* /*qGodLocal*/,
+                                      const real* /*qGodNeighbor*/,
+                                      const real* /*rusanovPlusNull*/,
+                                      const real* /*rusanovMinusNull*/,
+                                      const real* /*matT*/,
+                                      const real* /*matTinv*/,
+                                      const real* /*matATtilde*/) {}
+
+  /// The same pair, where the solver builds it from the flux of the face
+  /// normal instead. Empty here for the same reason.
+  static void assembleTabulatedFaceFlux(FaceType /*faceType*/,
+                                        std::size_t /*side*/,
+                                        double /*surface*/,
+                                        double /*volume*/,
+                                        const double* /*normal*/,
+                                        const double* /*tangent1*/,
+                                        const double* /*tangent2*/,
+                                        const MaterialT& /*material*/,
+                                        real* /*aPlusT*/,
+                                        real* /*aMinusT*/) {}
+
   /// Binds what a fault's flux solver is rotated from.
   ///
   /// The flux of a state is the star matrix rotated, so that is what a
