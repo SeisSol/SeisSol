@@ -136,6 +136,12 @@ constexpr std::size_t roleOffset(const std::array<QuantityGroup, N>& groups, Fac
   return totalExtent(groups);
 }
 
+/// Components of a symmetric second-order tensor in Voigt order that carry the
+/// traction of a face whose normal is the local x axis: sigma_xx, sigma_xy,
+/// sigma_xz. Negating exactly these in the face-local frame is what turns a
+/// state into its mirror across a free surface.
+inline constexpr std::array<std::size_t, 3> SymTensor2Traction{0, 3, 5};
+
 /// Weight of a component of `kind` in the trace of the tensor it represents.
 ///
 /// A scalar stands for an isotropic tensor, so its one component enters the
@@ -204,6 +210,19 @@ inline constexpr std::array ElasticQuantities{
 /// the traction role because it rotates like one; that the mechanical traction
 /// is derived from it rather than stored is a distinction the face machinery
 /// does not yet draw.
+/// What a cell with a damaged material hands its neighbours: the quantities
+/// they couple through, the stress it integrated, and the two scalars the
+/// dissipation is scaled from. The stress carries the traction role here,
+/// because it is the mechanical traction and it is present rather than
+/// derived -- which is what the strain stands in for in the state.
+inline constexpr std::array DamageTransportQuantities{
+    QuantityGroup{"eps", QuantityKind::SymTensor2},
+    QuantityGroup{"v", QuantityKind::Vector, FaceRole::Velocity},
+    QuantityGroup{"sigma", QuantityKind::SymTensor2, FaceRole::Traction},
+    QuantityGroup{"waveIntegral", QuantityKind::Invariant},
+    QuantityGroup{"interval", QuantityKind::Invariant},
+};
+
 inline constexpr std::array DamageQuantities{
     QuantityGroup{"eps", QuantityKind::SymTensor2, FaceRole::Traction},
     QuantityGroup{"v", QuantityKind::Vector, FaceRole::Velocity},

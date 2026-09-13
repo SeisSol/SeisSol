@@ -38,6 +38,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace seissol::initializer {
@@ -186,7 +187,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             // the rotation of the transported quantities.
             const auto faceType = cellInformation[cell].faceTypes[side];
             const bool outflow = faceType == FaceType::Outflow;
-            if (faceType != FaceType::Regular && faceType != FaceType::Periodic && !outflow) {
+            const bool freeSurface = faceType == FaceType::FreeSurface;
+            if (faceType != FaceType::Regular && faceType != FaceType::Periodic && !outflow &&
+                !freeSurface) {
               logError() << "The nonlinear solver has no ghost rule for face type"
                          << static_cast<int>(faceType) << "yet.";
             }
@@ -209,6 +212,67 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             if (!outflow) {
               for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
                 dissipation(row, row) = 0.5 * fluxScale;
+              }
+            }
+
+            if (freeSurface) {
+              // The traction of the face has to vanish, and with the stress
+              // transported the condition is that and nothing else: a ghost
+              // state whose traction is the negated local one averages to
+              // zero traction, and its velocity is the local one, so the
+              // jump the dissipation sees is the traction alone.
+              //
+              // Negating a traction is a reflection in the face-local frame,
+              // so the map is the rotation there, the signs, and the rotation
+              // back. It is folded into the pair here, which is why a free
+              // surface costs a regular face's arithmetic afterwards.
+              real toGlobalData[tensor::ghostMap::size()]{};
+              real toFaceData[tensor::ghostMap::size()]{};
+              auto toGlobal = init::ghostMap::view::create(toGlobalData);
+              auto toFace = init::ghostMap::view::create(toFaceData);
+              toGlobal.setZero();
+              toFace.setZero();
+              model::detail::writeRotationBlocks<false>(
+                  model::MaterialT::TransportGroups, normal, tangent1, tangent2, toGlobal);
+              model::detail::writeRotationBlocks<true>(
+                  model::MaterialT::TransportGroups, normal, tangent1, tangent2, toFace);
+
+              std::array<real, tensor::ghostMap::Shape[0]> mirror{};
+              mirror.fill(1.0);
+              std::size_t offset = 0;
+              for (const auto& group : model::MaterialT::TransportGroups) {
+                if (group.kind == model::QuantityKind::SymTensor2) {
+                  for (const auto component : model::SymTensor2Traction) {
+                    mirror[offset + component] = -1.0;
+                  }
+                }
+                offset += group.extent();
+              }
+
+              real ghostData[tensor::ghostMap::size()]{};
+              auto ghost = init::ghostMap::view::create(ghostData);
+              ghost.setZero();
+              for (std::size_t row = 0; row < tensor::ghostMap::Shape[0]; ++row) {
+                for (std::size_t column = 0; column < tensor::ghostMap::Shape[1]; ++column) {
+                  real sum = 0.0;
+                  for (std::size_t k = 0; k < tensor::ghostMap::Shape[0]; ++k) {
+                    sum += toGlobal(row, k) * mirror[k] * toFace(k, column);
+                  }
+                  ghost(row, column) = sum;
+                }
+              }
+
+              real foldedData[tensor::fluxFolded::size()]{};
+              kernel::damageFluxGhost fold;
+              fold.ghostMap = ghostData;
+              fold.fluxFolded = foldedData;
+              for (const auto& [sign, slot] :
+                   {std::pair<double, real*>{1.0, localIntegration[cell].nApNm1[side]},
+                    std::pair<double, real*>{-1.0, neighboringIntegration[cell].nAmNm1[side]}}) {
+                fold.ghostSign = sign;
+                fold.fluxSource = slot;
+                fold.execute();
+                std::copy_n(foldedData, tensor::fluxFolded::size(), slot);
               }
             }
             continue;

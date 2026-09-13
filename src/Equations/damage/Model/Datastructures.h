@@ -56,6 +56,7 @@ struct DamageMaterial : public Material {
   using Solver = kernels::SolverSelector<Config::Solver>::Type;
 
   static constexpr auto PrimaryGroups = DamageQuantities;
+  static constexpr auto TransportGroups = DamageTransportQuantities;
   static constexpr auto RotationGroups = PrimaryGroups;
   static constexpr auto InverseRotationGroups = PrimaryGroups;
 

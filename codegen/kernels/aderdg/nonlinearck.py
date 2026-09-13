@@ -25,6 +25,7 @@ from kernels.quantities import (
     QuantityGroup,
     QuantityKind,
     layout,
+    rotation_spp,
     total_extent,
 )
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
@@ -209,7 +210,13 @@ class NonLinearCK(ADERDGBase):
             spp[source, target] = True
         for column in range(self.transportStateExtent()):
             spp[column, column] = True
-        return spp
+
+        # A face without a neighbour folds its ghost rule into the pair, and a
+        # ghost rule is a rotation: it mixes the rows of a group among
+        # themselves. The pattern has to be closed under that, or the folding
+        # would write where the layout says there is nothing.
+        rotation = rotation_spp(self.transportBlocks())
+        return spp | (rotation.T.astype(int) @ spp.astype(int)).astype(bool)
 
     def fluxPattern(self):
         """(transport quantity, state row) pairs the face flux connects.
@@ -366,6 +373,27 @@ class NonLinearCK(ADERDGBase):
         )
         self.fluxDissipation = Tensor(
             "fluxDissipation", self.flux_solver_spp().shape, spp=self.flux_solver_spp()
+        )
+
+        self.ghostMap = Tensor(
+            "ghostMap",
+            (self.numTransportQuantities(), self.numTransportQuantities()),
+            spp=rotation_spp(self.transportBlocks()),
+        )
+        self.fluxSource = Tensor(
+            "fluxSource", self.flux_solver_spp().shape, spp=self.flux_solver_spp()
+        )
+        self.fluxFolded = Tensor(
+            "fluxFolded", self.flux_solver_spp().shape, spp=self.flux_solver_spp()
+        )
+        ghostSign = Scalar("ghostSign")
+
+        generator.add(
+            f"{prefix}damageFluxGhost",
+            self.fluxFolded["rp"]
+            <= self.fluxSource["rp"]
+            + ghostSign * self.ghostMap["qr"] * self.fluxSource["qp"],
+            target=target,
         )
 
         generator.add(

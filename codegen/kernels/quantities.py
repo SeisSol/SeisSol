@@ -248,6 +248,8 @@ def emit_header(aderdg, output_dir):
         "",
         render("RotationGroupKinds", aderdg.extendedBlocks()),
         render("InverseRotationGroupKinds", aderdg.inverseRotationBlocks()),
+        "/// Groups of the transported quantities, which a ghost rule rotates.",
+        render("TransportRotationGroupKinds", aderdg.transportBlocks()),
         "/// Source rows the space-time predictor factorises separately.",
         f"inline constexpr std::size_t StiffSourceRowCount = "
         f"{len(aderdg.stiffSourceRows())};",

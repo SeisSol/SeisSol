@@ -17,6 +17,7 @@
 // IWYU pragma: end_exports
 
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/quantities.h"
 #include "Kernels/NonLinearCK/Solver.h"
 #include "Model/Common.h"
 
@@ -32,6 +33,13 @@ namespace seissol::model {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::nonlinearck::Solver, MaterialT> {
+  // The transported quantities are laid out on both sides independently, and
+  // a ghost rule rotates them, so a disagreement would be a wrong reflection
+  // rather than a compile error. This makes it one.
+  static_assert(detail::kindsMatch(MaterialT::TransportGroups,
+                                   generated::TransportRotationGroupKinds),
+                "The transport layout of the material and of the generated code disagree.");
+
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double /*timeStepWidth*/,
                                           typename MaterialT::Solver::LocalData* localData) {
