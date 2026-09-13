@@ -269,17 +269,22 @@ def main():
         # solver transports more than the state, those shapes disagree, and the
         # kernels have to be rebuilt against the transport layout before they
         # can be emitted again.
-        if adg.transportMatchesQuantities():
-            include_tensors.update(
-                kernels.dynamic_rupture.addKernels(
-                    NamespacedGenerator(generator, namespace="dynamicRupture"),
-                    adg,
-                    cmdLineArgs.matricesDir,
-                    cmdLineArgs.drQuadRule,
-                    targets,
-                    isOldGpuInterface,
-                )
+        # The rupture flux is the one of the three that cannot simply be left
+        # out: the code that reads and writes a fault names its tensors, and
+        # it is compiled whether or not the configured material may have a
+        # fault at all. So where the layouts disagree the tensors are declared
+        # and nothing is generated against them.
+        include_tensors.update(
+            kernels.dynamic_rupture.addKernels(
+                NamespacedGenerator(generator, namespace="dynamicRupture"),
+                adg,
+                cmdLineArgs.matricesDir,
+                cmdLineArgs.drQuadRule,
+                targets,
+                isOldGpuInterface,
+                tensorsOnly=not adg.transportMatchesQuantities(),
             )
+        )
 
         kernels.plasticity.addKernels(
             generator,

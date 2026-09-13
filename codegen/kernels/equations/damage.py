@@ -222,7 +222,12 @@ class DamageADERDG(NonLinearCK):
             alignStride=True,
             temporary=True,
         )
-        self.sourceIntegral = temporary("sourceIntegral", 2)
+        # One accumulator per source, not two columns of one. A temporary that
+        # is written through two different subslices gets a buffer per
+        # statement, and then only the last of them is the tensor: the two
+        # columns would live in two places and the projection would read one.
+        self.alphaIntegral = temporary("alphaIntegral", 1)
+        self.breakageIntegral = temporary("breakageIntegral", 1)
         self.meanAlpha = Tensor("meanAlpha", (1,), temporary=True)
         self.meanBreakage = Tensor("meanBreakage", (1,), temporary=True)
 
@@ -426,10 +431,8 @@ class DamageADERDG(NonLinearCK):
 
         # What leaves the node: the stress and the source under the quadrature
         # weight, and the two internal variables marched to the next node.
-        accSigma, accSource = self.sigmaIntegral, self.sourceIntegral
+        accSigma = self.sigmaIntegral
         projection = self.timeProjection()
-        alphaColumn = accSource["ln"].subslice("n", 0, 1)
-        breakageColumn = accSource["ln"].subslice("n", 1, 2)
         statements += [
             (
                 accSigma["lc"] <= weight * sigma["lc"]
@@ -437,25 +440,18 @@ class DamageADERDG(NonLinearCK):
                 else accSigma["lc"] <= accSigma["lc"] + weight * sigma["lc"]
             )
         ]
-        statements += [
-            (
-                alphaColumn <= weight * self.sourceAlpha["l"] * self.unitColumn["n"]
-                if first
-                else accSource["ln"].subslice("n", 0, 1)
-                <= accSource["ln"].subslice("n", 0, 1)
-                + weight * self.sourceAlpha["l"] * self.unitColumn["n"]
-            )
-        ]
-        statements += [
-            (
-                breakageColumn
-                <= weight * self.sourceBreakage["l"] * self.unitColumn["n"]
-                if first
-                else accSource["ln"].subslice("n", 1, 2)
-                <= accSource["ln"].subslice("n", 1, 2)
-                + weight * self.sourceBreakage["l"] * self.unitColumn["n"]
-            )
-        ]
+        for accumulator, source in (
+            (self.alphaIntegral, self.sourceAlpha),
+            (self.breakageIntegral, self.sourceBreakage),
+        ):
+            statements += [
+                (
+                    accumulator["ln"] <= weight * source["l"] * self.unitColumn["n"]
+                    if first
+                    else accumulator["ln"]
+                    <= accumulator["ln"] + weight * source["l"] * self.unitColumn["n"]
+                )
+            ]
         # The expansion of what the cell carries beyond its state, one
         # weighted sum per coefficient. The weights are the projection onto
         # the Legendre basis and constant, so they arrive as literals.
@@ -514,7 +510,12 @@ class DamageADERDG(NonLinearCK):
         return [
             self.I["kc"].subslice("c", *stress)
             <= projection * self.sigmaIntegral["lc"],
-            self.sourceI["kn"] <= projection * self.sourceIntegral["ln"],
+            # The two columns meet on the way out, where the target is a real
+            # buffer and a subslice of it is a place rather than a binding.
+            self.sourceI["kn"].subslice("n", 0, 1)
+            <= projection * self.alphaIntegral["ln"],
+            self.sourceI["kn"].subslice("n", 1, 2)
+            <= projection * self.breakageIntegral["ln"],
             # A cell value in a modal column is the coefficient of the
             # constant basis function and nothing else.
             self.I["kc"].subslice("c", *wave)
