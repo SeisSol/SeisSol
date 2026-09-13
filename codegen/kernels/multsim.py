@@ -24,13 +24,20 @@ class OptionalDimTensor(Tensor):
         memoryLayoutClass=DenseMemoryLayout,
         alignStride=False,
         temporary=False,
+        datatype=None,
     ):
         self._optName = optName
         self._optSize = optSize
         self._optPos = optPos
         shape = self.insertOptDim(shape, (self._optSize,))
         super().__init__(
-            name, shape, spp, memoryLayoutClass, alignStride, temporary=temporary
+            name,
+            shape,
+            spp,
+            memoryLayoutClass,
+            alignStride,
+            temporary=temporary,
+            datatype=datatype,
         )
 
     def hasOptDim(self):

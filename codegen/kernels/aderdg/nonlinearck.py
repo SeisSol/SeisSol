@@ -442,9 +442,14 @@ class NonLinearCK(ADERDGBase):
         property of the constitutive law, so the material fills this in.
         """
 
-    def nodalTensor(self, name, columns=None, temporary=False):
+    def nodalTensor(self, name, columns=None, temporary=False, datatype=None):
         """A tensor over the nodes of :attr:`QNodal`, optionally with a
-        second axis of ``columns`` entries."""
+        second axis of ``columns`` entries.
+
+        ``datatype`` for a temporary that does not hold a number: a tensor
+        without one is the working precision, and a truth value written into
+        it is then one type where it is written and another where it is read.
+        """
         shape = (self.num3DQuadraturePoints(),)
         if columns is not None:
             shape = shape + (columns,)
@@ -456,6 +461,7 @@ class NonLinearCK(ADERDGBase):
             shape,
             alignStride=True,
             temporary=temporary,
+            datatype=datatype,
         )
 
     def faceTensor(self, name, columns=None):

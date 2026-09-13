@@ -32,6 +32,7 @@ from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Scalar, Tensor
+from yateto.type import Datatype
 from yateto.memory import CSCMemoryLayout
 
 #: Position of the two internal variables on the quantity axis.
@@ -190,8 +191,8 @@ class DamageADERDG(NonLinearCK):
         )
         self.weights = Tensor("quadratureWeights", (nodes,), self.nodalMeanWeights())
 
-        def temporary(name, columns=None):
-            return self.nodalTensor(name, columns, temporary=True)
+        def temporary(name, columns=None, datatype=None):
+            return self.nodalTensor(name, columns, temporary=True, datatype=datatype)
 
         self.eps = temporary("epsTotal", 6)
         self.i1 = temporary("invariantI1")
@@ -203,7 +204,10 @@ class DamageADERDG(NonLinearCK):
         self.sigmaNodal = temporary("sigmaNodal", 6)
         self.critical = temporary("criticalDamage")
         self.drive = temporary("damageDrive")
-        self.growing = temporary("damageGrowing")
+        # A truth value, and declared as one: a temporary without a datatype
+        # is the working precision, and then the condition written into it is
+        # a bool where it is written and a double where it is read.
+        self.growing = temporary("damageGrowing", datatype=Datatype.BOOL)
         self.sourceAlpha = temporary("sourceAlpha")
         self.sourceBreakage = temporary("sourceBreakage")
         # The integrals are accumulated at the nodes and projected once. The
@@ -467,11 +471,17 @@ class DamageADERDG(NonLinearCK):
                 self.damageRate * drive["l"],
                 self.healingRate * drive["l"],
             ),
+            # Selected rather than multiplied by. `growing` is a truth value,
+            # and a truth value that is also a factor is a tensor with two
+            # datatypes: the host path promotes it and the device path derives
+            # one type per occurrence, so the two occurrences disagree and the
+            # generator refuses the kernel. Every reader of it is a condition
+            # now, as the one above already was.
             self.sourceBreakage["l"]
-            <= self.breakageRate
-            * yf.mul(
+            <= yf.where(
                 growing["l"],
-                yf.mul(
+                self.breakageRate
+                * yf.mul(
                     yf.div(
                         1.0,
                         1.0
@@ -479,6 +489,7 @@ class DamageADERDG(NonLinearCK):
                     ),
                     drive["l"],
                 ),
+                0.0,
             ),
         ]
 
