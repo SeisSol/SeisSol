@@ -115,11 +115,16 @@ def addKernels(
         generator.add("transposeTinv", TinvT["ij"] <= aderdg.transportTinv()["ji"])
 
     fluxScale = Scalar("fluxScaleDR")
-    if not skipStateShaped:
-        generator.add(
-            "rotateFluxMatrix",
-            fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
-        )
+    drFluxSolver = aderdg.drFluxSolverStatements(fluxScale, fluxSolver)
+    generator.add(
+        "rotateFluxMatrix",
+        (
+            drFluxSolver
+            if drFluxSolver
+            else fluxSolver["qp"]
+            <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"]
+        ),
+    )
 
     num3DBasisFunctions = aderdg.num3DBasisFunctions()
     numQuantities = aderdg.numQuantities()

@@ -575,6 +575,40 @@ class DamageADERDG(NonLinearCK):
                 pairs.append((stress + row[0], row[1]))
         return pairs
 
+    def drFluxSolverStatements(self, fluxScale, fluxSolver):
+        """A fault's flux solver: the flux of what the friction imposed.
+
+        The imposed state arrives in the frame of the face, so the normal is
+        the first axis and the tables reduce to their normal slice; what comes
+        out is rotated back by the quantity rotation, as the star-matrix
+        version does. The rows it lands on are the ones the flux of this system
+        has: an imposed traction enters the momentum of the cell, an imposed
+        velocity enters its strain -- which is why this cannot be the flux of a
+        state, where the traction is a state variable and lands on itself.
+        """
+        nq = self.numQuantities()
+        velocityMap = Tensor(
+            "velocityFluxMap",
+            (3, 3, nq),
+            np.stack([fluxMap(VELOCITY_FLUX[d], 3, nq) for d in range(3)]),
+        )
+        stressMap = Tensor(
+            "stressFluxMap",
+            (3, 6, nq),
+            np.stack([fluxMap(STRESS_FLUX[d], 6, nq) for d in range(3)]),
+        )
+        faceNormal = Tensor("faceFrameNormal", (3,), np.array([1.0, 0.0, 0.0]))
+        rhoInv = Scalar("rhoInv")
+        velocity = self.transportGroupSlice("v")
+        stress = self.transportGroupSlice("sigma")
+
+        return [
+            fluxSolver["qp"].subslice("q", *velocity)
+            <= fluxScale * velocityMap["dqk"] * faceNormal["d"] * self.T["pk"],
+            fluxSolver["qp"].subslice("q", *stress)
+            <= fluxScale * rhoInv * stressMap["dqk"] * faceNormal["d"] * self.T["pk"],
+        ]
+
     def fluxSolverStatements(self, fluxScale, normal):
         """The constant half of the flux solver: the flux of the face normal.
 

@@ -202,6 +202,12 @@ class ADERDGBase(ABC):
     def transformation_inv_spp(self):
         return rotation_spp(self.inverseRotationBlocks())
 
+    def drFluxSolverStatements(self, fluxScale, fluxSolver):
+        """How a fault's flux solver is built, where the star matrix does not
+        build it. Empty here: the Godunov flux of a state is the star matrix
+        rotated, and that is what the rupture module writes."""
+        return []
+
     def transportTinv(self):
         """The inverse rotation a face applies to what crosses it.
 
