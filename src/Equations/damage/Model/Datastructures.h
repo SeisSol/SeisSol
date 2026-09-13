@@ -61,8 +61,9 @@ struct DamageMaterial : public Material {
   static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
   static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
 
-  /// rho, plus the four moduli and the six components of the initial strain.
-  static constexpr std::size_t Parameters = 10 + Material::Parameters;
+  /// rho, plus the five moduli and rates and the six components of the
+  /// initial strain.
+  static constexpr std::size_t Parameters = 11 + Material::Parameters;
 
   /// Dynamic rupture needs a mechanical traction, which is a derived quantity
   /// here and not a state variable. Until that is settled the material says so
@@ -90,8 +91,16 @@ struct DamageMaterial : public Material {
   double damageRate{};
   /// Strain the cell already carries before the simulation starts, in Voigt
   /// order. It enters every invariant, so it is not an initial condition on Q
-  /// but a property of the material.
-  std::array<double, 6> epsInit{};
+  /// but a property of the material -- and one that varies with depth in every
+  /// scenario that loads a fault, which is why the six components are queried
+  /// one by one rather than held as an array: the map binds a member per
+  /// supplied parameter.
+  double epsInitXX{};
+  double epsInitYY{};
+  double epsInitZZ{};
+  double epsInitXY{};
+  double epsInitYZ{};
+  double epsInitXZ{};
 
   static const std::unordered_map<std::string, double DamageMaterial::*> ParameterMap;
 
@@ -102,11 +111,10 @@ struct DamageMaterial : public Material {
   DamageMaterial() = default;
   explicit DamageMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda0(materialValues.at(1)), mu0(materialValues.at(2)),
-        gammaR(materialValues.at(3)), xi0(materialValues.at(4)), damageRate(materialValues.at(5)) {
-    for (std::size_t i = 0; i < epsInit.size(); ++i) {
-      epsInit[i] = materialValues.at(6 + i);
-    }
-  }
+        gammaR(materialValues.at(3)), xi0(materialValues.at(4)), damageRate(materialValues.at(5)),
+        epsInitXX(materialValues.at(6)), epsInitYY(materialValues.at(7)),
+        epsInitZZ(materialValues.at(8)), epsInitXY(materialValues.at(9)),
+        epsInitYZ(materialValues.at(10)), epsInitXZ(materialValues.at(11)) {}
 
   ~DamageMaterial() override = default;
 
@@ -120,6 +128,12 @@ inline const std::unordered_map<std::string, double DamageMaterial::*> DamageMat
     {"gammaR", &DamageMaterial::gammaR},
     {"xi0", &DamageMaterial::xi0},
     {"Cd", &DamageMaterial::damageRate},
+    {"eps_xx0", &DamageMaterial::epsInitXX},
+    {"eps_yy0", &DamageMaterial::epsInitYY},
+    {"eps_zz0", &DamageMaterial::epsInitZZ},
+    {"eps_xy0", &DamageMaterial::epsInitXY},
+    {"eps_yz0", &DamageMaterial::epsInitYZ},
+    {"eps_xz0", &DamageMaterial::epsInitXZ},
 };
 
 } // namespace seissol::model
