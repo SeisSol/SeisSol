@@ -317,6 +317,16 @@ class ADERDGBase(ABC):
         """Layout the face rotation operates on."""
         return self.quantityBlocks()
 
+    def transportInternalOffset(self):
+        """Where the groups of the state that carry no flux begin, for a solver
+        that transports them anyway. Zero where there are none."""
+        leading = self.transportStateExtent()
+        names = {group.name for group in self.primaryGroups()}
+        for block in self.transportBlocks():
+            if block.offset >= leading and block.group.name in names:
+                return block.offset
+        return 0
+
     def transportBlocks(self):
         """Layout of the time-integrated quantities, i.e. of :attr:`I`.
 

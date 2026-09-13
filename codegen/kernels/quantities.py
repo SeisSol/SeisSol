@@ -255,6 +255,18 @@ def emit_header(aderdg, output_dir):
         f"inline constexpr std::size_t StiffSourceRowCount = "
         f"{len(aderdg.stiffSourceRows())};",
         "",
+        "/// Where a face finds what it reads, along the quantity axis of the",
+        "/// transported tensor. A fault names these; for a solver whose flux",
+        "/// is linear they are the offsets in the state, as they always were.",
+        f"inline constexpr std::size_t TransportTractionOffset = "
+        f"{role_offset(aderdg.transportBlocks(), FaceRole.TRACTION)};",
+        f"inline constexpr std::size_t TransportVelocityOffset = "
+        f"{role_offset(aderdg.transportBlocks(), FaceRole.VELOCITY)};",
+        "/// Where the groups of the state that carry no flux begin, for a",
+        "/// solver that transports them anyway. Zero where there are none.",
+        f"inline constexpr std::size_t TransportInternalOffset = "
+        f"{aderdg.transportInternalOffset()};",
+        "",
         "/// Quantities a cell couples through, which are the ones its",
         "/// transported tensor shares with its state.",
         f"inline constexpr std::size_t CoupledQuantities = "

@@ -11,6 +11,7 @@
 #include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/quantities.h"
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
 #include "Solver/MultipleSimulations.h"
@@ -215,18 +216,30 @@ namespace quantity_indices {
  * ```
  * */
 enum QuantityIndices : uint32_t {
-  U = 6,
-  V = 7,
-  W = 8,
-  N = 0,
-  T1 = 3,
-  T2 = 5,
+  // Where the velocity and the traction sit in what crosses a face. The
+  // codegen says, because it is the codegen that lays the tensor out: for
+  // every solver whose flux is linear these are six and zero, which is what
+  // stood here before it was asked.
+  U = generated::TransportVelocityOffset + 0,
+  V = generated::TransportVelocityOffset + 1,
+  W = generated::TransportVelocityOffset + 2,
+  N = generated::TransportTractionOffset + 0,
+  T1 = generated::TransportTractionOffset + 3,
+  T2 = generated::TransportTractionOffset + 5,
+  // The first six columns, in Voigt order. They are a stress wherever the
+  // stress is the state -- and a strain where it is not, which is a material
+  // that writes its rheology in strain. Every use of these names has to mean
+  // "the first six", not "the stress".
   XX = 0,
   YY = 1,
   ZZ = 2,
   XY = 3,
   YZ = 4,
   XZ = 5,
+  // The state's own variables, for a solver that transports them because a
+  // face needs them. Meaningless, and never read, where there are none.
+  ALPHA = generated::TransportInternalOffset + 0,
+  BREAKAGE = generated::TransportInternalOffset + 1,
   FP = 9,
   FU = 10,
   FV = 11,
