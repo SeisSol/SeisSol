@@ -120,19 +120,29 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
     constexpr std::array<std::size_t, 2> Pressure{0, 6};
     constexpr std::array<std::size_t, 4> Shear{3, 5, 7, 8};
 
-    const auto conjugate = [&](const auto& family, auto& target) {
-      for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
-        for (std::size_t column = 0; column < generated::CoupledQuantities; ++column) {
-          real sum = 0.0;
-          for (const auto entry : family) {
-            sum += rotation(row, entry) * inverse(entry, column);
+    // Over the groups rather than over the block. A rotation mixes the rows of
+    // a group among themselves and no further, so the conjugation is zero
+    // between the two -- and the layout of a flux solver says so: the strain
+    // rows are not fed by a velocity column and the matrix has no place to put
+    // one. Writing the zero there writes past the pattern, which lands on some
+    // other entry's slot.
+    const auto conjugate =
+        [&](const auto& family, std::size_t begin, std::size_t end, auto& target) {
+          for (std::size_t row = begin; row < end; ++row) {
+            for (std::size_t column = begin; column < end; ++column) {
+              real sum = 0.0;
+              for (const auto entry : family) {
+                sum += rotation(row, entry) * inverse(entry, column);
+              }
+              target(row, column) = scale * sum;
+            }
           }
-          target(row, column) = scale * sum;
-        }
-      }
-    };
-    conjugate(Pressure, pressure);
-    conjugate(Shear, shear);
+        };
+    constexpr std::size_t StrainEnd = 6;
+    conjugate(Pressure, 0, StrainEnd, pressure);
+    conjugate(Pressure, StrainEnd, generated::CoupledQuantities, pressure);
+    conjugate(Shear, 0, StrainEnd, shear);
+    conjugate(Shear, StrainEnd, generated::CoupledQuantities, shear);
   }
 
   static void assembleTabulatedFaceFlux(FaceType faceType,
