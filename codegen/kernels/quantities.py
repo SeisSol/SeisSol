@@ -252,6 +252,11 @@ def emit_header(aderdg, output_dir):
         f"inline constexpr std::size_t StiffSourceRowCount = "
         f"{len(aderdg.stiffSourceRows())};",
         "",
+        "/// Quantities a cell couples through, which are the ones its",
+        "/// transported tensor shares with its state.",
+        f"inline constexpr std::size_t CoupledQuantities = "
+        f"{aderdg.transportStateExtent()};",
+        "",
         "} // namespace seissol::generated",
         "",
     ]

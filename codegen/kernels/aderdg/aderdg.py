@@ -272,6 +272,11 @@ class ADERDGBase(ABC):
     def numTransportQuantities(self):
         return total_extent(self.transportBlocks())
 
+    def transportStateExtent(self):
+        """Quantities the transported tensor shares with the state, and in the
+        same order. Where the two layouts coincide, that is all of them."""
+        return self.numQuantities()
+
     def transportSpp(self):
         """Sparsity of :attr:`I`. Dense unless a solver says otherwise."""
         return None

@@ -80,17 +80,24 @@ void Neighbor::computeNeighborsIntegral(
   alignas(Alignment) real minusData[tensor::AminusT::size()];
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (info.faceTypes[face] != FaceType::Regular && info.faceTypes[face] != FaceType::Periodic) {
-      logError() << "The nonlinear solver has no boundary conditions yet; face type"
-                 << static_cast<int>(info.faceTypes[face]) << "cannot be handled.";
-    }
+    const auto faceType = info.faceTypes[face];
+    const bool hasNeighbor = faceType == FaceType::Regular || faceType == FaceType::Periodic;
+
+    // A face without a neighbour carries its ghost rule in its own pair of
+    // matrices, folded in at setup, so what is left of it here is that the
+    // far half has nothing to be applied to. Which types have such a rule is
+    // settled where the pair is built, and a type without one never reaches
+    // this loop.
+    const real lambdaFace =
+        hasNeighbor ? std::max(lambdaLocal, waveSpeed(timeIntegrated[face])) : lambdaLocal;
 
     // Both halves of the flux differ only in the sign of their dissipation,
     // and what they share is the larger of the two wave speeds. Neither side
     // reads the other's material for it.
     kernel::damageFluxDissipation dissipation = dissipation_;
     dissipation.fluxConstant = data.get<LTS::LocalIntegration>().nApNm1[face];
-    dissipation.lambdaMax = std::max(lambdaLocal, waveSpeed(timeIntegrated[face]));
+    dissipation.fluxDissipation = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+    dissipation.lambdaMax = lambdaFace;
     dissipation.AplusT = plusData;
     dissipation.AminusT = minusData;
     dissipation.execute();
@@ -100,6 +107,10 @@ void Neighbor::computeNeighborsIntegral(
     local.I = own;
     local.AplusT = plusData;
     local.execute(face);
+
+    if (!hasNeighbor) {
+      continue;
+    }
 
     kernel::damageNeighborFlux neighbor = neighborFlux_;
     neighbor.Q = data.get<LTS::Dofs>();

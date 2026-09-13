@@ -14,6 +14,7 @@
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/quantities.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
@@ -178,13 +179,38 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               normalData[i] = static_cast<real>(normal[i]);
             }
 
+            // A face without a neighbour has a ghost rule, and the rule folds
+            // into the pair: outflow is the local state on both sides, so its
+            // average is the local flux and its jump is nothing. Everything
+            // else that has no neighbour needs a mirror, and the mirror needs
+            // the rotation of the transported quantities.
+            const auto faceType = cellInformation[cell].faceTypes[side];
+            const bool outflow = faceType == FaceType::Outflow;
+            if (faceType != FaceType::Regular && faceType != FaceType::Periodic && !outflow) {
+              logError() << "The nonlinear solver has no ghost rule for face type"
+                         << static_cast<int>(faceType) << "yet.";
+            }
+
             kernel::damageFluxSolver fluxSolver;
-            fluxSolver.fluxScale = fluxScale;
+            fluxSolver.fluxScale = (outflow ? 2.0 : 1.0) * fluxScale;
             fluxSolver.rhoInv = 1.0 / materialLocal.rho;
             fluxSolver.faceNormal = normalData;
             fluxSolver.fluxConstant = localIntegration[cell].nApNm1[side];
             fluxSolver.bindGlobals(Pool::host());
             fluxSolver.execute();
+
+            // The dissipation of a face with a neighbour is the identity on
+            // the quantities the two cells couple through, scaled the way the
+            // flux is; an outflow face dissipates nothing, because there is no
+            // jump to dissipate.
+            auto dissipation =
+                init::fluxDissipation::view::create(neighboringIntegration[cell].nAmNm1[side]);
+            dissipation.setZero();
+            if (!outflow) {
+              for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
+                dissipation(row, row) = 0.5 * fluxScale;
+              }
+            }
             continue;
           }
 

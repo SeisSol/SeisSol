@@ -30,7 +30,6 @@ from kernels.quantities import (
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from yateto.memory import CSCMemoryLayout
 
 from .aderdg import ADERDGBase
 
@@ -357,18 +356,16 @@ class NonLinearCK(ADERDGBase):
         lambdaMax = Scalar("lambdaMax")
         normal = Tensor("faceNormal", (3,))
 
-        dissipation = np.zeros(self.flux_solver_spp().shape)
-        for column in range(self.transportStateExtent()):
-            dissipation[column, column] = 0.5
-        self.fluxDissipation = Tensor(
-            "fluxDissipation",
-            dissipation.shape,
-            dissipation,
-            CSCMemoryLayout,
-        )
-
+        # Both halves of the pair are per cell and face. The dissipation is
+        # the identity on the coupled quantities for a face with a neighbour,
+        # but a face without one has a ghost rule, and folding that rule into
+        # the pair is what makes a boundary condition the same two matrices
+        # and the same scalar as everything else.
         self.fluxConstant = Tensor(
             "fluxConstant", self.flux_solver_spp().shape, spp=self.flux_solver_spp()
+        )
+        self.fluxDissipation = Tensor(
+            "fluxDissipation", self.flux_solver_spp().shape, spp=self.flux_solver_spp()
         )
 
         generator.add(

@@ -11,7 +11,6 @@
 #include "Common/Marker.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
@@ -20,9 +19,7 @@
 #include "Parallel/Runtime/Stream.h"
 
 #include <array>
-#include <cstddef>
 #include <cstdint>
-#include <utils/logger.h>
 
 namespace seissol::kernels::solver::nonlinearck {
 
@@ -55,17 +52,9 @@ void Local::computeIntegral(real* timeIntegratedDoFs,
   krnl.rhoInv = data.get<LTS::LocalIntegration>().specific.parameters.rhoInv;
   krnl.execute();
 
-  // The face flux is assembled where both traces are, which is the
-  // neighbouring integration. What is left here are the faces that have no
-  // neighbour, and they need a ghost rule for the stress columns that does
-  // not exist yet.
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    const auto faceType = data.get<LTS::CellInformation>().faceTypes[face];
-    if (faceType != FaceType::Regular && faceType != FaceType::Periodic) {
-      logError() << "The nonlinear solver has no boundary conditions yet; face type"
-                 << static_cast<int>(faceType) << "cannot be handled.";
-    }
-  }
+  // Every face flux is assembled where both wave speeds are, which is the
+  // neighbouring integration -- including the faces that have no neighbour,
+  // whose ghost rule is folded into their own pair of matrices at setup.
 }
 
 void Local::computeBatchedIntegral(
