@@ -82,6 +82,19 @@ class ADERDGBase(ABC):
             alignStride=True,
         )
 
+        # What a cell hands a coarser neighbour, which is the same tensor one
+        # cluster step further out. A second name for the same shape, because
+        # the accumulation reads one and writes the other.
+        self.IAccumulated = OptionalDimTensor(
+            "IAccumulated",
+            "s",
+            multipleSimulations,
+            0,
+            (self.num3DBasisFunctions(), self.numTransportQuantities()),
+            spp=self.transportSpp(),
+            alignStride=True,
+        )
+
         Aplusminus_spp = self.flux_solver_spp()
         self.AplusT = Tensor("AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
         self.AplusTAll = [
@@ -232,6 +245,28 @@ class ADERDGBase(ABC):
         build it. Empty here: the Godunov flux of a state is the star matrix
         rotated, and that is what the rupture module writes."""
         return []
+
+    def accumulateStatements(self):
+        """How one step's integrals fold into what a coarser cluster has.
+
+        Every column is a time integral, so every column is a sum.
+        """
+        return [self.IAccumulated["kp"] <= self.IAccumulated["kp"] + self.I["kp"]]
+
+    def addAccumulate(self, generator, targets):
+        """The accumulation of a step into a coarser cluster's buffer.
+
+        A kernel rather than a loop so that the two paths run the same
+        arithmetic, and so that a solver whose columns are not all sums says
+        so once, here, instead of in each of them.
+        """
+        for target in targets:
+            prefix = generate_kernel_name_prefix(target)
+            generator.add(
+                f"{prefix}accumulateIntegrals",
+                self.accumulateStatements(),
+                target=target,
+            )
 
     def addStateToTransport(self, generator, targets):
         """What a cell transports, at one instant, from its state at that

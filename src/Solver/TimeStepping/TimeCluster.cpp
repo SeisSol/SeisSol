@@ -418,7 +418,10 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
                     bufferPointer,
                     kernels::Solver::IntegralsSize * sizeof(real));
       } else {
-        kernels::Solver::accumulate(accumulatedIntegrals[cell], bufferPointer);
+        kernel::accumulateIntegrals accumulateKrnl;
+        accumulateKrnl.I = bufferPointer;
+        accumulateKrnl.IAccumulated = accumulatedIntegrals[cell];
+        accumulateKrnl.execute();
       }
     }
   }
@@ -507,20 +510,22 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime_.stream());
           } else {
-            // The bound a face scales its dissipation with is a maximum over
-            // the step, and this sums every column alike. Refused rather than
-            // summed: two bounds added are not a bound, and the error grows
-            // with the cluster ratio.
-            if constexpr (Config::Solver == SolverType::NonLinearCK) {
-              logError() << "The device path cannot accumulate the bound of a face yet.";
-            }
-            device_.algorithms.accumulateBatchedData(
-                const_cast<const real**>(
-                    (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
-                tensor::I::Size,
-                (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
-                streamRuntime_.stream());
+            // The same kernel the serial path runs, so that a solver whose
+            // columns are not all sums is right on both.
+            const auto numElements = (entry.get(inner_keys::Wp::Id::Idofs))->getSize();
+            kernel::gpu_accumulateIntegrals accumulateKrnl;
+            accumulateKrnl.numElements = numElements;
+            accumulateKrnl.I = const_cast<const real**>(
+                (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+            accumulateKrnl.IAccumulated =
+                (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr();
+            auto* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+                kernel::gpu_accumulateIntegrals::TmpMaxMemRequiredInBytes * numElements,
+                streamRuntime_.stream()));
+            accumulateKrnl.linearAllocator.initialize(tmpMem);
+            accumulateKrnl.streamPtr = streamRuntime_.stream();
+            accumulateKrnl.execute();
+            device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), streamRuntime_.stream());
           }
         }
       });

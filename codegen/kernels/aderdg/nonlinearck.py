@@ -102,6 +102,35 @@ class NonLinearCK(ADERDGBase):
     def transportBlocks(self):
         return layout(self.transportGroups())
 
+    def accumulateStatements(self):
+        """Every column is a time integral and therefore a sum -- except the
+        one that carries the bound a face scales its dissipation with, which
+        is a maximum over the step. The larger of two bounds is a bound; their
+        sum is not one, and it would grow with the cluster ratio."""
+        bound = self.transportBoundColumn()
+        total = self.numTransportQuantities()
+        statements = []
+        if bound > 0:
+            statements += [
+                self.IAccumulated["kc"].subslice("c", 0, bound)
+                <= self.IAccumulated["kc"].subslice("c", 0, bound)
+                + self.I["kc"].subslice("c", 0, bound)
+            ]
+        statements += [
+            self.IAccumulated["kc"].subslice("c", bound, bound + 1)
+            <= yf.maximum(
+                self.IAccumulated["kc"].subslice("c", bound, bound + 1),
+                self.I["kc"].subslice("c", bound, bound + 1),
+            )
+        ]
+        if bound + 1 < total:
+            statements += [
+                self.IAccumulated["kc"].subslice("c", bound + 1, total)
+                <= self.IAccumulated["kc"].subslice("c", bound + 1, total)
+                + self.I["kc"].subslice("c", bound + 1, total)
+            ]
+        return statements
+
     def transportBoundColumn(self):
         return self.transportGroupSlice("waveIntegral")[0]
 
