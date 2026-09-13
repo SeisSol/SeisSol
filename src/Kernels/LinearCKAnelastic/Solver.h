@@ -36,6 +36,12 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
+  /// Whether the face flux solvers are built from the flux itself rather than
+  /// from a Godunov state. A Godunov state is a state, so the solver it
+  /// builds maps the state onto itself; a solver that transports more than
+  /// the state cannot use one, and assembles the flux of the face normal
+  /// instead.
+  static constexpr bool FluxSolverFromTable = false;
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
 

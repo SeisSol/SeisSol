@@ -163,6 +163,31 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
 
+          if constexpr (model::MaterialT::Solver::FluxSolverFromTable) {
+            // A flux solver built from the flux rather than from a Godunov
+            // state: both halves of the face flux are the same matrix up to
+            // the sign of their dissipation, so what is stored per face is
+            // the half they share. The dissipation is added to it once per
+            // timestep, when the wave speeds of both sides are known.
+            static_assert(tensor::fluxConstant::size() == tensor::AplusT::size(),
+                          "The constant half of the flux solver is stored in the slot of the "
+                          "solver it is half of.");
+
+            real normalData[3];
+            for (std::size_t i = 0; i < 3; ++i) {
+              normalData[i] = static_cast<real>(normal[i]);
+            }
+
+            kernel::damageFluxSolver fluxSolver;
+            fluxSolver.fluxScale = fluxScale;
+            fluxSolver.rhoInv = 1.0 / materialLocal.rho;
+            fluxSolver.faceNormal = normalData;
+            fluxSolver.fluxConstant = localIntegration[cell].nApNm1[side];
+            fluxSolver.bindGlobals(Pool::host());
+            fluxSolver.execute();
+            continue;
+          }
+
           // Defines a rotation matrix for computing material properties in face-local coordinates
           // for anisotropy. It has no effect for isotropic materials.
           std::array<double, 36> nLocalData{};

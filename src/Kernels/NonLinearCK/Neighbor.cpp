@@ -7,8 +7,10 @@
 
 #include "Neighbor.h"
 
+#include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -18,7 +20,9 @@
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -44,9 +48,53 @@ void Neighbor::computeNeighborsIntegral(
     LTS::Ref& data,
     const std::array<real*, Cell::NumFaces>& timeIntegrated,
     const std::array<real*, Cell::NumFaces>& /*faceNeighborsPrefetch*/) {
-  logError() << "The face coupling of the nonlinear solver is not wired yet: the constant half"
-             << "of the flux solver has to be built per cell and face at setup, which is the"
-             << "one thing still missing before the three kernel calls below can be made.";
+  const auto& info = data.get<LTS::CellInformation>();
+
+  // The cell's own integrals: the ones its predictor wrote and its neighbours
+  // read from it. Under global time stepping every cell keeps them, which is
+  // the same condition local time stepping is turned off by.
+  const real* own = data.get<LTS::StepIntegrals>();
+  assert(own != nullptr);
+
+  // The wave speed rides in the last column of a transported tensor, in its
+  // constant mode. Reading it costs no kernel -- but it goes through the
+  // generated view, because the leading dimension is padded for alignment and
+  // the column does not sit where the shape alone would put it.
+  constexpr auto DissipationColumn = tensor::I::Shape[1] - 1;
+  const real lambdaLocal = init::I::view::create(own)(0, DissipationColumn);
+
+  alignas(Alignment) real plusData[tensor::AplusT::size()];
+  alignas(Alignment) real minusData[tensor::AminusT::size()];
+
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    if (info.faceTypes[face] != FaceType::Regular && info.faceTypes[face] != FaceType::Periodic) {
+      logError() << "The nonlinear solver has no boundary conditions yet; face type"
+                 << static_cast<int>(info.faceTypes[face]) << "cannot be handled.";
+    }
+
+    // Both halves of the flux differ only in the sign of their dissipation,
+    // and what they share is the larger of the two wave speeds. Neither side
+    // reads the other's material for it.
+    kernel::damageFluxDissipation dissipation = dissipation_;
+    dissipation.fluxConstant = data.get<LTS::LocalIntegration>().nApNm1[face];
+    const real lambdaNeighbor = init::I::view::create(timeIntegrated[face])(0, DissipationColumn);
+    dissipation.lambdaMax = std::max(lambdaLocal, lambdaNeighbor);
+    dissipation.AplusT = plusData;
+    dissipation.AminusT = minusData;
+    dissipation.execute();
+
+    kernel::damageLocalFlux local = localFlux_;
+    local.Q = data.get<LTS::Dofs>();
+    local.I = own;
+    local.AplusT = plusData;
+    local.execute(face);
+
+    kernel::damageNeighborFlux neighbor = neighborFlux_;
+    neighbor.Q = data.get<LTS::Dofs>();
+    neighbor.I = timeIntegrated[face];
+    neighbor.AminusT = minusData;
+    neighbor.execute(info.faceRelations[face][1], info.faceRelations[face][0], face);
+  }
 }
 
 void Neighbor::computeBatchedNeighborsIntegral(
