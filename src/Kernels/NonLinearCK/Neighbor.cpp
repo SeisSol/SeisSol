@@ -106,8 +106,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
   static_assert(ConstantOffset % sizeof(real) == 0 && DissipationOffset % sizeof(real) == 0,
                 "A face's pair of matrices is not aligned to the real size.");
 
-  // A face without a neighbour has a half of its own, and the recorder
-  // refuses a layer that has one, so every face reached here has two.
+  constexpr std::array<FaceKinds, 2> BoundaryFaceKeys{FaceKinds::FreeSurface, FaceKinds::Outflow};
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     runtime.envMany(*FaceRelations::Count, [&](void* stream, std::size_t faceRelation) {
       const ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
@@ -156,6 +156,48 @@ void Neighbor::computeBatchedNeighborsIntegral(
       neighbor.linearAllocator.initialize(tmpMem);
       (neighbor.*kernel::gpu_damageNeighborFlux::ExecutePtrs[faceRelation])();
 
+      device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+    });
+  }
+
+  // A face without a neighbour, which is its own far state and its own wave
+  // speed. Only the cell's own half of the flux runs for it -- there is no
+  // second half to come -- and the ghost rule is already in the pair of
+  // matrices, so the body is the local half of a regular face and nothing
+  // else. It is keyed by the kind of the face rather than by a face
+  // relation, because it has none.
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    runtime.envMany(BoundaryFaceKeys.size(), [&](void* stream, std::size_t kind) {
+      const ConditionalKey key(
+          *KernelNames::NeighborFlux, *BoundaryFaceKeys[kind], face, *FaceRelations::Any);
+      if (table.find(key) == table.end()) {
+        return;
+      }
+      auto& entry = table[key];
+
+      kernel::gpu_damageLocalFlux local = deviceLocalFlux_;
+
+      const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+      local.numElements = numElements;
+      local.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      local.I =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr());
+      local.INeighbor =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      local.fluxConstant = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      local.extraOffset_fluxConstant =
+          (ConstantOffset / sizeof(real)) + face * tensor::fluxConstant::size();
+      local.fluxDissipation = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::NeighborIntegrationData))->getDeviceDataPtr());
+      local.extraOffset_fluxDissipation =
+          (DissipationOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
+      local.streamPtr = stream;
+
+      auto* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+          kernel::gpu_damageLocalFlux::TmpMaxMemRequiredInBytes * numElements, stream));
+      local.linearAllocator.initialize(tmpMem);
+      local.execute(face);
       device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
     });
   }

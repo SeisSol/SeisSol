@@ -33,6 +33,24 @@ struct Qext;
 using namespace seissol::initializer;
 using namespace seissol::recording;
 
+namespace {
+/// The face kinds without a neighbour that a ghost rule can be folded into,
+/// in the order the tables below index them by.
+constexpr std::array<FaceType, 2> BoundaryFaceKinds{FaceType::FreeSurface, FaceType::Outflow};
+
+constexpr std::array<FaceKinds, 2> BoundaryFaceKeys{FaceKinds::FreeSurface, FaceKinds::Outflow};
+
+std::size_t boundaryKindIndex(FaceType faceType) {
+  for (std::size_t i = 0; i < BoundaryFaceKinds.size(); ++i) {
+    if (BoundaryFaceKinds[i] == faceType) {
+      return i;
+    }
+  }
+  logError() << "Not a boundary face kind with a ghost rule:" << static_cast<int>(faceType);
+  return 0;
+}
+} // namespace
+
 void NeighIntegrationRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
   idofsAddressRegistry_.clear();
@@ -134,6 +152,18 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
+  // A face without a neighbour. It has only the half the cell applies itself,
+  // and no face relation to apply it under -- the ghost rule is folded into
+  // its pair of matrices, so the kind of the face is all that is left of it.
+  std::array<std::array<std::vector<real*>, *FaceId::Count>, BoundaryFaceKinds.size()>
+      boundaryDofs{};
+  std::array<std::array<std::vector<real*>, *FaceId::Count>, BoundaryFaceKinds.size()>
+      boundaryIntegrals{};
+  std::array<std::array<std::vector<real*>, *FaceId::Count>, BoundaryFaceKinds.size()>
+      boundaryAplusT{};
+  std::array<std::array<std::vector<real*>, *FaceId::Count>, BoundaryFaceKinds.size()>
+      boundaryAminusT{};
+
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
 
@@ -200,8 +230,25 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
       }
       case FaceType::FreeSurface:
         [[fallthrough]];
-      case FaceType::Outflow:
-        [[fallthrough]];
+      case FaceType::Outflow: {
+        // Do not need to compute anything in the neighboring macro-kernel
+        // for most boundary conditions
+        if constexpr (Config::Solver == SolverType::NonLinearCK) {
+          // Except here: such a face has a half of its own, applied with the
+          // pair its ghost rule was folded into, and there is no far state --
+          // its own stands in. It is recorded under the kind of the face
+          // rather than with the regular ones, because the key of a regular
+          // face carries a face relation and runs both halves.
+          const auto kind = boundaryKindIndex(dataHost.get<LTS::CellInformation>().faceTypes[face]);
+          boundaryDofs[kind][face].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
+          boundaryIntegrals[kind][face].push_back(stepIntegrals[cell]);
+          boundaryAplusT[kind][face].push_back(
+              reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
+          boundaryAminusT[kind][face].push_back(
+              reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
+        }
+        break;
+      }
       case FaceType::Analytical:
         [[fallthrough]];
       case FaceType::FreeSurfaceGravity:
@@ -210,13 +257,11 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         // Do not need to compute anything in the neighboring macro-kernel
         // for most boundary conditions
         if constexpr (Config::Solver == SolverType::NonLinearCK) {
-          // Except here: such a face has a half of its own, applied with the
-          // pair its ghost rule was folded into. The table has no key that
-          // separates faces with a neighbour from faces without -- the one
-          // for the local flux holds both -- and running that one for both
-          // would apply the half of a regular face twice.
-          logError() << "The device path of the nonlinear solver cannot handle a face"
-                     << "without a neighbour yet.";
+          // These three have no ghost rule in this solver; the setup of the
+          // cell-local matrices says so first, and this is the same refusal.
+          logError() << "The nonlinear solver has no ghost rule for face type"
+                     << static_cast<int>(dataHost.get<LTS::CellInformation>().faceTypes[face])
+                     << "yet.";
         }
         break;
       }
@@ -252,6 +297,27 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
           (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt,
                                     regularDofsExt[face][faceRelation]);
         }
+      }
+    }
+
+    // faces without a neighbour, one key per kind: only the cell's own half
+    // of the flux runs for them, so they carry no face relation
+    if constexpr (Config::Solver == SolverType::NonLinearCK) {
+      for (std::size_t kind = 0; kind < BoundaryFaceKinds.size(); ++kind) {
+        if (boundaryDofs[kind][face].empty()) {
+          continue;
+        }
+        const ConditionalKey key(
+            *KernelNames::NeighborFlux, *BoundaryFaceKeys[kind], face, *FaceRelations::Any);
+        checkKey(key);
+
+        (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, boundaryDofs[kind][face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::Integrals, boundaryIntegrals[kind][face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, boundaryIntegrals[kind][face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData,
+                                  boundaryAplusT[kind][face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
+                                  boundaryAminusT[kind][face]);
       }
     }
 
