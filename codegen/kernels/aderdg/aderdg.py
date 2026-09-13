@@ -158,6 +158,20 @@ class ADERDGBase(ABC):
             CSCMemoryLayout,
         )
 
+        # The same selection out of what crossed a face rather than out of the
+        # state. One object where the two layouts agree, so that nothing about
+        # a solver with a linear flux changes -- not even a name in the pool.
+        if self.transportMatchesQuantities():
+            self.selectVelocityTransported = self.selectVelocity
+        else:
+            transportedSpp = self.extractVelocities().T[:, :3]
+            self.selectVelocityTransported = Tensor(
+                "selectVelocityTransported",
+                transportedSpp.shape,
+                transportedSpp,
+                CSCMemoryLayout,
+            )
+
         self.selectTractionSpp = self.extractTractions().T[:, :3]
         self.tractionPlusMatrix = Tensor(
             "tractionPlusMatrix",

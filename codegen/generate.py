@@ -310,11 +310,7 @@ def main():
             skipTransportKernels=not adg.transportMatchesQuantities(),
         )
         kernels.surface_displacement.addKernels(
-            generator,
-            adg,
-            include_tensors,
-            targets,
-            skipTransportKernels=not adg.transportMatchesQuantities(),
+            generator, adg, include_tensors, targets
         )
         kernels.point.addKernels(generator, adg)
 
