@@ -188,14 +188,21 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             const auto faceType = cellInformation[cell].faceTypes[side];
             const bool outflow = faceType == FaceType::Outflow;
             const bool freeSurface = faceType == FaceType::FreeSurface;
+
+            // A fault carries its own flux, imposed by the friction it is
+            // under, so the pair of a rupture face is zero on both matrices
+            // and the face contributes nothing from here. The linear solver
+            // says the same thing by scaling its flux solver with zero.
+            const bool rupture = faceType == FaceType::DynamicRupture;
+
             if (faceType != FaceType::Regular && faceType != FaceType::Periodic && !outflow &&
-                !freeSurface) {
+                !freeSurface && !rupture) {
               logError() << "The nonlinear solver has no ghost rule for face type"
                          << static_cast<int>(faceType) << "yet.";
             }
 
             kernel::damageFluxSolver fluxSolver;
-            fluxSolver.fluxScale = (outflow ? 2.0 : 1.0) * fluxScale;
+            fluxSolver.fluxScale = rupture ? 0.0 : (outflow ? 2.0 : 1.0) * fluxScale;
             fluxSolver.rhoInv = 1.0 / materialLocal.rho;
             fluxSolver.faceNormal = normalData;
             fluxSolver.fluxConstant = localIntegration[cell].nApNm1[side];
@@ -209,7 +216,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             auto dissipation =
                 init::fluxDissipation::view::create(neighboringIntegration[cell].nAmNm1[side]);
             dissipation.setZero();
-            if (!outflow) {
+            if (!outflow && !rupture) {
               for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
                 dissipation(row, row) = 0.5 * fluxScale;
               }
