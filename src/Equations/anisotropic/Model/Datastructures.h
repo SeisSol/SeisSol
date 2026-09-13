@@ -52,7 +52,7 @@ struct AnisotropicMaterial : public Material {
 
   static constexpr std::size_t Parameters = 21 + Material::Parameters;
 
-  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
