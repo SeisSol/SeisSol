@@ -79,13 +79,20 @@ inline constexpr bool NodalImpedance = model::MaterialT::Type == model::Material
 
 /// What the impedance of a node needs from the material of the two sides.
 ///
-/// The density and the undamaged moduli are already there, in the wave speeds
-/// of the face; these two are what is left of the constitutive law once the
-/// state of the node is given. Empty where the impedance belongs to the face,
-/// and then not stored at all.
+/// Everything the effective moduli need except the state of the node itself.
+/// The density and the undamaged moduli could be read back out of the wave
+/// speeds of the face, but only if those mean the undamaged ones -- they are
+/// kept here instead, where what they mean is written down. Not stored at all
+/// where the impedance belongs to the face.
 struct NodalImpedanceParameters {
+  double rhoPlus{};
+  double lambda0Plus{};
+  double mu0Plus{};
   double gammaRPlus{};
   double xi0Plus{};
+  double rhoMinus{};
+  double lambda0Minus{};
+  double mu0Minus{};
   double gammaRMinus{};
   double xi0Minus{};
 };

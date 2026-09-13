@@ -366,8 +366,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       // discarded branch still has its names looked up, and no other material
       // has these two.
 #ifdef SEISSOL_KERNELS_NONLINEARCK
+      nodalImpedanceParams[ltsFace].rhoPlus = plusMaterial->rho;
+      nodalImpedanceParams[ltsFace].lambda0Plus = plusMaterial->lambda0;
+      nodalImpedanceParams[ltsFace].mu0Plus = plusMaterial->mu0;
       nodalImpedanceParams[ltsFace].gammaRPlus = plusMaterial->gammaR;
       nodalImpedanceParams[ltsFace].xi0Plus = plusMaterial->xi0;
+      nodalImpedanceParams[ltsFace].rhoMinus = minusMaterial->rho;
+      nodalImpedanceParams[ltsFace].lambda0Minus = minusMaterial->lambda0;
+      nodalImpedanceParams[ltsFace].mu0Minus = minusMaterial->mu0;
       nodalImpedanceParams[ltsFace].gammaRMinus = minusMaterial->gammaR;
       nodalImpedanceParams[ltsFace].xi0Minus = minusMaterial->xi0;
 #endif

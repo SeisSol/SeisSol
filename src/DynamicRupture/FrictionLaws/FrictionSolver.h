@@ -74,6 +74,8 @@ class FrictionSolver {
   FrictionLawParameters drParameters_;
   ImpedancesAndEta* __restrict impAndEta_{};
   ImpedanceMatrices* __restrict impedanceMatrices_{};
+  /// Null unless the impedance of a face belongs to its nodes.
+  const NodalImpedanceParameters* __restrict nodalImpedanceParams_{};
   real fullUpdateTime_{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS_)[6][misc::NumPaddedPoints]{};

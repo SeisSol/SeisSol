@@ -40,6 +40,9 @@ void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
   impAndEta_ = layerData.var<DynamicRupture::ImpAndEta>(place);
   impedanceMatrices_ = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
+#ifdef SEISSOL_KERNELS_NONLINEARCK
+  nodalImpedanceParams_ = layerData.var<DynamicRupture::NodalImpedanceParams>(place);
+#endif
   initialStressInFaultCS_ = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
   nucleationStressInFaultCS_ = layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
   mu_ = layerData.var<DynamicRupture::Mu>(place);

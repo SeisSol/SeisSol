@@ -20,6 +20,8 @@ struct FrictionLawData {
 
   const ImpedancesAndEta* __restrict impAndEta{};
   const ImpedanceMatrices* __restrict impedanceMatrices{};
+  /// Null unless the impedance of a face belongs to its nodes.
+  const NodalImpedanceParameters* __restrict nodalImpedanceParams{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
   const real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
@@ -104,6 +106,9 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
         seissol::initializer::AllocationPlace::Device;
     data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
     data->impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
+#ifdef SEISSOL_KERNELS_NONLINEARCK
+    data->nodalImpedanceParams = layerData.var<DynamicRupture::NodalImpedanceParams>(place);
+#endif
     data->initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
     data->nucleationStressInFaultCS =
         layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
