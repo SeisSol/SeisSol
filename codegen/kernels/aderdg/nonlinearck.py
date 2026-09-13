@@ -262,6 +262,20 @@ class NonLinearCK(ADERDGBase):
         # derivative family; this is its counterpart, and it is what a
         # neighbour on a coarser cluster reconstructs a subinterval from.
         carried = self.numTransportQuantities() - self.transportStateExtent()
+
+        # The bounds a face scales its dissipation with are a maximum over the
+        # step, and a maximum has no derivative: the first member carries them
+        # and the rest have nowhere to put one. Said as a layout rather than
+        # written as a zero -- a zero has to be assigned by somebody, and an
+        # assignment of zero is the kind of statement that survives reading and
+        # not optimisation.
+        def carriedSpp(member):
+            spp = np.ones((self.num3DBasisFunctions(), carried), dtype=bool)
+            if member > 0:
+                bound = self.transportBoundColumn() - self.transportStateExtent()
+                spp[:, bound : bound + self.transportBoundCount()] = False
+            return spp
+
         self.transportDer = [
             OptionalDimTensor(
                 f"transportDer({i})",
@@ -269,6 +283,7 @@ class NonLinearCK(ADERDGBase):
                 self.Q.optSize(),
                 self.Q.optPos(),
                 (self.num3DBasisFunctions(), carried),
+                spp=carriedSpp(i),
                 alignStride=True,
             )
             for i in range(self.order)

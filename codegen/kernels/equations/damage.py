@@ -620,22 +620,16 @@ class DamageADERDG(NonLinearCK):
                 # The bound is one number for the whole step, not a function of
                 # time within it: a maximum does not restrict to a subinterval the
                 # way an integral does. So it stands in the constant coefficient
-                # of the carried expansion and is zero in the rest, and a
-                # neighbour reconstructing a subinterval reads the step's bound --
-                # an overestimate, which is the side Rusanov may err on.
-                (
-                    self.transportDer[i]["kc"].subslice(
-                        "c", columns[0] - shared, columns[1] - shared
-                    )
-                    <= self.constantMode["k"] * value["c"]
-                    if i == 0
-                    else self.transportDer[i]["kc"].subslice(
-                        "c", columns[0] - shared, columns[1] - shared
-                    )
-                    <= 0.0 * self.constantMode["k"] * value["c"]
+                # of the carried expansion. The rest have no column for one --
+                # their layout says so, rather than a statement writing a zero
+                # into it -- so a neighbour reconstructing a subinterval reads
+                # the step's bound, which overestimates, which is the side
+                # Rusanov may err on.
+                self.transportDer[0]["kc"].subslice(
+                    "c", columns[0] - shared, columns[1] - shared
                 )
+                <= self.constantMode["k"] * value["c"]
                 for columns, value in bounds
-                for i in range(self.order)
             ]
         )
 

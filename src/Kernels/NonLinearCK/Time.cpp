@@ -130,11 +130,12 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
   step.invariantFloor = invariantFloor();
   step.execute();
 
-  // What scales the dissipation is in the transported tensor as well, and
-  // the step wrote it there itself: the square of the fastest wave integrated
-  // over the step, and the length of the step beside it. Neither is a speed,
-  // which is what lets a coarser cluster accumulate them like every other
-  // column and a face divide one by the other.
+  // What scales the dissipation is in the transported tensor as well, and the
+  // step wrote it there itself: the largest square of each wave family's speed
+  // over the step. The squares, because that is what the moduli are affine in,
+  // and the largest rather than a mean because Rusanov wants a bound -- which
+  // is also what lets a coarser cluster fold one step into another by taking
+  // the larger of the two.
 }
 
 void Spacetime::computeBatchedAder(
