@@ -118,6 +118,14 @@ void Spacetime::computeAder(const real* coeffs,
   step.sourceI = tmp.sourceIntegral;
   step.epsInit = local.epsInit;
 
+  // The expansion of what the cell carries beyond its state sits behind the
+  // expansion of the state, in the same buffer: both are what a neighbour on
+  // a coarser cluster reads, and both are written here.
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transportDer>(); ++i) {
+    step.transportDer(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>() +
+                           yateto::computeFamilySize<tensor::transportDer>(0, i);
+  }
+
   step.materialParameters = local.parameters;
   step.invariantFloor = invariantFloor();
   step.execute();

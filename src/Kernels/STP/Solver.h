@@ -42,6 +42,13 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::LegendreBasis<RealT>;
 
+  /// The basis of whatever else a solver keeps an expansion of. A solver that
+  /// transports only its state expands only in the basis its recursion
+  /// produces; one that transports more has to win those coefficients from
+  /// samples, and a monomial basis loses five digits at order six doing it.
+  template <typename RealT>
+  using ExtraTimeBasis = TimeBasis<RealT>;
+
   /// Whether the face flux solvers are built from the flux itself rather than
   /// from a Godunov state. A Godunov state is a state, so the solver it
   /// builds maps the state onto itself; a solver that transports more than

@@ -28,6 +28,7 @@ the onset threshold, and the damage heals under compaction below it.
 import numpy as np
 import yateto.functions as yf
 from kernels.aderdg.nonlinearck import NonLinearCK
+from kernels.multsim import OptionalDimTensor
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Scalar, Tensor
 from yateto.memory import CSCMemoryLayout
@@ -209,6 +210,18 @@ class DamageADERDG(NonLinearCK):
         # doing it per node would run the same matrix over the same tensor
         # once per node for nothing.
         self.sigmaIntegral = temporary("sigmaIntegral", 6)
+        # The stress of a node in modal form. Projected once and combined
+        # afterwards: the projection is the expensive part, and every
+        # coefficient of the expansion is a combination of the same ones.
+        self.sigmaModal = OptionalDimTensor(
+            "sigmaModal",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.num3DBasisFunctions(), 6),
+            alignStride=True,
+            temporary=True,
+        )
         self.sourceIntegral = temporary("sourceIntegral", 2)
         self.meanAlpha = Tensor("meanAlpha", (1,), temporary=True)
         self.meanBreakage = Tensor("meanBreakage", (1,), temporary=True)
@@ -217,6 +230,7 @@ class DamageADERDG(NonLinearCK):
         # The wave speed does: the face coupling is scaled with it.
         self.alphaNodal = temporary("alphaNodal")
         self.breakageNodal = temporary("breakageNodal")
+        self.nodeWave = Tensor("nodeWaveSpeed", (1,), temporary=True)
         self.waveIntegral = Tensor("waveIntegral", (1,), temporary=True)
         self.intervalLength = Tensor("intervalLength", (1,), temporary=True)
 
@@ -322,7 +336,11 @@ class DamageADERDG(NonLinearCK):
             self.meanBreakage["u"]
             <= breakage["l"] * self.weights["l"] * self.unitColumn["u"],
         ]
-        nodeSpeed = yf.mul(yf.max(speedSquared, "l"), self.unitColumn["u"])
+        statements += [
+            self.nodeWave["u"]
+            <= yf.mul(yf.max(speedSquared, "l"), self.unitColumn["u"])
+        ]
+        nodeSpeed = self.nodeWave["u"]
         statements += [
             (
                 self.waveIntegral["u"] <= weight * nodeSpeed
@@ -409,6 +427,7 @@ class DamageADERDG(NonLinearCK):
         # What leaves the node: the stress and the source under the quadrature
         # weight, and the two internal variables marched to the next node.
         accSigma, accSource = self.sigmaIntegral, self.sourceIntegral
+        projection = self.timeProjection()
         alphaColumn = accSource["ln"].subslice("n", 0, 1)
         breakageColumn = accSource["ln"].subslice("n", 1, 2)
         statements += [
@@ -437,6 +456,49 @@ class DamageADERDG(NonLinearCK):
                 + weight * self.sourceBreakage["l"] * self.unitColumn["n"]
             )
         ]
+        # The expansion of what the cell carries beyond its state, one
+        # weighted sum per coefficient. The weights are the projection onto
+        # the Legendre basis and constant, so they arrive as literals.
+        modal = self.db.projectQP[self.t("kl")]
+        statements += [self.sigmaModal["kc"] <= modal * sigma["lc"]]
+        stress = (0, 6)
+        wave = (6, 7)
+        interval = (7, 8)
+        for i in range(self.order):
+            # a numpy scalar is not a Python float, and yateto takes the latter
+            weightOf = float(projection[i, node])
+            target = self.transportDer[i]
+            statements += [
+                (
+                    target["kc"].subslice("c", *stress)
+                    <= weightOf * self.sigmaModal["kc"]
+                    if first
+                    else target["kc"].subslice("c", *stress)
+                    <= target["kc"].subslice("c", *stress)
+                    + weightOf * self.sigmaModal["kc"]
+                )
+            ]
+            statements += [
+                (
+                    target["kc"].subslice("c", *wave)
+                    <= weightOf * self.constantMode["k"] * self.nodeWave["c"]
+                    if first
+                    else target["kc"].subslice("c", *wave)
+                    <= target["kc"].subslice("c", *wave)
+                    + weightOf * self.constantMode["k"] * self.nodeWave["c"]
+                )
+            ]
+            statements += [
+                (
+                    target["kc"].subslice("c", *interval)
+                    <= weightOf * self.constantMode["k"] * self.unitColumn["c"]
+                    if first
+                    else target["kc"].subslice("c", *interval)
+                    <= target["kc"].subslice("c", *interval)
+                    + weightOf * self.constantMode["k"] * self.unitColumn["c"]
+                )
+            ]
+
         statements += [
             alpha["l"] <= alpha["l"] + march * self.sourceAlpha["l"],
             breakage["l"] <= breakage["l"] + march * self.sourceBreakage["l"],

@@ -38,6 +38,13 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
+  /// The basis of whatever else a solver keeps an expansion of. A solver that
+  /// transports only its state expands only in the basis its recursion
+  /// produces; one that transports more has to win those coefficients from
+  /// samples, and a monomial basis loses five digits at order six doing it.
+  template <typename RealT>
+  using ExtraTimeBasis = seissol::numerical::LegendreBasis<RealT>;
+
   /// A cell hands its neighbours one tensor: the time-integrated state it
   /// couples through, the time-integrated stress, and the wave speed the
   /// dissipation is scaled with. The stress is carried rather than recomputed
@@ -65,7 +72,13 @@ struct Solver {
   static constexpr bool RequiresOwnIntegrals = true;
   static constexpr bool FluxSolverFromTable = true;
   static constexpr std::size_t IntegralsSize = tensor::I::size();
-  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  /// The expansion of the state, and behind it the expansion of what the cell
+  /// carries beyond it. The second has no recursion to come out of, so it is
+  /// projected from the samples of the step -- and a neighbour on a coarser
+  /// cluster reconstructs a subinterval of the stress from it rather than
+  /// rebuilding the stress out of this cell's material.
+  static constexpr std::size_t DerivativesSize =
+      yateto::computeFamilySize<tensor::dQ>() + yateto::computeFamilySize<tensor::transportDer>();
 
   using LocalData = NonLinearLocalData;
   using NeighborData = NonLinearNeighborData;

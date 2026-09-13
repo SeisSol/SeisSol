@@ -195,6 +195,23 @@ class NonLinearCK(ADERDGBase):
             alignStride=True,
         )
 
+        # The expansion in time of everything the transported tensor carries
+        # beyond the state: the stress and the two scalars. The state has the
+        # derivative family; this is its counterpart, and it is what a
+        # neighbour on a coarser cluster reconstructs a subinterval from.
+        carried = self.numTransportQuantities() - self.transportStateExtent()
+        self.transportDer = [
+            OptionalDimTensor(
+                f"transportDer({i})",
+                self.Q.optName(),
+                self.Q.optSize(),
+                self.Q.optPos(),
+                (self.num3DBasisFunctions(), carried),
+                alignStride=True,
+            )
+            for i in range(self.order)
+        ]
+
         self.QNodal = OptionalDimTensor(
             "QNodal",
             self.Q.optName(),
@@ -239,6 +256,49 @@ class NonLinearCK(ADERDGBase):
         law's business.
         """
         return []
+
+    def timeNodes(self):
+        """The nodes the step samples at, in time scaled onto [0, 1].
+
+        Gauss-Lobatto with one node more than the basis has functions. The
+        same rule the launch code asks its time basis for -- the two are
+        derived independently and agree to 4e-16 at order six, which is the
+        one coupling in this construction that no compiler checks.
+        """
+        points = self.numTimeNodes()
+        if points == 2:
+            reference = np.array([-1.0, 1.0])
+        else:
+            inner = np.polynomial.legendre.legroots(
+                np.polynomial.legendre.legder([0] * (points - 1) + [1])
+            )
+            reference = np.concatenate(([-1.0], inner, [1.0]))
+        return 0.5 * (reference + 1.0)
+
+    def timeProjection(self):
+        """Coefficients of the shifted Legendre expansion, from the values at
+        the time nodes.
+
+        What a cell transports beyond its state has no recursion to come out
+        of, so its expansion in time is won from the samples -- and won in a
+        Legendre basis, because the monomial one loses five digits at order
+        six and leaves two of them in single precision.
+
+        The result is constant: the nodes are in scaled time, and so is the
+        expansion, which is also the convention LegendreBasis::integrate
+        reads.
+        """
+        nodes = self.timeNodes()
+        vandermonde = np.array(
+            [
+                [
+                    np.polynomial.legendre.legval(2.0 * node - 1.0, [0] * i + [1])
+                    for i in range(self.order)
+                ]
+                for node in nodes
+            ]
+        )
+        return np.linalg.pinv(vandermonde)
 
     def numTimeNodes(self):
         """Time nodes the step kernel samples at.
