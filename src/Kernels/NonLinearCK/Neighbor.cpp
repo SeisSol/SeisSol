@@ -15,6 +15,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/NonLinearCK/Solver.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
@@ -48,10 +49,11 @@ void Neighbor::computeNeighborsIntegral(
   const auto& info = data.get<LTS::CellInformation>();
 
   // The cell's own integrals: the ones its predictor wrote and its neighbours
-  // read from it. Under global time stepping every cell keeps them, which is
-  // the same condition local time stepping is turned off by.
+  // read from it. That it has them is not luck -- the solver declares it needs
+  // them and the LTS setup gives every cell the buffer for it, including one
+  // whose faces are all boundaries.
   const real* own = data.get<LTS::StepIntegrals>();
-  assert(own != nullptr);
+  assert(own != nullptr && Solver::RequiresOwnIntegrals);
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const auto faceType = info.faceTypes[face];

@@ -14,6 +14,7 @@
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/TimeStepping/Halo.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 
@@ -58,6 +59,15 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
                      const std::array<std::uint64_t, Cell::NumFaces>& neighborClusters) {
   // reset the LTS setup
   LtsSetup ltsSetup{};
+
+  // A solver whose face flux needs both traces at once reads the cell's own
+  // integrals in the neighbouring integration, where they are not passed in
+  // and cannot be rebuilt from the derivatives. Such a cell keeps them
+  // whatever its faces would ask for -- including a cell that has no face
+  // with a neighbour at all, which would otherwise get no buffer.
+  if constexpr (kernels::Solver::RequiresOwnIntegrals) {
+    ltsSetup.setHasBuffer(true, BufferType::StepIntegrals);
+  }
 
   // iterate over the faces
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
