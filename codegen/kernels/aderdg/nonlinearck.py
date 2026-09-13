@@ -27,9 +27,10 @@ from kernels.quantities import (
     layout,
     total_extent,
 )
-from yateto import Scalar, ops, simpleParameterSpace
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from yateto.memory import CSCMemoryLayout
 
 from .aderdg import ADERDGBase
 
@@ -184,6 +185,31 @@ class NonLinearCK(ADERDGBase):
         the state and what the cell hands over."""
         return self.numQuantities() - self.transportStateExtent()
 
+    def flux_solver_spp(self):
+        """Sparsity of the face flux solvers.
+
+        A flux solver here maps the transported quantities onto the rows of
+        the state, so it is as wide as the transport layout. Its pattern is
+        the flux's, plus the diagonal of the coupled quantities: that is where
+        the dissipation sits, and it is not where the flux is -- a strain row
+        is fed by a velocity and a velocity row by a stress, never by itself.
+        """
+        shape = (self.numTransportQuantities(), self.numQuantities())
+        spp = np.zeros(shape, dtype=bool)
+        for source, target in self.fluxPattern():
+            spp[source, target] = True
+        for column in range(self.transportStateExtent()):
+            spp[column, column] = True
+        return spp
+
+    def fluxPattern(self):
+        """(transport quantity, state row) pairs the face flux connects.
+
+        Empty here: which quantity feeds which equation is the constitutive
+        law's business.
+        """
+        return []
+
     def numTimeNodes(self):
         """Time nodes the step kernel samples at.
 
@@ -301,6 +327,85 @@ class NonLinearCK(ADERDGBase):
         fills it in.
         """
 
+    def addFluxSolver(self, generator, target, prefix):
+        """The face flux, as two matrices per face and a scalar per step.
+
+        The numerical flux is the average of the two sides plus a jump scaled
+        with a wave speed, and both halves are linear in what a cell
+        transports. So each half is a matrix, and the two differ only in the
+        sign of the dissipation:
+
+            Aplus  = C + lambda * D,   Aminus = C - lambda * D
+
+        C carries the face geometry and the material, and is built once. D is
+        the dissipation, and it is neither: it is the identity on the
+        quantities the two cells couple through, so it is a constant of the
+        layout. What is left per timestep is a scalar and an addition over the
+        pattern of D -- nine entries, against rebuilding a flux solver.
+        """
+        fluxScale = Scalar("fluxScale")
+        lambdaMax = Scalar("lambdaMax")
+        normal = Tensor("faceNormal", (3,))
+
+        dissipation = np.zeros(self.flux_solver_spp().shape)
+        for column in range(self.transportStateExtent()):
+            dissipation[column, column] = 0.5
+        self.fluxDissipation = Tensor(
+            "fluxDissipation",
+            dissipation.shape,
+            dissipation,
+            CSCMemoryLayout,
+        )
+
+        self.fluxConstant = Tensor(
+            "fluxConstant", self.flux_solver_spp().shape, spp=self.flux_solver_spp()
+        )
+
+        generator.add(
+            f"{prefix}damageFluxSolver",
+            self.fluxSolverStatements(fluxScale, normal),
+            target=target,
+        )
+        generator.add(
+            f"{prefix}damageFluxDissipation",
+            [
+                self.AplusT["qp"]
+                <= self.fluxConstant["qp"] + lambdaMax * self.fluxDissipation["qp"],
+                self.AminusT["qp"]
+                <= self.fluxConstant["qp"] - lambdaMax * self.fluxDissipation["qp"],
+            ],
+            target=target,
+        )
+
+        generator.addFamily(
+            f"{prefix}damageLocalFlux",
+            simpleParameterSpace(4),
+            lambda i: self.Q["kp"]
+            <= self.Q["kp"]
+            + self.db.rDivM[i][self.t("km")]
+            * self.db.fMrT[i][self.t("ml")]
+            * self.I["lq"]
+            * self.AplusT["qp"],
+            target=target,
+        )
+        generator.addFamily(
+            f"{prefix}damageNeighborFlux",
+            simpleParameterSpace(3, 4, 4),
+            lambda h, j, i: self.Q["kp"]
+            <= self.Q["kp"]
+            + self.db.rDivM[i][self.t("km")]
+            * self.db.fP[h][self.t("mn")]
+            * self.db.rT[j][self.t("nl")]
+            * self.I["lq"]
+            * self.AminusT["qp"],
+            target=target,
+        )
+
+    def fluxSolverStatements(self, fluxScale, normal):
+        """How the constant half of the flux solver is built from a face
+        normal. Empty here: it is the flux, so the material writes it."""
+        return []
+
     def addFaceProjection(self, generator, target, prefix):
         """Face-nodal values of the time-integrated state, and the way back.
 
@@ -367,8 +472,7 @@ class NonLinearCK(ADERDGBase):
                 target=target,
             )
             self.addCellIntegral(generator, target, prefix)
-            self.addFaceProjection(generator, target, prefix)
-            self.addFaceFlux(generator, target, prefix)
+            self.addFluxSolver(generator, target, prefix)
 
     def addNeighbor(self, generator, targets):
         pass

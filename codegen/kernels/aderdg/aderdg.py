@@ -326,27 +326,34 @@ class ADERDGBase(ABC):
             "QcorrNeighbor", flux_solver_spp.shape, spp=flux_solver_spp
         )
 
-        fluxScale = Scalar("fluxScale")
-        computeFluxSolverLocal = (
-            self.AplusT["ij"]
-            <= fluxScale
-            * self.Tinv["ki"]
-            * (self.QgodLocal["kq"] * self.starMatrix(0)["ql"] + self.QcorrLocal["kl"])
-            * self.T["jl"]
-        )
-        generator.add("computeFluxSolverLocal", computeFluxSolverLocal)
-
-        computeFluxSolverNeighbor = (
-            self.AminusT["ij"]
-            <= fluxScale
-            * self.Tinv["ki"]
-            * (
-                self.QgodNeighbor["kq"] * self.starMatrix(0)["ql"]
-                + self.QcorrNeighbor["kl"]
+        # A Godunov state is a state, so the solver it builds maps the state
+        # onto itself. Where a cell transports more than that, the flux solver
+        # is wider than the rotation and is assembled from the flux instead.
+        if self.transportMatchesQuantities():
+            fluxScale = Scalar("fluxScale")
+            computeFluxSolverLocal = (
+                self.AplusT["ij"]
+                <= fluxScale
+                * self.Tinv["ki"]
+                * (
+                    self.QgodLocal["kq"] * self.starMatrix(0)["ql"]
+                    + self.QcorrLocal["kl"]
+                )
+                * self.T["jl"]
             )
-            * self.T["jl"]
-        )
-        generator.add("computeFluxSolverNeighbor", computeFluxSolverNeighbor)
+            generator.add("computeFluxSolverLocal", computeFluxSolverLocal)
+
+            computeFluxSolverNeighbor = (
+                self.AminusT["ij"]
+                <= fluxScale
+                * self.Tinv["ki"]
+                * (
+                    self.QgodNeighbor["kq"] * self.starMatrix(0)["ql"]
+                    + self.QcorrNeighbor["kl"]
+                )
+                * self.T["jl"]
+            )
+            generator.add("computeFluxSolverNeighbor", computeFluxSolverNeighbor)
 
         stiffnessTensor = Tensor("stiffnessTensor", (3, 3, 3, 3))
         direction = Tensor("direction", (3,))

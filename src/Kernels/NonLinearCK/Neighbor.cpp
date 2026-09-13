@@ -44,11 +44,9 @@ void Neighbor::computeNeighborsIntegral(
     LTS::Ref& data,
     const std::array<real*, Cell::NumFaces>& timeIntegrated,
     const std::array<real*, Cell::NumFaces>& /*faceNeighborsPrefetch*/) {
-  logError() << "The face coupling of the nonlinear solver is not wired yet. Which shape it"
-             << "takes follows from where the dissipation coefficient comes from: a coefficient"
-             << "that the step reduces has to be read from both transported tensors here, and a"
-             << "coefficient that the material bounds can be folded into a constant flux solver"
-             << "per face at setup time instead.";
+  logError() << "The face coupling of the nonlinear solver is not wired yet: the constant half"
+             << "of the flux solver has to be built per cell and face at setup, which is the"
+             << "one thing still missing before the three kernel calls below can be made.";
 }
 
 void Neighbor::computeBatchedNeighborsIntegral(
@@ -68,11 +66,11 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
       continue;
     }
     // both traces of the face, the flux between them, and the lift back
-    neighbor += PerformanceEstimate::fromKernel<kernel::projectToFace>(face);
-    neighbor += PerformanceEstimate::fromKernel<kernel::projectNeighborToFace>(
-        neighboringIndices[face][1], neighboringIndices[face][0]);
-    neighbor += PerformanceEstimate::fromKernel<kernel::damageRusanov>();
-    neighbor += PerformanceEstimate::fromKernel<kernel::faceIntegral>(face);
+    // the dissipation correction of the face, then both halves of its flux
+    neighbor += PerformanceEstimate::fromKernel<kernel::damageFluxDissipation>();
+    neighbor += PerformanceEstimate::fromKernel<kernel::damageLocalFlux>(face);
+    neighbor += PerformanceEstimate::fromKernel<kernel::damageNeighborFlux>(
+        neighboringIndices[face][1], neighboringIndices[face][0], face);
   }
 
   // dynamic rupture is not supported by a material whose traction is derived

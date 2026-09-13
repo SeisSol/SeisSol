@@ -22,17 +22,20 @@
 
 namespace seissol::kernels::solver::nonlinearck {
 
-/// The cell's own contribution: the volume term and the faces it owns.
+/// The cell's own contribution: the volume term and the source integral.
 ///
-/// The volume term is a constant map on the transported tensor, because the
-/// flux is linear in the velocity and the stress and both are transported --
-/// no nodal detour, nothing to evaluate. The source integral of the internal
-/// variables is added in the same kernel, being the other half of the same
-/// update.
+/// Both are constant maps on the transported tensor, because the flux is
+/// linear in the velocity and the stress and both are transported -- no nodal
+/// detour, nothing to evaluate.
+///
+/// The face fluxes are not here, although half of each belongs to this cell.
+/// They are scaled with a wave speed that is the larger of the two sides',
+/// and the far side has not reported its own by the time this runs; both
+/// halves are therefore assembled where both are known, in the neighbouring
+/// integration.
 ///
 /// The boundary conditions are missing: they want a ghost rule for the stress
-/// columns, which is where the transport layout has to reach the nodal
-/// projection first.
+/// columns.
 ///
 /// Both differ from the linear solver in the same way. The volume term lifts a
 /// flux that was evaluated at the nodes rather than applying a constant
@@ -67,15 +70,9 @@ class Local : public LocalKernel {
 
   protected:
   kernel::damageCellIntegral cellIntegral_;
-  kernel::projectToFace projectToFace_;
-  kernel::damageRusanov rusanov_;
-  kernel::faceIntegral faceIntegral_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_damageCellIntegral deviceCellIntegral_;
-  kernel::gpu_projectToFace deviceProjectToFace_;
-  kernel::gpu_damageRusanov deviceRusanov_;
-  kernel::gpu_faceIntegral deviceFaceIntegral_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };

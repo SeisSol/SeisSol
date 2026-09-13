@@ -417,26 +417,33 @@ class DamageADERDG(NonLinearCK):
             target=target,
         )
 
-    def addFaceFlux(self, generator, target, prefix):
-        """The Rusanov flux at the face nodes.
+    def fluxPattern(self):
+        """Which transported quantity feeds which equation across a face.
 
-        Both sides are read from their own transported stress rather than
-        rebuilt from the other cell's state, so neither side ever needs the
-        other's material. The only thing crossing the face besides the state
-        and the stress is one wave speed, and taking the larger of the two is
-        what keeps the scheme stable.
+        The strain equations transport the velocity, the momentum equations
+        the stress, and the two internal variables neither. Those are the same
+        two tables the volume term uses, read with the transport layout's
+        offsets.
+        """
+        velocity = self.transportGroupSlice("v")[0]
+        stress = self.transportGroupSlice("sigma")[0]
+        pairs = []
+        for direction in range(3):
+            for row in VELOCITY_FLUX[direction]:
+                pairs.append((velocity + row[0], row[1]))
+            for row in STRESS_FLUX[direction]:
+                pairs.append((stress + row[0], row[1]))
+        return pairs
 
-        The directional maps from the flux assembly are reused, contracted with
-        the face normal instead of applied one direction at a time. They carry
-        the sign of the flux, so the combination below reads as the plain
-        average it is.
+    def fluxSolverStatements(self, fluxScale, normal):
+        """The constant half of the flux solver: the flux of the face normal.
+
+        Half the flux of each side, which is the average the numerical flux
+        takes; the jump that goes with it is the dissipation, and it is added
+        per timestep. The velocity block is the material's only by the inverse
+        density, which the stress block carries.
         """
         nq = self.numQuantities()
-        rhoInv = Scalar("rhoInv")
-        rhoInvNeighbor = Scalar("rhoInvNeighbor")
-        lambdaMax = Scalar("lambdaMax")
-
-        normal = Tensor("faceNormal", (3,))
         velocityMap = Tensor(
             "velocityFluxMap",
             (3, 3, nq),
@@ -447,50 +454,16 @@ class DamageADERDG(NonLinearCK):
             (3, 6, nq),
             np.stack([fluxMap(STRESS_FLUX[d], 6, nq) for d in range(3)]),
         )
-
-        fluxLocal = self.faceTensor("fluxAtFaceLocal", nq)
-        fluxNeighbor = self.faceTensor("fluxAtFaceNeighbor", nq)
-
-        # Both traces come out of one projection, so the stress is read off the
-        # transported tensor rather than handed over separately.
+        rhoInv = Scalar("rhoInv")
+        velocity = self.transportGroupSlice("v")
         stress = self.transportGroupSlice("sigma")
-        coupled = self.transportStateExtent()
 
-        generator.add(
-            f"{prefix}damageRusanov",
-            [
-                fluxLocal["kp"]
-                <= self.QAtFace["km"].subslice("m", 6, 9)
-                * velocityMap["dmp"]
-                * normal["d"]
-                + rhoInv
-                * self.QAtFace["kc"].subslice("c", *stress)
-                * stressMap["dcp"]
-                * normal["d"],
-                fluxNeighbor["kp"]
-                <= self.QAtFaceNeighbor["km"].subslice("m", 6, 9)
-                * velocityMap["dmp"]
-                * normal["d"]
-                + rhoInvNeighbor
-                * self.QAtFaceNeighbor["kc"].subslice("c", *stress)
-                * stressMap["dcp"]
-                * normal["d"],
-                self.fluxAtFace["kp"] <= 0.5 * (fluxLocal["kp"] + fluxNeighbor["kp"]),
-                # The dissipation is a jump of the state, so it reaches the
-                # quantities the two cells couple through and no others: alpha
-                # and B carry no flux, and a jump of them across a face is not
-                # something the scheme may smooth out on its own.
-                self.fluxAtFace["kp"].subslice("p", 0, coupled)
-                <= self.fluxAtFace["kp"].subslice("p", 0, coupled)
-                - 0.5
-                * lambdaMax
-                * (
-                    self.QAtFaceNeighbor["kp"].subslice("p", 0, coupled)
-                    - self.QAtFace["kp"].subslice("p", 0, coupled)
-                ),
-            ],
-            target=target,
-        )
+        return [
+            self.fluxConstant["qp"].subslice("q", *velocity)
+            <= 0.5 * fluxScale * velocityMap["dqp"] * normal["d"],
+            self.fluxConstant["qp"].subslice("q", *stress)
+            <= 0.5 * fluxScale * rhoInv * stressMap["dqp"] * normal["d"],
+        ]
 
 
 def kernel_class(**kwargs):

@@ -53,16 +53,14 @@ class Neighbor : public NeighborKernel {
               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const override;
 
   protected:
-  kernel::projectToFace projectToFace_;
-  kernel::projectNeighborToFace projectNeighborToFace_;
-  kernel::damageRusanov rusanov_;
-  kernel::faceIntegral faceIntegral_;
+  kernel::damageFluxDissipation dissipation_;
+  kernel::damageLocalFlux localFlux_;
+  kernel::damageNeighborFlux neighborFlux_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_projectToFace deviceProjectToFace_;
-  kernel::gpu_projectNeighborToFace deviceProjectNeighborToFace_;
-  kernel::gpu_damageRusanov deviceRusanov_;
-  kernel::gpu_faceIntegral deviceFaceIntegral_;
+  kernel::gpu_damageFluxDissipation deviceDissipation_;
+  kernel::gpu_damageLocalFlux deviceLocalFlux_;
+  kernel::gpu_damageNeighborFlux deviceNeighborFlux_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };
