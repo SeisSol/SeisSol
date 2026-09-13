@@ -63,7 +63,7 @@ void DynamicRupture::spaceTimeInterpolation(
     real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
-    const real* coeffs) {
+    const std::vector<TimeCoefficients>& coeffs) {
 
   // assert alignments
   assert(timeDerivativePlus != nullptr);
@@ -80,10 +80,8 @@ void DynamicRupture::spaceTimeInterpolation(
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = krnlPrototype_;
   for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
-    timeKernel_.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
-    timeKernel_.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
+    timeKernel_.evaluate(coeffs[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
+    timeKernel_.evaluate(coeffs[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
 
     const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
@@ -108,7 +106,7 @@ void DynamicRupture::spaceTimeInterpolation(
 
 void DynamicRupture::batchedSpaceTimeInterpolation(
     SEISSOL_GPU_PARAM recording::DrConditionalPointersToRealsTable& table,
-    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const std::vector<TimeCoefficients>& coeffs,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
@@ -148,7 +146,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
       for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
         for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
-          krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s * ConvergenceOrder + p];
+          krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s].state[p];
         }
       }
 

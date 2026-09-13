@@ -42,7 +42,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
   real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
   real* const* derivatives = layer.var<LTS::Derivatives>();
 
-  const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+  const auto integrationCoeffs = seissol::kernels::timeIntegrate(0, Timestep, Timestep);
 
 #pragma omp parallel
   {
@@ -53,7 +53,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+          integrationCoeffs, Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
     }
     LIKWID_MARKER_STOP("ader");
   }
@@ -111,7 +111,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
   real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
   real* const* derivatives = layer.var<LTS::Derivatives>();
 
-  const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+  const auto integrationCoeffs = seissol::kernels::timeIntegrate(0, Timestep, Timestep);
 
 #pragma omp parallel
   {
@@ -122,7 +122,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+          integrationCoeffs, Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
       data.localKernel.computeIntegral(stepIntegrals[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("local");
@@ -140,8 +140,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
   std::array<real*, Cell::NumFaces> timeIntegrated{};
   std::array<real*, Cell::NumFaces> faceNeighborsPrefetch{};
 
-  const auto timeBasis = seissol::kernels::timeBasis();
-  const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
+  const auto timeCoeffs = seissol::kernels::timeIntegrate(0, Timestep, Timestep);
 
   // note: we use GTS here, in all cases
 
@@ -164,8 +163,8 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
       seissol::kernels::TimeCommon::computeIntegrals(data.timeKernel,
                                                      cellInformation[cell].ltsSetup,
                                                      cellInformation[cell].faceTypes,
-                                                     timeCoeffs.data(),
-                                                     timeCoeffs.data(),
+                                                     timeCoeffs,
+                                                     timeCoeffs,
                                                      faceNeighbors[cell],
                                                      integrationBuffers,
                                                      timeIntegrated);
@@ -227,7 +226,7 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
   alignas(Alignment) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, Timestep);
-  const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);
+  const auto coeffsCollocate = seissol::kernels::timeCollocate(timePoints, Timestep);
 
 #pragma omp parallel for schedule(static) private(qInterpolatedPlus, qInterpolatedMinus)
   for (std::size_t face = 0; face < layerData.size(); ++face) {
@@ -240,7 +239,7 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                              qInterpolatedMinus,
                                              timeDerivativePlus[prefetchFace],
                                              timeDerivativeMinus[prefetchFace],
-                                             coeffsCollocate.data());
+                                             coeffsCollocate);
   }
 }
 auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {

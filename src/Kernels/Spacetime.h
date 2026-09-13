@@ -16,6 +16,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Kernel.h"
+#include "Kernels/TimeCoefficients.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Runtime/Stream.h"
@@ -49,7 +50,7 @@ class SpacetimeKernel : public Kernel {
    * @param timeDerivativesOrSTP Output: space-time evoluion.
    * @param updateDisplacement Update the face displacement (needed for elastic-acoustic)
    */
-  virtual void computeAder(const real* coeffs,
+  virtual void computeAder(const TimeCoefficients& coeffs,
                            double timeStepWidth,
                            LTS::Ref& data,
                            LocalTmp& tmp,
@@ -57,7 +58,7 @@ class SpacetimeKernel : public Kernel {
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
 
-  virtual void computeBatchedAder(const real* coeffs,
+  virtual void computeBatchedAder(const TimeCoefficients& coeffs,
                                   double timeStepWidth,
                                   LTS::Layer& layer,
                                   LocalTmp& tmp,

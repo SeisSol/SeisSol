@@ -84,8 +84,8 @@ void ReceiverOutput::calcFaultOutput(
                            : 0;
   const auto& faultInfos = meshReader_->getFault();
 
-  const auto timeCoeffs = kernels::timeBasis().point(indt, dt);
-  auto integrateCoeffs = kernels::timeBasis().integrate(0, indt, dt);
+  const auto timeCoeffs = kernels::timePoint(indt, dt);
+  auto integrateCoeffs = kernels::timeIntegrate(0, indt, dt);
   for (auto& coeff : integrateCoeffs) {
     coeff = -coeff;
   }
@@ -173,8 +173,8 @@ void ReceiverOutput::calcFaultOutput(
         }
       }
 
-      timeKernel_.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
-      timeKernel_.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
+      timeKernel_.evaluate(timeCoeffs, stePlus, dofsPlus);
+      timeKernel_.evaluate(timeCoeffs, steMinus, dofsMinus);
     }
 
     const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);

@@ -14,6 +14,7 @@
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
+#include "Kernels/TimeCoefficients.h"
 
 namespace seissol::kernels {
 struct TimeCommon {
@@ -48,15 +49,15 @@ struct TimeCommon {
   static void computeIntegrals(Time& time,
                                const LtsSetup& ltsSetup,
                                const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                               const real* timeCoeffs,
-                               const real* subtimeCoeffs,
+                               const TimeCoefficients& timeCoeffs,
+                               const TimeCoefficients& subtimeCoeffs,
                                const std::array<real*, Cell::NumFaces>& timeDofs,
                                const std::array<real*, Cell::NumFaces>& integrationBuffer,
                                std::array<real*, Cell::NumFaces>& timeIntegrated);
 
   static void computeBatchedIntegrals(Time& time,
-                                      const real* timeCoeffs,
-                                      const real* subtimeCoeffs,
+                                      const TimeCoefficients& timeCoeffs,
+                                      const TimeCoefficients& subtimeCoeffs,
                                       recording::ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime);
 

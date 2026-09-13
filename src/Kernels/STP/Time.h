@@ -15,6 +15,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
+#include "Kernels/TimeCoefficients.h"
 #include "Monitoring/Metric.h"
 
 #ifdef ACL_DEVICE
@@ -26,14 +27,14 @@ namespace seissol::kernels::solver::stp {
 class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeAder(const real* coeffs,
+  void computeAder(const TimeCoefficients& coeffs,
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
                    real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
-  void computeBatchedAder(const real* coeffs,
+  void computeBatchedAder(const TimeCoefficients& coeffs,
                           double timeStepWidth,
                           LTS::Layer& layer,
                           LocalTmp& tmp,
@@ -57,8 +58,10 @@ class Spacetime : public SpacetimeKernel {
 class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) override;
-  void evaluateBatched(const real* coeffs,
+  void evaluate(const TimeCoefficients& coeffs,
+                const real* timeDerivatives,
+                real* timeEvaluated) override;
+  void evaluateBatched(const TimeCoefficients& coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,
                        std::size_t numElements,

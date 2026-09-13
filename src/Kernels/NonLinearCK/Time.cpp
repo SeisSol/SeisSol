@@ -56,7 +56,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::computeAder(const real* coeffs,
+void Spacetime::computeAder(const TimeCoefficients& coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
@@ -85,7 +85,7 @@ void Spacetime::computeAder(const real* coeffs,
   }
   derivative.I = timeIntegrated;
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    derivative.power(der) = coeffs[der];
+    derivative.power(der) = coeffs.state[der];
   }
   derivative.execute();
 
@@ -138,7 +138,7 @@ void Spacetime::computeAder(const real* coeffs,
 }
 
 void Spacetime::computeBatchedAder(
-    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
@@ -180,7 +180,7 @@ void Spacetime::computeBatchedAder(
   derivative.Q =
       const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    derivative.power(der) = coeffs[der];
+    derivative.power(der) = coeffs.state[der];
   }
   derivative.linearAllocator.initialize(tmpMem.get());
   derivative.streamPtr = runtime.stream();
@@ -244,7 +244,7 @@ PerformanceEstimate Spacetime::metrics() const {
   return estimate;
 }
 
-void Time::evaluate(const real* coeffs,
+void Time::evaluate(const TimeCoefficients& coeffs,
                     const real* timeDerivatives,
                     real timeEvaluated[tensor::I::size()]) {
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
@@ -258,12 +258,12 @@ void Time::evaluate(const real* coeffs,
   krnl.I = timeEvaluated;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
-    krnl.power(i) = coeffs[i];
+    krnl.power(i) = coeffs.state[i];
   }
   krnl.execute();
 }
 
-void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
+void Time::evaluateBatched(SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
                            SEISSOL_GPU_PARAM const real** timeDerivatives,
                            SEISSOL_GPU_PARAM real** timeIntegratedDofs,
                            SEISSOL_GPU_PARAM std::size_t numElements,
@@ -283,7 +283,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = timeDerivatives;
     krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
-    krnl.power(i) = coeffs[i];
+    krnl.power(i) = coeffs.state[i];
   }
   krnl.streamPtr = runtime.stream();
   krnl.execute();

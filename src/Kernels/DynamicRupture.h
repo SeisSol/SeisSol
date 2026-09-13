@@ -42,11 +42,11 @@ class DynamicRupture : public Kernel {
       real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
       const real* timeDerivativePlusPrefetch,
       const real* timeDerivativeMinusPrefetch,
-      const real* coeffs);
+      const std::vector<TimeCoefficients>& coeffs);
 
   // NOLINTNEXTLINE
   void batchedSpaceTimeInterpolation(recording::DrConditionalPointersToRealsTable& table,
-                                     const real* coeffs,
+                                     const std::vector<TimeCoefficients>& coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 
   [[nodiscard]] PerformanceEstimate metrics(const DRFaceInformation& faceInfo) const;

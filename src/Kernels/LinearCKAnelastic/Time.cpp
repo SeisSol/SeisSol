@@ -40,7 +40,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::computeAder(const real* coeffs,
+void Spacetime::computeAder(const TimeCoefficients& coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
@@ -98,7 +98,7 @@ void Spacetime::computeAder(const real* coeffs,
 
   // powers in the taylor-series expansion
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    krnl.power(der) = coeffs[der];
+    krnl.power(der) = coeffs.state[der];
   }
 
   krnl.execute();
@@ -127,7 +127,7 @@ PerformanceEstimate Spacetime::metrics() const {
   return estimate;
 }
 
-void Time::evaluate(const real* coeffs,
+void Time::evaluate(const TimeCoefficients& coeffs,
                     const real* timeDerivativesOrSTP,
                     real timeEvaluated[tensor::Q::size()]) {
   /*
@@ -144,7 +144,7 @@ void Time::evaluate(const real* coeffs,
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = der;
     der += tensor::dQ::size(i);
-    krnl.power(i) = coeffs[i];
+    krnl.power(i) = coeffs.state[i];
   }
   krnl.execute();
 }
@@ -153,7 +153,7 @@ PerformanceEstimate Time::metrics() const {
   return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansionEla>();
 }
 
-void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
+void Time::evaluateBatched(SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
                            SEISSOL_GPU_PARAM const real** timeDerivativesOrSTP,
                            SEISSOL_GPU_PARAM real** timeIntegratedDofs,
                            SEISSOL_GPU_PARAM std::size_t numElements,
@@ -172,7 +172,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
     krnl.dQ(i) = const_cast<const real**>(timeDerivativesOrSTP);
     krnl.extraOffset_dQ(i) = derivativeOffset;
     derivativeOffset += tensor::dQ::size(i);
-    krnl.power(i) = coeffs[i];
+    krnl.power(i) = coeffs.state[i];
   }
 
   krnl.streamPtr = runtime.stream();
@@ -183,7 +183,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
 }
 
 void Spacetime::computeBatchedAder(
-    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
@@ -246,7 +246,7 @@ void Spacetime::computeBatchedAder(
 
     for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
       // update scalar for this derivative
-      krnl.power(der) = coeffs[der];
+      krnl.power(der) = coeffs.state[der];
     }
 
     krnl.streamPtr = runtime.stream();

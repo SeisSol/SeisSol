@@ -14,6 +14,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Kernel.h"
+#include "Kernels/TimeCoefficients.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Runtime/Stream.h"
@@ -39,7 +40,9 @@ class TimeKernel : public Kernel {
     @param timeDerivatives A pointer to the input space-time data.
     @param timeEvaluated A pointer to the returned time-evaluated data.
   */
-  virtual void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) = 0;
+  virtual void evaluate(const TimeCoefficients& coeffs,
+                        const real* timeDerivatives,
+                        real* timeEvaluated) = 0;
 
   /**
     @brief Evaluates a given space-time representation in time.
@@ -53,7 +56,7 @@ class TimeKernel : public Kernel {
     timeDerivatives and timeEvaluated)
     @param runtime The stream to place the operations on.
   */
-  virtual void evaluateBatched(const real* coeffs,
+  virtual void evaluateBatched(const TimeCoefficients& coeffs,
                                const real** timeDerivatives,
                                real** timeIntegratedDofs,
                                std::size_t numElements,

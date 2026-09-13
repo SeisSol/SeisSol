@@ -140,11 +140,9 @@ double ReceiverCluster::calcReceivers(double time,
     }
   }
 
-  const auto timeBasis = seissol::kernels::timeBasis();
-
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     const std::size_t recvCount = receivers_.size();
-    const auto receiverHandler = [this, timeBasis, timeStepWidth, time, expansionPoint, executor](
+    const auto receiverHandler = [this, timeStepWidth, time, expansionPoint, executor](
                                      std::size_t i) {
       alignas(Alignment) real timeEvaluated[tensor::Q::size()]{};
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()]{};
@@ -178,8 +176,8 @@ double ReceiverCluster::calcReceivers(double time,
                 deviceCollector_->get(deviceIndices_[i])));
       }
 
-      const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
-      spacetimeKernel_.computeAder(integrationCoeffs.data(),
+      const auto integrationCoeffs = timeIntegrate(0, timeStepWidth, timeStepWidth);
+      spacetimeKernel_.computeAder(integrationCoeffs,
                                    timeStepWidth,
                                    tmpReceiverData,
                                    tmp,
@@ -188,9 +186,9 @@ double ReceiverCluster::calcReceivers(double time,
 
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
-        const auto coeffs = timeBasis.point(receiverTime - expansionPoint, timeStepWidth);
+        const auto coeffs = timePoint(receiverTime - expansionPoint, timeStepWidth);
 
-        timeKernel_.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
+        timeKernel_.evaluate(coeffs, timeDerivatives, timeEvaluated);
 
         krnl.execute();
         derivativeKrnl.execute();

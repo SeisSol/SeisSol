@@ -40,8 +40,8 @@ namespace seissol::kernels {
 void TimeCommon::computeIntegrals(Time& time,
                                   const LtsSetup& ltsSetup,
                                   const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                                  const real* timeCoeffs,
-                                  const real* subtimeCoeffs,
+                                  const TimeCoefficients& timeCoeffs,
+                                  const TimeCoefficients& subtimeCoeffs,
                                   const std::array<real*, Cell::NumFaces>& timeDofs,
                                   const std::array<real*, Cell::NumFaces>& integrationBuffer,
                                   std::array<real*, Cell::NumFaces>& timeIntegrated) {
@@ -77,7 +77,7 @@ void TimeCommon::computeIntegrals(Time& time,
         // setup; but just be aware of it when changing things. In that case, enforce the "GTS
         // relation" instead; then everything will work again.
 
-        const auto* coeffs = ltsSetup.neighborGTSRelation(dofneighbor) ? timeCoeffs : subtimeCoeffs;
+        const auto& coeffs = ltsSetup.neighborGTSRelation(dofneighbor) ? timeCoeffs : subtimeCoeffs;
         time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
@@ -88,8 +88,8 @@ void TimeCommon::computeIntegrals(Time& time,
 
 void TimeCommon::computeBatchedIntegrals(
     SEISSOL_GPU_PARAM Time& time,
-    SEISSOL_GPU_PARAM const real* timeCoeffs,
-    SEISSOL_GPU_PARAM const real* subtimeCoeffs,
+    SEISSOL_GPU_PARAM const TimeCoefficients& timeCoeffs,
+    SEISSOL_GPU_PARAM const TimeCoefficients& subtimeCoeffs,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
