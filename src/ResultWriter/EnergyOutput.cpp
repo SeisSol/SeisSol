@@ -79,21 +79,21 @@ std::array<real, multisim::NumSimulations>
   alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(Alignment) real qPlus[tensor::Q::size()];
-  alignas(Alignment) real qMinus[tensor::Q::size()];
+  alignas(Alignment) real qPlus[tensor::I::size()];
+  alignas(Alignment) real qMinus[tensor::I::size()];
 
   // needed to counter potential mis-alignment
   std::memcpy(qPlus, degreesOfFreedomPlus, sizeof(qPlus));
   std::memcpy(qMinus, degreesOfFreedomMinus, sizeof(qMinus));
 
   krnl.QInterpolated = qInterpolatedPlus;
-  krnl.Q = qPlus;
+  krnl.I = qPlus;
   krnl.TinvT = godunovData.dataTinvT;
   krnl._prefetch.QInterpolated = qInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = qInterpolatedMinus;
-  krnl.Q = qMinus;
+  krnl.I = qMinus;
   krnl.TinvT = godunovData.dataTinvT;
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
@@ -374,12 +374,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                                     godunovData[i],
                                                                     drEnergyOutput[i].slip,
                                                                     global_);
-
-        const double muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
-                              waveSpeedsPlus[i].sWaveVelocity;
-        const double muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
-                               waveSpeedsMinus[i].sWaveVelocity;
-        const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
 
 #pragma omp simd
         for (size_t sim = 0; sim < SimCount; sim++) {
