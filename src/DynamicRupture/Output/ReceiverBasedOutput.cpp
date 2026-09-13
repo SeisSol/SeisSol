@@ -408,6 +408,36 @@ void ReceiverOutput::calcFaultOutput(
   }
 }
 
+NodalImpedanceT ReceiverOutput::nodalImpedanceAt(const LocalInfo& local) {
+  if constexpr (NodalImpedance) {
+    const auto& params = (local.layer->var<DynamicRupture::NodalImpedanceParams>())[local.ltsId];
+    const auto ratio = [](const auto& values) {
+      return strainRatio(values[QuantityIndices::EXX],
+                         values[QuantityIndices::EYY],
+                         values[QuantityIndices::EZZ],
+                         values[QuantityIndices::EXY],
+                         values[QuantityIndices::EYZ],
+                         values[QuantityIndices::EXZ]);
+    };
+    return nodalImpedance(params,
+                          local.faceAlignedValuesPlus[QuantityIndices::ALPHA],
+                          ratio(local.faceAlignedValuesPlus),
+                          local.faceAlignedValuesMinus[QuantityIndices::ALPHA],
+                          ratio(local.faceAlignedValuesMinus));
+  } else {
+    // The impedance belongs to the face; the same six numbers, per face.
+    const auto& impAndEta = (local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId];
+    NodalImpedanceT impedance{};
+    impedance.invZp = impAndEta.invZp;
+    impedance.invZpNeig = impAndEta.invZpNeig;
+    impedance.invZs = impAndEta.invZs;
+    impedance.invZsNeig = impAndEta.invZsNeig;
+    impedance.etaS = impAndEta.etaS;
+    impedance.invEtaS = impAndEta.invEtaS;
+    return impedance;
+  }
+}
+
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
   auto diff = [&local](int i) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
@@ -491,29 +521,36 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     local.faceAlignedStress23 =
         local.faceAlignedValuesPlus[QuantityIndices::SYZ] + lateralStress[2];
   } else {
-    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-    const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
-    const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
+    // The impedance of this point, formed the way the friction solve forms
+    // it -- from the state that is here. Where it belongs to the face, the
+    // two are the same four numbers and this is the face's.
+    const auto impedance = nodalImpedanceAt(local);
+    const real normalDivisor = impedance.invZp + impedance.invZpNeig;
+    const real shearDivisor = impedance.invZs + impedance.invZsNeig;
+
+    // The Riemann problem of the face, written with the inverse impedances so
+    // that it is the same expression the precomputation solves.
+    const real etaS = 1.0 / shearDivisor;
+    const real etaP = 1.0 / normalDivisor;
 
     local.faceAlignedStress12 =
         local.faceAlignedValuesPlus[QuantityIndices::T1] +
-        ((diff(QuantityIndices::T1) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
-            shearDivisor;
+        etaS * (impedance.invZs * diff(QuantityIndices::T1) + diff(QuantityIndices::V)) -
+        etaS * impedance.invZs * diff(QuantityIndices::T1) +
+        etaS * (diff(QuantityIndices::T1) * impedance.invZs);
 
     local.faceAlignedStress13 =
         local.faceAlignedValuesPlus[QuantityIndices::T2] +
-        ((diff(QuantityIndices::T2) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
-            shearDivisor;
+        etaS * (impedance.invZs * diff(QuantityIndices::T2) + diff(QuantityIndices::W));
 
     local.transientNormalTraction =
         local.faceAlignedValuesPlus[QuantityIndices::N] +
-        ((diff(QuantityIndices::N) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
-            normalDivisor;
+        etaP * (impedance.invZp * diff(QuantityIndices::N) + diff(QuantityIndices::U));
 
     local.faultNormalVelocity =
         local.faceAlignedValuesPlus[QuantityIndices::U] +
         (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::N]) *
-            impAndEta.invZp;
+            impedance.invZp;
 
     real missingSigmaValues =
         (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::N]);
@@ -618,11 +655,11 @@ void ReceiverOutput::computeSlipRate(
     // the shear block of eta is a multiple of the identity for every material with an isotropic
     // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
     // a scalar is exact and the order of scaling and rotation does not matter
-    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-    local.slipRateStrike = -impAndEta.invEtaS *
-                           (rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY]);
-    local.slipRateDip = -impAndEta.invEtaS *
-                        (rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]);
+    const auto invEtaS = nodalImpedanceAt(local).invEtaS;
+    local.slipRateStrike =
+        -invEtaS * (rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY]);
+    local.slipRateDip =
+        -invEtaS * (rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]);
   }
 }
 

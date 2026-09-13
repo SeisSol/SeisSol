@@ -11,9 +11,13 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
+#include "Common/Marker.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Kernels/Precision.h"
+
+#include <cmath>
+#include <limits>
 
 namespace seissol::dr {
 
@@ -157,6 +161,68 @@ struct FaultImpedancesImpl<Executor::Device, true> {
 
 template <Executor Executor>
 using FaultImpedances = FaultImpedancesImpl<Executor, NodalImpedance>;
+
+/// The impedance at one node, which is what the device keeps per thread. The
+/// same type, so that a node's impedance and a face's cannot drift into two
+/// definitions of the same six numbers.
+using NodalImpedanceT = FaultImpedancesImpl<Executor::Device, true>;
+
+/// The impedance a wave sees at one node of a face.
+///
+/// The moduli follow the state here, so this is a property of a point and an
+/// instant rather than of the material. It is the secant linearisation the
+/// volume carries, not the exact tangent: the tangent has terms in the outer
+/// product of the strain with itself, and its acoustic tensor would depend on
+/// the direction of the normal relative to the principal strain axes. The
+/// secant is what the volume's wave speed uses, and a face that carried a
+/// different material than the cells beside it is worse than a face that
+/// carries an approximate one.
+///
+/// The solid branch alone, without the breakage blend, for the same reason.
+SEISSOL_HOSTDEVICE inline NodalImpedanceT nodalImpedance(const NodalImpedanceParameters& params,
+                                                         real alphaPlus,
+                                                         real xiPlus,
+                                                         real alphaMinus,
+                                                         real xiMinus) {
+  const auto shear = [](double mu0, double gammaR, double xi0, real alpha, real xi) {
+    // 2 mu_eff, as the volume forms it
+    return static_cast<real>(2.0 * mu0 - 2.0 * gammaR * xi0 * alpha - gammaR * alpha * xi);
+  };
+
+  const auto twoMuPlus =
+      shear(params.mu0Plus, params.gammaRPlus, params.xi0Plus, alphaPlus, xiPlus);
+  const auto twoMuMinus =
+      shear(params.mu0Minus, params.gammaRMinus, params.xi0Minus, alphaMinus, xiMinus);
+
+  const auto zp = std::sqrt(static_cast<real>(params.rhoPlus) *
+                            (static_cast<real>(params.lambda0Plus) + twoMuPlus));
+  const auto zpNeig = std::sqrt(static_cast<real>(params.rhoMinus) *
+                                (static_cast<real>(params.lambda0Minus) + twoMuMinus));
+  const auto zs = std::sqrt(static_cast<real>(params.rhoPlus) * static_cast<real>(0.5) * twoMuPlus);
+  const auto zsNeig =
+      std::sqrt(static_cast<real>(params.rhoMinus) * static_cast<real>(0.5) * twoMuMinus);
+
+  NodalImpedanceT impedance{};
+  impedance.invZp = static_cast<real>(1.0) / zp;
+  impedance.invZpNeig = static_cast<real>(1.0) / zpNeig;
+  impedance.invZs = static_cast<real>(1.0) / zs;
+  impedance.invZsNeig = static_cast<real>(1.0) / zsNeig;
+  impedance.invEtaS = impedance.invZs + impedance.invZsNeig;
+  impedance.etaS = static_cast<real>(1.0) / impedance.invEtaS;
+  return impedance;
+}
+
+/// The strain invariant ratio at a node, from the six Voigt components of the
+/// strain there. An invariant, so the rotation into the face frame does not
+/// enter and a face may form it from the rotated strain directly.
+SEISSOL_HOSTDEVICE inline real
+    strainRatio(real exx, real eyy, real ezz, real exy, real eyz, real exz) {
+  const auto i1 = exx + eyy + ezz;
+  const auto i2 = exx * exx + eyy * eyy + ezz * ezz +
+                  static_cast<real>(2.0) * (exy * exy + eyz * eyz + exz * exz);
+  const auto floor = std::numeric_limits<real>::epsilon() * std::numeric_limits<real>::epsilon();
+  return i2 > floor ? i1 / std::sqrt(i2) : static_cast<real>(0.0);
+}
 
 /**
  * Struct that contains all input stresses

@@ -138,6 +138,10 @@ class ReceiverOutput {
   /// What the solver needs of a cell's material. Kept for every cell, so
   /// this answers for the far side of a fault on another rank too.
   const typename model::MaterialT::Solver::LocalData& solverLocalData(std::size_t meshId);
+
+  /// The impedance at a receiver's point, formed the way the friction solve
+  /// forms it, so that the two cannot answer differently.
+  static NodalImpedanceT nodalImpedanceAt(const LocalInfo& local);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   /**

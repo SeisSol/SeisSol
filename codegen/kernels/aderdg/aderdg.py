@@ -370,6 +370,12 @@ class ADERDGBase(ABC):
         """Layout the face rotation operates on."""
         return self.quantityBlocks()
 
+    def transportStrainOffset(self):
+        """Where the strain sits along the quantity axis of what a cell
+        transports. The number of transported quantities where a material
+        does not write its rheology in one, which is all of them here."""
+        return self.numTransportQuantities()
+
     def transportBoundColumn(self):
         """Which column carries the bound a face scales its dissipation with.
 

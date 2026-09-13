@@ -252,6 +252,9 @@ class DamageADERDG(NonLinearCK):
         self.nodeWave = Tensor("nodeWaveSpeed", (1,), temporary=True)
         self.waveIntegral = Tensor("waveIntegral", (1,), temporary=True)
 
+    def transportStrainOffset(self):
+        return self.transportGroupSlice("eps")[0]
+
     def materialParameterNames(self):
         return self.parameterNames
 

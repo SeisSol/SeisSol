@@ -128,13 +128,9 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
   const auto* __restrict qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
-                model::MaterialT::Type == model::MaterialType::Viscoelastic) {
-    const auto etaP = impAndEta.etaP * etaPDamp;
-    const auto etaS = impAndEta.etaS;
-    const auto invZp = impAndEta.invZp;
-    const auto invZs = impAndEta.invZs;
-    const auto invZpNeig = impAndEta.invZpNeig;
-    const auto invZsNeig = impAndEta.invZsNeig;
+                model::MaterialT::Type == model::MaterialType::Viscoelastic ||
+                model::MaterialT::Type == model::MaterialType::Damage) {
+    using Indexing = VariableIndexing<RangeExecutor<Type>::Exec>;
 
     using namespace dr::misc::quantity_indices;
 
@@ -145,15 +141,63 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto i{startLoopIndex + index};
-      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, i) =
+
+      // Where the moduli follow the state, the impedance is a property of this
+      // node and this instant. Formed here, once, and kept with the stresses:
+      // a friction law has no way back to the state.
+      if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
+        const auto ratio = [&](const auto* side) {
+          return dr::strainRatio(side[o][EXX][i],
+                                 side[o][EYY][i],
+                                 side[o][EZZ][i],
+                                 side[o][EXY][i],
+                                 side[o][EYZ][i],
+                                 side[o][EXZ][i]);
+        };
+        const auto impedance = dr::nodalImpedance(*nodalImpedanceParams,
+                                                  qIPlus[o][ALPHA][i],
+                                                  ratio(qIPlus),
+                                                  qIMinus[o][ALPHA][i],
+                                                  ratio(qIMinus));
+        Indexing::index(faultStresses.etaS, i) = impedance.etaS;
+        Indexing::index(faultStresses.invEtaS, i) = impedance.invEtaS;
+        Indexing::index(faultStresses.invZp, i) = impedance.invZp;
+        Indexing::index(faultStresses.invZs, i) = impedance.invZs;
+        Indexing::index(faultStresses.invZpNeig, i) = impedance.invZpNeig;
+        Indexing::index(faultStresses.invZsNeig, i) = impedance.invZsNeig;
+      }
+
+      // The same four numbers either way; where they belong to a node they
+      // were just formed there, which is why the arithmetic below needs no
+      // branch of its own.
+      const auto read = [&](const real* nodal, real constant) {
+        if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
+          return Indexing::index(nodal, i);
+        } else {
+          return constant;
+        }
+      };
+      const auto invZp = read(faultStresses.invZp, impAndEta.invZp);
+      const auto invZs = read(faultStresses.invZs, impAndEta.invZs);
+      const auto invZpNeig = read(faultStresses.invZpNeig, impAndEta.invZpNeig);
+      const auto invZsNeig = read(faultStresses.invZsNeig, impAndEta.invZsNeig);
+      const auto etaS = read(faultStresses.etaS, impAndEta.etaS);
+      // eta_p is not kept: it is the harmonic sum of what is, and only the
+      // Riemann problem reads it.
+      const auto etaP = (model::MaterialT::Type == model::MaterialType::Damage
+                             ? static_cast<real>(1.0) / (invZp + invZpNeig)
+                             : impAndEta.etaP) *
+                        etaPDamp;
+
+      Indexing::index(faultStresses.normalStress, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
 
-      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction1, i) =
+      Indexing::index(faultStresses.traction1, i) =
           etaS * (qIMinus[o][V][i] - qIPlus[o][V][i] + qIPlus[o][T1][i] * invZs +
                   qIMinus[o][T1][i] * invZsNeig);
 
-      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction2, i) =
+      Indexing::index(faultStresses.traction2, i) =
           etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
                   qIMinus[o][T2][i] * invZsNeig);
     }

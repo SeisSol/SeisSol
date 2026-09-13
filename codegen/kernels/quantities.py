@@ -262,6 +262,10 @@ def emit_header(aderdg, output_dir):
         f"{role_offset(aderdg.transportBlocks(), FaceRole.TRACTION)};",
         f"inline constexpr std::size_t TransportVelocityOffset = "
         f"{role_offset(aderdg.transportBlocks(), FaceRole.VELOCITY)};",
+        "/// Where the strain sits, for a material that writes its rheology in",
+        "/// one. The number of transported quantities where there is none.",
+        f"inline constexpr std::size_t TransportStrainOffset = "
+        f"{aderdg.transportStrainOffset()};",
         "/// Which column carries the bound a face scales its dissipation with,",
         "/// or the number of transported quantities where there is none.",
         f"inline constexpr std::size_t TransportBoundColumn = "

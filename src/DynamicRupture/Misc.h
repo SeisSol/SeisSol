@@ -265,6 +265,14 @@ enum QuantityIndices : uint32_t {
   N = SXX,
   T1 = SXY,
   T2 = SXZ,
+  // The strain, in Voigt order, where a material writes its rheology in one.
+  // Meaningless, and never read, where there is none.
+  EXX = generated::TransportStrainOffset + 0,
+  EYY = generated::TransportStrainOffset + 1,
+  EZZ = generated::TransportStrainOffset + 2,
+  EXY = generated::TransportStrainOffset + 3,
+  EYZ = generated::TransportStrainOffset + 4,
+  EXZ = generated::TransportStrainOffset + 5,
   // The state's own variables, for a solver that transports them because a
   // face needs them. Meaningless, and never read, where there are none.
   ALPHA = generated::TransportInternalOffset + 0,
