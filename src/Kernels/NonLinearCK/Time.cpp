@@ -10,7 +10,6 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
-#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
@@ -114,7 +113,6 @@ void Spacetime::computeAder(const real* coeffs,
 
   step.I = timeIntegrated;
   step.sourceI = tmp.sourceIntegral;
-  step.maxWaveSpeed = &tmp.maxWaveSpeed;
   step.epsInit = local.epsInit;
 
   step.rhoInv = local.parameters.rhoInv;
@@ -133,20 +131,11 @@ void Spacetime::computeAder(const real* coeffs,
   step.invariantFloor = invariantFloor();
   step.execute();
 
-  // The dissipation coefficient rides in the last column of the transported
-  // tensor, as one number per cell: the neighbour reads it from the same
-  // buffer it reads everything else from, and needs nothing else about this
-  // cell to scale its half of the flux.
-  //
-  // What goes in is the largest speed the step actually saw, sampled at the
-  // nodes of the same rule the fluxes are integrated with. It is not a bound
-  // in the strict sense -- the speed between two nodes is not looked at --
-  // but it is a bound over the samples of the interval the flux integrates,
-  // and it is as tight as this cell can report. The rigorous bound the
-  // material allows sits next to it, for the cases where a cell has to answer
-  // for an interval its own predictor did not sample.
-  auto transported = init::I::view::create(timeIntegrated);
-  transported(0, tensor::I::Shape[1] - 1) = tmp.maxWaveSpeed;
+  // What scales the dissipation is in the transported tensor as well, and
+  // the step wrote it there itself: the square of the fastest wave integrated
+  // over the step, and the length of the step beside it. Neither is a speed,
+  // which is what lets a coarser cluster accumulate them like every other
+  // column and a face divide one by the other.
 }
 
 void Spacetime::computeBatchedAder(

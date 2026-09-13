@@ -25,9 +25,6 @@ struct LocalTmp {
   /// produced by the predictor and consumed by the corrector of the same cell
   /// in the same timestep, and no neighbour ever asks for it.
   alignas(Alignment) real sourceIntegral[zeroGuard(kernels::size<tensor::sourceI>())]{};
-  /// Largest wave speed the cell saw over the step, for the dissipation of
-  /// its own half of every face flux.
-  real maxWaveSpeed{};
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   alignas(Alignment)
       std::array<real,

@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <utility>
@@ -56,12 +57,24 @@ void Neighbor::computeNeighborsIntegral(
   const real* own = data.get<LTS::StepIntegrals>();
   assert(own != nullptr);
 
-  // The wave speed rides in the last column of a transported tensor, in its
-  // constant mode. Reading it costs no kernel -- but it goes through the
-  // generated view, because the leading dimension is padded for alignment and
-  // the column does not sit where the shape alone would put it.
-  constexpr auto DissipationColumn = tensor::I::Shape[1] - 1;
-  const real lambdaLocal = init::I::view::create(own)(0, DissipationColumn);
+  // The last two columns of a transported tensor are the square of its
+  // fastest wave integrated over the step and the length of the step. Neither
+  // is a speed, which is what lets them be accumulated; a speed comes out of
+  // dividing one by the other and taking the root, and the root is taken once
+  // per face rather than once per node.
+  //
+  // Both sit in the constant mode, read through the generated view: the
+  // leading dimension is padded for alignment, so the columns do not sit
+  // where the shape alone would put them.
+  constexpr auto WaveColumn = tensor::I::Shape[1] - 2;
+  constexpr auto IntervalColumn = tensor::I::Shape[1] - 1;
+
+  const auto waveSpeed = [](const real* integrals) {
+    const auto view = init::I::view::create(integrals);
+    return std::sqrt(view(0, WaveColumn) / view(0, IntervalColumn));
+  };
+
+  const real lambdaLocal = waveSpeed(own);
 
   alignas(Alignment) real plusData[tensor::AplusT::size()];
   alignas(Alignment) real minusData[tensor::AminusT::size()];
@@ -77,8 +90,7 @@ void Neighbor::computeNeighborsIntegral(
     // reads the other's material for it.
     kernel::damageFluxDissipation dissipation = dissipation_;
     dissipation.fluxConstant = data.get<LTS::LocalIntegration>().nApNm1[face];
-    const real lambdaNeighbor = init::I::view::create(timeIntegrated[face])(0, DissipationColumn);
-    dissipation.lambdaMax = std::max(lambdaLocal, lambdaNeighbor);
+    dissipation.lambdaMax = std::max(lambdaLocal, waveSpeed(timeIntegrated[face]));
     dissipation.AplusT = plusData;
     dissipation.AminusT = minusData;
     dissipation.execute();

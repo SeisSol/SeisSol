@@ -142,6 +142,13 @@ class DamageADERDG(NonLinearCK):
             for d, axis in enumerate("XYZ")
         ]
         self.unitColumn = Tensor("unitColumn", (1,), np.ones(1))
+        # Picks the constant basis function, which is where a cell value goes
+        # when it has to sit in a modal column.
+        self.constantMode = Tensor(
+            "constantMode",
+            (self.num3DBasisFunctions(),),
+            unit(0, self.num3DBasisFunctions()),
+        )
         self.weights = Tensor("quadratureWeights", (nodes,), self.nodalMeanWeights())
 
         def temporary(name, columns=None):
@@ -173,7 +180,8 @@ class DamageADERDG(NonLinearCK):
         # The wave speed does: the face coupling is scaled with it.
         self.alphaNodal = temporary("alphaNodal")
         self.breakageNodal = temporary("breakageNodal")
-        self.maxWaveSpeed = Tensor("maxWaveSpeed", (1,))
+        self.waveIntegral = Tensor("waveIntegral", (1,), temporary=True)
+        self.intervalLength = Tensor("intervalLength", (1,), temporary=True)
 
     def stepStatements(self, node, weight, march):
         """The material response at one time node, and what it contributes.
@@ -253,22 +261,30 @@ class DamageADERDG(NonLinearCK):
         ]
 
         # The cell as a whole: the means the source guard asks for, and the
-        # largest wave speed over the nodes of the step.
-        speed = yf.sqrt(Scalar("rhoInv") * (lambda0 + twoMuEff["l"]))
+        # square of its fastest wave at this node. The square, because that is
+        # what the moduli are affine in; the root is taken once per face, by
+        # whoever reads the integral.
+        speedSquared = Scalar("rhoInv") * (lambda0 + twoMuEff["l"])
         statements += [
             self.meanAlpha["u"]
             <= alpha["l"] * self.weights["l"] * self.unitColumn["u"],
             self.meanBreakage["u"]
             <= breakage["l"] * self.weights["l"] * self.unitColumn["u"],
         ]
-        nodeSpeed = yf.mul(yf.max(speed, "l"), self.unitColumn["u"])
+        nodeSpeed = yf.mul(yf.max(speedSquared, "l"), self.unitColumn["u"])
         statements += [
             (
-                self.maxWaveSpeed["u"] <= nodeSpeed
+                self.waveIntegral["u"] <= weight * nodeSpeed
                 if first
-                else self.maxWaveSpeed["u"]
-                <= yf.maximum(self.maxWaveSpeed["u"], nodeSpeed)
-            )
+                else self.waveIntegral["u"]
+                <= self.waveIntegral["u"] + weight * nodeSpeed
+            ),
+            (
+                self.intervalLength["u"] <= weight * self.unitColumn["u"]
+                if first
+                else self.intervalLength["u"]
+                <= self.intervalLength["u"] + weight * self.unitColumn["u"]
+            ),
         ]
 
         # The critical damage at which breakage sets in: the smaller root of a
@@ -379,11 +395,19 @@ class DamageADERDG(NonLinearCK):
     def finishStatements(self):
         """What the step leaves behind, projected back to modal form once."""
         stress = self.transportGroupSlice("sigma")
+        wave = self.transportGroupSlice("waveIntegral")
+        interval = self.transportGroupSlice("interval")
         projection = self.db.projectQP[self.t("kl")]
         return [
             self.I["kc"].subslice("c", *stress)
             <= projection * self.sigmaIntegral["lc"],
             self.sourceI["kn"] <= projection * self.sourceIntegral["ln"],
+            # A cell value in a modal column is the coefficient of the
+            # constant basis function and nothing else.
+            self.I["kc"].subslice("c", *wave)
+            <= self.constantMode["k"] * self.waveIntegral["c"],
+            self.I["kc"].subslice("c", *interval)
+            <= self.constantMode["k"] * self.intervalLength["c"],
         ]
 
     def addCellIntegral(self, generator, target, prefix):

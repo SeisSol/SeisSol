@@ -71,7 +71,15 @@ class NonLinearCK(ADERDGBase):
         ]
         return coupled + [
             QuantityGroup("sigma", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
-            QuantityGroup("lambdaMax", QuantityKind.INVARIANT),
+            # The dissipation is scaled with a wave speed, and a wave speed is
+            # not something that may be accumulated: over two timesteps of a
+            # neighbour, the sum of two speeds is not a speed. Its square
+            # integrated over the step is, and so is the length of the step --
+            # both are time integrals, so the accumulation of a coarser
+            # cluster sums them the way it sums every other column, and the
+            # face that reads them divides and takes the root.
+            QuantityGroup("waveIntegral", QuantityKind.INVARIANT),
+            QuantityGroup("interval", QuantityKind.INVARIANT),
         ]
 
     def transportBlocks(self):
@@ -84,7 +92,7 @@ class NonLinearCK(ADERDGBase):
             [
                 block
                 for block in self.transportBlocks()
-                if block.group.name != "sigma" and block.group.name != "lambdaMax"
+                if block.group.name in {group.name for group in self.primaryGroups()}
             ]
         )
 
@@ -111,12 +119,14 @@ class NonLinearCK(ADERDGBase):
         raise ValueError(f"no transport group named {name}")
 
     def transportSpp(self):
-        """The dissipation coefficient is one number per cell, so its column
-        carries the constant mode alone."""
+        """The two scalars of the step are one number per cell each, so their
+        columns carry the constant mode alone."""
         spp = np.ones(
             (self.num3DBasisFunctions(), self.numTransportQuantities()), dtype=bool
         )
-        spp[1:, -1] = False
+        for name in ("waveIntegral", "interval"):
+            start, _ = self.transportGroupSlice(name)
+            spp[1:, start] = False
         return spp
 
     def addInit(self, generator):
