@@ -53,12 +53,10 @@ class Neighbor : public NeighborKernel {
               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const override;
 
   protected:
-  kernel::damageFluxDissipation dissipation_;
   kernel::damageLocalFlux localFlux_;
   kernel::damageNeighborFlux neighborFlux_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_damageFluxDissipation deviceDissipation_;
   kernel::gpu_damageLocalFlux deviceLocalFlux_;
   kernel::gpu_damageNeighborFlux deviceNeighborFlux_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();

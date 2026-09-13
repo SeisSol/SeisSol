@@ -32,16 +32,12 @@
 namespace seissol::kernels::solver::nonlinearck {
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
-  projectToFace_.bindGlobals(*global.onHost);
-  projectNeighborToFace_.bindGlobals(*global.onHost);
-  rusanov_.bindGlobals(*global.onHost);
-  faceIntegral_.bindGlobals(*global.onHost);
+  localFlux_.bindGlobals(*global.onHost);
+  neighborFlux_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceProjectToFace_.bindGlobals(*global.onDevice);
-  deviceProjectNeighborToFace_.bindGlobals(*global.onDevice);
-  deviceRusanov_.bindGlobals(*global.onDevice);
-  deviceFaceIntegral_.bindGlobals(*global.onDevice);
+  deviceLocalFlux_.bindGlobals(*global.onDevice);
+  deviceNeighborFlux_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -57,55 +53,26 @@ void Neighbor::computeNeighborsIntegral(
   const real* own = data.get<LTS::StepIntegrals>();
   assert(own != nullptr);
 
-  // The last two columns of a transported tensor are the square of its
-  // fastest wave integrated over the step and the length of the step. Neither
-  // is a speed, which is what lets them be accumulated; a speed comes out of
-  // dividing one by the other and taking the root, and the root is taken once
-  // per face rather than once per node.
-  //
-  // Both sit in the constant mode, read through the generated view: the
-  // leading dimension is padded for alignment, so the columns do not sit
-  // where the shape alone would put them.
-  constexpr auto WaveColumn = tensor::I::Shape[1] - 2;
-  constexpr auto IntervalColumn = tensor::I::Shape[1] - 1;
-
-  const auto waveSpeed = [](const real* integrals) {
-    const auto view = init::I::view::create(integrals);
-    return std::sqrt(view(0, WaveColumn) / view(0, IntervalColumn));
-  };
-
-  const real lambdaLocal = waveSpeed(own);
-
-  alignas(Alignment) real plusData[tensor::AplusT::size()];
-  alignas(Alignment) real minusData[tensor::AminusT::size()];
-
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const auto faceType = info.faceTypes[face];
     const bool hasNeighbor = faceType == FaceType::Regular || faceType == FaceType::Periodic;
 
     // A face without a neighbour carries its ghost rule in its own pair of
-    // matrices, folded in at setup, so what is left of it here is that the
-    // far half has nothing to be applied to. Which types have such a rule is
-    // settled where the pair is built, and a type without one never reaches
-    // this loop.
-    const real lambdaFace =
-        hasNeighbor ? std::max(lambdaLocal, waveSpeed(timeIntegrated[face])) : lambdaLocal;
+    // matrices, folded in at setup. What is left of it here is that there is
+    // no far state: its own stands in, which is also the speed the face is
+    // scaled with.
+    const real* other = hasNeighbor ? timeIntegrated[face] : own;
 
-    // Both halves of the flux differ only in the sign of their dissipation,
-    // and what they share is the larger of the two wave speeds. Neither side
-    // reads the other's material for it.
-    kernel::damageFluxDissipation dissipation = dissipation_;
-    dissipation.fluxConstant = data.get<LTS::LocalIntegration>().nApNm1[face];
-    dissipation.fluxDissipation = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
-    dissipation.lambdaMax = lambdaFace;
-    dissipation.AplusT = plusData;
-    dissipation.AminusT = minusData;
-    dissipation.execute();
-
+    // Each half assembles the pair it needs and reads the face's speed out of
+    // the two tensors itself. Nothing about a face crosses a kernel boundary,
+    // which is what lets the batched path run on the same tables the linear
+    // solver records.
     kernel::damageLocalFlux local = localFlux_;
     local.Q = data.get<LTS::Dofs>();
     local.I = own;
-    local.AplusT = plusData;
+    local.INeighbor = other;
+    local.fluxConstant = data.get<LTS::LocalIntegration>().nApNm1[face];
+    local.fluxDissipation = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
     local.execute(face);
 
     if (!hasNeighbor) {
@@ -114,8 +81,10 @@ void Neighbor::computeNeighborsIntegral(
 
     kernel::damageNeighborFlux neighbor = neighborFlux_;
     neighbor.Q = data.get<LTS::Dofs>();
-    neighbor.I = timeIntegrated[face];
-    neighbor.AminusT = minusData;
+    neighbor.I = own;
+    neighbor.INeighbor = other;
+    neighbor.fluxConstant = data.get<LTS::LocalIntegration>().nApNm1[face];
+    neighbor.fluxDissipation = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
     neighbor.execute(info.faceRelations[face][1], info.faceRelations[face][0], face);
   }
 }
@@ -137,8 +106,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
       continue;
     }
     // both traces of the face, the flux between them, and the lift back
-    // the dissipation correction of the face, then both halves of its flux
-    neighbor += PerformanceEstimate::fromKernel<kernel::damageFluxDissipation>();
+    // both halves of the face's flux, each assembling the pair it applies
     neighbor += PerformanceEstimate::fromKernel<kernel::damageLocalFlux>(face);
     neighbor += PerformanceEstimate::fromKernel<kernel::damageNeighborFlux>(
         neighboringIndices[face][1], neighboringIndices[face][0], face);

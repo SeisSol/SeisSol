@@ -18,6 +18,7 @@ in this class yet; they arrive with the constitutive law that defines them.
 from dataclasses import replace
 
 import numpy as np
+import yateto.functions as yf
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
@@ -178,6 +179,19 @@ class NonLinearCK(ADERDGBase):
             self.Q.optSize(),
             self.Q.optPos(),
             (self.num3DBasisFunctions(), self.numInternalVariables()),
+            alignStride=True,
+        )
+
+        # The far side of a face hands over a tensor of the same shape. It is
+        # an argument of its own rather than a second use of I, because a face
+        # reads both at once.
+        self.INeighbor = OptionalDimTensor(
+            "INeighbor",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.num3DBasisFunctions(), self.numTransportQuantities()),
+            spp=self.transportSpp(),
             alignStride=True,
         )
 
@@ -360,8 +374,21 @@ class NonLinearCK(ADERDGBase):
         pattern of D -- nine entries, against rebuilding a flux solver.
         """
         fluxScale = Scalar("fluxScale")
-        lambdaMax = Scalar("lambdaMax")
         normal = Tensor("faceNormal", (3,))
+
+        # Selectors for the two scalars a transported tensor carries. A wave
+        # speed is a property of an element, and a scalar argument is uniform
+        # over a batch, so the speed of a face is read out of the tensors and
+        # formed inside the kernel that needs it.
+        wave = self.transportGroupSlice("waveIntegral")[0]
+        interval = self.transportGroupSlice("interval")[0]
+        shape = (self.num3DBasisFunctions(), self.numTransportQuantities())
+        pickWave = np.zeros(shape)
+        pickWave[0, wave] = 1.0
+        pickInterval = np.zeros(shape)
+        pickInterval[0, interval] = 1.0
+        self.pickWave = Tensor("pickWaveIntegral", shape, pickWave)
+        self.pickInterval = Tensor("pickInterval", shape, pickInterval)
 
         # Both halves of the pair are per cell and face. The dissipation is
         # the identity on the coupled quantities for a face with a neighbour,
@@ -401,38 +428,51 @@ class NonLinearCK(ADERDGBase):
             self.fluxSolverStatements(fluxScale, normal),
             target=target,
         )
-        generator.add(
-            f"{prefix}damageFluxDissipation",
-            [
-                self.AplusT["qp"]
-                <= self.fluxConstant["qp"] + lambdaMax * self.fluxDissipation["qp"],
-                self.AminusT["qp"]
-                <= self.fluxConstant["qp"] - lambdaMax * self.fluxDissipation["qp"],
-            ],
-            target=target,
-        )
+        # The pair is assembled inside each half rather than between them: a
+        # matrix that crosses a kernel boundary is a matrix the batched path
+        # has to hold per element, and building it twice costs a hundred flops
+        # against the thousands the half itself costs.
+        self.AplusT.temporary = True
+        self.AminusT.temporary = True
+
+        def speed(own, other):
+            ratio = lambda tensor: yf.div(
+                tensor["kc"] * self.pickWave["kc"],
+                tensor["kc"] * self.pickInterval["kc"],
+            )
+            return yf.sqrt(yf.maximum(ratio(own), ratio(other)))
 
         generator.addFamily(
             f"{prefix}damageLocalFlux",
             simpleParameterSpace(4),
-            lambda i: self.Q["kp"]
-            <= self.Q["kp"]
-            + self.db.rDivM[i][self.t("km")]
-            * self.db.fMrT[i][self.t("ml")]
-            * self.I["lq"]
-            * self.AplusT["qp"],
+            lambda i: [
+                self.AplusT["qp"]
+                <= self.fluxConstant["qp"]
+                + speed(self.I, self.INeighbor) * self.fluxDissipation["qp"],
+                self.Q["kp"]
+                <= self.Q["kp"]
+                + self.db.rDivM[i][self.t("km")]
+                * self.db.fMrT[i][self.t("ml")]
+                * self.I["lq"]
+                * self.AplusT["qp"],
+            ],
             target=target,
         )
         generator.addFamily(
             f"{prefix}damageNeighborFlux",
             simpleParameterSpace(3, 4, 4),
-            lambda h, j, i: self.Q["kp"]
-            <= self.Q["kp"]
-            + self.db.rDivM[i][self.t("km")]
-            * self.db.fP[h][self.t("mn")]
-            * self.db.rT[j][self.t("nl")]
-            * self.I["lq"]
-            * self.AminusT["qp"],
+            lambda h, j, i: [
+                self.AminusT["qp"]
+                <= self.fluxConstant["qp"]
+                - speed(self.I, self.INeighbor) * self.fluxDissipation["qp"],
+                self.Q["kp"]
+                <= self.Q["kp"]
+                + self.db.rDivM[i][self.t("km")]
+                * self.db.fP[h][self.t("mn")]
+                * self.db.rT[j][self.t("nl")]
+                * self.INeighbor["lq"]
+                * self.AminusT["qp"],
+            ],
             target=target,
         )
 

@@ -189,7 +189,28 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
                            SEISSOL_GPU_PARAM real** timeIntegratedDofs,
                            SEISSOL_GPU_PARAM std::size_t numElements,
                            SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  assert(timeDerivatives != nullptr);
+  assert(timeIntegratedDofs != nullptr);
+  static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
+
+  // The expansion is of the state, so this is the Taylor sum of the linear
+  // solver, over the columns the two tensors share. What it does not write is
+  // the stress, which has no expansion stored, and that is what SupportsLTS
+  // being false says.
+  kernel::gpu_derivativeTaylorExpansion krnl;
+  krnl.numElements = numElements;
+  krnl.I = timeIntegratedDofs;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    krnl.dQ(i) = timeDerivatives;
+    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.power(i) = coeffs[i];
+  }
+  krnl.streamPtr = runtime.stream();
+  krnl.execute();
+#else
   logError() << "No GPU implementation provided";
+#endif
 }
 
 PerformanceEstimate Time::metrics() const {
