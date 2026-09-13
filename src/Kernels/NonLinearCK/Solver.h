@@ -8,11 +8,14 @@
 #ifndef SEISSOL_SRC_KERNELS_NONLINEARCK_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_NONLINEARCK_SOLVER_H_
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/quantities.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/TimeCoefficients.h"
 #include "Numerical/TimeBasis.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <variant>
 #include <yateto/InitTools.h>
@@ -82,6 +85,22 @@ struct Solver {
   /// Size of the expansion of what a cell carries beyond its state.
   static constexpr std::size_t DerivativesSize =
       yateto::computeFamilySize<tensor::dQ>() + kernels::familySize<tensor::transportDer>();
+
+  /// How a coarser cluster folds one step's integrals into what it already
+  /// has. Every column is a time integral and therefore a sum -- except the
+  /// one that carries the bound a face scales its dissipation with, which is
+  /// a maximum over the step. The larger of two bounds is a bound; their sum
+  /// is not one, it is merely larger, and it would grow with the cluster
+  /// ratio.
+  static void accumulate(real* accumulated, const real* step) {
+    const auto bound = generated::TransportBoundColumn;
+    const auto entry = init::I::index(0, bound);
+#pragma omp simd
+    for (std::size_t dof = 0; dof < IntegralsSize; ++dof) {
+      accumulated[dof] += step[dof];
+    }
+    accumulated[entry] = std::max(accumulated[entry] - step[entry], step[entry]);
+  }
 
   using LocalData = NonLinearLocalData;
   using NeighborData = NonLinearNeighborData;

@@ -418,10 +418,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
                     bufferPointer,
                     kernels::Solver::IntegralsSize * sizeof(real));
       } else {
-#pragma omp simd
-        for (std::size_t dof = 0; dof < kernels::Solver::IntegralsSize; ++dof) {
-          accumulatedIntegrals[cell][dof] += bufferPointer[dof];
-        }
+        kernels::Solver::accumulate(accumulatedIntegrals[cell], bufferPointer);
       }
     }
   }
@@ -510,6 +507,13 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime_.stream());
           } else {
+            // The bound a face scales its dissipation with is a maximum over
+            // the step, and this sums every column alike. Refused rather than
+            // summed: two bounds added are not a bound, and the error grows
+            // with the cluster ratio.
+            if constexpr (Config::Solver == SolverType::NonLinearCK) {
+              logError() << "The device path cannot accumulate the bound of a face yet.";
+            }
             device_.algorithms.accumulateBatchedData(
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),

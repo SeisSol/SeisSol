@@ -262,6 +262,10 @@ def emit_header(aderdg, output_dir):
         f"{role_offset(aderdg.transportBlocks(), FaceRole.TRACTION)};",
         f"inline constexpr std::size_t TransportVelocityOffset = "
         f"{role_offset(aderdg.transportBlocks(), FaceRole.VELOCITY)};",
+        "/// Which column carries the bound a face scales its dissipation with,",
+        "/// or the number of transported quantities where there is none.",
+        f"inline constexpr std::size_t TransportBoundColumn = "
+        f"{aderdg.transportBoundColumn()};",
         "/// Where the groups of the state that carry no flux begin, for a",
         "/// solver that transports them anyway. Zero where there are none.",
         f"inline constexpr std::size_t TransportInternalOffset = "

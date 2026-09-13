@@ -87,20 +87,23 @@ class NonLinearCK(ADERDGBase):
                 if group.role is FaceRole.NONE
             ]
             + [
-                # The dissipation is scaled with a wave speed, and a wave speed is
-                # not something that may be accumulated: over two timesteps of a
-                # neighbour, the sum of two speeds is not a speed. Its square
-                # integrated over the step is, and so is the length of the step --
-                # both are time integrals, so the accumulation of a coarser
-                # cluster sums them the way it sums every other column, and the
-                # face that reads them divides and takes the root.
+                # The dissipation is scaled with a wave speed, and Rusanov wants
+                # an upper bound on the instantaneous one. So what is carried is
+                # the largest square of it over the step: the square, because
+                # that is what the moduli are affine in, and the largest rather
+                # than a mean, because a mean is below the bound at every
+                # instant where the speed is above it. A maximum also survives
+                # accumulation, which a mean does not -- a coarser cluster takes
+                # the larger of what it has and what it reads.
                 QuantityGroup("waveIntegral", QuantityKind.INVARIANT),
-                QuantityGroup("interval", QuantityKind.INVARIANT),
             ]
         )
 
     def transportBlocks(self):
         return layout(self.transportGroups())
+
+    def transportBoundColumn(self):
+        return self.transportGroupSlice("waveIntegral")[0]
 
     def transportStateExtent(self):
         """Quantities the transported tensor shares with the state, and in the
@@ -145,7 +148,7 @@ class NonLinearCK(ADERDGBase):
         spp = np.ones(
             (self.num3DBasisFunctions(), self.numTransportQuantities()), dtype=bool
         )
-        for name in ("waveIntegral", "interval"):
+        for name in ("waveIntegral",):
             start, _ = self.transportGroupSlice(name)
             spp[1:, start] = False
         return spp
@@ -461,14 +464,10 @@ class NonLinearCK(ADERDGBase):
         # over a batch, so the speed of a face is read out of the tensors and
         # formed inside the kernel that needs it.
         wave = self.transportGroupSlice("waveIntegral")[0]
-        interval = self.transportGroupSlice("interval")[0]
         shape = (self.num3DBasisFunctions(), self.numTransportQuantities())
         pickWave = np.zeros(shape)
         pickWave[0, wave] = 1.0
-        pickInterval = np.zeros(shape)
-        pickInterval[0, interval] = 1.0
         self.pickWave = Tensor("pickWaveIntegral", shape, pickWave)
-        self.pickInterval = Tensor("pickInterval", shape, pickInterval)
 
         # Both halves of the pair are per cell and face. The dissipation is
         # the identity on the coupled quantities for a face with a neighbour,
@@ -530,11 +529,12 @@ class NonLinearCK(ADERDGBase):
         )
 
         def speed(own, other):
-            ratio = lambda tensor: yf.div(
-                tensor["kc"] * self.pickWave["kc"],
-                tensor["kc"] * self.pickInterval["kc"],
-            )
-            return yf.sqrt(yf.maximum(ratio(own), ratio(other)))
+            # The larger of the two sides' bounds, which is what Rusanov
+            # scales a jump with. Read out of the tensors rather than passed
+            # in: a scalar argument is uniform over a batch and a wave speed
+            # is not.
+            bound = lambda tensor: tensor["kc"] * self.pickWave["kc"]
+            return yf.sqrt(yf.maximum(bound(own), bound(other)))
 
         generator.addFamily(
             f"{prefix}damageLocalFlux",

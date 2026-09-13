@@ -251,7 +251,6 @@ class DamageADERDG(NonLinearCK):
         self.breakageNodal = temporary("breakageNodal")
         self.nodeWave = Tensor("nodeWaveSpeed", (1,), temporary=True)
         self.waveIntegral = Tensor("waveIntegral", (1,), temporary=True)
-        self.intervalLength = Tensor("intervalLength", (1,), temporary=True)
 
     def materialParameterNames(self):
         return self.parameterNames
@@ -391,16 +390,10 @@ class DamageADERDG(NonLinearCK):
         nodeSpeed = self.nodeWave["u"]
         statements += [
             (
-                self.waveIntegral["u"] <= weight * nodeSpeed
+                self.waveIntegral["u"] <= nodeSpeed
                 if first
                 else self.waveIntegral["u"]
-                <= self.waveIntegral["u"] + weight * nodeSpeed
-            ),
-            (
-                self.intervalLength["u"] <= weight * self.unitColumn["u"]
-                if first
-                else self.intervalLength["u"]
-                <= self.intervalLength["u"] + weight * self.unitColumn["u"]
+                <= yf.maximum(self.waveIntegral["u"], nodeSpeed)
             ),
         ]
 
@@ -522,8 +515,6 @@ class DamageADERDG(NonLinearCK):
             (carried("alpha"), self.alphaModal),
             (carried("breakage"), self.breakageModal),
         )
-        wave = carried("waveIntegral")
-        interval = carried("interval")
         for i in range(self.order):
             # a numpy scalar is not a Python float, and yateto takes the latter
             weightOf = float(projection[i, node])
@@ -549,26 +540,6 @@ class DamageADERDG(NonLinearCK):
                         + weightOf * value["k"] * self.unitColumn["c"]
                     )
                 ]
-            statements += [
-                (
-                    target["kc"].subslice("c", *wave)
-                    <= weightOf * self.constantMode["k"] * self.nodeWave["c"]
-                    if first
-                    else target["kc"].subslice("c", *wave)
-                    <= target["kc"].subslice("c", *wave)
-                    + weightOf * self.constantMode["k"] * self.nodeWave["c"]
-                )
-            ]
-            statements += [
-                (
-                    target["kc"].subslice("c", *interval)
-                    <= weightOf * self.constantMode["k"] * self.unitColumn["c"]
-                    if first
-                    else target["kc"].subslice("c", *interval)
-                    <= target["kc"].subslice("c", *interval)
-                    + weightOf * self.constantMode["k"] * self.unitColumn["c"]
-                )
-            ]
 
         statements += [
             alpha["l"] <= alpha["l"] + march * self.sourceAlpha["l"],
@@ -580,7 +551,10 @@ class DamageADERDG(NonLinearCK):
         """What the step leaves behind, projected back to modal form once."""
         stress = self.transportGroupSlice("sigma")
         wave = self.transportGroupSlice("waveIntegral")
-        interval = self.transportGroupSlice("interval")
+        carriedWave = (
+            wave[0] - self.transportStateExtent(),
+            wave[1] - self.transportStateExtent(),
+        )
         projection = self.db.projectQP[self.t("kl")]
         return [
             self.I["kc"].subslice("c", *stress)
@@ -599,8 +573,21 @@ class DamageADERDG(NonLinearCK):
             # constant basis function and nothing else.
             self.I["kc"].subslice("c", *wave)
             <= self.constantMode["k"] * self.waveIntegral["c"],
-            self.I["kc"].subslice("c", *interval)
-            <= self.constantMode["k"] * self.intervalLength["c"],
+        ] + [
+            # The bound is one number for the whole step, not a function of
+            # time within it: a maximum does not restrict to a subinterval the
+            # way an integral does. So it stands in the constant coefficient
+            # of the carried expansion and is zero in the rest, and a
+            # neighbour reconstructing a subinterval reads the step's bound --
+            # an overestimate, which is the side Rusanov may err on.
+            (
+                self.transportDer[i]["kc"].subslice("c", *carriedWave)
+                <= self.constantMode["k"] * self.waveIntegral["c"]
+                if i == 0
+                else self.transportDer[i]["kc"].subslice("c", *carriedWave)
+                <= 0.0 * self.constantMode["k"] * self.waveIntegral["c"]
+            )
+            for i in range(self.order)
         ]
 
     def addStateToTransport(self, generator, targets):
@@ -613,14 +600,13 @@ class DamageADERDG(NonLinearCK):
         than a projection, because a nonlinear function of a polynomial is
         not one, which is the approximation the step makes as well.
 
-        The two accumulators have no meaning at an instant. They are filled so
-        that a reader taking the root of their ratio gets the speed of this
-        instant, as it would of a step.
+        The bound a face scales its dissipation with is the speed of this
+        instant, which is what a step would leave behind if it were the only
+        node in it.
         """
         coupled = (0, self.transportStateExtent())
         stress = self.transportGroupSlice("sigma")
         wave = self.transportGroupSlice("waveIntegral")
-        interval = self.transportGroupSlice("interval")
         projection = self.db.projectQP[self.t("kl")]
 
         statements = self.parameterStatements()
@@ -642,8 +628,6 @@ class DamageADERDG(NonLinearCK):
             <= self.Q["kc"].subslice("c", BREAKAGE, BREAKAGE + 1),
             self.I["kc"].subslice("c", *wave)
             <= self.constantMode["k"] * self.nodeWave["c"],
-            self.I["kc"].subslice("c", *interval)
-            <= self.constantMode["k"] * self.unitColumn["c"],
         ]
 
         for target in targets:

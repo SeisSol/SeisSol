@@ -56,6 +56,15 @@ struct Solver {
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
 
+  /// How a coarser cluster folds one step's integrals into what it already
+  /// has. Every column is a time integral, so every column is a sum.
+  static void accumulate(real* accumulated, const real* step) {
+#pragma omp simd
+    for (std::size_t dof = 0; dof < IntegralsSize; ++dof) {
+      accumulated[dof] += step[dof];
+    }
+  }
+
   using LocalData = AnelasticLocalData;
   using NeighborData = AnelasticNeighborData;
 };

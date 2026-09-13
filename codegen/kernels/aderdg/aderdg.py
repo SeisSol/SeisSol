@@ -335,6 +335,14 @@ class ADERDGBase(ABC):
         """Layout the face rotation operates on."""
         return self.quantityBlocks()
 
+    def transportBoundColumn(self):
+        """Which column carries the bound a face scales its dissipation with.
+
+        The number of transported quantities where there is none, which is
+        every solver whose face reads a wave speed out of the material.
+        """
+        return self.numTransportQuantities()
+
     def transportInternalOffset(self):
         """Where the groups of the state that carry no flux begin, for a solver
         that transports them anyway. Zero where there are none."""
