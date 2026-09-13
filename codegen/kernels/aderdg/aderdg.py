@@ -9,6 +9,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
@@ -231,6 +232,24 @@ class ADERDGBase(ABC):
         build it. Empty here: the Godunov flux of a state is the star matrix
         rotated, and that is what the rupture module writes."""
         return []
+
+    def addStateToTransport(self, generator, targets):
+        """What a cell transports, at one instant, from its state at that
+        instant.
+
+        Not a timestep: nothing marches and nothing is integrated. Where the
+        two layouts coincide it is a copy, and that is every solver whose flux
+        is linear. Where they do not, the transported tensor holds quantities
+        that are functions of the state -- a stress, most of all -- and the
+        material says how they are formed.
+        """
+        for target in targets:
+            prefix = generate_kernel_name_prefix(target)
+            generator.add(
+                f"{prefix}stateToTransport",
+                self.I["kp"] <= self.Q["kp"],
+                target=target,
+            )
 
     def transportTinv(self):
         """The inverse rotation a face applies to what crosses it.

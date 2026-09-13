@@ -28,6 +28,7 @@ the onset threshold, and the damage heals under compaction below it.
 import numpy as np
 import yateto.functions as yf
 from kernels.aderdg.nonlinearck import NonLinearCK
+from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Scalar, Tensor
@@ -263,15 +264,17 @@ class DamageADERDG(NonLinearCK):
             for name in self.parameterNames
         ]
 
-    def stepStatements(self, node, weight, march):
-        """The material response at one time node, and what it contributes.
+    def constitutiveStatements(self):
+        """The material response at the nodes of :attr:`nodalState`.
 
-        ``weight`` is the quadrature weight of the node, ``march`` the step
-        from it to the next one. Both are scalars the caller sets, so which
-        rule is being used is a property of the launch code and not of the
-        kernel.
+        Everything that is a function of the state at one instant: the
+        invariants, the effective moduli and the stress. Nothing marches and
+        nothing is integrated, so the same block serves a timestep node and a
+        single evaluation of the state.
+
+        Expects `alphaNodal` and `breakageNodal` to hold the internal
+        variables of the instant.
         """
-        first = node == 0
         eps, i1, i2 = self.eps, self.i1, self.i2
         rootI2, xi, intact = self.rootI2, self.xi, self.intact
         alpha, breakage = self.alphaNodal, self.breakageNodal
@@ -280,18 +283,6 @@ class DamageADERDG(NonLinearCK):
         aB = self.aB
 
         statements = []
-
-        if first:
-            statements += self.parameterStatements()
-
-        # The internal variables enter the step from the state and then march;
-        # everything else is rebuilt at every node.
-        if first:
-            statements += [
-                alpha["l"] <= self.nodalState["lp"] * self.pickAlpha["p"],
-                breakage["l"] <= self.nodalState["lp"] * self.pickBreakage["p"],
-            ]
-
         statements += [
             eps["lc"]
             <= yf.add(self.nodalState["lc"].subslice("c", 0, 6), self.epsInit["c"]),
@@ -343,21 +334,60 @@ class DamageADERDG(NonLinearCK):
             * trace["c"],
         ]
 
+        return statements
+
+    def waveSpeedStatements(self):
+        """The square of the fastest wave of the cell at this instant. The
+        square, because that is what the moduli are affine in."""
+        speedSquared = self.rhoInv * (self.lambda0 + self.twoMuEff["l"])
+        return [
+            self.nodeWave["u"]
+            <= yf.mul(yf.max(speedSquared, "l"), self.unitColumn["u"])
+        ]
+
+    def stepStatements(self, node, weight, march):
+        """The material response at one time node, and what it contributes.
+
+        ``weight`` is the quadrature weight of the node, ``march`` the step
+        from it to the next one. Both are scalars the caller sets, so which
+        rule is being used is a property of the launch code and not of the
+        kernel.
+        """
+        first = node == 0
+        eps, i1, i2 = self.eps, self.i1, self.i2
+        rootI2, xi, intact = self.rootI2, self.xi, self.intact
+        alpha, breakage = self.alphaNodal, self.breakageNodal
+        trace, floor = self.trace, self.floor
+        mu0, lambda0, gammaR, xi0 = self.mu0, self.lambda0, self.gammaR, self.xi0
+        aB = self.aB
+        twoMuEff, sigma = self.twoMuEff, self.sigmaNodal
+
+        statements = []
+
+        if first:
+            statements += self.parameterStatements()
+
+        # The internal variables enter the step from the state and then march;
+        # everything else is rebuilt at every node.
+        if first:
+            statements += [
+                alpha["l"] <= self.nodalState["lp"] * self.pickAlpha["p"],
+                breakage["l"] <= self.nodalState["lp"] * self.pickBreakage["p"],
+            ]
+
+        statements += self.constitutiveStatements()
+
         # The cell as a whole: the means the source guard asks for, and the
         # square of its fastest wave at this node. The square, because that is
         # what the moduli are affine in; the root is taken once per face, by
         # whoever reads the integral.
-        speedSquared = self.rhoInv * (lambda0 + twoMuEff["l"])
         statements += [
             self.meanAlpha["u"]
             <= alpha["l"] * self.weights["l"] * self.unitColumn["u"],
             self.meanBreakage["u"]
             <= breakage["l"] * self.weights["l"] * self.unitColumn["u"],
         ]
-        statements += [
-            self.nodeWave["u"]
-            <= yf.mul(yf.max(speedSquared, "l"), self.unitColumn["u"])
-        ]
+        statements += self.waveSpeedStatements()
         nodeSpeed = self.nodeWave["u"]
         statements += [
             (
@@ -572,6 +602,53 @@ class DamageADERDG(NonLinearCK):
             self.I["kc"].subslice("c", *interval)
             <= self.constantMode["k"] * self.intervalLength["c"],
         ]
+
+    def addStateToTransport(self, generator, targets):
+        """What a damaged cell transports, at one instant, from its state.
+
+        The strain, the velocity and the two internal variables are the
+        state's own columns, moved into the places the transport layout keeps
+        them. The stress is not: it is a function of the state, so it is
+        evaluated at the nodes and projected back -- an interpolation rather
+        than a projection, because a nonlinear function of a polynomial is
+        not one, which is the approximation the step makes as well.
+
+        The two accumulators have no meaning at an instant. They are filled so
+        that a reader taking the root of their ratio gets the speed of this
+        instant, as it would of a step.
+        """
+        coupled = (0, self.transportStateExtent())
+        stress = self.transportGroupSlice("sigma")
+        wave = self.transportGroupSlice("waveIntegral")
+        interval = self.transportGroupSlice("interval")
+        projection = self.db.projectQP[self.t("kl")]
+
+        statements = self.parameterStatements()
+        statements += [
+            self.nodalState["lp"] <= self.db.evalAtQP[self.t("lk")] * self.Q["kp"],
+            self.alphaNodal["l"] <= self.nodalState["lp"] * self.pickAlpha["p"],
+            self.breakageNodal["l"] <= self.nodalState["lp"] * self.pickBreakage["p"],
+        ]
+        statements += self.constitutiveStatements()
+        statements += self.waveSpeedStatements()
+        statements += [
+            self.sigmaModal["kc"] <= projection * self.sigmaNodal["lc"],
+            self.I["kc"].subslice("c", *coupled)
+            <= self.Q["kc"].subslice("c", *coupled),
+            self.I["kc"].subslice("c", *stress) <= self.sigmaModal["kc"],
+            self.I["kc"].subslice("c", *self.transportGroupSlice("alpha"))
+            <= self.Q["kc"].subslice("c", ALPHA, ALPHA + 1),
+            self.I["kc"].subslice("c", *self.transportGroupSlice("breakage"))
+            <= self.Q["kc"].subslice("c", BREAKAGE, BREAKAGE + 1),
+            self.I["kc"].subslice("c", *wave)
+            <= self.constantMode["k"] * self.nodeWave["c"],
+            self.I["kc"].subslice("c", *interval)
+            <= self.constantMode["k"] * self.unitColumn["c"],
+        ]
+
+        for target in targets:
+            prefix = generate_kernel_name_prefix(target)
+            generator.add(f"{prefix}stateToTransport", statements, target=target)
 
     def addCellIntegral(self, generator, target, prefix):
         """What the cell adds to its own state, from its own integrals.
