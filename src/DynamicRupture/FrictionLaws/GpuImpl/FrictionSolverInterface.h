@@ -106,9 +106,9 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
         seissol::initializer::AllocationPlace::Device;
     data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
     data->impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
-#ifdef SEISSOL_KERNELS_NONLINEARCK
-    data->nodalImpedanceParams = layerData.var<DynamicRupture::NodalImpedanceParams>(place);
-#endif
+    if constexpr (NodalImpedance) {
+      data->nodalImpedanceParams = layerData.var<DynamicRupture::NodalImpedanceParams>(place);
+    }
     data->initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
     data->nucleationStressInFaultCS =
         layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
