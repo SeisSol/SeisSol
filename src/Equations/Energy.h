@@ -22,6 +22,7 @@
 // pulls in generated tensors that exist for that build alone.
 #include "Equations/acoustic/Model/Energy.h"
 #include "Equations/anisotropic/Model/Energy.h"
+#include "Equations/damage/Model/Energy.h"
 #include "Equations/elastic/Model/Energy.h"
 #ifdef SEISSOL_KERNELS_STP
 #include "Equations/poroelastic/Model/Energy.h"

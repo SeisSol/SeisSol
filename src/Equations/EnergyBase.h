@@ -151,6 +151,23 @@ inline constexpr std::array ElasticEnergies{
 };
 
 /**
+ * A damaged material reports what its state says exactly.
+ *
+ * Its stored energy does not appear here. The free energy of the rheology
+ * carries a square root of the second strain invariant and terms of third
+ * order in the state, and the moments the energy output offers reach second
+ * order in polynomials -- so it cannot be assembled here at all, and the
+ * granular branch's potential has to be settled against the reference before
+ * anything is reported under that name. A column of zeros would be worse than
+ * a column that is absent.
+ */
+inline constexpr std::array DamageEnergies{
+    EnergyDescriptor{"damage_kinetic_energy", EnergyUnit::Energy, "damage", "Kinetic energy:", {}},
+    EnergyDescriptor{"mean_damage", EnergyUnit::Scalar, {}, {}, {}},
+    EnergyDescriptor{"mean_breakage", EnergyUnit::Scalar, {}, {}, {}},
+};
+
+/**
  * The Maxwell branch springs join the elastic group: they are part of the stored
  * potential energy, so reporting the kinetic/potential split without them would
  * understate the potential share.
