@@ -12,6 +12,7 @@
 #include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -134,6 +135,9 @@ class ReceiverOutput {
 
   void getDofs(const real*(&derivatives), std::size_t meshId);
   void getNeighborDofs(const real*(&derivatives), std::size_t meshId, std::size_t side);
+  /// The local integration data of a cell, which carries whatever the
+  /// constitutive law needs per cell.
+  const LocalIntegrationData& localIntegration(std::size_t meshId);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   /**

@@ -321,4 +321,20 @@ PerformanceEstimate Time::metrics() const {
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}
 
+void Time::stateToTransport(const real* dofs,
+                            const LocalIntegrationData& local,
+                            real* transported) {
+  assert(reinterpret_cast<uintptr_t>(dofs) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(transported) % Alignment == 0);
+
+  kernel::stateToTransport krnl;
+  krnl.bindGlobals(Pool::host());
+  krnl.Q = dofs;
+  krnl.I = transported;
+  krnl.epsInit = local.specific.epsInit;
+  krnl.materialParameters = local.specific.parameters;
+  krnl.invariantFloor = invariantFloor();
+  krnl.execute();
+}
+
 } // namespace seissol::kernels::solver::nonlinearck

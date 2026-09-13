@@ -61,6 +61,23 @@ class TimeKernel : public Kernel {
                                real** timeIntegratedDofs,
                                std::size_t numElements,
                                seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+  /**
+    @brief What a cell transports, at one instant, from its state at that
+    instant.
+
+    Not a timestep: nothing marches and nothing is integrated. A copy where
+    the two layouts coincide; where they do not, this is the only place a
+    reader can get the quantities that are functions of the state rather than
+    part of it.
+
+    @param dofs The state of the cell.
+    @param local The cell's local integration data, which carries whatever the
+    constitutive law needs per cell.
+    @param transported A pointer to the returned transported tensor.
+  */
+  virtual void
+      stateToTransport(const real* dofs, const LocalIntegrationData& local, real* transported) = 0;
+
   [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
 };
 

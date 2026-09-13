@@ -257,4 +257,13 @@ void Spacetime::computeBatchedAder(
 #endif
 }
 
+void Time::stateToTransport(const real* dofs,
+                            const LocalIntegrationData& /*local*/,
+                            real* transported) {
+  kernel::stateToTransport krnl;
+  krnl.Q = dofs;
+  krnl.I = transported;
+  krnl.execute();
+}
+
 } // namespace seissol::kernels::solver::linearckanelastic

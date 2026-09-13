@@ -67,6 +67,11 @@ void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
   derivatives = layer.var<LTS::Derivatives>()[position.cell];
 }
 
+const LocalIntegrationData& ReceiverOutput::localIntegration(std::size_t meshId) {
+  const auto position = wpBackmap_->get(meshId);
+  return wpStorage_->layer(position.color).var<LTS::LocalIntegration>()[position.cell];
+}
+
 void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
                                      std::size_t meshId,
                                      std::size_t side) {
@@ -89,18 +94,6 @@ void ReceiverOutput::calcFaultOutput(
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
                            : 0;
-
-  // The elementwise output reports the corrected degrees of freedom of a
-  // cell, which are its state. Where a cell transports more than its state
-  // the stress is not in there -- it is a function of the state, and this
-  // path has no kernel that evaluates one. Refused here rather than reported
-  // as zero.
-  if constexpr (tensor::I::size() != tensor::Q::size()) {
-    if (outputType == seissol::initializer::parameters::OutputType::Elementwise) {
-      logError() << "The elementwise fault output cannot report the stress of a solver"
-                 << "whose transported tensor is wider than its state.";
-    }
-  }
   const auto& faultInfos = meshReader_->getFault();
 
   const auto timeCoeffs = kernels::timePoint(indt, dt);
@@ -178,13 +171,27 @@ void ReceiverOutput::calcFaultOutput(
     const auto& faultInfo = faultInfos[faceIndex];
 
     if (outputType == initializer::parameters::OutputType::Elementwise) {
-      // Guarded above: this path is only reached where the two coincide.
-      std::memcpy(dofsPlus,
-                  local.layer->var<DynamicRupture::TimeDofsPlus>()[local.ltsId],
-                  tensor::Q::size() * sizeof(real));
-      std::memcpy(dofsMinus,
-                  local.layer->var<DynamicRupture::TimeDofsMinus>()[local.ltsId],
-                  tensor::Q::size() * sizeof(real));
+      // The corrected degrees of freedom of the two cells, in the layout a
+      // face reads. A copy wherever the two coincide, and where they do not
+      // this is what supplies the quantities that are functions of the state
+      // -- the stress above all -- without running a timestep for them.
+      //
+      // A side that is not on this rank has its degrees of freedom -- they
+      // were transferred -- but not its cell-local data, which is not kept
+      // for a ghost cell. Such a side is evaluated with the material of the
+      // side that is here. It is unused for every solver whose transported
+      // tensor is its state, so this only ever shows on a fault that is a
+      // material discontinuity and crosses a rank boundary.
+      const auto plusId = faultInfo.element >= 0 ? faultInfo.element : faultInfo.neighborElement;
+      const auto minusId =
+          faultInfo.neighborElement >= 0 ? faultInfo.neighborElement : faultInfo.element;
+
+      timeKernel_.stateToTransport(local.layer->var<DynamicRupture::TimeDofsPlus>()[local.ltsId],
+                                   localIntegration(plusId),
+                                   dofsPlus);
+      timeKernel_.stateToTransport(local.layer->var<DynamicRupture::TimeDofsMinus>()[local.ltsId],
+                                   localIntegration(minusId),
+                                   dofsMinus);
     } else {
       // only interpolate for the on-fault receivers
       const real* stePlus = nullptr;
