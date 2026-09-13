@@ -272,6 +272,12 @@ class ADERDGBase(ABC):
     def numTransportQuantities(self):
         return total_extent(self.transportBlocks())
 
+    def materialParameterNames(self):
+        """Material parameters the kernels read per element, in the order they
+        sit in the tensor that carries them. Empty where a material's
+        parameters reach the kernels as scalars."""
+        return []
+
     def transportStateExtent(self):
         """Quantities the transported tensor shares with the state, and in the
         same order. Where the two layouts coincide, that is all of them."""

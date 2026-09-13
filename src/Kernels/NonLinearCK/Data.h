@@ -17,6 +17,7 @@
 
 namespace seissol::tensor {
 struct epsInit;
+struct materialParameters;
 } // namespace seissol::tensor
 
 namespace seissol::kernels::solver::nonlinearck {
@@ -34,23 +35,13 @@ struct NonLinearLocalData {
   /// face needs from the far side without anyone transporting a state.
   real maxWaveSpeedBound{};
 
-  /// The material as the step kernel reads it: in the precision the kernels
-  /// work in, and converted once rather than per timestep. The names are the
-  /// kernel's, because this solver exists for one family of materials and
-  /// pretending otherwise would only move the coupling somewhere less
-  /// visible.
-  struct Parameters {
-    real rhoInv{};
-    real lambda0{};
-    real mu0{};
-    real gammaR{};
-    real xi0{};
-    real damageRate{};
-    real breakageRate{};
-    real healingRate{};
-    real betaAlpha{};
-    std::array<real, 4> aB{};
-  } parameters;
+  /// The material as the kernels read it: in the precision they work in,
+  /// converted once rather than per timestep, and in one array rather than as
+  /// arguments -- a kernel argument that is a scalar is uniform over a batch,
+  /// and a material is not. Which entry is which parameter is the codegen's
+  /// order, and the generated names are what fills it.
+  // NOLINTNEXTLINE
+  alignas(Alignment) real parameters[zeroGuard(kernels::size<tensor::materialParameters>())]{};
 };
 
 /// The same, for the far side of each of the four faces. Only the wave speed

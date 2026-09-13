@@ -241,6 +241,7 @@ def emit_header(aderdg, output_dir):
         "",
         "#include <array>",
         "#include <cstddef>",
+        "#include <string_view>",
         "",
         "namespace seissol::generated {",
         "",
@@ -259,6 +260,20 @@ def emit_header(aderdg, output_dir):
         f"inline constexpr std::size_t CoupledQuantities = "
         f"{aderdg.transportStateExtent()};",
         "",
+        *(
+            [
+                "/// Material parameters the kernels read per element, in the",
+                "/// order of the tensor that carries them.",
+                "inline constexpr std::array<std::string_view, "
+                f"{len(aderdg.materialParameterNames())}> MaterialParameterNames"
+                "{"
+                + ", ".join(f'"{name}"' for name in aderdg.materialParameterNames())
+                + "};",
+                "",
+            ]
+            if aderdg.materialParameterNames()
+            else []
+        ),
         "} // namespace seissol::generated",
         "",
     ]

@@ -43,7 +43,7 @@ void Local::computeIntegral(real* timeIntegratedDoFs,
   krnl.I = timeIntegratedDoFs;
   krnl.Q = data.get<LTS::Dofs>();
   krnl.sourceI = tmp.sourceIntegral;
-  krnl.rhoInv = data.get<LTS::LocalIntegration>().specific.parameters.rhoInv;
+  krnl.materialParameters = data.get<LTS::LocalIntegration>().specific.parameters;
   krnl.execute();
 
   // Every face flux is assembled where both wave speeds are, which is the

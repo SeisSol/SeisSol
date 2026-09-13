@@ -22,6 +22,9 @@
 #include "Model/Common.h"
 
 #include <cstddef>
+#include <string>
+#include <string_view>
+#include <utils/logger.h>
 
 namespace seissol::model {
 
@@ -54,18 +57,30 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
 
     localData->maxWaveSpeedBound = static_cast<real>(material.getMaxWaveSpeed());
 
-    auto& parameters = localData->parameters;
-    parameters.rhoInv = static_cast<real>(1.0 / material.rho);
-    parameters.lambda0 = static_cast<real>(material.lambda0);
-    parameters.mu0 = static_cast<real>(material.mu0);
-    parameters.gammaR = static_cast<real>(material.gammaR);
-    parameters.xi0 = static_cast<real>(material.xi0);
-    parameters.damageRate = static_cast<real>(material.damageRate);
-    parameters.breakageRate = static_cast<real>(material.breakageRate);
-    parameters.healingRate = static_cast<real>(material.healingRate);
-    parameters.betaAlpha = static_cast<real>(material.betaAlpha);
-    for (std::size_t i = 0; i < parameters.aB.size(); ++i) {
-      parameters.aB[i] = static_cast<real>(material.aB.at(i));
+    // Filled by name against the order the codegen chose, so the two cannot
+    // drift apart: a parameter in the wrong slot would be a different
+    // material, silently.
+    const auto set = [&](std::string_view name, double value) {
+      for (std::size_t i = 0; i < generated::MaterialParameterNames.size(); ++i) {
+        if (generated::MaterialParameterNames[i] == name) {
+          localData->parameters[i] = static_cast<real>(value);
+          return;
+        }
+      }
+      logError() << "The kernels do not read a material parameter called" << name.data();
+    };
+
+    set("rhoInv", 1.0 / material.rho);
+    set("lambda0", material.lambda0);
+    set("mu0", material.mu0);
+    set("gammaR", material.gammaR);
+    set("xi0", material.xi0);
+    set("damageRate", material.damageRate);
+    set("breakageRate", material.breakageRate);
+    set("healingRate", material.healingRate);
+    set("betaAlpha", material.betaAlpha);
+    for (std::size_t i = 0; i < material.aB.size(); ++i) {
+      set("aB" + std::to_string(i), material.aB.at(i));
     }
   }
 

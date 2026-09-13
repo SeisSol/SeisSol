@@ -115,19 +115,7 @@ void Spacetime::computeAder(const real* coeffs,
   step.sourceI = tmp.sourceIntegral;
   step.epsInit = local.epsInit;
 
-  step.rhoInv = local.parameters.rhoInv;
-  step.lambda0 = local.parameters.lambda0;
-  step.mu0 = local.parameters.mu0;
-  step.gammaR = local.parameters.gammaR;
-  step.xi0 = local.parameters.xi0;
-  step.damageRate = local.parameters.damageRate;
-  step.breakageRate = local.parameters.breakageRate;
-  step.healingRate = local.parameters.healingRate;
-  step.betaAlpha = local.parameters.betaAlpha;
-  step.aB0 = local.parameters.aB[0];
-  step.aB1 = local.parameters.aB[1];
-  step.aB2 = local.parameters.aB[2];
-  step.aB3 = local.parameters.aB[3];
+  step.materialParameters = local.parameters;
   step.invariantFloor = invariantFloor();
   step.execute();
 

@@ -81,6 +81,24 @@ class DamageADERDG(NonLinearCK):
         super().__init__(order, multipleSimulations, matricesDir)
         self.configure(matricesDir, memLayout, kwargs)
 
+    #: Material parameters the kernels read per element, in the order they sit
+    #: in the tensor that carries them.
+    ParameterOrder = (
+        "rhoInv",
+        "lambda0",
+        "mu0",
+        "gammaR",
+        "xi0",
+        "damageRate",
+        "breakageRate",
+        "healingRate",
+        "betaAlpha",
+        "aB0",
+        "aB1",
+        "aB2",
+        "aB3",
+    )
+
     def primaryGroups(self):
         return [
             QuantityGroup("eps", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
@@ -102,15 +120,34 @@ class DamageADERDG(NonLinearCK):
         nodes = self.num3DQuadraturePoints()
         nq = self.numQuantities()
 
-        self.lambda0 = Scalar("lambda0")
-        self.mu0 = Scalar("mu0")
-        self.gammaR = Scalar("gammaR")
-        self.xi0 = Scalar("xi0")
-        self.damageRate = Scalar("damageRate")
-        self.breakageRate = Scalar("breakageRate")
-        self.healingRate = Scalar("healingRate")
-        self.betaAlpha = Scalar("betaAlpha")
-        self.aB = [Scalar(f"aB{i}") for i in range(4)]
+        # The material is a property of the cell, and a scalar argument is
+        # uniform over a batch, so the parameters arrive as one tensor per
+        # element. Each is pulled out of it once per kernel with a constant
+        # selector, into a value of rank zero; from there on it reads and
+        # behaves exactly like a scalar.
+        self.parameterNames = self.ParameterOrder
+        count = len(self.parameterNames)
+        self.materialParameters = Tensor("materialParameters", (count,))
+        self.parameterPicks = {
+            name: Tensor(
+                f"pick{name[0].upper()}{name[1:]}", (count,), unit(index, count)
+            )
+            for index, name in enumerate(self.parameterNames)
+        }
+        self.parameterValues = {
+            name: Tensor(name, (), temporary=True) for name in self.parameterNames
+        }
+
+        self.rhoInv = self.parameterValues["rhoInv"][""]
+        self.lambda0 = self.parameterValues["lambda0"][""]
+        self.mu0 = self.parameterValues["mu0"][""]
+        self.gammaR = self.parameterValues["gammaR"][""]
+        self.xi0 = self.parameterValues["xi0"][""]
+        self.damageRate = self.parameterValues["damageRate"][""]
+        self.breakageRate = self.parameterValues["breakageRate"][""]
+        self.healingRate = self.parameterValues["healingRate"][""]
+        self.betaAlpha = self.parameterValues["betaAlpha"][""]
+        self.aB = [self.parameterValues[f"aB{i}"][""] for i in range(4)]
 
         # Guards xi against a vanishing second invariant. Tied to the working
         # precision rather than to the model, hence not a model parameter.
@@ -183,6 +220,17 @@ class DamageADERDG(NonLinearCK):
         self.waveIntegral = Tensor("waveIntegral", (1,), temporary=True)
         self.intervalLength = Tensor("intervalLength", (1,), temporary=True)
 
+    def materialParameterNames(self):
+        return self.parameterNames
+
+    def parameterStatements(self):
+        """Pulls every material parameter out of the cell's parameter tensor."""
+        return [
+            self.parameterValues[name][""]
+            <= self.materialParameters["z"] * self.parameterPicks[name]["z"]
+            for name in self.parameterNames
+        ]
+
     def stepStatements(self, node, weight, march):
         """The material response at one time node, and what it contributes.
 
@@ -200,6 +248,9 @@ class DamageADERDG(NonLinearCK):
         aB = self.aB
 
         statements = []
+
+        if first:
+            statements += self.parameterStatements()
 
         # The internal variables enter the step from the state and then march;
         # everything else is rebuilt at every node.
@@ -264,7 +315,7 @@ class DamageADERDG(NonLinearCK):
         # square of its fastest wave at this node. The square, because that is
         # what the moduli are affine in; the root is taken once per face, by
         # whoever reads the integral.
-        speedSquared = Scalar("rhoInv") * (lambda0 + twoMuEff["l"])
+        speedSquared = self.rhoInv * (lambda0 + twoMuEff["l"])
         statements += [
             self.meanAlpha["u"]
             <= alpha["l"] * self.weights["l"] * self.unitColumn["u"],
@@ -419,7 +470,6 @@ class DamageADERDG(NonLinearCK):
         rides along, because it is the other half of the same update and it is
         addition.
         """
-        rhoInv = Scalar("rhoInv")
         velocity = self.transportGroupSlice("v")
         stress = self.transportGroupSlice("sigma")
         internal = (self.transportStateExtent(), self.numQuantities())
@@ -428,12 +478,15 @@ class DamageADERDG(NonLinearCK):
         for d in range(3):
             volume = volume + self.db.kDivM[d][self.t("kl")] * (
                 self.I["lm"].subslice("m", *velocity) * self.toFluxV[d]["mp"]
-                + rhoInv * self.I["lc"].subslice("c", *stress) * self.toFluxS[d]["cp"]
+                + self.rhoInv
+                * self.I["lc"].subslice("c", *stress)
+                * self.toFluxS[d]["cp"]
             )
 
         generator.add(
             f"{prefix}damageCellIntegral",
             [
+                *self.parameterStatements(),
                 self.Q["kp"] <= volume,
                 self.Q["kn"].subslice("n", *internal)
                 <= self.Q["kn"].subslice("n", *internal) + self.sourceI["kn"],
