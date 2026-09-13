@@ -89,6 +89,18 @@ void ReceiverOutput::calcFaultOutput(
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
                            : 0;
+
+  // The elementwise output reports the corrected degrees of freedom of a
+  // cell, which are its state. Where a cell transports more than its state
+  // the stress is not in there -- it is a function of the state, and this
+  // path has no kernel that evaluates one. Refused here rather than reported
+  // as zero.
+  if constexpr (tensor::I::size() != tensor::Q::size()) {
+    if (outputType == seissol::initializer::parameters::OutputType::Elementwise) {
+      logError() << "The elementwise fault output cannot report the stress of a solver"
+                 << "whose transported tensor is wider than its state.";
+    }
+  }
   const auto& faultInfos = meshReader_->getFault();
 
   const auto timeCoeffs = kernels::timePoint(indt, dt);
@@ -130,8 +142,10 @@ void ReceiverOutput::calcFaultOutput(
                         time,
                         frictionTime](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
-    alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
-    alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
+    // What a fault reads of a cell is what the cell transports, and the time
+    // kernel writes that much. Sized by what is written, not by the state.
+    alignas(Alignment) real dofsPlus[tensor::I::size()]{};
+    alignas(Alignment) real dofsMinus[tensor::I::size()]{};
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
@@ -164,12 +178,13 @@ void ReceiverOutput::calcFaultOutput(
     const auto& faultInfo = faultInfos[faceIndex];
 
     if (outputType == initializer::parameters::OutputType::Elementwise) {
+      // Guarded above: this path is only reached where the two coincide.
       std::memcpy(dofsPlus,
                   local.layer->var<DynamicRupture::TimeDofsPlus>()[local.ltsId],
-                  sizeof(dofsPlus));
+                  tensor::Q::size() * sizeof(real));
       std::memcpy(dofsMinus,
                   local.layer->var<DynamicRupture::TimeDofsMinus>()[local.ltsId],
-                  sizeof(dofsMinus));
+                  tensor::Q::size() * sizeof(real));
     } else {
       // only interpolate for the on-fault receivers
       const real* stePlus = nullptr;
