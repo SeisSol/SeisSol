@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
 #include "Kernels/Precision.h"
 
 namespace seissol::dr {
@@ -69,13 +70,57 @@ struct TractionResults;
 template <Executor Executor>
 struct ImposedState;
 
+/// Whether the impedance of a face varies from one of its nodes to the next.
+///
+/// It does where the moduli a wave sees follow the state rather than the
+/// material: the impedance is then a property of a point and an instant, and
+/// there is nothing about it to keep between timesteps.
+inline constexpr bool NodalImpedance = model::MaterialT::Type == model::MaterialType::Damage;
+
+/**
+ * The impedances of a face's nodes, where they belong to the nodes.
+ *
+ * Empty for every material whose moduli come from the material, and then free:
+ * the fault stresses derive from it, and an empty base costs no space. Where it
+ * is not empty it lives exactly as the stresses do -- an array over the nodes
+ * on the host, one value per thread on the device, made in the precomputation
+ * and gone with it. Deriving rather than standing beside them is what keeps
+ * every signature that passes the stresses unchanged, which is every hook of
+ * every friction law.
+ */
+template <Executor Executor, bool Nodal>
+struct FaultImpedancesImpl {};
+
+template <>
+struct FaultImpedancesImpl<Executor::Host, true> {
+  alignas(Alignment) real etaS[misc::NumPaddedPoints]{};
+  alignas(Alignment) real invEtaS[misc::NumPaddedPoints]{};
+  alignas(Alignment) real invZs[misc::NumPaddedPoints]{};
+  alignas(Alignment) real invZp[misc::NumPaddedPoints]{};
+  alignas(Alignment) real invZsNeig[misc::NumPaddedPoints]{};
+  alignas(Alignment) real invZpNeig[misc::NumPaddedPoints]{};
+};
+
+template <>
+struct FaultImpedancesImpl<Executor::Device, true> {
+  real etaS{};
+  real invEtaS{};
+  real invZs{};
+  real invZp{};
+  real invZsNeig{};
+  real invZpNeig{};
+};
+
+template <Executor Executor>
+using FaultImpedances = FaultImpedancesImpl<Executor, NodalImpedance>;
+
 /**
  * Struct that contains all input stresses
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
  * respective tangential vectors
  */
 template <>
-struct FaultStresses<Executor::Host> {
+struct FaultStresses<Executor::Host> : FaultImpedances<Executor::Host> {
   alignas(Alignment) real normalStress[misc::NumPaddedPoints]{};
   alignas(Alignment) real traction1[misc::NumPaddedPoints]{};
   alignas(Alignment) real traction2[misc::NumPaddedPoints]{};
@@ -115,7 +160,7 @@ struct ImposedState<Executor::Host> {
  * respective tangential vectors
  */
 template <>
-struct FaultStresses<Executor::Device> {
+struct FaultStresses<Executor::Device> : FaultImpedances<Executor::Device> {
   real normalStress{};
   real traction1{};
   real traction2{};
