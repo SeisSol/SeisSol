@@ -12,12 +12,14 @@
 #include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "DynamicRupture/Misc.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Model/Common.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -148,12 +150,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
       for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
         for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
-          krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s].state[p];
-#ifdef SEISSOL_KERNELS_NONLINEARCK
-          // The second expansion, in its own basis: the fused projection sums
-          // both, because what a face reads is both.
-          krnl.extraCoeffDR(s * ConvergenceOrder + p) = coeffs[s].extra[p];
-#endif
+          seissol::model::bindFaultTimeCoefficient<model::MaterialT>(
+              krnl, s * ConvergenceOrder + p, coeffs[s], p);
         }
       }
 

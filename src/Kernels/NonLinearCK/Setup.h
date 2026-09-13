@@ -77,6 +77,25 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
     }
   }
 
+  /// The flux of what the friction imposed, rather than the flux of a state:
+  /// the tables the kernel is built from are constants of the pool, and the
+  /// density is the only thing per cell it needs.
+  template <typename KernelT>
+  static void bindFaultFluxSolver(KernelT& krnl, const MaterialT& material, const real* /*star*/) {
+    krnl.rhoInv = 1.0 / material.rho;
+  }
+
+  /// The second expansion, in its own basis: the fused projection sums both,
+  /// because what a face reads is both.
+  template <typename KernelT>
+  static void bindFaultTimeCoefficient(KernelT& krnl,
+                                       std::size_t index,
+                                       const kernels::TimeCoefficients& coeffs,
+                                       std::size_t power) {
+    krnl.coeffDR(index) = coeffs.state[power];
+    krnl.extraCoeffDR(index) = coeffs.extra[power];
+  }
+
   static void
       initializeSpecificNeighborData(const MaterialT& material,
                                      typename MaterialT::Solver::NeighborData* neighborData) {

@@ -198,6 +198,19 @@ void initializeSpecificNeighborData(const T& material,
   SolverSetup<typename T::Solver, T>::initializeSpecificNeighborData(material, neighborData);
 }
 
+template <typename KernelT, typename T>
+void bindFaultFluxSolver(KernelT& krnl, const T& material, const real* star) {
+  SolverSetup<typename T::Solver, T>::bindFaultFluxSolver(krnl, material, star);
+}
+
+template <typename T, typename KernelT>
+void bindFaultTimeCoefficient(KernelT& krnl,
+                              std::size_t index,
+                              const kernels::TimeCoefficients& coeffs,
+                              std::size_t power) {
+  SolverSetup<typename T::Solver, T>::bindFaultTimeCoefficient(krnl, index, coeffs, power);
+}
+
 /*
  * Calculates the so called Bond matrix. Anisotropic materials are characterized by
  * 21 different material parameters. Due to the directional dependence of anisotropic
@@ -334,6 +347,28 @@ struct SolverSetupDefaults {
   static void initializeSpecificLocalData(const MaterialT& /*material*/,
                                           double /*timeStepWidth*/,
                                           typename MaterialT::Solver::LocalData* /*localData*/) {}
+
+  /// Binds what a fault's flux solver is rotated from.
+  ///
+  /// The flux of a state is the star matrix rotated, so that is what a
+  /// Godunov solver hands over. A template over the kernel, because which
+  /// operands it has is a property of the build and a member of a dependent
+  /// type is looked up when one is put in.
+  template <typename KernelT>
+  static void bindFaultFluxSolver(KernelT& krnl, const MaterialT& /*material*/, const real* star) {
+    krnl.star(0) = star;
+  }
+
+  /// Binds the coefficients of one time evaluation a fault reads with.
+  ///
+  /// One expansion, so one set. A solver that keeps a second binds it too.
+  template <typename KernelT>
+  static void bindFaultTimeCoefficient(KernelT& krnl,
+                                       std::size_t index,
+                                       const kernels::TimeCoefficients& coeffs,
+                                       std::size_t power) {
+    krnl.coeffDR(index) = coeffs.state[power];
+  }
 
   static void
       initializeSpecificNeighborData(const MaterialT& /*material*/,

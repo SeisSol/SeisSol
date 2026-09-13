@@ -559,30 +559,15 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = matTData;
 
-#ifdef SEISSOL_KERNELS_NONLINEARCK
-      // The flux of what the friction imposed, rather than the flux of a
-      // state: the tables the kernel is built from are constants of the pool,
-      // and the density is the only thing per cell it needs.
-      krnl.rhoInv = 1.0 / plusMaterial->rho;
+      seissol::model::bindFaultFluxSolver(krnl, *plusMaterial, matAPlusData);
       krnl.fluxSolver = fluxSolverPlus[ltsFace];
       krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       krnl.execute();
 
-      krnl.rhoInv = 1.0 / minusMaterial->rho;
+      seissol::model::bindFaultFluxSolver(krnl, *minusMaterial, matAMinusData);
       krnl.fluxSolver = fluxSolverMinus[ltsFace];
       krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       krnl.execute();
-#else
-      krnl.fluxSolver = fluxSolverPlus[ltsFace];
-      krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
-      krnl.star(0) = matAPlusData;
-      krnl.execute();
-
-      krnl.fluxSolver = fluxSolverMinus[ltsFace];
-      krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
-      krnl.star(0) = matAMinusData;
-      krnl.execute();
-#endif
     }
   }
 }
