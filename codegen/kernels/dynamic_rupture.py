@@ -20,17 +20,22 @@ def addKernels(
     drQuadRule,
     targets,
     isOldGpuInterface,
-    tensorsOnly=False,
+    skipStateShaped=False,
 ):
     """Kernels and tensors of the rupture flux.
 
-    With `tensorsOnly`, the tensors are declared and nothing is generated
-    against them. A solver that transports more than its state cannot build
-    these kernels -- they contract the time-integrated quantities with tensors
-    shaped by the quantity layout, and those shapes disagree -- but the code
-    that reads and writes a fault refers to the tensors regardless, and it is
-    compiled whether or not a fault may be built. So they exist, and the
-    material's SupportsDR is what says whether anything may use them.
+    What a fault reads of a cell is the transported tensor evaluated at a
+    point in time, rotated into the face frame -- the same kernels for every
+    solver, because the two tensors coincide wherever the flux is linear.
+
+    With `skipStateShaped`, the kernels that take what crosses a face to be
+    the state are left out: the fused interpolation, which sums the state's
+    own expansion, and the write-back, which is built from the star matrix and
+    the rotation. A solver that transports more than its state has a second
+    expansion for the rest and assembles its faces from flux tables, and
+    neither construction is written here yet. The tensors are declared
+    regardless, because the code that reads and writes a fault names them and
+    is compiled whether or not a fault may be built.
     """
 
     clones = dict()
@@ -47,12 +52,18 @@ def addKernels(
     # Determine matrices
     # Note: This does only work because the flux does not depend
     # on the mechanisms in the case of viscoelastic attenuation
-    trans_inv_spp_T = aderdg.transformation_inv_spp().transpose()
+    # A face rotates what crosses it, and what crosses it is the transported
+    # tensor. For every solver whose flux is linear that is the state and this
+    # is the rotation it always was.
+    trans_inv_spp_T = aderdg.transportTransformationInvSpp().transpose()
     TinvT = Tensor("TinvT", trans_inv_spp_T.shape, spp=trans_inv_spp_T)
     flux_solver_spp = aderdg.flux_solver_spp()
     fluxSolver = Tensor("fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp)
 
-    gShape = (numPoints, aderdg.numQuantities())
+    # What a fault reads of a cell is what the cell transports, evaluated at a
+    # point in time -- not its state. The two are the same width wherever the
+    # flux is linear.
+    gShape = (numPoints, aderdg.numTransportQuantities())
     QInterpolated = OptionalDimTensor(
         "QInterpolated",
         aderdg.Q.optName(),
@@ -71,7 +82,7 @@ def addKernels(
     generator.add("rotateStress", rotationKernel)
 
     reducedFaceAlignedMatrix = Tensor("reducedFaceAlignedMatrix", (6, 6))
-    if not tensorsOnly:
+    if True:
         generator.add(
             "rotateInitStress",
             rotatedStress["k"]
@@ -97,14 +108,14 @@ def addKernels(
         alignStride=True,
     )
     resampleKernel = resampledQ["i"] <= db.resample[aderdg.t("ij")] * originalQ["j"]
-    if not tensorsOnly:
+    if True:
         generator.add("resampleParameter", resampleKernel)
 
-    if not tensorsOnly:
-        generator.add("transposeTinv", TinvT["ij"] <= aderdg.Tinv["ji"])
+    if True:
+        generator.add("transposeTinv", TinvT["ij"] <= aderdg.transportTinv()["ji"])
 
     fluxScale = Scalar("fluxScaleDR")
-    if not tensorsOnly:
+    if not skipStateShaped:
         generator.add(
             "rotateFluxMatrix",
             fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
@@ -121,7 +132,7 @@ def addKernels(
         (numQuantities,),
     )
 
-    if not tensorsOnly:
+    if True:
         generator.add(
             "evaluateFaceAlignedDOFSAtPoint",
             QAtPoint["q"]
@@ -129,15 +140,17 @@ def addKernels(
         )
 
     def interpolateQGenerator(i, h):
+        # The time-evaluated tensor, which is what the caller hands over --
+        # the state was only ever the same thing by coincidence of width.
         return (
             QInterpolated["kp"]
-            <= db.V3mTo2n[i, h][aderdg.t("kl")] * aderdg.Q["lq"] * TinvT["qp"]
+            <= db.V3mTo2n[i, h][aderdg.t("kl")] * aderdg.I["lq"] * TinvT["qp"]
         )
 
     interpolateQPrefetch = lambda i, h: QInterpolated
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        if not tensorsOnly:
+        if True:
             generator.addFamily(
                 f"{name_prefix}evaluateAndRotateQAtInterpolationPoints",
                 simpleParameterSpace(4, 4),
@@ -187,7 +200,7 @@ def addKernels(
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        if not tensorsOnly:
+        if not skipStateShaped:
             generator.addFamily(
                 f"{name_prefix}projectToDR",
                 simpleParameterSpace(4, 4),
@@ -207,7 +220,7 @@ def addKernels(
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        if not tensorsOnly:
+        if True:
             generator.addFamily(
                 f"{name_prefix}nodalFlux",
                 simpleParameterSpace(4, 4),
@@ -267,7 +280,7 @@ def addKernels(
         <= QInterpolatedMinus["kq"] * aderdg.tractionMinusMatrix["qp"]
         + QInterpolatedPlus["kq"] * aderdg.tractionPlusMatrix["qp"]
     )
-    if not tensorsOnly:
+    if True:
         generator.add("computeTractionInterpolated", computeTractionInterpolated)
 
     accumulateStaticFrictionalWork = (
@@ -278,7 +291,7 @@ def addKernels(
         * slipInterpolated["kp"]
         * db.quadweights["k"]
     )
-    if not tensorsOnly:
+    if True:
         generator.add("accumulateStaticFrictionalWork", accumulateStaticFrictionalWork)
 
     # Dynamic Rupture Precompute
@@ -334,8 +347,9 @@ def addKernels(
         + eta["kl"] * zPlus["lm"] * tractionsPlus
         + eta["kl"] * zMinus["lm"] * tractionsMinus
     )
-    if not tensorsOnly:
-        generator.add("computeTheta", computeTheta)
+    if True:
+        if not skipStateShaped:
+            generator.add("computeTheta", computeTheta)
 
     mapToVelocitiesSPP = aderdg.mapToVelocities()
     mapToVelocities = Tensor(
@@ -378,13 +392,15 @@ def addKernels(
         )
         + weight * mapToTractions["kl"] * theta["il"]
     )
-    if not tensorsOnly:
-        generator.add("computeImposedStateM", computeImposedStateM)
-    if not tensorsOnly:
-        generator.add("computeImposedStateP", computeImposedStateP)
+    if True:
+        if not skipStateShaped:
+            generator.add("computeImposedStateM", computeImposedStateM)
+    if True:
+        if not skipStateShaped:
+            generator.add("computeImposedStateP", computeImposedStateP)
 
     declared = {db.resample, db.quadpoints, db.quadweights}
-    if tensorsOnly:
+    if skipStateShaped:
         # Nothing was generated, so nothing pulls these in by use. The code
         # that reads and writes a fault names them, and it is compiled
         # whether or not a fault may be built.

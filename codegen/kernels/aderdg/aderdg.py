@@ -147,6 +147,9 @@ class ADERDGBase(ABC):
 
         self.db.update(project2nFaceTo3m)
 
+        # Into and out of the state: the free-surface displacement integrates
+        # the velocity of the state itself, so this one stays with the
+        # quantity layout.
         selectVelocitySpp = self.mapToVelocities()[:, :3]
         self.selectVelocity = Tensor(
             "selectVelocity",
@@ -155,7 +158,7 @@ class ADERDGBase(ABC):
             CSCMemoryLayout,
         )
 
-        self.selectTractionSpp = self.mapToTractions()[:, :3]
+        self.selectTractionSpp = self.extractTractions().T[:, :3]
         self.tractionPlusMatrix = Tensor(
             "tractionPlusMatrix",
             self.selectTractionSpp.shape,
@@ -199,6 +202,29 @@ class ADERDGBase(ABC):
     def transformation_inv_spp(self):
         return rotation_spp(self.inverseRotationBlocks())
 
+    def transportTinv(self):
+        """The inverse rotation a face applies to what crosses it.
+
+        The rotation of the state wherever the two coincide -- which keeps
+        every solver with a linear flux on exactly the tensor it had -- and a
+        tensor of its own where a cell transports more.
+        """
+        if self.transportMatchesQuantities():
+            return self.Tinv
+        if not hasattr(self, "_transportTinv"):
+            spp = self.transportTransformationInvSpp()
+            self._transportTinv = Tensor("transportTinv", spp.shape, spp=spp)
+        return self._transportTinv
+
+    def transportTransformationInvSpp(self):
+        """Inverse rotation over what a cell transports.
+
+        A face rotates what crosses it, and what crosses it is the transported
+        tensor rather than the state. Where the two coincide this is the
+        rotation of the state, which is every solver whose flux is linear.
+        """
+        return rotation_spp(self.transportBlocks())
+
     #: The three directional star matrices share one sparsity pattern.
     StarClones = {"star": ["star(0)", "star(1)", "star(2)"]}
 
@@ -232,10 +258,12 @@ class ADERDGBase(ABC):
         return []
 
     def mapToVelocities(self):
-        return self.extractVelocities().T
+        """Into the state: where a fault's imposed velocity is added."""
+        return velocity_selector(self.quantityBlocks()).T
 
     def mapToTractions(self):
-        return self.extractTractions().T
+        """Into the state: where a fault's imposed traction is added."""
+        return traction_selector(self.quantityBlocks()).T
 
     @abstractmethod
     def primaryGroups(self):
@@ -309,10 +337,13 @@ class ADERDGBase(ABC):
         return role_offset(self.quantityBlocks(), FaceRole.VELOCITY)
 
     def extractVelocities(self):
-        return velocity_selector(self.quantityBlocks())
+        """Out of what crossed a face, which is the transported tensor -- the
+        state wherever the two coincide."""
+        return velocity_selector(self.transportBlocks())
 
     def extractTractions(self):
-        return traction_selector(self.quantityBlocks())
+        """Out of what crossed a face. See extractVelocities."""
+        return traction_selector(self.transportBlocks())
 
     @abstractmethod
     def numExtendedQuantities(self):

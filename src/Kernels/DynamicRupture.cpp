@@ -72,11 +72,13 @@ void DynamicRupture::spaceTimeInterpolation(
   assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
-  static_assert(tensor::Q::size() == tensor::I::size(),
-                "The tensors Q and I need to match in size");
-
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
+  // What a fault reads of a cell is what the cell transported, evaluated at a
+  // point in time -- so these buffers are of that tensor, and the two are the
+  // same size wherever a solver's flux is linear. They used to be of the
+  // state, with an assertion that the two sizes agree standing in for saying
+  // which one was meant.
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::I::size()];
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::I::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = krnlPrototype_;
   for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
@@ -91,13 +93,13 @@ void DynamicRupture::spaceTimeInterpolation(
                                     : timeDerivativeMinusPrefetch;
 
     krnl.QInterpolated = &qInterpolatedPlus[timeInterval][0];
-    krnl.Q = degreesOfFreedomPlus;
+    krnl.I = degreesOfFreedomPlus;
     krnl.TinvT = godunovData->dataTinvT;
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
 
     krnl.QInterpolated = &qInterpolatedMinus[timeInterval][0];
-    krnl.Q = degreesOfFreedomMinus;
+    krnl.I = degreesOfFreedomMinus;
     krnl.TinvT = godunovData->dataTinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
@@ -165,12 +167,19 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 }
 
 PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) const {
+  // The fused projection sums the state's own expansion, which is not what a
+  // solver transporting more than its state hands a face; it is not built
+  // there, so neither is its estimate.
+#ifndef SEISSOL_KERNELS_NONLINEARCK
   if (isDeviceOn()) {
     return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(faceInfo.plusSide,
                                                                                 0) +
            PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(
                faceInfo.minusSide, faceInfo.faceRelation);
   } else {
+#else
+  {
+#endif
     auto estimate = timeKernel_.metrics();
 
     // 2x evaluateTaylorExpansion

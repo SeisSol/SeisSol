@@ -282,7 +282,7 @@ def main():
                 cmdLineArgs.drQuadRule,
                 targets,
                 isOldGpuInterface,
-                tensorsOnly=not adg.transportMatchesQuantities(),
+                skipStateShaped=not adg.transportMatchesQuantities(),
             )
         )
 
