@@ -28,14 +28,13 @@ def addKernels(
     point in time, rotated into the face frame -- the same kernels for every
     solver, because the two tensors coincide wherever the flux is linear.
 
-    With `skipStateShaped`, the kernels that take what crosses a face to be
-    the state are left out: the fused interpolation, which sums the state's
-    own expansion, and the write-back, which is built from the star matrix and
-    the rotation. A solver that transports more than its state has a second
-    expansion for the rest and assembles its faces from flux tables, and
-    neither construction is written here yet. The tensors are declared
-    regardless, because the code that reads and writes a fault names them and
-    is compiled whether or not a fault may be built.
+    With `skipStateShaped`, three kernels are left out: the theta of the
+    poroelastic Riemann problem and the two imposed states built from it. They
+    map a fault's result onto the state through matrices shaped by the quantity
+    layout, and no solver calls them -- the path they belong to was rewritten
+    by hand in FrictionSolverCommon.h when the GPU needed it, and these have
+    been generated and unused since. A solver that transports more than its
+    state cannot build them, and nothing misses them.
     """
 
     clones = dict()
@@ -165,6 +164,10 @@ def addKernels(
             )
 
     steps = aderdg.order
+    extraScalars = [
+        [Scalar(f"extraCoeffDR({i * aderdg.order + p})") for p in range(aderdg.order)]
+        for i in range(aderdg.order)
+    ]
     scalars = [
         [Scalar(f"coeffDR({i * aderdg.order + p})") for p in range(aderdg.order)]
         for i in range(steps)
@@ -186,17 +189,26 @@ def addKernels(
 
         calc = []
         for c in range(steps):
-            interm = Accumulate(ops.Add())
-
-            # the same for all equations right now (incl. visco2 and poro)
-            # if not, you'll need to generalize within the equation class(es)
-            for p in range(aderdg.order):
-                interm = interm + scalars[c][p] * aderdg.dQs[p]["lq"]
-
-            if isOldGpuInterface:
-                # the "old" GPU implementation (gemmforge/chainforge) needs an explicit intermediate
-                calc += [aderdg.I["lq"] <= interm]
+            # A solver that transports more than its state evaluates two
+            # expansions in two bases, and says how; the sum below is what
+            # that reduces to when there is only the state.
+            fused = aderdg.fusedInterpolationStatements(scalars[c], extraScalars[c])
+            if fused:
+                calc += fused
                 interm = aderdg.I["lq"]
+            else:
+                interm = Accumulate(ops.Add())
+
+                # the same for all equations right now (incl. visco2 and poro)
+                # if not, you'll need to generalize within the equation class(es)
+                for p in range(aderdg.order):
+                    interm = interm + scalars[c][p] * aderdg.dQs[p]["lq"]
+
+                if isOldGpuInterface:
+                    # the "old" GPU implementation (gemmforge/chainforge) needs an
+                    # explicit intermediate
+                    calc += [aderdg.I["lq"] <= interm]
+                    interm = aderdg.I["lq"]
 
             calc += [
                 QDR[c]["kp"] <= db.V3mTo2n[i, h][aderdg.t("kl")] * interm * TinvT["qp"]
@@ -205,7 +217,7 @@ def addKernels(
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        if not skipStateShaped:
+        if True:
             generator.addFamily(
                 f"{name_prefix}projectToDR",
                 simpleParameterSpace(4, 4),
@@ -397,12 +409,9 @@ def addKernels(
         )
         + weight * mapToTractions["kl"] * theta["il"]
     )
-    if True:
-        if not skipStateShaped:
-            generator.add("computeImposedStateM", computeImposedStateM)
-    if True:
-        if not skipStateShaped:
-            generator.add("computeImposedStateP", computeImposedStateP)
+    if not skipStateShaped:
+        generator.add("computeImposedStateM", computeImposedStateM)
+        generator.add("computeImposedStateP", computeImposedStateP)
 
     declared = {db.resample, db.quadpoints, db.quadweights}
     if skipStateShaped:

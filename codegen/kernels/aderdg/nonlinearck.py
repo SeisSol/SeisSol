@@ -550,6 +550,31 @@ class NonLinearCK(ADERDGBase):
             target=target,
         )
 
+    def fusedInterpolationStatements(self, coeffs, extraCoeffs):
+        """Both sums, into the tensor a face then reads.
+
+        The columns a face shares with the state come out of the state's
+        expansion and its coefficients; the rest out of the expansion
+        projected for them and the coefficients of that basis. Which is the
+        same pair of sums the serial evaluation performs -- here they land in
+        one tensor first, because what follows contracts it as a whole.
+        """
+        shared = self.transportStateExtent()
+        carried = (shared, self.numTransportQuantities())
+
+        state = Accumulate(ops.Add())
+        for i, coefficient in enumerate(coeffs):
+            state = state + coefficient * self.dQs[i]["lq"].subslice("q", 0, shared)
+
+        rest = Accumulate(ops.Add())
+        for i, coefficient in enumerate(extraCoeffs):
+            rest = rest + coefficient * self.transportDer[i]["lq"]
+
+        return [
+            self.I["lq"].subslice("q", 0, shared) <= state,
+            self.I["lq"].subslice("q", *carried) <= rest,
+        ]
+
     def fluxSolverStatements(self, fluxScale, normal):
         """How the constant half of the flux solver is built from a face
         normal. Empty here: it is the flux, so the material writes it."""

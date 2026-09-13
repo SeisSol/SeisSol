@@ -149,6 +149,11 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
       for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
         for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
           krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s].state[p];
+#ifdef SEISSOL_KERNELS_NONLINEARCK
+          // The second expansion, in its own basis: the fused projection sums
+          // both, because what a face reads is both.
+          krnl.extraCoeffDR(s * ConvergenceOrder + p) = coeffs[s].extra[p];
+#endif
         }
       }
 
@@ -167,19 +172,12 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 }
 
 PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) const {
-  // The fused projection sums the state's own expansion, which is not what a
-  // solver transporting more than its state hands a face; it is not built
-  // there, so neither is its estimate.
-#ifndef SEISSOL_KERNELS_NONLINEARCK
   if (isDeviceOn()) {
     return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(faceInfo.plusSide,
                                                                                 0) +
            PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(
                faceInfo.minusSide, faceInfo.faceRelation);
   } else {
-#else
-  {
-#endif
     auto estimate = timeKernel_.metrics();
 
     // 2x evaluateTaylorExpansion

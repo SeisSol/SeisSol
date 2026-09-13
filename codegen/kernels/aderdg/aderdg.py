@@ -216,6 +216,16 @@ class ADERDGBase(ABC):
     def transformation_inv_spp(self):
         return rotation_spp(self.inverseRotationBlocks())
 
+    def fusedInterpolationStatements(self, coeffs, extraCoeffs):
+        """Time evaluation of everything a face reads, as statements leaving
+        the result in `I`.
+
+        Empty here: what a face reads is the state, so the sum over the state's
+        own expansion is the whole of it and the rupture module writes it
+        inline, without a tensor in between.
+        """
+        return []
+
     def drFluxSolverStatements(self, fluxScale, fluxSolver):
         """How a fault's flux solver is built, where the star matrix does not
         build it. Empty here: the Godunov flux of a state is the star matrix
