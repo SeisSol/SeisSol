@@ -141,6 +141,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
     auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
     auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
+#ifdef SEISSOL_KERNELS_NONLINEARCK
+    auto* nodalImpedanceParams = layer.var<DynamicRupture::NodalImpedanceParams>();
+#endif
     auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
 
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
@@ -356,6 +359,18 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS =
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
+
+      // What is left of the constitutive law once a node hands over its
+      // state: the density and the undamaged moduli are in the wave speeds of
+      // this face already. Behind a macro, not a compile-time condition -- a
+      // discarded branch still has its names looked up, and no other material
+      // has these two.
+#ifdef SEISSOL_KERNELS_NONLINEARCK
+      nodalImpedanceParams[ltsFace].gammaRPlus = plusMaterial->gammaR;
+      nodalImpedanceParams[ltsFace].xi0Plus = plusMaterial->xi0;
+      nodalImpedanceParams[ltsFace].gammaRMinus = minusMaterial->gammaR;
+      nodalImpedanceParams[ltsFace].xi0Minus = minusMaterial->xi0;
+#endif
 
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
       seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);

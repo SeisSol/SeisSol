@@ -77,6 +77,19 @@ struct ImposedState;
 /// there is nothing about it to keep between timesteps.
 inline constexpr bool NodalImpedance = model::MaterialT::Type == model::MaterialType::Damage;
 
+/// What the impedance of a node needs from the material of the two sides.
+///
+/// The density and the undamaged moduli are already there, in the wave speeds
+/// of the face; these two are what is left of the constitutive law once the
+/// state of the node is given. Empty where the impedance belongs to the face,
+/// and then not stored at all.
+struct NodalImpedanceParameters {
+  double gammaRPlus{};
+  double xi0Plus{};
+  double gammaRMinus{};
+  double xi0Minus{};
+};
+
 /**
  * The impedances of a face's nodes, where they belong to the nodes.
  *

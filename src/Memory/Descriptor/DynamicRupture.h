@@ -62,6 +62,8 @@ struct DynamicRupture {
 
   struct ImpAndEta : public initializer::Variable<seissol::dr::ImpedancesAndEta> {};
   struct ImpedanceMatrices : public initializer::Variable<seissol::dr::ImpedanceMatrices> {};
+  struct NodalImpedanceParams
+      : public initializer::Variable<seissol::dr::NodalImpedanceParameters> {};
   // size padded for vectorization
   // CS = coordinate system
   struct InitialStressInFaultCS : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {
@@ -124,6 +126,9 @@ struct DynamicRupture {
     storage.add<WaveSpeedsMinus>(mask, Alignment, allocationModeDR(), true);
     storage.add<DREnergyOutputVar>(mask, Alignment, allocationModeDR());
     storage.add<ImpAndEta>(mask, Alignment, allocationModeDR(), true);
+    if constexpr (seissol::dr::NodalImpedance) {
+      storage.add<NodalImpedanceParams>(mask, Alignment, allocationModeDR(), true);
+    }
     storage.add<ImpedanceMatrices>(mask, Alignment, allocationModeDR(), true);
     storage.add<InitialStressInFaultCS>(mask, Alignment, allocationModeDR());
     storage.add<InitialPressure>(mask, Alignment, allocationModeDR());
