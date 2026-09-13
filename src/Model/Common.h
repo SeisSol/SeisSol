@@ -74,6 +74,9 @@ static_assert(detail::kindsMatch(MaterialT::RotationGroups, generated::RotationG
 static_assert(detail::kindsMatch(MaterialT::InverseRotationGroups,
                                  generated::InverseRotationGroupKinds),
               "the material's inverse quantity groups disagree with the generated layout");
+static_assert(detail::kindsMatch(MaterialT::TransportGroups,
+                                 generated::TransportRotationGroupKinds),
+              "the material's transported quantity groups disagree with the generated layout");
 
 template <typename T>
 constexpr bool testIfAcoustic(T mu) {

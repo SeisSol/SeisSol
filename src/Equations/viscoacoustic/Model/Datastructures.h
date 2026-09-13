@@ -80,6 +80,8 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
       withMechanisms<RotationRepetitions>(PrimaryGroups, MechanismGroups);
   static constexpr auto InverseRotationGroups =
       withMechanisms<InverseRotationRepetitions>(PrimaryGroups, MechanismGroups);
+  /// What crosses a face is the state here, so its rotation is the state's.
+  static constexpr auto TransportGroups = InverseRotationGroups;
 
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;

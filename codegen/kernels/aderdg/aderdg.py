@@ -235,12 +235,11 @@ class ADERDGBase(ABC):
     def transportTinv(self):
         """The inverse rotation a face applies to what crosses it.
 
-        The rotation of the state wherever the two coincide -- which keeps
-        every solver with a linear flux on exactly the tensor it had -- and a
-        tensor of its own where a cell transports more.
+        Always a tensor of its own, so that the kernels and the code binding
+        them name one thing. Its pattern is the rotation of the state
+        wherever the two layouts coincide, which is every solver whose flux
+        is linear.
         """
-        if self.transportMatchesQuantities():
-            return self.Tinv
         if not hasattr(self, "_transportTinv"):
             spp = self.transportTransformationInvSpp()
             self._transportTinv = Tensor("transportTinv", spp.shape, spp=spp)

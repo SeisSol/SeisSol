@@ -42,6 +42,9 @@ struct AnisotropicMaterial : public Material {
   static constexpr auto PrimaryGroups = ElasticQuantities;
   static constexpr auto RotationGroups = PrimaryGroups;
   static constexpr auto InverseRotationGroups = PrimaryGroups;
+  /// What crosses a face is the state here, so its rotation is the
+  /// state's.
+  static constexpr auto TransportGroups = InverseRotationGroups;
 
   /// Where the velocity components start. Everything reaching for them --
   /// energy output, point sources, initial fields -- goes through this.

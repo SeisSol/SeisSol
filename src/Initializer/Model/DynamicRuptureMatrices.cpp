@@ -499,11 +499,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Transpose matTinv
+      // A face rotates what crosses it, which is the transported tensor --
+      // the state wherever the flux is linear, and wider where it is not.
       dynamicRupture::kernel::transposeTinv ttKrnl;
-#ifdef SEISSOL_KERNELS_NONLINEARCK
-      // A face rotates what crosses it, and what crosses it is wider than the
-      // state here -- so the rotation is over the transported quantities,
-      // built from the same face frame.
       real transportTinvData[tensor::transportTinv::size()]{};
       auto transportTinv = init::transportTinv::view::create(transportTinvData);
       transportTinv.setZero();
@@ -513,9 +511,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                                         fault[meshFace].tangent2,
                                                         transportTinv);
       ttKrnl.transportTinv = transportTinvData;
-#else
-      ttKrnl.Tinv = matTinvData;
-#endif
       ttKrnl.TinvT = godunovData[ltsFace].dataTinvT;
       ttKrnl.execute();
 
