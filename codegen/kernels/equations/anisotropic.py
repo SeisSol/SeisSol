@@ -16,7 +16,10 @@ class AnisotropicADERDG(ElasticADERDG):
         return "anisotropic"
 
     def extractTractions(self):
-        extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
+        # The pattern is dense across the traction triple here, because an
+        # anisotropic face couples all three of them; only the width follows
+        # the layout.
+        extractTractionsSPP = np.zeros((3, self.numTransportQuantities()))
         extractTractionsSPP[0, 0] = 1
         extractTractionsSPP[1, 0] = 1
         extractTractionsSPP[2, 0] = 1

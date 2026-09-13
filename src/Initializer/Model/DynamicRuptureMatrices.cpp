@@ -495,11 +495,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       real transportTinvData[tensor::transportTinv::size()]{};
       auto transportTinv = init::transportTinv::view::create(transportTinvData);
       transportTinv.setZero();
-      model::detail::writeRotationBlocks<true>(model::MaterialT::TransportGroups,
-                                               fault[meshFace].normal,
-                                               fault[meshFace].tangent1,
-                                               fault[meshFace].tangent2,
-                                               transportTinv);
+      seissol::model::detail::writeRotationBlocks<true>(seissol::model::MaterialT::TransportGroups,
+                                                        fault[meshFace].normal,
+                                                        fault[meshFace].tangent1,
+                                                        fault[meshFace].tangent2,
+                                                        transportTinv);
       ttKrnl.transportTinv = transportTinvData;
 #else
       ttKrnl.Tinv = matTinvData;

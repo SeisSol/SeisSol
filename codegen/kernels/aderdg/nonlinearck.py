@@ -70,18 +70,34 @@ class NonLinearCK(ADERDGBase):
             for group in self.primaryGroups()
             if group.role is not FaceRole.NONE
         ]
-        return coupled + [
-            QuantityGroup("sigma", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
-            # The dissipation is scaled with a wave speed, and a wave speed is
-            # not something that may be accumulated: over two timesteps of a
-            # neighbour, the sum of two speeds is not a speed. Its square
-            # integrated over the step is, and so is the length of the step --
-            # both are time integrals, so the accumulation of a coarser
-            # cluster sums them the way it sums every other column, and the
-            # face that reads them divides and takes the root.
-            QuantityGroup("waveIntegral", QuantityKind.INVARIANT),
-            QuantityGroup("interval", QuantityKind.INVARIANT),
-        ]
+        return (
+            coupled
+            + [
+                QuantityGroup("sigma", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
+                # What the state keeps to itself is transported after all: a face
+                # needs the moduli a wave sees there, and those follow the
+                # internal variables. They are carried rather than shared with the
+                # state, because their own expansion is the projected one -- they
+                # march through the step from a source, which no Taylor sum of the
+                # state describes.
+            ]
+            + [
+                replace(group, role=FaceRole.NONE)
+                for group in self.primaryGroups()
+                if group.role is FaceRole.NONE
+            ]
+            + [
+                # The dissipation is scaled with a wave speed, and a wave speed is
+                # not something that may be accumulated: over two timesteps of a
+                # neighbour, the sum of two speeds is not a speed. Its square
+                # integrated over the step is, and so is the length of the step --
+                # both are time integrals, so the accumulation of a coarser
+                # cluster sums them the way it sums every other column, and the
+                # face that reads them divides and takes the root.
+                QuantityGroup("waveIntegral", QuantityKind.INVARIANT),
+                QuantityGroup("interval", QuantityKind.INVARIANT),
+            ]
+        )
 
     def transportBlocks(self):
         return layout(self.transportGroups())
@@ -89,13 +105,17 @@ class NonLinearCK(ADERDGBase):
     def transportStateExtent(self):
         """Quantities the transported tensor shares with the state, and in the
         same order: the Taylor expansion writes exactly these."""
-        return total_extent(
-            [
-                block
-                for block in self.transportBlocks()
-                if block.group.name in {group.name for group in self.primaryGroups()}
-            ]
-        )
+        # The leading blocks only. A group of the state may appear further
+        # back as well -- the internal variables are carried there, with an
+        # expansion of their own -- and the Taylor sum writes a prefix, not a
+        # selection.
+        names = [group.name for group in self.primaryGroups()]
+        prefix = []
+        for block, name in zip(self.transportBlocks(), names):
+            if block.group.name != name:
+                break
+            prefix.append(block)
+        return total_extent(prefix)
 
     def nodalMeanWeights(self):
         """Weights that average a nodal field over the cell.

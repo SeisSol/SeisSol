@@ -211,14 +211,17 @@ inline constexpr std::array ElasticQuantities{
 /// is derived from it rather than stored is a distinction the face machinery
 /// does not yet draw.
 /// What a cell with a damaged material hands its neighbours: the quantities
-/// they couple through, the stress it integrated, and the two scalars the
-/// dissipation is scaled from. The stress carries the traction role here,
+/// they couple through, the stress it integrated, the two internal variables
+/// -- because the moduli a wave sees at a face follow them -- and the two
+/// scalars the dissipation is scaled from. The stress carries the traction role here,
 /// because it is the mechanical traction and it is present rather than
 /// derived -- which is what the strain stands in for in the state.
 inline constexpr std::array DamageTransportQuantities{
     QuantityGroup{"eps", QuantityKind::SymTensor2},
     QuantityGroup{"v", QuantityKind::Vector, FaceRole::Velocity},
     QuantityGroup{"sigma", QuantityKind::SymTensor2, FaceRole::Traction},
+    QuantityGroup{"alpha", QuantityKind::Invariant},
+    QuantityGroup{"breakage", QuantityKind::Invariant},
     QuantityGroup{"waveIntegral", QuantityKind::Invariant},
     QuantityGroup{"interval", QuantityKind::Invariant},
 };

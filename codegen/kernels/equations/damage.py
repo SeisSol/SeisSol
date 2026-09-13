@@ -213,6 +213,15 @@ class DamageADERDG(NonLinearCK):
         # The stress of a node in modal form. Projected once and combined
         # afterwards: the projection is the expensive part, and every
         # coefficient of the expansion is a combination of the same ones.
+        # One per variable, not two columns of one: a temporary written
+        # through two subslices gets a buffer per statement, and then only the
+        # last of them is the tensor.
+        self.alphaModal = Tensor(
+            "alphaModal", (self.num3DBasisFunctions(),), temporary=True
+        )
+        self.breakageModal = Tensor(
+            "breakageModal", (self.num3DBasisFunctions(),), temporary=True
+        )
         self.sigmaModal = OptionalDimTensor(
             "sigmaModal",
             self.Q.optName(),
@@ -226,6 +235,10 @@ class DamageADERDG(NonLinearCK):
         # is written through two different subslices gets a buffer per
         # statement, and then only the last of them is the tensor: the two
         # columns would live in two places and the projection would read one.
+        # The sources integrate into what the corrector lifts; the values
+        # themselves integrate into what a face reads.
+        self.alphaValueIntegral = temporary("alphaValueIntegral", 1)
+        self.breakageValueIntegral = temporary("breakageValueIntegral", 1)
         self.alphaIntegral = temporary("alphaIntegral", 1)
         self.breakageIntegral = temporary("breakageIntegral", 1)
         self.meanAlpha = Tensor("meanAlpha", (1,), temporary=True)
@@ -443,6 +456,8 @@ class DamageADERDG(NonLinearCK):
         for accumulator, source in (
             (self.alphaIntegral, self.sourceAlpha),
             (self.breakageIntegral, self.sourceBreakage),
+            (self.alphaValueIntegral, alpha),
+            (self.breakageValueIntegral, breakage),
         ):
             statements += [
                 (
@@ -456,10 +471,29 @@ class DamageADERDG(NonLinearCK):
         # weighted sum per coefficient. The weights are the projection onto
         # the Legendre basis and constant, so they arrive as literals.
         modal = self.db.projectQP[self.t("kl")]
-        statements += [self.sigmaModal["kc"] <= modal * sigma["lc"]]
-        stress = (0, 6)
-        wave = (6, 7)
-        interval = (7, 8)
+        statements += [
+            self.sigmaModal["kc"] <= modal * sigma["lc"],
+            # The two internal variables ride along, because the moduli a wave
+            # sees at a face follow them and a face cannot see the state.
+            self.alphaModal["k"] <= modal * alpha["l"],
+            self.breakageModal["k"] <= modal * breakage["l"],
+        ]
+
+        # Relative to the carried block, which begins where the columns shared
+        # with the state end.
+        base = self.transportStateExtent()
+
+        def carried(name):
+            start, stop = self.transportGroupSlice(name)
+            return (start - base, stop - base)
+
+        stress = carried("sigma")
+        internalColumns = (
+            (carried("alpha"), self.alphaModal),
+            (carried("breakage"), self.breakageModal),
+        )
+        wave = carried("waveIntegral")
+        interval = carried("interval")
         for i in range(self.order):
             # a numpy scalar is not a Python float, and yateto takes the latter
             weightOf = float(projection[i, node])
@@ -474,6 +508,17 @@ class DamageADERDG(NonLinearCK):
                     + weightOf * self.sigmaModal["kc"]
                 )
             ]
+            for columns, value in internalColumns:
+                statements += [
+                    (
+                        target["kc"].subslice("c", *columns)
+                        <= weightOf * value["k"] * self.unitColumn["c"]
+                        if first
+                        else target["kc"].subslice("c", *columns)
+                        <= target["kc"].subslice("c", *columns)
+                        + weightOf * value["k"] * self.unitColumn["c"]
+                    )
+                ]
             statements += [
                 (
                     target["kc"].subslice("c", *wave)
@@ -510,6 +555,10 @@ class DamageADERDG(NonLinearCK):
         return [
             self.I["kc"].subslice("c", *stress)
             <= projection * self.sigmaIntegral["lc"],
+            self.I["kc"].subslice("c", *self.transportGroupSlice("alpha"))
+            <= projection * self.alphaValueIntegral["lc"],
+            self.I["kc"].subslice("c", *self.transportGroupSlice("breakage"))
+            <= projection * self.breakageValueIntegral["lc"],
             # The two columns meet on the way out, where the target is a real
             # buffer and a subslice of it is a place rather than a binding.
             self.sourceI["kn"].subslice("n", 0, 1)
