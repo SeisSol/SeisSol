@@ -26,6 +26,10 @@
 #include "Kernels/LinearCKAnelastic/Local.h"
 #include "Kernels/LinearCKAnelastic/Neighbor.h"
 #include "Kernels/LinearCKAnelastic/Time.h"
+#elif defined(SEISSOL_KERNELS_NONLINEARCK)
+#include "Kernels/NonLinearCK/Local.h"
+#include "Kernels/NonLinearCK/Neighbor.h"
+#include "Kernels/NonLinearCK/Time.h"
 #elif defined(SEISSOL_KERNELS_STP)
 #include "Kernels/LinearCK/Local.h"
 #include "Kernels/LinearCK/Neighbor.h"

@@ -79,11 +79,13 @@ struct Solver {
   static constexpr bool RequiresOwnIntegrals = true;
   static constexpr bool FluxSolverFromTable = true;
   static constexpr std::size_t IntegralsSize = tensor::I::size();
+
   /// The expansion of the state, and behind it the expansion of what the cell
   /// carries beyond it. The second has no recursion to come out of, so it is
   /// projected from the samples of the step -- and a neighbour on a coarser
   /// cluster reconstructs a subinterval of the stress from it rather than
   /// rebuilding the stress out of this cell's material.
+  /// Size of the expansion of what a cell carries beyond its state.
   static constexpr std::size_t DerivativesSize =
       yateto::computeFamilySize<tensor::dQ>() + kernels::familySize<tensor::transportDer>();
 

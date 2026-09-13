@@ -492,8 +492,22 @@ class NonLinearCK(ADERDGBase):
         # matrix that crosses a kernel boundary is a matrix the batched path
         # has to hold per element, and building it twice costs a hundred flops
         # against the thousands the half itself costs.
-        self.AplusT.temporary = True
-        self.AminusT.temporary = True
+        # Temporaries of their own rather than the declared pair: the pair is
+        # what a cell stores per face, and the C++ sizes those arrays with it,
+        # so it has to stay a tensor even though no kernel takes it as an
+        # argument any more.
+        self.fluxPlus = Tensor(
+            "fluxPlus",
+            self.flux_solver_spp().shape,
+            spp=self.flux_solver_spp(),
+            temporary=True,
+        )
+        self.fluxMinus = Tensor(
+            "fluxMinus",
+            self.flux_solver_spp().shape,
+            spp=self.flux_solver_spp(),
+            temporary=True,
+        )
 
         def speed(own, other):
             ratio = lambda tensor: yf.div(
@@ -506,7 +520,7 @@ class NonLinearCK(ADERDGBase):
             f"{prefix}damageLocalFlux",
             simpleParameterSpace(4),
             lambda i: [
-                self.AplusT["qp"]
+                self.fluxPlus["qp"]
                 <= self.fluxConstant["qp"]
                 + speed(self.I, self.INeighbor) * self.fluxDissipation["qp"],
                 self.Q["kp"]
@@ -514,7 +528,7 @@ class NonLinearCK(ADERDGBase):
                 + self.db.rDivM[i][self.t("km")]
                 * self.db.fMrT[i][self.t("ml")]
                 * self.I["lq"]
-                * self.AplusT["qp"],
+                * self.fluxPlus["qp"],
             ],
             target=target,
         )
@@ -522,7 +536,7 @@ class NonLinearCK(ADERDGBase):
             f"{prefix}damageNeighborFlux",
             simpleParameterSpace(3, 4, 4),
             lambda h, j, i: [
-                self.AminusT["qp"]
+                self.fluxMinus["qp"]
                 <= self.fluxConstant["qp"]
                 - speed(self.I, self.INeighbor) * self.fluxDissipation["qp"],
                 self.Q["kp"]
@@ -531,7 +545,7 @@ class NonLinearCK(ADERDGBase):
                 * self.db.fP[h][self.t("mn")]
                 * self.db.rT[j][self.t("nl")]
                 * self.INeighbor["lq"]
-                * self.AminusT["qp"],
+                * self.fluxMinus["qp"],
             ],
             target=target,
         )
@@ -716,3 +730,8 @@ class NonLinearCK(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
+        # A cell stores the pair of a face and the C++ sizes those arrays with
+        # it. No kernel of this solver takes it as an argument -- each half
+        # assembles what it applies -- so nothing would pull it in by use.
+        include_tensors.add(self.AplusT)
+        include_tensors.add(self.AminusT)

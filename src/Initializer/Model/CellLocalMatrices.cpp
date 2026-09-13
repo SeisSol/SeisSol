@@ -65,6 +65,72 @@ void setStarMatrix(const real* matAT,
 
 } // namespace
 
+#ifndef SEISSOL_KERNELS_NONLINEARCK
+namespace {
+/// The pair of a face, assembled from a Godunov state.
+///
+/// Behind a macro rather than an `if constexpr`: a discarded branch still has
+/// its names looked up, and these two kernels are not generated for a solver
+/// whose faces are scaled from the flux instead -- there is no Godunov state
+/// to assemble from when what a cell transports is wider than its state.
+/// Which kernels exist is a property of the build, and the build says so with
+/// this macro.
+template <typename Dummy = void>
+void assembleGodunovFluxSolvers(parameters::NumericalFlux flux,
+                                double fluxScale,
+                                FaceType faceType,
+                                real* aPlusT,
+                                real* aMinusT,
+                                const real* centralFluxData,
+                                const real* rusanovPlusData,
+                                const real* rusanovMinusData,
+                                const real* qGodLocalData,
+                                const real* qGodNeighborData,
+                                const real* rusanovPlusNull,
+                                const real* rusanovMinusNull,
+                                const real* matTData,
+                                const real* matTinvData,
+                                const real* matATtildeData) {
+  kernel::computeFluxSolverLocal localKrnl;
+  localKrnl.fluxScale = fluxScale;
+  localKrnl.AplusT = aPlusT;
+  if (faceType == FaceType::DynamicRupture) {
+    localKrnl.fluxScale = 0;
+  }
+  if (flux == parameters::NumericalFlux::Rusanov) {
+    localKrnl.QgodLocal = centralFluxData;
+    localKrnl.QcorrLocal = rusanovPlusData;
+  } else {
+    localKrnl.QgodLocal = qGodLocalData;
+    localKrnl.QcorrLocal = rusanovPlusNull;
+  }
+  localKrnl.T = matTData;
+  localKrnl.Tinv = matTinvData;
+  localKrnl.star(0) = matATtildeData;
+  localKrnl.execute();
+
+  kernel::computeFluxSolverNeighbor neighKrnl;
+  neighKrnl.fluxScale = fluxScale;
+  neighKrnl.AminusT = aMinusT;
+  if (flux == parameters::NumericalFlux::Rusanov) {
+    neighKrnl.QgodNeighbor = centralFluxData;
+    neighKrnl.QcorrNeighbor = rusanovMinusData;
+  } else {
+    neighKrnl.QgodNeighbor = qGodNeighborData;
+    neighKrnl.QcorrNeighbor = rusanovMinusNull;
+  }
+  neighKrnl.T = matTData;
+  neighKrnl.Tinv = matTinvData;
+  neighKrnl.star(0) = matATtildeData;
+  if (faceType == FaceType::Dirichlet || faceType == FaceType::FreeSurfaceGravity) {
+    // already rotated
+    neighKrnl.Tinv = init::identityT::Values;
+  }
+  neighKrnl.execute();
+}
+} // namespace
+#endif
+
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,
@@ -166,6 +232,10 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent2, tangent2);
 
           if constexpr (model::MaterialT::Solver::FluxSolverFromTable) {
+#ifdef SEISSOL_KERNELS_NONLINEARCK
+            // Behind a macro for the same reason the Godunov assembly below
+            // is: a discarded branch still has its names looked up, and these
+            // kernels are generated in the build that uses this solver.
             // A flux solver built from the flux rather than from a Godunov
             // state: both halves of the face flux are the same matrix up to
             // the sign of their dissipation, so what is stored per face is
@@ -195,14 +265,18 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             // says the same thing by scaling its flux solver with zero.
             const bool rupture = faceType == FaceType::DynamicRupture;
 
-            if (faceType != FaceType::Regular && faceType != FaceType::Periodic && !outflow &&
-                !freeSurface && !rupture) {
+            if (faceType != FaceType::Regular && !outflow && !freeSurface && !rupture) {
               logError() << "The nonlinear solver has no ghost rule for face type"
                          << static_cast<int>(faceType) << "yet.";
             }
 
             kernel::damageFluxSolver fluxSolver;
-            fluxSolver.fluxScale = rupture ? 0.0 : (outflow ? 2.0 : 1.0) * fluxScale;
+            // Scale with |S_side|/|J|, negated because the flux matrices are
+            // subtracted -- as the linear path does a few lines further down.
+            // An outflow face applies its own half twice, since the ghost
+            // state is its own and there is no second half to come.
+            const double faceScale = -2.0 * surface / (6.0 * volume);
+            fluxSolver.fluxScale = rupture ? 0.0 : (outflow ? 2.0 : 1.0) * faceScale;
             fluxSolver.rhoInv = 1.0 / materialLocal.rho;
             fluxSolver.faceNormal = normalData;
             fluxSolver.fluxConstant = localIntegration[cell].nApNm1[side];
@@ -218,7 +292,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             dissipation.setZero();
             if (!outflow && !rupture) {
               for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
-                dissipation(row, row) = 0.5 * fluxScale;
+                dissipation(row, row) = 0.5 * faceScale;
               }
             }
 
@@ -283,6 +357,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               }
             }
             continue;
+#endif
           }
 
           // Defines a rotation matrix for computing material properties in face-local coordinates
@@ -368,43 +443,23 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
-          kernel::computeFluxSolverLocal localKrnl;
-          localKrnl.fluxScale = fluxScale;
-          localKrnl.AplusT = localIntegration[cell].nApNm1[side];
-          if (cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture) {
-            localKrnl.fluxScale = 0;
-          }
-          if (flux == parameters::NumericalFlux::Rusanov) {
-            localKrnl.QgodLocal = centralFluxData;
-            localKrnl.QcorrLocal = rusanovPlusData;
-          } else {
-            localKrnl.QgodLocal = qGodLocalData;
-            localKrnl.QcorrLocal = rusanovPlusNull;
-          }
-          localKrnl.T = matTData;
-          localKrnl.Tinv = matTinvData;
-          localKrnl.star(0) = matATtildeData;
-          localKrnl.execute();
-
-          kernel::computeFluxSolverNeighbor neighKrnl;
-          neighKrnl.fluxScale = fluxScale;
-          neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-          if (flux == parameters::NumericalFlux::Rusanov) {
-            neighKrnl.QgodNeighbor = centralFluxData;
-            neighKrnl.QcorrNeighbor = rusanovMinusData;
-          } else {
-            neighKrnl.QgodNeighbor = qGodNeighborData;
-            neighKrnl.QcorrNeighbor = rusanovMinusNull;
-          }
-          neighKrnl.T = matTData;
-          neighKrnl.Tinv = matTinvData;
-          neighKrnl.star(0) = matATtildeData;
-          if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
-              cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
-            // already rotated
-            neighKrnl.Tinv = init::identityT::Values;
-          }
-          neighKrnl.execute();
+#ifndef SEISSOL_KERNELS_NONLINEARCK
+          assembleGodunovFluxSolvers(flux,
+                                     fluxScale,
+                                     cellInformation[cell].faceTypes[side],
+                                     localIntegration[cell].nApNm1[side],
+                                     neighboringIntegration[cell].nAmNm1[side],
+                                     centralFluxData,
+                                     rusanovPlusData,
+                                     rusanovMinusData,
+                                     qGodLocalData,
+                                     qGodNeighborData,
+                                     rusanovPlusNull,
+                                     rusanovMinusNull,
+                                     matTData,
+                                     matTinvData,
+                                     matATtildeData);
+#endif
         }
 
         seissol::model::initializeSpecificLocalData(

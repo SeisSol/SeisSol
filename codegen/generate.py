@@ -297,18 +297,25 @@ def main():
             cmdLineArgs.matricesDir, adg, cmdLineArgs.PlasticityMethod, include_tensors
         )
 
-        if adg.transportMatchesQuantities():
-            kernels.nodalbc.addKernels(
-                generator,
-                adg,
-                include_tensors,
-                cmdLineArgs.matricesDir,
-                cmdLineArgs,
-                targets,
-            )
-            kernels.surface_displacement.addKernels(
-                generator, adg, include_tensors, targets
-            )
+        # As with the rupture flux: the tensors are named by code that is
+        # compiled whatever the material, so they are declared even where
+        # nothing can be generated against them.
+        kernels.nodalbc.addKernels(
+            generator,
+            adg,
+            include_tensors,
+            cmdLineArgs.matricesDir,
+            cmdLineArgs,
+            targets,
+            skipTransportKernels=not adg.transportMatchesQuantities(),
+        )
+        kernels.surface_displacement.addKernels(
+            generator,
+            adg,
+            include_tensors,
+            targets,
+            skipTransportKernels=not adg.transportMatchesQuantities(),
+        )
         kernels.point.addKernels(generator, adg)
 
         outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"

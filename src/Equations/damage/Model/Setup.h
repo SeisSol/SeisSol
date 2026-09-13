@@ -11,7 +11,9 @@
 #include "Equations/damage/Model/Datastructures.h"
 #include "Model/Common.h"
 
+#include <array>
 #include <cstddef>
+#include <utils/logger.h>
 
 namespace seissol::model {
 
@@ -52,6 +54,43 @@ void getTransposedCoefficientMatrix(
     matM(Shear[dim][k], 6 + ShearVelocity[dim][k]) = -2.0 * muEff * rhoInv;
   }
 }
+
+/// What the generic setup asks of this material.
+///
+/// The linearisation the recursion runs on is the undamaged one: the star
+/// matrices are built once per cell, and a linearisation that followed the
+/// damage would have to be rebuilt every step. What follows the damage is the
+/// constitutive law the kernels evaluate pointwise, and the flux the faces are
+/// scaled with -- not this operator.
+template <>
+struct MaterialSetup<DamageMaterial> : public MaterialSetupDefaults<DamageMaterial> {
+  template <typename T>
+  static void
+      getTransposedCoefficientMatrix(const DamageMaterial& material, unsigned dim, T& matM) {
+    seissol::model::getTransposedCoefficientMatrix(
+        material, dim, material.lambda0, material.mu0, matM);
+  }
+
+  template <typename Tloc, typename Tneigh>
+  static void getTransposedGodunovState(const DamageMaterial& /*local*/,
+                                        const DamageMaterial& /*neighbor*/,
+                                        FaceType /*faceType*/,
+                                        Tloc& /*qGodLocal*/,
+                                        Tneigh& /*qGodNeighbor*/) {
+    // A Godunov state maps the state onto itself, and what this material
+    // transports is wider than its state; its faces are scaled from the flux
+    // instead, where the pair of matrices is built.
+    logError() << "A damaged material has no Godunov state.";
+  }
+
+  static DamageMaterial
+      getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
+                                     DamageMaterial& material) {
+    // Isotropic in its undamaged moduli, and the damage is a scalar: nothing
+    // to rotate.
+    return material;
+  }
+};
 
 } // namespace seissol::model
 

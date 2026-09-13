@@ -435,6 +435,14 @@ class ADERDGBase(ABC):
         pass
 
     def add_include_tensors(self, include_tensors):
+        if not self.transportMatchesQuantities():
+            # The Godunov state of a solver that transports more than its
+            # state is not assembled, so nothing pulls these in by use -- and
+            # the setup of every material is compiled whatever the material.
+            include_tensors.add(self.QgodLocal)
+            include_tensors.add(self.QgodNeighbor)
+            include_tensors.add(self.QcorrLocal)
+            include_tensors.add(self.QcorrNeighbor)
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
         include_tensors.add(self.db.ET)

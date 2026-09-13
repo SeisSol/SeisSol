@@ -18,6 +18,7 @@ def addKernels(
     matricesDir,
     dynamicRuptureMethod,
     targets,
+    skipTransportKernels=False,
 ):
     easi_ident_map = np.stack(
         [np.eye(aderdg.numQuantities())] * aderdg.num2DBasisFunctions(),
@@ -64,11 +65,17 @@ def addKernels(
         <= aderdg.db.V3mTo2nFace[j][aderdg.t("km")] * aderdg.I["mp"]
     )
 
-    generator.addFamily(
-        "projectToNodalBoundary",
-        simpleParameterSpace(4),
-        projectToNodalBoundary,
-    )
+    # These two project the time-integrated quantities onto a face, and a
+    # solver that transports more than its state has a wider tensor there --
+    # so they are the two that cannot be built against the quantity layout.
+    # Everything else in this module can, and has to be: the headers of the
+    # gravitational free surface are compiled whatever the material.
+    if not skipTransportKernels:
+        generator.addFamily(
+            "projectToNodalBoundary",
+            simpleParameterSpace(4),
+            projectToNodalBoundary,
+        )
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
@@ -79,12 +86,13 @@ def addKernels(
             * aderdg.Tinv["pm"]
         )
 
-        generator.addFamily(
-            f"{name_prefix}projectToNodalBoundaryRotated",
-            simpleParameterSpace(4),
-            projectToNodalBoundaryRotated,
-            target=target,
-        )
+        if not skipTransportKernels:
+            generator.addFamily(
+                f"{name_prefix}projectToNodalBoundaryRotated",
+                simpleParameterSpace(4),
+                projectToNodalBoundaryRotated,
+                target=target,
+            )
 
         projectDerivativeToNodalBoundaryRotated = (
             lambda i, j: aderdg.INodal["kp"]
@@ -115,6 +123,15 @@ def addKernels(
         identity_rotation,
     )
     include_tensors.add(identity_rotation)
+    if skipTransportKernels:
+        # Nothing was generated, so nothing pulls these in by use -- and the
+        # boundary data of a cell is sized with them in code that is compiled
+        # whatever the material.
+        include_tensors.add(easi_boundary_constant)
+        include_tensors.add(easi_boundary_map)
+        include_tensors.add(easi_ident_map)
+        include_tensors.add(aderdg.T)
+        include_tensors.add(aderdg.Tinv)
 
     aderdg.INodalUpdate = OptionalDimTensor(
         "INodalUpdate",

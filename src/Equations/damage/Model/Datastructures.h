@@ -142,6 +142,26 @@ struct DamageMaterial : public Material {
   /// material as well as soften it, which is why this is not the undamaged
   /// speed: a timestep or a numerical flux scaled with that one would be
   /// scaled with a speed the simulation can exceed.
+  /// The stiffness of the undamaged solid, which is what an interface between
+  /// two cells is judged by at setup. The damaged one is a function of the
+  /// state and has no place in a tensor that is filled once.
+  void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
+    auto view = seissol::general::init::stiffnessTensor::view::create(fullTensor.data());
+    view.setZero();
+    for (std::size_t i = 0; i < 3; ++i) {
+      for (std::size_t j = 0; j < 3; ++j) {
+        view(i, i, j, j) = lambda0;
+      }
+      view(i, i, i, i) = lambda0 + 2.0 * mu0;
+      for (std::size_t j = 0; j < 3; ++j) {
+        if (i != j) {
+          view(i, j, i, j) = mu0;
+          view(i, j, j, i) = mu0;
+        }
+      }
+    }
+  }
+
   [[nodiscard]] double getMaxWaveSpeed() const override {
     constexpr double MaxInvariantRatio = 1.7320508075688772; // sqrt(3)
     const double shear = 2.0 * mu0 + gammaR * (MaxInvariantRatio - 2.0 * xi0);

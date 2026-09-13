@@ -61,7 +61,7 @@ void Neighbor::computeNeighborsIntegral(
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const auto faceType = info.faceTypes[face];
-    const bool hasNeighbor = faceType == FaceType::Regular || faceType == FaceType::Periodic;
+    const bool hasNeighbor = faceType == FaceType::Regular;
 
     // A face without a neighbour carries its ghost rule in its own pair of
     // matrices, folded in at setup. What is left of it here is that there is
@@ -171,7 +171,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
   PerformanceEstimate neighbor;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (faceTypes[face] != FaceType::Regular && faceTypes[face] != FaceType::Periodic) {
+    if (faceTypes[face] != FaceType::Regular) {
       continue;
     }
     // both traces of the face, the flux between them, and the lift back

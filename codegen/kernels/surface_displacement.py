@@ -11,7 +11,7 @@ from kernels.multsim import OptionalDimTensor
 from yateto import Tensor, simpleParameterSpace
 
 
-def addKernels(generator, aderdg, include_tensors, targets):
+def addKernels(generator, aderdg, include_tensors, targets, skipTransportKernels=False):
     maxDepth = 3
 
     num3DBasisFunctions = aderdg.num3DBasisFunctions()
@@ -115,7 +115,11 @@ def addKernels(generator, aderdg, include_tensors, targets):
         * aderdg.I["lq"]
         * aderdg.selectVelocity["qp"]
     )
-    generator.addFamily("addVelocity", simpleParameterSpace(4), addVelocity)
+    # The one kernel here that reads the transported tensor: a solver that
+    # transports more than its state has a wider one, and the velocity would
+    # be selected out of the wrong width.
+    if not skipTransportKernels:
+        generator.addFamily("addVelocity", simpleParameterSpace(4), addVelocity)
 
     numQuadratureNodes = (aderdg.order + 1) ** 2
     rotatedFaceDisplacementAtQuadratureNodes = OptionalDimTensor(
@@ -191,3 +195,13 @@ def addKernels(generator, aderdg, include_tensors, targets):
             addVelocity,
             target="gpu",
         )
+
+    if skipTransportKernels:
+        # Nothing was generated, so nothing pulls these in by use. The face
+        # displacement of a cell is stored and written out whatever the
+        # material.
+        include_tensors.add(faceDisplacement)
+        include_tensors.add(averageNormalDisplacement)
+        include_tensors.add(displacementRotationMatrix)
+        include_tensors.add(rotatedFaceDisplacement)
+        include_tensors.add(faceDisplacementModal)
