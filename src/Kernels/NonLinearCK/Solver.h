@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_KERNELS_NONLINEARCK_SOLVER_H_
 
 #include "GeneratedCode/tensor.h"
+#include "Kernels/Common.h"
 
 #include <cstddef>
 #include <variant>
@@ -17,7 +18,13 @@
 namespace seissol::numerical {
 template <typename>
 class MonomialBasis;
+template <typename>
+class LegendreBasis;
 } // namespace seissol::numerical
+
+namespace seissol::tensor {
+struct transportDer;
+}
 
 namespace seissol::kernels::solver::nonlinearck {
 
@@ -78,7 +85,7 @@ struct Solver {
   /// cluster reconstructs a subinterval of the stress from it rather than
   /// rebuilding the stress out of this cell's material.
   static constexpr std::size_t DerivativesSize =
-      yateto::computeFamilySize<tensor::dQ>() + yateto::computeFamilySize<tensor::transportDer>();
+      yateto::computeFamilySize<tensor::dQ>() + kernels::familySize<tensor::transportDer>();
 
   using LocalData = NonLinearLocalData;
   using NeighborData = NonLinearNeighborData;
