@@ -181,7 +181,9 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
         neighboringIndices[face][1], neighboringIndices[face][0], face);
   }
 
-  // dynamic rupture is not supported by a material whose traction is derived
+  // The rupture faces of a cell are the dynamic rupture kernel's, and it
+  // reports them itself; what is counted here is the regular flux, which a
+  // rupture face contributes nothing to.
   return {neighbor, PerformanceEstimate{}};
 }
 
