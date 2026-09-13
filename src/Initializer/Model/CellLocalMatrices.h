@@ -19,6 +19,8 @@ namespace seissol::initializer {
 /**
  * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
  **/
+void initializeGhostSolverLocalData(LTS::Storage& ltsStorage);
+
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,

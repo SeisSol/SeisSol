@@ -151,6 +151,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* material = layer.var<LTS::Material>();
     auto* materialData = layer.var<LTS::MaterialData>();
     auto* localIntegration = layer.var<LTS::LocalIntegration>();
+    auto* solverLocalData = layer.var<LTS::SolverLocalData>();
     auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
@@ -464,10 +465,38 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         seissol::model::initializeSpecificLocalData(
             materialLocal, timeStepWidth, &localIntegration[cell].specific);
+        solverLocalData[cell] = localIntegration[cell].specific;
 
         seissol::model::initializeSpecificNeighborData(materialLocal,
                                                        &neighboringIntegration[cell].specific);
       }
+    }
+  }
+}
+
+/// The solver's per-cell material data for the cells this rank does not
+/// integrate.
+///
+/// A ghost cell has no local integration data -- its fluxes are somebody
+/// else's -- but a fault reads the state of both its sides, and turning that
+/// state into what a face reads is a question about the material of the side
+/// it came from. The material itself is kept for every cell, so this is the
+/// same conversion the integrated cells get, over the rest of them.
+///
+/// The timestep is the one of the cluster the cell belongs to where that is
+/// known and zero otherwise; no solver whose local data depends on it reads
+/// this, because no solver whose transported tensor is its state reads it at
+/// all.
+void initializeGhostSolverLocalData(LTS::Storage& ltsStorage) {
+  for (auto& layer : ltsStorage.leaves()) {
+    if (layer.getIdentifier().halo != HaloType::Ghost) {
+      continue;
+    }
+    const auto* materialData = layer.var<LTS::MaterialData>();
+    auto* solverLocalData = layer.var<LTS::SolverLocalData>();
+#pragma omp parallel for schedule(static)
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      seissol::model::initializeSpecificLocalData(materialData[cell], 0.0, &solverLocalData[cell]);
     }
   }
 }

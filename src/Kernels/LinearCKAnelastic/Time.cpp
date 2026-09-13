@@ -258,7 +258,7 @@ void Spacetime::computeBatchedAder(
 }
 
 void Time::stateToTransport(const real* dofs,
-                            const LocalIntegrationData& /*local*/,
+                            const typename seissol::model::MaterialT::Solver::LocalData& /*local*/,
                             real* transported) {
   kernel::stateToTransport krnl;
   krnl.Q = dofs;

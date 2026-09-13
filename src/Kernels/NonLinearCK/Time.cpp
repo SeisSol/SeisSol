@@ -322,7 +322,7 @@ PerformanceEstimate Time::metrics() const {
 void Time::setGlobalData(const CompoundGlobalData& global) {}
 
 void Time::stateToTransport(const real* dofs,
-                            const LocalIntegrationData& local,
+                            const typename seissol::model::MaterialT::Solver::LocalData& local,
                             real* transported) {
   assert(reinterpret_cast<uintptr_t>(dofs) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(transported) % Alignment == 0);
@@ -331,8 +331,8 @@ void Time::stateToTransport(const real* dofs,
   krnl.bindGlobals(Pool::host());
   krnl.Q = dofs;
   krnl.I = transported;
-  krnl.epsInit = local.specific.epsInit;
-  krnl.materialParameters = local.specific.parameters;
+  krnl.epsInit = local.epsInit;
+  krnl.materialParameters = local.parameters;
   krnl.invariantFloor = invariantFloor();
   krnl.execute();
 }

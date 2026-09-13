@@ -135,9 +135,9 @@ class ReceiverOutput {
 
   void getDofs(const real*(&derivatives), std::size_t meshId);
   void getNeighborDofs(const real*(&derivatives), std::size_t meshId, std::size_t side);
-  /// The local integration data of a cell, which carries whatever the
-  /// constitutive law needs per cell.
-  const LocalIntegrationData& localIntegration(std::size_t meshId);
+  /// What the solver needs of a cell's material. Kept for every cell, so
+  /// this answers for the far side of a fault on another rank too.
+  const typename model::MaterialT::Solver::LocalData& solverLocalData(std::size_t meshId);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   /**

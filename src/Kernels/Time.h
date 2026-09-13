@@ -75,8 +75,9 @@ class TimeKernel : public Kernel {
     constitutive law needs per cell.
     @param transported A pointer to the returned transported tensor.
   */
-  virtual void
-      stateToTransport(const real* dofs, const LocalIntegrationData& local, real* transported) = 0;
+  virtual void stateToTransport(const real* dofs,
+                                const typename seissol::model::MaterialT::Solver::LocalData& local,
+                                real* transported) = 0;
 
   [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
 };

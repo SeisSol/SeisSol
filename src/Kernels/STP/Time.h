@@ -67,7 +67,7 @@ class Time : public TimeKernel {
                        std::size_t numElements,
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
   void stateToTransport(const real* dofs,
-                        const LocalIntegrationData& local,
+                        const typename seissol::model::MaterialT::Solver::LocalData& local,
                         real* transported) override;
   [[nodiscard]] PerformanceEstimate metrics() const override;
 };

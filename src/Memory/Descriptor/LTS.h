@@ -157,6 +157,15 @@ struct LTS {
 
   struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
 
+  /// What the solver needs of a cell's material, in the form its kernels
+  /// read it. The same content as the `specific` part of the local
+  /// integration data, kept for every cell rather than only for the ones
+  /// this rank integrates: a fault reads the state of both its sides, and
+  /// the constitutive law that turns a state into a stress belongs to the
+  /// side it is read from. Empty, and therefore free, for every solver whose
+  /// kernels need nothing per cell beyond the geometry.
+  struct SolverLocalData : public initializer::Variable<kernels::Solver::LocalData> {};
+
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
                                                         DofsAne,
@@ -201,6 +210,7 @@ struct LTS {
                                                         PrevCoefficientsScratch,
                                                         DofsFaceBoundaryNodalScratch,
                                                         Integrals,
+                                                        SolverLocalData,
                                                         EnergyData,
                                                         ZinvExtra> {};
 
@@ -281,6 +291,7 @@ struct LTS {
 
     storage.add<EnergyData>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
+    storage.add<SolverLocalData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
 
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;

@@ -221,6 +221,10 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initializeCellLocalMatrices(
       meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
 
+  // the same conversion for the cells this rank does not integrate, which a
+  // fault reads the far side of
+  seissol::initializer::initializeGhostSolverLocalData(memoryManager.ltsStorage());
+
   if (seissolParams.drParameters.etaDamp != 1.0) {
     logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp
                  << ") has been enabled in the timeframe [0,"

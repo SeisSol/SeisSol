@@ -67,9 +67,10 @@ void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
   derivatives = layer.var<LTS::Derivatives>()[position.cell];
 }
 
-const LocalIntegrationData& ReceiverOutput::localIntegration(std::size_t meshId) {
+const typename model::MaterialT::Solver::LocalData&
+    ReceiverOutput::solverLocalData(std::size_t meshId) {
   const auto position = wpBackmap_->get(meshId);
-  return wpStorage_->layer(position.color).var<LTS::LocalIntegration>()[position.cell];
+  return wpStorage_->layer(position.color).var<LTS::SolverLocalData>()[position.cell];
 }
 
 void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
@@ -175,22 +176,15 @@ void ReceiverOutput::calcFaultOutput(
       // face reads. A copy wherever the two coincide, and where they do not
       // this is what supplies the quantities that are functions of the state
       // -- the stress above all -- without running a timestep for them.
-      //
-      // A side that is not on this rank has its degrees of freedom -- they
-      // were transferred -- but not its cell-local data, which is not kept
-      // for a ghost cell. Such a side is evaluated with the material of the
-      // side that is here. It is unused for every solver whose transported
-      // tensor is its state, so this only ever shows on a fault that is a
-      // material discontinuity and crosses a rank boundary.
-      const auto plusId = faultInfo.element >= 0 ? faultInfo.element : faultInfo.neighborElement;
-      const auto minusId =
-          faultInfo.neighborElement >= 0 ? faultInfo.neighborElement : faultInfo.element;
-
+      // Each side with its own material, which is kept for every cell and
+      // not only for the ones this rank integrates -- so a fault across a
+      // rank boundary reads the far side's constitutive law rather than a
+      // stand-in.
       timeKernel_.stateToTransport(local.layer->var<DynamicRupture::TimeDofsPlus>()[local.ltsId],
-                                   localIntegration(plusId),
+                                   solverLocalData(faultInfo.element),
                                    dofsPlus);
       timeKernel_.stateToTransport(local.layer->var<DynamicRupture::TimeDofsMinus>()[local.ltsId],
-                                   localIntegration(minusId),
+                                   solverLocalData(faultInfo.neighborElement),
                                    dofsMinus);
     } else {
       // only interpolate for the on-fault receivers
