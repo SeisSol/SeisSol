@@ -92,7 +92,7 @@ void Spacetime::computeAder(const real* coeffs,
   // evaluate the expansion there, and how far the internal variables march
   // from one node to the next.
   const Solver::TimeBasis<real> basis(ConvergenceOrder);
-  const auto [nodes, weights] = basis.quadrature(timeStepWidth);
+  const auto [nodes, weights] = basis.quadratureWithEndpoints(timeStepWidth);
 
   kernel::damageStep step = step_;
   step.dQ(0) = data.get<LTS::Dofs>();
@@ -105,12 +105,11 @@ void Spacetime::computeAder(const real* coeffs,
       step.evaluate(q, i) = evaluation[i];
     }
     step.weight(q) = weights[q];
-    // The internal variables enter the step with the value they have at its
-    // beginning and are carried across the nodes explicitly. The interval
-    // from the start of the step to the first node is not accounted for,
-    // which is first order in the source -- and the order of the march is a
-    // property of these numbers alone, so it can be raised here.
-    step.march(q) = (q + 1 < nodes.size() ? nodes[q + 1] : timeStepWidth) - nodes[q];
+    // The internal variables are carried across the nodes explicitly. The
+    // first node is the start of the step and the last one its end, so the
+    // marches tile the step without a gap; what is left is the order of the
+    // march itself, and that is a property of these numbers alone.
+    step.march(q) = (q + 1 < nodes.size() ? nodes[q + 1] : nodes[q]) - nodes[q];
   }
 
   step.I = timeIntegrated;
@@ -138,8 +137,16 @@ void Spacetime::computeAder(const real* coeffs,
   // tensor, as one number per cell: the neighbour reads it from the same
   // buffer it reads everything else from, and needs nothing else about this
   // cell to scale its half of the flux.
+  //
+  // What goes in is the largest speed the step actually saw, sampled at the
+  // nodes of the same rule the fluxes are integrated with. It is not a bound
+  // in the strict sense -- the speed between two nodes is not looked at --
+  // but it is a bound over the samples of the interval the flux integrates,
+  // and it is as tight as this cell can report. The rigorous bound the
+  // material allows sits next to it, for the cases where a cell has to answer
+  // for an interval its own predictor did not sample.
   auto transported = init::I::view::create(timeIntegrated);
-  transported(0, tensor::I::Shape[1] - 1) = local.maxWaveSpeedBound;
+  transported(0, tensor::I::Shape[1] - 1) = tmp.maxWaveSpeed;
 }
 
 void Spacetime::computeBatchedAder(

@@ -184,6 +184,19 @@ class NonLinearCK(ADERDGBase):
         the state and what the cell hands over."""
         return self.numQuantities() - self.transportStateExtent()
 
+    def numTimeNodes(self):
+        """Time nodes the step kernel samples at.
+
+        One more than the basis has functions, because the rule includes the
+        ends of the timestep: a predictor that carries an internal variable
+        across the nodes cannot account for an interval that no node sits in,
+        and a rule whose nodes are all interior leaves the first one out. With
+        the ends, the extra node costs its own arithmetic and nothing in
+        accuracy -- Lobatto with n nodes integrates as far as Gauss-Legendre
+        with n-1.
+        """
+        return self.order + 1
+
     def addStepTensors(self):
         """Tensors the step kernel needs. Filled in by the material."""
 
@@ -206,7 +219,7 @@ class NonLinearCK(ADERDGBase):
         rather than in a pass of their own -- there is nothing to be gained
         from writing a nodal stress out only to read it back and weigh it.
         """
-        nodes = self.order
+        nodes = self.numTimeNodes()
         evaluate = [
             [Scalar(f"evaluate({q},{i})") for i in range(self.order)]
             for q in range(nodes)
