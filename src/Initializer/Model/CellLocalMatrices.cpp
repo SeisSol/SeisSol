@@ -166,44 +166,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
 
-          if constexpr (model::MaterialT::Solver::FluxSolverFromTable) {
-            seissol::model::SolverSetup<model::MaterialT::Solver, model::MaterialT>::
-                assembleTabulatedFaceFlux(cellInformation[cell].faceTypes[side],
-                                          side,
-                                          surface,
-                                          volume,
-                                          normal,
-                                          tangent1,
-                                          tangent2,
-                                          materialLocal,
-                                          localIntegration[cell].nApNm1[side],
-                                          neighboringIntegration[cell].nAmNm1[side]);
-            continue;
-          }
-
-          // Defines a rotation matrix for computing material properties in face-local coordinates
-          // for anisotropy. It has no effect for isotropic materials.
-          std::array<double, 36> nLocalData{};
-          seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
-          seissol::model::getTransposedGodunovState(
-              seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
-              seissol::model::getRotatedMaterialCoefficients(
-                  nLocalData, *dynamic_cast<model::MaterialT*>(material[cell].neighbor[side])),
-              cellInformation[cell].faceTypes[side],
-              qGodLocal,
-              qGodNeighbor);
-          seissol::model::getTransposedCoefficientMatrix(
-              seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
-              0,
-              matATtilde);
-
-          // Calculate transposed T and Tinv instead
-          seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
-
-          // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
-          // must be subtracted.
-          const double fluxScale = -2.0 * surface / (6.0 * volume);
-
           const auto isSpecialBC = [&](std::int8_t side) {
             const auto hasDRFace = [](const CellLocalInformation& ci) {
               bool hasAtLeastOneDRFace = false;
@@ -214,6 +176,52 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               }
               return hasAtLeastOneDRFace;
             };
+
+            // Which numerical flux this face asks for. Read before the two
+            // ways of building a pair part, because both of them ask.
+            const auto fluxDefault =
+                isSpecialBC(side) ? modelParameters.fluxNearFault : modelParameters.flux;
+
+            if constexpr (model::MaterialT::Solver::FluxSolverFromTable) {
+              seissol::model::SolverSetup<model::MaterialT::Solver, model::MaterialT>::
+                  assembleTabulatedFaceFlux(cellInformation[cell].faceTypes[side],
+                                            side,
+                                            surface,
+                                            volume,
+                                            normal,
+                                            tangent1,
+                                            tangent2,
+                                            materialLocal,
+                                            localIntegration[cell].nApNm1[side],
+                                            neighboringIntegration[cell].nAmNm1[side],
+                                            neighboringIntegration[cell].nAmNm1Shear[side],
+                                            fluxDefault == parameters::NumericalFlux::Godunov);
+              continue;
+            }
+
+            // Defines a rotation matrix for computing material properties in face-local coordinates
+            // for anisotropy. It has no effect for isotropic materials.
+            std::array<double, 36> nLocalData{};
+            seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
+            seissol::model::getTransposedGodunovState(
+                seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
+                seissol::model::getRotatedMaterialCoefficients(
+                    nLocalData, *dynamic_cast<model::MaterialT*>(material[cell].neighbor[side])),
+                cellInformation[cell].faceTypes[side],
+                qGodLocal,
+                qGodNeighbor);
+            seissol::model::getTransposedCoefficientMatrix(
+                seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
+                0,
+                matATtilde);
+
+            // Calculate transposed T and Tinv instead
+            seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
+
+            // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
+            // must be subtracted.
+            const double fluxScale = -2.0 * surface / (6.0 * volume);
+
             const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
             const auto& neighborID = secondaryInformation[cell].faceNeighbors[side];
             const bool neighborBehindSideHasAtLeastOneDRFace =
@@ -241,10 +249,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             rusanovPlusView(i, i) = wavespeed * 0.5;
             rusanovMinusView(i, i) = -wavespeed * 0.5;
           }
-
-          // check if we're on a face that has an adjacent cell with DR face
-          const auto fluxDefault =
-              isSpecialBC(side) ? modelParameters.fluxNearFault : modelParameters.flux;
 
           // exclude boundary conditions
           static const std::vector<FaceType> GodunovBoundaryConditions = {

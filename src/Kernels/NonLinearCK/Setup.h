@@ -30,6 +30,9 @@
 
 namespace seissol::model {
 
+/// What a dissipation matrix is written through.
+using ProjectorView = decltype(init::fluxDissipation::view::create(nullptr));
+
 /**
  * The initial strain is a material parameter that the kernels read as a
  * tensor, so it is converted once, here, rather than at every timestep: the
@@ -84,6 +87,53 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
   /// the solver it builds maps the state onto itself; what a cell transports
   /// here is wider than its state, so the flux of the face normal is
   /// assembled instead.
+  /// The two projectors a face frame splits its coupled quantities into,
+  /// rotated into the frame the flux is applied in.
+  ///
+  /// In the face frame the split is by index and nothing else: the normal
+  /// strain and the normal velocity travel at the compressional speed, the
+  /// two shear pairs at the shear one, and the three strain components that
+  /// carry no flux across this face travel at neither. Rotating turns two
+  /// diagonals into two matrices, which is the whole cost of asking each
+  /// family for its own speed.
+  static void writeUpwindDissipation(const double* normal,
+                                     const double* tangent1,
+                                     const double* tangent2,
+                                     double scale,
+                                     ProjectorView& pressure,
+                                     ProjectorView& shear) {
+    real rotationData[tensor::ghostMap::size()]{};
+    real inverseData[tensor::ghostMap::size()]{};
+    auto rotation = init::ghostMap::view::create(rotationData);
+    auto inverse = init::ghostMap::view::create(inverseData);
+    rotation.setZero();
+    inverse.setZero();
+    model::detail::writeRotationBlocks<false>(
+        MaterialT::TransportGroups, normal, tangent1, tangent2, rotation);
+    model::detail::writeRotationBlocks<true>(
+        MaterialT::TransportGroups, normal, tangent1, tangent2, inverse);
+
+    // Voigt order, so the normal pair is (0, 6) and the two shear pairs are
+    // (3, 7) and (5, 8); 1, 2 and 4 are the strain components a face normal
+    // does not transport.
+    constexpr std::array<std::size_t, 2> Pressure{0, 6};
+    constexpr std::array<std::size_t, 4> Shear{3, 5, 7, 8};
+
+    const auto conjugate = [&](const auto& family, auto& target) {
+      for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
+        for (std::size_t column = 0; column < generated::CoupledQuantities; ++column) {
+          real sum = 0.0;
+          for (const auto entry : family) {
+            sum += rotation(row, entry) * inverse(entry, column);
+          }
+          target(row, column) = scale * sum;
+        }
+      }
+    };
+    conjugate(Pressure, pressure);
+    conjugate(Shear, shear);
+  }
+
   static void assembleTabulatedFaceFlux(FaceType faceType,
                                         std::size_t /*side*/,
                                         double surface,
@@ -93,7 +143,9 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
                                         const double* tangent2,
                                         const MaterialT& materialLocal,
                                         real* aPlusT,
-                                        real* aMinusT) {
+                                        real* aMinusT,
+                                        real* aMinusTShear,
+                                        bool upwind) {
     static_assert(tensor::fluxConstant::size() == tensor::AplusT::size(),
                   "The constant half of the flux solver is stored in the slot of the "
                   "solver it is half of.");
@@ -139,11 +191,23 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
     // the quantities the two cells couple through, scaled the way the
     // flux is; an outflow face dissipates nothing, because there is no
     // jump to dissipate.
+    // Which flux this is, is what stands in these two and nothing else: the
+    // kernel adds a bound times each of them, and never learns which it has.
+    // The identity in the first and nothing in the second means the first
+    // bound scales every mode -- and the first bound is the larger of the
+    // two, so that is Rusanov. The two projectors mean each family is scaled
+    // with its own speed, and the modes that do not propagate with neither.
     auto dissipation = init::fluxDissipation::view::create(aMinusT);
+    auto shear = init::fluxDissipation::view::create(aMinusTShear);
     dissipation.setZero();
+    shear.setZero();
     if (!outflow && !rupture) {
-      for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
-        dissipation(row, row) = 0.5 * faceScale;
+      if (upwind) {
+        writeUpwindDissipation(normal, tangent1, tangent2, 0.5 * faceScale, dissipation, shear);
+      } else {
+        for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
+          dissipation(row, row) = 0.5 * faceScale;
+        }
       }
     }
 

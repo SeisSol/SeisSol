@@ -379,7 +379,9 @@ struct SolverSetupDefaults {
                                         const double* /*tangent2*/,
                                         const MaterialT& /*material*/,
                                         real* /*aPlusT*/,
-                                        real* /*aMinusT*/) {}
+                                        real* /*aMinusT*/,
+                                        real* /*aMinusTShear*/,
+                                        bool /*upwind*/) {}
 
   /// Binds what a fault's flux solver is rotated from.
   ///

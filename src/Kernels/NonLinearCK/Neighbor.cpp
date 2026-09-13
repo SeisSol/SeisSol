@@ -79,6 +79,7 @@ void Neighbor::computeNeighborsIntegral(
     local.INeighbor = other;
     local.fluxConstant = data.get<LTS::LocalIntegration>().nApNm1[face];
     local.fluxDissipation = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+    local.fluxDissipationShear = data.get<LTS::NeighboringIntegration>().nAmNm1Shear[face];
     local.execute(face);
 
     if (!hasNeighbor) {
@@ -91,6 +92,7 @@ void Neighbor::computeNeighborsIntegral(
     neighbor.INeighbor = other;
     neighbor.fluxConstant = data.get<LTS::LocalIntegration>().nApNm1[face];
     neighbor.fluxDissipation = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+    neighbor.fluxDissipationShear = data.get<LTS::NeighboringIntegration>().nAmNm1Shear[face];
     neighbor.execute(info.faceRelations[face][1], info.faceRelations[face][0], face);
   }
 }
@@ -103,7 +105,9 @@ void Neighbor::computeBatchedNeighborsIntegral(
 
   constexpr auto ConstantOffset = offsetof(LocalIntegrationData, nApNm1);
   constexpr auto DissipationOffset = offsetof(NeighboringIntegrationData, nAmNm1);
-  static_assert(ConstantOffset % sizeof(real) == 0 && DissipationOffset % sizeof(real) == 0,
+  constexpr auto ShearOffset = offsetof(NeighboringIntegrationData, nAmNm1Shear);
+  static_assert(ConstantOffset % sizeof(real) == 0 && DissipationOffset % sizeof(real) == 0 &&
+                    ShearOffset % sizeof(real) == 0,
                 "A face's pair of matrices is not aligned to the real size.");
 
   constexpr std::array<FaceKinds, 2> BoundaryFaceKeys{FaceKinds::FreeSurface, FaceKinds::Outflow};
@@ -141,6 +145,9 @@ void Neighbor::computeBatchedNeighborsIntegral(
         krnl.fluxDissipation = neighborData;
         krnl.extraOffset_fluxDissipation =
             (DissipationOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
+        krnl.fluxDissipationShear = neighborData;
+        krnl.extraOffset_fluxDissipationShear =
+            (ShearOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
         krnl.streamPtr = stream;
       };
 
@@ -192,6 +199,10 @@ void Neighbor::computeBatchedNeighborsIntegral(
           (entry.get(inner_keys::Wp::Id::NeighborIntegrationData))->getDeviceDataPtr());
       local.extraOffset_fluxDissipation =
           (DissipationOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
+      local.fluxDissipationShear = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::NeighborIntegrationData))->getDeviceDataPtr());
+      local.extraOffset_fluxDissipationShear =
+          (ShearOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
       local.streamPtr = stream;
 
       auto* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(

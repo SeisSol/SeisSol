@@ -502,11 +502,15 @@ class NonLinearCK(ADERDGBase):
         # speed is a property of an element, and a scalar argument is uniform
         # over a batch, so the speed of a face is read out of the tensors and
         # formed inside the kernel that needs it.
-        wave = self.transportGroupSlice("waveIntegral")[0]
         shape = (self.num3DBasisFunctions(), self.numTransportQuantities())
-        pickWave = np.zeros(shape)
-        pickWave[0, wave] = 1.0
-        self.pickWave = Tensor("pickWaveIntegral", shape, pickWave)
+
+        def pick(name):
+            values = np.zeros(shape)
+            values[0, self.transportGroupSlice(name)[0]] = 1.0
+            return values
+
+        self.pickWave = Tensor("pickWaveIntegral", shape, pick("waveIntegral"))
+        self.pickShear = Tensor("pickShearIntegral", shape, pick("shearIntegral"))
 
         # Both halves of the pair are per cell and face. The dissipation is
         # the identity on the coupled quantities for a face with a neighbour,
@@ -516,8 +520,18 @@ class NonLinearCK(ADERDGBase):
         self.fluxConstant = Tensor(
             "fluxConstant", self.flux_solver_spp().shape, spp=self.flux_solver_spp()
         )
+        # One per wave family. What is in them is what decides which flux this
+        # is: the identity on the coupled quantities in the first and nothing
+        # in the second is Rusanov, because the first bound is the larger; the
+        # two rotated projectors of the face frame is an upwind flux. The
+        # kernel never learns which, so there is no case to distinguish here.
         self.fluxDissipation = Tensor(
             "fluxDissipation", self.flux_solver_spp().shape, spp=self.flux_solver_spp()
+        )
+        self.fluxDissipationShear = Tensor(
+            "fluxDissipationShear",
+            self.flux_solver_spp().shape,
+            spp=self.flux_solver_spp(),
         )
 
         self.ghostMap = Tensor(
@@ -567,21 +581,26 @@ class NonLinearCK(ADERDGBase):
             temporary=True,
         )
 
-        def speed(own, other):
-            # The larger of the two sides' bounds, which is what Rusanov
-            # scales a jump with. Read out of the tensors rather than passed
-            # in: a scalar argument is uniform over a batch and a wave speed
-            # is not.
-            bound = lambda tensor: tensor["kc"] * self.pickWave["kc"]
-            return yf.sqrt(yf.maximum(bound(own), bound(other)))
+        def dissipation(own, other):
+            # The larger of the two sides' bounds, per wave family, on the
+            # matrix that family is scaled with. Read out of the tensors
+            # rather than passed in: a scalar argument is uniform over a batch
+            # and a wave speed is not.
+            def speed(selector):
+                bound = lambda tensor: tensor["kc"] * selector["kc"]
+                return yf.sqrt(yf.maximum(bound(own), bound(other)))
+
+            return (
+                speed(self.pickWave) * self.fluxDissipation["qp"]
+                + speed(self.pickShear) * self.fluxDissipationShear["qp"]
+            )
 
         generator.addFamily(
             f"{prefix}damageLocalFlux",
             simpleParameterSpace(4),
             lambda i: [
                 self.fluxPlus["qp"]
-                <= self.fluxConstant["qp"]
-                + speed(self.I, self.INeighbor) * self.fluxDissipation["qp"],
+                <= self.fluxConstant["qp"] + dissipation(self.I, self.INeighbor),
                 self.Q["kp"]
                 <= self.Q["kp"]
                 + self.db.rDivM[i][self.t("km")]
@@ -596,8 +615,7 @@ class NonLinearCK(ADERDGBase):
             simpleParameterSpace(3, 4, 4),
             lambda h, j, i: [
                 self.fluxMinus["qp"]
-                <= self.fluxConstant["qp"]
-                - speed(self.I, self.INeighbor) * self.fluxDissipation["qp"],
+                <= self.fluxConstant["qp"] - dissipation(self.I, self.INeighbor),
                 self.Q["kp"]
                 <= self.Q["kp"]
                 + self.db.rDivM[i][self.t("km")]

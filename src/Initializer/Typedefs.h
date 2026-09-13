@@ -65,6 +65,11 @@ struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::tensor::AminusT::size()]{};
 
+  /// The second half of the dissipation, for a solver that scales each wave
+  /// family with its own speed. Zero, and read by nobody, where one bound
+  /// scales every mode.
+  real nAmNm1Shear[4][seissol::tensor::AminusT::size()]{};
+
   // solver-specific data
   typename seissol::model::MaterialT::Solver::NeighborData specific;
 };
