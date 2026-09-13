@@ -123,7 +123,7 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
   // a coarser cluster reads, and both are written here.
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transportDer>(); ++i) {
     step.transportDer(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>() +
-                           yateto::computeFamilySize<tensor::transportDer>(0, i);
+                           yateto::computeFamilySize<tensor::transportDer>(1, i);
   }
 
   step.materialParameters = local.parameters;
@@ -269,7 +269,7 @@ void Time::evaluate(const TimeCoefficients& coeffs,
   carried.I = timeEvaluated;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transportDer>(); ++i) {
     carried.transportDer(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>() +
-                              yateto::computeFamilySize<tensor::transportDer>(0, i);
+                              yateto::computeFamilySize<tensor::transportDer>(1, i);
     carried.extraPower(i) = coeffs.extra[i];
   }
   carried.execute();
@@ -305,7 +305,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transportDer>(); ++i) {
     carried.transportDer(i) = timeDerivatives;
     carried.extraOffset_transportDer(i) = yateto::computeFamilySize<tensor::dQ>() +
-                                          yateto::computeFamilySize<tensor::transportDer>(0, i);
+                                          yateto::computeFamilySize<tensor::transportDer>(1, i);
     carried.extraPower(i) = coeffs.extra[i];
   }
   carried.streamPtr = runtime.stream();
