@@ -126,6 +126,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   // scaled with the larger of the two sides' wave speeds does, because one of
   // the two sides is this cell.
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIntegrals {};
+  // Both halves of a face are formed here, so both matrices of its pair are
+  // read: the constant half sits with the cell's own integration data.
+  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAplusT {};
 
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
@@ -165,6 +168,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
           if constexpr (Config::Solver == SolverType::NonLinearCK) {
             regularPeriodicIntegrals[face][faceRelation].push_back(
                 static_cast<real*>(data.get<LTS::Integrals>()));
+            regularPeriodicAplusT[face][faceRelation].push_back(
+                reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
           }
           regularPeriodicAminusT[face][faceRelation].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
@@ -200,6 +205,15 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
       case FaceType::Dirichlet: {
         // Do not need to compute anything in the neighboring macro-kernel
         // for most boundary conditions
+        if constexpr (Config::Solver == SolverType::NonLinearCK) {
+          // Except here: such a face has a half of its own, applied with the
+          // pair its ghost rule was folded into. The table has no key that
+          // separates faces with a neighbour from faces without -- the one
+          // for the local flux holds both -- and running that one for both
+          // would apply the half of a regular face twice.
+          logError() << "The device path of the nonlinear solver cannot handle a face"
+                     << "without a neighbour yet.";
+        }
         break;
       }
       default: {
@@ -227,6 +241,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         if constexpr (Config::Solver == SolverType::NonLinearCK) {
           (*currentTable_)[key].set(inner_keys::Wp::Id::Integrals,
                                     regularPeriodicIntegrals[face][faceRelation]);
+          (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData,
+                                    regularPeriodicAplusT[face][faceRelation]);
         }
         if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt,

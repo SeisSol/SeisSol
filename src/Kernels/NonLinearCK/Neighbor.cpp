@@ -10,10 +10,13 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Common/Offset.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/NonLinearCK/Solver.h"
 #include "Kernels/Precision.h"
@@ -29,6 +32,7 @@
 #include <cstdint>
 #include <utility>
 #include <utils/logger.h>
+#include <yateto.h>
 
 namespace seissol::kernels::solver::nonlinearck {
 
@@ -94,7 +98,70 @@ void Neighbor::computeNeighborsIntegral(
 void Neighbor::computeBatchedNeighborsIntegral(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
+  constexpr auto ConstantOffset = offsetof(LocalIntegrationData, nApNm1);
+  constexpr auto DissipationOffset = offsetof(NeighboringIntegrationData, nAmNm1);
+  static_assert(ConstantOffset % sizeof(real) == 0 && DissipationOffset % sizeof(real) == 0,
+                "A face's pair of matrices is not aligned to the real size.");
+
+  // A face without a neighbour has a half of its own, and the recorder
+  // refuses a layer that has one, so every face reached here has two.
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    runtime.envMany(*FaceRelations::Count, [&](void* stream, std::size_t faceRelation) {
+      const ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
+      if (table.find(key) == table.end()) {
+        return;
+      }
+      auto& entry = table[key];
+
+      kernel::gpu_damageLocalFlux local = deviceLocalFlux_;
+      kernel::gpu_damageNeighborFlux neighbor = deviceNeighborFlux_;
+
+      const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+      auto** dofs = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      const auto** own =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr());
+      const auto** other =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      const auto** localData = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      const auto** neighborData = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::NeighborIntegrationData))->getDeviceDataPtr());
+
+      const auto bind = [&](auto& krnl) {
+        krnl.numElements = numElements;
+        krnl.Q = dofs;
+        krnl.I = own;
+        krnl.INeighbor = other;
+        krnl.fluxConstant = localData;
+        krnl.extraOffset_fluxConstant =
+            (ConstantOffset / sizeof(real)) + face * tensor::fluxConstant::size();
+        krnl.fluxDissipation = neighborData;
+        krnl.extraOffset_fluxDissipation =
+            (DissipationOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
+        krnl.streamPtr = stream;
+      };
+
+      const auto maxTmpMem = yateto::getMaxTmpMemRequired(local, neighbor);
+      auto* tmpMem =
+          reinterpret_cast<real*>(device_.api->allocMemAsync(maxTmpMem * numElements, stream));
+
+      bind(local);
+      local.linearAllocator.initialize(tmpMem);
+      local.execute(face);
+
+      bind(neighbor);
+      neighbor.linearAllocator.initialize(tmpMem);
+      (neighbor.*kernel::gpu_damageNeighborFlux::ExecutePtrs[faceRelation])();
+
+      device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+    });
+  }
+#else
   logError() << "No GPU implementation provided";
+#endif
 }
 
 std::pair<PerformanceEstimate, PerformanceEstimate>

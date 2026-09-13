@@ -10,8 +10,11 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Common/Offset.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
@@ -135,13 +138,87 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
-  // Everything this needs is recorded: the expansion, the transported tensor,
-  // the source integral, and the initial strain through an offset into the
-  // cell's local integration data. What is not is the material: the step
-  // kernel takes it as scalars, and a scalar argument is uniform over a
-  // batch, so the thirteen of them have to be read per element the way the
-  // face's wave speed already is.
-  logError() << "The batched step kernel needs the material per element, not as scalars.";
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
+  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  if (dataTable.find(key) == dataTable.end()) {
+    return;
+  }
+  auto& entry = dataTable[key];
+
+  const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+  const auto** localIntegrationPtrs = const_cast<const real**>(
+      (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+
+  kernel::gpu_derivative derivative = deviceDerivative_;
+  kernel::gpu_damageStep step = deviceStep_;
+  derivative.numElements = numElements;
+  step.numElements = numElements;
+
+  const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivative, step);
+  auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
+
+  derivative.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+  SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    derivative.star(i) = localIntegrationPtrs;
+    derivative.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+  }
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    derivative.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+    derivative.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+  }
+  derivative.Q =
+      const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
+    derivative.power(der) = coeffs[der];
+  }
+  derivative.linearAllocator.initialize(tmpMem.get());
+  derivative.streamPtr = runtime.stream();
+  derivative.execute();
+
+  // The rule the step samples with is the launch code's, as it is serially.
+  const Solver::TimeBasis<real> basis(ConvergenceOrder);
+  const auto [nodes, weights] = basis.quadratureWithEndpoints(timeStepWidth);
+  for (std::size_t q = 0; q < nodes.size(); ++q) {
+    const auto evaluation = basis.point(nodes[q], timeStepWidth);
+    for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
+      step.evaluate(q, i) = evaluation[i];
+    }
+    step.weight(q) = weights[q];
+    step.march(q) = (q + 1 < nodes.size() ? nodes[q + 1] : nodes[q]) - nodes[q];
+  }
+
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    step.dQ(i) =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr());
+    step.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+  }
+  step.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+  step.sourceI = (entry.get(inner_keys::Wp::Id::SourceIntegrals))->getDeviceDataPtr();
+
+  // The initial strain and the material sit in the solver's own part of the
+  // cell's local integration data, so they are reached the way an anelastic
+  // material's source matrix is: the same pointer, an offset further in.
+  constexpr auto EpsInitOffset =
+      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, epsInit);
+  constexpr auto ParametersOffset =
+      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
+  static_assert(EpsInitOffset % sizeof(real) == 0 && ParametersOffset % sizeof(real) == 0,
+                "The per-cell inputs of the step are not aligned to the real size.");
+  step.epsInit = localIntegrationPtrs;
+  step.extraOffset_epsInit = EpsInitOffset / sizeof(real);
+  step.materialParameters = localIntegrationPtrs;
+  step.extraOffset_materialParameters = ParametersOffset / sizeof(real);
+
+  step.invariantFloor = invariantFloor();
+  step.linearAllocator.initialize(tmpMem.get());
+  step.streamPtr = runtime.stream();
+  step.execute();
+#else
+  logError() << "No GPU implementation provided";
+#endif
 }
 
 PerformanceEstimate Spacetime::metrics() const {

@@ -9,8 +9,11 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Common/Offset.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
@@ -19,7 +22,10 @@
 #include "Parallel/Runtime/Stream.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <utils/logger.h>
+#include <yateto.h>
 
 namespace seissol::kernels::solver::nonlinearck {
 
@@ -57,7 +63,38 @@ void Local::computeBatchedIntegral(
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
+  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  if (dataTable.find(key) == dataTable.end()) {
+    return;
+  }
+  auto& entry = dataTable[key];
+
+  kernel::gpu_damageCellIntegral krnl = deviceCellIntegral_;
+  krnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+  krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+  krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+  krnl.sourceI = const_cast<const real**>(
+      (entry.get(inner_keys::Wp::Id::SourceIntegrals))->getDeviceDataPtr());
+
+  constexpr auto ParametersOffset =
+      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
+  static_assert(ParametersOffset % sizeof(real) == 0,
+                "The material of a cell is not aligned to the real size.");
+  krnl.materialParameters = const_cast<const real**>(
+      (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+  krnl.extraOffset_materialParameters = ParametersOffset / sizeof(real);
+
+  auto tmpMem = runtime.memoryHandle<real>((yateto::getMaxTmpMemRequired(krnl) * krnl.numElements) /
+                                           sizeof(real));
+  krnl.linearAllocator.initialize(tmpMem.get());
+  krnl.streamPtr = runtime.stream();
+  krnl.execute();
+#else
   logError() << "No GPU implementation provided";
+#endif
 }
 
 void Local::evaluateBatchedTimeDependentBc(
@@ -67,7 +104,38 @@ void Local::evaluateBatchedTimeDependentBc(
     SEISSOL_GPU_PARAM double time,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
+  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  if (dataTable.find(key) == dataTable.end()) {
+    return;
+  }
+  auto& entry = dataTable[key];
+
+  kernel::gpu_damageCellIntegral krnl = deviceCellIntegral_;
+  krnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+  krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+  krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+  krnl.sourceI = const_cast<const real**>(
+      (entry.get(inner_keys::Wp::Id::SourceIntegrals))->getDeviceDataPtr());
+
+  constexpr auto ParametersOffset =
+      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
+  static_assert(ParametersOffset % sizeof(real) == 0,
+                "The material of a cell is not aligned to the real size.");
+  krnl.materialParameters = const_cast<const real**>(
+      (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+  krnl.extraOffset_materialParameters = ParametersOffset / sizeof(real);
+
+  auto tmpMem = runtime.memoryHandle<real>((yateto::getMaxTmpMemRequired(krnl) * krnl.numElements) /
+                                           sizeof(real));
+  krnl.linearAllocator.initialize(tmpMem.get());
+  krnl.streamPtr = runtime.stream();
+  krnl.execute();
+#else
   logError() << "No GPU implementation provided";
+#endif
 }
 
 PerformanceEstimate

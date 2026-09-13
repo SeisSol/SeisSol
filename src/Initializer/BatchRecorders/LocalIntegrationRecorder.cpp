@@ -204,6 +204,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
     std::vector<real*> idofsPtrs;
     std::vector<real*> dofsPtrs;
     std::vector<real*> localPtrs;
+    std::vector<real*> neighborPtrs;
 
     std::vector<real*> dofsExtPtrs;
 
@@ -220,6 +221,11 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         idofsPtrs.push_back(idofsAddressRegistry_[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
+        if constexpr (Config::Solver == SolverType::NonLinearCK) {
+          // The dissipation of a face is the second matrix of its pair, and
+          // that one sits with the neighbouring integration data.
+          neighborPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
+        }
         if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
           dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell);
@@ -236,6 +242,9 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
       if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
         (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+      }
+      if constexpr (Config::Solver == SolverType::NonLinearCK) {
+        (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighborPtrs);
       }
     }
   }
