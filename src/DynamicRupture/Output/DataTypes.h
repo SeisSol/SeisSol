@@ -156,7 +156,7 @@ struct ReceiverOutputData {
   std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
       stressFaceAlignedToGlb;
   std::vector<std::array<real, seissol::tensor::T::size()>> faceAlignedToGlbData;
-  std::vector<std::array<real, seissol::tensor::Tinv::size()>> glbToFaceAlignedData;
+  std::vector<std::array<real, seissol::tensor::TinvT::size()>> glbToFaceAlignedData;
   std::vector<Eigen::Matrix<real, 2, 2>, Eigen::aligned_allocator<Eigen::Matrix<real, 2, 2>>>
       jacobianT2d;
 

@@ -299,11 +299,28 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
     {
       auto faceAlignedToGlb =
           init::T::view::create(outputData_->faceAlignedToGlbData[receiverId].data());
-      auto glbToFaceAligned =
-          init::Tinv::view::create(outputData_->glbToFaceAlignedData[receiverId].data());
+      real unusedData[tensor::Tinv::size()]{};
+      auto glbToFaceAligned = init::Tinv::view::create(unusedData);
 
       seissol::model::getFaceRotationMatrix(
           faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
+
+      // A face rotates what crosses it, which is wider than the state
+      // wherever the flux is nonlinear. Transposed on the way out, because
+      // that is the form the evaluation contracts with.
+      real transportTinvData[tensor::transportTinv::size()]{};
+      auto transportTinv = init::transportTinv::view::create(transportTinvData);
+      transportTinv.setZero();
+      seissol::model::detail::writeRotationBlocks<true>(seissol::model::MaterialT::TransportGroups,
+                                                        faceNormal.data(),
+                                                        tangent1.data(),
+                                                        tangent2.data(),
+                                                        transportTinv);
+
+      dynamicRupture::kernel::transposeTinv ttKrnl;
+      ttKrnl.transportTinv = transportTinvData;
+      ttKrnl.TinvT = outputData_->glbToFaceAlignedData[receiverId].data();
+      ttKrnl.execute();
     }
   }
 }

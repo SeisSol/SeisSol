@@ -105,10 +105,10 @@ class ReceiverOutput {
     real slipRateTangent1{};
     real slipRateTangent2{};
 
-    real
-        faceAlignedValuesPlus[tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+    real faceAlignedValuesPlus
+        [tensor::QAtFacePoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
     real faceAlignedValuesMinus
-        [tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+        [tensor::QAtFacePoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};

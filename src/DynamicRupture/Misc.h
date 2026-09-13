@@ -231,10 +231,11 @@ enum VoigtIndices : std::uint32_t {
 
 namespace quantity_indices {
 /**
- * Defines the indices under which one can find a specific quantity.
+ * Defines the indices under which one can find a specific quantity along the
+ * quantity axis of what a cell transports.
  * U, V, W: Velocities in x, y, z direction.
+ * SXX ... SXZ: stress, in Voigt order.
  * N, T1, T2: traction in normal and fault aligned directions.
- * XX, YY, ZZ, XY, YZ, XZ: Stress in cartesian coordinates
  * Use as:
  * ```
  * using namepace dr::misc::quantity_indices;
@@ -250,19 +251,20 @@ enum QuantityIndices : uint32_t {
   U = generated::TransportVelocityOffset + 0,
   V = generated::TransportVelocityOffset + 1,
   W = generated::TransportVelocityOffset + 2,
-  N = generated::TransportTractionOffset + 0,
-  T1 = generated::TransportTractionOffset + 3,
-  T2 = generated::TransportTractionOffset + 5,
-  // The first six columns, in Voigt order. They are a stress wherever the
-  // stress is the state -- and a strain where it is not, which is a material
-  // that writes its rheology in strain. Every use of these names has to mean
-  // "the first six", not "the stress".
-  XX = 0,
-  YY = 1,
-  ZZ = 2,
-  XY = 3,
-  YZ = 4,
-  XZ = 5,
+  // The stress a face reads, in Voigt order, in the frame the transported
+  // tensor is given in. For every solver whose flux is linear these are the
+  // first six columns, which is where they always were; for one that carries
+  // its stress they are the columns it carries it in.
+  SXX = generated::TransportTractionOffset + 0,
+  SYY = generated::TransportTractionOffset + 1,
+  SZZ = generated::TransportTractionOffset + 2,
+  SXY = generated::TransportTractionOffset + 3,
+  SYZ = generated::TransportTractionOffset + 4,
+  SXZ = generated::TransportTractionOffset + 5,
+  // The three of those the fault-normal Riemann problem is written in.
+  N = SXX,
+  T1 = SXY,
+  T2 = SXZ,
   // The state's own variables, for a solver that transports them because a
   // face needs them. Meaningless, and never read, where there are none.
   ALPHA = generated::TransportInternalOffset + 0,

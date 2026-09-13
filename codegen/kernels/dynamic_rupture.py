@@ -128,19 +128,22 @@ def addKernels(
     num3DBasisFunctions = aderdg.num3DBasisFunctions()
     numQuantities = aderdg.numQuantities()
     basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (num3DBasisFunctions,))
-    QAtPoint = OptionalDimTensor(
-        "QAtPoint",
+    # What a receiver reads of a cell is what the cell transports, evaluated
+    # at a point in space and rotated into the face frame -- the same tensor
+    # the interpolation onto a fault's nodes reads, and the same rotation.
+    QAtFacePoint = OptionalDimTensor(
+        "QAtFacePoint",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numQuantities,),
+        (aderdg.numTransportQuantities(),),
     )
 
     if True:
         generator.add(
             "evaluateFaceAlignedDOFSAtPoint",
-            QAtPoint["q"]
-            <= aderdg.Tinv["qp"] * aderdg.Q["lp"] * basisFunctionsAtPoint["l"],
+            QAtFacePoint["p"]
+            <= aderdg.I["lq"] * TinvT["qp"] * basisFunctionsAtPoint["l"],
         )
 
     def interpolateQGenerator(i, h):
@@ -422,7 +425,7 @@ def addKernels(
             QInterpolated,
             QInterpolatedPlus,
             QInterpolatedMinus,
-            QAtPoint,
+            QAtFacePoint,
             *QDR,
             imposedState,
             fluxSolver,

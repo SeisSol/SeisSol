@@ -227,23 +227,23 @@ void ReceiverOutput::calcFaultOutput(
     const auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
 
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
-    kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
+    kernel.TinvT = outputData->glbToFaceAlignedData[i].data();
 
-    real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
-    real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
+    real faceAlignedValuesPlus[tensor::QAtFacePoint::size()]{};
+    real faceAlignedValuesMinus[tensor::QAtFacePoint::size()]{};
 
     // TODO: do these operations only once per simulation
     kernel.Q = dofsPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
-    kernel.QAtPoint = faceAlignedValuesPlus;
+    kernel.QAtFacePoint = faceAlignedValuesPlus;
     kernel.execute();
 
     kernel.Q = dofsMinus;
     kernel.basisFunctionsAtPoint = phiMinusSide;
-    kernel.QAtPoint = faceAlignedValuesMinus;
+    kernel.QAtFacePoint = faceAlignedValuesMinus;
     kernel.execute();
 
-    for (size_t j = 0; j < tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension];
+    for (size_t j = 0; j < tensor::QAtFacePoint::Shape[seissol::multisim::BasisFunctionDimension];
          ++j) {
       local.faceAlignedValuesPlus[j] =
           faceAlignedValuesPlus[j * seissol::multisim::NumSimulations + local.fusedIndex];
@@ -430,9 +430,9 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     constexpr auto StressIndices = []() {
       if constexpr (Count == 4) {
         return std::array<int, 4>{
-            QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ, QuantityIndices::FP};
+            QuantityIndices::N, QuantityIndices::T1, QuantityIndices::T2, QuantityIndices::FP};
       } else {
-        return std::array<int, 3>{QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ};
+        return std::array<int, 3>{QuantityIndices::N, QuantityIndices::T1, QuantityIndices::T2};
       }
     }();
     constexpr auto VelocityIndices = []() {
@@ -484,45 +484,48 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     local.faultNormalVelocity = normalVelocity;
 
     // the stress components which are not part of the fault-normal Riemann problem
-    local.faceAlignedStress22 = local.faceAlignedValuesPlus[QuantityIndices::YY] + lateralStress[0];
-    local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + lateralStress[1];
-    local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ] + lateralStress[2];
+    local.faceAlignedStress22 =
+        local.faceAlignedValuesPlus[QuantityIndices::SYY] + lateralStress[0];
+    local.faceAlignedStress33 =
+        local.faceAlignedValuesPlus[QuantityIndices::SZZ] + lateralStress[1];
+    local.faceAlignedStress23 =
+        local.faceAlignedValuesPlus[QuantityIndices::SYZ] + lateralStress[2];
   } else {
     const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
     const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
     const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
     local.faceAlignedStress12 =
-        local.faceAlignedValuesPlus[QuantityIndices::XY] +
-        ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
+        local.faceAlignedValuesPlus[QuantityIndices::T1] +
+        ((diff(QuantityIndices::T1) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
             shearDivisor;
 
     local.faceAlignedStress13 =
-        local.faceAlignedValuesPlus[QuantityIndices::XZ] +
-        ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
+        local.faceAlignedValuesPlus[QuantityIndices::T2] +
+        ((diff(QuantityIndices::T2) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
             shearDivisor;
 
     local.transientNormalTraction =
-        local.faceAlignedValuesPlus[QuantityIndices::XX] +
-        ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
+        local.faceAlignedValuesPlus[QuantityIndices::N] +
+        ((diff(QuantityIndices::N) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
             normalDivisor;
 
     local.faultNormalVelocity =
         local.faceAlignedValuesPlus[QuantityIndices::U] +
-        (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
+        (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::N]) *
             impAndEta.invZp;
 
     real missingSigmaValues =
-        (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
+        (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::N]);
     missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
                                                     local.waveSpeedsPlus->pWaveVelocity,
                                                 2));
 
     local.faceAlignedStress22 =
-        local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
+        local.faceAlignedValuesPlus[QuantityIndices::SYY] + missingSigmaValues;
     local.faceAlignedStress33 =
-        local.faceAlignedValuesPlus[QuantityIndices::ZZ] + missingSigmaValues;
-    local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
+        local.faceAlignedValuesPlus[QuantityIndices::SZZ] + missingSigmaValues;
+    local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::SYZ];
   }
 }
 
