@@ -357,6 +357,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
     const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
     const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
+    const auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
     const auto layerSize = layer.size();
 
 #if !NVHPC_AVOID_OMP
@@ -451,8 +452,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             momentIncrease = potencyIncrease * mu;
           }
 
-          potency += potencyIncrease;
-          seismicMoment += momentIncrease;
+          potency[sim] += potencyIncrease;
+          seismicMoment[sim] += momentIncrease;
         }
       }
     }

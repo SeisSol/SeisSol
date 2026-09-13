@@ -85,7 +85,7 @@ struct MaterialSetup<DamageMaterial> : public MaterialSetupDefaults<DamageMateri
 
   static DamageMaterial
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     DamageMaterial& material) {
+                                     const DamageMaterial& material) {
     // Isotropic in its undamaged moduli, and the damage is a scalar: nothing
     // to rotate.
     return material;
