@@ -7,9 +7,42 @@
 
 #include "Time.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
+#include "Common/Marker.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Kernels/Interface.h"
+#include "Kernels/NonLinearCK/Solver.h"
+#include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Monitoring/Metric.h"
+#include "Numerical/TimeBasis.h"
+#include "Parallel/Runtime/Stream.h"
+
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <utils/logger.h>
+#include <yateto.h>
+#include <yateto/InitTools.h>
 
 namespace seissol::kernels::solver::nonlinearck {
+
+namespace {
+/// Below this, the second strain invariant is taken for zero. It guards a
+/// square root and a division, so it is tied to the working precision and not
+/// to the material: the square of the machine epsilon is far below any strain
+/// a simulation resolves and far above where a reciprocal stops being finite.
+constexpr real invariantFloor() {
+  return std::numeric_limits<real>::epsilon() * std::numeric_limits<real>::epsilon();
+}
+} // namespace
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   derivative_.bindGlobals(*global.onHost);
@@ -19,6 +52,152 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   deviceDerivative_.bindGlobals(*global.onDevice);
   deviceStep_.bindGlobals(*global.onDevice);
 #endif
+}
+
+void Spacetime::computeAder(const real* coeffs,
+                            double timeStepWidth,
+                            LTS::Ref& data,
+                            LocalTmp& tmp,
+                            real* timeIntegrated,
+                            real* timeDerivatives,
+                            bool /*updateDisplacement*/) {
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
+  assert(timeDerivatives == nullptr ||
+         reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
+
+  alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
+  auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
+
+  const auto& local = data.get<LTS::LocalIntegration>().specific;
+
+  // The expansion of the state, and with it the columns of the transported
+  // tensor that the state couples through.
+  kernel::derivative derivative = derivative_;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    derivative.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+  }
+  derivative.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
+  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    derivative.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
+  }
+  derivative.I = timeIntegrated;
+  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
+    derivative.power(der) = coeffs[der];
+  }
+  derivative.execute();
+
+  // Everything nonlinear, in one kernel. The rule it samples with is ours to
+  // choose: the nodes and weights of the quadrature, the coefficients that
+  // evaluate the expansion there, and how far the internal variables march
+  // from one node to the next.
+  const Solver::TimeBasis<real> basis(ConvergenceOrder);
+  const auto [nodes, weights] = basis.quadrature(timeStepWidth);
+
+  kernel::damageStep step = step_;
+  step.dQ(0) = data.get<LTS::Dofs>();
+  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    step.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
+  }
+  for (std::size_t q = 0; q < nodes.size(); ++q) {
+    const auto evaluation = basis.point(nodes[q], timeStepWidth);
+    for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
+      step.evaluate(q, i) = evaluation[i];
+    }
+    step.weight(q) = weights[q];
+    // The internal variables enter the step with the value they have at its
+    // beginning and are carried across the nodes explicitly. The interval
+    // from the start of the step to the first node is not accounted for,
+    // which is first order in the source -- and the order of the march is a
+    // property of these numbers alone, so it can be raised here.
+    step.march(q) = (q + 1 < nodes.size() ? nodes[q + 1] : timeStepWidth) - nodes[q];
+  }
+
+  step.I = timeIntegrated;
+  step.sourceI = tmp.sourceIntegral;
+  step.maxWaveSpeed = &tmp.maxWaveSpeed;
+  step.epsInit = local.epsInit;
+
+  step.rhoInv = local.parameters.rhoInv;
+  step.lambda0 = local.parameters.lambda0;
+  step.mu0 = local.parameters.mu0;
+  step.gammaR = local.parameters.gammaR;
+  step.xi0 = local.parameters.xi0;
+  step.damageRate = local.parameters.damageRate;
+  step.breakageRate = local.parameters.breakageRate;
+  step.healingRate = local.parameters.healingRate;
+  step.betaAlpha = local.parameters.betaAlpha;
+  step.aB0 = local.parameters.aB[0];
+  step.aB1 = local.parameters.aB[1];
+  step.aB2 = local.parameters.aB[2];
+  step.aB3 = local.parameters.aB[3];
+  step.invariantFloor = invariantFloor();
+  step.execute();
+
+  // The dissipation coefficient rides in the last column of the transported
+  // tensor, as one number per cell: the neighbour reads it from the same
+  // buffer it reads everything else from, and needs nothing else about this
+  // cell to scale its half of the flux.
+  auto transported = init::I::view::create(timeIntegrated);
+  transported(0, tensor::I::Shape[1] - 1) = local.maxWaveSpeedBound;
+}
+
+void Spacetime::computeBatchedAder(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM LocalTmp& tmp,
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "No GPU implementation provided";
+}
+
+PerformanceEstimate Spacetime::metrics() const {
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative>();
+  estimate += PerformanceEstimate::fromKernel<kernel::damageStep>();
+
+  std::uint64_t reals = 0;
+  // the state in, the transported tensor and the source integral out
+  reals += tensor::Q::size() + tensor::I::size() + tensor::sourceI::size();
+  // the star matrices and the expansion the step reads back
+  reals += yateto::computeFamilySize<tensor::star>();
+  reals += yateto::computeFamilySize<tensor::dQ>();
+
+  estimate.bytes = reals * sizeof(real);
+  return estimate;
+}
+
+void Time::evaluate(const real* coeffs,
+                    const real* timeDerivatives,
+                    real timeEvaluated[tensor::I::size()]) {
+  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
+
+  // The expansion is of the state, so this is the Taylor sum the linear
+  // solver evaluates -- over the columns the two tensors share. The stress
+  // has no expansion stored, so a subinterval of it cannot be reconstructed
+  // here; that is what SupportsLTS being false says.
+  kernel::derivativeTaylorExpansion krnl;
+  krnl.I = timeEvaluated;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.power(i) = coeffs[i];
+  }
+  krnl.execute();
+}
+
+void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
+                           SEISSOL_GPU_PARAM const real** timeDerivatives,
+                           SEISSOL_GPU_PARAM real** timeIntegratedDofs,
+                           SEISSOL_GPU_PARAM std::size_t numElements,
+                           SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "No GPU implementation provided";
+}
+
+PerformanceEstimate Time::metrics() const {
+  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion>();
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}

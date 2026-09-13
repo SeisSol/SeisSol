@@ -69,7 +69,13 @@ struct DamageMaterial : public Material {
   /// here and not a state variable. Until that is settled the material says so
   /// rather than producing something that looks like a traction and is not.
   static constexpr bool SupportsDR = false;
-  static constexpr bool SupportsLTS = true;
+  /// Local time stepping asks a cell for the stress it integrated over a
+  /// subinterval of its own step. The stress is transported, but only as the
+  /// integral over the whole step: reconstructing a part of it means storing
+  /// its expansion in time the way the state's is stored, and until that
+  /// exists the alternative would be for the neighbour to rebuild the stress
+  /// from the other cell's material.
+  static constexpr bool SupportsLTS = false;
   static constexpr bool SupportsEnergy = true;
 
   using LocalSpecificData = kernels::solver::nonlinearck::NonLinearLocalData;
@@ -95,6 +101,17 @@ struct DamageMaterial : public Material {
   /// scenario that loads a fault, which is why the six components are queried
   /// one by one rather than held as an array: the map binds a member per
   /// supplied parameter.
+  /// Properties of the model rather than of a point in the mesh, so they come
+  /// from the parameter file rather than from easi. Until that is wired, the
+  /// defaults are the configuration the published implementation runs: no
+  /// breakage, no healing, and a granular branch that is never reached.
+  double breakageRate{};
+  double healingRate{};
+  /// Width of the smoothed step from damage to breakage. It divides, so it is
+  /// not allowed to be zero even where breakage is switched off.
+  double betaAlpha{1.0};
+  std::array<double, 4> aB{};
+
   double epsInitXX{};
   double epsInitYY{};
   double epsInitZZ{};

@@ -15,11 +15,19 @@
 
 namespace seissol::tensor {
 struct Iane;
+struct sourceI;
 } // namespace seissol::tensor
 
 namespace seissol::kernels {
 struct LocalTmp {
   alignas(Alignment) real timeIntegratedAne[zeroGuard(kernels::size<tensor::Iane>())]{};
+  /// Time-integrated source of the quantities that carry no flux. It is
+  /// produced by the predictor and consumed by the corrector of the same cell
+  /// in the same timestep, and no neighbour ever asks for it.
+  alignas(Alignment) real sourceIntegral[zeroGuard(kernels::size<tensor::sourceI>())]{};
+  /// Largest wave speed the cell saw over the step, for the dissipation of
+  /// its own half of every face flux.
+  real maxWaveSpeed{};
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   alignas(Alignment)
       std::array<real,

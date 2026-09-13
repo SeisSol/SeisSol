@@ -20,6 +20,7 @@
 #include "Kernels/NonLinearCK/Solver.h"
 #include "Model/Common.h"
 
+#include <cmath>
 #include <cstddef>
 
 namespace seissol::model {
@@ -43,6 +44,45 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
     epsInit(3) = material.epsInitXY;
     epsInit(4) = material.epsInitYZ;
     epsInit(5) = material.epsInitXZ;
+
+    localData->maxWaveSpeedBound = waveSpeedBound(material);
+
+    auto& parameters = localData->parameters;
+    parameters.rhoInv = static_cast<real>(1.0 / material.rho);
+    parameters.lambda0 = static_cast<real>(material.lambda0);
+    parameters.mu0 = static_cast<real>(material.mu0);
+    parameters.gammaR = static_cast<real>(material.gammaR);
+    parameters.xi0 = static_cast<real>(material.xi0);
+    parameters.damageRate = static_cast<real>(material.damageRate);
+    parameters.breakageRate = static_cast<real>(material.breakageRate);
+    parameters.healingRate = static_cast<real>(material.healingRate);
+    parameters.betaAlpha = static_cast<real>(material.betaAlpha);
+    for (std::size_t i = 0; i < parameters.aB.size(); ++i) {
+      parameters.aB[i] = static_cast<real>(material.aB.at(i));
+    }
+  }
+
+  static void
+      initializeSpecificNeighborData(const MaterialT& material,
+                                     typename MaterialT::Solver::NeighborData* neighborData) {
+    neighborData->maxWaveSpeedBound.fill(waveSpeedBound(material));
+  }
+
+  /**
+   * Largest wave speed the material can reach, over every state it can be in.
+   *
+   * The effective shear modulus is 2 mu0 - gammaR alpha (2 xi0 + xi), with
+   * alpha in [0, 1] and the invariant ratio xi in [-sqrt(3), sqrt(3)] -- the
+   * latter by Cauchy-Schwarz on a symmetric tensor, so it is a bound and not
+   * an assumption. A Rusanov flux needs an upper bound and grows more
+   * dissipative the looser it is, which is the price for a face never asking
+   * the far side what state it is in.
+   */
+  static real waveSpeedBound(const MaterialT& material) {
+    constexpr double MaxInvariantRatio = 1.7320508075688772; // sqrt(3)
+    const double shear =
+        2.0 * material.mu0 + material.gammaR * (MaxInvariantRatio - 2.0 * material.xi0);
+    return static_cast<real>(std::sqrt((material.lambda0 + shear) / material.rho));
   }
 };
 
