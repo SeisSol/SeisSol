@@ -121,6 +121,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   for (auto& layer : drStorage.leaves(Ghost)) {
     auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>();
     auto* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>();
+    auto* solverLocalDataPlus = layer.var<DynamicRupture::SolverLocalDataPlus>();
+    auto* solverLocalDataMinus = layer.var<DynamicRupture::SolverLocalDataMinus>();
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
     auto* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
     auto* timeDerivativePlusDevice = layer.var<DynamicRupture::TimeDerivativePlusDevice>();
@@ -183,6 +185,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       real* timeDofs1 = nullptr;
       real* timeDofs2 = nullptr;
+      const typename model::MaterialT::Solver::LocalData* localData1 = nullptr;
+      const typename model::MaterialT::Solver::LocalData* localData2 = nullptr;
       real* timeDerivative1 = nullptr;
       real* timeDerivative2 = nullptr;
       real* timeDerivative1Device = nullptr;
@@ -208,6 +212,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
             timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(position);
 
             timeDofs1 = getDofs(position);
+            localData1 = &ltsStorage.lookup<LTS::SolverLocalData>(position);
           }
           if (timeDerivative2 == nullptr &&
               cellInformation.ltsSetup.neighborBuffer(derivativesSide) == BufferType::Derivatives) {
@@ -218,6 +223,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
             const auto& secondaryInformation =
                 ltsStorage.lookup<LTS::SecondaryInformation>(position);
             timeDofs2 = getDofs(secondaryInformation.faceNeighbors[derivativesSide]);
+            localData2 = &ltsStorage.lookup<LTS::SolverLocalData>(
+                secondaryInformation.faceNeighbors[derivativesSide]);
           }
         }
       }
@@ -227,6 +234,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       if (fault[meshFace].element >= 0) {
         timeDofsPlus[ltsFace] = timeDofs1;
         timeDofsMinus[ltsFace] = timeDofs2;
+        solverLocalDataPlus[ltsFace] = localData1;
+        solverLocalDataMinus[ltsFace] = localData2;
         timeDerivativePlus[ltsFace] = timeDerivative1;
         timeDerivativeMinus[ltsFace] = timeDerivative2;
         timeDerivativePlusDevice[ltsFace] = timeDerivative1Device;
@@ -234,6 +243,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       } else {
         timeDofsPlus[ltsFace] = timeDofs2;
         timeDofsMinus[ltsFace] = timeDofs1;
+        solverLocalDataPlus[ltsFace] = localData2;
+        solverLocalDataMinus[ltsFace] = localData1;
         timeDerivativePlus[ltsFace] = timeDerivative2;
         timeDerivativeMinus[ltsFace] = timeDerivative1;
         timeDerivativePlusDevice[ltsFace] = timeDerivative2Device;

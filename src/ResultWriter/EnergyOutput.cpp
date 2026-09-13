@@ -25,6 +25,7 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -69,6 +70,8 @@ namespace {
 std::array<real, multisim::NumSimulations>
     computeStaticWork(const real* degreesOfFreedomPlus,
                       const real* degreesOfFreedomMinus,
+                      const typename model::MaterialT::Solver::LocalData& localDataPlus,
+                      const typename model::MaterialT::Solver::LocalData& localDataMinus,
                       const DRFaceInformation& faceInfo,
                       const DRGodunovData& godunovData,
                       const real slip[seissol::tensor::slipInterpolated::size()],
@@ -82,9 +85,13 @@ std::array<real, multisim::NumSimulations>
   alignas(Alignment) real qPlus[tensor::I::size()];
   alignas(Alignment) real qMinus[tensor::I::size()];
 
-  // needed to counter potential mis-alignment
-  std::memcpy(qPlus, degreesOfFreedomPlus, sizeof(qPlus));
-  std::memcpy(qMinus, degreesOfFreedomMinus, sizeof(qMinus));
+  // The state of the two cells, in the layout a face reads. A copy wherever
+  // the two coincide, and where they do not the stress this wants is not in
+  // the state at all -- it is a function of it, and the map is what evaluates
+  // it. The copy also counters a potential mis-alignment.
+  kernels::Time timeKernel;
+  timeKernel.stateToTransport(degreesOfFreedomPlus, localDataPlus, qPlus);
+  timeKernel.stateToTransport(degreesOfFreedomMinus, localDataMinus, qMinus);
 
   krnl.QInterpolated = qInterpolatedPlus;
   krnl.I = qPlus;
@@ -349,8 +356,12 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
   for (const auto& layer : drStorage_->leaves()) {
 
-    real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>();
-    real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
+    // The states of the two sides, not their expansions: what this wants is
+    // one instant, and a derivative buffer is not it.
+    real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>();
+    real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>();
+    const auto* const* localDataPlus = layer.var<DynamicRupture::SolverLocalDataPlus>();
+    const auto* const* localDataMinus = layer.var<DynamicRupture::SolverLocalDataMinus>();
 
     const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
     const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
@@ -370,6 +381,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       if (faceInformation[i].plusSideOnThisRank) {
         const auto staticFrictionalWorkIncrease = computeStaticWork(timeDofsPlus[i],
                                                                     timeDofsMinus[i],
+                                                                    *localDataPlus[i],
+                                                                    *localDataMinus[i],
                                                                     faceInformation[i],
                                                                     godunovData[i],
                                                                     drEnergyOutput[i].slip,

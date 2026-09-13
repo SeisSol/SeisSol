@@ -45,6 +45,13 @@ struct DynamicRupture {
 
   virtual ~DynamicRupture() = default;
   struct TimeDofsPlus : public initializer::Variable<real*> {};
+  /// What the solver needs of the material of either side, for whoever turns
+  /// a state into what a face reads. Resolved where the degrees of freedom
+  /// are, because that is where both sides of a face are known.
+  struct SolverLocalDataPlus
+      : public initializer::Variable<const typename model::MaterialT::Solver::LocalData*> {};
+  struct SolverLocalDataMinus
+      : public initializer::Variable<const typename model::MaterialT::Solver::LocalData*> {};
   struct TimeDofsMinus : public initializer::Variable<real*> {};
   struct TimeDerivativePlus : public initializer::Variable<real*> {};
   struct TimeDerivativeMinus : public initializer::Variable<real*> {};
@@ -111,6 +118,8 @@ struct DynamicRupture {
     using namespace seissol::initializer;
     const auto mask = LayerMask(Ghost);
     storage.add<TimeDofsPlus>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<SolverLocalDataPlus>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<SolverLocalDataMinus>(mask, Alignment, AllocationMode::HostOnly, true);
     storage.add<TimeDofsMinus>(mask, Alignment, AllocationMode::HostOnly, true);
     storage.add<TimeDerivativePlus>(mask, Alignment, AllocationMode::HostOnly, true);
     storage.add<TimeDerivativeMinus>(mask, Alignment, AllocationMode::HostOnly, true);
