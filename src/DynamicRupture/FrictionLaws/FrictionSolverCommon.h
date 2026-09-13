@@ -293,11 +293,18 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
-                model::MaterialT::Type == model::MaterialType::Viscoelastic) {
-    const auto invZs = impAndEta.invZs;
-    const auto invZp = impAndEta.invZp;
-    const auto invZsNeig = impAndEta.invZsNeig;
-    const auto invZpNeig = impAndEta.invZpNeig;
+                model::MaterialT::Type == model::MaterialType::Viscoelastic ||
+                model::MaterialT::Type == model::MaterialType::Damage) {
+    // The same four numbers either way; where the impedance belongs to a node
+    // they were formed there, in the precomputation, and kept with the
+    // stresses. Which is why the arithmetic below needs no branch of its own.
+    const auto readImpedance = [&](const real* nodal, real constant, std::size_t at) {
+      if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
+        return Acc::index(nodal, at);
+      } else {
+        return constant;
+      }
+    };
 
     using namespace dr::misc::quantity_indices;
 
@@ -307,6 +314,11 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
          index += NumPointsRange::Step) {
       auto i{startIndex + index};
+
+      const auto invZp = readImpedance(faultStresses.invZp, impAndEta.invZp, i);
+      const auto invZs = readImpedance(faultStresses.invZs, impAndEta.invZs, i);
+      const auto invZpNeig = readImpedance(faultStresses.invZpNeig, impAndEta.invZpNeig, i);
+      const auto invZsNeig = readImpedance(faultStresses.invZsNeig, impAndEta.invZsNeig, i);
 
       const auto normalStress = Acc::index(tractionResults.normalStress, i);
       const auto traction1 = Acc::index(tractionResults.traction1, i);
@@ -722,13 +734,21 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
 
   Returns {etaProj, invEtaProj}
  */
+template <Executor Exec>
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
     projectEta(const ImpedancesAndEta& impAndEta,
                [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+               const FaultStresses<Exec>& faultStresses,
+               [[maybe_unused]] uint32_t index,
                [[maybe_unused]] real t1,
                [[maybe_unused]] real t2,
                [[maybe_unused]] real tmag) {
-  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
+    // Formed at this node in the precomputation, from the state that was
+    // there; a friction law has no way back to it.
+    return std::pair<real, real>{VariableIndexing<Exec>::index(faultStresses.etaS, index),
+                                 VariableIndexing<Exec>::index(faultStresses.invEtaS, index)};
+  } else if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
     // the anisotropic block is always 3x3 (no fluid pressure component)
     constexpr std::uint32_t Count = 3;
 
@@ -763,13 +783,21 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
   direction. c is identically zero for every isotropic material, so the whole correction disappears
   there.
  */
+template <Executor Exec>
 SEISSOL_HOSTDEVICE inline real
     projectEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
                      [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                     const FaultStresses<Exec>& faultStresses,
+                     [[maybe_unused]] uint32_t index,
                      [[maybe_unused]] real t1,
                      [[maybe_unused]] real t2,
                      [[maybe_unused]] real tmag) {
-  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
+    // Zero, and not by omission: the linearisation this material is carried
+    // by is isotropic in its effective moduli, so the normal and the shear
+    // modes of a face do not couple.
+    return static_cast<real>(0.0);
+  } else if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
     // the anisotropic block is always 3x3 (no fluid pressure component)
     constexpr std::uint32_t Count = 3;
 
@@ -922,8 +950,11 @@ struct SlipRateSolution {
  * Every projection is a no-op for an isotropic impedance, where n is the direction of tau0 and the
  * result reduces to V = (|tau0| - strength) / eta.
  */
+template <Executor Exec>
 SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta& impAndEta,
                                                          const ImpedanceMatrices& impedanceMatrices,
+                                                         const FaultStresses<Exec>& faultStresses,
+                                                         uint32_t index,
                                                          real traction1,
                                                          real traction2,
                                                          real tractionMagnitude,
@@ -934,10 +965,16 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
   real n1 = traction1 * invAbsolute;
   real n2 = traction2 * invAbsolute;
   real projectedTraction = tractionMagnitude;
-  real eta =
-      projectEta(impAndEta, impedanceMatrices, traction1, traction2, tractionMagnitude).first;
-  real etaNormal =
-      projectEtaNormal(impAndEta, impedanceMatrices, traction1, traction2, tractionMagnitude);
+  real eta = projectEta(impAndEta,
+                        impedanceMatrices,
+                        faultStresses,
+                        index,
+                        traction1,
+                        traction2,
+                        tractionMagnitude)
+                 .first;
+  real etaNormal = projectEtaNormal(
+      impAndEta, impedanceMatrices, faultStresses, index, traction1, traction2, tractionMagnitude);
   real slipRate{};
   real etaEff{};
 
@@ -964,8 +1001,11 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
     n1 = d1;
     n2 = d2;
     projectedTraction = n1 * traction1 + n2 * traction2;
-    eta = projectEta(impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0)).first;
-    etaNormal = projectEtaNormal(impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0));
+    eta = projectEta(
+              impAndEta, impedanceMatrices, faultStresses, index, n1, n2, static_cast<real>(1.0))
+              .first;
+    etaNormal = projectEtaNormal(
+        impAndEta, impedanceMatrices, faultStresses, index, n1, n2, static_cast<real>(1.0));
   }
 
   return {slipRate, n1, n2, projectedTraction, etaEff};

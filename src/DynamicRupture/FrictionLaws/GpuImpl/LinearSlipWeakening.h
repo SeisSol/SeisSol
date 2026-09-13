@@ -65,6 +65,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
     const auto [eta, invEta] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                  ctx.faultStresses,
+                                                  ctx.pointIndex,
                                                   totalStress1,
                                                   totalStress2,
                                                   absoluteShearStress);

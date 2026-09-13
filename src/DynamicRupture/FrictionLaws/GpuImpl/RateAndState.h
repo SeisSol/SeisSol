@@ -88,6 +88,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.initialVariables.etaNormal =
         common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                 ctx.faultStresses,
+                                 ctx.pointIndex,
                                  totalTraction1,
                                  totalTraction2,
                                  ctx.initialVariables.absoluteShearTraction);
@@ -132,6 +134,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
       const auto [etaProj, unusedInv] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
                                                            ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                           ctx.faultStresses,
+                                                           ctx.pointIndex,
                                                            ctx.initialVariables.slipDirection1,
                                                            ctx.initialVariables.slipDirection2,
                                                            static_cast<real>(1.0));
@@ -154,6 +158,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       ctx.initialVariables.etaNormal =
           common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
                                    ctx.data->impedanceMatrices[ctx.ltsFace],
+                                   ctx.faultStresses,
+                                   ctx.pointIndex,
                                    n1,
                                    n2,
                                    static_cast<real>(1.0));
@@ -161,6 +167,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto [unusedNewEta, newInvEta] =
           common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                             ctx.faultStresses,
+                             ctx.pointIndex,
                              n1,
                              n2,
                              static_cast<real>(1.0));
@@ -169,6 +177,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto [unusedEta, invEta] =
           common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                             ctx.faultStresses,
+                             ctx.pointIndex,
                              totalTraction1,
                              totalTraction2,
                              ctx.initialVariables.absoluteShearTraction);
@@ -261,6 +271,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     const auto [etaS, _] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
                                               ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              ctx.faultStresses,
+                                              ctx.pointIndex,
                                               ctx.initialVariables.slipDirection1,
                                               ctx.initialVariables.slipDirection2,
                                               static_cast<real>(1.0));

@@ -79,6 +79,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       const auto [eta, invEta] = common::projectEta(this->impAndEta_[ltsFace],
                                                     this->impedanceMatrices_[ltsFace],
+                                                    faultStresses,
+                                                    pointIndex,
                                                     totalTraction1,
                                                     totalTraction2,
                                                     absoluteTraction);
