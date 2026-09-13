@@ -122,6 +122,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
+  // The cell's own integrals. A linear flux never read them here; one that is
+  // scaled with the larger of the two sides' wave speeds does, because one of
+  // the two sides is this cell.
+  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIntegrals {};
 
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
@@ -158,6 +162,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
               static_cast<real*>(data.get<LTS::Dofs>()));
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry_[neighborBufferPtr]);
+          if constexpr (Config::Solver == SolverType::NonLinearCK) {
+            regularPeriodicIntegrals[face][faceRelation].push_back(
+                static_cast<real*>(data.get<LTS::Integrals>()));
+          }
           regularPeriodicAminusT[face][faceRelation].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
           if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
@@ -216,6 +224,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
                                   regularPeriodicDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
                                   regularPeriodicAminusT[face][faceRelation]);
+        if constexpr (Config::Solver == SolverType::NonLinearCK) {
+          (*currentTable_)[key].set(inner_keys::Wp::Id::Integrals,
+                                    regularPeriodicIntegrals[face][faceRelation]);
+        }
         if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt,
                                     regularDofsExt[face][faceRelation]);

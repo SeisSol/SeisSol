@@ -147,7 +147,13 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
-  logError() << "No GPU implementation provided";
+  // Everything this needs is recorded: the expansion, the transported tensor,
+  // the source integral, and the initial strain through an offset into the
+  // cell's local integration data. What is not is the material: the step
+  // kernel takes it as scalars, and a scalar argument is uniform over a
+  // batch, so the thirteen of them have to be read per element the way the
+  // face's wave speed already is.
+  logError() << "The batched step kernel needs the material per element, not as scalars.";
 }
 
 PerformanceEstimate Spacetime::metrics() const {

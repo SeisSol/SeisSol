@@ -146,6 +146,11 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
 
     layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal::size() *
                                              sizeof(real));
+    if constexpr (Config::Solver == SolverType::NonLinearCK) {
+      layer.setEntrySize<LTS::SourceIntegralsScratch>(
+          layer.size() * kernels::size<tensor::sourceI>() * sizeof(real));
+    }
+
     if (plasticity) {
       layer.setEntrySize<LTS::FlagScratch>(numPlasticCells * sizeof(unsigned));
       layer.setEntrySize<LTS::QStressNodalScratch>(numPlasticCells * tensor::QStressNodal::Size *

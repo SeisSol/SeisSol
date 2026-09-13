@@ -63,6 +63,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
     std::vector<real*> integralsPtrs(size, nullptr);
+    std::vector<real*> sourceIntegralsPtrs(size, nullptr);
     std::vector<real*> dofsAnePtrs(size, nullptr);
     std::vector<real*> dofsExtPtrs(size, nullptr);
     std::vector<real*> localPtrs(size, nullptr);
@@ -88,6 +89,13 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       // dofs
       dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
       integralsPtrs[cell] = static_cast<real*>(data.get<LTS::Integrals>());
+
+      if constexpr (Config::Solver == SolverType::NonLinearCK) {
+        auto* sourceIntegrals =
+            currentLayer_->var<LTS::SourceIntegralsScratch>(AllocationPlace::Device);
+        sourceIntegralsPtrs[cell] =
+            static_cast<real*>(sourceIntegrals) + kernels::size<tensor::sourceI>() * cell;
+      }
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter_];
@@ -165,6 +173,10 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, dQPtrs_);
+
+    if constexpr (Config::Solver == SolverType::NonLinearCK) {
+      (*currentTable_)[key].set(inner_keys::Wp::Id::SourceIntegrals, sourceIntegralsPtrs);
+    }
 
     if (!idofsForLtsBuffers.empty()) {
       const ConditionalKey key(*KernelNames::Time, *ComputationKind::WithLtsBuffers);

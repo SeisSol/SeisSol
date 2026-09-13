@@ -139,6 +139,10 @@ struct LTS {
   struct IDofsAneScratch : public initializer::Scratchpad<real> {};
   struct DofsExtScratch : public initializer::Scratchpad<real> {};
 
+  /// Time-integrated source of the quantities that carry no flux: written by
+  /// the predictor of a cell and read by its corrector, and by nobody else.
+  struct SourceIntegralsScratch : public initializer::Scratchpad<real> {};
+
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
   struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
@@ -187,6 +191,7 @@ struct LTS {
                                                         DerivativesAneScratch,
                                                         IDofsAneScratch,
                                                         DofsExtScratch,
+                                                        SourceIntegralsScratch,
                                                         FlagScratch,
                                                         QStressNodalScratch,
                                                         RotateDisplacementToFaceNormalScratch,
@@ -289,6 +294,7 @@ struct LTS {
       storage.add<NodalAvgDisplacements>(LayerMask(), Alignment, mode);
       storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
 
+      storage.add<SourceIntegralsScratch>(LayerMask(), Alignment, mode);
       storage.add<FlagScratch>(LayerMask(), Alignment, mode);
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
 
