@@ -14,6 +14,7 @@
 #include "Model/Quantities.h"
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <string>
 #include <unordered_map>
@@ -124,6 +125,28 @@ struct DamageMaterial : public Material {
   [[nodiscard]] double getLambdaBar() const override { return lambda0; }
 
   [[nodiscard]] double getMuBar() const override { return mu0; }
+
+  /// Speeds of the undamaged material, which is what the moduli describe.
+  [[nodiscard]] double getPWaveSpeed() const override {
+    return std::sqrt((lambda0 + 2.0 * mu0) / rho);
+  }
+
+  [[nodiscard]] double getSWaveSpeed() const override { return std::sqrt(mu0 / rho); }
+
+  /// Fastest wave the material can carry, over every state it can be in.
+  ///
+  /// The effective shear modulus is 2 mu0 - gammaR alpha (2 xi0 + xi), with
+  /// the damage alpha in [0, 1] and the strain invariant ratio xi in
+  /// [-sqrt(3), sqrt(3)] -- the latter by Cauchy-Schwarz on a symmetric
+  /// tensor, so it is a bound and not an assumption. Damage can stiffen the
+  /// material as well as soften it, which is why this is not the undamaged
+  /// speed: a timestep or a numerical flux scaled with that one would be
+  /// scaled with a speed the simulation can exceed.
+  [[nodiscard]] double getMaxWaveSpeed() const override {
+    constexpr double MaxInvariantRatio = 1.7320508075688772; // sqrt(3)
+    const double shear = 2.0 * mu0 + gammaR * (MaxInvariantRatio - 2.0 * xi0);
+    return std::sqrt((lambda0 + shear) / rho);
+  }
 
   DamageMaterial() = default;
   explicit DamageMaterial(const std::vector<double>& materialValues)
