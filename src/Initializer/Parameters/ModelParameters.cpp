@@ -52,6 +52,32 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
       itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
 }
 
+DamageParameters readDamageParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("equations");
+
+  constexpr auto IsDamage = model::MaterialT::Type == model::MaterialType::Damage;
+
+  DamageParameters parameters{};
+  parameters.breakageRate = reader->readWithDefault<double>("breakagerate", 0.0);
+  parameters.healingRate = reader->readWithDefault<double>("healingrate", 0.0);
+  parameters.betaAlpha = reader->readWithDefault<double>("betaalpha", 1.0);
+  for (std::size_t i = 0; i < parameters.granular.size(); ++i) {
+    parameters.granular[i] = reader->readWithDefault<double>("ab" + std::to_string(i), 0.0);
+  }
+
+  if constexpr (IsDamage) {
+    if (parameters.betaAlpha <= 0.0) {
+      logError() << "The betaAlpha parameter is the width of the step from damage to"
+                 << "breakage and divides; it must be positive.";
+    }
+    if (parameters.breakageRate < 0.0 || parameters.healingRate < 0.0) {
+      logError() << "The breakage and healing rates must not be negative.";
+    }
+  }
+
+  return parameters;
+}
+
 ModelParameters readModelParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
 
@@ -100,6 +126,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
 
+  const DamageParameters damageParameters = readDamageParameters(baseReader);
+
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
   const auto flux =
@@ -132,7 +160,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          plasticityFileNames,
                          itmParameters,
                          flux,
-                         fluxNearFault};
+                         fluxNearFault,
+                         damageParameters};
 }
 
 std::string fluxToString(NumericalFlux flux) {

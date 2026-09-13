@@ -103,9 +103,8 @@ struct DamageMaterial : public Material {
   /// one by one rather than held as an array: the map binds a member per
   /// supplied parameter.
   /// Properties of the model rather than of a point in the mesh, so they come
-  /// from the parameter file rather than from easi. Until that is wired, the
-  /// defaults are the configuration the published implementation runs: no
-  /// breakage, no healing, and a granular branch that is never reached.
+  /// from the parameter file rather than from easi, and they arrive through
+  /// initialize() like every other parameter that is read there.
   double breakageRate{};
   double healingRate{};
   /// Width of the smoothed step from damage to breakage. It divides, so it is
@@ -157,6 +156,14 @@ struct DamageMaterial : public Material {
         epsInitYZ(materialValues.at(10)), epsInitXZ(materialValues.at(11)) {}
 
   ~DamageMaterial() override = default;
+
+  void initialize(const initializer::parameters::ModelParameters& parameters) override {
+    const auto& damage = parameters.damageParameters;
+    breakageRate = damage.breakageRate;
+    healingRate = damage.healingRate;
+    betaAlpha = damage.betaAlpha;
+    aB = damage.granular;
+  }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };

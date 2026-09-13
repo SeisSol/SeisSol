@@ -10,6 +10,7 @@
 
 #include "ParameterReader.h"
 
+#include <array>
 #include <string>
 
 namespace seissol::initializer::parameters {
@@ -22,6 +23,21 @@ struct ITMParameters {
   double itmDuration{0.0};
   double itmVelocityScalingFactor{1.0};
   ReflectionType itmReflectionType{ReflectionType::BothWaves};
+};
+
+/// Parameters of a continuum damage-breakage rheology that belong to the
+/// model rather than to a point in the mesh, so they come from here rather
+/// than from easi. The defaults are the configuration the published
+/// implementation runs: no breakage, no healing, and a granular branch that
+/// is never reached.
+struct DamageParameters {
+  double breakageRate{0.0};
+  double healingRate{0.0};
+  /// Width of the smoothed step from damage to breakage. It divides, so it
+  /// must not be zero even where breakage is switched off.
+  double betaAlpha{1.0};
+  /// Coefficients of the granular branch, aB0 to aB3.
+  std::array<double, 4> granular{};
 };
 
 enum class NumericalFlux { Godunov, Rusanov };
@@ -44,10 +60,12 @@ struct ModelParameters {
   ITMParameters itmParameters;
   NumericalFlux flux{NumericalFlux::Godunov};
   NumericalFlux fluxNearFault{NumericalFlux::Godunov};
+  DamageParameters damageParameters;
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);
 ITMParameters readITMParameters(ParameterReader* baseReader);
+DamageParameters readDamageParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
 #endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
