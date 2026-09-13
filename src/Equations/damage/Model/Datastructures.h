@@ -67,10 +67,10 @@ struct DamageMaterial : public Material {
   /// initial strain.
   static constexpr std::size_t Parameters = 11 + Material::Parameters;
 
-  /// Dynamic rupture needs a mechanical traction, which is a derived quantity
-  /// here and not a state variable. Until that is settled the material says so
-  /// rather than producing something that looks like a traction and is not.
-  static constexpr bool SupportsDR = false;
+  /// A fault reads the traction out of what a cell transports rather than out
+  /// of its state, and the impedance it scales with is formed at the node from
+  /// the state that is there.
+  static constexpr bool SupportsDR = true;
   // What a cell transports beyond its state is projected into an expansion of
   // its own, so a neighbour on a coarser cluster reconstructs a subinterval of
   // the stress from that -- rather than rebuilding the stress out of this
