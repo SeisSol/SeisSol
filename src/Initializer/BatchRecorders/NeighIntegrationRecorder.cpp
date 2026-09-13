@@ -139,6 +139,11 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
   const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>();
 
+  // The cell's own integrals, which is the buffer its predictor wrote --
+  // not the copy of the state the integrated-quantities output keeps, which
+  // is as wide as the state and is not allocated unless that output is on.
+  real* const* stepIntegrals = currentLayer_->var<LTS::StepIntegralsDevice>();
+
   auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
 
   const auto size = currentLayer_->size();
@@ -166,8 +171,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry_[neighborBufferPtr]);
           if constexpr (Config::Solver == SolverType::NonLinearCK) {
-            regularPeriodicIntegrals[face][faceRelation].push_back(
-                static_cast<real*>(data.get<LTS::Integrals>()));
+            regularPeriodicIntegrals[face][faceRelation].push_back(stepIntegrals[cell]);
             regularPeriodicAplusT[face][faceRelation].push_back(
                 reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
           }
