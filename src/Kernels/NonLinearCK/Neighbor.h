@@ -32,9 +32,11 @@ namespace seissol::kernels::solver::nonlinearck {
 /// other cell is needed, its largest wave speed, and it arrives through the
 /// neighbour data rather than through the material.
 ///
-/// Dynamic rupture faces are not handled. The material declares that it does
-/// not support them, because the traction a friction law needs is derived from
-/// the strain here rather than stored.
+/// A rupture face is the one kind that contributes nothing through this pair:
+/// its state does not cross it, a friction law decides what does. What is left
+/// for this kernel is to lift that decision back onto the cell, which is the
+/// same nodal flux the linear solver applies -- what differs is the flux solver
+/// it is applied with, and that was built at setup.
 class Neighbor : public NeighborKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
@@ -55,10 +57,12 @@ class Neighbor : public NeighborKernel {
   protected:
   kernel::damageLocalFlux localFlux_;
   kernel::damageNeighborFlux neighborFlux_;
+  dynamicRupture::kernel::nodalFlux drFlux_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_damageLocalFlux deviceLocalFlux_;
   kernel::gpu_damageNeighborFlux deviceNeighborFlux_;
+  dynamicRupture::kernel::gpu_nodalFlux deviceDrFlux_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };

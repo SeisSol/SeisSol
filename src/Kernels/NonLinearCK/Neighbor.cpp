@@ -39,10 +39,12 @@ namespace seissol::kernels::solver::nonlinearck {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   localFlux_.bindGlobals(*global.onHost);
   neighborFlux_.bindGlobals(*global.onHost);
+  drFlux_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceLocalFlux_.bindGlobals(*global.onDevice);
   deviceNeighborFlux_.bindGlobals(*global.onDevice);
+  deviceDrFlux_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -59,9 +61,26 @@ void Neighbor::computeNeighborsIntegral(
   const real* own = data.get<LTS::StepIntegrals>();
   assert(own != nullptr && Solver::RequiresOwnIntegrals);
 
+  const auto& drMapping = data.get<LTS::DRMapping>();
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const auto faceType = info.faceTypes[face];
     const bool hasNeighbor = faceType == FaceType::Regular;
+
+    if (faceType == FaceType::DynamicRupture) {
+      // What crosses a rupture face is not a state, so the pair of matrices a
+      // regular face applies is zero here and running it would buy nothing.
+      // What does cross is the traction the friction law imposed, and this is
+      // where it is lifted from the face's nodes back onto the cell.
+      assert(reinterpret_cast<uintptr_t>(drMapping[face].godunov) % Alignment == 0);
+
+      dynamicRupture::kernel::nodalFlux drKrnl = drFlux_;
+      drKrnl.fluxSolver = drMapping[face].fluxSolver;
+      drKrnl.QInterpolated = drMapping[face].godunov;
+      drKrnl.Q = data.get<LTS::Dofs>();
+      drKrnl.execute(drMapping[face].side, drMapping[face].faceRelation);
+      continue;
+    }
 
     // A face without a neighbour carries its ghost rule in its own pair of
     // matrices, folded in at setup. What is left of it here is that there is
@@ -167,6 +186,36 @@ void Neighbor::computeBatchedNeighborsIntegral(
     });
   }
 
+  // The imposed traction of a rupture face, lifted from the face's nodes onto
+  // the cell. Recorded under the key the linear solver records it under, and
+  // applied with the flux solver this material's faults were built with.
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    runtime.envMany(*DrFaceRelations::Count, [&](void* stream, std::size_t faceRelation) {
+      const ConditionalKey key(
+          *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
+      if (table.find(key) == table.end()) {
+        return;
+      }
+      auto& entry = table[key];
+
+      const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+      dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrFlux_;
+      drKrnl.numElements = numElements;
+      drKrnl.fluxSolver =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+      drKrnl.QInterpolated =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+      drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+
+      auto* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+          dynamicRupture::kernel::gpu_nodalFlux::TmpMaxMemRequiredInBytes * numElements, stream));
+      drKrnl.linearAllocator.initialize(tmpMem);
+      drKrnl.streamPtr = stream;
+      (drKrnl.*dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs[faceRelation])();
+      device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+    });
+  }
+
   // A face without a neighbour, which is its own far state and its own wave
   // speed. Only the cell's own half of the flux runs for it -- there is no
   // second half to come -- and the ghost rule is already in the pair of
@@ -220,24 +269,37 @@ void Neighbor::computeBatchedNeighborsIntegral(
 std::pair<PerformanceEstimate, PerformanceEstimate>
     Neighbor::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                       const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-                      const std::array<CellDRMapping, Cell::NumFaces>& /*cellDrMapping*/) const {
+                      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const {
   PerformanceEstimate neighbor;
 
+  PerformanceEstimate rupture;
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    if (faceTypes[face] == FaceType::DynamicRupture) {
+      // the imposed traction, lifted from the face's nodes onto the cell
+      rupture += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux>(
+          cellDrMapping[face].side, cellDrMapping[face].faceRelation);
+      continue;
+    }
+
+    // A face without a neighbour has only the half the cell applies itself,
+    // and its ghost rule is in its pair of matrices -- so it costs a regular
+    // face's local half and is counted as one.
+    if (faceTypes[face] == FaceType::FreeSurface || faceTypes[face] == FaceType::Outflow) {
+      neighbor += PerformanceEstimate::fromKernel<kernel::damageLocalFlux>(face);
+      continue;
+    }
+
     if (faceTypes[face] != FaceType::Regular) {
       continue;
     }
-    // both traces of the face, the flux between them, and the lift back
     // both halves of the face's flux, each assembling the pair it applies
     neighbor += PerformanceEstimate::fromKernel<kernel::damageLocalFlux>(face);
     neighbor += PerformanceEstimate::fromKernel<kernel::damageNeighborFlux>(
         neighboringIndices[face][1], neighboringIndices[face][0], face);
   }
 
-  // The rupture faces of a cell are the dynamic rupture kernel's, and it
-  // reports them itself; what is counted here is the regular flux, which a
-  // rupture face contributes nothing to.
-  return {neighbor, PerformanceEstimate{}};
+  return {neighbor, rupture};
 }
 
 } // namespace seissol::kernels::solver::nonlinearck
