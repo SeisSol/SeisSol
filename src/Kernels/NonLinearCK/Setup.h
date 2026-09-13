@@ -31,7 +31,8 @@
 namespace seissol::model {
 
 /// What a dissipation matrix is written through.
-using ProjectorView = decltype(init::fluxDissipation::view::create(nullptr));
+// (note: the nullptr cast is needed to differentiate const vs non-const view)
+using ProjectorView = decltype(init::fluxDissipation::view::create(static_cast<real*>(nullptr)));
 
 /**
  * The initial strain is a material parameter that the kernels read as a

@@ -164,7 +164,8 @@ struct LTS {
   /// the constitutive law that turns a state into a stress belongs to the
   /// side it is read from. Empty, and therefore free, for every solver whose
   /// kernels need nothing per cell beyond the geometry.
-  struct SolverLocalData : public initializer::Variable<kernels::Solver::LocalData> {};
+  struct SolverLocalData
+      : public initializer::Variable<typename seissol::model::MaterialT::Solver::LocalData> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,

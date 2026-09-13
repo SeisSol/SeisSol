@@ -31,7 +31,8 @@ struct Qext;
 }
 
 using namespace seissol::initializer;
-using namespace seissol::recording;
+
+namespace seissol::recording {
 
 namespace {
 /// The face kinds without a neighbour that a ghost rule can be folded into,
@@ -338,5 +339,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
     }
   }
 }
+
+} // namespace seissol::recording
 
 // NOLINTEND (-misc-const-correctness)

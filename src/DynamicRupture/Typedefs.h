@@ -89,16 +89,16 @@ inline constexpr bool NodalImpedance = model::MaterialT::Type == model::Material
 /// kept here instead, where what they mean is written down. Not stored at all
 /// where the impedance belongs to the face.
 struct NodalImpedanceParameters {
-  double rhoPlus{};
-  double lambda0Plus{};
-  double mu0Plus{};
-  double gammaRPlus{};
-  double xi0Plus{};
-  double rhoMinus{};
-  double lambda0Minus{};
-  double mu0Minus{};
-  double gammaRMinus{};
-  double xi0Minus{};
+  real rhoPlus{};
+  real lambda0Plus{};
+  real mu0Plus{};
+  real gammaRPlus{};
+  real xi0Plus{};
+  real rhoMinus{};
+  real lambda0Minus{};
+  real mu0Minus{};
+  real gammaRMinus{};
+  real xi0Minus{};
 };
 
 /// Fills what the impedance of a node needs from the material of the two
@@ -184,7 +184,7 @@ SEISSOL_HOSTDEVICE inline NodalImpedanceT nodalImpedance(const NodalImpedancePar
                                                          real xiPlus,
                                                          real alphaMinus,
                                                          real xiMinus) {
-  const auto shear = [](double mu0, double gammaR, double xi0, real alpha, real xi) {
+  const auto shear = [](real mu0, real gammaR, real xi0, real alpha, real xi) {
     // 2 mu_eff, as the volume forms it
     return static_cast<real>(2.0 * mu0 - 2.0 * gammaR * xi0 * alpha - gammaR * alpha * xi);
   };

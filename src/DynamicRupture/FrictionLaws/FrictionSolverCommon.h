@@ -80,6 +80,10 @@ struct VariableIndexing<Executor::Host> {
   static constexpr real& index(real (&data)[misc::NumPaddedPoints], int i) { return data[i]; }
 
   static constexpr real index(const real (&data)[misc::NumPaddedPoints], int i) { return data[i]; }
+
+  static constexpr real& index(real*& data, int i) { return data[i]; }
+
+  static constexpr real index(const real*& data, int i) { return data[i]; }
 };
 
 template <>

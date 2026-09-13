@@ -233,12 +233,12 @@ void ReceiverOutput::calcFaultOutput(
     real faceAlignedValuesMinus[tensor::QAtFacePoint::size()]{};
 
     // TODO: do these operations only once per simulation
-    kernel.Q = dofsPlus;
+    kernel.I = dofsPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
     kernel.QAtFacePoint = faceAlignedValuesPlus;
     kernel.execute();
 
-    kernel.Q = dofsMinus;
+    kernel.I = dofsMinus;
     kernel.basisFunctionsAtPoint = phiMinusSide;
     kernel.QAtFacePoint = faceAlignedValuesMinus;
     kernel.execute();
@@ -579,8 +579,18 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
     const auto& impedanceMatrices =
         ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
-    const auto solution = friction_law::common::solveSlipRate(
-        impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
+    // dummy needed due to damaged
+    const FaultStresses<Executor::Device> faultStressesDummy;
+
+    const auto solution = friction_law::common::solveSlipRate(impAndEta,
+                                                              impedanceMatrices,
+                                                              faultStressesDummy,
+                                                              0,
+                                                              component1,
+                                                              component2,
+                                                              tracEla,
+                                                              strength,
+                                                              strengthSlope);
 
     local.slipRateTangent1 = solution.slipRate * solution.direction1;
     local.slipRateTangent2 = solution.slipRate * solution.direction2;

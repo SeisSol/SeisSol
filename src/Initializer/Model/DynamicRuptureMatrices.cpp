@@ -185,8 +185,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       real* timeDofs1 = nullptr;
       real* timeDofs2 = nullptr;
-      const typename model::MaterialT::Solver::LocalData* localData1 = nullptr;
-      const typename model::MaterialT::Solver::LocalData* localData2 = nullptr;
+      const typename ::seissol::model::MaterialT::Solver::LocalData* localData1 = nullptr;
+      const typename ::seissol::model::MaterialT::Solver::LocalData* localData2 = nullptr;
       real* timeDerivative1 = nullptr;
       real* timeDerivative2 = nullptr;
       real* timeDerivative1Device = nullptr;
