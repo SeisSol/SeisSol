@@ -96,6 +96,7 @@ class NonLinearCK(ADERDGBase):
                 # accumulation, which a mean does not -- a coarser cluster takes
                 # the larger of what it has and what it reads.
                 QuantityGroup("waveIntegral", QuantityKind.INVARIANT),
+                QuantityGroup("shearIntegral", QuantityKind.INVARIANT),
             ]
         )
 
@@ -108,6 +109,7 @@ class NonLinearCK(ADERDGBase):
         is a maximum over the step. The larger of two bounds is a bound; their
         sum is not one, and it would grow with the cluster ratio."""
         bound = self.transportBoundColumn()
+        last = bound + self.transportBoundCount()
         total = self.numTransportQuantities()
         statements = []
         if bound > 0:
@@ -117,22 +119,30 @@ class NonLinearCK(ADERDGBase):
                 + self.I["kc"].subslice("c", 0, bound)
             ]
         statements += [
-            self.IAccumulated["kc"].subslice("c", bound, bound + 1)
+            self.IAccumulated["kc"].subslice("c", bound, last)
             <= yf.maximum(
-                self.IAccumulated["kc"].subslice("c", bound, bound + 1),
-                self.I["kc"].subslice("c", bound, bound + 1),
+                self.IAccumulated["kc"].subslice("c", bound, last),
+                self.I["kc"].subslice("c", bound, last),
             )
         ]
-        if bound + 1 < total:
+        if last < total:
             statements += [
-                self.IAccumulated["kc"].subslice("c", bound + 1, total)
-                <= self.IAccumulated["kc"].subslice("c", bound + 1, total)
-                + self.I["kc"].subslice("c", bound + 1, total)
+                self.IAccumulated["kc"].subslice("c", last, total)
+                <= self.IAccumulated["kc"].subslice("c", last, total)
+                + self.I["kc"].subslice("c", last, total)
             ]
         return statements
 
     def transportBoundColumn(self):
+        """The first of the columns that carry a bound. They are adjacent, so
+        whoever treats them differently from a time integral treats a run of
+        columns rather than one and then another."""
         return self.transportGroupSlice("waveIntegral")[0]
+
+    def transportBoundCount(self):
+        """How many columns carry a bound: one per wave family the dissipation
+        is scaled with separately."""
+        return 2
 
     def transportStateExtent(self):
         """Quantities the transported tensor shares with the state, and in the
@@ -177,7 +187,7 @@ class NonLinearCK(ADERDGBase):
         spp = np.ones(
             (self.num3DBasisFunctions(), self.numTransportQuantities()), dtype=bool
         )
-        for name in ("waveIntegral",):
+        for name in ("waveIntegral", "shearIntegral"):
             start, _ = self.transportGroupSlice(name)
             spp[1:, start] = False
         return spp

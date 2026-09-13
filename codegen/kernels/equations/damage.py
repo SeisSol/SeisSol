@@ -251,6 +251,8 @@ class DamageADERDG(NonLinearCK):
         self.breakageNodal = temporary("breakageNodal")
         self.nodeWave = Tensor("nodeWaveSpeed", (1,), temporary=True)
         self.waveIntegral = Tensor("waveIntegral", (1,), temporary=True)
+        self.nodeShear = Tensor("nodeShearSpeed", (1,), temporary=True)
+        self.shearIntegral = Tensor("shearIntegral", (1,), temporary=True)
 
     def transportStrainOffset(self):
         return self.transportGroupSlice("eps")[0]
@@ -339,12 +341,22 @@ class DamageADERDG(NonLinearCK):
         return statements
 
     def waveSpeedStatements(self):
-        """The square of the fastest wave of the cell at this instant. The
-        square, because that is what the moduli are affine in."""
-        speedSquared = self.rhoInv * (self.lambda0 + self.twoMuEff["l"])
+        """The squares of the fastest wave of each family at this instant. The
+        squares, because that is what the moduli are affine in; the root is
+        taken once per face, by whoever reads a bound.
+
+        Two of them, because a dissipation that scales every mode with the
+        faster of the two spends the difference on the slower -- and a rupture
+        is made of the slower ones. Both are speeds rather than impedances:
+        each is formed with the density of the cell it belongs to, so a face
+        may take the larger of what its two sides hand it without either
+        needing the other's material.
+        """
+        pSquared = self.rhoInv * (self.lambda0 + self.twoMuEff["l"])
+        sSquared = self.rhoInv * 0.5 * self.twoMuEff["l"]
         return [
-            self.nodeWave["u"]
-            <= yf.mul(yf.max(speedSquared, "l"), self.unitColumn["u"])
+            self.nodeWave["u"] <= yf.mul(yf.max(pSquared, "l"), self.unitColumn["u"]),
+            self.nodeShear["u"] <= yf.mul(yf.max(sSquared, "l"), self.unitColumn["u"]),
         ]
 
     def stepStatements(self, node, weight, march):
@@ -390,14 +402,16 @@ class DamageADERDG(NonLinearCK):
             <= breakage["l"] * self.weights["l"] * self.unitColumn["u"],
         ]
         statements += self.waveSpeedStatements()
-        nodeSpeed = self.nodeWave["u"]
         statements += [
             (
-                self.waveIntegral["u"] <= nodeSpeed
+                accumulator["u"] <= node["u"]
                 if first
-                else self.waveIntegral["u"]
-                <= yf.maximum(self.waveIntegral["u"], nodeSpeed)
-            ),
+                else accumulator["u"] <= yf.maximum(accumulator["u"], node["u"])
+            )
+            for accumulator, node in (
+                (self.waveIntegral, self.nodeWave),
+                (self.shearIntegral, self.nodeShear),
+            )
         ]
 
         # The critical damage at which breakage sets in: the smaller root of a
@@ -553,45 +567,56 @@ class DamageADERDG(NonLinearCK):
     def finishStatements(self):
         """What the step leaves behind, projected back to modal form once."""
         stress = self.transportGroupSlice("sigma")
-        wave = self.transportGroupSlice("waveIntegral")
-        carriedWave = (
-            wave[0] - self.transportStateExtent(),
-            wave[1] - self.transportStateExtent(),
+        shared = self.transportStateExtent()
+        bounds = (
+            (self.transportGroupSlice("waveIntegral"), self.waveIntegral),
+            (self.transportGroupSlice("shearIntegral"), self.shearIntegral),
         )
         projection = self.db.projectQP[self.t("kl")]
-        return [
-            self.I["kc"].subslice("c", *stress)
-            <= projection * self.sigmaIntegral["lc"],
-            self.I["kc"].subslice("c", *self.transportGroupSlice("alpha"))
-            <= projection * self.alphaValueIntegral["lc"],
-            self.I["kc"].subslice("c", *self.transportGroupSlice("breakage"))
-            <= projection * self.breakageValueIntegral["lc"],
-            # The two columns meet on the way out, where the target is a real
-            # buffer and a subslice of it is a place rather than a binding.
-            self.sourceI["kn"].subslice("n", 0, 1)
-            <= projection * self.alphaIntegral["ln"],
-            self.sourceI["kn"].subslice("n", 1, 2)
-            <= projection * self.breakageIntegral["ln"],
-            # A cell value in a modal column is the coefficient of the
-            # constant basis function and nothing else.
-            self.I["kc"].subslice("c", *wave)
-            <= self.constantMode["k"] * self.waveIntegral["c"],
-        ] + [
-            # The bound is one number for the whole step, not a function of
-            # time within it: a maximum does not restrict to a subinterval the
-            # way an integral does. So it stands in the constant coefficient
-            # of the carried expansion and is zero in the rest, and a
-            # neighbour reconstructing a subinterval reads the step's bound --
-            # an overestimate, which is the side Rusanov may err on.
-            (
-                self.transportDer[i]["kc"].subslice("c", *carriedWave)
-                <= self.constantMode["k"] * self.waveIntegral["c"]
-                if i == 0
-                else self.transportDer[i]["kc"].subslice("c", *carriedWave)
-                <= 0.0 * self.constantMode["k"] * self.waveIntegral["c"]
-            )
-            for i in range(self.order)
-        ]
+        return (
+            [
+                self.I["kc"].subslice("c", *stress)
+                <= projection * self.sigmaIntegral["lc"],
+                self.I["kc"].subslice("c", *self.transportGroupSlice("alpha"))
+                <= projection * self.alphaValueIntegral["lc"],
+                self.I["kc"].subslice("c", *self.transportGroupSlice("breakage"))
+                <= projection * self.breakageValueIntegral["lc"],
+                # The two columns meet on the way out, where the target is a real
+                # buffer and a subslice of it is a place rather than a binding.
+                self.sourceI["kn"].subslice("n", 0, 1)
+                <= projection * self.alphaIntegral["ln"],
+                self.sourceI["kn"].subslice("n", 1, 2)
+                <= projection * self.breakageIntegral["ln"],
+            ]
+            + [
+                # A cell value in a modal column is the coefficient of the
+                # constant basis function and nothing else.
+                self.I["kc"].subslice("c", *columns)
+                <= self.constantMode["k"] * value["c"]
+                for columns, value in bounds
+            ]
+            + [
+                # The bound is one number for the whole step, not a function of
+                # time within it: a maximum does not restrict to a subinterval the
+                # way an integral does. So it stands in the constant coefficient
+                # of the carried expansion and is zero in the rest, and a
+                # neighbour reconstructing a subinterval reads the step's bound --
+                # an overestimate, which is the side Rusanov may err on.
+                (
+                    self.transportDer[i]["kc"].subslice(
+                        "c", columns[0] - shared, columns[1] - shared
+                    )
+                    <= self.constantMode["k"] * value["c"]
+                    if i == 0
+                    else self.transportDer[i]["kc"].subslice(
+                        "c", columns[0] - shared, columns[1] - shared
+                    )
+                    <= 0.0 * self.constantMode["k"] * value["c"]
+                )
+                for columns, value in bounds
+                for i in range(self.order)
+            ]
+        )
 
     def addStateToTransport(self, generator, targets):
         """What a damaged cell transports, at one instant, from its state.
@@ -631,6 +656,8 @@ class DamageADERDG(NonLinearCK):
             <= self.Q["kc"].subslice("c", BREAKAGE, BREAKAGE + 1),
             self.I["kc"].subslice("c", *wave)
             <= self.constantMode["k"] * self.nodeWave["c"],
+            self.I["kc"].subslice("c", *self.transportGroupSlice("shearIntegral"))
+            <= self.constantMode["k"] * self.nodeShear["c"],
         ]
 
         for target in targets:
