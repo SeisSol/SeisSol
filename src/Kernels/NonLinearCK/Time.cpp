@@ -104,7 +104,7 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
   for (std::size_t q = 0; q < nodes.size(); ++q) {
     const auto evaluation = basis.point(nodes[q], timeStepWidth);
     for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
-      step.evaluate(q, i) = evaluation[i];
+      step.evaluate(q, i) = evaluation.state[i];
     }
     step.weight(q) = weights[q];
     // The internal variables are carried across the nodes explicitly. The
@@ -192,7 +192,7 @@ void Spacetime::computeBatchedAder(
   for (std::size_t q = 0; q < nodes.size(); ++q) {
     const auto evaluation = basis.point(nodes[q], timeStepWidth);
     for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
-      step.evaluate(q, i) = evaluation[i];
+      step.evaluate(q, i) = evaluation.state[i];
     }
     step.weight(q) = weights[q];
     step.march(q) = (q + 1 < nodes.size() ? nodes[q + 1] : nodes[q]) - nodes[q];

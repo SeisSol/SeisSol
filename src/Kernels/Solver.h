@@ -17,7 +17,6 @@
 #include "Kernels/TimeCoefficients.h"
 #include "Numerical/TimeBasis.h"
 
-#include <algorithm>
 #include <vector>
 
 // IWYU pragma: begin_exports
@@ -57,31 +56,14 @@ inline Solver::TimeBasis<real> timeBasis() {
   return Solver::TimeBasis<real>(Config::ConvergenceOrder);
 }
 
-inline Solver::ExtraTimeBasis<real> extraTimeBasis() {
-  return Solver::ExtraTimeBasis<real>(Config::ConvergenceOrder);
-}
-
-namespace detail {
-template <typename Operation>
-inline TimeCoefficients bothBases(Operation&& operation) {
-  TimeCoefficients coefficients{};
-  const auto state = operation(timeBasis());
-  const auto extra = operation(extraTimeBasis());
-  std::copy(state.begin(), state.end(), coefficients.state.begin());
-  std::copy(extra.begin(), extra.end(), coefficients.extra.begin());
-  return coefficients;
-}
-} // namespace detail
-
 /// Coefficients that integrate over [start, end] of a step of `timestep`.
 inline TimeCoefficients timeIntegrate(double start, double end, double timestep) {
-  return detail::bothBases(
-      [&](const auto& basis) { return basis.integrate(start, end, timestep); });
+  return timeBasis().integrate(start, end, timestep);
 }
 
 /// Coefficients that evaluate at a point of a step of `timestep`.
 inline TimeCoefficients timePoint(double position, double timestep) {
-  return detail::bothBases([&](const auto& basis) { return basis.point(position, timestep); });
+  return timeBasis().point(position, timestep);
 }
 
 /// One set of coefficients per point, which is what a face interpolating in

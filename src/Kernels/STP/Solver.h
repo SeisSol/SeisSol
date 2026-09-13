@@ -8,14 +8,11 @@
 #define SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 
 #include "Kernels/Common.h"
+#include "Kernels/TimeCoefficients.h"
+#include "Numerical/TimeBasis.h"
 
 #include <cstddef>
 #include <variant>
-
-namespace seissol::numerical {
-template <typename>
-class LegendreBasis;
-} // namespace seissol::numerical
 
 namespace seissol::kernels::solver::linearck {
 class Local;
@@ -39,15 +36,11 @@ struct Solver {
   using LocalKernelT = linearck::Local;
   using NeighborKernelT = linearck::Neighbor;
 
+  /// The bases of every expansion this solver keeps. It transports only its
+  /// state, so there is one.
   template <typename RealT>
-  using TimeBasis = seissol::numerical::LegendreBasis<RealT>;
-
-  /// The basis of whatever else a solver keeps an expansion of. A solver that
-  /// transports only its state expands only in the basis its recursion
-  /// produces; one that transports more has to win those coefficients from
-  /// samples, and a monomial basis loses five digits at order six doing it.
-  template <typename RealT>
-  using ExtraTimeBasis = TimeBasis<RealT>;
+  using TimeBasis = seissol::numerical::CompoundTimeBasis<TimeCoefficients,
+                                                          seissol::numerical::LegendreBasis<RealT>>;
 
   /// Whether the face flux solvers are built from the flux itself rather than
   /// from a Godunov state. A Godunov state is a state, so the solver it

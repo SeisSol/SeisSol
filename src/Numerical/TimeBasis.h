@@ -10,7 +10,9 @@
 #include "Functions.h"
 #include "Quadrature.h"
 
+#include <algorithm>
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 #include <vector>
 namespace seissol::numerical {
@@ -176,51 +178,6 @@ class MonomialBasis : public TimeBasis<RealT> {
     return coeffs;
   }
 
-  /*
-    The same, with the ends of the timestep among the nodes: Gauss-Lobatto
-    with one node more than the basis has functions.
-
-    A rule whose nodes are all interior leaves the interval from the start of
-    the step to its first node unsampled, which a predictor carrying an
-    internal variable across the nodes cannot account for. Lobatto has the
-    ends, so the chain of nodes covers the step without a gap and the first
-    node is the state itself.
-
-    n Lobatto nodes integrate a polynomial of degree 2n-3 exactly, so n =
-    order + 1 matches what order Gauss-Legendre nodes do -- the endpoints cost
-    one node, not accuracy.
-  */
-  [[nodiscard]] std::pair<std::vector<double>, std::vector<double>>
-      quadratureWithEndpoints(double timestep) const {
-    const std::size_t points = order_ + 1;
-    std::vector<double> nodes(points);
-    std::vector<double> weights(points);
-
-    // The interior nodes are the roots of the derivative of the Legendre
-    // polynomial of degree points-1, which are the Gauss-Jacobi nodes for
-    // a = b = 1; the weights follow from that polynomial at the nodes.
-    if (points > 2) {
-      std::vector<double> interior(points - 2);
-      std::vector<double> unused(points - 2);
-      seissol::quadrature::GaussJacobi(interior.data(), unused.data(), points - 2, 1, 1);
-      for (std::size_t i = 0; i < points - 2; ++i) {
-        nodes[i + 1] = interior[points - 3 - i];
-      }
-    }
-    nodes[0] = -1.0;
-    nodes[points - 1] = 1.0;
-
-    const double scale = 2.0 / static_cast<double>(points * (points - 1));
-    for (std::size_t i = 0; i < points; ++i) {
-      const double legendre = seissol::functions::JacobiP(points - 1, 0, 0, nodes[i]);
-      weights[i] = scale / (legendre * legendre);
-      // map [-1, 1] onto the timestep, keeping the order
-      weights[i] *= 0.5 * timestep;
-      nodes[i] = 0.5 * (nodes[i] + 1.0) * timestep;
-    }
-    return {nodes, weights};
-  }
-
   private:
   std::size_t order_;
 };
@@ -269,53 +226,77 @@ class LegendreBasis : public TimeBasis<RealT> {
     return data;
   }
 
+  private:
+  std::size_t order_;
+};
+
+/**
+A basis for every expansion a solver keeps.
+
+A solver that transports only its state keeps one, and the two sets of
+coefficients are the same. One that transports more keeps the second in
+another basis: the coefficients of the state fall out of a recursion, the rest
+have to be won from samples, and the basis that is well conditioned for
+winning them is not the one the recursion produces.
+
+The pairing lives here rather than in the coefficients, so that a solver names
+one basis and a time operation is one call. Where the two bases coincide the
+work is done once.
+
+`CoefficientsT` is whatever the caller wants filled; it needs a `state` and an
+`extra` member that can be written through iterators.
+*/
+template <typename CoefficientsT, typename StateBasisT, typename ExtraBasisT = StateBasisT>
+class CompoundTimeBasis {
+  public:
+  explicit CompoundTimeBasis(std::size_t order) : order_(order), state_(order), extra_(order) {}
+
+  [[nodiscard]] std::size_t order() const { return order_; }
+
+  [[nodiscard]] CoefficientsT derivative(double position, double timestep) const {
+    return both([&](const auto& basis) { return basis.derivative(position, timestep); });
+  }
+
+  [[nodiscard]] CoefficientsT point(double position, double timestep) const {
+    return both([&](const auto& basis) { return basis.point(position, timestep); });
+  }
+
+  [[nodiscard]] CoefficientsT integrate(double start, double end, double timestep) const {
+    return both([&](const auto& basis) { return basis.integrate(start, end, timestep); });
+  }
+
   /*
-    The same, with the ends of the timestep among the nodes: Gauss-Lobatto
-    with one node more than the basis has functions.
-
-    A rule whose nodes are all interior leaves the interval from the start of
-    the step to its first node unsampled, which a predictor carrying an
-    internal variable across the nodes cannot account for. Lobatto has the
-    ends, so the chain of nodes covers the step without a gap and the first
-    node is the state itself.
-
-    n Lobatto nodes integrate a polynomial of degree 2n-3 exactly, so n =
-    order + 1 matches what order Gauss-Legendre nodes do -- the endpoints cost
-    one node, not accuracy.
+    The quadrature rules are questions about the timestep rather than about a
+    basis, so either member answers them alike; the state's does.
   */
   [[nodiscard]] std::pair<std::vector<double>, std::vector<double>>
+      quadrature(double timestep) const {
+    return state_.quadrature(timestep);
+  }
+
+  [[nodiscard]] std::pair<std::vector<double>, std::vector<double>>
       quadratureWithEndpoints(double timestep) const {
-    const std::size_t points = order_ + 1;
-    std::vector<double> nodes(points);
-    std::vector<double> weights(points);
-
-    // The interior nodes are the roots of the derivative of the Legendre
-    // polynomial of degree points-1, which are the Gauss-Jacobi nodes for
-    // a = b = 1; the weights follow from that polynomial at the nodes.
-    if (points > 2) {
-      std::vector<double> interior(points - 2);
-      std::vector<double> unused(points - 2);
-      seissol::quadrature::GaussJacobi(interior.data(), unused.data(), points - 2, 1, 1);
-      for (std::size_t i = 0; i < points - 2; ++i) {
-        nodes[i + 1] = interior[points - 3 - i];
-      }
-    }
-    nodes[0] = -1.0;
-    nodes[points - 1] = 1.0;
-
-    const double scale = 2.0 / static_cast<double>(points * (points - 1));
-    for (std::size_t i = 0; i < points; ++i) {
-      const double legendre = seissol::functions::JacobiP(points - 1, 0, 0, nodes[i]);
-      weights[i] = scale / (legendre * legendre);
-      // map [-1, 1] onto the timestep, keeping the order
-      weights[i] *= 0.5 * timestep;
-      nodes[i] = 0.5 * (nodes[i] + 1.0) * timestep;
-    }
-    return {nodes, weights};
+    return state_.quadratureWithEndpoints(timestep);
   }
 
   private:
+  template <typename Operation>
+  [[nodiscard]] CoefficientsT both(Operation&& operation) const {
+    CoefficientsT coefficients{};
+    const auto state = operation(state_);
+    std::copy(state.begin(), state.end(), coefficients.state.begin());
+    if constexpr (std::is_same_v<StateBasisT, ExtraBasisT>) {
+      std::copy(state.begin(), state.end(), coefficients.extra.begin());
+    } else {
+      const auto extra = operation(extra_);
+      std::copy(extra.begin(), extra.end(), coefficients.extra.begin());
+    }
+    return coefficients;
+  }
+
   std::size_t order_;
+  StateBasisT state_;
+  ExtraBasisT extra_;
 };
 
 } // namespace seissol::numerical
