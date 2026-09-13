@@ -98,7 +98,7 @@ void rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
     seissol::transformations::symmetricTensor2RotationMatrix(
         fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
 
-    using namespace dr::misc::quantity_indices;
+    using namespace dr::misc::voigt;
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       const std::array<double, seissol::general::init::initialStress::size()> initialTraction{
           stress.xx[ltsFace][pointIndex],

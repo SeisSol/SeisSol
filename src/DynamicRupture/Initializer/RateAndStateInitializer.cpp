@@ -63,7 +63,7 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
     const auto initialSlipRate =
         misc::magnitude(drParameters_->rsInitialSlipRate1, drParameters_->rsInitialSlipRate2);
 
-    using namespace dr::misc::quantity_indices;
+    using namespace dr::misc::voigt;
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;

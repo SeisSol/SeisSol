@@ -202,6 +202,33 @@ std::string frictionLawName(seissol::dr::misc::FrictionLawType type);
 
 // NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
 
+namespace voigt {
+/**
+ * The six components of a symmetric second-order tensor, in Voigt order.
+ *
+ * These address a six-element array that holds a stress by construction --
+ * an initial stress, a rotated stress, the argument of a rotation kernel --
+ * in whatever frame that array is written in. They say nothing about where a
+ * quantity sits in what a cell transports; QuantityIndices does that, and the
+ * two are kept apart so that a six-element stress and a column of the
+ * transport layout cannot be addressed with the same spelling.
+ *
+ * Use as:
+ * ```
+ * std::array<real, 6> stress;
+ * real normalStress = stress[voigt::XX];
+ * ```
+ * */
+enum VoigtIndices : std::uint32_t {
+  XX = 0,
+  YY = 1,
+  ZZ = 2,
+  XY = 3,
+  YZ = 4,
+  XZ = 5,
+};
+} // namespace voigt
+
 namespace quantity_indices {
 /**
  * Defines the indices under which one can find a specific quantity.

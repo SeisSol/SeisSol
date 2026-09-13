@@ -196,9 +196,9 @@ void ReceiverOutput::calcFaultOutput(
     local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
-    local.iniTraction1 = initStresses[QuantityIndices::XY][local.gpIndex];
-    local.iniTraction2 = initStresses[QuantityIndices::XZ][local.gpIndex];
-    local.iniNormalTraction = initStresses[QuantityIndices::XX][local.gpIndex];
+    local.iniTraction1 = initStresses[misc::voigt::XY][local.gpIndex];
+    local.iniTraction2 = initStresses[misc::voigt::XZ][local.gpIndex];
+    local.iniNormalTraction = initStresses[misc::voigt::XX][local.gpIndex];
     local.fluidPressure = this->computeFluidPressure(local);
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
@@ -247,12 +247,12 @@ void ReceiverOutput::calcFaultOutput(
         outputData->stressFaceAlignedToGlb[i].data();
 
     std::array<real, 6> updatedStress{};
-    updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
-    updatedStress[QuantityIndices::YY] = local.faceAlignedStress22;
-    updatedStress[QuantityIndices::ZZ] = local.faceAlignedStress33;
-    updatedStress[QuantityIndices::XY] = local.updatedTraction1;
-    updatedStress[QuantityIndices::YZ] = local.faceAlignedStress23;
-    updatedStress[QuantityIndices::XZ] = local.updatedTraction2;
+    updatedStress[misc::voigt::XX] = local.transientNormalTraction;
+    updatedStress[misc::voigt::YY] = local.faceAlignedStress22;
+    updatedStress[misc::voigt::ZZ] = local.faceAlignedStress33;
+    updatedStress[misc::voigt::XY] = local.updatedTraction1;
+    updatedStress[misc::voigt::YZ] = local.faceAlignedStress23;
+    updatedStress[misc::voigt::XZ] = local.updatedTraction2;
 
     alignAlongDipAndStrikeKernel.initialStress = updatedStress.data();
     std::array<real, 6> rotatedUpdatedStress{};
@@ -260,12 +260,12 @@ void ReceiverOutput::calcFaultOutput(
     alignAlongDipAndStrikeKernel.execute();
 
     std::array<real, 6> stress{};
-    stress[QuantityIndices::XX] = local.transientNormalTraction;
-    stress[QuantityIndices::YY] = local.faceAlignedStress22;
-    stress[QuantityIndices::ZZ] = local.faceAlignedStress33;
-    stress[QuantityIndices::XY] = local.faceAlignedStress12;
-    stress[QuantityIndices::YZ] = local.faceAlignedStress23;
-    stress[QuantityIndices::XZ] = local.faceAlignedStress13;
+    stress[misc::voigt::XX] = local.transientNormalTraction;
+    stress[misc::voigt::YY] = local.faceAlignedStress22;
+    stress[misc::voigt::ZZ] = local.faceAlignedStress33;
+    stress[misc::voigt::XY] = local.faceAlignedStress12;
+    stress[misc::voigt::YZ] = local.faceAlignedStress23;
+    stress[misc::voigt::XZ] = local.faceAlignedStress13;
 
     alignAlongDipAndStrikeKernel.initialStress = stress.data();
     std::array<real, 6> rotatedStress{};
@@ -294,8 +294,8 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& transientTractions = std::get<VariableID::TransientTractions>(outputData->vars);
     if (transientTractions.isActive) {
-      transientTractions(DirectionID::Strike, level, i) = rotatedUpdatedStress[QuantityIndices::XY];
-      transientTractions(DirectionID::Dip, level, i) = rotatedUpdatedStress[QuantityIndices::XZ];
+      transientTractions(DirectionID::Strike, level, i) = rotatedUpdatedStress[misc::voigt::XY];
+      transientTractions(DirectionID::Dip, level, i) = rotatedUpdatedStress[misc::voigt::XZ];
       transientTractions(DirectionID::Normal, level, i) =
           local.transientNormalTraction - local.fluidPressure;
     }
@@ -335,12 +335,11 @@ void ReceiverOutput::calcFaultOutput(
       alignAlongDipAndStrikeKernel.execute();
 
       totalTractions(DirectionID::Strike, level, i) =
-          rotatedUpdatedStress[QuantityIndices::XY] + rotatedInitStress[QuantityIndices::XY];
+          rotatedUpdatedStress[misc::voigt::XY] + rotatedInitStress[misc::voigt::XY];
       totalTractions(DirectionID::Dip, level, i) =
-          rotatedUpdatedStress[QuantityIndices::XZ] + rotatedInitStress[QuantityIndices::XZ];
-      totalTractions(DirectionID::Normal, level, i) = local.transientNormalTraction -
-                                                      local.fluidPressure +
-                                                      rotatedInitStress[QuantityIndices::XX];
+          rotatedUpdatedStress[misc::voigt::XZ] + rotatedInitStress[misc::voigt::XZ];
+      totalTractions(DirectionID::Normal, level, i) =
+          local.transientNormalTraction - local.fluidPressure + rotatedInitStress[misc::voigt::XX];
     }
 
     auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData->vars);
@@ -601,10 +600,10 @@ void ReceiverOutput::computeSlipRate(
     // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
     // a scalar is exact and the order of scaling and rotation does not matter
     const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-    local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
-                                                 rotatedStress[QuantityIndices::XY]);
-    local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
-                                              rotatedStress[QuantityIndices::XZ]);
+    local.slipRateStrike = -impAndEta.invEtaS *
+                           (rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY]);
+    local.slipRateDip = -impAndEta.invEtaS *
+                        (rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]);
   }
 }
 

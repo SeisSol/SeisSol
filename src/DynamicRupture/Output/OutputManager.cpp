@@ -448,7 +448,7 @@ void OutputManager::initPickpointOutput() {
             }
 
             {
-              using namespace misc::quantity_indices;
+              using namespace misc::voigt;
               file << "# P_0" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XX])
                    << '\n';
               file << "# T_s" << simIndex << "\t" << makeFormatted(rotatedInitialStress[XY])

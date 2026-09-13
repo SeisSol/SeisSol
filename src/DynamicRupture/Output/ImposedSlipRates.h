@@ -19,10 +19,8 @@ class ImposedSlipRates : public ReceiverOutput {
                                   const std::array<real, 6>& rotatedStress) override {
     // we plot the Stress from Godunov state, because we want
     // to see the traction change from the imposed slip distribution
-    using namespace misc::quantity_indices;
-
-    rotatedUpdatedStress[QuantityIndices::XY] = rotatedStress[QuantityIndices::XY];
-    rotatedUpdatedStress[QuantityIndices::XZ] = rotatedStress[QuantityIndices::XZ];
+    rotatedUpdatedStress[misc::voigt::XY] = rotatedStress[misc::voigt::XY];
+    rotatedUpdatedStress[misc::voigt::XZ] = rotatedStress[misc::voigt::XZ];
   };
 };
 } // namespace seissol::dr::output
