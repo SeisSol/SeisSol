@@ -356,8 +356,19 @@ class DamageADERDG(NonLinearCK):
         may take the larger of what its two sides hand it without either
         needing the other's material.
         """
-        pSquared = self.rhoInv * (self.lambda0 + self.twoMuEff["l"])
-        sSquared = self.rhoInv * 0.5 * self.twoMuEff["l"]
+        # Floored, because a face takes a root of these. The effective shear
+        # modulus is affine in the damage and falls through zero at the point
+        # where the solid branch stops describing anything -- and the shear
+        # square reaches it first, at twice the damage the compressional one
+        # needs. Past it a root is a NaN, and a NaN in a bound is a NaN in
+        # every flux that face carries.
+        #
+        # Zero is not a repair: a mode with no bound is a mode with no
+        # dissipation, which is the wrong side to err on. It is what keeps a
+        # cell that has left the model from taking the run with it, and the
+        # state that got there is the thing to look at.
+        pSquared = yf.maximum(self.rhoInv * (self.lambda0 + self.twoMuEff["l"]), 0.0)
+        sSquared = yf.maximum(self.rhoInv * 0.5 * self.twoMuEff["l"], 0.0)
         return [
             self.nodeWave["u"] <= yf.mul(yf.max(pSquared, "l"), self.unitColumn["u"]),
             self.nodeShear["u"] <= yf.mul(yf.max(sSquared, "l"), self.unitColumn["u"]),
