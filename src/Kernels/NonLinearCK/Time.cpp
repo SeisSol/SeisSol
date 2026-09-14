@@ -204,6 +204,16 @@ void Spacetime::computeBatchedAder(
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr());
     step.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
   }
+  // The expansion of what the cell carries beyond its state, behind the
+  // expansion of the state in the same buffer -- as it is serially. Without
+  // this the step writes the carried columns, the two bounds among them,
+  // through a pointer nobody set.
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transportDer>(); ++i) {
+    step.transportDer(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+    step.extraOffset_transportDer(i) = yateto::computeFamilySize<tensor::dQ>() +
+                                       yateto::computeFamilySize<tensor::transportDer>(1, i);
+  }
+
   step.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
   step.sourceI = (entry.get(inner_keys::Wp::Id::SourceIntegrals))->getDeviceDataPtr();
 
@@ -237,9 +247,12 @@ PerformanceEstimate Spacetime::metrics() const {
   std::uint64_t reals = 0;
   // the state in, the transported tensor and the source integral out
   reals += tensor::Q::size() + tensor::I::size() + tensor::sourceI::size();
-  // the star matrices and the expansion the step reads back
+  // the star matrices, and the two expansions -- the state's from its first
+  // derivative on, because its zeroth is the state and is counted above, and
+  // the one the cell carries beyond it, which the step writes in full
   reals += yateto::computeFamilySize<tensor::star>();
-  reals += yateto::computeFamilySize<tensor::dQ>();
+  reals += yateto::computeFamilySize<tensor::dQ>(1);
+  reals += yateto::computeFamilySize<tensor::transportDer>();
 
   estimate.bytes = reals * sizeof(real);
   return estimate;
