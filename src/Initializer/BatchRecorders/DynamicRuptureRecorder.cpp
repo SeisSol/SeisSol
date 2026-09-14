@@ -54,7 +54,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> timeDerivativeMinusPtrs {};
 
-    const size_t idofsSize = tensor::Q::size();
+    const size_t idofsSize = tensor::I::size();
     for (std::size_t faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedMinusPtr[plusSide][0].push_back(&qInterpolatedPlus[faceId][0][0]);

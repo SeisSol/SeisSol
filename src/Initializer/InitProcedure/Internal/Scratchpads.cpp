@@ -179,7 +179,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
 }
 
 void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage) {
-  constexpr size_t IdofsSize = tensor::Q::size() * sizeof(real);
+  constexpr size_t IdofsSize = tensor::I::size() * sizeof(real);
   for (auto& layer : drStorage.leaves()) {
     const auto layerSize = layer.size();
     layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(IdofsSize * layerSize);
