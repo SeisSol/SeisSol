@@ -307,8 +307,19 @@ class DamageADERDG(NonLinearCK):
         ]
 
         # Stress: a convex blend of the solid and the granular branch. The
-        # solid shear modulus degrades with alpha through gammaR, the granular
-        # branch is the aB0..aB3 polynomial in xi.
+        # solid shear modulus degrades with alpha through gammaR; the granular
+        # branch is the gradient of the potential
+        #
+        #     F = P(xi) I2,   P(xi) = aB0 + aB1 xi + aB2 xi^2 + aB3 xi^3,
+        #
+        # which is P'(xi) sqrt(I2) on the trace and 2 P(xi) - xi P'(xi) on the
+        # strain. Written out with xi sqrt(I2) = I1, that is
+        #
+        #     (aB1 sqrt(I2) + 2 aB2 I1 + 3 aB3 xi I1) delta
+        #       + (2 aB0 + aB1 xi - aB3 xi^3) eps,
+        #
+        # so the factors of aB0 and aB3 are the ones the differentiation puts
+        # there and not the ones the polynomial carries.
         twoMuEff, sigma = self.twoMuEff, self.sigmaNodal
         statements += [
             twoMuEff["l"]
@@ -325,7 +336,7 @@ class DamageADERDG(NonLinearCK):
             + yf.mul(
                 breakage["l"],
                 yf.mul(
-                    3.0 * aB[0]
+                    2.0 * aB[0]
                     + aB[1] * xi["l"]
                     - aB[3] * yf.mul(xi["l"], yf.mul(xi["l"], xi["l"])),
                     eps["lc"],
@@ -336,7 +347,7 @@ class DamageADERDG(NonLinearCK):
             + yf.mul(
                 breakage["l"],
                 2.0 * aB[2] * i1["l"]
-                + aB[3] * yf.mul(xi["l"], i1["l"])
+                + 3.0 * aB[3] * yf.mul(xi["l"], i1["l"])
                 + aB[1] * rootI2["l"],
             )
             * trace["c"],

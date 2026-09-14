@@ -71,7 +71,8 @@ breakage:
        + \left(2\mu_0 - 2\gamma_R \xi_0 \alpha - \gamma_R \alpha \xi\right)\epsilon
      \right]
      + B\left[
-       \left(3a_0 + a_1 \xi - a_3 \xi^3\right)\epsilon
+       \left(a_1 \sqrt{I_2} + 2a_2 I_1 + 3a_3 \xi I_1\right)\mathbf{1}
+       + \left(2a_0 + a_1 \xi - a_3 \xi^3\right)\epsilon
      \right]
 
 At :math:`\alpha = 0` and :math:`B = 0` the first branch is Hooke's law with
