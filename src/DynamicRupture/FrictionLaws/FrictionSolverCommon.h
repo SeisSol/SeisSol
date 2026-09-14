@@ -174,7 +174,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
       // The same four numbers either way; where they belong to a node they
       // were just formed there, which is why the arithmetic below needs no
       // branch of its own.
-      const auto read = [&](const real* nodal, real constant) {
+      const auto read = [&](const auto& nodal, real constant) {
         if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
           return Indexing::index(nodal, i);
         } else {
@@ -346,7 +346,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     // The same four numbers either way; where the impedance belongs to a node
     // they were formed there, in the precomputation, and kept with the
     // stresses. Which is why the arithmetic below needs no branch of its own.
-    const auto readImpedance = [&](const real* nodal, real constant, std::size_t at) {
+    const auto readImpedance = [&](const auto& nodal, real constant, std::size_t at) {
       if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
         return Acc::index(nodal, at);
       } else {

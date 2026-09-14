@@ -35,19 +35,6 @@ class TimeBasis {
       integrate(double start, double end, double timestep) const = 0;
 
   /*
-    Provides a vector of multiple point evaluations.
-  */
-  [[nodiscard]] std::vector<RealT> collocate(const std::vector<double>& points,
-                                             double timestep) const {
-    std::vector<RealT> data;
-    for (const auto& point : points) {
-      const auto local = this->point(point, timestep);
-      data.insert(data.end(), local.begin(), local.end());
-    }
-    return data;
-  }
-
-  /*
     Nodes and weights of a quadrature rule over one timestep, as (nodes,
     weights). Gauss-Legendre with as many nodes as the basis has functions,
     which integrates a polynomial of degree 2n-1 exactly.
