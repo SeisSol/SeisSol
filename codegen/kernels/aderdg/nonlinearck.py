@@ -352,6 +352,20 @@ class NonLinearCK(ADERDGBase):
             reference = np.concatenate(([-1.0], inner, [1.0]))
         return 0.5 * (reference + 1.0)
 
+    def timeWeights(self):
+        """Quadrature weights of :meth:`timeNodes`, in time scaled onto
+        [0, 1].
+
+        Gauss-Lobatto, so the weight of a node follows from the Legendre
+        polynomial of the rule's degree there. They sum to one, because the
+        interval they cover is the scaled step -- which is the same rule the
+        launch code asks its time basis for, scaled by the timestep.
+        """
+        points = self.numTimeNodes()
+        reference = 2.0 * self.timeNodes() - 1.0
+        legendre = np.polynomial.legendre.legval(reference, [0] * (points - 1) + [1])
+        return 1.0 / (points * (points - 1) * legendre * legendre)
+
     def timeProjection(self):
         """Coefficients of the shifted Legendre expansion, from the values at
         the time nodes.
@@ -360,6 +374,15 @@ class NonLinearCK(ADERDGBase):
         of, so its expansion in time is won from the samples -- and won in a
         Legendre basis, because the monomial one loses five digits at order
         six and leaves two of them in single precision.
+
+        There is one sample more than there are coefficients, so the fit is a
+        least-squares one, and which inner product it minimises in decides
+        what it answers. The one the nodes carry is the quadrature's: under it
+        the coefficient of the constant is the rule's own integral, so
+        reconstructing the whole step reproduces the integral the step
+        accumulates. An unweighted fit minimises in an inner product the nodes
+        do not have and lands on a different number -- at order two, the plain
+        mean of three samples where the rule is Simpson's.
 
         The result is constant: the nodes are in scaled time, and so is the
         expansion, which is also the convention LegendreBasis::integrate
@@ -375,7 +398,8 @@ class NonLinearCK(ADERDGBase):
                 for node in nodes
             ]
         )
-        return np.linalg.pinv(vandermonde)
+        weighted = vandermonde.T * self.timeWeights()
+        return np.linalg.solve(weighted @ vandermonde, weighted)
 
     def numTimeNodes(self):
         """Time nodes the step kernel samples at.
