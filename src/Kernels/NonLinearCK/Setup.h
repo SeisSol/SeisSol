@@ -273,8 +273,15 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
       kernel::damageFluxGhost fold;
       fold.ghostMap = ghostData;
       fold.fluxFolded = foldedData;
-      for (const auto& [sign, slot] :
-           {std::pair<double, real*>{1.0, aPlusT}, std::pair<double, real*>{-1.0, aMinusT}}) {
+      // Every matrix the two halves are assembled from, with the sign the
+      // ghost state enters that half with: the constant part adds its mirror,
+      // each dissipation subtracts it, and the halves then read
+      // C + G^T C +- lambda (D - G^T D). One matrix per wave family, so the
+      // families are folded one by one -- a family left out of this would
+      // scale the local trace of the face against nothing.
+      for (const auto& [sign, slot] : {std::pair<double, real*>{1.0, aPlusT},
+                                       std::pair<double, real*>{-1.0, aMinusT},
+                                       std::pair<double, real*>{-1.0, aMinusTShear}}) {
         fold.ghostSign = sign;
         fold.fluxSource = slot;
         fold.execute();
