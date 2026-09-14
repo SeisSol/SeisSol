@@ -672,6 +672,32 @@ class NonLinearCK(ADERDGBase):
             target=target,
         )
 
+    def addTransportToState(self, generator, targets):
+        """The state of a cell, read back out of what it transports.
+
+        Two blocks rather than one: the quantities a face couples through sit
+        at the front of both layouts, and the rest of the state sits where the
+        transport layout keeps the groups that carry no flux. Reading the
+        transported tensor through the state's view would take the first
+        component of the stress for the first internal variable.
+        """
+        shared = self.transportStateExtent()
+        internal = self.transportInternalOffset()
+        carried = self.numQuantities() - shared
+
+        for target in targets:
+            prefix = generate_kernel_name_prefix(target)
+            generator.add(
+                f"{prefix}transportToState",
+                [
+                    self.Q["kp"].subslice("p", 0, shared)
+                    <= self.I["kp"].subslice("p", 0, shared),
+                    self.Q["kp"].subslice("p", shared, self.numQuantities())
+                    <= self.I["kp"].subslice("p", internal, internal + carried),
+                ],
+                target=target,
+            )
+
     def fusedInterpolationStatements(self, coeffs, extraCoeffs):
         """Both sums, into the tensor a face then reads.
 

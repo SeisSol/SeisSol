@@ -43,6 +43,22 @@
 
 namespace seissol::kernels {
 
+namespace {
+/// The state of a cell, read back out of what it transports.
+///
+/// What a predictor reconstructs is the transported tensor, which is as wide
+/// as the transport layout rather than as the state. A reader that wants the
+/// state has to go through this: reading the transported tensor through the
+/// state's view would take one quantity for another wherever the two layouts
+/// differ -- a stress for an internal variable, say.
+void transportToState(const real* transported, real* dofs) {
+  kernel::transportToState krnl;
+  krnl.I = transported;
+  krnl.Q = dofs;
+  krnl.execute();
+}
+} // namespace
+
 Receiver::Receiver(std::size_t pointId,
                    Eigen::Vector3d position,
                    const double* elementCoords[4],
@@ -144,6 +160,7 @@ double ReceiverCluster::calcReceivers(double time,
     const std::size_t recvCount = receivers_.size();
     const auto receiverHandler = [this, timeStepWidth, time, expansionPoint, executor](
                                      std::size_t i) {
+      alignas(Alignment) real timeTransported[Solver::IntegralsSize]{};
       alignas(Alignment) real timeEvaluated[tensor::Q::size()]{};
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()]{};
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()]{};
@@ -181,14 +198,15 @@ double ReceiverCluster::calcReceivers(double time,
                                    timeStepWidth,
                                    tmpReceiverData,
                                    tmp,
-                                   timeEvaluated, // useless but the interface requires it
+                                   timeTransported, // only the derivatives are read after this
                                    timeDerivatives);
 
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
         const auto coeffs = timePoint(receiverTime - expansionPoint, timeStepWidth);
 
-        timeKernel_.evaluate(coeffs, timeDerivatives, timeEvaluated);
+        timeKernel_.evaluate(coeffs, timeDerivatives, timeTransported);
+        transportToState(timeTransported, timeEvaluated);
 
         krnl.execute();
         derivativeKrnl.execute();

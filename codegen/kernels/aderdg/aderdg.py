@@ -286,6 +286,24 @@ class ADERDGBase(ABC):
                 target=target,
             )
 
+    def addTransportToState(self, generator, targets):
+        """The state of a cell, read back out of what it transports.
+
+        The inverse of :meth:`addStateToTransport` on the quantities the two
+        layouts have in common, which for a solver whose flux is linear is all
+        of them. A reader that wants the state at an instant has to go through
+        this: what a predictor reconstructs is the transported tensor, and
+        reading that through the state's view takes one quantity for another
+        wherever the two layouts differ.
+        """
+        for target in targets:
+            prefix = generate_kernel_name_prefix(target)
+            generator.add(
+                f"{prefix}transportToState",
+                self.Q["kp"] <= self.I["kp"],
+                target=target,
+            )
+
     def transportTinv(self):
         """The inverse rotation a face applies to what crosses it.
 

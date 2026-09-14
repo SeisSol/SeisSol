@@ -251,6 +251,7 @@ def main():
         adg.addNeighbor(generator, targets)
         adg.addTime(generator, targets)
         adg.addStateToTransport(generator, targets)
+        adg.addTransportToState(generator, targets)
         adg.addAccumulate(generator, targets)
         adg.add_include_tensors(include_tensors)
 
