@@ -148,6 +148,20 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
         offsetDQ += tensor::dQ::size(p);
       }
 
+      // What the cell carries beyond its state, behind the expansion of the
+      // state in the same buffer. A fault reads both -- the state's columns
+      // from the Taylor sum and the rest from this -- and the coefficients for
+      // the second are set below whether or not there is anything to apply
+      // them to, so leaving this unbound sums one expansion and dereferences
+      // nothing for the other.
+      std::size_t offsetTransport = yateto::computeFamilySize<tensor::dQ>();
+      for (std::size_t p = 0; p < yateto::numFamilyMembers<tensor::transportDer>(); ++p) {
+        krnl.transportDer(p) = const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
+        krnl.extraOffset_transportDer(p) = offsetTransport;
+        offsetTransport += tensor::transportDer::size(p);
+      }
+
       for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
         for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
           seissol::model::bindFaultTimeCoefficient<model::MaterialT>(
@@ -190,10 +204,14 @@ PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) c
 
     estimate *= dr::misc::TimeSteps;
 
-    // legacy CPU memory estimate
+    // legacy CPU memory estimate. Both sides of the face, and both expansions
+    // per side where a cell keeps two: a fault reads the state's columns from
+    // the one and everything else from the other.
     estimate.bytes =
         (tensor::TinvT::size() + tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
-         yateto::computeFamilySize<tensor::dQ>() * 2) *
+         (yateto::computeFamilySize<tensor::dQ>() +
+          yateto::computeFamilySize<tensor::transportDer>()) *
+             2) *
         sizeof(real);
 
     return estimate;
