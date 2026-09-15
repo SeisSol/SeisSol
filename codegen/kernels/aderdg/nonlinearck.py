@@ -271,9 +271,15 @@ class NonLinearCK(ADERDGBase):
         # not optimisation.
         def carriedSpp(member):
             spp = np.ones((self.num3DBasisFunctions(), carried), dtype=bool)
+            bound = self.transportBoundColumn() - self.transportStateExtent()
+            last = bound + self.transportBoundCount()
             if member > 0:
-                bound = self.transportBoundColumn() - self.transportStateExtent()
-                spp[:, bound : bound + self.transportBoundCount()] = False
+                spp[:, bound:last] = False
+            else:
+                # One number per bound and per cell, the same as in the
+                # transported tensor it is read back into: a maximum over a
+                # cell has no shape over that cell to expand.
+                spp[1:, bound:last] = False
             return spp
 
         self.transportDer = [
@@ -884,18 +890,37 @@ class NonLinearCK(ADERDGBase):
             # coefficients are of the other basis, and they are scalars
             # because an interval is a property of a cluster and not of a
             # cell.
+            #
+            # Only the columns that are time integrals go through it. A bound
+            # is the largest the step got, and the largest an interval inside
+            # that step got is no larger, so an interval reads the same number
+            # the step wrote. Weighing it with the length of the interval
+            # would hand a face a squared speed scaled by a time, which is not
+            # one -- and a face that scales its dissipation with it would then
+            # dissipate by the square root of the timestep too little.
             extraPowers = [Scalar(f"extraPower({i})") for i in range(self.order)]
-            carried = (self.transportStateExtent(), self.numTransportQuantities())
-
-            def rest(tensor):
-                return tensor["kp"].subslice("p", *carried)
+            shared = self.transportStateExtent()
+            bound = self.transportBoundColumn()
+            total = self.numTransportQuantities()
+            # The same two columns, counted from the start of what the
+            # expansion carries rather than from the start of the layout.
+            derBound = bound - shared
+            derTotal = total - shared
 
             carriedExpansion = Accumulate(ops.Add())
             for i in range(self.order):
-                carriedExpansion += extraPowers[i] * self.transportDer[i]["kp"]
+                carriedExpansion += extraPowers[i] * self.transportDer[i][
+                    "kp"
+                ].subslice("p", 0, derBound)
+            statements = [self.I["kp"].subslice("p", shared, bound) <= carriedExpansion]
+            if bound < total:
+                statements += [
+                    self.I["kp"].subslice("p", bound, total)
+                    <= self.transportDer[0]["kp"].subslice("p", derBound, derTotal)
+                ]
             generator.add(
                 f"{name_prefix}carriedTaylorExpansion",
-                rest(self.I) <= carriedExpansion,
+                statements,
                 target=target,
             )
             self.addStep(generator, target, name_prefix)
