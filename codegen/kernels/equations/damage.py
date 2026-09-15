@@ -567,12 +567,24 @@ class DamageADERDG(NonLinearCK):
         for i in range(self.order):
             # a numpy scalar is not a Python float, and yateto takes the latter
             weightOf = float(projection[i, node])
+            if weightOf == 0.0:
+                # A node this coefficient does not weigh contributes nothing to
+                # it, and the way to say so is to leave the statement out. A
+                # term scaled by zero is one the generator is entitled to drop,
+                # and a dropped statement that was going to write leaves its
+                # target partly unwritten -- which the generator then refuses,
+                # having been told to write a region it no longer covers.
+                continue
+            # Whichever node this coefficient is first weighed at opens it; the
+            # ones after add to it. Not the first node as such, because that
+            # one may be a node the coefficient does not weigh.
+            opens = not any(projection[i, q] != 0.0 for q in range(node))
             target = self.transportDer[i]
             statements += [
                 (
                     target["kc"].subslice("c", *stress)
                     <= weightOf * self.sigmaModal["kc"]
-                    if first
+                    if opens
                     else target["kc"].subslice("c", *stress)
                     <= target["kc"].subslice("c", *stress)
                     + weightOf * self.sigmaModal["kc"]
@@ -583,7 +595,7 @@ class DamageADERDG(NonLinearCK):
                     (
                         target["kc"].subslice("c", *columns)
                         <= weightOf * value["k"] * self.unitColumn["c"]
-                        if first
+                        if opens
                         else target["kc"].subslice("c", *columns)
                         <= target["kc"].subslice("c", *columns)
                         + weightOf * value["k"] * self.unitColumn["c"]
