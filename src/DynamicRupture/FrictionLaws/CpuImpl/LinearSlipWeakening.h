@@ -68,9 +68,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                  faultStresses.traction1[timeIndex][pointIndex];
+                                  faultStresses.traction1[pointIndex];
       const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                  faultStresses.traction2[timeIndex][pointIndex];
+                                  faultStresses.traction2[pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
       // calculate slip rates
@@ -86,14 +86,14 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
           this->slipRateMagnitude_[ltsFace][pointIndex] * totalTraction2 / divisor;
 
       // calculate traction
-      tractionResults.traction1[timeIndex][pointIndex] =
-          faultStresses.traction1[timeIndex][pointIndex] -
+      tractionResults.traction1[pointIndex] =
+          faultStresses.traction1[pointIndex] -
           this->impAndEta_[ltsFace].etaS * this->slipRate1_[ltsFace][pointIndex];
-      tractionResults.traction2[timeIndex][pointIndex] =
-          faultStresses.traction2[timeIndex][pointIndex] -
+      tractionResults.traction2[pointIndex] =
+          faultStresses.traction2[pointIndex] -
           this->impAndEta_[ltsFace].etaS * this->slipRate2_[ltsFace][pointIndex];
-      this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
-      this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
+      this->traction1_[ltsFace][pointIndex] = tractionResults.traction1[pointIndex];
+      this->traction2_[ltsFace][pointIndex] = tractionResults.traction2[pointIndex];
 
       // update directional slip
       this->slip1_[ltsFace][pointIndex] +=
@@ -151,9 +151,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
       const real totalNormalStress = this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
-                                     faultStresses.normalStress[timeIndex][pointIndex] +
+                                     faultStresses.normalStress[pointIndex] +
                                      this->initialPressure_[ltsFace][pointIndex] +
-                                     faultStresses.fluidPressure[timeIndex][pointIndex];
+                                     faultStresses.fluidPressure[pointIndex];
 
       strength[pointIndex] =
           -cohesion_[ltsFace][pointIndex] -

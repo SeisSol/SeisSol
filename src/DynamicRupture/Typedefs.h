@@ -50,6 +50,9 @@ struct FaultStresses;
 template <Executor Executor>
 struct TractionResults;
 
+template <Executor Executor>
+struct ImposedState;
+
 /**
  * Struct that contains all input stresses
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
@@ -57,20 +60,28 @@ struct TractionResults;
  */
 template <>
 struct FaultStresses<Executor::Host> {
-  alignas(Alignment) real normalStress[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real fluidPressure[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real normalStress[misc::NumPaddedPoints]{};
+  alignas(Alignment) real traction1[misc::NumPaddedPoints]{};
+  alignas(Alignment) real traction2[misc::NumPaddedPoints]{};
+  alignas(Alignment) real fluidPressure[misc::NumPaddedPoints]{};
 };
 
 /**
  * Struct that contains all traction results
- * traction1, traction2 in the direction of the respective tangential vectors
  */
 template <>
 struct TractionResults<Executor::Host> {
-  alignas(Alignment) real traction1[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[misc::TimeSteps][misc::NumPaddedPoints] = {{}};
+  alignas(Alignment) real traction1[misc::NumPaddedPoints]{};
+  alignas(Alignment) real traction2[misc::NumPaddedPoints]{};
+};
+
+/**
+ * Accumulator for the imposed state. Used after every internal timestep.
+ */
+template <>
+struct ImposedState<Executor::Host> {
+  alignas(Alignment) real plus[misc::NumQuantities][misc::NumPaddedPoints]{};
+  alignas(Alignment) real minus[misc::NumQuantities][misc::NumPaddedPoints]{};
 };
 
 /**
@@ -80,20 +91,28 @@ struct TractionResults<Executor::Host> {
  */
 template <>
 struct FaultStresses<Executor::Device> {
-  real normalStress[misc::TimeSteps] = {{}};
-  real traction1[misc::TimeSteps] = {{}};
-  real traction2[misc::TimeSteps] = {{}};
-  real fluidPressure[misc::TimeSteps] = {{}};
+  real normalStress{};
+  real traction1{};
+  real traction2{};
+  real fluidPressure{};
 };
 
 /**
  * Struct that contains all traction results
- * traction1, traction2 in the direction of the respective tangential vectors
  */
 template <>
 struct TractionResults<Executor::Device> {
-  real traction1[misc::TimeSteps] = {{}};
-  real traction2[misc::TimeSteps] = {{}};
+  real traction1{};
+  real traction2{};
+};
+
+/**
+ * Accumulator for the imposed state. Used after every internal timestep.
+ */
+template <>
+struct ImposedState<Executor::Device> {
+  real plus[misc::NumQuantities]{};
+  real minus[misc::NumQuantities]{};
 };
 
 } // namespace seissol::dr

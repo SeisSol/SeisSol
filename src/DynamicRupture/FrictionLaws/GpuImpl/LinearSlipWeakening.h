@@ -58,10 +58,10 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto& strength = ctx.strengthBuffer;
 
     // calculate absolute value of stress in Y and Z direction
-    const real totalStress1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
-                              faultStresses.traction1[timeIndex];
-    const real totalStress2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
-                              faultStresses.traction2[timeIndex];
+    const real totalStress1 =
+        ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] + faultStresses.traction1;
+    const real totalStress2 =
+        ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] + faultStresses.traction2;
     const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
     // calculate slip rates
     ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] =
@@ -73,14 +73,14 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] =
         ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * totalStress2 / divisor;
     // calculate traction
-    tractionResults.traction1[timeIndex] =
-        faultStresses.traction1[timeIndex] -
+    tractionResults.traction1 =
+        faultStresses.traction1 -
         devImpAndEta.etaS * ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex];
-    tractionResults.traction2[timeIndex] =
-        faultStresses.traction2[timeIndex] -
+    tractionResults.traction2 =
+        faultStresses.traction2 -
         devImpAndEta.etaS * ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex];
-    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction1[timeIndex];
-    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction2[timeIndex];
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction1;
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction2;
     // update directional slip
     ctx.data->slip1[ctx.ltsFace][ctx.pointIndex] +=
         ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] * deltaT;
@@ -164,9 +164,8 @@ class LinearSlipWeakeningLaw
 
     const real totalNormalStress =
         ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
-        ctx.faultStresses.normalStress[timeIndex] +
-        ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] +
-        ctx.faultStresses.fluidPressure[timeIndex];
+        ctx.faultStresses.normalStress + ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] +
+        ctx.faultStresses.fluidPressure;
     strength = -ctx.data->cohesion[ctx.ltsFace][ctx.pointIndex] -
                ctx.data->mu[ctx.ltsFace][ctx.pointIndex] *
                    std::min(totalNormalStress, static_cast<real>(0.0));

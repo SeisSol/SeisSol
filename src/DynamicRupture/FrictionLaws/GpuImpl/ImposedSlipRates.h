@@ -38,11 +38,11 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     const auto stfEvaluated = STF::evaluateSTF(ctx, currentTime, timeIncrement);
 
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] =
-        ctx.faultStresses.traction1[timeIndex] -
+        ctx.faultStresses.traction1 -
         ctx.data->impAndEta[ctx.ltsFace].etaS *
             ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
     ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] =
-        ctx.faultStresses.traction2[timeIndex] -
+        ctx.faultStresses.traction2 -
         ctx.data->impAndEta[ctx.ltsFace].etaS *
             ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
 
@@ -62,8 +62,8 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
         ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * timeIncrement;
 
-    ctx.tractionResults.traction1[timeIndex] = ctx.data->traction1[ctx.ltsFace][ctx.pointIndex];
-    ctx.tractionResults.traction2[timeIndex] = ctx.data->traction2[ctx.ltsFace][ctx.pointIndex];
+    ctx.tractionResults.traction1 = ctx.data->traction1[ctx.ltsFace][ctx.pointIndex];
+    ctx.tractionResults.traction2 = ctx.data->traction2[ctx.ltsFace][ctx.pointIndex];
   }
 
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,

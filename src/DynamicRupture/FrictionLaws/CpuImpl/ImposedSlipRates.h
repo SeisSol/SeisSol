@@ -41,14 +41,14 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       const real stfEvaluated = stf_.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
-      this->traction1_[ltsFace][pointIndex] = faultStresses.traction1[timeIndex][pointIndex] -
-                                              this->impAndEta_[ltsFace].etaS *
-                                                  imposedSlipDirection1_[ltsFace][pointIndex] *
-                                                  stfEvaluated;
-      this->traction2_[ltsFace][pointIndex] = faultStresses.traction2[timeIndex][pointIndex] -
-                                              this->impAndEta_[ltsFace].etaS *
-                                                  imposedSlipDirection2_[ltsFace][pointIndex] *
-                                                  stfEvaluated;
+      this->traction1_[ltsFace][pointIndex] =
+          faultStresses.traction1[pointIndex] - this->impAndEta_[ltsFace].etaS *
+                                                    imposedSlipDirection1_[ltsFace][pointIndex] *
+                                                    stfEvaluated;
+      this->traction2_[ltsFace][pointIndex] =
+          faultStresses.traction2[pointIndex] - this->impAndEta_[ltsFace].etaS *
+                                                    imposedSlipDirection2_[ltsFace][pointIndex] *
+                                                    stfEvaluated;
 
       this->slipRate1_[ltsFace][pointIndex] =
           this->imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
@@ -63,8 +63,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
       this->accumulatedSlipMagnitude_[ltsFace][pointIndex] +=
           this->slipRateMagnitude_[ltsFace][pointIndex] * timeIncrement;
 
-      tractionResults.traction1[timeIndex][pointIndex] = this->traction1_[ltsFace][pointIndex];
-      tractionResults.traction2[timeIndex][pointIndex] = this->traction2_[ltsFace][pointIndex];
+      tractionResults.traction1[pointIndex] = this->traction1_[ltsFace][pointIndex];
+      tractionResults.traction2[pointIndex] = this->traction2_[ltsFace][pointIndex];
     }
   }
 

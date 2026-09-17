@@ -80,10 +80,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.initialVariables.stateVarReference = ctx.stateVariableBuffer;
 
     const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
-                                ctx.faultStresses.traction1[timeIndex];
+                                ctx.faultStresses.traction1;
 
     const real totalTraction2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
-                                ctx.faultStresses.traction2[timeIndex];
+                                ctx.faultStresses.traction2;
 
     ctx.initialVariables.absoluteShearTraction = misc::magnitude(totalTraction1, totalTraction2);
     auto localSlipRateMagnitude = misc::magnitude(ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
@@ -164,8 +164,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     const real strength = -mu * ctx.initialVariables.normalStress;
 
     const auto* initialStressInFaultCS = ctx.data->initialStressInFaultCS[ctx.ltsFace];
-    const auto savedTraction1 = ctx.faultStresses.traction1[timeIndex];
-    const auto savedTraction2 = ctx.faultStresses.traction2[timeIndex];
+    const auto savedTraction1 = ctx.faultStresses.traction1;
+    const auto savedTraction2 = ctx.faultStresses.traction2;
 
     // calculate absolute value of stress in Y and Z direction
     const real totalTraction1 = initialStressInFaultCS[3][ctx.pointIndex] + savedTraction1;
@@ -194,8 +194,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->slip2[ctx.ltsFace][ctx.pointIndex] += slipRate2 * deltaTime;
 
     // update traction
-    ctx.tractionResults.traction1[timeIndex] = traction1;
-    ctx.tractionResults.traction2[timeIndex] = traction2;
+    ctx.tractionResults.traction1 = traction1;
+    ctx.tractionResults.traction2 = traction2;
 
     // update slip rate
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] = slipRate1;
@@ -262,9 +262,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                 uint32_t timeIndex) {
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
-                 ctx.faultStresses.normalStress[timeIndex] +
+                 ctx.faultStresses.normalStress +
                      ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
-                     ctx.faultStresses.fluidPressure[timeIndex] +
+                     ctx.faultStresses.fluidPressure +
                      ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] -
                      TPMethod::getFluidPressure(ctx));
   }

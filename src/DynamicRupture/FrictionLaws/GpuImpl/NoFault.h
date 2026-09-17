@@ -24,10 +24,10 @@ class NoFault : public BaseFrictionSolver<NoFault> {
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
                                                    uint32_t timeIndex) {
     // calculate traction
-    ctx.tractionResults.traction1[timeIndex] = ctx.faultStresses.traction1[timeIndex];
-    ctx.tractionResults.traction2[timeIndex] = ctx.faultStresses.traction2[timeIndex];
-    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction1[timeIndex];
-    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction2[timeIndex];
+    ctx.tractionResults.traction1 = ctx.faultStresses.traction1;
+    ctx.tractionResults.traction2 = ctx.faultStresses.traction2;
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction1;
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction2;
   }
 
   /*
