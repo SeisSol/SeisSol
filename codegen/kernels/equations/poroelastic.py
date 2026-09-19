@@ -75,6 +75,14 @@ class PoroelasticADERDG(LinearADERDG):
         extractTractionsSPP[3, 9] = 1
         return extractTractionsSPP
 
+    def tractionMatrixSpp(self):
+        # the fluid pressure is the fourth interface traction and enters the three mechanical
+        # components through b = eta * Y, so its row has to be part of the pattern
+        tractionMatrixSpp = np.zeros((self.numberOfQuantities(), 3))
+        for row in (0, 3, 5, 9):
+            tractionMatrixSpp[row, :] = 1
+        return tractionMatrixSpp
+
     def name(self):
         return "poroelastic"
 

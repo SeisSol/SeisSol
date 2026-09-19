@@ -86,11 +86,10 @@ int main(int argc, char* argv[]) {
       LIKWID_MARKER_REGISTER("SeisSol");
       LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
       LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
-      LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
       LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
-      LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureFinalizeImposedState");
       LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
-      LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureTimeStepLoop");
     }
 
 #pragma omp parallel
