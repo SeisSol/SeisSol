@@ -176,22 +176,23 @@ double orientationDeterminant(const std::array<const double*, Cell::NumVertices>
 }
 
 /**
- * The canonical local vertex numbering of a cell: sort the vertices by topological id, then
- * repair the orientation with the transposition (2 3) where the sorted order would come out
+ * The canonical local vertex numbering of a cell: sort the vertices by global topological id,
+ * then repair the orientation with the transposition (2 3) where the sorted order would come out
  * positively oriented. Returns the map from the new local slot to the old one.
  *
  * Sorting alone already forces the face orientation index to zero on every interior face.
  * FirstFaceVertex is the smallest local index on each face, hence under a sorted numbering it is
- * the vertex with the smallest topological id on that face -- and both sides of a face agree on
- * which vertex that is. The transposition (2 3) leaves local slots 0 and 1 alone and therefore
- * keeps that property intact, which no other odd permutation does.
+ * the vertex with the smallest id on that face -- and both sides of a face agree on which vertex
+ * that is. The transposition (2 3) leaves local slots 0 and 1 alone and therefore keeps that
+ * property intact, which no other odd permutation does.
  *
- * The sort key has to be the topological id, since that is what identifies the two sides of a
- * face, while the orientation has to be judged on the geometry. For periodic meshes the two
- * differ.
+ * The sort key has to be the global topological id: the topology identifies the two sides of a
+ * face, and only the global id is an ordering that both sides agree on across rank boundaries,
+ * where the rank-local vertex indices are unrelated to each other. The orientation in turn has to
+ * be judged on the geometry. For periodic meshes the two differ.
  */
 std::array<std::size_t, Cell::NumVertices>
-    canonicalVertexOrder(const std::array<unsigned int, Cell::NumVertices>& topoVertices,
+    canonicalVertexOrder(const std::array<unsigned long, Cell::NumVertices>& topoVertices,
                          const std::array<const double*, Cell::NumVertices>& coords) {
   std::array<std::size_t, Cell::NumVertices> order{};
   std::iota(order.begin(), order.end(), 0);
@@ -453,8 +454,8 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   // lookup below needs the numbering of cells that come later in the loop.
   std::vector<std::array<std::uint8_t, Cell::NumFaces>> pumlFaceMaps(cells.size());
   for (std::size_t i = 0; i < cells.size(); i++) {
-    std::array<unsigned int, Cell::NumVertices> topoVertices{};
-    PUML::Downward::vertices(meshTopology, cells[i], topoVertices.data());
+    std::array<unsigned long, Cell::NumVertices> topoVertices{};
+    PUML::Downward::gvertices(meshTopology, cells[i], topoVertices.data());
 
     std::array<unsigned int, Cell::NumVertices> geomVertices{};
     PUML::Downward::vertices(meshGeometry, cellsGeometry[i], geomVertices.data());
