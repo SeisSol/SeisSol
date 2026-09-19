@@ -32,7 +32,7 @@ struct InitialVariables {
   real normalStress{};
   real stateVarReference{};
   real etaNormal{};
-  /// unit slip direction; equals the normalised trial traction unless the impedance is anisotropic
+  /// unit slip direction; equals the normalized trial traction unless the impedance is anisotropic
   real slipDirection1{};
   real slipDirection2{};
 };

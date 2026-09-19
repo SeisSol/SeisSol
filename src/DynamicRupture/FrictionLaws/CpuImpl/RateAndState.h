@@ -396,7 +396,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       const real strength = -this->mu_[ltsFace][pointIndex] * normalStress[pointIndex];
 
       // the direction along which the slip rate is decomposed; scaled such that dividing by
-      // `divisor` yields the unit slip direction. For isotropy slipDirection is the (normalised)
+      // `divisor` yields the unit slip direction. For isotropy slipDirection is the (normalized)
       // trial traction and absoluteTraction is its magnitude.
       const real dirTraction1 = slipDirection1[pointIndex] * absoluteTraction[pointIndex];
       const real dirTraction2 = slipDirection2[pointIndex] * absoluteTraction[pointIndex];

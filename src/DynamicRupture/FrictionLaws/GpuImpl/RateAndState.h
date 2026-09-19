@@ -252,7 +252,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         slipRateMagnitude * deltaTime;
 
     // the direction along which the slip rate is decomposed; scaled such that dividing by
-    // `divisor` yields the unit slip direction. For isotropy slipDirection is the normalised trial
+    // `divisor` yields the unit slip direction. For isotropy slipDirection is the normalized trial
     // traction and absoluteShearTraction its magnitude, so this is the previous expression.
     const real dirTraction1 =
         ctx.initialVariables.slipDirection1 * ctx.initialVariables.absoluteShearTraction;
