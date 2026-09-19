@@ -401,13 +401,22 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         const auto faultImpedance =
             seissol::initializer::model::computeFaultImpedance(plusLocal, minusLocal);
 
-#ifndef NDEBUG
-        if (const auto violation = seissol::initializer::model::checkFaultImpedance(faultImpedance);
+        // The finite and consistency checks are a handful of flops per face and run in every
+        // build: a material that is not positive definite produces NaN admittances right here,
+        // and without the check the run only fails much later and somewhere else. Only the
+        // self-adjointness and definiteness part costs an eigensolve, so that one stays behind
+        // NDEBUG.
+#ifdef NDEBUG
+        constexpr bool CheckSelfAdjoint = false;
+#else
+        constexpr bool CheckSelfAdjoint = true;
+#endif
+        if (const auto violation =
+                seissol::initializer::model::checkFaultImpedance(faultImpedance, CheckSelfAdjoint);
             violation.has_value()) {
           logError() << "Invalid dynamic rupture impedance at fault face" << meshFace << ":"
                      << violation.value();
         }
-#endif
 
         const auto& impedanceMatrix = faultImpedance.admittancePlus;
         const auto& impedanceNeigMatrix = faultImpedance.admittanceMinus;
