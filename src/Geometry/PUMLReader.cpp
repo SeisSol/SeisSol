@@ -19,7 +19,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "PartitioningLib.h"
 
-#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <PUML/Downward.h>
 #include <PUML/Neighbor.h>
 #include <PUML/PUML.h>
