@@ -287,7 +287,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);
-      faceInformation[face].faceRelation = orientationDist(rng);
+      // a fault face always addresses the minus side here
+      faceInformation[face].faceRelation = 1;
     }
   }
 }
