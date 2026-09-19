@@ -198,11 +198,12 @@ void ReceiverOutput::calcFaultOutput(
     // since the total traction output rotates it
     std::array<real, 6> initialStress{};
     {
-      const auto sourceCount = stressSourceCount(*drParameters_);
+      const auto sourceCount = frictionLawParameters_.sourceCount;
       const auto* stresses = local.layer->var<DynamicRupture::NucleationStressInFaultCS>();
       for (std::uint32_t source = 0; source < sourceCount; ++source) {
-        const auto fraction =
-            stressSourceFraction(*drParameters_, source, static_cast<real>(local.time));
+        const auto fraction = nucleationFraction(static_cast<real>(local.time),
+                                                 frictionLawParameters_.t0[source],
+                                                 frictionLawParameters_.s0[source]);
         const auto& patch = stresses[local.ltsId * sourceCount + source];
         for (std::size_t stressVar = 0; stressVar < initialStress.size(); ++stressVar) {
           initialStress[stressVar] += patch[stressVar][local.gpIndex] * fraction;

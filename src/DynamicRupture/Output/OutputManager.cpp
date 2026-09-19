@@ -428,12 +428,12 @@ void OutputManager::initPickpointOutput() {
             {
               const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
 
-              // the initial state is the first stress source of a face
+              // the initial state is the last stress source of a face
               const auto sourceCount =
                   dr::stressSourceCount(seissolInstance_.parameters().drParameters);
               const auto* stresses = drStorage_->layer(position.color)
                                          .var<DynamicRupture::NucleationStressInFaultCS>();
-              const auto& initialStress = stresses[position.cell * sourceCount];
+              const auto& initialStress = stresses[position.cell * sourceCount + sourceCount - 1];
               std::array<real, 6> unrotatedInitialStress{};
               for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
                    ++stressVar) {

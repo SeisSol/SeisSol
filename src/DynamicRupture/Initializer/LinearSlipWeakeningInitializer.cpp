@@ -74,16 +74,18 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(DynamicRupture::S
         layer.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
     const real(*mu)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Mu>();
     const real(*cohesion)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Cohesion>();
-    // the initial state is the first stress source of a face; no nucleation is in effect yet
-    const auto sourceCount = stressSourceCount(*drParameters_);
+    // the initial state is the last stress source of a face; no nucleation is in effect yet
+    const auto stride = stressSourceCount(*drParameters_);
+    const auto initialSource = stride - 1;
     const auto* initialStress = layer.var<LTSLinearSlipWeakening::NucleationStressInFaultCS>();
 
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         regularizedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -
-            mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0),
-                                               initialStress[ltsFace * sourceCount][0][pointIndex]);
+            mu[ltsFace][pointIndex] *
+                std::min(static_cast<real>(0.0),
+                         initialStress[ltsFace * stride + initialSource][0][pointIndex]);
       }
     }
   }

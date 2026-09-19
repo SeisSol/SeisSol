@@ -264,13 +264,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Forced rupture time
       real f2 = 0.0;
-      if (this->drParameters_.t0[0] == 0) {
+      if (this->drParameters_.forcedRuptureRiseTime == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = static_cast<real>(time >= this->forcedRuptureTime_[ltsFace][pointIndex]);
       } else {
         f2 = std::clamp((time - this->forcedRuptureTime_[ltsFace][pointIndex]) /
-                            this->drParameters_.t0[0],
+                            this->drParameters_.forcedRuptureRiseTime,
                         static_cast<real>(0.0),
                         static_cast<real>(1.0));
       }

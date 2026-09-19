@@ -256,33 +256,25 @@ constexpr std::size_t MaxNucleations = 16;
  * not monotone, or one that returns to zero, would be as admissible here as the smooth step is.
  */
 SEISSOL_HOSTDEVICE inline real nucleationFraction(real time, real t0, real s0) {
+  if (t0 <= 0) {
+    // without a rise time, a source is in full effect from its onset on
+    return time >= s0 ? static_cast<real>(1.0) : static_cast<real>(0.0);
+  }
   return gaussianNucleationFunction::smoothStep<real>(time - s0, t0);
 }
 
 /**
- * The stress sources of a fault: the initial state first, then the nucleations the parameter file
- * configures. They share one storage array, indexed by ltsFace * stressSourceCount + source.
+ * The stress sources of a fault: the nucleations the parameter file configures, then the initial
+ * state. They share one storage array, indexed by ltsFace * stressSourceCount + source.
+ *
+ * The initial state comes last for two reasons. The configured nucleations keep the indices the
+ * parameter file gives them, so nothing else has to be renumbered along with them; and the sum
+ * over the sources then runs from the perturbations up to the state they perturb, which is the
+ * order that costs the fewest digits.
  */
 template <typename ParametersT>
 SEISSOL_HOSTDEVICE constexpr std::uint32_t stressSourceCount(const ParametersT& parameters) {
   return parameters.nucleationCount + 1;
-}
-
-/**
- * The fraction of a stress source that is in effect at the given time.
- *
- * The initial state is the source that is applied instantaneously, so it is in effect from the
- * first step on; the configured nucleations follow their ramp.
- */
-template <typename ParametersT>
-SEISSOL_HOSTDEVICE inline real
-    stressSourceFraction(const ParametersT& parameters, std::uint32_t source, real time) {
-  if (source == 0) {
-    return static_cast<real>(1.0);
-  }
-  return nucleationFraction(time,
-                            static_cast<real>(parameters.t0[source - 1]),
-                            static_cast<real>(parameters.s0[source - 1]));
 }
 
 /**
@@ -310,9 +302,12 @@ struct FrictionLawParameters {
   real terminatorSlipRateThreshold{0.0};
   real etaDamp{1.0};
   real etaDampEnd{std::numeric_limits<real>::infinity()};
-  std::array<real, MaxNucleations> t0{};
-  std::array<real, MaxNucleations> s0{};
-  std::uint32_t nucleationCount{0};
+  /// rise time of the forced rupture ramp, which is not one of the stress sources
+  real forcedRuptureRiseTime{0.0};
+  /// rise time and onset of every stress source; see stressSourceCount
+  std::array<real, MaxNucleations + 1> t0{};
+  std::array<real, MaxNucleations + 1> s0{};
+  std::uint32_t sourceCount{1};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
   real rsSlipRateTolerance{1e-8};

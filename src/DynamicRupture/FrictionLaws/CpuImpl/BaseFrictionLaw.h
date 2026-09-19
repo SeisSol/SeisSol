@@ -109,7 +109,7 @@ class BaseFrictionLaw : public FrictionSolver {
 
           common::initializeTractionResults(faultStresses, tractionResults);
 
-          const auto sourceCount = stressSourceCount(this->drParameters_);
+          const auto sourceCount = this->drParameters_.sourceCount;
           common::computeInitialStress(initialStress,
                                        &nucleationStressInFaultCS_[ltsFace * sourceCount],
                                        &nucleationPressure_[ltsFace * sourceCount],

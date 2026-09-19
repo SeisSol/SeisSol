@@ -79,7 +79,8 @@ FrictionLawParameters::FrictionLawParameters(
       prakashLength(parameters.prakashLength),
       terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),
       etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
-      nucleationCount(parameters.nucleationCount),
+      forcedRuptureRiseTime(static_cast<real>(parameters.t0[0])),
+      sourceCount(stressSourceCount(parameters)),
       rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
       rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
       rsSlipRateTolerance(parameters.rsSlipRateTolerance),
@@ -88,7 +89,12 @@ FrictionLawParameters::FrictionLawParameters(
       isCheckAbortCriteraEnabled(parameters.isCheckAbortCriteraEnabled),
       energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities) {
 
-  std::copy(parameters.t0.begin(), parameters.t0.end(), this->t0.begin());
-  std::copy(parameters.s0.begin(), parameters.s0.end(), this->s0.begin());
+  for (std::uint32_t i = 0; i < parameters.nucleationCount; ++i) {
+    this->t0[i] = static_cast<real>(parameters.t0[i]);
+    this->s0[i] = static_cast<real>(parameters.s0[i]);
+  }
+  // the initial state, the source without a rise time
+  this->t0[parameters.nucleationCount] = 0;
+  this->s0[parameters.nucleationCount] = 0;
 }
 } // namespace seissol::dr

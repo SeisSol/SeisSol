@@ -35,6 +35,7 @@ class ReceiverOutput {
   void setFaceToLtsMap(::seissol::initializer::StorageBackmap<1>* map) { faceToLtsMap_ = map; }
   void setDrParameters(const seissol::initializer::parameters::DRParameters* userDrParameters) {
     drParameters_ = userDrParameters;
+    frictionLawParameters_ = dr::FrictionLawParameters(*userDrParameters);
   }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
@@ -52,6 +53,8 @@ class ReceiverOutput {
   DynamicRupture::Storage* drStorage_{nullptr};
   seissol::geometry::MeshReader* meshReader_{nullptr};
   const seissol::initializer::parameters::DRParameters* drParameters_{nullptr};
+  /// carries the stress sources, which the user facing parameters do not
+  dr::FrictionLawParameters frictionLawParameters_{};
   ::seissol::initializer::StorageBackmap<1>* faceToLtsMap_{nullptr};
   real* deviceCopyMemory_{nullptr};
 

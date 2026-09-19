@@ -427,8 +427,8 @@ SEISSOL_HOSTDEVICE inline void
  * The initial stress in effect at the given time, in the layout of the fault stresses it is added
  * to: every stress source of the face at the fraction of it that has been applied so far.
  *
- * The initial state is the source that is applied instantaneously -- fraction one from the first
- * step on -- so it enters the sum like any other and needs no case of its own.
+ * The initial state is the source without a rise time, so it enters the sum like any other and
+ * needs no case of its own.
  *
  * @param[out] initialStress
  * @param[in] nucleationStressInFaultCS the stress of every source of this face
@@ -463,9 +463,10 @@ SEISSOL_HOSTDEVICE inline void computeInitialStress(
     VariableIndexing<Exec>::index(initialStress.fluidPressure, i) = static_cast<real>(0.0);
   }
 
-  for (std::uint32_t source = 0; source < stressSourceCount(parameters); ++source) {
+  for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
     // one scalar for the whole fault, hoisted out of the point loop
-    const real fraction = stressSourceFraction(parameters, source, fullUpdateTime);
+    const real fraction =
+        nucleationFraction(fullUpdateTime, parameters.t0[source], parameters.s0[source]);
 
 #ifndef ACL_DEVICE
 #pragma omp simd

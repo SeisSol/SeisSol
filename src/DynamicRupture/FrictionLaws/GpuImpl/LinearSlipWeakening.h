@@ -231,7 +231,7 @@ class LinearSlipWeakeningLaw
 
   SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& __restrict ctx,
                                                    uint32_t timeIndex) {
-    const auto t0{ctx.data->drParameters.t0[0]};
+    const auto t0{ctx.data->drParameters.forcedRuptureRiseTime};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
 
     real tn = ctx.args->fullUpdateTime;
