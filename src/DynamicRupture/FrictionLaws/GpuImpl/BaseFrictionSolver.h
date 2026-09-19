@@ -30,6 +30,9 @@ struct InitialVariables {
   real absoluteShearTraction{};
   real localSlipRate{};
   real normalStress{};
+  /// the same, before the slip rate dependent part and the clamp; the Newton solve needs it to
+  /// evaluate sigma(V) itself
+  real normalStressStick{};
   real stateVarReference{};
   real etaNormal{};
   /// unit slip direction; equals the normalized trial traction unless the impedance is anisotropic

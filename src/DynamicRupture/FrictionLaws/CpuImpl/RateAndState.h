@@ -56,6 +56,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     auto slipDirection2 = std::move(initialVariables.slipDirection2);
     auto localSlipRate = std::move(initialVariables.localSlipRate);
     auto normalStress = std::move(initialVariables.normalStress);
+    auto normalStressStick = std::move(initialVariables.normalStressStick);
     const auto stateVarReference = std::move(initialVariables.stateVarReference);
     // compute slip rates by solving non-linear system of equations
     this->updateStateVariableIterative(hasConverged,
@@ -63,6 +64,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                        localSlipRate,
                                        stateVariableBuffer,
                                        normalStress,
+                                       normalStressStick,
                                        absoluteShearStress,
                                        faultStresses,
                                        etaInv,
@@ -82,7 +84,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                   etaNormal,
                                   faultStresses,
                                   ltsFace);
-    updateNormalStress(normalStress, faultStresses, etaNormal, ltsFace);
+    updateNormalStress(normalStress, normalStressStick, faultStresses, etaNormal, ltsFace);
     // compute final slip rates and traction from average of the iterative solution and initial
     // guess
     this->calcSlipRateAndTraction(stateVarReference,
@@ -131,6 +133,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     std::array<real, misc::NumPaddedPoints> absoluteShearTraction{0};
     std::array<real, misc::NumPaddedPoints> localSlipRate{0};
     std::array<real, misc::NumPaddedPoints> normalStress{0};
+    /// the same, before the slip rate dependent part and the clamp; the Newton solve needs it to
+    /// evaluate sigma(V) itself
+    std::array<real, misc::NumPaddedPoints> normalStressStick{0};
     std::array<real, misc::NumPaddedPoints> stateVarReference{0};
     std::array<real, misc::NumPaddedPoints> etaInv{0};
     std::array<real, misc::NumPaddedPoints> etaNormal{0};
@@ -153,6 +158,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     std::array<real, misc::NumPaddedPoints> absoluteTraction{};
     std::array<real, misc::NumPaddedPoints> normalStress{};
+    std::array<real, misc::NumPaddedPoints> normalStressStick{};
     std::array<real, misc::NumPaddedPoints> temporarySlipRate{};
     std::array<real, misc::NumPaddedPoints> etaInv{};
     std::array<real, misc::NumPaddedPoints> etaNormal{};
@@ -198,11 +204,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     } // End of pointIndex-loop
 
     // after the loop: updateNormalStress reads slipRateMagnitude_, which is only set above
-    updateNormalStress(normalStress, faultStresses, etaNormal, ltsFace);
+    updateNormalStress(normalStress, normalStressStick, faultStresses, etaNormal, ltsFace);
 
     return {absoluteTraction,
             temporarySlipRate,
             normalStress,
+            normalStressStick,
             stateVarReference,
             etaInv,
             etaNormal,
@@ -278,6 +285,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                    std::array<real, misc::NumPaddedPoints>& localSlipRate,
                                    std::array<real, misc::NumPaddedPoints>& localStateVariable,
                                    std::array<real, misc::NumPaddedPoints>& normalStress,
+                                   std::array<real, misc::NumPaddedPoints>& normalStressStick,
                                    std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
                                    const FaultStresses<Executor::Host>& faultStresses,
                                    std::array<real, misc::NumPaddedPoints>& etaInv,
@@ -326,11 +334,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                     etaNormal,
                                     faultStresses,
                                     ltsFace);
-      updateNormalStress(normalStress, faultStresses, etaNormal, ltsFace);
+      updateNormalStress(normalStress, normalStressStick, faultStresses, etaNormal, ltsFace);
 
       // solve for new slip rate
-      hasConverged = this->invertSlipRateIterative(
-          ltsFace, localStateVariable, normalStress, absoluteShearStress, etaInv, testSlipRate);
+      hasConverged = this->invertSlipRateIterative(ltsFace,
+                                                   localStateVariable,
+                                                   normalStress,
+                                                   normalStressStick,
+                                                   etaNormal,
+                                                   absoluteShearStress,
+                                                   etaInv,
+                                                   testSlipRate);
 
       // int for ICX not to fail
       int32_t converged = 1;
@@ -483,6 +497,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   bool invertSlipRateIterative(std::size_t ltsFace,
                                const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                                const std::array<real, misc::NumPaddedPoints>& normalStress,
+                               const std::array<real, misc::NumPaddedPoints>& normalStressStick,
+                               const std::array<real, misc::NumPaddedPoints>& etaNormal,
                                const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
                                const std::array<real, misc::NumPaddedPoints>& invEta,
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
@@ -509,10 +525,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // calculate friction coefficient and objective function
         muF[pointIndex] =
             static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
-        g[pointIndex] =
-            -invEta[pointIndex] * (std::abs(normalStress[pointIndex]) * muF[pointIndex] -
-                                   absoluteShearStress[pointIndex]) -
-            slipRateTest[pointIndex];
+        const auto sigma = effectiveNormalStress(
+            normalStress, normalStressStick, etaNormal, slipRateTest[pointIndex], pointIndex);
+        g[pointIndex] = -invEta[pointIndex] *
+                            (std::abs(sigma) * muF[pointIndex] - absoluteShearStress[pointIndex]) -
+                        slipRateTest[pointIndex];
       }
 
       // max element of g must be smaller than newtonTolerance
@@ -538,9 +555,31 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         const auto dMuF =
             static_cast<Derived*>(this)->updateMuDerivative(pointIndex, localSlipRateTest, details);
 
-        // derivative of g
-        const auto dG = -invEta[pointIndex] * (std::abs(normalStress[pointIndex]) * dMuF) -
-                        static_cast<real>(1.0);
+        const auto sigma = effectiveNormalStress(
+            normalStress, normalStressStick, etaNormal, localSlipRateTest, pointIndex);
+
+        // derivative of g. |sigma| = -sigma while the fault is closed, and sigma follows the slip
+        // rate through the anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
+        real dAbsSigma = static_cast<real>(0.0);
+        if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+          dAbsSigma =
+              (sigma < static_cast<real>(0.0)) ? etaNormal[pointIndex] : static_cast<real>(0.0);
+        }
+        const auto dGFrozen =
+            -invEta[pointIndex] * (std::abs(sigma) * dMuF) - static_cast<real>(1.0);
+        const auto dGCoupled =
+            -invEta[pointIndex] * (std::abs(sigma) * dMuF + dAbsSigma * muF[pointIndex]) -
+            static_cast<real>(1.0);
+        // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which
+        // the coupling can weaken g. It stays strictly decreasing -- and the root unique, which is
+        // what a bracketed solver needs -- as long as
+        //   |etaNormal| * mu < eta_proj + |sigma| * mu' ,
+        // i.e. roughly |etaNormal| / eta_proj < 1 / mu. Positive definiteness of the 3x3 impedance
+        // already bounds that ratio by sqrt(eta_nn / eta_proj), so the two limits are within a few
+        // percent of each other and the fallback below only triggers for an impedance close to
+        // singular. For etaNormal > 0 the coupled derivative is the better conditioned of the two.
+        // dGFrozen is negative by construction.
+        const auto dG = (dGCoupled < static_cast<real>(0.0)) ? dGCoupled : dGFrozen;
 
         // newton update
         const real tmp3 = g[pointIndex] / dG;
@@ -567,25 +606,49 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * For every isotropic material etaNormal is zero and this reduces to the previous formula.
    *
    * The slip rate is taken from slipRateMagnitude_, i.e. from the previous outer fixed-point
-   * iteration (or, on entry, from the previous time step). The outer loop in
-   * updateStateVariableIterative therefore also resolves this coupling; the Newton solver itself
-   * still sees a frozen sigma.
+   * iteration (or, on entry, from the previous time step). normalStressStick keeps the part that
+   * does not depend on it, so that the Newton solve can follow sigma(V) itself.
    */
   void updateNormalStress(std::array<real, misc::NumPaddedPoints>& normalStress,
+                          std::array<real, misc::NumPaddedPoints>& normalStressStick,
                           const FaultStresses<Executor::Host>& faultStresses,
                           const std::array<real, misc::NumPaddedPoints>& etaNormal,
                           size_t ltsFace) {
     // Todo(SW): consider poroelastic materials together with thermal pressurization
 #pragma omp simd
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      normalStressStick[pointIndex] = faultStresses.normalStress[pointIndex] +
+                                      this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
+                                      faultStresses.fluidPressure[pointIndex] +
+                                      this->initialPressure_[ltsFace][pointIndex] -
+                                      tpMethod_.getFluidPressure(ltsFace, pointIndex);
       normalStress[pointIndex] =
           std::min(static_cast<real>(0.0),
-                   faultStresses.normalStress[pointIndex] +
-                       this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
-                       faultStresses.fluidPressure[pointIndex] +
-                       this->initialPressure_[ltsFace][pointIndex] -
-                       tpMethod_.getFluidPressure(ltsFace, pointIndex) -
+                   normalStressStick[pointIndex] -
                        this->slipRateMagnitude_[ltsFace][pointIndex] * etaNormal[pointIndex]);
+    }
+  }
+
+  /**
+   * The effective normal stress a trial slip rate belongs to.
+   *
+   * Without the anisotropic normal coupling this is the value updateNormalStress left behind and
+   * the solve is the one every other material runs. With it, sigma follows the slip rate, and
+   * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
+   * resolves it at a linear rate, into the quadratic one.
+   */
+#pragma omp declare simd
+  static real
+      effectiveNormalStress(const std::array<real, misc::NumPaddedPoints>& normalStress,
+                            const std::array<real, misc::NumPaddedPoints>& normalStressStick,
+                            const std::array<real, misc::NumPaddedPoints>& etaNormal,
+                            real slipRate,
+                            std::uint32_t pointIndex) {
+    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+      return std::min(static_cast<real>(0.0),
+                      normalStressStick[pointIndex] - slipRate * etaNormal[pointIndex]);
+    } else {
+      return normalStress[pointIndex];
     }
   }
 
