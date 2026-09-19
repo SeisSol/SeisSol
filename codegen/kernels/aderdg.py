@@ -153,9 +153,11 @@ class ADERDGBase(ABC):
         )
 
         # The canonical vertex numbering forces the face orientation index to
-        # zero on every interior face, so fP is a compile time constant and
-        # folds into the neighbour change of basis. However, new: we now always
-        # not align the tensor for multisim‌. (unlike fP)
+        # zero on every interior face, so the neighbouring flux matrix is the
+        # constant fP(0) and folds into the neighbour change of basis. The
+        # stride alignment is given explicitly, since the name based rule would
+        # key off the "fP" prefix, while this tensor takes the role, and hence
+        # the alignment, of a change of basis matrix.
         self.db.update(
             tensor_collection_from_constant_expression(
                 "fPrT",
