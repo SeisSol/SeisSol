@@ -398,8 +398,11 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 
-  if constexpr (model::MaterialT::Type != model::MaterialType::Elastic &&
-                model::MaterialT::Type != model::MaterialType::Viscoelastic) {
+  // named positively: the matrices below are only filled for the materials that go through the
+  // general branch of initializeDynamicRuptureMatrices, and reading them for anything else would
+  // reconstruct the Godunov state from zeros
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic ||
+                model::MaterialT::Type == model::MaterialType::Poroelastic) {
     // Anisotropy couples the fault-normal and the two tangential directions, poroelasticity adds
     // the fluid pressure as a fourth interface variable. In both cases the Godunov state has to be
     // reconstructed with the full matrix -- exactly as
