@@ -285,7 +285,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       const real dxOld = dx;
       const real xNewton = x - g / dG;
-      const real xBisect = static_cast<real>(0.5) * (xLow + xHigh);
+      // Bisect geometrically. The bracket spans the whole admissible range of slip rates, from
+      // almostZero() up to the free-slip limit tau/eta_s, so its arithmetic midpoint sits many
+      // orders of magnitude above the root of a locked or creeping point, and a fallback would
+      // then need one halving per factor of two to walk back down. The geometric midpoint halves
+      // the number of decades instead, which is the scale the root lives on. The two square roots
+      // keep the product from underflowing for the smallest brackets.
+      const real xBisect = std::sqrt(xLow) * std::sqrt(xHigh);
 
       // bisect if Newton leaves the bracket or does not outrun bisection
       const bool useBisect = (xNewton <= xLow) || (xNewton >= xHigh) ||

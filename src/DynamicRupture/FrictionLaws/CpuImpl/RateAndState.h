@@ -422,7 +422,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
             -invEtaS * (std::abs(normalStress[pointIndex]) * dMuF) - static_cast<real>(1.0);
 
         const real xNewton = x - g[pointIndex] / dG;
-        const real xBisect = static_cast<real>(0.5) * (xLow[pointIndex] + xHigh[pointIndex]);
+        // Bisect geometrically. The bracket spans the whole admissible range of slip rates,
+        // from almostZero() up to the free-slip limit tau/eta_s, so its arithmetic midpoint sits
+        // many orders of magnitude above the root of a locked or creeping point, and a fallback
+        // would then need one halving per factor of two to walk back down. The geometric midpoint
+        // halves the number of decades instead, which is the scale the root lives on. The two
+        // square roots keep the product from underflowing for the smallest brackets.
+        const real xBisect = std::sqrt(xLow[pointIndex]) * std::sqrt(xHigh[pointIndex]);
         const bool useBisect =
             (xNewton <= xLow[pointIndex]) || (xNewton >= xHigh[pointIndex]) ||
             (std::abs(static_cast<real>(2.0) * g[pointIndex]) > std::abs(dxOld[pointIndex] * dG));
