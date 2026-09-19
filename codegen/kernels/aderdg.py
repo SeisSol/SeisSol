@@ -142,7 +142,7 @@ class ADERDGBase(ABC):
             CSCMemoryLayout,
         )
 
-        self.selectTractionSpp = self.mapToTractions()[:, :3]
+        self.selectTractionSpp = self.tractionMatrixSpp()
         self.tractionPlusMatrix = Tensor(
             "tractionPlusMatrix",
             self.selectTractionSpp.shape,
@@ -205,6 +205,16 @@ class ADERDGBase(ABC):
 
     def mapToTractions(self):
         return self.extractTractions().T
+
+    def tractionMatrixSpp(self):
+        """Sparsity pattern of the traction averaging matrices b+ and b-.
+
+        Entry (q, p) is the weight with which quantity q of one side enters component p of the
+        interface traction, so the pattern is the transpose of extractTractions, restricted to
+        the three components the frictional work is computed with. Materials whose impedance is
+        not diagonal reach more rows and override this.
+        """
+        return self.mapToTractions()[:, :3]
 
     @abstractmethod
     def numberOfQuantities(self):
