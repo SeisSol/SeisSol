@@ -13,6 +13,9 @@
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
+#include <cmath>
+#include <limits>
+
 namespace seissol::dr::friction_law::gpu {
 /**
  * General implementation of a rate and state solver
@@ -231,9 +234,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     //   g(0+)          = invEtaS * tau            > 0
     //   g(tau*invEtaS) = -invEtaS*|sigma_n|*mu(.) < 0
     // rtsafe: Newton while it stays in the bracket and outruns bisection, else bisect.
-    // Bracket width is non-increasing and halves on every fallback => termination is in
-    // V-space (|dV| < xacc), immune to the residual noise floor that makes a |g|-threshold
-    // circulate at low precision.
+    // Bracket width is non-increasing and halves on every fallback => termination is relative
+    // in V-space (|dV| < xacc * V), with two floors that keep the test reachable in finite
+    // precision: xacc clamped to a few ulp, and a residual that has sunk into the rounding
+    // noise of its own evaluation.
 
     const auto details = Derived::getMuDetails(ctx, localStateVariable);
     const real absN = std::abs(normalStress);
@@ -244,9 +248,15 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     real x = std::min(std::max(slipRateMagnitude, xLow), xHigh); // warm start, clamped
     real dx = xHigh - xLow;                                      // becomes dxOld on first iteration
 
-    // rsSlipRateTolerance is dimensionally a slip rate => reuse directly as the V-space
-    // step tolerance. Reproduces the current convergence scale, but now terminating.
-    const real xacc = ctx.data->drParameters.rsSlipRateTolerance;
+    // Number of roundings that enter one residual evaluation; used to size both floors below.
+    constexpr real NoiseFactor = 4;
+    constexpr real Eps = std::numeric_limits<real>::epsilon();
+
+    // rsSlipRateTolerance is a RELATIVE step tolerance. A nonzero step is at least one ulp of the
+    // iterate, so a tolerance below Eps cannot be met at all and would leave the exact-fixed-point
+    // guard as the only way out. Clamp it to a few ulp.
+    const real xacc =
+        std::max(static_cast<real>(ctx.data->drParameters.rsSlipRateTolerance), NoiseFactor * Eps);
 
     real muF{0};
     bool converged = false;
@@ -260,6 +270,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const real dMuF = Derived::updateMuDerivative(ctx, x, details);
       const real g = -invEtaS * (absN * muF - tau) - x;
       const real dG = -invEtaS * (absN * dMuF) - static_cast<real>(1);
+
+      // absN * mu and tau cancel at the root, so the rounding error of g does not shrink with the
+      // iterate: it stays at Eps times the magnitude of the two cancelling terms. Below that level
+      // the sign of g -- and with it the bracket update -- carries no information.
+      const real gNoise = NoiseFactor * Eps * invEtaS * (absN * muF + tau);
 
       // maintain the straddling bracket from sign(g) (g decreasing):
       //   g > 0 => root at larger  V => raise lower bound
@@ -278,8 +293,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const real xUpdated = useBisect ? xBisect : xNewton;
       dx = xUpdated - x;
 
-      // V-space convergence + no-representable-change guard => cannot livelock
-      const bool nowConverged = (std::abs(dx) < xacc * std::abs(x)) || (xUpdated == x);
+      // V-space convergence, residual-noise floor, and the no-representable-change guard
+      // => cannot livelock
+      const bool nowConverged =
+          (std::abs(dx) < xacc * std::abs(x)) || (std::abs(g) <= gNoise) || (xUpdated == x);
 
       // advance active, not-yet-converged lanes; freeze at the converged point so that
       // slipRateTest and exportMu are the mu-consistent pair at that point

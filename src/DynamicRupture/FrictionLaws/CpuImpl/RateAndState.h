@@ -12,6 +12,9 @@
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
+#include <cmath>
+#include <limits>
+
 #ifdef __INTEL_LLVM_COMPILER
 #if __INTEL_LLVM_COMPILER >= 20250000
 #define SEISSOL_INTEL_SIMD_EXCEPTION
@@ -333,9 +336,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    *   g(0+)            = +invEtaS * Theta            > 0
    *   g(Theta*invEtaS) = -invEtaS * |sigma_n| * mu   < 0.
    * We take Newton while it stays in the bracket and outruns bisection, else bisect. The bracket
-   * width is non-increasing and halves on every fallback, so we terminate in SLIP-RATE space
-   * (|dV| < xacc) instead of on |g| -- immune to the cancellation noise floor ~eps*|sigma_n|*mu/eta
-   * that makes a |g|-threshold circulate at low precision.
+   * width is non-increasing and halves on every fallback, so termination is relative in SLIP-RATE
+   * space (|dV| < xacc * V). Two floors keep that test reachable in finite precision: xacc is
+   * clamped to a few ulp, and an iterate whose residual has sunk into the rounding noise of its
+   * own evaluation counts as converged, because no further step can be told from noise.
    */
   bool invertSlipRateIterative(std::size_t ltsFace,
                                const std::array<real, misc::NumPaddedPoints>& localStateVariable,
@@ -348,10 +352,19 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     real xLow[misc::NumPaddedPoints]{};
     real xHigh[misc::NumPaddedPoints]{};
     real dxOld[misc::NumPaddedPoints]{};        // previous step, for the "outrun bisection" test
+    real gNoise[misc::NumPaddedPoints]{};       // rounding noise of the residual, per point
     int32_t converged[misc::NumPaddedPoints]{}; // int not bool: keeps ICX SIMD happy (cf. below)
 
     const real invEtaS = this->impAndEta_[ltsFace].invEtaS;
-    const real xacc = this->drParameters_.rsSlipRateTolerance; // dimensionally a slip rate: reuse
+
+    // Number of roundings that enter one residual evaluation; used to size both floors below.
+    constexpr real NoiseFactor = 4;
+    constexpr real Eps = std::numeric_limits<real>::epsilon();
+
+    // rsSlipRateTolerance is a RELATIVE step tolerance. A nonzero step is at least one ulp of the
+    // iterate, so a tolerance below Eps cannot be met at all and would leave the exact-fixed-point
+    // guard as the only way out. Clamp it to a few ulp.
+    const real xacc = std::max(this->drParameters_.rsSlipRateTolerance, NoiseFactor * Eps);
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
@@ -386,6 +399,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         g[pointIndex] = -invEtaS * (std::abs(normalStress[pointIndex]) * muF[pointIndex] -
                                     absoluteShearStress[pointIndex]) -
                         x;
+        // |sigma_n| * mu and tau cancel at the root, so the rounding error of g does not shrink
+        // with the iterate: it stays at Eps times the magnitude of the two cancelling terms. Below
+        // that level the sign of g -- and with it the bracket update -- carries no information.
+        gNoise[pointIndex] = NoiseFactor * Eps * invEtaS *
+                             (std::abs(normalStress[pointIndex]) * muF[pointIndex] +
+                              absoluteShearStress[pointIndex]);
         const bool gPos = g[pointIndex] > static_cast<real>(0); // g decreasing: g>0 => root above x
         xLow[pointIndex] = gPos ? x : xLow[pointIndex];
         xHigh[pointIndex] = !gPos ? x : xHigh[pointIndex];
@@ -410,7 +429,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         const real xUpdated = useBisect ? xBisect : xNewton;
         const real step = xUpdated - x;
 
-        const bool laneConv = (std::abs(step) < xacc * std::abs(x)) || (xUpdated == x);
+        const bool laneConv = (std::abs(step) < xacc * std::abs(x)) ||
+                              (std::abs(g[pointIndex]) <= gNoise[pointIndex]) || (xUpdated == x);
         const int32_t nowConv = (converged[pointIndex] != 0 || laneConv) ? 1 : 0;
         converged[pointIndex] = nowConv;
 
