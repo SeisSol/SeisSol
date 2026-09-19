@@ -43,6 +43,23 @@ ImpedanceMatrices testImpedance() {
   return impedanceMatrices;
 }
 
+/// eta with a deliberately asymmetric shear block. Physical impedances are self-adjoint, which
+/// makes eta and its transpose interchangeable -- this one tells them apart.
+ImpedanceMatrices asymmetricImpedance() {
+  ImpedanceMatrices impedanceMatrices;
+  auto eta = init::eta::view::create(impedanceMatrices.eta);
+  eta(0, 0) = 3.8e6;
+  eta(0, 1) = 1.1e5;
+  eta(0, 2) = 2.2e5;
+  eta(1, 0) = 3.3e5;
+  eta(1, 1) = 2.1e6;
+  eta(1, 2) = 4.4e5;
+  eta(2, 0) = 5.5e5;
+  eta(2, 1) = 6.6e5;
+  eta(2, 2) = 2.3e6;
+  return impedanceMatrices;
+}
+
 ImpedanceMatrices isotropicImpedance(real etaS) {
   ImpedanceMatrices impedanceMatrices;
   auto eta = init::eta::view::create(impedanceMatrices.eta);
@@ -172,6 +189,47 @@ TEST_CASE("Anisotropic slip rate solve" * doctest::test_suite("dynamicrupture"))
     CHECK(solution.slipRate == static_cast<real>(0.0));
     CHECK(std::isfinite(solution.direction1));
     CHECK(std::isfinite(solution.direction2));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The projections of eta the friction laws use. They index a flat, column-major array, so the
+// checks below state which index is the row and which the column.
+// ---------------------------------------------------------------------------
+TEST_CASE("Anisotropic impedance projections" * doctest::test_suite("dynamicrupture")) {
+  namespace common = seissol::dr::friction_law::common;
+
+  const ImpedancesAndEta impAndEta{};
+  auto impedanceMatrices = asymmetricImpedance();
+  const auto eta = init::eta::view::create(impedanceMatrices.eta);
+
+  constexpr real V1 = 0.37;
+  constexpr real V2 = -0.91;
+  const real magnitude = std::sqrt(V1 * V1 + V2 * V2);
+  const real n1 = V1 / magnitude;
+  const real n2 = V2 / magnitude;
+
+  SUBCASE("matmulEta applies eta, not its transpose") {
+    const auto [w1, w2] = common::matmulEta(impAndEta, impedanceMatrices, V1, V2);
+
+    CHECK(w1 == doctest::Approx(eta(1, 1) * V1 + eta(1, 2) * V2).epsilon(1e-5));
+    CHECK(w2 == doctest::Approx(eta(2, 1) * V1 + eta(2, 2) * V2).epsilon(1e-5));
+  }
+
+  SUBCASE("the normal coupling reads the fault-normal row") {
+    const auto wn = common::matmulEtaNormal(impAndEta, impedanceMatrices, V1, V2);
+
+    CHECK(wn == doctest::Approx(eta(0, 1) * V1 + eta(0, 2) * V2).epsilon(1e-5));
+  }
+
+  SUBCASE("projectEta is the quadratic form of the shear block") {
+    const auto [etaProj, invEtaProj] =
+        common::projectEta(impAndEta, impedanceMatrices, V1, V2, magnitude);
+
+    const real expected =
+        eta(1, 1) * n1 * n1 + (eta(1, 2) + eta(2, 1)) * n1 * n2 + eta(2, 2) * n2 * n2;
+    CHECK(etaProj == doctest::Approx(expected).epsilon(1e-5));
+    CHECK(invEtaProj == doctest::Approx(1.0 / expected).epsilon(1e-5));
   }
 }
 

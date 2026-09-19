@@ -797,11 +797,12 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     // the anisotropic block is always 3x3 (no fluid pressure component)
     constexpr std::uint32_t Count = 3;
 
+    // eta is a dense, column-major tensor: eta[col * Count + row]
     const real w1 =
-        impedanceMatrices.eta[Count * 1 + 1] * v1 + impedanceMatrices.eta[Count * 1 + 2] * v2;
+        impedanceMatrices.eta[Count * 1 + 1] * v1 + impedanceMatrices.eta[Count * 2 + 1] * v2;
 
     const real w2 =
-        impedanceMatrices.eta[Count * 2 + 1] * v1 + impedanceMatrices.eta[Count * 2 + 2] * v2;
+        impedanceMatrices.eta[Count * 1 + 2] * v1 + impedanceMatrices.eta[Count * 2 + 2] * v2;
 
     return {w1, w2};
   } else {
