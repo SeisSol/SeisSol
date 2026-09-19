@@ -47,10 +47,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
            0);
   }
 
-  for (std::size_t h = 0; h < Cell::Dim; ++h) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->neighborFluxMatrices(h))) % Alignment == 0);
-  }
-
   for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
     for (std::size_t h = 0; h < Cell::Dim; ++h) {
       assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
@@ -67,8 +63,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
   deviceNfKrnlPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype_.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype_.fP = global.onDevice->neighborFluxMatrices;
+  deviceNfKrnlPrototype_.fPrT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
 #endif
   deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
