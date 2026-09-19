@@ -237,7 +237,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         const real trialMagnitude = misc::magnitude(totalTraction1, totalTraction2);
         const real slipRate = this->slipRateMagnitude_[ltsFace][pointIndex];
 
-        const real strength = absoluteShearTraction[pointIndex] - slipRate / etaInv[pointIndex];
+        const auto [etaProj, unusedInv] = common::projectEta(this->impAndEta_[ltsFace],
+                                                             this->impedanceMatrices_[ltsFace],
+                                                             slipDirection1[pointIndex],
+                                                             slipDirection2[pointIndex],
+                                                             static_cast<real>(1.0));
+
+        const real strength = absoluteShearTraction[pointIndex] - slipRate * etaProj;
 
         const auto [n1, n2] = common::updateSlipDirection(this->impAndEta_[ltsFace],
                                                           this->impedanceMatrices_[ltsFace],
