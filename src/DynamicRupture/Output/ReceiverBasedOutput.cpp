@@ -194,25 +194,25 @@ void ReceiverOutput::calcFaultOutput(
     local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
-    // every stress source at the fraction of it that is in effect at this time
+    // every stress source at the fraction of it that is in effect at this time; the whole tensor,
+    // since the total traction output rotates it
+    std::array<real, 6> initialStress{};
     {
       const auto sourceCount = stressSourceCount(*drParameters_);
       const auto* stresses = local.layer->var<DynamicRupture::NucleationStressInFaultCS>();
-      real traction1 = 0;
-      real traction2 = 0;
-      real normalTraction = 0;
       for (std::uint32_t source = 0; source < sourceCount; ++source) {
         const auto fraction =
             stressSourceFraction(*drParameters_, source, static_cast<real>(local.time));
         const auto& patch = stresses[local.ltsId * sourceCount + source];
-        traction1 += patch[QuantityIndices::XY][local.gpIndex] * fraction;
-        traction2 += patch[QuantityIndices::XZ][local.gpIndex] * fraction;
-        normalTraction += patch[QuantityIndices::XX][local.gpIndex] * fraction;
+        for (std::size_t stressVar = 0; stressVar < initialStress.size(); ++stressVar) {
+          initialStress[stressVar] += patch[stressVar][local.gpIndex] * fraction;
+        }
       }
-      local.iniTraction1 = traction1;
-      local.iniTraction2 = traction2;
-      local.iniNormalTraction = normalTraction;
     }
+
+    local.iniTraction1 = initialStress[QuantityIndices::XY];
+    local.iniTraction2 = initialStress[QuantityIndices::XZ];
+    local.iniNormalTraction = initialStress[QuantityIndices::XX];
     local.fluidPressure = this->computeFluidPressure(local);
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
@@ -342,7 +342,7 @@ void ReceiverOutput::calcFaultOutput(
       std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
       for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
-        unrotatedInitStress[stressVar] = initStresses[stressVar][local.gpIndex];
+        unrotatedInitStress[stressVar] = initialStress[stressVar];
       }
       alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
