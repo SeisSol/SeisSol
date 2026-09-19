@@ -185,12 +185,37 @@ def addKernels(generator, aderdg, include_tensors, targets):
         alignStride=True,
         temporary=True,
     )
-    INodalTmp = OptionalDimTensor(
-        "INodalTmp",
-        aderdg.INodal.optName(),
-        aderdg.INodal.optSize(),
-        aderdg.INodal.optPos(),
-        (aderdg.numberOf2DBasisFunctions(), aderdg.numberOfQuantities()),
+    # Number of displacement components that the Taylor series contributes to:
+    # the normal one always, the two tangential ones only if the material
+    # carries shear.
+    numberOfDisplacementComponents = 3 if aderdg.velocityOffset() > 1 else 1
+
+    # Modal accumulators. The Taylor coefficients of eta are assembled in modal
+    # space and evaluated at the face nodes once, at the end of the kernel.
+    MPrev = OptionalDimTensor(
+        "MPrev",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOf3DBasisFunctions, 1),
+        alignStride=True,
+        temporary=True,
+    )
+    MDisp = OptionalDimTensor(
+        "MDisp",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOf3DBasisFunctions, numberOfDisplacementComponents),
+        alignStride=True,
+        temporary=True,
+    )
+    MInt = OptionalDimTensor(
+        "MInt",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOf3DBasisFunctions, 1),
         alignStride=True,
         temporary=True,
     )
@@ -217,6 +242,12 @@ def addKernels(generator, aderdg, include_tensors, targets):
         # all coefficients.
 
         def kernelPerFace(f):
+            # The recursion is affine with node-independent coefficients, so it
+            # splits into a part driven by eta at the beginning of the timestep
+            # and a part driven by the interior derivatives. The former only
+            # picks up powers of gamma = -1/Z rho g and stays at the face nodes;
+            # the latter is assembled in modal space and evaluated at the nodes
+            # once, after the series is complete.
             kernel = [
                 faceDisplacementTmp["mp"]
                 <= faceDisplacement["mn"]
@@ -229,36 +260,75 @@ def addKernels(generator, aderdg, include_tensors, targets):
             ]
 
             for i in range(1, aderdg.order + 1):
+                velocitiesU = aderdg.dQs[i - 1]["lm"] * aderdg.Tinv["pm"].subslice(
+                    "p", vidx, vidx + 1
+                )
+                pressure = aderdg.dQs[i - 1]["lm"] * aderdg.Tinv["pm"].subslice(
+                    "p", 0, 1
+                )
 
-                kernel += [
-                    INodalTmp["kp"]
-                    <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
-                    * aderdg.dQs[i - 1]["lm"]
-                    * aderdg.Tinv["pm"]
-                ]
-                velocitiesU = INodalTmp["nq"].subslice("q", vidx, vidx + 1)
-                pressure = INodalTmp["nq"].subslice("q", 0, 1)
-
-                kernel += [
-                    Iprev["nq"]
-                    <= velocitiesU - invImp[""] * (rhoG[""] * Iprev["nq"] + pressure),
-                    faceDisplacementTmp["nq"].subslice("q", 0, 1)
-                    <= faceDisplacementTmp["nq"].subslice("q", 0, 1)
-                    + coeffs[i] * Iprev["nq"],
-                ]
-
-                if aderdg.velocityOffset() > 1:
-                    velocitiesVW = INodalTmp["nq"].subslice("q", vidx + 1, vidx + 3)
+                if i == 1:
+                    kernel += [MPrev["lp"] <= velocitiesU - invImp[""] * pressure]
+                else:
                     kernel += [
-                        faceDisplacementTmp["nq"].subslice("q", 1, 3)
-                        <= faceDisplacementTmp["nq"].subslice("q", 1, 3)
-                        + coeffs[i] * velocitiesVW,
+                        MPrev["lp"]
+                        <= velocitiesU
+                        - invImp[""] * (rhoG[""] * MPrev["lp"] + pressure)
                     ]
 
                 kernel += [
+                    Iprev["nq"] <= -invImp[""] * (rhoG[""] * Iprev["nq"]),
+                ]
+
+                if i == 1:
+                    kernel += [
+                        MDisp["lp"].subslice("p", 0, 1) <= coeffs[i] * MPrev["lp"],
+                        MInt["lp"] <= powers[i] * MPrev["lp"],
+                    ]
+                else:
+                    kernel += [
+                        MDisp["lp"].subslice("p", 0, 1)
+                        <= MDisp["lp"].subslice("p", 0, 1) + coeffs[i] * MPrev["lp"],
+                        MInt["lp"] <= MInt["lp"] + powers[i] * MPrev["lp"],
+                    ]
+
+                kernel += [
+                    faceDisplacementTmp["nq"].subslice("q", 0, 1)
+                    <= faceDisplacementTmp["nq"].subslice("q", 0, 1)
+                    + coeffs[i] * Iprev["nq"],
                     averageNormalDisplacement["nq"]
                     <= averageNormalDisplacement["nq"] + powers[i] * Iprev["nq"],
                 ]
+
+                if aderdg.velocityOffset() > 1:
+                    velocitiesVW = aderdg.dQs[i - 1]["lm"] * aderdg.Tinv["pm"].subslice(
+                        "p", vidx + 1, vidx + 3
+                    )
+                    if i == 1:
+                        kernel += [
+                            MDisp["lp"].subslice("p", 1, 3) <= coeffs[i] * velocitiesVW
+                        ]
+                    else:
+                        kernel += [
+                            MDisp["lp"].subslice("p", 1, 3)
+                            <= MDisp["lp"].subslice("p", 1, 3)
+                            + coeffs[i] * velocitiesVW
+                        ]
+
+            displacementTarget = faceDisplacementTmp["nq"]
+            if numberOfDisplacementComponents < 3:
+                displacementTarget = displacementTarget.subslice(
+                    "q", 0, numberOfDisplacementComponents
+                )
+
+            kernel += [
+                displacementTarget
+                <= displacementTarget
+                + aderdg.db.V3mTo2nFace[f][aderdg.t("nl")] * MDisp["lq"],
+                averageNormalDisplacement["nq"]
+                <= averageNormalDisplacement["nq"]
+                + aderdg.db.V3mTo2nFace[f][aderdg.t("nl")] * MInt["lq"],
+            ]
 
             kernel += [
                 faceDisplacement["mp"]
