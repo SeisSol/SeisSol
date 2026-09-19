@@ -133,7 +133,7 @@ with the same (monomial) basis on all cases, affecting LTS and the fault stress 
 Poroelastic results may therefore differ from earlier versions.
 
 Poroelastic Dynamic Rupture Impedance
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 (unreleased)
 
