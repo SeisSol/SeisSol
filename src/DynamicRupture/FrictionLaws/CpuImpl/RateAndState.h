@@ -560,10 +560,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         // derivative of g. |sigma| = -sigma while the fault is closed, and sigma follows the slip
         // rate through the anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
-        real dAbsSigma = static_cast<real>(0.0);
+        real dAbsSigma{};
         if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
           dAbsSigma =
               (sigma < static_cast<real>(0.0)) ? etaNormal[pointIndex] : static_cast<real>(0.0);
+        } else {
+          dAbsSigma = static_cast<real>(0.0);
         }
         const auto dGFrozen =
             -invEta[pointIndex] * (std::abs(sigma) * dMuF) - static_cast<real>(1.0);
