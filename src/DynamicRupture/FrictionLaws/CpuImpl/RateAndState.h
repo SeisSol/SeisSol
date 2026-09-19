@@ -569,7 +569,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                           const FaultStresses<Executor::Host>& faultStresses,
                           const std::array<real, misc::NumPaddedPoints>& etaNormal,
                           size_t ltsFace) {
-    // Todo(SW): consider poroelastic materials together with thermal pressurisation
+    // Todo(SW): consider poroelastic materials together with thermal pressurization
 #pragma omp simd
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       normalStress[pointIndex] =

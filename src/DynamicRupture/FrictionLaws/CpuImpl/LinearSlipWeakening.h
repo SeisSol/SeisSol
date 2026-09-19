@@ -373,7 +373,7 @@ class BiMaterialFault {
 
 #pragma omp declare simd
   /**
-   * See NoSpecialization::strengthHookSlope. The Prakash-Clifton regularisation low-passes the
+   * See NoSpecialization::strengthHookSlope. The Prakash-Clifton regularization low-passes the
    * strength, so only the fraction exp1mterm of a change in faultStrength arrives instantaneously.
    * regularizedStrength_ carries the previous step and does not depend on the current normal
    * stress, hence it drops out of the derivative.

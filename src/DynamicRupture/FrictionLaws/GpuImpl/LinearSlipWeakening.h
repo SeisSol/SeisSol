@@ -355,7 +355,7 @@ class BiMaterialFault {
   };
 
   /**
-   * See NoSpecialization::strengthHookSlope. The Prakash-Clifton regularisation low-passes the
+   * See NoSpecialization::strengthHookSlope. The Prakash-Clifton regularization low-passes the
    * strength, so only the fraction exp1mterm of a change in faultStrength arrives instantaneously;
    * regularizedStrength carries the previous step and drops out of the derivative.
    */

@@ -287,7 +287,7 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
         seissol::initializer::model::impedance_detail::lateralStressFromChristoffel(material);
     const auto stiffness = voigt(material);
 
-    // every polarisation of a wave travelling along the fault normal has only the strain rates
+    // every polarization of a wave travelling along the fault normal has only the strain rates
     // (eps_1, eps_6, eps_5); its full stress must be recovered from its traction alone
     Eigen::Matrix3d christoffel;
     christoffel << material.c11, material.c16, material.c15, material.c16, material.c66,
@@ -295,11 +295,11 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
     const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(christoffel);
 
     for (int mode = 0; mode < 3; ++mode) {
-      const Eigen::Vector3d polarisation = solver.eigenvectors().col(mode);
+      const Eigen::Vector3d polarization = solver.eigenvectors().col(mode);
       Eigen::Matrix<double, 6, 1> strain = Eigen::Matrix<double, 6, 1>::Zero();
-      strain(0) = polarisation(0);
-      strain(5) = polarisation(1);
-      strain(4) = polarisation(2);
+      strain(0) = polarization(0);
+      strain(5) = polarization(1);
+      strain(4) = polarization(2);
       const Eigen::Matrix<double, 6, 1> stress = stiffness * strain;
 
       const Eigen::Vector3d traction(stress(0), stress(5), stress(4));

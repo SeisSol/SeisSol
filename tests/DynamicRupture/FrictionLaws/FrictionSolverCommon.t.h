@@ -228,7 +228,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
   }
 
   SUBCASE("Device Range Matches Host Range") {
-    // The device specialisations collapse every point-indexed array to a scalar and address the
+    // The device specializations collapse every point-indexed array to a scalar and address the
     // padded point through startIndex instead. Instantiating them for RangeType::GPU on the host
     // is the only coverage that path gets in a CPU build, and it pins down the host/device index
     // handling that the single-slice rework touches.
