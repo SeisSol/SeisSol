@@ -941,7 +941,10 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
   real slipRate{};
   real etaEff{};
 
-  constexpr std::uint32_t DirectionSweeps = 2;
+  // the sweep can only move the direction where the shear block of eta is not a multiple of the
+  // identity, so one pass is the exact closed form for every other material
+  constexpr std::uint32_t DirectionSweeps =
+      model::MaterialT::Type == model::MaterialType::Anisotropic ? 2 : 1;
   for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
     // S(V) = S0 + slope * (eta * n)_n * V is exact, so the closed form survives
     etaEff = eta + strengthSlope * etaNormal;
