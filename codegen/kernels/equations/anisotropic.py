@@ -34,18 +34,13 @@ class AnisotropicADERDG(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
 
-    def extractTractions(self):
-        extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
-        extractTractionsSPP[0, 0] = 1
-        extractTractionsSPP[1, 0] = 1
-        extractTractionsSPP[2, 0] = 1
-        extractTractionsSPP[0, 3] = 1
-        extractTractionsSPP[1, 3] = 1
-        extractTractionsSPP[2, 3] = 1
-        extractTractionsSPP[0, 5] = 1
-        extractTractionsSPP[1, 5] = 1
-        extractTractionsSPP[2, 5] = 1
-        return extractTractionsSPP
+    def tractionMatrixSpp(self):
+        # b = eta * Y is dense for an anisotropic impedance, so every traction row carries all
+        # three columns
+        tractionMatrixSpp = np.zeros((self.numberOfQuantities(), 3))
+        for row in (0, 3, 5):
+            tractionMatrixSpp[row, :] = 1
+        return tractionMatrixSpp
 
 
 EQUATION_CLASS = AnisotropicADERDG
