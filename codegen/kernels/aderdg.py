@@ -163,6 +163,7 @@ class ADERDGBase(ABC):
                 simpleParameterSpace(4),
                 target_indices=self.t("ml"),
                 tensor_args={"alignStride": self.multipleSimulations == 1},
+                zero_tolerance=1e-14,
             )
         )
 
