@@ -65,7 +65,7 @@ class Local : public LocalKernel {
 
   kernels::DirichletBoundary dirichletBoundary_;
 
-  kernel::bcFreeSurfaceGravity bcFreeSurfaceGravity_;
+  kernel::fsgFlux fsgFlux_;
   kernel::bcDirichlet bcDirichlet_;
 
 #ifdef ACL_DEVICE
@@ -76,7 +76,7 @@ class Local : public LocalKernel {
   kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 
-  kernel::gpu_bcFreeSurfaceGravity deviceBCFreeSurfaceGravity_;
+  kernel::gpu_fsgFlux deviceFsgFlux_;
   kernel::gpu_bcDirichlet deviceBCDirichlet_;
 #endif
 };

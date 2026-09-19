@@ -283,6 +283,17 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             neighKrnl.Tinv = init::identityT::Values;
           }
           neighKrnl.execute();
+
+          if (cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
+            // the free-surface-gravity map is constant over the face, so it becomes
+            // part of the local flux solver; what is left of the boundary condition
+            // is the displacement-driven offset
+            kernel::foldFreeSurfaceGravity foldKrnl;
+            foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
+            foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+            foldKrnl.Tinv = matTinvData;
+            foldKrnl.execute();
+          }
         }
 
         seissol::model::initializeSpecificLocalData(

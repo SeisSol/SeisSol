@@ -63,8 +63,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   projectKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
   projectRotatedKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
-  bcFreeSurfaceGravity_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
-  bcFreeSurfaceGravity_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  fsgFlux_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
   bcDirichlet_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
   bcDirichlet_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
@@ -82,8 +81,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceLocalFluxAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
 
-  deviceBCFreeSurfaceGravity_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceBCFreeSurfaceGravity_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceFsgFlux_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
   deviceBCDirichlet_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
   deviceBCDirichlet_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
@@ -176,7 +174,7 @@ void Local::computeIntegral(
       assert(cellBoundaryMapping != nullptr);
       assert(materialData != nullptr);
 
-      auto kernel = bcFreeSurfaceGravity_;
+      auto kernel = fsgFlux_;
       kernel.g2m = -2 * this->gravitationalAcceleration_;
 
       const real localRho = materialData.local->getDensity();
@@ -184,11 +182,7 @@ void Local::computeIntegral(
       kernel.averageNormalDisplacement = tmp.nodalAvgDisplacements[face].data();
 
       kernel.Q = data.get<LTS::Dofs>();
-      kernel.I = timeIntegratedDoFs;
-      // TODO: prefetch
       kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
-
-      kernel.Tinv = cellBoundaryMapping[face].dataTinv;
 
       kernel.execute(face);
       break;
@@ -336,16 +330,11 @@ void Local::computeBatchedIntegral(
           dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
       auto** rhos = dataTable[fsgKey].get(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 
-      auto** dataTinv = dataTable[fsgKey].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** idofsPtrs = dataTable[fsgKey].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
-
-      auto bcKernel = deviceBCFreeSurfaceGravity_;
+      auto bcKernel = deviceFsgFlux_;
       bcKernel.g2m = -2 * gravitationalAcceleration_;
       bcKernel.rho = const_cast<const real**>(rhos);
       bcKernel.extraOffset_rho = 2;
       bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);
-      bcKernel.Tinv = const_cast<const real**>(dataTinv);
-      bcKernel.I = const_cast<const real**>(idofsPtrs);
       bcKernel.Q = (dataTable[fsgKey].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       bcKernel.AminusT = const_cast<const real**>(
           dataTable[fsgKey].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
@@ -484,7 +473,7 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
     // The (probably incorrect) assumption is that they are negligible.
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::bcFreeSurfaceGravity>(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux>(face);
       break;
     case FaceType::Dirichlet:
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::bcDirichlet>(face);

@@ -95,6 +95,28 @@ def addKernels(
 
     g2m = Scalar("g2m")  # -2 * g
 
+    main_stress_select = np.zeros(aderdg.numberOfQuantities())
+    main_stress_select[0:mainstresscnt] = 1.0
+    main_stress_select = Tensor(
+        "mainStressSelect", main_stress_select.shape, main_stress_select
+    )
+
+    # The free-surface-gravity map is diag(-1, ..., -1, 1, ..., 1) in the
+    # face-aligned basis and hence constant over the face. Folding it into the
+    # local flux solver turns the boundary into an ordinary local flux; only the
+    # displacement-driven offset is left over, and that one is rank one.
+    fsg_map = np.eye(aderdg.numberOfQuantities())
+    for i in range(mainstresscnt):
+        fsg_map[i, i] = -1.0
+    fsg_map = Tensor("fsgMap", fsg_map.shape, fsg_map)
+
+    fold_free_surface_gravity = (
+        aderdg.AplusT["mp"]
+        <= aderdg.AplusT["mp"]
+        + aderdg.Tinv["om"] * fsg_map["oq"] * aderdg.AminusT["qp"]
+    )
+    generator.add("foldFreeSurfaceGravity", fold_free_surface_gravity)
+
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
         projectToNodalBoundaryRotated = (
@@ -143,9 +165,16 @@ def addKernels(
             + easi_ident_map["abl"] * easi_boundary_constant["bl"]
         )
 
-        fsg_boundary = tmp["kp"].subslice("p", 0, mainstresscnt) <= g2m * rho[
-            ""
-        ] * averageNormalDisplacement["k"] - tmp["kp"].subslice("p", 0, mainstresscnt)
+        fsg_flux = (
+            lambda i: aderdg.Q["kp"]
+            <= aderdg.Q["kp"]
+            + g2m
+            * rho[""]
+            * aderdg.db.project2nFaceTo3m[i]["kn"]
+            * averageNormalDisplacement["n"]
+            * main_stress_select["o"]
+            * aderdg.AminusT["op"]
+        )
 
         generator.addFamily(
             f"{name_prefix}bcDirichlet",
@@ -159,13 +188,9 @@ def addKernels(
         )
 
         generator.addFamily(
-            f"{name_prefix}bcFreeSurfaceGravity",
+            f"{name_prefix}fsgFlux",
             simpleParameterSpace(4),
-            lambda i: [
-                projectToNodalBoundaryRotated(i),
-                fsg_boundary,
-                localFluxNodal(i),
-            ],
+            fsg_flux,
             target=target,
         )
 
