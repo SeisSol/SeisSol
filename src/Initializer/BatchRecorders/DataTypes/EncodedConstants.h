@@ -40,7 +40,6 @@ struct Wp {
     Tinv,
     FSGData,
     Rhos,
-    EasiBoundaryMap,
     EasiBoundaryConstant,
     ZinvExtra,
     IdofsAne,

@@ -266,7 +266,6 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
     std::array<std::vector<real*>, 4> derivatives{};
     std::array<std::vector<real*>, 4> dofsPtrs{};
-    std::array<std::vector<real*>, 4> idofsPtrs{};
     std::array<std::vector<real*>, 4> neighPtrs{};
     std::array<std::vector<real*>, 4> t{};
     std::array<std::vector<real*>, 4> tInv{};
@@ -289,8 +288,6 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
           derivatives[face].push_back(dQPtrs_[cell]);
           dofsPtrs[face].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
-          idofsPtrs[face].push_back(idofsAddressRegistry_[cell]);
-
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
           displacementsPtrs[face].push_back(dataHost.get<LTS::FaceDisplacementsDevice>()[face]);
@@ -326,7 +323,6 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, derivatives[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::T, t[face]);
@@ -347,11 +343,8 @@ void LocalIntegrationRecorder::recordDirichletBc() {
   const auto size = currentLayer_->size();
   if (size > 0) {
     std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> idofsPtrs{};
-    std::array<std::vector<real*>, Cell::NumFaces> tInv{};
     std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
 
-    std::array<std::vector<real*>, Cell::NumFaces> easiBoundaryMapPtrs{};
     std::array<std::vector<real*>, Cell::NumFaces> easiBoundaryConstantPtrs{};
 
     std::array<std::size_t, 4> counter{};
@@ -364,14 +357,9 @@ void LocalIntegrationRecorder::recordDirichletBc() {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Dirichlet) {
 
           dofsPtrs[face].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
-          idofsPtrs[face].push_back(idofsAddressRegistry_[cell]);
-
-          tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataTinv);
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
 
-          easiBoundaryMapPtrs[face].push_back(
-              dataHost.get<LTS::BoundaryMappingDevice>()[face].easiBoundaryMap);
           easiBoundaryConstantPtrs[face].push_back(
               dataHost.get<LTS::BoundaryMappingDevice>()[face].easiBoundaryConstant);
 
@@ -386,11 +374,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
             *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
         checkKey(key);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::Tinv, tInv[face]);
-
-        (*currentTable_)[key].set(inner_keys::Wp::Id::EasiBoundaryMap, easiBoundaryMapPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::EasiBoundaryConstant,
                                   easiBoundaryConstantPtrs[face]);
       }
