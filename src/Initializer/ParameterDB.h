@@ -178,7 +178,7 @@ class EasiBoundary {
 
   ~EasiBoundary();
 
-  void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
+  void query(const double* barycenter, real* mapTermsData, real* constantTermsData) const;
 
   private:
   easi::Component* model_;

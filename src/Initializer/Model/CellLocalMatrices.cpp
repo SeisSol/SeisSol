@@ -86,6 +86,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
 
 #pragma omp parallel
     {
@@ -283,6 +284,18 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             neighKrnl.Tinv = init::identityT::Values;
           }
           neighKrnl.execute();
+
+          if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
+            // the Dirichlet map is constant over the face, so it becomes part of
+            // the local flux solver; what is left of the boundary condition is
+            // the constant offset
+            kernel::foldDirichlet foldKrnl;
+            foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
+            foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+            foldKrnl.Tinv = matTinvData;
+            foldKrnl.easiBoundaryMap = boundaryMapping[cell][side].easiBoundaryMap;
+            foldKrnl.execute();
+          }
 
           if (cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
             // the free-surface-gravity map is constant over the face, so it becomes

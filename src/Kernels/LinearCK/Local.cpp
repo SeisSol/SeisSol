@@ -61,11 +61,9 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
 
   projectKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
-  projectRotatedKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
   fsgFlux_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
-  bcDirichlet_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
-  bcDirichlet_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  dirichletFlux_.dirichletLift = global.onHost->dirichletLift;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -82,8 +80,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 
   deviceFsgFlux_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceBCDirichlet_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceBCDirichlet_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceDirichletFlux_.dirichletLift = global.onDevice->dirichletLift;
 #endif
 }
 
@@ -188,21 +185,15 @@ void Local::computeIntegral(
       break;
     }
     case FaceType::Dirichlet: {
-      auto* easiBoundaryMap = cellBoundaryMapping[face].easiBoundaryMap;
       auto* easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
-      assert(easiBoundaryMap != nullptr);
 
-      auto kernel = bcDirichlet_;
+      auto kernel = dirichletFlux_;
       kernel.easiBoundaryConstant = easiBoundaryConstant;
-      kernel.easiBoundaryMap = easiBoundaryMap;
+      kernel.dt = timeStepWidth;
 
       kernel.Q = data.get<LTS::Dofs>();
-      kernel.I = timeIntegratedDoFs;
-      // TODO: prefetch
       kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
-
-      kernel.Tinv = cellBoundaryMapping[face].dataTinv;
 
       kernel.execute(face);
       break;
@@ -232,7 +223,7 @@ void Local::computeIntegral(
 void Local::computeBatchedIntegral(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& /*indicesTable*/,
-    SEISSOL_GPU_PARAM double /*timeStepWidth*/,
+    SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
@@ -350,19 +341,12 @@ void Local::computeBatchedIntegral(
     ConditionalKey dirichletKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
     if (dataTable.find(dirichletKey) != dataTable.end()) {
-      auto* easiBoundaryMapPtrs =
-          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
       auto* easiBoundaryConstantPtrs =
           dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
 
-      auto** dataTinv = dataTable[dirichletKey].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** idofsPtrs = dataTable[dirichletKey].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
-
-      auto bcKernel = deviceBCDirichlet_;
+      auto bcKernel = deviceDirichletFlux_;
       bcKernel.easiBoundaryConstant = const_cast<const real**>(easiBoundaryConstantPtrs);
-      bcKernel.easiBoundaryMap = const_cast<const real**>(easiBoundaryMapPtrs);
-      bcKernel.Tinv = const_cast<const real**>(dataTinv);
-      bcKernel.I = const_cast<const real**>(idofsPtrs);
+      bcKernel.dt = timeStepWidth;
       bcKernel.Q = (dataTable[dirichletKey].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       bcKernel.AminusT =
           const_cast<const real**>(dataTable[dirichletKey]
@@ -476,7 +460,7 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux>(face);
       break;
     case FaceType::Dirichlet:
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::bcDirichlet>(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux>(face);
       break;
     case FaceType::Analytical:
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);

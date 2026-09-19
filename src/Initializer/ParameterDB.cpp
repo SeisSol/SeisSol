@@ -670,25 +670,30 @@ EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
 
 EasiBoundary::~EasiBoundary() { delete model_; }
 
-void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
+void EasiBoundary::query(const double* barycenter,
+                         real* mapTermsData,
+                         real* constantTermsData) const {
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
-  if (tensor::INodal::Shape[1] != 9) {
+  if (tensor::easiBoundaryMap::Shape[0] != 9) {
     logError() << "easi-provided boundary data is only supported for elastic material at the "
                   "moment currently.";
   }
+  if (multisim::NumSimulations != 1) {
+    logError() << "easi-provided boundary data does not support fused simulations.";
+  }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
-  constexpr auto NumNodes = tensor::INodal::Shape[0];
-  auto query = easi::Query{NumNodes, 3};
-  size_t offset{0};
-  for (std::size_t i = 0; i < NumNodes; ++i) {
-    query.x(i, 0) = nodes[offset++];
-    query.x(i, 1) = nodes[offset++];
-    query.x(i, 2) = nodes[offset++];
-    query.group(i) = 1;
-  }
+
+  // The boundary condition is constant over the face, so it is sampled at the
+  // face barycenter.
+  auto query = easi::Query{1, 3};
+  query.x(0, 0) = barycenter[0];
+  query.x(0, 1) = barycenter[1];
+  query.x(0, 2) = barycenter[2];
+  query.group(0) = 1;
+
   const auto& supplied = model_->suppliedParameters();
 
   // Shear stresses are irrelevant for riemann problem
@@ -699,47 +704,35 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
 
   // We read out a affine transformation s.t. val in ghost cell
   // is equal to A * val_inside + b
-  // Note that easi only supports
 
-  // Constant terms stores all terms of the vector b
-  auto constantTerms = init::easiBoundaryConstant::view::create(constantTermsData);
-
-  // Map terms stores all terms of the linear map A
   auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
 
   easi::ArraysAdapter<real> adapter{};
 
   // Constant terms are named const_{varName}, e.g. const_u
-  offset = 0;
-  for (const auto& varName : varNames) {
-    const auto termName = std::string{"const_"} + varName;
+  for (size_t i = 0; i < varNames.size(); ++i) {
+    const auto termName = std::string{"const_"} + varNames[i];
     if (supplied.count(termName) > 0) {
-      adapter.addBindingPoint(termName, constantTermsData + offset, constantTerms.shape(0));
+      adapter.addBindingPoint(termName, constantTermsData + i);
+    } else {
+      constantTermsData[i] = 0.0;
     }
-    ++offset;
   }
   // Map terms are named map_{varA}_{varB}, e.g. map_u_v
   // Mirroring the velocity at the ghost cell would imply the param
   // map_u_u: -1
-  offset = 0;
   for (size_t i = 0; i < varNames.size(); ++i) {
-    const auto& varName = varNames[i];
     for (size_t j = 0; j < varNames.size(); ++j) {
-      const auto& otherVarName = varNames[j];
       auto termName = std::string{"map_"};
-      termName += varName;
+      termName += varNames[i];
       termName += "_";
-      termName += otherVarName;
+      termName += varNames[j];
       if (supplied.count(termName) > 0) {
-        adapter.addBindingPoint(
-            termName, mapTermsData + offset, mapTerms.shape(0) * mapTerms.shape(1));
+        adapter.addBindingPoint(termName, &mapTerms(i, j));
       } else {
         // Default: Extrapolate
-        for (size_t k = 0; k < mapTerms.shape(2); ++k) {
-          mapTerms(i, j, k) = (varName == otherVarName) ? 1.0 : 0.0;
-        }
+        mapTerms(i, j) = (i == j) ? 1.0 : 0.0;
       }
-      ++offset;
     }
   }
   easiEvalSafe(model_, query, adapter, "Dirichlet BC data");

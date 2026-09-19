@@ -123,6 +123,7 @@ struct GlobalData {
 
   seissol::nodal::tensor::V3mTo2nFace::Container<const real*> v3mTo2nFace;
   seissol::tensor::project2nFaceTo3m::Container<const real*> project2nFaceTo3m;
+  seissol::tensor::dirichletLift::Container<const real*> dirichletLift;
 
   /**
    * Addresses of the global face to nodal matrices

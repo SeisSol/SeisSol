@@ -111,7 +111,9 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         assert(easiBoundaryConstant != nullptr);
         if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
           if (easiBoundary.has_value()) {
-            easiBoundary->query(nodes, easiBoundaryMap, easiBoundaryConstant);
+            VrtxCoords faceBarycenter;
+            MeshTools::center(element, side, vertices, faceBarycenter);
+            easiBoundary->query(faceBarycenter, easiBoundaryMap, easiBoundaryConstant);
           } else {
             logError() << "Dirichlet face found, but no boundary condition definition given.";
           }

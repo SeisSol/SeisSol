@@ -214,6 +214,15 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   auto& meshReader = seissolInstance.meshReader();
   auto& memoryManager = seissolInstance.memoryManager();
 
+  std::optional<EasiBoundary> boundaryScript;
+  if (seissolParams.model.hasBoundaryFile) {
+    boundaryScript = EasiBoundary(seissolParams.model.boundaryFileName);
+  }
+
+  // the boundary mappings carry the Dirichlet map, which the flux solvers absorb
+  seissol::initializer::initializeBoundaryMappings(
+      meshReader, boundaryScript, memoryManager.ltsStorage());
+
   seissol::initializer::initializeCellLocalMatrices(
       meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
 
@@ -230,14 +239,6 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
       meshReader, memoryManager.ltsStorage(), memoryManager.backmap(), memoryManager.drStorage());
 
   memoryManager.initFrictionData();
-
-  std::optional<EasiBoundary> boundaryScript;
-  if (seissolParams.model.hasBoundaryFile) {
-    boundaryScript = EasiBoundary(seissolParams.model.boundaryFileName);
-  }
-
-  seissol::initializer::initializeBoundaryMappings(
-      meshReader, boundaryScript, memoryManager.ltsStorage());
 
   internal::setupRecorders(memoryManager.ltsStorage(),
                            memoryManager.drStorage(),

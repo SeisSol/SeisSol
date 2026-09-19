@@ -9,6 +9,7 @@ import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
+from yateto.util import tensor_collection_from_constant_expression
 
 
 def addKernels(
@@ -19,45 +20,20 @@ def addKernels(
     dynamicRuptureMethod,
     targets,
 ):
-    easi_ident_map = np.stack(
-        [np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(),
-        axis=2,
-    )
-    assert easi_ident_map.shape == (
-        aderdg.numberOfQuantities(),
-        aderdg.numberOfQuantities(),
-        aderdg.numberOf2DBasisFunctions(),
-    )
-
-    easi_ident_map = Tensor(
-        "easiIdentMap", easi_ident_map.shape, easi_ident_map, alignStride=False
-    )
-
     easi_boundary_constant = OptionalDimTensor(
         "easiBoundaryConstant",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()),
+        (aderdg.numberOfQuantities(),),
         alignStride=True,
     )
 
     easi_boundary_map = Tensor(
         "easiBoundaryMap",
-        (
-            aderdg.numberOfQuantities(),
-            aderdg.numberOfQuantities(),
-            aderdg.numberOf2DBasisFunctions(),
-        ),
+        (aderdg.numberOfQuantities(), aderdg.numberOfQuantities()),
         alignStride=False,
     )
-
-    create_easi_boundary_ghost_cells = (
-        aderdg.INodal["la"]
-        <= easi_boundary_map["abl"] * aderdg.INodal["lb"]
-        + easi_ident_map["abl"] * easi_boundary_constant["bl"]
-    )
-    generator.add("createEasiBoundaryGhostCells", create_easi_boundary_ghost_cells)
 
     projectToNodalBoundary = (
         lambda j: aderdg.INodal["kp"]
@@ -68,16 +44,6 @@ def addKernels(
         "projectToNodalBoundary",
         simpleParameterSpace(4),
         projectToNodalBoundary,
-    )
-
-    tmp = OptionalDimTensor(
-        "INodalTmp",
-        aderdg.INodal.optName(),
-        aderdg.INodal.optSize(),
-        aderdg.INodal.optPos(),
-        (aderdg.numberOf2DBasisFunctions(), aderdg.numberOfQuantities()),
-        alignStride=True,
-        temporary=True,
     )
 
     rho = Tensor("rho", ())
@@ -94,6 +60,7 @@ def addKernels(
     )
 
     g2m = Scalar("g2m")  # -2 * g
+    dt = Scalar("dt")
 
     main_stress_select = np.zeros(aderdg.numberOfQuantities())
     main_stress_select[0:mainstresscnt] = 1.0
@@ -110,6 +77,29 @@ def addKernels(
         fsg_map[i, i] = -1.0
     fsg_map = Tensor("fsgMap", fsg_map.shape, fsg_map)
 
+    # The Dirichlet map is constant over the face as well, so it folds the same
+    # way; the offset then lifts a constant nodal function, which is a fixed
+    # vector per face.
+    face_node_sum = Tensor(
+        "faceNodeSum",
+        (aderdg.numberOf2DBasisFunctions(),),
+        np.ones(aderdg.numberOf2DBasisFunctions()),
+    )
+    dirichlet_lift = tensor_collection_from_constant_expression(
+        base_name="dirichletLift",
+        expressions=lambda i: aderdg.db.project2nFaceTo3m[i]["kn"] * face_node_sum["n"],
+        group_indices=simpleParameterSpace(4),
+        target_indices="k",
+    )
+    aderdg.db.update(dirichlet_lift)
+
+    fold_dirichlet = (
+        aderdg.AplusT["mp"]
+        <= aderdg.AplusT["mp"]
+        + aderdg.Tinv["bm"] * easi_boundary_map["ab"] * aderdg.AminusT["ap"]
+    )
+    generator.add("foldDirichlet", fold_dirichlet)
+
     fold_free_surface_gravity = (
         aderdg.AplusT["mp"]
         <= aderdg.AplusT["mp"]
@@ -119,50 +109,13 @@ def addKernels(
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        projectToNodalBoundaryRotated = (
-            lambda j: aderdg.INodal["kp"]
-            <= aderdg.db.V3mTo2nFace[j][aderdg.t("kl")]
-            * aderdg.I["lm"]
-            * aderdg.Tinv["pm"]
-        )
-
-        generator.addFamily(
-            f"{name_prefix}projectToNodalBoundaryRotated",
-            simpleParameterSpace(4),
-            projectToNodalBoundaryRotated,
-            target=target,
-        )
-
-        projectDerivativeToNodalBoundaryRotated = (
-            lambda i, j: aderdg.INodal["kp"]
-            <= aderdg.db.V3mTo2nFace[j][aderdg.t("kl")]
-            * aderdg.dQs[i]["lm"]
-            * aderdg.Tinv["pm"]
-        )
-
-        generator.addFamily(
-            f"{name_prefix}projectDerivativeToNodalBoundaryRotated",
-            simpleParameterSpace(aderdg.order, 4),
-            projectDerivativeToNodalBoundaryRotated,
-            target=target,
-        )
-
-        projectToNodalBoundaryRotated = (
-            lambda i: tmp["kp"]
-            <= aderdg.db.V3mTo2nFace[i][aderdg.t("kl")]
-            * aderdg.I["lm"]
-            * aderdg.Tinv["pm"]
-        )
-        localFluxNodal = (
+        dirichlet_flux = (
             lambda i: aderdg.Q["kp"]
             <= aderdg.Q["kp"]
-            + aderdg.db.project2nFaceTo3m[i]["kn"] * tmp["no"] * aderdg.AminusT["op"]
-        )
-
-        easi_boundary = (
-            tmp["la"]
-            <= easi_boundary_map["abl"] * tmp["lb"]
-            + easi_ident_map["abl"] * easi_boundary_constant["bl"]
+            + dt
+            * aderdg.db.dirichletLift[i]["k"]
+            * easi_boundary_constant["o"]
+            * aderdg.AminusT["op"]
         )
 
         fsg_flux = (
@@ -177,13 +130,9 @@ def addKernels(
         )
 
         generator.addFamily(
-            f"{name_prefix}bcDirichlet",
+            f"{name_prefix}dirichletFlux",
             simpleParameterSpace(4),
-            lambda i: [
-                projectToNodalBoundaryRotated(i),
-                easi_boundary,
-                localFluxNodal(i),
-            ],
+            dirichlet_flux,
             target=target,
         )
 

@@ -61,23 +61,21 @@ class Local : public LocalKernel {
   kernel::localFluxNodal nodalLfKrnlPrototype_;
 
   kernel::projectToNodalBoundary projectKrnlPrototype_;
-  kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
 
   kernels::DirichletBoundary dirichletBoundary_;
 
   kernel::fsgFlux fsgFlux_;
-  kernel::bcDirichlet bcDirichlet_;
+  kernel::dirichletFlux dirichletFlux_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype_;
   kernel::gpu_localFlux deviceLocalFluxKernelPrototype_;
   kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype_;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
-  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 
   kernel::gpu_fsgFlux deviceFsgFlux_;
-  kernel::gpu_bcDirichlet deviceBCDirichlet_;
+  kernel::gpu_dirichletFlux deviceDirichletFlux_;
 #endif
 };
 
