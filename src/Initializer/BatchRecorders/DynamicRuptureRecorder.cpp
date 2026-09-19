@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
@@ -49,10 +50,12 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
 
   const auto size = currentLayer_->size();
   if (size > 0) {
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> timeDerivativeMinusPtrs {};
+    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count>
+        qInterpolatedMinusPtr {};
+    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count> idofsMinusPtr {};
+    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count> tInvTMinusPtr {};
+    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count>
+        timeDerivativeMinusPtrs {};
 
     const size_t idofsSize = tensor::Q::size();
     for (std::size_t faceId = 0; faceId < size; ++faceId) {
@@ -71,7 +74,8 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     }
 
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      for (std::size_t faceRelation = 0; faceRelation < Cell::NumFaces; ++faceRelation) {
+      for (std::size_t faceRelation = 0; faceRelation < dr::misc::NumFaceRelations;
+           ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
           (*currentDrTable_)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,

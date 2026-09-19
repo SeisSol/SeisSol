@@ -133,9 +133,9 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
   // interpolate all timesteps in a single kernel
 
-  runtime.envMany(16, [&](void* stream, size_t i) {
-    const auto side = i / 4;
-    const auto faceRelation = i % 4;
+  runtime.envMany(Cell::NumFaces * dr::misc::NumFaceRelations, [&](void* stream, size_t i) {
+    const auto side = i / dr::misc::NumFaceRelations;
+    const auto faceRelation = i % dr::misc::NumFaceRelations;
 
     ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
     if (table.find(minusSideKey) != table.end()) {

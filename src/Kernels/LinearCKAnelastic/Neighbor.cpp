@@ -10,6 +10,7 @@
 #include "Neighbor.h"
 
 #include "Common/Marker.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "Monitoring/Metric.h"
 
@@ -48,7 +49,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   }
 
   for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-    for (std::size_t h = 0; h < Cell::Dim; ++h) {
+    for (std::size_t h = 0; h < dr::misc::NumFaceRelations; ++h) {
       assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
              0);
     }
