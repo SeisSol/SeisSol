@@ -88,21 +88,39 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
                        const std::array<size_t, Dim1t>& rowIdx) {
   // NOTE: shape(0) is the number of *logical* rows of the sparse matrix
   // (NumQuantities), not the number of stored ones. Only the row indices we
-  // actually write have to be in range.
-  assert(Dim1t == static_cast<size_t>(Dim1));
+  // actually write have to be in range; they are ascending, so the last one
+  // bounds them all.
+  // (the dim parameters need to be int due to Eigen)
+  static_assert(Dim1t == static_cast<size_t>(Dim1),
+                "One target row index per row of the source matrix is required.");
   assert(rowIdx[Dim1t - 1] < tensorView.shape(0));
-  assert(tensorView.shape(1) == Dim2);
-  // (the dim praameters need to be int due to Eigen)
+  // the target may be narrower than the source: the traction averaging matrices only carry the
+  // components the frictional work is computed with, while the source also maps to the fluid
+  // pressure. Writing past the pattern corrupts the neighboring entry.
+  assert(tensorView.shape(1) <= static_cast<unsigned>(Dim2));
 
   tensorView.setZero();
   for (size_t row = 0; row < Dim1t; ++row) {
-    for (size_t col = 0; col < Dim2; ++col) {
+    for (size_t col = 0; col < tensorView.shape(1); ++col) {
       tensorView(rowIdx[row], col) = static_cast<S>(matrix(row, col));
     }
   }
 }
 
 constexpr size_t N = model::DrImpedanceDim;
+
+/**
+ * Quantity indices the traction components live at, i.e. the rows of the traction averaging
+ * matrices. Poroelasticity carries the fluid pressure as a fourth one; it has to match the
+ * sparsity pattern the code generator builds for tractionPlusMatrix.
+ */
+constexpr auto tractionRowIndices() {
+  if constexpr (::seissol::model::MaterialT::Type == ::seissol::model::MaterialType::Poroelastic) {
+    return std::array<size_t, 4>{0, 3, 5, 9};
+  } else {
+    return std::array<size_t, 3>{0, 3, 5};
+  }
+}
 
 } // namespace
 
@@ -412,8 +430,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         copyEigenToYateto(impedanceMatrix, impedanceView);
         copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
         copyEigenToYateto(etaMatrix, etaView);
-        copyEigenToYateto(bMatrix, tractionPlusMatrix, std::array<size_t, 3>{0, 3, 5});
-        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, std::array<size_t, 3>{0, 3, 5});
+        constexpr auto TractionRows = tractionRowIndices();
+        copyEigenToYateto(bMatrix, tractionPlusMatrix, TractionRows);
+        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, TractionRows);
 
         // reconstruction of the stress components outside of the Riemann problem; only needed by
         // the fault receiver output, which evaluates them on the plus side
