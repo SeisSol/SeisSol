@@ -82,10 +82,13 @@ class BaseFrictionLaw : public FrictionSolver {
         LIKWID_MARKER_STOP("computeDynamicRupturePreHook");
         SCOREP_USER_REGION_END(myRegionHandle)
 
-        SCOREP_USER_REGION_BEGIN(myRegionHandle,
-                                 "computeDynamicRuptureUpdateFrictionAndSlip",
-                                 SCOREP_USER_REGION_TYPE_COMMON)
-        LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
+        // NOTE: this region now covers the whole sub time step pipeline -- the stress precompute
+        // and the imposed state accumulation moved into the loop below and are no longer measured
+        // on their own. Timings are therefore not comparable with the ones of the two regions
+        // that used to surround it.
+        SCOREP_USER_REGION_BEGIN(
+            myRegionHandle, "computeDynamicRuptureTimeStepLoop", SCOREP_USER_REGION_TYPE_COMMON)
+        LIKWID_MARKER_START("computeDynamicRuptureTimeStepLoop");
         TractionResults<Executor::Host> tractionResults{};
 
         // loop over sub time steps (i.e. quadrature points in time
@@ -154,7 +157,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                                        timeIndex,
                                                        localTimeWeights[timeIndex]);
         }
-        LIKWID_MARKER_STOP("computeDynamicRuptureUpdateFrictionAndSlip");
+        LIKWID_MARKER_STOP("computeDynamicRuptureTimeStepLoop");
         SCOREP_USER_REGION_END(myRegionHandle)
 
         SCOREP_USER_REGION_BEGIN(
@@ -166,12 +169,12 @@ class BaseFrictionLaw : public FrictionSolver {
         SCOREP_USER_REGION_END(myRegionHandle)
 
         SCOREP_USER_REGION_BEGIN(myRegionHandle,
-                                 "computeDynamicRupturePostcomputeImposedState",
+                                 "computeDynamicRuptureFinalizeImposedState",
                                  SCOREP_USER_REGION_TYPE_COMMON)
-        LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
+        LIKWID_MARKER_START("computeDynamicRuptureFinalizeImposedState");
         common::finalizeImposedState(
             imposedState, imposedStatePlus_[ltsFace], imposedStateMinus_[ltsFace]);
-        LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
+        LIKWID_MARKER_STOP("computeDynamicRuptureFinalizeImposedState");
         SCOREP_USER_REGION_END(myRegionHandle)
 
         if (this->drParameters_.isFrictionEnergyRequired) {
