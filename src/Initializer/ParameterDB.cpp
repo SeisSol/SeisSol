@@ -44,8 +44,10 @@
 #include <iterator>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -676,10 +678,6 @@ void EasiBoundary::query(const double* barycenter,
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
-  if (tensor::easiBoundaryMap::Shape[0] != 9) {
-    logError() << "easi-provided boundary data is only supported for elastic material at the "
-                  "moment currently.";
-  }
   if (multisim::NumSimulations != 1) {
     logError() << "easi-provided boundary data does not support fused simulations.";
   }
@@ -696,37 +694,34 @@ void EasiBoundary::query(const double* barycenter,
 
   const auto& supplied = model_->suppliedParameters();
 
-  // Shear stresses are irrelevant for riemann problem
-  // Hence they have dummy names and won't be used for this bc.
-  // We have 9 variables s.t. our tensors have the correct shape.
-  const auto varNames =
-      std::array<std::string, 9>{"Tn", "Ts", "Td", "unused1", "unused2", "unused3", "u", "v", "w"};
+  // The ghost cell state is an affine function of the interior state, given in
+  // global coordinates: q_ghost = A q_inside + b. The entries of A are named
+  // map_{to}_{from}, those of b const_{to}, where the quantity names are the
+  // ones of the material at hand. Mirroring the x velocity at the ghost cell is
+  // therefore map_v1_v1: -1.
+  const auto& varNames = model::MaterialT::Quantities;
 
-  // We read out a affine transformation s.t. val in ghost cell
-  // is equal to A * val_inside + b
-
-  auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
+  auto mapTerms = init::easiBoundaryMapGlobal::view::create(mapTermsData);
 
   easi::ArraysAdapter<real> adapter{};
+  std::unordered_set<std::string> known;
 
-  // Constant terms are named const_{varName}, e.g. const_u
   for (size_t i = 0; i < varNames.size(); ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
+    known.insert(termName);
     if (supplied.count(termName) > 0) {
       adapter.addBindingPoint(termName, constantTermsData + i);
     } else {
       constantTermsData[i] = 0.0;
     }
   }
-  // Map terms are named map_{varA}_{varB}, e.g. map_u_v
-  // Mirroring the velocity at the ghost cell would imply the param
-  // map_u_u: -1
   for (size_t i = 0; i < varNames.size(); ++i) {
     for (size_t j = 0; j < varNames.size(); ++j) {
       auto termName = std::string{"map_"};
       termName += varNames[i];
       termName += "_";
       termName += varNames[j];
+      known.insert(termName);
       if (supplied.count(termName) > 0) {
         adapter.addBindingPoint(termName, &mapTerms(i, j));
       } else {
@@ -735,6 +730,20 @@ void EasiBoundary::query(const double* barycenter,
       }
     }
   }
+
+  for (const auto& termName : supplied) {
+    if (known.count(termName) == 0) {
+      std::ostringstream valid;
+      for (size_t i = 0; i < varNames.size(); ++i) {
+        valid << (i == 0 ? "" : ", ") << varNames[i];
+      }
+      logError() << "The boundary condition file supplies" << termName
+                 << "which is not a term of the boundary condition. Terms are named"
+                 << "map_{to}_{from} and const_{to}, where both quantity names are one of:"
+                 << valid.str() << ".";
+    }
+  }
+
   easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
 }
 

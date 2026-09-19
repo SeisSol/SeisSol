@@ -113,7 +113,19 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           if (easiBoundary.has_value()) {
             VrtxCoords faceBarycenter;
             MeshTools::center(element, side, vertices, faceBarycenter);
-            easiBoundary->query(faceBarycenter, easiBoundaryMap, easiBoundaryConstant);
+
+            real globalMapData[tensor::easiBoundaryMapGlobal::size()];
+            real globalConstantData[tensor::easiBoundaryConstantGlobal::size()];
+            easiBoundary->query(faceBarycenter, globalMapData, globalConstantData);
+
+            kernel::rotateBoundaryCondition rotateKrnl;
+            rotateKrnl.easiBoundaryMapGlobal = globalMapData;
+            rotateKrnl.easiBoundaryConstantGlobal = globalConstantData;
+            rotateKrnl.easiBoundaryMap = easiBoundaryMap;
+            rotateKrnl.easiBoundaryConstant = easiBoundaryConstant;
+            rotateKrnl.T = matTData;
+            rotateKrnl.Tinv = matTinvData;
+            rotateKrnl.execute();
           } else {
             logError() << "Dirichlet face found, but no boundary condition definition given.";
           }

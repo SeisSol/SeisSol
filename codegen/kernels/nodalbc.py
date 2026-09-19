@@ -35,6 +35,33 @@ def addKernels(
         alignStride=False,
     )
 
+    # The boundary condition is given in global coordinates; the face-aligned
+    # form that the flux solver absorbs is derived from it once per face.
+    easi_boundary_constant_global = OptionalDimTensor(
+        "easiBoundaryConstantGlobal",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (aderdg.numberOfQuantities(),),
+        alignStride=True,
+    )
+
+    easi_boundary_map_global = Tensor(
+        "easiBoundaryMapGlobal",
+        (aderdg.numberOfQuantities(), aderdg.numberOfQuantities()),
+        alignStride=False,
+    )
+
+    generator.add(
+        "rotateBoundaryCondition",
+        [
+            easi_boundary_map["ab"]
+            <= aderdg.Tinv["ac"] * easi_boundary_map_global["cd"] * aderdg.T["db"],
+            easi_boundary_constant["a"]
+            <= aderdg.Tinv["am"] * easi_boundary_constant_global["m"],
+        ],
+    )
+
     projectToNodalBoundary = (
         lambda j: aderdg.INodal["kp"]
         <= aderdg.db.V3mTo2nFace[j][aderdg.t("km")] * aderdg.I["mp"]
