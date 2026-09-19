@@ -77,11 +77,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext& __restrict ctx) {
     ctx.initialVariables.stateVarReference = ctx.stateVariableBuffer;
 
-    const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
-                                ctx.faultStresses.traction1;
+    const real totalTraction1 = ctx.initialStress.traction1 + ctx.faultStresses.traction1;
 
-    const real totalTraction2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
-                                ctx.faultStresses.traction2;
+    const real totalTraction2 = ctx.initialStress.traction2 + ctx.faultStresses.traction2;
 
     ctx.initialVariables.absoluteShearTraction = misc::magnitude(totalTraction1, totalTraction2);
 
@@ -123,11 +121,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * @returns 1 / eta_proj for the (possibly updated) direction
    */
   SEISSOL_DEVICE static real updateDirectionAndProjections(FrictionLawContext& __restrict ctx) {
-    const real totalTraction1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
-                                ctx.faultStresses.traction1;
+    const real totalTraction1 = ctx.initialStress.traction1 + ctx.faultStresses.traction1;
 
-    const real totalTraction2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
-                                ctx.faultStresses.traction2;
+    const real totalTraction2 = ctx.initialStress.traction2 + ctx.faultStresses.traction2;
 
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
       const auto [etaProj, unusedInv] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
@@ -414,9 +410,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    */
   SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& __restrict ctx) {
     ctx.initialVariables.normalStressStick =
-        ctx.faultStresses.normalStress +
-        ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
-        ctx.faultStresses.fluidPressure + ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] -
+        ctx.faultStresses.normalStress + ctx.initialStress.normalStress +
+        ctx.faultStresses.fluidPressure + ctx.initialStress.fluidPressure -
         TPMethod::getFluidPressure(ctx);
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),

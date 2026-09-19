@@ -38,6 +38,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                             const FaultStresses<Executor::Host>& initialStress,
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,
@@ -47,7 +48,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     // compute initial slip rate and reference values
     auto initialVariables = static_cast<Derived*>(this)->calcInitialVariables(
-        faultStresses, stateVariableBuffer, ltsFace);
+        faultStresses, initialStress, stateVariableBuffer, ltsFace);
     // these three are direction dependent and are swept along with the state variable below
     auto absoluteShearStress = std::move(initialVariables.absoluteShearTraction);
     auto etaInv = std::move(initialVariables.etaInv);
@@ -67,6 +68,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                        normalStressStick,
                                        absoluteShearStress,
                                        faultStresses,
+                                       initialStress,
                                        etaInv,
                                        etaNormal,
                                        slipDirection1,
@@ -83,8 +85,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                   etaInv,
                                   etaNormal,
                                   faultStresses,
+                                  initialStress,
                                   ltsFace);
-    updateNormalStress(normalStress, normalStressStick, faultStresses, etaNormal, ltsFace);
+    updateNormalStress(
+        normalStress, normalStressStick, faultStresses, initialStress, etaNormal, ltsFace);
     // compute final slip rates and traction from average of the iterative solution and initial
     // guess
     this->calcSlipRateAndTraction(stateVarReference,
@@ -149,6 +153,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    */
   InitialVariables
       calcInitialVariables(const FaultStresses<Executor::Host>& faultStresses,
+                           const FaultStresses<Executor::Host>& initialStress,
                            const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                            std::size_t ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
@@ -168,10 +173,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                  faultStresses.traction1[pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                  faultStresses.traction2[pointIndex];
+      const real totalTraction1 =
+          initialStress.traction1[pointIndex] + faultStresses.traction1[pointIndex];
+      const real totalTraction2 =
+          initialStress.traction2[pointIndex] + faultStresses.traction2[pointIndex];
       absoluteTraction[pointIndex] = misc::magnitude(totalTraction1, totalTraction2);
 
       const auto [_, invEta] = common::projectEta(this->impAndEta_[ltsFace],
@@ -204,7 +209,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     } // End of pointIndex-loop
 
     // after the loop: updateNormalStress reads slipRateMagnitude_, which is only set above
-    updateNormalStress(normalStress, normalStressStick, faultStresses, etaNormal, ltsFace);
+    updateNormalStress(
+        normalStress, normalStressStick, faultStresses, initialStress, etaNormal, ltsFace);
 
     return {absoluteTraction,
             temporarySlipRate,
@@ -233,14 +239,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& etaInv,
       [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& etaNormal,
       [[maybe_unused]] const FaultStresses<Executor::Host>& faultStresses,
+      [[maybe_unused]] const FaultStresses<Executor::Host>& initialStress,
       [[maybe_unused]] std::size_t ltsFace) {
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                    faultStresses.traction1[pointIndex];
-        const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                    faultStresses.traction2[pointIndex];
+        const real totalTraction1 =
+            initialStress.traction1[pointIndex] + faultStresses.traction1[pointIndex];
+        const real totalTraction2 =
+            initialStress.traction2[pointIndex] + faultStresses.traction2[pointIndex];
         const real trialMagnitude = misc::magnitude(totalTraction1, totalTraction2);
         const real slipRate = this->slipRateMagnitude_[ltsFace][pointIndex];
 
@@ -288,6 +295,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                    std::array<real, misc::NumPaddedPoints>& normalStressStick,
                                    std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
                                    const FaultStresses<Executor::Host>& faultStresses,
+                                   const FaultStresses<Executor::Host>& initialStress,
                                    std::array<real, misc::NumPaddedPoints>& etaInv,
                                    std::array<real, misc::NumPaddedPoints>& etaNormal,
                                    std::array<real, misc::NumPaddedPoints>& slipDirection1,
@@ -333,8 +341,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                     etaInv,
                                     etaNormal,
                                     faultStresses,
+                                    initialStress,
                                     ltsFace);
-      updateNormalStress(normalStress, normalStressStick, faultStresses, etaNormal, ltsFace);
+      updateNormalStress(
+          normalStress, normalStressStick, faultStresses, initialStress, etaNormal, ltsFace);
 
       // solve for new slip rate
       hasConverged = this->invertSlipRateIterative(ltsFace,
@@ -614,16 +624,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   void updateNormalStress(std::array<real, misc::NumPaddedPoints>& normalStress,
                           std::array<real, misc::NumPaddedPoints>& normalStressStick,
                           const FaultStresses<Executor::Host>& faultStresses,
+                          const FaultStresses<Executor::Host>& initialStress,
                           const std::array<real, misc::NumPaddedPoints>& etaNormal,
                           size_t ltsFace) {
     // Todo(SW): consider poroelastic materials together with thermal pressurization
 #pragma omp simd
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      normalStressStick[pointIndex] = faultStresses.normalStress[pointIndex] +
-                                      this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
-                                      faultStresses.fluidPressure[pointIndex] +
-                                      this->initialPressure_[ltsFace][pointIndex] -
-                                      tpMethod_.getFluidPressure(ltsFace, pointIndex);
+      normalStressStick[pointIndex] =
+          faultStresses.normalStress[pointIndex] + initialStress.normalStress[pointIndex] +
+          faultStresses.fluidPressure[pointIndex] + initialStress.fluidPressure[pointIndex] -
+          tpMethod_.getFluidPressure(ltsFace, pointIndex);
       normalStress[pointIndex] =
           std::min(static_cast<real>(0.0),
                    normalStressStick[pointIndex] -

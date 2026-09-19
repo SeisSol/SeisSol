@@ -67,6 +67,7 @@ class BaseFrictionLaw : public FrictionSolver {
       for (std::size_t ltsFace = 0; ltsFace < this->currLayerSize_; ++ltsFace) {
         alignas(Alignment) ImposedState<Executor::Host> imposedState{};
         alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
+        alignas(Alignment) FaultStresses<Executor::Host> initialStress{};
         const auto etaPDamp = drParameters_.etaDampEnd > this->fullUpdateTime_
                                   ? drParameters_.etaDamp
                                   : static_cast<real>(1.0);
@@ -108,19 +109,19 @@ class BaseFrictionLaw : public FrictionSolver {
 
           common::initializeTractionResults(faultStresses, tractionResults);
 
-          for (uint32_t i = 0; i < this->drParameters_.nucleationCount; ++i) {
-            common::adjustInitialStress(
-                initialStressInFaultCS_[ltsFace],
-                nucleationStressInFaultCS_[ltsFace * this->drParameters_.nucleationCount + i],
-                initialPressure_[ltsFace],
-                nucleationPressure_[ltsFace * this->drParameters_.nucleationCount + i],
-                updateTime,
-                this->drParameters_.t0[i],
-                this->drParameters_.s0[i],
-                this->deltaT_[timeIndex]);
-          }
+          common::computeInitialStress(
+              initialStress,
+              initialStressInFaultCS_[ltsFace],
+              initialPressure_[ltsFace],
+              &nucleationStressInFaultCS_[ltsFace * this->drParameters_.nucleationCount],
+              &nucleationPressure_[ltsFace * this->drParameters_.nucleationCount],
+              this->drParameters_.t0,
+              this->drParameters_.s0,
+              this->drParameters_.nucleationCount,
+              updateTime);
 
           static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,
+                                                             initialStress,
                                                              tractionResults,
                                                              stateVariableBuffer,
                                                              strengthBuffer,

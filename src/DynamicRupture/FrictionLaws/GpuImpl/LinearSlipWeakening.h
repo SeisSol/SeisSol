@@ -57,10 +57,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto& strength = ctx.strengthBuffer;
 
     // calculate absolute value of stress in Y and Z direction
-    const real totalStress1 =
-        ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] + faultStresses.traction1;
-    const real totalStress2 =
-        ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] + faultStresses.traction2;
+    const real totalStress1 = ctx.initialStress.traction1 + faultStresses.traction1;
+    const real totalStress2 = ctx.initialStress.traction2 + faultStresses.traction2;
     const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
 
     const auto [eta, invEta] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
@@ -203,10 +201,9 @@ class LinearSlipWeakeningLaw
     // The anisotropic normal/shear coupling is deliberately not applied here: the strength is
     // affine in the normal stress, so it is handled exactly through the divisor in
     // calcSlipRateAndTraction, using the slope filled in below.
-    const real totalNormalStress =
-        ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
-        ctx.faultStresses.normalStress + ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] +
-        ctx.faultStresses.fluidPressure;
+    const real totalNormalStress = ctx.initialStress.normalStress + ctx.faultStresses.normalStress +
+                                   ctx.initialStress.fluidPressure +
+                                   ctx.faultStresses.fluidPressure;
     strength = -ctx.data->cohesion[ctx.ltsFace][ctx.pointIndex] -
                ctx.data->mu[ctx.ltsFace][ctx.pointIndex] *
                    std::min(totalNormalStress, static_cast<real>(0.0));

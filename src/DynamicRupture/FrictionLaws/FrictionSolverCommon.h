@@ -424,47 +424,76 @@ SEISSOL_HOSTDEVICE inline void
 }
 
 /**
- * adjusts initial stresses based on the given nucleation ones
+ * The initial stress in effect at the given time, in the layout of the fault stresses it is added
+ * to: the initial state plus every nucleation, each scaled by the fraction of it that has been
+ * applied so far.
  *
- * @param[out] initialStressInFaultCS
- * @param[in] nucleationStressInFaultCS
- * @param[in] t0
- * @param[in] dt
- * @param[in] index - device iteration index
+ * The initial state is the nucleation that is applied instantaneously -- fraction one from the
+ * first step on -- so it enters the sum like any other and needs no case of its own.
+ *
+ * @param[out] initialStress
+ * @param[in] initialStressInFaultCS
+ * @param[in] initialPressure
+ * @param[in] nucleationStressInFaultCS the patches of this face, one per nucleation
+ * @param[in] nucleationPressure
+ * @param[in] t0 rise time of each nucleation
+ * @param[in] s0 onset of each nucleation
+ * @param[in] nucleationCount
+ * @param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
-// See https://github.com/llvm/llvm-project/issues/60163
-// NOLINTNEXTLINE
-SEISSOL_HOSTDEVICE inline void
-    adjustInitialStress(real initialStressInFaultCS[6][misc::NumPaddedPoints],
-                        const real nucleationStressInFaultCS[6][misc::NumPaddedPoints],
-                        // See https://github.com/llvm/llvm-project/issues/60163
-                        // NOLINTNEXTLINE
-                        real initialPressure[misc::NumPaddedPoints],
-                        const real nucleationPressure[misc::NumPaddedPoints],
-                        real fullUpdateTime,
-                        real t0,
-                        real s0,
-                        real dt,
-                        uint32_t startIndex = 0) {
-  if (fullUpdateTime <= t0 + s0 && fullUpdateTime >= s0) {
-    // one scalar for the whole fault, so the ramp costs nothing to evaluate in double
-    const auto gNuc = static_cast<real>(gaussianNucleationFunction::smoothStepIncrement<double>(
-        static_cast<double>(fullUpdateTime) - static_cast<double>(s0),
-        static_cast<double>(dt),
-        static_cast<double>(t0)));
+SEISSOL_HOSTDEVICE inline void computeInitialStress(
+    FaultStresses<RangeExecutor<Type>::Exec>& __restrict initialStress,
+    const real initialStressInFaultCS[6][misc::NumPaddedPoints],
+    // See https://github.com/llvm/llvm-project/issues/60163
+    // NOLINTNEXTLINE
+    const real initialPressure[misc::NumPaddedPoints],
+    const real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints],
+    const real (*__restrict nucleationPressure)[misc::NumPaddedPoints],
+    const std::array<real, MaxNucleations>& t0,
+    const std::array<real, MaxNucleations>& s0,
+    std::uint32_t nucleationCount,
+    real fullUpdateTime,
+    uint32_t startIndex = 0) {
+  constexpr auto Exec = RangeExecutor<Type>::Exec;
+  using Range = typename NumPoints<Type>::Range;
 
-    using Range = typename NumPoints<Type>::Range;
+  // the components of the stress tensor which take part in the fault-normal Riemann problem
+  constexpr std::size_t NormalIndex = 0;
+  constexpr std::size_t Traction1Index = 3;
+  constexpr std::size_t Traction2Index = 5;
+
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+    const auto i{startIndex + index};
+    VariableIndexing<Exec>::index(initialStress.normalStress, i) =
+        initialStressInFaultCS[NormalIndex][i];
+    VariableIndexing<Exec>::index(initialStress.traction1, i) =
+        initialStressInFaultCS[Traction1Index][i];
+    VariableIndexing<Exec>::index(initialStress.traction2, i) =
+        initialStressInFaultCS[Traction2Index][i];
+    VariableIndexing<Exec>::index(initialStress.fluidPressure, i) = initialPressure[i];
+  }
+
+  for (std::uint32_t nucleation = 0; nucleation < nucleationCount; ++nucleation) {
+    // one scalar for the whole fault, hoisted out of the point loop
+    const real fraction = nucleationFraction(fullUpdateTime, t0[nucleation], s0[nucleation]);
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      auto pointIndex{startIndex + index};
-      for (uint32_t i = 0; i < 6; i++) {
-        initialStressInFaultCS[i][pointIndex] += nucleationStressInFaultCS[i][pointIndex] * gNuc;
-      }
-      initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
+      const auto i{startIndex + index};
+      VariableIndexing<Exec>::index(initialStress.normalStress, i) +=
+          nucleationStressInFaultCS[nucleation][NormalIndex][i] * fraction;
+      VariableIndexing<Exec>::index(initialStress.traction1, i) +=
+          nucleationStressInFaultCS[nucleation][Traction1Index][i] * fraction;
+      VariableIndexing<Exec>::index(initialStress.traction2, i) +=
+          nucleationStressInFaultCS[nucleation][Traction2Index][i] * fraction;
+      VariableIndexing<Exec>::index(initialStress.fluidPressure, i) +=
+          nucleationPressure[nucleation][i] * fraction;
     }
   }
 }

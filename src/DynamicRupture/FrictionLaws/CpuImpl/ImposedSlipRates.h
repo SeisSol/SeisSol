@@ -26,6 +26,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   }
 
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                             const FaultStresses<Executor::Host>& /*initialStress*/,
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& /*stateVariableBuffer*/,
                              std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,

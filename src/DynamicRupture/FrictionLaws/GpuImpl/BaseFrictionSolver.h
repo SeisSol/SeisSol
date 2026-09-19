@@ -63,6 +63,7 @@ struct FrictionLawContext {
   void* item{nullptr};
 
   FaultStresses<Executor::Device> faultStresses{};
+  FaultStresses<Executor::Device> initialStress{};
   TractionResults<Executor::Device> tractionResults{};
   real stateVariableBuffer{};
   real strengthBuffer{};
@@ -177,21 +178,18 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         common::initializeTractionResults<GpuRangeType>(
             ctx.faultStresses, ctx.tractionResults, ctx.pointIndex);
 
-        for (uint32_t i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
-          common::adjustInitialStress<GpuRangeType>(
-              ctx.data->initialStressInFaultCS[ctx.ltsFace],
-              ctx.data
-                  ->nucleationStressInFaultCS[ctx.ltsFace * ctx.data->drParameters.nucleationCount +
-                                              i],
-              ctx.data->initialPressure[ctx.ltsFace],
-              ctx.data
-                  ->nucleationPressure[ctx.ltsFace * ctx.data->drParameters.nucleationCount + i],
-              updateTime,
-              ctx.data->drParameters.t0[i],
-              ctx.data->drParameters.s0[i],
-              dt,
-              ctx.pointIndex);
-        }
+        common::computeInitialStress<GpuRangeType>(
+            ctx.initialStress,
+            ctx.data->initialStressInFaultCS[ctx.ltsFace],
+            ctx.data->initialPressure[ctx.ltsFace],
+            &ctx.data
+                 ->nucleationStressInFaultCS[ctx.ltsFace * ctx.data->drParameters.nucleationCount],
+            &ctx.data->nucleationPressure[ctx.ltsFace * ctx.data->drParameters.nucleationCount],
+            ctx.data->drParameters.t0,
+            ctx.data->drParameters.s0,
+            ctx.data->drParameters.nucleationCount,
+            updateTime,
+            ctx.pointIndex);
 
         Derived::updateFrictionAndSlip(ctx, timeIndex);
 

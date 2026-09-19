@@ -13,6 +13,7 @@
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
+#include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
@@ -245,6 +246,18 @@ namespace seissol::dr {
 // compile-time parameter; rather arbitrary (and just large enough for most cases). It's there to
 // avoid us allocating dynamic arrays in the parameters.
 constexpr std::size_t MaxNucleations = 16;
+
+/**
+ * The fraction of a nucleation's stress that is in effect at the given time.
+ *
+ * The absolute value of the ramp, not its increment over the time step. The stress at a point is
+ * therefore a function of the time alone: it does not depend on the sequence of time steps that
+ * led there, nothing accumulates, and nothing has to be carried across a restart. A ramp that is
+ * not monotone, or one that returns to zero, would be as admissible here as the smooth step is.
+ */
+SEISSOL_HOSTDEVICE inline real nucleationFraction(real time, real t0, real s0) {
+  return gaussianNucleationFunction::smoothStep<real>(time - s0, t0);
+}
 
 /**
  * Friction law parameters, as used in the kernels.

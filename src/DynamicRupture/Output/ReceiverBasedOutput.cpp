@@ -199,6 +199,23 @@ void ReceiverOutput::calcFaultOutput(
     local.iniTraction1 = initStresses[QuantityIndices::XY][local.gpIndex];
     local.iniTraction2 = initStresses[QuantityIndices::XZ][local.gpIndex];
     local.iniNormalTraction = initStresses[QuantityIndices::XX][local.gpIndex];
+
+    // the initial state is the nucleation applied instantaneously; the ramped ones are added at
+    // the fraction of them that is in effect at this time
+    {
+      const auto nucleationCount = drParameters_->nucleationCount;
+      const auto* nucleationStresses =
+          local.layer->var<DynamicRupture::NucleationStressInFaultCS>();
+      for (std::uint32_t nucleation = 0; nucleation < nucleationCount; ++nucleation) {
+        const auto fraction = nucleationFraction(static_cast<real>(local.time),
+                                                 static_cast<real>(drParameters_->t0[nucleation]),
+                                                 static_cast<real>(drParameters_->s0[nucleation]));
+        const auto& patch = nucleationStresses[local.ltsId * nucleationCount + nucleation];
+        local.iniTraction1 += patch[QuantityIndices::XY][local.gpIndex] * fraction;
+        local.iniTraction2 += patch[QuantityIndices::XZ][local.gpIndex] * fraction;
+        local.iniNormalTraction += patch[QuantityIndices::XX][local.gpIndex] * fraction;
+      }
+    }
     local.fluidPressure = this->computeFluidPressure(local);
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
@@ -695,6 +712,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
   return {drStorage_->info<DynamicRupture::InitialStressInFaultCS>().index,
+          drStorage_->info<DynamicRupture::NucleationStressInFaultCS>().index,
           drStorage_->info<DynamicRupture::Mu>().index,
           drStorage_->info<DynamicRupture::RuptureTime>().index,
           drStorage_->info<DynamicRupture::AccumulatedSlipMagnitude>().index,
