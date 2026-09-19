@@ -67,7 +67,7 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
   const auto numThreads = OpenMP::threadCount();
-  const auto allocSize = Cell::NumFaces * kernels::Solver::BuffersSize;
+  const auto allocSize = Cell::NumFaces * kernels::Solver::IntegralsSize;
   auto* integrationBufferLTS = reinterpret_cast<real*>(
       allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 

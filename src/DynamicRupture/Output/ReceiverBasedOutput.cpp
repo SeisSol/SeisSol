@@ -16,6 +16,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/LtsSetup.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
@@ -53,7 +54,8 @@ void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
   const auto position = wpBackmap_->get(meshId);
   auto& layer = wpStorage_->layer(position.color);
   // get DOFs from 0th derivatives
-  assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
+  assert(
+      layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasBuffer(BufferType::Derivatives));
 
   derivatives = layer.var<LTS::Derivatives>()[position.cell];
 }
@@ -498,8 +500,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
-        projectedRT[d] +=
-            seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
+        projectedRT[d] += weights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
     const auto m2inv = seissol::init::M2inv::view::create(seissol::init::M2inv::Values);
