@@ -12,6 +12,7 @@
 
 #include "FreeSurfaceWriterExecutor.h"
 #include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/OutputParameters.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/MPI.h"
@@ -30,6 +31,8 @@ class FreeSurfaceWriter
       public seissol::Module {
   private:
   seissol::SeisSol& seissolInstance_;
+
+  std::size_t count_{};
 
   /** Is enabled? */
   bool enabled_{false};
@@ -67,6 +70,7 @@ class FreeSurfaceWriter
             const char* outputPrefix,
             double interval,
             xdmfwriter::BackendType backend,
+            const seissol::initializer::parameters::FreeSurfaceOutputParameters& parameters,
             const std::string& backupTimeStamp);
 
   void write(double time);

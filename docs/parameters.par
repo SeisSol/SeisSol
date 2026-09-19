@@ -172,6 +172,8 @@ ReceiverComputeStrainRate = 0            ! Compute strain rate at the receivers
 SurfaceOutput = 1
 SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
+! (cf. wavefield)   |stress     |vel
+SurfaceOutputMask = 0 0 0 0 0 0 1 1 1
 
 surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
 

@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 #define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
+#include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/Refinement/TriangleRefiner.h"
 #include "Kernels/Common.h"
@@ -58,7 +59,8 @@ class FreeSurfaceIntegrator {
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 
   public:
-  std::array<real*, NumComponents> velocities{};
+  std::array<bool, model::MaterialT::NumQuantities> enabledQuantities{};
+  std::array<real*, model::MaterialT::NumQuantities> quantities{};
   std::array<real*, NumComponents> displacements{};
 
   std::vector<unsigned> locationFlags;

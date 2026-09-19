@@ -113,7 +113,18 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
 
-  return FreeSurfaceOutputParameters{enabled, refinement, interval, vtkorder};
+  // handle acoustic and elastic
+  std::string velocities;
+  for (std::size_t i = 0; i < seissol::model::MaterialT::TractionQuantities; ++i) {
+    velocities += "0 ";
+  }
+  velocities += "1 1 1";
+  const auto surfaceOutputMaskString = reader->readWithDefault("surfaceoutputmask", velocities);
+  const std::array<bool, seissol::model::MaterialT::NumQuantities> surfaceOutputMask =
+      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(surfaceOutputMaskString,
+                                                                           false);
+
+  return FreeSurfaceOutputParameters{enabled, refinement, interval, vtkorder, surfaceOutputMask};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {

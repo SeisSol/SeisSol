@@ -30,11 +30,13 @@ class FreeSurfaceWriterExecutor {
   public:
   enum BufferIds {
     OutputPrefix = 0,
-    Cells = 1,
-    Vertices = 2,
-    LocationFlags = 3,
-    GlobalIds = 4,
-    Variables0 = 5,
+    Count = 1,
+    Mask = 2,
+    Cells = 3,
+    Vertices = 4,
+    LocationFlags = 5,
+    GlobalIds = 6,
+    Variables0 = 7,
   };
 
   private:

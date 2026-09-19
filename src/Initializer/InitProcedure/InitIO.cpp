@@ -356,6 +356,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                              seissolParams.output.prefix.c_str(),
                                              seissolParams.output.freeSurfaceParameters.interval,
                                              seissolParams.output.xdmfWriterBackend,
+                                             seissolParams.output.freeSurfaceParameters,
                                              backupTimeStamp);
   }
 
@@ -421,37 +422,38 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
         });
 
-    std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
+    const std::vector<std::string> quantityLabels{"u1", "u2", "u3"};
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
-      for (std::size_t quantity = 0;
-           quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
+      for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
            ++quantity) {
         constexpr std::size_t MaxVtk2dPoints =
             tensor::vtk2d::Shape[(sizeof(tensor::vtk2d::Shape) / sizeof(tensor::vtk2d::Shape[0])) -
                                  1][1];
-        writer.addPointData<real>(
-            namewrap(quantityLabels[quantity], sim),
-            {},
-            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
-              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
-              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto position = backmap.get(meshId);
-              const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
-              const auto* dofsSingleQuantity =
-                  dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
-              kernel::projectBasisToVtkFaceFromVolume vtkproj{};
-              memory::AlignedArray<real, multisim::NumSimulations> simselect{};
-              alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
-              simselect[sim] = 1;
-              vtkproj.simselect = simselect.data();
-              vtkproj.qb = dofsSingleQuantity;
-              vtkproj.xf(order) = alignedTarget.data();
-              vtkproj.collvf(ConvergenceOrder, order, side) =
-                  init::collvf::Values[ConvergenceOrder +
-                                       (ConvergenceOrder + 1) * (order + 9 * side)];
-              vtkproj.execute(order, side);
-              std::copy_n(alignedTarget.data(), tensor::vtk2d::Shape[order][1], target);
-            });
+
+        if (seissolParams.output.freeSurfaceParameters.outputMask[quantity]) {
+          writer.addPointData<real>(
+              namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
+              {},
+              [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
+                auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+                auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
+                const auto position = backmap.get(meshId);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
+                const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
+                kernel::projectBasisToVtkFaceFromVolume vtkproj{};
+                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+                alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
+                simselect[sim] = 1;
+                vtkproj.simselect = simselect.data();
+                vtkproj.qb = dofsSingleQuantity;
+                vtkproj.xf(order) = alignedTarget.data();
+                vtkproj.collvf(ConvergenceOrder, order, side) =
+                    init::collvf::Values[ConvergenceOrder +
+                                         (ConvergenceOrder + 1) * (order + 9 * side)];
+                vtkproj.execute(order, side);
+                std::copy_n(alignedTarget.data(), tensor::vtk2d::Shape[order][1], target);
+              });
+        }
       }
       for (std::size_t quantity = 0;
            quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
@@ -460,9 +462,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             tensor::vtk2d::Shape[(sizeof(tensor::vtk2d::Shape) / sizeof(tensor::vtk2d::Shape[0])) -
                                  1][1];
         writer.addPointData<real>(
-            namewrap(
-                quantityLabels[quantity + seissol::solver::FreeSurfaceIntegrator::NumComponents],
-                sim),
+            namewrap(quantityLabels[quantity], sim),
             {},
             [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];

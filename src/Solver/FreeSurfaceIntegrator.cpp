@@ -46,15 +46,20 @@ FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
     face = nullptr;
   }
 
+  for (auto& ptr : quantities) {
+    ptr = nullptr;
+  }
+
   for (unsigned dim = 0; dim < NumComponents; ++dim) {
-    velocities[dim] = nullptr;
     displacements[dim] = nullptr;
   }
 }
 
 FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
+  for (auto& ptr : quantities) {
+    seissol::memory::free(ptr);
+  }
   for (unsigned dim = 0; dim < NumComponents; ++dim) {
-    seissol::memory::free(velocities[dim]);
     seissol::memory::free(displacements[dim]);
   }
 
@@ -103,8 +108,11 @@ void FreeSurfaceIntegrator::calculateOutput() const {
         vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
         vkrnl.execute(triRefiner.maxDepth);
 
-        auto addOutput = [&](const std::array<real*, NumComponents>& output) {
-          for (std::size_t component = 0; component < NumComponents; ++component) {
+        auto addOutput = [&](const auto& output) {
+          for (std::size_t component = 0; component < output.size(); ++component) {
+            if (output[component] == nullptr) {
+              continue;
+            }
             real* target = output[component] + outputPosition[face] * numberOfSubTriangles_;
             /// @yateto_todo fix for multiple simulations
             const real* source =
@@ -118,7 +126,7 @@ void FreeSurfaceIntegrator::calculateOutput() const {
           }
         };
 
-        addOutput(velocities);
+        addOutput(quantities);
 
         kernel::subTriangleDisplacement dkrnl;
         dkrnl.faceDisplacement = displacementDofs[face];
@@ -310,8 +318,13 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   surfaceStorage->allocateVariables();
   surfaceStorage->touchVariables();
 
+  for (std::size_t i = 0; i < quantities.size(); ++i) {
+    if (enabledQuantities[i]) {
+      quantities[i] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
+    }
+  }
+
   for (std::size_t dim = 0; dim < NumComponents; ++dim) {
-    velocities[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
     displacements[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
   }
   locationFlags.resize(totalNumberOfTriangles);
