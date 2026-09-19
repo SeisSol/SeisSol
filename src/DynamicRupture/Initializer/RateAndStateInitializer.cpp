@@ -58,7 +58,9 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
     auto* convergenceInner = layer.var<LTSRateAndState::ConvergenceInner>();
     auto* convergenceOuter = layer.var<LTSRateAndState::ConvergenceOuter>();
 
-    auto* initialStressInFaultCS = layer.var<LTSRateAndState::InitialStressInFaultCS>();
+    // the initial state is the first stress source of a face; no nucleation is in effect yet
+    const auto sourceCount = stressSourceCount(*drParameters_);
+    const auto* initialStress = layer.var<LTSRateAndState::NucleationStressInFaultCS>();
 
     const auto initialSlipRate =
         misc::magnitude(drParameters_->rsInitialSlipRate1, drParameters_->rsInitialSlipRate2);
@@ -85,9 +87,9 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
 
         // compute initial friction and state
         const auto stateAndFriction =
-            computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][XY][pointIndex],
-                                           initialStressInFaultCS[ltsFace][XZ][pointIndex],
-                                           initialStressInFaultCS[ltsFace][XX][pointIndex],
+            computeInitialStateAndFriction(initialStress[ltsFace * sourceCount][XY][pointIndex],
+                                           initialStress[ltsFace * sourceCount][XZ][pointIndex],
+                                           initialStress[ltsFace * sourceCount][XX][pointIndex],
                                            rsA[ltsFace][pointIndex],
                                            rsB[ltsFace][pointIndex],
                                            rsSl0[ltsFace][pointIndex],

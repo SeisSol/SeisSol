@@ -178,16 +178,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         common::initializeTractionResults<GpuRangeType>(
             ctx.faultStresses, ctx.tractionResults, ctx.pointIndex);
 
+        const auto sourceCount = stressSourceCount(ctx.data->drParameters);
         common::computeInitialStress<GpuRangeType>(
             ctx.initialStress,
-            ctx.data->initialStressInFaultCS[ctx.ltsFace],
-            ctx.data->initialPressure[ctx.ltsFace],
-            &ctx.data
-                 ->nucleationStressInFaultCS[ctx.ltsFace * ctx.data->drParameters.nucleationCount],
-            &ctx.data->nucleationPressure[ctx.ltsFace * ctx.data->drParameters.nucleationCount],
-            ctx.data->drParameters.t0,
-            ctx.data->drParameters.s0,
-            ctx.data->drParameters.nucleationCount,
+            &ctx.data->nucleationStressInFaultCS[ctx.ltsFace * sourceCount],
+            &ctx.data->nucleationPressure[ctx.ltsFace * sourceCount],
+            ctx.data->drParameters,
             updateTime,
             ctx.pointIndex);
 

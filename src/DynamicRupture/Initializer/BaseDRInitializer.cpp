@@ -265,31 +265,31 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       rotateTractionToCartesianStress(layer, initialStress, seissolInstance_.meshReader());
     }
 
-    auto* initialStressInFaultCS = layer.var<DynamicRupture::InitialStressInFaultCS>();
+    // the initial state is the first stress source of the face, the one applied instantaneously
+    const auto sourceCount = stressSourceCount(*drParameters_);
+    auto* stressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
     rotateStressToFaultCS(
-        layer, initialStressInFaultCS, 0, 1, initialStress, seissolInstance_.meshReader());
+        layer, stressInFaultCS, 0, sourceCount, initialStress, seissolInstance_.meshReader());
     // rotate nucleation stress to fault coordinate system
     for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
       if (nucleationStressParameterizedByTraction[i]) {
         rotateTractionToCartesianStress(
             layer, nucleationStresses[i], seissolInstance_.meshReader());
       }
-      auto* nucleationStressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
       rotateStressToFaultCS(layer,
-                            nucleationStressInFaultCS,
-                            i,
-                            drParameters_->nucleationCount,
+                            stressInFaultCS,
+                            i + 1,
+                            sourceCount,
                             nucleationStresses[i],
                             seissolInstance_.meshReader());
     }
 
-    auto* initialPressure = layer.var<DynamicRupture::InitialPressure>();
+    auto* pressure = layer.var<DynamicRupture::NucleationPressure>();
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
+        pressure[ltsFace * sourceCount][pointIndex] = initialStress.p[ltsFace][pointIndex];
         for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
-          auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
-          nucleationPressure[ltsFace * drParameters_->nucleationCount + i][pointIndex] =
+          pressure[ltsFace * sourceCount + i + 1][pointIndex] =
               nucleationStresses[i].p[ltsFace][pointIndex];
         }
       }

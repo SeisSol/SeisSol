@@ -64,27 +64,16 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
 
     rotateSlipToFaultCS(layer, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);
 
-    auto* initialStressInFaultCS = layer.var<DynamicRupture::InitialStressInFaultCS>();
-    auto* initialPressure = layer.var<DynamicRupture::InitialPressure>();
-    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        for (std::uint32_t dim = 0; dim < 6; ++dim) {
-          initialStressInFaultCS[ltsFace][dim][pointIndex] = 0;
-        }
-        initialPressure[ltsFace][pointIndex] = 0;
-      }
-    }
-
-    for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
-      auto* nucleationStressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
-      auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
+    const auto sourceCount = stressSourceCount(*drParameters_);
+    auto* stressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
+    auto* pressure = layer.var<DynamicRupture::NucleationPressure>();
+    for (std::uint32_t source = 0; source < sourceCount; ++source) {
       for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
           for (std::uint32_t dim = 0; dim < 6; ++dim) {
-            nucleationStressInFaultCS[ltsFace * drParameters_->nucleationCount + i][dim]
-                                     [pointIndex] = 0;
+            stressInFaultCS[ltsFace * sourceCount + source][dim][pointIndex] = 0;
           }
-          nucleationPressure[ltsFace * drParameters_->nucleationCount + i][pointIndex] = 0;
+          pressure[ltsFace * sourceCount + source][pointIndex] = 0;
         }
       }
     }

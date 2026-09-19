@@ -260,6 +260,32 @@ SEISSOL_HOSTDEVICE inline real nucleationFraction(real time, real t0, real s0) {
 }
 
 /**
+ * The stress sources of a fault: the initial state first, then the nucleations the parameter file
+ * configures. They share one storage array, indexed by ltsFace * stressSourceCount + source.
+ */
+template <typename ParametersT>
+SEISSOL_HOSTDEVICE constexpr std::uint32_t stressSourceCount(const ParametersT& parameters) {
+  return parameters.nucleationCount + 1;
+}
+
+/**
+ * The fraction of a stress source that is in effect at the given time.
+ *
+ * The initial state is the source that is applied instantaneously, so it is in effect from the
+ * first step on; the configured nucleations follow their ramp.
+ */
+template <typename ParametersT>
+SEISSOL_HOSTDEVICE inline real
+    stressSourceFraction(const ParametersT& parameters, std::uint32_t source, real time) {
+  if (source == 0) {
+    return static_cast<real>(1.0);
+  }
+  return nucleationFraction(time,
+                            static_cast<real>(parameters.t0[source - 1]),
+                            static_cast<real>(parameters.s0[source - 1]));
+}
+
+/**
  * Friction law parameters, as used in the kernels.
  * For separation of concerns (and using the `real` datatype), prefer this one
  * to the one in the Initializer/Parameters.

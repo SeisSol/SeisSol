@@ -76,7 +76,6 @@ class FrictionSolver {
   ImpedanceMatrices* __restrict impedanceMatrices_{};
   real fullUpdateTime_{};
   // CS = coordinate system
-  real (*__restrict initialStressInFaultCS_)[6][misc::NumPaddedPoints]{};
   real (*__restrict nucleationStressInFaultCS_)[6][misc::NumPaddedPoints]{};
   real (*__restrict cohesion_)[misc::NumPaddedPoints]{};
   real (*__restrict mu_)[misc::NumPaddedPoints]{};
@@ -96,7 +95,6 @@ class FrictionSolver {
   real* __restrict spaceWeights_{};
   DREnergyOutput* __restrict energyData_{};
   DRGodunovData* __restrict godunovData_{};
-  real (*__restrict initialPressure_)[misc::NumPaddedPoints]{};
   real (*__restrict nucleationPressure_)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:

@@ -109,16 +109,12 @@ class BaseFrictionLaw : public FrictionSolver {
 
           common::initializeTractionResults(faultStresses, tractionResults);
 
-          common::computeInitialStress(
-              initialStress,
-              initialStressInFaultCS_[ltsFace],
-              initialPressure_[ltsFace],
-              &nucleationStressInFaultCS_[ltsFace * this->drParameters_.nucleationCount],
-              &nucleationPressure_[ltsFace * this->drParameters_.nucleationCount],
-              this->drParameters_.t0,
-              this->drParameters_.s0,
-              this->drParameters_.nucleationCount,
-              updateTime);
+          const auto sourceCount = stressSourceCount(this->drParameters_);
+          common::computeInitialStress(initialStress,
+                                       &nucleationStressInFaultCS_[ltsFace * sourceCount],
+                                       &nucleationPressure_[ltsFace * sourceCount],
+                                       this->drParameters_,
+                                       updateTime);
 
           static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,
                                                              initialStress,

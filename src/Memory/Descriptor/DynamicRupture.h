@@ -39,9 +39,10 @@ inline auto allocationModeDR() {
 struct DynamicRupture {
   public:
   DynamicRupture() = default;
-  std::size_t nucleationCount{1};
+  /// the initial state plus every configured nucleation
+  std::size_t stressSourceCount{1};
   explicit DynamicRupture(const initializer::parameters::DRParameters* parameters)
-      : nucleationCount(parameters->nucleationCount) {}
+      : stressSourceCount(dr::stressSourceCount(*parameters)) {}
 
   virtual ~DynamicRupture() = default;
   struct TimeDofsPlus : public initializer::Variable<real*> {};
@@ -64,12 +65,10 @@ struct DynamicRupture {
   struct ImpedanceMatrices : public initializer::Variable<seissol::dr::ImpedanceMatrices> {};
   // size padded for vectorization
   // CS = coordinate system
-  struct InitialStressInFaultCS : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {
-  };
+  /// the stress of every source of this face, the initial state first; see dr::stressSourceCount
   struct NucleationStressInFaultCS
       : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {};
   // will be always zero, if not using poroelasticity
-  struct InitialPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct NucleationPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct Mu : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct AccumulatedSlipMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
@@ -125,14 +124,12 @@ struct DynamicRupture {
     storage.add<DREnergyOutputVar>(mask, Alignment, allocationModeDR());
     storage.add<ImpAndEta>(mask, Alignment, allocationModeDR(), true);
     storage.add<ImpedanceMatrices>(mask, Alignment, allocationModeDR(), true);
-    storage.add<InitialStressInFaultCS>(mask, Alignment, allocationModeDR());
-    storage.add<InitialPressure>(mask, Alignment, allocationModeDR());
     storage.add<RuptureTime>(mask, Alignment, allocationModeDR());
 
-    // NOTE: nucleation count (multi-nucleation support) is passed here.
+    // NOTE: the number of stress sources (initial state and multi-nucleation) is passed here.
     storage.add<NucleationStressInFaultCS>(
-        mask, Alignment, allocationModeDR(), true, nucleationCount);
-    storage.add<NucleationPressure>(mask, Alignment, allocationModeDR(), true, nucleationCount);
+        mask, Alignment, allocationModeDR(), true, stressSourceCount);
+    storage.add<NucleationPressure>(mask, Alignment, allocationModeDR(), true, stressSourceCount);
 
     storage.add<RuptureTimePending>(mask, Alignment, allocationModeDR());
     storage.add<DynStressTime>(mask, Alignment, allocationModeDR());
@@ -158,8 +155,6 @@ struct DynamicRupture {
 
   virtual void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
                                            Storage& storage) const {
-    manager.registerData<InitialStressInFaultCS>("initialStressInFaultCS", storage);
-    manager.registerData<InitialPressure>("initialPressure", storage);
     manager.registerData<Mu>("mu", storage);
     manager.registerData<SlipRate1>("slipRate1", storage);
     manager.registerData<SlipRate2>("slipRate2", storage);
