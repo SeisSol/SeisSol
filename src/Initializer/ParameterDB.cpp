@@ -84,10 +84,11 @@ bool surrogateEvaluate(const std::string& fileName,
   if constexpr (std::is_constructible_v<MaterialT, SurrogateMaterialT>) {
     if (canEvaluateFor<SurrogateMaterialT>(parameters)) {
       MaterialParameterDB<SurrogateMaterialT> edb;
-      std::vector<SurrogateMaterialT> preMaterials(materials->size());
+      std::vector<SurrogateMaterialT> preMaterials;
       edb.setMaterialVector(&preMaterials);
       edb.evaluateModel(fileName, queryGen);
 
+      materials->resize(preMaterials.size());
       for (std::size_t i = 0; i < materials->size(); i++) {
         materials->at(i) = MaterialT(preMaterials[i]);
       }
