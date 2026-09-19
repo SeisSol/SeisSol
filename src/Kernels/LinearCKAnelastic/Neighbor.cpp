@@ -135,7 +135,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // neighboring cell contribution only for interior faces
     if (faceTypes[face] == FaceType::Regular) {
-      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
+      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] == 0);
 
       regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt>(
           neighboringIndices[face][0], face);

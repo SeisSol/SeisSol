@@ -209,7 +209,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
     switch (faceTypes[face]) {
     case FaceType::Regular:
       // regular neighbor
-      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
+      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] == 0);
       neigh += PerformanceEstimate::fromKernel<kernel::neighboringFlux>(neighboringIndices[face][0],
                                                                         face);
       break;
