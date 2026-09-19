@@ -448,8 +448,11 @@ SEISSOL_HOSTDEVICE inline void
                         real dt,
                         uint32_t startIndex = 0) {
   if (fullUpdateTime <= t0 + s0 && fullUpdateTime >= s0) {
-    const real gNuc =
-        gaussianNucleationFunction::smoothStepIncrement<real>(fullUpdateTime - s0, dt, t0);
+    // one scalar for the whole fault, so the ramp costs nothing to evaluate in double
+    const auto gNuc = static_cast<real>(gaussianNucleationFunction::smoothStepIncrement<double>(
+        static_cast<double>(fullUpdateTime) - static_cast<double>(s0),
+        static_cast<double>(dt),
+        static_cast<double>(t0)));
 
     using Range = typename NumPoints<Type>::Range;
 
