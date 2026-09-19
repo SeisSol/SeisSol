@@ -257,11 +257,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         absoluteShearTraction[pointIndex] = n1 * totalTraction1 + n2 * totalTraction2;
 
-        const auto [etaProj, invEta] = common::projectEta(this->impAndEta_[ltsFace],
-                                                          this->impedanceMatrices_[ltsFace],
-                                                          n1,
-                                                          n2,
-                                                          static_cast<real>(1.0));
+        const auto [etaUnused, invEta] = common::projectEta(this->impAndEta_[ltsFace],
+                                                            this->impedanceMatrices_[ltsFace],
+                                                            n1,
+                                                            n2,
+                                                            static_cast<real>(1.0));
         etaInv[pointIndex] = invEta;
         etaNormal[pointIndex] = common::projectEtaNormal(this->impAndEta_[ltsFace],
                                                          this->impedanceMatrices_[ltsFace],
