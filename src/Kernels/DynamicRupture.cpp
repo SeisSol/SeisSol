@@ -23,6 +23,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <iterator>
 #include <stdint.h>
 #include <utils/logger.h>
 #include <yateto.h>
@@ -42,6 +43,22 @@
 GENERATE_HAS_MEMBER(I)
 
 namespace seissol::kernels {
+
+// The dynamic rupture families are indexed by the side and the face relation. Relation 0
+// addresses the plus side, relation 1 the minus side at a zero face orientation index, which the
+// canonical vertex numbering guarantees on every interior face.
+static_assert(std::size(dynamicRupture::kernel::nodalFlux::ExecutePtrs) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(
+    std::size(dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::ExecutePtrs) ==
+    Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2n::Size) == Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2nTWDivM::Size) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+
+#ifdef ACL_DEVICE
+static_assert(*DrFaceRelations::Count == Cell::NumFaces * dr::misc::NumFaceRelations);
+#endif
 
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.V3mTo2n = global.onHost->faceToNodalMatrices;

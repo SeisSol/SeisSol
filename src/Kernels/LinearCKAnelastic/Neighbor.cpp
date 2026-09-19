@@ -16,6 +16,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <iterator>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE
@@ -23,6 +24,12 @@
 #endif
 
 namespace seissol::kernels::solver::linearckanelastic {
+
+// The neighbouring flux family is indexed by the neighbouring side and the own face. The face
+// orientation index is not part of it, since the canonical vertex numbering pins it to zero on
+// every interior face.
+static_assert(std::size(seissol::kernel::neighborFluxExt::ExecutePtrs) ==
+              Cell::NumFaces * Cell::NumFaces);
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #ifndef NDEBUG

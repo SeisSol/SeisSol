@@ -27,6 +27,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <stdint.h>
 #include <utility>
 #include <utils/logger.h>
@@ -42,6 +43,18 @@
 #endif
 
 namespace seissol::kernels::solver::linearck {
+
+// The neighbouring flux family is indexed by the neighbouring side and the own face. The face
+// orientation index is not part of it, since the canonical vertex numbering pins it to zero on
+// every interior face.
+static_assert(std::size(kernel::neighboringFlux::ExecutePtrs) == Cell::NumFaces * Cell::NumFaces);
+
+#ifdef ACL_DEVICE
+static_assert(std::size(kernel::gpu_neighboringFlux::ExecutePtrs) == *FaceRelations::Count);
+static_assert(std::size(dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs) ==
+              *DrFaceRelations::Count);
+#endif
+
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
   nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
