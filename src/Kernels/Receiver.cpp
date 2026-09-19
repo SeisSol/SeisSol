@@ -22,6 +22,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/Metric.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
@@ -31,9 +32,11 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -46,10 +49,8 @@ namespace seissol::kernels {
 Receiver::Receiver(std::size_t pointId,
                    Eigen::Vector3d position,
                    const double* elementCoords[4],
-                   LTS::Ref dataHost,
-                   LTS::Ref dataDevice,
                    size_t reserved)
-    : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
+    : pointId(pointId), position(std::move(position)) {
   output.reserve(reserved);
 
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
@@ -60,6 +61,9 @@ Receiver::Receiver(std::size_t pointId,
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
 }
+
+ReceiverCell::ReceiverCell(std::size_t meshId, LTS::Ref dataHost, LTS::Ref dataDevice)
+    : meshId(meshId), dataHost(dataHost), dataDevice(dataDevice) {}
 
 ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
     : samplingInterval_(1.0e99), syncPointInterval_(0.0), seissolInstance_(seissolInstance) {}
@@ -77,7 +81,10 @@ ReceiverCluster::ReceiverCluster(
   timeKernel_.setGlobalData(global);
   spacetimeKernel_.setGlobalData(global);
 
-  estimate_ = spacetimeKernel_.metrics();
+  estimatePerCell_ = spacetimeKernel_.metrics();
+  estimatePerCellStep_ = timeKernel_.metrics();
+  estimatePerPoint_ = PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtPoint>() +
+                      PerformanceEstimate::fromKernel<kernel::evaluateDerivativeDOFSAtPoint>();
 
   perfHandle_ = seissolInstance_.flopCounter().addMetric("receiver", "WP");
 }
@@ -103,16 +110,24 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (syncPointInterval_ / samplingInterval_ + 1);
 
-  const auto position = backmap.get(meshId);
-  auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
-  receivers_.emplace_back(pointId,
-                          point,
-                          coords,
-                          ltsStorage.lookupRef(position),
-                          ltsStorage.lookupRef(position,
-                                               isDeviceOn() ? initializer::AllocationPlace::Device
-                                                            : initializer::AllocationPlace::Host),
-                          reserved);
+  if (meshToReceiverCell_.find(meshId) == meshToReceiverCell_.end()) {
+    const auto position = backmap.get(meshId);
+    auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
+
+    meshToReceiverCell_[meshId] = receiverCells_.size();
+
+    auto& cell = receiverCells_.emplace_back(
+        meshId,
+        ltsStorage.lookupRef(position),
+        ltsStorage.lookupRef(position,
+                             isDeviceOn() ? initializer::AllocationPlace::Device
+                                          : initializer::AllocationPlace::Host));
+    cell.ltsPosition = position.global;
+  }
+
+  receiverCells_[meshToReceiverCell_.at(meshId)].receiverIds.emplace_back(receivers_.size());
+
+  receivers_.emplace_back(pointId, point, coords, reserved);
 }
 
 double ReceiverCluster::calcReceivers(double time,
@@ -128,6 +143,7 @@ double ReceiverCluster::calcReceivers(double time,
     ++samplingSteps;
   }
 
+  // copy dofs from the device to the host.
   if (executor == Executor::Device) {
     // we need to sync with the new data copy (the rest can continue to run asynchronously)
 
@@ -143,7 +159,7 @@ double ReceiverCluster::calcReceivers(double time,
   const auto timeBasis = seissol::kernels::timeBasis();
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    const std::size_t recvCount = receivers_.size();
+    const std::size_t cellCount = receiverCells_.size();
     const auto receiverHandler = [this, timeBasis, timeStepWidth, time, expansionPoint, executor](
                                      std::size_t i) {
       alignas(Alignment) real timeEvaluated[tensor::Q::size()]{};
@@ -164,18 +180,15 @@ double ReceiverCluster::calcReceivers(double time,
       auto qDerivativeAtPoint =
           init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
 
-      auto& receiver = receivers_[i];
-      krnl.basisFunctionsAtPoint = receiver.basisFunctions.data().data();
-      derivativeKrnl.basisFunctionDerivativesAtPoint =
-          receiver.basisFunctionDerivatives.data().data();
+      auto& receiverCell = receiverCells_[i];
 
-      // Copy DOFs from device to host.
-      auto tmpReceiverData{receiver.dataHost};
+      // Use device pointers where required.
+      auto tmpReceiverData{receiverCell.dataHost};
 
       if (executor == Executor::Device) {
         tmpReceiverData.setPointer<LTS::Dofs>(
             reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
-                deviceCollector_->get(deviceIndices_[i])));
+                deviceCollector_->get(i)));
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -192,24 +205,33 @@ double ReceiverCluster::calcReceivers(double time,
 
         timeKernel_.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
 
-        krnl.execute();
-        derivativeKrnl.execute();
+        for (const auto& receiverId : receiverCell.receiverIds) {
 
-        // note: necessary receiver space is reserved in advance
-        receiver.output.push_back(receiverTime);
-        for (auto sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
-             ++sim) {
-          for (auto quantity : quantities_) {
-            if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
-              logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
-                         << receiver.position[1] << "," << receiver.position[2] << " in simulation"
-                         << sim << "."
-                         << "Aborting.";
+          auto& receiver = receivers_[receiverId];
+
+          krnl.basisFunctionsAtPoint = receiver.basisFunctions.data().data();
+          derivativeKrnl.basisFunctionDerivativesAtPoint =
+              receiver.basisFunctionDerivatives.data().data();
+
+          krnl.execute();
+          derivativeKrnl.execute();
+
+          // note: necessary receiver space is reserved in advance
+          receiver.output.push_back(receiverTime);
+          for (auto sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
+               ++sim) {
+            for (auto quantity : quantities_) {
+              if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
+                logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0]
+                           << "," << receiver.position[1] << "," << receiver.position[2]
+                           << " in simulation" << sim << "."
+                           << "Aborting.";
+              }
+              receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
             }
-            receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
-          }
-          for (const auto& derived : derivedQuantities_) {
-            derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
+            for (const auto& derived : derivedQuantities_) {
+              derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
+            }
           }
         }
 
@@ -218,36 +240,49 @@ double ReceiverCluster::calcReceivers(double time,
     };
 
     auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
-    callRuntime.enqueueLoop(recvCount, receiverHandler);
+    callRuntime.enqueueLoop(cellCount, receiverHandler);
 
-    seissolInstance_.flopCounter().incrementMetric(perfHandle_,
-                                                   estimate_ * recvCount * samplingSteps);
+    const auto recvCount = receivers_.size();
+
+    seissolInstance_.flopCounter().incrementMetric(
+        perfHandle_,
+        estimatePerCell_ * cellCount + estimatePerCellStep_ * cellCount * samplingSteps +
+            estimatePerPoint_ * recvCount * samplingSteps);
   }
   return outReceiverTime;
 }
 
 void ReceiverCluster::allocateData() {
+  // Visit the cells in storage order, so that both the host loop and the device gather read the
+  // DOFs sequentially instead of in the order the receivers happened to appear in the parameter
+  // file. This is only safe because a receiver does not refer back to its cell.
+  std::vector<std::size_t> order(receiverCells_.size());
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [this](std::size_t a, std::size_t b) {
+    return receiverCells_[a].ltsPosition < receiverCells_[b].ltsPosition;
+  });
+
+  std::vector<ReceiverCell> sorted;
+  sorted.reserve(receiverCells_.size());
+  for (const auto cellId : order) {
+    sorted.push_back(receiverCells_[cellId]);
+  }
+  receiverCells_ = std::move(sorted);
+
   if constexpr (isDeviceOn()) {
-    // collect all data pointers to transfer. If we have multiple receivers on the same cell, we
-    // make sure to only transfer the related data once (hence, we use the `indexMap` here)
-    deviceIndices_.resize(receivers_.size());
+    // one entry per cell; the gather index equals the cell index
     std::vector<real*> dofs;
-    std::unordered_map<real*, size_t> indexMap;
-    for (size_t i = 0; i < receivers_.size(); ++i) {
-      // NOLINTNEXTLINE(misc-const-correctness)
-      real* const currentDofs = receivers_[i].dataDevice.get<LTS::Dofs>();
-      if (indexMap.find(currentDofs) == indexMap.end()) {
-        // point to the current array end
-        indexMap[currentDofs] = dofs.size();
-        dofs.push_back(currentDofs);
-      }
-      deviceIndices_[i] = indexMap.at(currentDofs);
+    dofs.reserve(receiverCells_.size());
+    for (auto& receiverCell : receiverCells_) {
+      dofs.push_back(receiverCell.dataDevice.get<LTS::Dofs>());
     }
 
     const bool hostAccessible = useUSM() && !extraRuntime_.has_value();
     deviceCollector_ = std::make_unique<seissol::parallel::DataCollector<real>>(
         dofs, tensor::Q::size(), hostAccessible);
   }
+
+  meshToReceiverCell_ = {};
 }
 void ReceiverCluster::freeData() {
   deviceCollector_.reset(nullptr);

@@ -68,7 +68,7 @@ class OutputManager {
   struct PickpointFile {
     std::string fileName;
 
-    // all receivers to be printed into this file
+    // all points to be printed into this file
     std::vector<std::size_t> indices;
   };
 

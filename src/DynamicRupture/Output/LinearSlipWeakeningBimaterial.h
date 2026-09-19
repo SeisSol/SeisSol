@@ -12,17 +12,16 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
-class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
-  protected:
-  real computeLocalStrength(LocalInfo& local) override {
+class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeakeningBimaterial> {
+  public:
+  real computeLocalStrength(LocalInfo& local) {
     const auto* const regularizedStrengths =
         getCellData<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(local);
     return regularizedStrengths[local.gpIndex];
   }
 
-  public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
-    auto baseVector = LinearSlipWeakening::getOutputVariables();
+    auto baseVector = ReceiverOutput::getOutputVariables();
     baseVector.push_back(
         drStorage_->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
     return baseVector;

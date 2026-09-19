@@ -13,22 +13,30 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
-class RateAndState : public ReceiverOutput {
-  protected:
-  real computeLocalStrength(LocalInfo& local) override {
+/**
+  The parts which rate-and-state shares with its thermal-pressurization variant. Kept as a mixin
+  rather than a base class of the latter, so that the customisation points still resolve to the
+  most derived implementation.
+ */
+template <typename Derived>
+class RateAndStateBase : public ReceiverOutputImpl<Derived> {
+  public:
+  using LocalInfo = ReceiverOutput::LocalInfo;
+
+  real computeLocalStrength(LocalInfo& local) {
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return -1.0 * local.frictionCoefficient *
            std::min(effectiveNormalStress, static_cast<real>(0.0));
   }
 
-  real computeStateVariable(LocalInfo& local) override {
-    return getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
+  real computeStateVariable(LocalInfo& local) {
+    return this->template getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
   }
 
-  void handleNonConvergence(LocalInfo& local) override {
-    const auto* inner = getCellData<LTSRateAndState::ConvergenceInner>(local);
-    const auto* outer = getCellData<LTSRateAndState::ConvergenceOuter>(local);
+  void handleNonConvergence(LocalInfo& local) {
+    const auto* inner = this->template getCellData<LTSRateAndState::ConvergenceInner>(local);
+    const auto* outer = this->template getCellData<LTSRateAndState::ConvergenceOuter>(local);
     std::vector<std::size_t> failuresInner;
     std::vector<std::size_t> failuresOuter;
     for (std::size_t i = 0; i < misc::NumBoundaryGaussPoints; ++i) {
@@ -41,7 +49,7 @@ class RateAndState : public ReceiverOutput {
     }
 
     if (!(failuresInner.empty() && failuresOuter.empty())) {
-      const auto* pointData = local.state->receiverPoints[local.index].global.coords;
+      const auto* pointData = local.state->receivers[local.index].global.coords;
       const std::array<double, 3> point{pointData[0], pointData[1], pointData[2]};
       auto& printWarning = *local.printWarning;
       if (!printWarning) {
@@ -55,15 +63,18 @@ class RateAndState : public ReceiverOutput {
     }
   }
 
-  public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
-    baseVector.push_back(drStorage_->info<LTSRateAndState::StateVariable>().index);
-    baseVector.push_back(drStorage_->info<LTSRateAndState::ConvergenceInner>().index);
-    baseVector.push_back(drStorage_->info<LTSRateAndState::ConvergenceOuter>().index);
+    baseVector.push_back(this->drStorage_->template info<LTSRateAndState::StateVariable>().index);
+    baseVector.push_back(
+        this->drStorage_->template info<LTSRateAndState::ConvergenceInner>().index);
+    baseVector.push_back(
+        this->drStorage_->template info<LTSRateAndState::ConvergenceOuter>().index);
     return baseVector;
   }
 };
+
+class RateAndState : public RateAndStateBase<RateAndState> {};
 } // namespace seissol::dr::output
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATE_H_

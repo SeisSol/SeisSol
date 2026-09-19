@@ -423,7 +423,7 @@ void Local::evaluateBatchedTimeDependentBc(
 
             alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
-            assert(initConds != nullptr);
+            assert(initConds_ != nullptr);
             const ApplyAnalyticalSolution applyAnalyticalSolution(initConds_, data);
 
             dirichletBoundary_.evaluateTimeDependent(nullptr,

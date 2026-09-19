@@ -144,7 +144,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
   return std::make_pair(nearestPoint, shortestDistance);
 }
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
+void assignNearestGaussianPoints(Receivers& geoPoints) {
   auto quadratureData = generateTriangleQuadrature();
   const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
@@ -247,12 +247,12 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
   return basisFunctions;
 }
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
+std::vector<double> getAllVertices(const seissol::dr::Receivers& receivers) {
+  std::vector<double> vertices(3 * (3 * receivers.size()), 0.0);
 
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receivers.size(); ++pointIndex) {
     for (std::uint32_t vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
-      const auto& triangle = receiverPoints[pointIndex].globalTriangle;
+      const auto& triangle = receivers[pointIndex].globalTriangle;
       const auto& point = triangle.point(vertexIndex);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
@@ -264,10 +264,10 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPo
   return vertices;
 }
 
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<unsigned int> cells(3 * receiverPoints.size());
+std::vector<unsigned int> getCellConnectivity(const seissol::dr::Receivers& receivers) {
+  std::vector<unsigned int> cells(3 * receivers.size());
 
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receivers.size(); ++pointIndex) {
     for (int vertexIndex{0}; vertexIndex < 3; ++vertexIndex) {
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
       cells[globalVertexIndex] = globalVertexIndex;
@@ -275,11 +275,11 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
   }
   return cells;
 }
-std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<unsigned int> faultTags(receiverPoints.size());
+std::vector<unsigned int> getFaultTags(const seissol::dr::Receivers& receivers) {
+  std::vector<unsigned int> faultTags(receivers.size());
 
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
+  for (uint32_t pointIndex{0}; pointIndex < receivers.size(); ++pointIndex) {
+    faultTags[pointIndex] = receivers[pointIndex].faultTag;
   }
   return faultTags;
 }

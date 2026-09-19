@@ -48,7 +48,7 @@ void FaultRefiner::repeatRefinement(Data data,
 }
 
 void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
-  ReceiverPoint receiver{};
+  Receiver receiver{};
   receiver.isInside = true;
   receiver.faultFaceIndex = data.faultFaceIndex;
   receiver.localFaceSideId = data.localFaceSideId;
