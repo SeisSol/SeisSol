@@ -21,6 +21,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/DynamicRupture.h"
@@ -361,12 +362,13 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   loopStatistics_->begin(regionComputeLocalIntegration_);
 
   // local integration buffer
-  alignas(Alignment) real integrationBuffer[kernels::Solver::BuffersSize]{};
+  alignas(Alignment) real integrationBuffer[kernels::Solver::IntegralsSize]{};
 
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
 
-  real* const* buffers = clusterData_->var<LTS::Buffers>();
+  real* const* stepIntegrals = clusterData_->var<LTS::StepIntegrals>();
+  real* const* accumulatedIntegrals = clusterData_->var<LTS::AccumulatedIntegrals>();
   real* const* derivatives = clusterData_->var<LTS::Derivatives>();
 
   kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
@@ -380,21 +382,11 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   for (std::size_t cell = 0; cell < clusterData_->size(); cell++) {
     auto data = clusterData_->cellRef(cell);
 
-    // We need to check, whether we can overwrite the buffer or if it is
-    // needed by some other time cluster.
-    // If we cannot overwrite the buffer, we compute everything in a temporary
-    // local buffer and accumulate the results later in the shared buffer.
-    const bool buffersProvided =
-        data.get<LTS::CellInformation>().ltsSetup.hasBuffers(); // buffers are provided
-    const bool resetMyBuffers =
-        buffersProvided && (!data.get<LTS::CellInformation>().ltsSetup.accumulateBuffers() ||
-                            resetBuffers); // they should be reset
-
-    if (resetMyBuffers) {
+    if (data.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::StepIntegrals)) {
       // assert presence of the buffer
-      assert(buffers[cell] != nullptr);
+      assert(stepIntegrals[cell] != nullptr);
 
-      bufferPointer = buffers[cell];
+      bufferPointer = stepIntegrals[cell];
     } else {
       // work on local buffer
       bufferPointer = integrationBuffer;
@@ -421,15 +413,19 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       }
     }
 
-    // TODO: Integrate this step into the kernel
-    // We've used a temporary buffer -> need to accumulate update in
-    // shared buffer.
-    if (!resetMyBuffers && buffersProvided) {
-      assert(buffers[cell] != nullptr);
+    // We've used a step integral so far -> accumulate update if needed.
+    if (data.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::AccumulatedIntegrals)) {
+      assert(accumulatedIntegrals[cell] != nullptr);
 
+      if (resetBuffers) {
+        std::memcpy(accumulatedIntegrals[cell],
+                    bufferPointer,
+                    kernels::Solver::IntegralsSize * sizeof(real));
+      } else {
 #pragma omp simd
-      for (std::size_t dof = 0; dof < kernels::Solver::BuffersSize; ++dof) {
-        buffers[cell][dof] += integrationBuffer[dof];
+        for (std::size_t dof = 0; dof < kernels::Solver::IntegralsSize; ++dof) {
+          accumulatedIntegrals[cell][dof] += bufferPointer[dof];
+        }
       }
     }
   }
@@ -720,7 +716,7 @@ void TimeCluster::predict() {
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor_ == Executor::Device ? seissol::initializer::AllocationPlace::Host
                                                : seissol::initializer::AllocationPlace::Device;
-    clusterData_->varSynchronizeTo<LTS::BuffersDerivatives>(other, streamRuntime_.stream());
+    clusterData_->varSynchronizeTo<LTS::Buffers>(other, streamRuntime_.stream());
   }
 
   streamRuntime_.wait();
@@ -925,7 +921,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
       integrationBuffers[i] =
           &globalDataOnHost_->integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
-                                                   kernels::Solver::BuffersSize];
+                                                   kernels::Solver::IntegralsSize];
     }
 
     seissol::kernels::TimeCommon::computeIntegrals(timeKernel_,

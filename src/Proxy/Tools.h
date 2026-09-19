@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_PROXY_TOOLS_H_
 #define SEISSOL_SRC_PROXY_TOOLS_H_
 
-#include <ctime>
+#include <sys/time.h>
 
 auto derive_cycles_from_time(double time) -> double;
 

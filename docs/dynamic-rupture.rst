@@ -146,7 +146,7 @@ SeisSol mitigates such artifacts by projecting the state variable (e.g. cumulati
 This implementation lowers the required h-refinement across the fault in comparison to earlier implementations (cf. Pelties et al. , JGR 2012; GMD 2014)
 
 
-Visualisation: SlipRateOutputType (default =1)
+Visualization: SlipRateOutputType (default =1)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By default, the fault output will be showing regions affected by numerical problems. However, the user may choose to smooth out such artifacts for visualization purposes. Switching ``SlipRateOutputType`` in the ``DynamicRupture`` namelist from the default value to 0, will evaluate the slip-rate from the difference between the velocity on both sides of the fault, rather than evaluating the slip-rate from the fault tractions and the failure criterion directly.

@@ -18,6 +18,7 @@
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
@@ -35,6 +36,7 @@
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <Eigen/Dense>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -277,6 +279,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
       const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
       const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
+      const auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
       const auto layerSize = layer.size();
 
 #if !NVHPC_AVOID_OMP
@@ -290,6 +293,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
                waveSpeedsMinus,                                                                    \
+               impedanceMatrices,                                                                  \
                sim)
 #endif
       for (std::size_t i = 0; i < layerSize; ++i) {
@@ -306,20 +310,75 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                     drEnergyOutput[i].slip,
                                                     global_)[sim];
 
-          const double muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
-                                waveSpeedsPlus[i].sWaveVelocity;
-          const double muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
-                                 waveSpeedsMinus[i].sWaveVelocity;
-          const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+          const double areaWeight = godunovData[i].doubledSurfaceArea;
           double potencyIncrease = 0.0;
-          for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
-            potencyIncrease +=
-                drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
-                init::quadweights::Values[k];
+          double momentIncrease = 0.0;
+
+          if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+            // The modulus turning potency into moment is d^T Gamma d with the fault-local
+            // Christoffel matrix Gamma and the unit slip direction d, i.e. the contraction of the
+            // moment tensor C_ijkl (n_k d_l + n_l d_k) / 2 with the source geometry. Both the
+            // orientation of the fault and the rake enter, so the modulus varies from point to
+            // point and cannot be pulled out of the quadrature sum.
+
+            static_assert(model::MaterialT::Type != model::MaterialType::Anisotropic ||
+                          (tensor::Zplus::size() == 9 && tensor::Zminus::size() == 9));
+
+            const auto admittance = [](const real* data) {
+              return Eigen::Map<const Eigen::Matrix<real, 3, 3>>(data).cast<double>();
+            };
+            const auto gammaPlus = seissol::initializer::model::christoffelFromAdmittance(
+                admittance(impedanceMatrices[i].impedance), waveSpeedsPlus[i].density);
+            const auto gammaMinus = seissol::initializer::model::christoffelFromAdmittance(
+                admittance(impedanceMatrices[i].impedanceNeig), waveSpeedsMinus[i].density);
+
+            const auto* slip = reinterpret_cast<const real(*)[seissol::dr::misc::NumPaddedPoints]>(
+                drEnergyOutput[i].slip);
+
+            for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+              const auto index = k * seissol::multisim::NumSimulations + sim;
+
+              // the rake is taken from the net slip; it is the instantaneous one only as long as
+              // the slip direction does not turn during rupture
+              const double slipStrike = slip[1][index];
+              const double slipDip = slip[2][index];
+              const double magnitude = std::sqrt(slipStrike * slipStrike + slipDip * slipDip);
+              const double d1 = magnitude > 0 ? slipStrike / magnitude : 1.0;
+              const double d2 = magnitude > 0 ? slipDip / magnitude : 0.0;
+
+              const auto project = [d1, d2](const Eigen::Matrix3d& gamma) {
+                return gamma(1, 1) * d1 * d1 + (gamma(1, 2) + gamma(2, 1)) * d1 * d2 +
+                       gamma(2, 2) * d2 * d2;
+              };
+              const double muPlus = project(gammaPlus);
+              const double muMinus = project(gammaMinus);
+
+              const double slipIncrease =
+                  drEnergyOutput[i].accumulatedSlip[index] * init::quadweights::Values[k];
+              potencyIncrease += slipIncrease;
+              momentIncrease += slipIncrease * 2.0 * muPlus * muMinus / (muPlus + muMinus);
+            }
+            potencyIncrease *= areaWeight;
+            momentIncrease *= areaWeight;
+          } else {
+            // rho * cs^2 is the shear modulus of the frame for every material with an isotropic
+            // one, poroelasticity included -- there the fluid carries no shear
+            const double muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
+                                  waveSpeedsPlus[i].sWaveVelocity;
+            const double muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
+                                   waveSpeedsMinus[i].sWaveVelocity;
+            const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+            for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+              potencyIncrease +=
+                  drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
+                  init::quadweights::Values[k];
+            }
+            potencyIncrease *= areaWeight;
+            momentIncrease = potencyIncrease * mu;
           }
-          potencyIncrease *= godunovData[i].doubledSurfaceArea;
+
           potency += potencyIncrease;
-          seismicMoment += potencyIncrease * mu;
+          seismicMoment += momentIncrease;
         }
       }
       double localMin = std::numeric_limits<double>::infinity();
