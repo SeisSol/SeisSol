@@ -41,7 +41,7 @@
 namespace seissol::initializer {
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
-                                const std::optional<EasiBoundary>& easiBoundary,
+                                const std::optional<DirichletCondition>& dirichletCondition,
                                 LTS::Storage& ltsStorage) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -105,24 +105,24 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
 
         // Evaluate easi boundary condition matrices if needed
-        real* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;
-        real* easiBoundaryConstant = boundary[cell][side].easiBoundaryConstant;
-        assert(easiBoundaryMap != nullptr);
-        assert(easiBoundaryConstant != nullptr);
+        real* dirichletMap = boundary[cell][side].dirichletMap;
+        real* dirichletOffset = boundary[cell][side].dirichletOffset;
+        assert(dirichletMap != nullptr);
+        assert(dirichletOffset != nullptr);
         if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
-          if (easiBoundary.has_value()) {
+          if (dirichletCondition.has_value()) {
             VrtxCoords faceBarycenter;
             MeshTools::center(element, side, vertices, faceBarycenter);
 
-            real globalMapData[tensor::easiBoundaryMapGlobal::size()];
-            real globalConstantData[tensor::easiBoundaryConstantGlobal::size()];
-            easiBoundary->query(faceBarycenter, globalMapData, globalConstantData);
+            real globalMapData[tensor::dirichletMapGlobal::size()];
+            real globalConstantData[tensor::dirichletOffsetGlobal::size()];
+            dirichletCondition->query(faceBarycenter, globalMapData, globalConstantData);
 
             kernel::rotateBoundaryCondition rotateKrnl;
-            rotateKrnl.easiBoundaryMapGlobal = globalMapData;
-            rotateKrnl.easiBoundaryConstantGlobal = globalConstantData;
-            rotateKrnl.easiBoundaryMap = easiBoundaryMap;
-            rotateKrnl.easiBoundaryConstant = easiBoundaryConstant;
+            rotateKrnl.dirichletMapGlobal = globalMapData;
+            rotateKrnl.dirichletOffsetGlobal = globalConstantData;
+            rotateKrnl.dirichletMap = dirichletMap;
+            rotateKrnl.dirichletOffset = dirichletOffset;
             rotateKrnl.T = matTData;
             rotateKrnl.Tinv = matTinvData;
             rotateKrnl.execute();
@@ -131,11 +131,11 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           }
         } else {
           // Boundary should not be evaluated
-          std::fill_n(easiBoundaryMap,
-                      seissol::tensor::easiBoundaryMap::size(),
+          std::fill_n(dirichletMap,
+                      seissol::tensor::dirichletMap::size(),
                       std::numeric_limits<real>::signaling_NaN());
-          std::fill_n(easiBoundaryConstant,
-                      seissol::tensor::easiBoundaryConstant::size(),
+          std::fill_n(dirichletOffset,
+                      seissol::tensor::dirichletOffset::size(),
                       std::numeric_limits<real>::signaling_NaN());
         }
       }

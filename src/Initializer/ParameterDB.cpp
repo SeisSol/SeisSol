@@ -661,20 +661,20 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   return supplied;
 }
 
-EasiBoundary::EasiBoundary(const std::string& fileName)
+DirichletCondition::DirichletCondition(const std::string& fileName)
     : model_(loadEasiModel(fileName)) {}
 
-EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept
+DirichletCondition::DirichletCondition(DirichletCondition&& other) noexcept
     : model_(other.model_) {}
 
-EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
+DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) noexcept {
   std::swap(model_, other.model_);
   return *this;
 }
 
-EasiBoundary::~EasiBoundary() { delete model_; }
+DirichletCondition::~DirichletCondition() { delete model_; }
 
-void EasiBoundary::query(const double* barycenter,
+void DirichletCondition::query(const double* barycenter,
                                real* mapTermsData,
                                real* constantTermsData) const {
   if (model_ == nullptr) {
@@ -700,8 +700,8 @@ void EasiBoundary::query(const double* barycenter,
   // therefore map_v1_v1: -1.
   const auto& varNames = model::MaterialT::Quantities;
 
-  auto mapTerms = init::easiBoundaryMapGlobal::view::create(mapTermsData);
-  auto constantTerms = init::easiBoundaryConstantGlobal::view::create(constantTermsData);
+  auto mapTerms = init::dirichletMapGlobal::view::create(mapTermsData);
+  auto constantTerms = init::dirichletOffsetGlobal::view::create(constantTermsData);
 
   easi::ArraysAdapter<real> adapter{};
   std::unordered_set<std::string> known;

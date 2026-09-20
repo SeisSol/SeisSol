@@ -345,7 +345,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
     std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
     std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
 
-    std::array<std::vector<real*>, Cell::NumFaces> easiBoundaryConstantPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> dirichletOffsetPtrs{};
 
     std::array<std::size_t, 4> counter{};
 
@@ -360,8 +360,8 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
 
-          easiBoundaryConstantPtrs[face].push_back(
-              dataHost.get<LTS::BoundaryMappingDevice>()[face].easiBoundaryConstant);
+          dirichletOffsetPtrs[face].push_back(
+              dataHost.get<LTS::BoundaryMappingDevice>()[face].dirichletOffset);
 
           ++counter[face];
         }
@@ -375,8 +375,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
         checkKey(key);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::EasiBoundaryConstant,
-                                  easiBoundaryConstantPtrs[face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::DirichletOffset, dirichletOffsetPtrs[face]);
       }
     }
   }

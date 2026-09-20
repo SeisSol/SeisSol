@@ -293,7 +293,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
             foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
             foldKrnl.Tinv = matTinvData;
-            foldKrnl.easiBoundaryMap = boundaryMapping[cell][side].easiBoundaryMap;
+            foldKrnl.dirichletMap = boundaryMapping[cell][side].dirichletMap;
             foldKrnl.execute();
           }
 

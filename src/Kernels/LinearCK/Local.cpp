@@ -185,11 +185,11 @@ void Local::computeIntegral(
       break;
     }
     case FaceType::Dirichlet: {
-      auto* easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
-      assert(easiBoundaryConstant != nullptr);
+      auto* dirichletOffset = cellBoundaryMapping[face].dirichletOffset;
+      assert(dirichletOffset != nullptr);
 
       auto kernel = dirichletFlux_;
-      kernel.easiBoundaryConstant = easiBoundaryConstant;
+      kernel.dirichletOffset = dirichletOffset;
       kernel.dt = timeStepWidth;
 
       kernel.Q = data.get<LTS::Dofs>();
@@ -341,11 +341,11 @@ void Local::computeBatchedIntegral(
     ConditionalKey dirichletKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
     if (dataTable.find(dirichletKey) != dataTable.end()) {
-      auto* easiBoundaryConstantPtrs =
-          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
+      auto* dirichletOffsetPtrs =
+          dataTable[dirichletKey].get(inner_keys::Wp::Id::DirichletOffset)->getDeviceDataPtr();
 
       auto bcKernel = deviceDirichletFlux_;
-      bcKernel.easiBoundaryConstant = const_cast<const real**>(easiBoundaryConstantPtrs);
+      bcKernel.dirichletOffset = const_cast<const real**>(dirichletOffsetPtrs);
       bcKernel.dt = timeStepWidth;
       bcKernel.Q = (dataTable[dirichletKey].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       bcKernel.AminusT =

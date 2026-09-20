@@ -20,8 +20,8 @@ def addKernels(
     dynamicRuptureMethod,
     targets,
 ):
-    easi_boundary_constant = OptionalDimTensor(
-        "easiBoundaryConstant",
+    dirichlet_offset = OptionalDimTensor(
+        "dirichletOffset",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
@@ -29,16 +29,16 @@ def addKernels(
         alignStride=True,
     )
 
-    easi_boundary_map = Tensor(
-        "easiBoundaryMap",
+    dirichlet_map = Tensor(
+        "dirichletMap",
         (aderdg.numberOfQuantities(), aderdg.numberOfQuantities()),
         alignStride=False,
     )
 
     # The boundary condition is given in global coordinates; the face-aligned
     # form that the flux solver absorbs is derived from it once per face.
-    easi_boundary_constant_global = OptionalDimTensor(
-        "easiBoundaryConstantGlobal",
+    dirichlet_offset_global = OptionalDimTensor(
+        "dirichletOffsetGlobal",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
@@ -46,8 +46,8 @@ def addKernels(
         alignStride=True,
     )
 
-    easi_boundary_map_global = Tensor(
-        "easiBoundaryMapGlobal",
+    dirichlet_map_global = Tensor(
+        "dirichletMapGlobal",
         (aderdg.numberOfQuantities(), aderdg.numberOfQuantities()),
         alignStride=False,
     )
@@ -60,13 +60,13 @@ def addKernels(
     generator.add(
         "rotateBoundaryCondition",
         [
-            easi_boundary_map["ab"]
+            dirichlet_map["ab"]
             <= aderdg.Tinv["ac"].subslice("a", 0, nq).subslice("c", 0, nq)
-            * easi_boundary_map_global["cd"]
+            * dirichlet_map_global["cd"]
             * aderdg.T["db"].subslice("d", 0, nq).subslice("b", 0, nq),
-            easi_boundary_constant["a"]
+            dirichlet_offset["a"]
             <= aderdg.Tinv["am"].subslice("a", 0, nq).subslice("m", 0, nq)
-            * easi_boundary_constant_global["m"],
+            * dirichlet_offset_global["m"],
         ],
     )
 
@@ -132,7 +132,7 @@ def addKernels(
         aderdg.AplusT["mp"]
         <= aderdg.AplusT["mp"]
         + aderdg.Tinv["bm"].subslice("b", 0, nq).subslice("m", 0, nq)
-        * easi_boundary_map["ab"]
+        * dirichlet_map["ab"]
         * aderdg.AminusT["ap"]
     )
     generator.add("foldDirichlet", fold_dirichlet)
@@ -153,7 +153,7 @@ def addKernels(
             <= aderdg.extendedQTensor()["kp"]
             + dt
             * aderdg.db.dirichletLift[i]["k"]
-            * easi_boundary_constant["o"]
+            * dirichlet_offset["o"]
             * aderdg.AminusT["op"]
         )
 

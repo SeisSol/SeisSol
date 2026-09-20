@@ -117,7 +117,7 @@ void Local::computeIntegral(
     }
     case FaceType::Dirichlet: {
       auto kernel = dirichletFlux_;
-      kernel.easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
+      kernel.dirichletOffset = cellBoundaryMapping[face].dirichletOffset;
       kernel.dt = timeStepWidth;
 
       kernel.Qext = Qext;

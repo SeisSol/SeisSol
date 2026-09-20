@@ -166,17 +166,17 @@ class FaultParameterDB : public ParameterDB {
   std::unordered_map<std::string, std::pair<real*, unsigned>> parameters_;
 };
 
-class EasiBoundary {
+class DirichletCondition {
   public:
-  explicit EasiBoundary(const std::string& fileName);
+  explicit DirichletCondition(const std::string& fileName);
 
-  EasiBoundary() : model_(nullptr) {};
-  EasiBoundary(const EasiBoundary&) = delete;
-  EasiBoundary& operator=(const EasiBoundary&) = delete;
-  EasiBoundary(EasiBoundary&& other) noexcept;
-  EasiBoundary& operator=(EasiBoundary&& other) noexcept;
+  DirichletCondition() : model_(nullptr) {};
+  DirichletCondition(const DirichletCondition&) = delete;
+  DirichletCondition& operator=(const DirichletCondition&) = delete;
+  DirichletCondition(DirichletCondition&& other) noexcept;
+  DirichletCondition& operator=(DirichletCondition&& other) noexcept;
 
-  ~EasiBoundary();
+  ~DirichletCondition();
 
   void query(const double* barycenter, real* mapTermsData, real* constantTermsData) const;
 
