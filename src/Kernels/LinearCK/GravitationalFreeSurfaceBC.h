@@ -17,7 +17,6 @@
 #include "Numerical/ODEInt.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/Stream.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <utility>
 
@@ -53,47 +52,43 @@ class GravitationalFreeSurfaceBc {
                 const real* /*power*/,
                 double timeStepWidth,
                 CellMaterialData& materialData) {
-    if constexpr (multisim::MultisimEnabled) {
-      // ... or maybe it even does work now?
-      logError() << "The Free Surface Gravity BC kernel does not work with multiple simulations "
-                    "yet. Or at least, nobody has yet tested the new implementation.";
-    } else {
-      kernel::fsgKernel kernel = std::forward<MappingKrnl>(fsgKernelBase);
+    // The material constants are shared by every fused simulation, since those
+    // share the cell they run in.
+    kernel::fsgKernel kernel = std::forward<MappingKrnl>(fsgKernelBase);
 
-      assert(boundaryMapping.dataTinv != nullptr);
-      assert(boundaryMapping.dataT != nullptr);
+    assert(boundaryMapping.dataTinv != nullptr);
+    assert(boundaryMapping.dataT != nullptr);
 
-      kernel.T = boundaryMapping.dataT;
-      kernel.Tinv = boundaryMapping.dataTinv;
-      kernel.faceDisplacement = displacementNodalData;
-      kernel.Iint = integratedDisplacementNodalData;
+    kernel.T = boundaryMapping.dataT;
+    kernel.Tinv = boundaryMapping.dataTinv;
+    kernel.faceDisplacement = displacementNodalData;
+    kernel.Iint = integratedDisplacementNodalData;
 
-      double coeffTmp = 1;
-      double powerTmp = timeStepWidth;
+    double coeffTmp = 1;
+    double powerTmp = timeStepWidth;
 
-      kernel.fsgpower(0) = timeStepWidth;
+    kernel.fsgpower(0) = timeStepWidth;
 
-      for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
-        kernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
+    for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
+      kernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
 
-        coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
-        powerTmp *= timeStepWidth / static_cast<double>(i + 2);
+      coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
+      powerTmp *= timeStepWidth / static_cast<double>(i + 2);
 
-        kernel.coeff(i + 1) = coeffTmp;
-        kernel.fsgpower(i + 1) = powerTmp;
-      }
-
-      const double rho = materialData.local->getDensity();
-      const double g = gravitationalAcceleration_; // [m/s^2]
-      const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
-      const real invImp = 1 / z;
-      const real rhoG = rho * g;
-
-      kernel.invImp = &invImp;
-      kernel.rhoG = &rhoG;
-
-      kernel.execute(faceIdx);
+      kernel.coeff(i + 1) = coeffTmp;
+      kernel.fsgpower(i + 1) = powerTmp;
     }
+
+    const double rho = materialData.local->getDensity();
+    const double g = gravitationalAcceleration_; // [m/s^2]
+    const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
+    const real invImp = 1 / z;
+    const real rhoG = rho * g;
+
+    kernel.invImp = &invImp;
+    kernel.rhoG = &rhoG;
+
+    kernel.execute(faceIdx);
   }
 
 #ifdef ACL_DEVICE
