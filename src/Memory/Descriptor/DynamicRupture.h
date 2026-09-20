@@ -39,7 +39,7 @@ inline auto allocationModeDR() {
 struct DynamicRupture {
   public:
   DynamicRupture() = default;
-  /// the initial state plus every configured nucleation
+  /// the stress sources of a face: every configured nucleation, then the initial state
   std::size_t stressSourceCount{1};
   explicit DynamicRupture(const initializer::parameters::DRParameters* parameters)
       : stressSourceCount(dr::stressSourceCount(*parameters)) {}
@@ -66,10 +66,10 @@ struct DynamicRupture {
   // size padded for vectorization
   // CS = coordinate system
   /// the stress of every source of this face, the initial state first; see dr::stressSourceCount
-  struct NucleationStressInFaultCS
+  struct StressSourceInFaultCS
       : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {};
   // will be always zero, if not using poroelasticity
-  struct NucleationPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct StressSourcePressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct Mu : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct AccumulatedSlipMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
   };
@@ -126,10 +126,10 @@ struct DynamicRupture {
     storage.add<ImpedanceMatrices>(mask, Alignment, allocationModeDR(), true);
     storage.add<RuptureTime>(mask, Alignment, allocationModeDR());
 
-    // NOTE: the number of stress sources (initial state and multi-nucleation) is passed here.
-    storage.add<NucleationStressInFaultCS>(
+    // NOTE: the number of stress sources per face is passed here.
+    storage.add<StressSourceInFaultCS>(
         mask, Alignment, allocationModeDR(), true, stressSourceCount);
-    storage.add<NucleationPressure>(mask, Alignment, allocationModeDR(), true, stressSourceCount);
+    storage.add<StressSourcePressure>(mask, Alignment, allocationModeDR(), true, stressSourceCount);
 
     storage.add<RuptureTimePending>(mask, Alignment, allocationModeDR());
     storage.add<DynStressTime>(mask, Alignment, allocationModeDR());

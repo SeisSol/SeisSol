@@ -111,8 +111,8 @@ class BaseFrictionLaw : public FrictionSolver {
 
           const auto sourceCount = this->drParameters_.sourceCount;
           common::computeInitialStress(initialStress,
-                                       &nucleationStressInFaultCS_[ltsFace * sourceCount],
-                                       &nucleationPressure_[ltsFace * sourceCount],
+                                       &stressSourceInFaultCS_[ltsFace * sourceCount],
+                                       &stressSourcePressure_[ltsFace * sourceCount],
                                        this->drParameters_,
                                        updateTime);
 

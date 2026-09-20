@@ -248,14 +248,15 @@ namespace seissol::dr {
 constexpr std::size_t MaxNucleations = 16;
 
 /**
- * The fraction of a nucleation's stress that is in effect at the given time.
+ * The fraction of a stress source that is in effect at the given time, for a source with the
+ * given rise time and onset.
  *
  * The absolute value of the ramp, not its increment over the time step. The stress at a point is
  * therefore a function of the time alone: it does not depend on the sequence of time steps that
  * led there, nothing accumulates, and nothing has to be carried across a restart. A ramp that is
  * not monotone, or one that returns to zero, would be as admissible here as the smooth step is.
  */
-SEISSOL_HOSTDEVICE inline real nucleationFraction(real time, real t0, real s0) {
+SEISSOL_HOSTDEVICE inline real stressSourceFraction(real time, real t0, real s0) {
   if (t0 <= 0) {
     // without a rise time, a source is in full effect from its onset on
     return time >= s0 ? static_cast<real>(1.0) : static_cast<real>(0.0);
@@ -332,7 +333,7 @@ inline std::array<real, 6> stressAtTime(const real (*sources)[6][misc::NumPadded
                                         real time) {
   std::array<real, 6> stress{};
   for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
-    const real fraction = nucleationFraction(time, parameters.t0[source], parameters.s0[source]);
+    const real fraction = stressSourceFraction(time, parameters.t0[source], parameters.s0[source]);
     for (std::size_t component = 0; component < stress.size(); ++component) {
       stress[component] += sources[source][component][pointIndex] * fraction;
     }

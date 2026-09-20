@@ -61,7 +61,7 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
     // the stress the fault starts out under, which is every source that is in effect at the
     // beginning of the simulation and not only the initial state
     const FrictionLawParameters frictionLawParameters(*drParameters_);
-    const auto* stressSources = layer.var<LTSRateAndState::NucleationStressInFaultCS>();
+    const auto* stressSources = layer.var<LTSRateAndState::StressSourceInFaultCS>();
 
     const auto initialSlipRate =
         misc::magnitude(drParameters_->rsInitialSlipRate1, drParameters_->rsInitialSlipRate2);

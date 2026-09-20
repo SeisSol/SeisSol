@@ -268,7 +268,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     // the initial state is the last stress source of the face, the one without a rise time
     const auto sourceCount = stressSourceCount(*drParameters_);
     const auto initialSource = drParameters_->nucleationCount;
-    auto* stressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
+    auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>();
     rotateStressToFaultCS(layer,
                           stressInFaultCS,
                           initialSource,
@@ -289,7 +289,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
                             seissolInstance_.meshReader());
     }
 
-    auto* pressure = layer.var<DynamicRupture::NucleationPressure>();
+    auto* pressure = layer.var<DynamicRupture::StressSourcePressure>();
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         pressure[ltsFace * sourceCount + initialSource][pointIndex] =

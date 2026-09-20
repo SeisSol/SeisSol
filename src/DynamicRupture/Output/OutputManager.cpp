@@ -432,7 +432,7 @@ void OutputManager::initPickpointOutput() {
               const auto sourceCount =
                   dr::stressSourceCount(seissolInstance_.parameters().drParameters);
               const auto* stresses = drStorage_->layer(position.color)
-                                         .var<DynamicRupture::NucleationStressInFaultCS>();
+                                         .var<DynamicRupture::StressSourceInFaultCS>();
               const auto& initialStress = stresses[position.cell * sourceCount + sourceCount - 1];
               std::array<real, 6> unrotatedInitialStress{};
               for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();

@@ -196,7 +196,7 @@ void ReceiverOutput::calcFaultOutput(
     local.stateVariable = this->computeStateVariable(local);
 
     // the whole tensor, since the total traction output rotates it
-    const auto* stressSources = local.layer->var<DynamicRupture::NucleationStressInFaultCS>();
+    const auto* stressSources = local.layer->var<DynamicRupture::StressSourceInFaultCS>();
     const auto initialStress =
         stressAtTime(&stressSources[local.ltsId * frictionLawParameters_.sourceCount],
                      frictionLawParameters_,
@@ -701,7 +701,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
 }
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
-  return {drStorage_->info<DynamicRupture::NucleationStressInFaultCS>().index,
+  return {drStorage_->info<DynamicRupture::StressSourceInFaultCS>().index,
           drStorage_->info<DynamicRupture::Mu>().index,
           drStorage_->info<DynamicRupture::RuptureTime>().index,
           drStorage_->info<DynamicRupture::AccumulatedSlipMagnitude>().index,

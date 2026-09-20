@@ -77,7 +77,7 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(DynamicRupture::S
     // the stress the fault starts out under, which is every source that is in effect at the
     // beginning of the simulation and not only the initial state
     const FrictionLawParameters frictionLawParameters(*drParameters_);
-    const auto* stressSources = layer.var<LTSLinearSlipWeakening::NucleationStressInFaultCS>();
+    const auto* stressSources = layer.var<LTSLinearSlipWeakening::StressSourceInFaultCS>();
 
     using namespace dr::misc::quantity_indices;
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
