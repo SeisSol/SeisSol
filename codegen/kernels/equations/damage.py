@@ -208,8 +208,16 @@ class DamageADERDG(NonLinearCK):
         # is the working precision, and then the condition written into it is
         # a bool where it is written and a double where it is read.
         self.growing = temporary("damageGrowing", datatype=Datatype.BOOL)
-        self.sourceAlpha = temporary("sourceAlpha")
-        self.sourceBreakage = temporary("sourceBreakage")
+        # One per time node, not one reused: a node reaches its damage by
+        # weighing every source sampled before it, so those have to still be
+        # there. They are scalars per quadrature point, so the whole history
+        # costs less than one nodal stress.
+        self.sourceAlpha = [
+            temporary(f"sourceAlpha{q}") for q in range(self.numTimeNodes())
+        ]
+        self.sourceBreakage = [
+            temporary(f"sourceBreakage{q}") for q in range(self.numTimeNodes())
+        ]
         # The integrals are accumulated at the nodes and projected once. The
         # projection is linear, so it commutes with the quadrature sum, and
         # doing it per node would run the same matrix over the same tensor
@@ -385,13 +393,13 @@ class DamageADERDG(NonLinearCK):
             self.nodeShear["u"] <= yf.mul(yf.max(sSquared, "l"), self.unitColumn["u"]),
         ]
 
-    def stepStatements(self, node, weight, march):
+    def stepStatements(self, node, weight, width):
         """The material response at one time node, and what it contributes.
 
-        ``weight`` is the quadrature weight of the node, ``march`` the step
-        from it to the next one. Both are scalars the caller sets, so which
-        rule is being used is a property of the launch code and not of the
-        kernel.
+        ``weight`` is the quadrature weight of the node and ``width`` the
+        width of the whole step; how far the internal variables have travelled
+        by this node follows from the time nodes alone and arrives as
+        literals.
         """
         first = node == 0
         i2 = self.i2
@@ -413,6 +421,24 @@ class DamageADERDG(NonLinearCK):
                 alpha["l"] <= self.nodalState["lp"] * self.pickAlpha["p"],
                 breakage["l"] <= self.nodalState["lp"] * self.pickBreakage["p"],
             ]
+        else:
+            # The distance from the node before this one, which is the
+            # difference of two rows of the rule. Written as a step from the
+            # node before rather than as a reach from the start of the step:
+            # an addition onto the variable that travels is one accumulation
+            # into the place it lives, where a sum that begins somewhere else
+            # would accumulate into that somewhere else instead.
+            travel = self.timeMarch()
+            step = travel[node] - travel[node - 1]
+            for q in range(node):
+                if step[q] == 0.0:
+                    continue
+                scale = float(step[q]) * width
+                statements += [
+                    alpha["l"] <= alpha["l"] + scale * self.sourceAlpha[q]["l"],
+                    breakage["l"]
+                    <= breakage["l"] + scale * self.sourceBreakage[q]["l"],
+                ]
 
         statements += self.constitutiveStatements()
 
@@ -486,7 +512,7 @@ class DamageADERDG(NonLinearCK):
                     yf.less(yf.sum(self.meanBreakage["u"], "u"), 1.0),
                 ),
             ),
-            self.sourceAlpha["l"]
+            self.sourceAlpha[node]["l"]
             <= yf.where(
                 growing["l"],
                 self.damageRate * drive["l"],
@@ -498,7 +524,7 @@ class DamageADERDG(NonLinearCK):
             # one type per occurrence, so the two occurrences disagree and the
             # generator refuses the kernel. Every reader of it is a condition
             # now, as the one above already was.
-            self.sourceBreakage["l"]
+            self.sourceBreakage[node]["l"]
             <= yf.where(
                 growing["l"],
                 self.breakageRate
@@ -526,8 +552,8 @@ class DamageADERDG(NonLinearCK):
             )
         ]
         for accumulator, source in (
-            (self.alphaIntegral, self.sourceAlpha),
-            (self.breakageIntegral, self.sourceBreakage),
+            (self.alphaIntegral, self.sourceAlpha[node]),
+            (self.breakageIntegral, self.sourceBreakage[node]),
             (self.alphaValueIntegral, alpha),
             (self.breakageValueIntegral, breakage),
         ):
@@ -602,10 +628,6 @@ class DamageADERDG(NonLinearCK):
                     )
                 ]
 
-        statements += [
-            alpha["l"] <= alpha["l"] + march * self.sourceAlpha["l"],
-            breakage["l"] <= breakage["l"] + march * self.sourceBreakage["l"],
-        ]
         return statements
 
     def finishStatements(self):

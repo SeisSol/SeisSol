@@ -372,6 +372,32 @@ class NonLinearCK(ADERDGBase):
         legendre = np.polynomial.legendre.legval(reference, [0] * (points - 1) + [1])
         return 1.0 / (points * (points - 1) * legendre * legendre)
 
+    def timeMarch(self):
+        """How far an internal variable carried across the time nodes has
+        travelled by each of them, as weights on the sources already sampled.
+
+        Row q holds the integral from the start of the step to node q of the
+        polynomial through the sources at the nodes before q, in time scaled
+        onto [0, 1]. It is strictly lower triangular, because a node can only
+        be reached with what has already been evaluated -- which is what keeps
+        the step a single sweep. The rule is of one order higher per node, so
+        the last row is of the order of the scheme; a rule built from every
+        node would be the quadrature itself, and would cost a second sweep to
+        know the sources it weighs.
+        """
+        nodes = self.timeNodes()
+        points = self.numTimeNodes()
+        march = np.zeros((points, points))
+        for q in range(1, points):
+            known = nodes[:q]
+            for p in range(q):
+                unit = np.zeros(q)
+                unit[p] = 1.0
+                basis = np.polynomial.polynomial.polyfit(known, unit, q - 1)
+                integral = np.polynomial.polynomial.polyint(basis)
+                march[q, p] = np.polynomial.polynomial.polyval(nodes[q], integral)
+        return march
+
     def timeProjection(self):
         """Coefficients of the shifted Legendre expansion, from the values at
         the time nodes.
@@ -448,7 +474,10 @@ class NonLinearCK(ADERDGBase):
             for q in range(nodes)
         ]
         weights = [Scalar(f"weight({q})") for q in range(nodes)]
-        march = [Scalar(f"march({q})") for q in range(nodes)]
+        # The rule the internal variables travel by is a constant of the time
+        # nodes, so it arrives as literals; what the launch code still says is
+        # how wide the step those nodes span is.
+        width = Scalar("stepWidth")
 
         # The nodal state at a time node lives inside the kernel: the step is
         # the only thing that looks at it.
@@ -475,7 +504,7 @@ class NonLinearCK(ADERDGBase):
                 state["kp"] <= expansion,
                 self.nodalState["lp"] <= self.db.evalAtQP[self.t("lk")] * state["kp"],
             ]
-            statements += self.stepStatements(q, weights[q], march[q])
+            statements += self.stepStatements(q, weights[q], width)
 
         statements += self.finishStatements()
         generator.add(f"{prefix}damageStep", statements, target=target)

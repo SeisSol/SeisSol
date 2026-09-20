@@ -89,10 +89,9 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
   }
   derivative.execute();
 
-  // Everything nonlinear, in one kernel. The rule it samples with is ours to
-  // choose: the nodes and weights of the quadrature, the coefficients that
-  // evaluate the expansion there, and how far the internal variables march
-  // from one node to the next.
+  // Everything nonlinear, in one kernel. What we choose here is where it
+  // samples: the nodes and weights of the quadrature, and the coefficients
+  // that evaluate the expansion there.
   const Solver::TimeBasis<real> basis(ConvergenceOrder);
   const auto [nodes, weights] = basis.quadratureWithEndpoints(timeStepWidth);
 
@@ -107,12 +106,11 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
       step.evaluate(q, i) = evaluation.state[i];
     }
     step.weight(q) = weights[q];
-    // The internal variables are carried across the nodes explicitly. The
-    // first node is the start of the step and the last one its end, so the
-    // marches tile the step without a gap; what is left is the order of the
-    // march itself, and that is a property of these numbers alone.
-    step.march(q) = (q + 1 < nodes.size() ? nodes[q + 1] : nodes[q]) - nodes[q];
   }
+  // How far the internal variables have travelled by each node follows from
+  // where the nodes are, which the kernel knows; how wide the step those
+  // nodes span is, it does not.
+  step.stepWidth = timeStepWidth;
 
   step.I = timeIntegrated;
   step.sourceI = tmp.sourceIntegral;
@@ -196,8 +194,8 @@ void Spacetime::computeBatchedAder(
       step.evaluate(q, i) = evaluation.state[i];
     }
     step.weight(q) = weights[q];
-    step.march(q) = (q + 1 < nodes.size() ? nodes[q + 1] : nodes[q]) - nodes[q];
   }
+  step.stepWidth = timeStepWidth;
 
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     step.dQ(i) =
