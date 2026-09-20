@@ -361,9 +361,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
             static_cast<real>(0.5) *
             (this->slipRateMagnitude_[ltsFace][pointIndex] + testSlipRate[pointIndex]);
 
+        // Relative, like the criterion of the inner solve: the slip rates this loop walks
+        // through span twenty decades, and a fixed step in m/s is a different demand at every
+        // one of them -- no requirement at all where a point creeps, and more precision than
+        // the inner solve resolves where it slips fast. The tolerance is raised to a few ulp,
+        // since no nonzero relative step is smaller.
+        const auto stateTolerance =
+            std::max(static_cast<real>(this->drParameters_.rsStateTolerance),
+                     static_cast<real>(4.0) * std::numeric_limits<real>::epsilon());
         const auto pointConverged =
-            std::abs(testSlipRate[pointIndex] - this->slipRateMagnitude_[ltsFace][pointIndex]) <
-            this->drParameters_.rsStateTolerance;
+            std::abs(testSlipRate[pointIndex] - this->slipRateMagnitude_[ltsFace][pointIndex]) <=
+            stateTolerance * std::abs(testSlipRate[pointIndex]);
 
         converged = std::min(pointConverged ? 1 : 0, converged);
 

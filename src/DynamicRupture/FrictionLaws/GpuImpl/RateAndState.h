@@ -219,8 +219,16 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = slipRateTest;
       ctx.data->mu[ctx.ltsFace][ctx.pointIndex] = exportMu;
 
-      hasConvergedOuter =
-          std::abs(localSlipRateMagnitude - slipRateTest) < ctx.data->drParameters.rsStateTolerance;
+      // Relative, like the criterion of the inner solve: the slip rates this loop walks through
+      // span twenty decades, and a fixed step in m/s is a different demand at every one of them --
+      // no requirement at all where a point creeps, and more precision than the inner solve
+      // resolves where it slips fast. The tolerance is raised to a few ulp, since no nonzero
+      // relative step is smaller.
+      const auto stateTolerance =
+          std::max(static_cast<real>(ctx.data->drParameters.rsStateTolerance),
+                   static_cast<real>(4.0) * std::numeric_limits<real>::epsilon());
+      hasConvergedOuter = std::abs(localSlipRateMagnitude - slipRateTest) <=
+                          stateTolerance * std::abs(slipRateTest);
 
       // exit early and prevent thread/load data divergence
       deviceWarpBarrier(ctx);

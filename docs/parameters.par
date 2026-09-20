@@ -86,7 +86,9 @@ rsslipratetolerance = 1e-8 ! relative tolerance on the slip rate Newton-Raphson 
                            ! i.e. the solve stops at |dV| < rsslipratetolerance * V.
                            ! Values below the machine epsilon of the build precision are
                            ! raised to a few ulp, since no nonzero step is smaller.
-rsstatetolerance = 1e-8 ! tolerance for the state in the outer iterations
+rsstatetolerance = 1e-8 ! relative tolerance on the slip rate of the outer iteration,
+                        ! i.e. the loop stops at |dV| < rsstatetolerance * V. Values below
+                        ! the machine epsilon of the build precision are raised to a few ulp.
 /
 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html
