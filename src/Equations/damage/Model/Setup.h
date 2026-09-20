@@ -71,6 +71,25 @@ struct MaterialSetup<DamageMaterial> : public MaterialSetupDefaults<DamageMateri
         material, dim, material.lambda0, material.mu0, matM);
   }
 
+  /// The Jacobian of the element, one row per reference direction.
+  ///
+  /// The operator this material transports by follows the state, so what a
+  /// cell keeps is the geometry it was meshed with; the operator itself is
+  /// assembled from it once per step, together with the tangent of the stress
+  /// at the cell mean.
+  static void fillStarMatrices(const DamageMaterial& /*material*/,
+                               const double gradXi[3],
+                               const double gradEta[3],
+                               const double gradZeta[3],
+                               real starMatrices[3][tensor::star::size(0)]) {
+    const double* const gradients[3] = {gradXi, gradEta, gradZeta};
+    for (std::size_t reference = 0; reference < 3; ++reference) {
+      for (std::size_t axis = 0; axis < 3; ++axis) {
+        starMatrices[reference][axis] = static_cast<real>(gradients[reference][axis]);
+      }
+    }
+  }
+
   template <typename Tloc, typename Tneigh>
   static void getTransposedGodunovState(const DamageMaterial& /*local*/,
                                         const DamageMaterial& /*neighbor*/,

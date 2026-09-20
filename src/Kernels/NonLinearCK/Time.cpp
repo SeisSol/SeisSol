@@ -48,10 +48,12 @@ constexpr real invariantFloor() {
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   derivative_.bindGlobals(*global.onHost);
+  transport_.bindGlobals(*global.onHost);
   step_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceDerivative_.bindGlobals(*global.onDevice);
+  deviceTransport_.bindGlobals(*global.onDevice);
   deviceStep_.bindGlobals(*global.onDevice);
 #endif
 }
@@ -73,11 +75,24 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
 
   const auto& local = data.get<LTS::LocalIntegration>().specific;
 
+  // What the recursion transports by, at the cell mean of this step. The
+  // geometry it is built from is what the cell keeps.
+  kernel::damageTransport assemble = transport_;
+  assemble.Q = data.get<LTS::Dofs>();
+  assemble.epsInit = local.epsInit;
+  assemble.materialParameters = local.parameters;
+  assemble.invariantFloor = invariantFloor();
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    assemble.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+    assemble.transport(i) = tmp.transport[i];
+  }
+  assemble.execute();
+
   // The expansion of the state, and with it the columns of the transported
   // tensor that the state couples through.
   kernel::derivative derivative = derivative_;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    derivative.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transport>(); ++i) {
+    derivative.transport(i) = tmp.transport[i];
   }
   derivative.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
   for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -160,17 +175,43 @@ void Spacetime::computeBatchedAder(
 
   kernel::gpu_derivative derivative = deviceDerivative_;
   kernel::gpu_damageStep step = deviceStep_;
+  kernel::gpu_damageTransport assemble = deviceTransport_;
   derivative.numElements = numElements;
   step.numElements = numElements;
+  assemble.numElements = numElements;
 
-  const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivative, step);
+  const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivative, step, assemble);
   auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
 
-  derivative.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+  // What the recursion transports by, at the cell mean of this step. The
+  // geometry it is built from is what the cell keeps, reached the way the
+  // step reaches the material: one pointer, an offset further in.
+  constexpr auto EpsInitOffset =
+      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, epsInit);
+  constexpr auto ParametersOffset =
+      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
   SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
+  auto* transportPtrs = (entry.get(inner_keys::Wp::Id::Transport))->getDeviceDataPtr();
+  assemble.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+  assemble.epsInit = localIntegrationPtrs;
+  assemble.extraOffset_epsInit = EpsInitOffset / sizeof(real);
+  assemble.materialParameters = localIntegrationPtrs;
+  assemble.extraOffset_materialParameters = ParametersOffset / sizeof(real);
+  assemble.invariantFloor = invariantFloor();
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    derivative.star(i) = localIntegrationPtrs;
-    derivative.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+    assemble.star(i) = localIntegrationPtrs;
+    assemble.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+    assemble.transport(i) = transportPtrs;
+    assemble.extraOffset_transport(i) = yateto::computeFamilySize<tensor::transport>(1, i);
+  }
+  assemble.linearAllocator.initialize(tmpMem.get());
+  assemble.streamPtr = runtime.stream();
+  assemble.execute();
+
+  derivative.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::transport>(); ++i) {
+    derivative.transport(i) = const_cast<const real**>(transportPtrs);
+    derivative.extraOffset_transport(i) = yateto::computeFamilySize<tensor::transport>(1, i);
   }
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     derivative.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();

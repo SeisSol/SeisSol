@@ -327,6 +327,34 @@ struct MaterialSetupDefaults {
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& /*material*/,
                                                    T& /*sourceMatrix*/) {}
+
+  /// What the cell keeps for the recursion to transport by.
+  ///
+  /// For a material whose moduli are fixed this is the operator itself,
+  /// assembled once from the three directional coefficient matrices and the
+  /// Jacobian of the element. A material whose moduli follow the state keeps
+  /// the Jacobian instead and assembles per step.
+  static void fillStarMatrices(const MaterialT& material,
+                               const double gradXi[3],
+                               const double gradEta[3],
+                               const double gradZeta[3],
+                               real starMatrices[3][tensor::star::size(0)]) {
+    real matATData[tensor::star::size(0)];
+    real matBTData[tensor::star::size(0)];
+    real matCTData[tensor::star::size(0)];
+    auto matAT = init::star::view<0>::create(matATData);
+    auto matBT = init::star::view<0>::create(matBTData);
+    auto matCT = init::star::view<0>::create(matCTData);
+    matAT.setZero();
+    matBT.setZero();
+    matCT.setZero();
+    getTransposedCoefficientMatrix(material, 0, matAT);
+    getTransposedCoefficientMatrix(material, 1, matBT);
+    getTransposedCoefficientMatrix(material, 2, matCT);
+    setStarMatrix(matATData, matBTData, matCTData, gradXi, starMatrices[0]);
+    setStarMatrix(matATData, matBTData, matCTData, gradEta, starMatrices[1]);
+    setStarMatrix(matATData, matBTData, matCTData, gradZeta, starMatrices[2]);
+  }
 };
 
 /**

@@ -73,6 +73,46 @@ def fluxMap(rows, sourceExtent, targetExtent, factor=-1.0):
     return values
 
 
+#: The isotropic identity in Voigt, so that contracting it with a strain gives
+#: that strain back: the shear rows carry a half because the Voigt pair counts
+#: twice.
+ISOTROPIC_VOIGT = np.diag([1.0, 1.0, 1.0, 0.5, 0.5, 0.5])
+
+
+def velocityRows(dim):
+    """Velocity rows of one direction, in the quantity numbering."""
+    return tuple((6 + row[0], row[1], row[2]) for row in VELOCITY_FLUX[dim])
+
+
+def momentumMap():
+    values = np.zeros((3, 6, 3))
+    for dim in range(3):
+        for voigt, velocity in STRESS_FLUX[dim]:
+            values[dim, voigt, velocity - 6] = 1.0
+    return values
+
+
+def voigtLift(extent):
+    values = np.zeros((6, extent))
+    for i in range(6):
+        values[i, i] = VOIGT_SQUARE[i]
+    return values
+
+
+def velocityLift(extent):
+    values = np.zeros((3, extent))
+    for i in range(3):
+        values[i, 6 + i] = 1.0
+    return values
+
+
+def strainSelector(extent):
+    values = np.zeros((extent, 6))
+    for i in range(6):
+        values[i, i] = 1.0
+    return values
+
+
 def unit(position, extent):
     values = np.zeros(extent)
     values[position] = 1.0
@@ -101,6 +141,22 @@ class DamageADERDG(NonLinearCK):
         "aB2",
         "aB3",
     )
+
+    #: Both families are three matrices with one pattern each: the geometry a
+    #: cell was meshed with, and the operator the recursion transports by.
+    StarClones = {
+        "star": ["star(0)", "star(1)", "star(2)"],
+        "transport": ["transport(0)", "transport(1)", "transport(2)"],
+    }
+
+    def starMatrix(self, dim):
+        """What the derivative recursion transports by.
+
+        Not the geometry: the operator this material transports by follows the
+        state, so it is assembled per step and the name that carries it is the
+        assembled one.
+        """
+        return self.db.transport[dim]
 
     def primaryGroups(self):
         return [
@@ -181,6 +237,32 @@ class DamageADERDG(NonLinearCK):
             )
             for d, axis in enumerate("XYZ")
         ]
+        # Modale Koeffizienten auf den Zellmittelwert. Aus den Quadraturge-
+        # wichten und der Auswertung an den Knoten gebildet, damit es nicht
+        # davon abhaengt, wie die konstante Basisfunktion normiert ist.
+        self.cellMean = Tensor(
+            "cellMean", (self.num3DBasisFunctions(),), self.modalMeanWeights()
+        )
+        self.pickStrain = Tensor("selectStrain", (nq, 6), strainSelector(nq))
+        # Wo die Geschwindigkeit eine Dehnungszeile speist, je Referenz-
+        # richtung: reine Geometrie, ohne Modul.
+        self.strainFlux = Tensor(
+            "strainFlux",
+            (3, nq, nq),
+            np.stack([fluxMap(velocityRows(d), nq, nq) for d in range(3)]),
+        )
+        # Wo eine Spannungszeile eine Geschwindigkeit speist. Der Voigt-Index
+        # der Zeile ist der des Paares (Geschwindigkeit, Richtung), was die
+        # Tabelle der Spannungsfluesse bereits sagt.
+        self.momentumPlace = Tensor("momentumPlace", (3, 6, 3), momentumMap())
+        # Hebt den Geschwindigkeitsindex auf die Quantity-Achse. Erst hier,
+        # damit die Zwischenergebnisse so schmal bleiben wie ihr Inhalt.
+        self.liftVelocity = Tensor("liftVelocity", (3, nq), velocityLift(nq))
+        self.deltaVoigt = Tensor("deltaVoigt", (6,), TRACE)
+        self.isotropicVoigt = Tensor("isotropicVoigt", (6, 6), ISOTROPIC_VOIGT)
+        # Traegt das Voigt-Gewicht und hebt im selben Zug den Dehnungsindex
+        # auf die Quantity-Achse. Eine Konstante, damit das Muster mitkommt.
+        self.voigtDiagonal = Tensor("voigtDiagonal", (6, nq), voigtLift(nq))
         self.unitColumn = Tensor("unitColumn", (1,), np.ones(1))
         # Picks the constant basis function, which is where a cell value goes
         # when it has to sit in a modal column.
@@ -677,6 +759,103 @@ class DamageADERDG(NonLinearCK):
                 for columns, value in bounds
             ]
         )
+
+    def addTransport(self, generator, targets):
+        """The operator the derivative recursion transports by, per step.
+
+        The moduli of this material follow the state, so what the recursion
+        carries is a linearisation about where the cell currently is. It is
+        taken at the cell mean, which is one modal coefficient away, and it is
+        the tangent of the stress rather than its ratio to the strain -- a
+        wave travels at the former.
+
+        With n the mean strain normalised in the Frobenius norm, xi = tr(n)
+        and g = gammaR alpha, the tangent is
+
+          C = lambda0 d(x)d + (2 mu0 - 2 g xi0 - g xi) Isym
+                - g (d(x)n + n(x)d) + g xi n(x)n,
+
+        which is not isotropic: the last two groups have no pair of Lame
+        parameters behind them. Written in Voigt it is a plain 6 by 6, and the
+        directional operator is that matrix placed in the rows where a stress
+        feeds a velocity, plus the geometry where a velocity feeds a strain.
+        The Jacobian of the cell weighs the three reference directions.
+        """
+        nq = self.numQuantities()
+        mean = Tensor("meanState", (nq,), temporary=True)
+        meanStrain = Tensor("meanStrain", (6,), temporary=True)
+        meanAlpha = Tensor("meanAlpha", (), temporary=True)
+        direction = Tensor("strainDirection", (6,), temporary=True)
+        tangent = Tensor("tangent", (6, 6), temporary=True)
+        invariantI1 = Tensor("meanI1", (), temporary=True)
+        invariantI2 = Tensor("meanI2", (), temporary=True)
+        ratio = Tensor("meanXi", (), temporary=True)
+        coupling = Tensor("meanCoupling", (), temporary=True)
+        shear = Tensor("meanShear", (), temporary=True)
+        place = [Tensor(f"momentumRows({r})", (6, 3), temporary=True) for r in range(3)]
+
+        delta, isotropic = self.deltaVoigt, self.isotropicVoigt
+        floor = self.floor
+
+        statements = self.parameterStatements()
+        statements += [
+            mean["p"] <= self.cellMean["k"] * self.Q["kp"],
+            meanStrain["c"] <= mean["p"] * self.pickStrain["pc"] + self.epsInit["c"],
+            meanAlpha[""] <= mean["p"] * self.pickAlpha["p"],
+            invariantI1[""] <= meanStrain["c"] * self.trace["c"],
+            invariantI2[""]
+            <= yf.mul(meanStrain["c"], meanStrain["c"]) * self.voigt["c"],
+            # The direction of the strain, which is all the tangent asks of it.
+            # A cell at rest has no direction to give, and there the material
+            # is the undamaged one whatever the damage says.
+            ratio[""]
+            <= yf.where(
+                yf.greater(invariantI2[""], floor),
+                invariantI1[""] / yf.sqrt(invariantI2[""]),
+                0.0,
+            ),
+            direction["c"]
+            <= yf.where(
+                yf.greater(invariantI2[""], floor),
+                meanStrain["c"] / yf.sqrt(yf.maximum(invariantI2[""], floor)),
+                0.0,
+            ),
+            coupling[""]
+            <= yf.where(
+                yf.greater(invariantI2[""], floor),
+                self.gammaR * meanAlpha[""],
+                0.0,
+            ),
+            shear[""]
+            <= 2.0 * self.mu0
+            - 2.0 * yf.mul(coupling[""], self.xi0)
+            - yf.mul(coupling[""], ratio[""]),
+            tangent["cd"]
+            <= self.lambda0 * delta["c"] * delta["d"]
+            + yf.mul(shear[""], isotropic["cd"])
+            - yf.mul(coupling[""], delta["c"] * direction["d"])
+            - yf.mul(coupling[""], direction["c"] * delta["d"])
+            + yf.mul(yf.mul(coupling[""], ratio[""]), direction["c"] * direction["d"]),
+        ]
+        for r in range(3):
+            statements += [
+                place[r]["ci"] <= self.db.star[r]["d"] * self.momentumPlace["dci"],
+                self.db.transport[r]["qp"]
+                <= self.db.star[r]["d"] * self.strainFlux["dqp"]
+                # The Voigt pair of a shear row counts twice in the
+                # contraction the recursion performs, so the weight rides
+                # along; both lifts are constants, which is what keeps this
+                # inside the pattern the operator is stored by.
+                - self.rhoInv
+                * tangent["ce"]
+                * self.voigtDiagonal["eq"]
+                * place[r]["ci"]
+                * self.liftVelocity["ip"],
+            ]
+
+        for target in targets:
+            prefix = generate_kernel_name_prefix(target)
+            generator.add(f"{prefix}damageTransport", statements, target=target)
 
     def addStateToTransport(self, generator, targets):
         """What a damaged cell transports, at one instant, from its state.

@@ -143,6 +143,11 @@ struct LTS {
   /// the predictor of a cell and read by its corrector, and by nobody else.
   struct SourceIntegralsScratch : public initializer::Scratchpad<real> {};
 
+  /// The operator the derivative recursion transports by, for a material whose
+  /// moduli follow the state. Assembled and consumed inside one predictor, so
+  /// it is scratch rather than something a cell carries.
+  struct TransportScratch : public initializer::Scratchpad<real> {};
+
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
   struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
@@ -202,6 +207,7 @@ struct LTS {
                                                         IDofsAneScratch,
                                                         DofsExtScratch,
                                                         SourceIntegralsScratch,
+                                                        TransportScratch,
                                                         FlagScratch,
                                                         QStressNodalScratch,
                                                         RotateDisplacementToFaceNormalScratch,
@@ -307,6 +313,7 @@ struct LTS {
       storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
 
       storage.add<SourceIntegralsScratch>(LayerMask(), Alignment, mode);
+      storage.add<TransportScratch>(LayerMask(), Alignment, mode);
       storage.add<FlagScratch>(LayerMask(), Alignment, mode);
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
 

@@ -25,6 +25,10 @@ struct LocalTmp {
   /// produced by the predictor and consumed by the corrector of the same cell
   /// in the same timestep, and no neighbour ever asks for it.
   alignas(Alignment) real sourceIntegral[zeroGuard(kernels::size<tensor::sourceI>())]{};
+  /// What the derivative recursion transports by, for one cell and one step.
+  /// Assembled by the predictor and consumed by the recursion right after, so
+  /// it never outlives the call and no cluster can read another's.
+  alignas(Alignment) real transport[3][zeroGuard(kernels::size<tensor::transport>(0))]{};
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   alignas(Alignment)
       std::array<real,

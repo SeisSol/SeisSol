@@ -174,6 +174,23 @@ class NonLinearCK(ADERDGBase):
         row = values[:, 0] if shape[0] == self.num3DQuadraturePoints() else values[0, :]
         return row / row.sum()
 
+    def modalMeanWeights(self):
+        """Weights that average a modal field over the cell.
+
+        The nodal average of the evaluation of a modal field is that field's
+        average, so the two matrices that are there anyway compose into it.
+        For an orthogonal basis only the constant coefficient survives, which
+        is the same statement read from the other side.
+        """
+        evaluation = self.db.evalAtQP
+        shape = evaluation.shape()
+        values = np.zeros(shape)
+        for entry, value in evaluation.values().items():
+            values[entry] = float(value)
+        if shape[0] != self.num3DQuadraturePoints():
+            values = values.T
+        return self.nodalMeanWeights() @ values
+
     def transportGroupSlice(self, name):
         """``(start, stop)`` of a transport group along the quantity axis."""
         for block in self.transportBlocks():

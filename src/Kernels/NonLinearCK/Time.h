@@ -63,10 +63,12 @@ class Spacetime : public SpacetimeKernel {
 
   protected:
   kernel::derivative derivative_;
+  kernel::damageTransport transport_;
   kernel::damageStep step_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceDerivative_;
+  kernel::gpu_damageTransport deviceTransport_;
   kernel::gpu_damageStep deviceStep_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif

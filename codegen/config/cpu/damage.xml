@@ -15,9 +15,11 @@ SPDX-License-Identifier: BSD-3-Clause
   <matrix name="kDivMT(1)" sparse="True"/>
   <matrix name="kDivMT(2)" sparse="True"/>
 
-  <!-- The flux Jacobian of a strain-velocity material is a table: of the 121
-       entries per direction, twelve are non-zero. -->
-  <matrix name="star" sparse="True"/>
+  <!-- The operator the recursion transports by is assembled per step, and a
+       tensor a kernel writes into is stored by its bounding box rather than
+       by its pattern. Twenty-seven of the eighty-one entries carry a value:
+       nine the geometry a velocity feeds a strain with, eighteen the tangent
+       of the stress, where an isotropic modulus would leave three empty. -->
 
   <!-- Face permutations and the restriction to a face. -->
   <matrix name="rT(0)" sparse="True"/>

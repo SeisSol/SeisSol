@@ -142,16 +142,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::transformations::tetrahedronGlobalToReferenceJacobian(
             x, y, z, gradXi, gradEta, gradZeta);
 
-        seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
-        seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
-        seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
-
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradEta, localIntegration[cell].starMatrices[1]);
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradZeta, localIntegration[cell].starMatrices[2]);
+        seissol::model::MaterialSetup<seissol::model::MaterialT>::fillStarMatrices(
+            materialLocal, gradXi, gradEta, gradZeta, localIntegration[cell].starMatrices);
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 

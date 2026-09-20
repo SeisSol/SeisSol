@@ -64,6 +64,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> dofsPtrs(size, nullptr);
     std::vector<real*> integralsPtrs(size, nullptr);
     std::vector<real*> sourceIntegralsPtrs(size, nullptr);
+    std::vector<real*> transportPtrs(size, nullptr);
     std::vector<real*> dofsAnePtrs(size, nullptr);
     std::vector<real*> dofsExtPtrs(size, nullptr);
     std::vector<real*> localPtrs(size, nullptr);
@@ -95,6 +96,9 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
             currentLayer_->var<LTS::SourceIntegralsScratch>(AllocationPlace::Device);
         sourceIntegralsPtrs[cell] =
             static_cast<real*>(sourceIntegrals) + kernels::size<tensor::sourceI>() * cell;
+        auto* transport = currentLayer_->var<LTS::TransportScratch>(AllocationPlace::Device);
+        transportPtrs[cell] =
+            static_cast<real*>(transport) + kernels::familySize<tensor::transport>() * cell;
       }
 
       // idofs
@@ -176,6 +180,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
     if constexpr (Config::Solver == SolverType::NonLinearCK) {
       (*currentTable_)[key].set(inner_keys::Wp::Id::SourceIntegrals, sourceIntegralsPtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::Transport, transportPtrs);
     }
 
     if (!idofsForLtsBuffers.empty()) {

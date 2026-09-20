@@ -250,6 +250,7 @@ def main():
         adg.addLocal(generator, targets)
         adg.addNeighbor(generator, targets)
         adg.addTime(generator, targets)
+        adg.addTransport(generator, targets)
         adg.addStateToTransport(generator, targets)
         adg.addTransportToState(generator, targets)
         adg.addAccumulate(generator, targets)
