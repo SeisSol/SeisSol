@@ -319,6 +319,26 @@ struct FrictionLawParameters {
   FrictionLawParameters() = default;
   explicit FrictionLawParameters(const seissol::initializer::parameters::DRParameters& parameters);
 };
+
+/**
+ * The stress of a fault point at the given time, summed over the stress sources of its face.
+ *
+ * @param[in] sources the stress of every source of the face, i.e. the face's slice of the
+ *                    storage array
+ */
+inline std::array<real, 6> stressAtTime(const real (*sources)[6][misc::NumPaddedPoints],
+                                        const FrictionLawParameters& parameters,
+                                        std::uint32_t pointIndex,
+                                        real time) {
+  std::array<real, 6> stress{};
+  for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
+    const real fraction = nucleationFraction(time, parameters.t0[source], parameters.s0[source]);
+    for (std::size_t component = 0; component < stress.size(); ++component) {
+      stress[component] += sources[source][component][pointIndex] * fraction;
+    }
+  }
+  return stress;
+}
 } // namespace seissol::dr
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_

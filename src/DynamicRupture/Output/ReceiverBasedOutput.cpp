@@ -38,6 +38,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -194,22 +195,13 @@ void ReceiverOutput::calcFaultOutput(
     local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
-    // every stress source at the fraction of it that is in effect at this time; the whole tensor,
-    // since the total traction output rotates it
-    std::array<real, 6> initialStress{};
-    {
-      const auto sourceCount = frictionLawParameters_.sourceCount;
-      const auto* stresses = local.layer->var<DynamicRupture::NucleationStressInFaultCS>();
-      for (std::uint32_t source = 0; source < sourceCount; ++source) {
-        const auto fraction = nucleationFraction(static_cast<real>(local.time),
-                                                 frictionLawParameters_.t0[source],
-                                                 frictionLawParameters_.s0[source]);
-        const auto& patch = stresses[local.ltsId * sourceCount + source];
-        for (std::size_t stressVar = 0; stressVar < initialStress.size(); ++stressVar) {
-          initialStress[stressVar] += patch[stressVar][local.gpIndex] * fraction;
-        }
-      }
-    }
+    // the whole tensor, since the total traction output rotates it
+    const auto* stressSources = local.layer->var<DynamicRupture::NucleationStressInFaultCS>();
+    const auto initialStress =
+        stressAtTime(&stressSources[local.ltsId * frictionLawParameters_.sourceCount],
+                     frictionLawParameters_,
+                     static_cast<std::uint32_t>(local.gpIndex),
+                     static_cast<real>(local.time));
 
     local.iniTraction1 = initialStress[QuantityIndices::XY];
     local.iniTraction2 = initialStress[QuantityIndices::XZ];
