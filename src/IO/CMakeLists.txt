@@ -17,6 +17,7 @@ add_library(seissol-io OBJECT
     Instance/Metadata/Pvd.cpp
     Instance/Metadata/Xml.cpp
     Instance/Point/Csv.cpp
+    Instance/Point/Grouping.cpp
     Instance/Point/Pytables.cpp
     Instance/Point/TableWriter.cpp
     Reader/File/Hdf5Reader.cpp

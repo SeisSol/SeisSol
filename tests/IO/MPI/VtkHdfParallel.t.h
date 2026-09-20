@@ -7,9 +7,11 @@
 
 #include <doctest.h>
 
+#include "IO/Datatype/Inference.h"
 #include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Instance/Point/Grouping.h"
 #include "IO/Reader/File/Hdf5Reader.h"
 #include "Parallel/MPI.h"
 #include "WriterHarness.t.h"
@@ -286,6 +288,78 @@ TEST_CASE("IO/VtkHdf: shared points are offset per rank" * doctest::test_suite("
 
   hdf5.closeGroup();
   hdf5.closeFile();
+}
+
+/**
+ * The groups and their order have to be the same on every rank, including on ranks that hold no
+ * point of a group at all -- they still take part in declaring its dataset. And the renumbering
+ * has to hand every rank one contiguous range per group, so that the group stays expressible as a
+ * single distributed dimension.
+ */
+TEST_CASE("IO/Grouping: the groups agree across ranks" * doctest::test_suite("io")) {
+  using namespace seissol::io::instance::point;
+  using seissol::io::datatype::inferDatatype;
+
+  const auto rank = static_cast<std::size_t>(Mpi::mpi.rank());
+  const auto size = static_cast<std::size_t>(Mpi::mpi.size());
+  if (size < 3) {
+    // with fewer ranks the setup below cannot produce both quantity sets at once
+    return;
+  }
+
+  const std::vector<TableQuantity> elastic{{"v1", inferDatatype<double>()},
+                                           {"v2", inferDatatype<double>()}};
+  const std::vector<TableQuantity> poroelastic{{"v1", inferDatatype<double>()},
+                                               {"v2", inferDatatype<double>()},
+                                               {"p", inferDatatype<double>()}};
+
+  // only the last rank holds poroelastic points, and rank 0 holds none at all
+  std::vector<std::vector<TableQuantity>> points;
+  for (std::size_t point = 0; point < rank; ++point) {
+    points.push_back(rank + 1 == size ? poroelastic : elastic);
+  }
+
+  const auto grouping = groupPoints(points, Mpi::mpi.comm());
+
+  // both groups exist everywhere, in the same order
+  REQUIRE(grouping.groupCount() == 2);
+  const auto poroGroup = grouping.quantities[0].size() == 3 ? 0 : 1;
+  const auto elasticGroup = 1 - poroGroup;
+  CHECK(grouping.quantities[elasticGroup].size() == 2);
+
+  const auto elasticTotal = ((size - 1) * (size - 2)) / 2;
+  CHECK(grouping.globalCount[elasticGroup] == elasticTotal);
+  CHECK(grouping.globalCount[poroGroup] == size - 1);
+
+  // this rank's indices form one contiguous range inside its group
+  if (!points.empty()) {
+    const auto group = grouping.group.front();
+    for (const auto other : grouping.group) {
+      CHECK(other == group);
+    }
+    for (std::size_t point = 1; point < grouping.index.size(); ++point) {
+      CHECK(grouping.index[point] == grouping.index[point - 1] + 1);
+    }
+    CHECK(grouping.index.back() < grouping.globalCount[group]);
+  }
+
+  // ... and the ranges of the ranks cover the group exactly once
+  std::vector<int> covered(grouping.globalCount[elasticGroup] + grouping.globalCount[poroGroup], 0);
+  std::vector<int> mine(covered.size(), 0);
+  for (std::size_t point = 0; point < points.size(); ++point) {
+    const auto flat = grouping.index[point] +
+                      (grouping.group[point] == poroGroup ? grouping.globalCount[elasticGroup] : 0);
+    ++mine[flat];
+  }
+  MPI_Allreduce(mine.data(),
+                covered.data(),
+                static_cast<int>(covered.size()),
+                MPI_INT,
+                MPI_SUM,
+                Mpi::mpi.comm());
+  for (const auto count : covered) {
+    CHECK(count == 1);
+  }
 }
 
 } // namespace seissol::unit_test

@@ -8,6 +8,11 @@
 #include <doctest.h>
 
 #include "AsyncWriter.t.h"
+<<<<<<< ours
+=======
+#include "Deduplicate.t.h"
+#include "Grouping.t.h"
+    >>>>>>> theirs
 #include "BufferRegistry.t.h"
 #include "Csv.t.h"
 #include "Datatype.t.h"
