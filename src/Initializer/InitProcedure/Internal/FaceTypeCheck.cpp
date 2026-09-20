@@ -14,6 +14,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Parallel/MPI.h"
+#include "Physics/Scenario/Registry.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -51,7 +52,7 @@ std::uint32_t collectFaceTypes(LTS::Storage& storage) {
 
 } // namespace
 
-void checkFaceTypeSupport(LTS::Storage& storage) {
+void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType scenarioType) {
   const auto present = collectFaceTypes(storage);
 
   std::stringstream problems;
@@ -73,6 +74,14 @@ void checkFaceTypeSupport(LTS::Storage& storage) {
       ++problemCount;
       problems << "\n  " << faceTypeName(faceType) << ": not implemented by the solver used for "
                << model::MaterialT::Text << " (" << solver.reason << ")";
+    } else if (faceType == FaceType::Analytical) {
+      const auto scenario = physics::scenario::analyticalBoundaryAvailability(scenarioType);
+      if (!scenario.available) {
+        ++problemCount;
+        problems << "\n  " << faceTypeName(faceType) << ": the configured scenario "
+                 << physics::scenario::name(scenarioType) << " cannot serve it, "
+                 << scenario.reason;
+      }
     }
   }
 

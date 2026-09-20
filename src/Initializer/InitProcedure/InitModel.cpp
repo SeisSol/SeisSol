@@ -354,7 +354,8 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Flux near fault:"
             << parameters::fluxToString(seissolInstance.parameters().model.fluxNearFault).c_str();
 
-  internal::checkFaceTypeSupport(seissolInstance.memoryManager().ltsStorage());
+  internal::checkFaceTypeSupport(seissolInstance.memoryManager().ltsStorage(),
+                                 seissolInstance.parameters().initialization.type);
 
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)
