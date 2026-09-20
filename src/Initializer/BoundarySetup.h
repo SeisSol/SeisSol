@@ -66,6 +66,9 @@ template <>
 struct BoundarySetup<FaceType::Dirichlet> : BoundarySetup<FaceType::Regular> {
   static constexpr std::string_view name() { return faceTypeName(FaceType::Dirichlet); }
   static constexpr BCType bcType() { return getBCType(FaceType::Dirichlet); }
+  // the exterior state is prescribed, so the flux has to take the incoming characteristics
+  // from it rather than blend it with the interior one
+  static constexpr bool enforcesGodunovFlux() { return true; }
   static constexpr bool requiresFaceData() { return true; }
   static constexpr bool usesFaceAlignedGhostState() { return true; }
   static constexpr bool foldsConditionIntoFluxSolver() { return true; }
