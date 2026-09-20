@@ -122,8 +122,8 @@ SEISSOL_HOSTDEVICE constexpr T truncatedExponential(T x) {
 }
 
 template <std::size_t N, typename T>
-constexpr std::size_t DefaultSeriesLength = seriesLength(
-    N, static_cast<double>(N + 1), static_cast<double>(std::numeric_limits<T>::epsilon()));
+constexpr std::size_t DefaultSeriesLength =
+    seriesLength(N, static_cast<double>(N + 1), std::numeric_limits<T>::epsilon());
 
 } // namespace phifunctions
 

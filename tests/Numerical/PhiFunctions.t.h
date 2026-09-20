@@ -467,7 +467,7 @@ void checkRecurrences(std::index_sequence<Ns...> /*orders*/) {
  */
 template <std::size_t N, typename T>
 void checkPositivity() {
-  for (double x : {-700.0, -80.0, -37.0, -8.0, -1.0, 0.0, 1.0, 8.0, 37.0, 80.0, 700.0}) {
+  for (const double x : {-700.0, -80.0, -37.0, -8.0, -1.0, 0.0, 1.0, 8.0, 37.0, 80.0, 700.0}) {
     const T value = functions::phi<N, T>(static_cast<T>(x));
     if (!std::isfinite(static_cast<double>(value))) {
       continue;
@@ -490,7 +490,7 @@ void checkPositivities(std::index_sequence<Ns...> /*orders*/) {
 template <std::size_t N, typename T>
 void checkBranchAgreement() {
   if constexpr (N > 0) {
-    for (int sign : {1, -1}) {
+    for (const int sign : {1, -1}) {
       const auto x = static_cast<T>(sign * static_cast<int>(N + 1));
       const T series =
           functions::phifunctions::phiSeries<N, functions::phifunctions::DefaultSeriesLength<N, T>>(
