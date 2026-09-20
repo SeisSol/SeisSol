@@ -8,7 +8,9 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
 
+#include <array>
 #include <cstdint>
+#include <string_view>
 namespace seissol {
 
 enum class HaloType { Ghost, Copy, Interior };
@@ -16,9 +18,11 @@ enum class HaloType { Ghost, Copy, Interior };
 /*
   Face types that a tetrahedron face may assume.
 
-  Note: When introducting new types also change
-  the defaultFaceMap() (FaceMap.cpp), the docs,
-  and the methods below. Otherwise, it'll probably cause bugs and errors.
+  Note: When introducing new types, also add them to FaceTypes and faceTypeName below, and
+  extend the classification methods further down. Everything that enumerates or names face
+  types derives from those. Additionally, every material model has to state whether the new
+  type is defined for it (MaterialSetup<T>::supportsFaceType), and every solver whether it
+  implements it (Solver::implementsFaceType).
 */
 enum class FaceType : uint8_t {
   // regular: inside the computational domain (interior face, linear)
@@ -45,6 +49,54 @@ enum class FaceType : uint8_t {
   // analytical boundary, taken from the initial conditions (boundary, nonlinear)
   Analytical = 7
 };
+
+// All face types. The enum values are not contiguous, so iterate this array instead of a
+// numeric range.
+constexpr std::array<FaceType, 7> FaceTypes = {FaceType::Regular,
+                                               FaceType::FreeSurface,
+                                               FaceType::FreeSurfaceGravity,
+                                               FaceType::DynamicRupture,
+                                               FaceType::Dirichlet,
+                                               FaceType::Outflow,
+                                               FaceType::Analytical};
+
+// The name a face type is referred to by in the mesh face map and in diagnostics.
+constexpr std::string_view faceTypeName(FaceType faceType) {
+  switch (faceType) {
+  case FaceType::Regular:
+    return "regular";
+  case FaceType::FreeSurface:
+    return "freeSurface";
+  case FaceType::FreeSurfaceGravity:
+    return "freeSurfaceGravity";
+  case FaceType::DynamicRupture:
+    return "dynamicRupture";
+  case FaceType::Dirichlet:
+    return "dirichlet";
+  case FaceType::Outflow:
+    return "outflow";
+  case FaceType::Analytical:
+    return "analytical";
+  }
+  return "unknown";
+}
+
+/**
+ * Whether a face type is available in a given context, and if not, why.
+ *
+ * Two independent contexts use this: a material model states which boundary conditions are
+ * defined for it, and a solver states which ones its kernels implement. The distinction
+ * matters because the two are fixed by different things -- a missing solver implementation
+ * can be added, while a boundary condition that is not formulated for a material cannot.
+ */
+struct FaceTypeSupport {
+  bool supported{true};
+  std::string_view reason;
+};
+
+constexpr FaceTypeSupport faceTypeSupported() { return {}; }
+
+constexpr FaceTypeSupport faceTypeUnsupported(std::string_view reason) { return {false, reason}; }
 
 enum class BCType {
   // an internal face, with a neighbor
@@ -82,6 +134,21 @@ constexpr BCType getBCType(FaceType faceType) {
 // That includes all interior and dynamic rupture faces, but also periodic faces.
 constexpr bool isInternalFaceType(FaceType faceType) {
   return getBCType(faceType) == BCType::Internal;
+}
+
+// Checks if a face type builds its boundary state in the nodal face basis and applies it
+// through the local kernel, as opposed to having it folded into the flux solver matrices
+// during setup.
+constexpr bool requiresNodalFlux(FaceType faceType) {
+  return faceType == FaceType::FreeSurfaceGravity || faceType == FaceType::Dirichlet ||
+         faceType == FaceType::Analytical;
+}
+
+// Checks if a face type has to be evaluated with the Godunov flux, regardless of the
+// numerical flux selected in the parameter file.
+constexpr bool enforcesGodunovFlux(FaceType faceType) {
+  return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
+         faceType == FaceType::Analytical || faceType == FaceType::Outflow;
 }
 
 enum class ComputeGraphType {

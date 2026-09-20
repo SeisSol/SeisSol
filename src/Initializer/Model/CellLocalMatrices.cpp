@@ -229,17 +229,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto fluxDefault =
               isSpecialBC(side) ? modelParameters.fluxNearFault : modelParameters.flux;
 
-          // exclude boundary conditions
-          static const std::vector<FaceType> GodunovBoundaryConditions = {
-              FaceType::FreeSurface,
-              FaceType::FreeSurfaceGravity,
-              FaceType::Analytical,
-              FaceType::Outflow};
-
-          const auto enforceGodunovBc = std::any_of(
-              GodunovBoundaryConditions.begin(),
-              GodunovBoundaryConditions.end(),
-              [&](auto condition) { return condition == cellInformation[cell].faceTypes[side]; });
+          const auto enforceGodunovBc = enforcesGodunovFlux(cellInformation[cell].faceTypes[side]);
 
           const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
 

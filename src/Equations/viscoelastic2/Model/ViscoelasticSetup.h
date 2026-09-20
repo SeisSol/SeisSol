@@ -24,6 +24,10 @@ template <std::size_t N>
 struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   using MaterialT = ViscoElasticMaterialParametrized<N>;
 
+  static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
+    return genericFaceTypeSupport(faceType);
+  }
+
   using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
   template <typename T>

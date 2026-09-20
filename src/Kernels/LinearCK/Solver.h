@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_SOLVER_H_
 
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>
 #include <yateto/InitTools.h>
@@ -32,6 +33,10 @@ struct Solver {
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
+
+  static constexpr FaceTypeSupport implementsFaceType(FaceType /*faceType*/) {
+    return faceTypeSupported();
+  }
 
   static constexpr std::size_t BuffersSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();

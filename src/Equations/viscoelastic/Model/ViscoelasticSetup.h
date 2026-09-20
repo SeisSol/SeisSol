@@ -22,6 +22,10 @@ template <std::size_t N>
 struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   using MaterialT = ViscoElasticMaterialParametrized<N>;
 
+  static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
+    return genericFaceTypeSupport(faceType);
+  }
+
   template <typename T>
   static void
       getTransposedViscoelasticCoefficientMatrix(double omega, unsigned dim, unsigned mech, T& M) {

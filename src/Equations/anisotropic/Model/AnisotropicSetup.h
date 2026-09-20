@@ -25,6 +25,10 @@ using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
 template <>
 struct MaterialSetup<AnisotropicMaterial> {
+  static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
+    return genericFaceTypeSupport(faceType);
+  }
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {

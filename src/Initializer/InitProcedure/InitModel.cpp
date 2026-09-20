@@ -13,6 +13,7 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
+#include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
 #include "Initializer/InitProcedure/Internal/Recording.h"
 #include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/MemoryManager.h"
@@ -352,6 +353,8 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
   logInfo() << "Flux near fault:"
             << parameters::fluxToString(seissolInstance.parameters().model.fluxNearFault).c_str();
+
+  internal::checkFaceTypeSupport(seissolInstance.memoryManager().ltsStorage());
 
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)

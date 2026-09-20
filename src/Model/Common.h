@@ -32,6 +32,29 @@ namespace seissol::model {
 template <typename MaterialT>
 struct MaterialSetup;
 
+/**
+ * The face types that are defined for a material model as soon as it supplies a Godunov state
+ * and a nodal ghost state -- which every material model does.
+ *
+ * The free surface with gravity is the exception: its surface elevation ODE closes over a
+ * single pressure and the scalar impedance sqrt(K rho), both of which exist only when the
+ * shear modulus vanishes. A material model that carries shear waves would need a different
+ * closure, and one with a second pressure (poroelastic) a second equation.
+ */
+constexpr FaceTypeSupport genericFaceTypeSupport(FaceType faceType) {
+  if (faceType == FaceType::FreeSurfaceGravity) {
+    return faceTypeUnsupported(
+        "the surface elevation ODE is closed with a single pressure and a scalar acoustic "
+        "impedance");
+  }
+  return faceTypeSupported();
+}
+
+template <typename MaterialT>
+constexpr FaceTypeSupport faceTypeSupport(FaceType faceType) {
+  return MaterialSetup<MaterialT>::supportsFaceType(faceType);
+}
+
 template <typename T>
 constexpr bool testIfAcoustic(T mu) {
   return std::abs(mu) <= std::numeric_limits<T>::epsilon();
