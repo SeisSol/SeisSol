@@ -187,30 +187,4 @@ TEST_CASE("getElementVertexId ranges" * doctest::test_suite("dynamicrupture")) {
   }
 }
 
-TEST_CASE("convertMaskFromBoolToInt" * doctest::test_suite("dynamicrupture")) {
-  SUBCASE("Mixed") {
-    const std::array<bool, 5> mask = {true, false, true, true, false};
-    auto intMask = convertMaskFromBoolToInt<5>(mask);
-    CHECK(intMask[0] == 1);
-    CHECK(intMask[1] == 0);
-    CHECK(intMask[2] == 1);
-    CHECK(intMask[3] == 1);
-    CHECK(intMask[4] == 0);
-  }
-  SUBCASE("All true") {
-    const std::array<bool, 3> mask = {true, true, true};
-    auto intMask = convertMaskFromBoolToInt<3>(mask);
-    for (int i = 0; i < 3; ++i) {
-      CHECK(intMask[i] == 1);
-    }
-  }
-  SUBCASE("All false") {
-    const std::array<bool, 3> mask = {false, false, false};
-    auto intMask = convertMaskFromBoolToInt<3>(mask);
-    for (int i = 0; i < 3; ++i) {
-      CHECK(intMask[i] == 0);
-    }
-  }
-}
-
 } // namespace seissol::unit_test

@@ -66,23 +66,7 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
                                                    const VrtxCoords* plusElementCoords[4],
                                                    const VrtxCoords* minusElementCoords[4]);
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
-
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints);
-std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints);
-
 real computeTriangleArea(ExtTriangle& triangle);
-
-template <int Size>
-std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& boolMask) {
-  auto intMask = std::unique_ptr<int[]>(new int[boolMask.size()]);
-
-  for (size_t i = 0; i < boolMask.size(); ++i) {
-    intMask[i] = static_cast<int>(boolMask[i]);
-  }
-
-  return intMask;
-}
 } // namespace seissol::dr
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_

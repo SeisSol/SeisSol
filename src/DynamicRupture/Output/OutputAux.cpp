@@ -265,43 +265,6 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
   return basisFunctions;
 }
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (std::uint32_t vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
-      const auto& triangle = receiverPoints[pointIndex].globalTriangle;
-      const auto& point = triangle.point(vertexIndex);
-
-      const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      for (std::uint32_t coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
-        vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
-      }
-    }
-  }
-  return vertices;
-}
-
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<unsigned int> cells(3 * receiverPoints.size());
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (int vertexIndex{0}; vertexIndex < 3; ++vertexIndex) {
-      const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      cells[globalVertexIndex] = globalVertexIndex;
-    }
-  }
-  return cells;
-}
-std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<unsigned int> faultTags(receiverPoints.size());
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
-  }
-  return faultTags;
-}
-
 real computeTriangleArea(ExtTriangle& triangle) {
   const auto p0 = triangle.point(0).getAsEigen3LibVector();
   const auto p1 = triangle.point(1).getAsEigen3LibVector();
