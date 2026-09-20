@@ -131,21 +131,6 @@ constexpr bool isInternalFaceType(FaceType faceType) {
   return getBCType(faceType) == BCType::Internal;
 }
 
-// Checks if a face type builds its boundary state in the nodal face basis and applies it
-// through the local kernel, as opposed to having it folded into the flux solver matrices
-// during setup.
-constexpr bool requiresNodalFlux(FaceType faceType) {
-  return faceType == FaceType::FreeSurfaceGravity || faceType == FaceType::Dirichlet ||
-         faceType == FaceType::Analytical;
-}
-
-// Checks if a face type has to be evaluated with the Godunov flux, regardless of the
-// numerical flux selected in the parameter file.
-constexpr bool enforcesGodunovFlux(FaceType faceType) {
-  return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
-         faceType == FaceType::Analytical || faceType == FaceType::Outflow;
-}
-
 enum class ComputeGraphType {
   AccumulatedVelocities = 0,
   StreamedVelocities,

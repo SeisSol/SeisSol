@@ -20,6 +20,7 @@
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BoundaryHelper.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -229,7 +230,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto fluxDefault =
               isSpecialBC(side) ? modelParameters.fluxNearFault : modelParameters.flux;
 
-          const auto enforceGodunovBc = enforcesGodunovFlux(cellInformation[cell].faceTypes[side]);
+          const auto enforceGodunovBc =
+              boundaryProperties(cellInformation[cell].faceTypes[side]).enforcesGodunovFlux;
 
           const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
 
@@ -268,9 +270,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           neighKrnl.T = matTData;
           neighKrnl.Tinv = matTinvData;
           neighKrnl.star(0) = matATtildeData;
-          if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
-              cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
-            // already rotated
+          if (boundaryProperties(cellInformation[cell].faceTypes[side]).usesFaceAlignedGhostState) {
             neighKrnl.Tinv = init::identityT::Values;
           }
           neighKrnl.execute();

@@ -19,6 +19,7 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/Precision.h"
@@ -59,9 +60,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         coords[v] = vertices[element.vertices[v]].coords;
       }
       for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-        if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
-            cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
-            cellInformation[cell].faceTypes[side] != FaceType::Analytical) {
+        if (!boundaryProperties(cellInformation[cell].faceTypes[side]).requiresFaceData) {
           continue;
         }
         // Compute nodal points in global coordinates for each side.
