@@ -178,7 +178,7 @@ struct MaterialSetup<AnisotropicMaterial> {
     localAData[12] = -local.c15;
     localAData[13] = -local.c25;
     localAData[14] = -local.c35;
-    localAData[15] = -local.c46;
+    localAData[15] = -local.c56;
     localAData[16] = -local.c45;
     localAData[17] = -local.c55;
     const Matrix63 localA(localAData.data());
@@ -199,7 +199,7 @@ struct MaterialSetup<AnisotropicMaterial> {
     neighborAData[12] = -neighbor.c15;
     neighborAData[13] = -neighbor.c25;
     neighborAData[14] = -neighbor.c35;
-    neighborAData[15] = -neighbor.c46;
+    neighborAData[15] = -neighbor.c56;
     neighborAData[16] = -neighbor.c45;
     neighborAData[17] = -neighbor.c55;
     const Matrix63 neighborA(neighborAData.data());
@@ -277,7 +277,7 @@ struct MaterialSetup<AnisotropicMaterial> {
 
   static AnisotropicMaterial
       getRotatedMaterialCoefficients(const std::array<double, 36>& rotationParameters,
-                                     AnisotropicMaterial& material) {
+                                     const AnisotropicMaterial& material) {
     AnisotropicMaterial rotatedMaterial;
     rotatedMaterial.rho = material.rho;
     using Matrix66 = Eigen::Matrix<double, 6, 6>;

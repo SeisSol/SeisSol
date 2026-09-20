@@ -90,7 +90,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
                                              static_cast<int>(faceIdx),
                                              faceSideIdx,
                                              elementIdx,
-                                             element.globalId},
+                                             &fault},
                                             std::make_pair(globalFace, referenceTriangle));
         }
       }
@@ -166,6 +166,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             receiverPoint.localFaceSideId = faceSideIdx;
             receiverPoint.elementIndex = element.localId;
             receiverPoint.elementGlobalIndex = element.globalId;
+            receiverPoint.localNeighborFaceSideId = fault.neighborSide;
+            receiverPoint.elementNeighborGlobalIndex = fault.neighborGlobalId;
             receiverPoint.globalReceiverIndex =
                 faceOffset * seissol::init::vtk2d::Shape[order][1] + i;
             receiverPoint.faultTag = fault.tag;
