@@ -53,9 +53,7 @@ class FreeSurfaceIntegrator {
   FreeSurfaceIntegrator(FreeSurfaceIntegrator&&) = delete;
   auto operator=(FreeSurfaceIntegrator&&) -> FreeSurfaceIntegrator& = delete;
 
-  void initialize(unsigned maxRefinementDepth,
-                  LTS::Storage& ltsStorage,
-                  SurfaceLTS::Storage& surfaceStorage);
+  void initialize(LTS::Storage& ltsStorage, SurfaceLTS::Storage& surfaceStorage);
 
   void calculateOutput() const;
 

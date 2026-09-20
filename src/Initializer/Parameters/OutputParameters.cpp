@@ -125,6 +125,16 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0U);
 
+  // Every level splits each output triangle into four, and the whole refined surface is held in
+  // memory while the output is assembled. There is no level at which that stops working, so this
+  // states the price rather than refusing to pay it.
+  constexpr unsigned RefinementWarningDepth = 3;
+  if (refinement > RefinementWarningDepth) {
+    logWarning() << "surfaceoutputrefinement =" << refinement << "puts" << (1U << (2 * refinement))
+                 << "output cells on every surface face. Memory and output size grow by a factor "
+                    "of four with every level.";
+  }
+
   const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
 
   // The free-surface output has always been an average over each output subcell (cf. the former

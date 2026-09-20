@@ -314,16 +314,9 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
   auto& mm = seissolInstance.memoryManager();
 
-  int refinement = 0;
-  const auto& outputParams = seissolInstance.parameters().output;
-  if (outputParams.freeSurfaceParameters.enabled &&
-      outputParams.freeSurfaceParameters.vtkorder < 0) {
-    refinement = outputParams.freeSurfaceParameters.refinement;
-  }
-
   internal::initBoundaryStorage(mm.boundaryStorage(), mm.ltsStorage());
   internal::initSurfaceStorage(
-      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator(), refinement);
+      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator());
 }
 
 } // namespace

@@ -34,8 +34,7 @@ FreeSurfaceIntegrator::FreeSurfaceIntegrator() = default;
 
 FreeSurfaceIntegrator::~FreeSurfaceIntegrator() = default;
 
-void FreeSurfaceIntegrator::initialize(unsigned /*maxRefinementDepth*/,
-                                       LTS::Storage& ltsStorage,
+void FreeSurfaceIntegrator::initialize(LTS::Storage& ltsStorage,
                                        SurfaceLTS::Storage& surfaceStorage) {
   this->surfaceStorage = &surfaceStorage;
 
