@@ -245,7 +245,7 @@ void OutputManager::initElementwiseOutput() {
 
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index, std::size_t) {
-        *target = receiverPoints[index * dataCount * multisim::NumSimulations].globalFaultFaceId();
+        *target = receiverPoints[index * dataCount * multisim::NumSimulations].faultTag;
       });
 
   writer.addCellData<std::size_t>(
@@ -253,9 +253,7 @@ void OutputManager::initElementwiseOutput() {
       {},
       true,
       [=, &receiverPoints](std::size_t* target, std::size_t index, std::size_t) {
-        *target =
-            receiverPoints[index * dataCount * multisim::NumSimulations].elementGlobalIndex * 4 +
-            receiverPoints[index * dataCount * multisim::NumSimulations].localFaceSideId;
+        *target = receiverPoints[index * dataCount * multisim::NumSimulations].globalFaultFaceId();
       });
 
   misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
