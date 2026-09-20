@@ -18,8 +18,11 @@
 #include "IO/Writer/Writer.h"
 #include "utils/logger.h"
 
+#include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace seissol::io::instance::mesh {
 
@@ -141,6 +144,86 @@ class VtkHdfWriter {
       }
       addStepOffset(name, FieldDataName + "Offsets", isConst ? 0 : tuples);
       addStepFieldDataSize(name, components, tuples);
+    }
+  }
+
+  /**
+   * @brief Adds field data whose values are produced anew for every step.
+   *
+   * @p provider is handed the step counter and its time, and returns the tuples of that step laid
+   * out tuple-major; how many it returns may differ from one step to the next. @p components is
+   * what a single tuple holds, and stays the same for the run.
+   *
+   * The three datasets that describe a step -- its values, where they start, and how many there
+   * are -- share the count the provider just produced. They are built in one pass over the
+   * instructions and in this order, so the two that only describe the values see what the first
+   * one wrote.
+   */
+  template <typename T, typename F>
+  void addStepFieldData(const std::string& name,
+                        const std::vector<std::size_t>& components,
+                        F&& provider) {
+    std::size_t perTuple = 1;
+    for (const auto size : components) {
+      perTuple *= size;
+    }
+
+    //! What the step being built holds, and where it starts.
+    struct StepExtent {
+      std::size_t tuples{0};
+      std::size_t start{0};
+    };
+    const auto extent = std::make_shared<StepExtent>();
+    const bool temporal = temporal_;
+
+    const std::vector<std::string> dataGroups{GroupName, FieldDataName};
+    instructions_.emplace_back([=, provider = std::forward<F>(provider)](
+                                   const std::string& filename, std::size_t counter, double time) {
+      const std::vector<T> values = std::invoke(provider, counter, time);
+      if (perTuple == 0 || values.size() % perTuple != 0) {
+        logError() << "The field data" << name << "produced" << values.size()
+                   << "values, which is not a whole number of tuples of" << perTuple
+                   << "components.";
+      }
+      extent->tuples = values.size() / perTuple;
+
+      std::vector<writer::Dimension> shape;
+      shape.push_back(temporal ? writer::Dimension::appended(extent->tuples)
+                               : writer::Dimension::replicated(extent->tuples));
+      for (const auto size : components) {
+        shape.push_back(writer::Dimension::replicated(size));
+      }
+
+      const auto data = writer::WriteInline::createShaped<T>(shape, values);
+      return std::make_shared<writer::instructions::Hdf5DataWrite>(
+          writer::instructions::Hdf5Location(filename, dataGroups), name, data, data->datatype());
+    });
+
+    if (temporal_) {
+      const std::vector<std::string> offsetGroups{GroupName, StepsName, FieldDataName + "Offsets"};
+      instructions_.emplace_back(
+          [=](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+            const auto start = extent->start;
+            extent->start += extent->tuples;
+            const auto data = writer::WriteInline::createShaped<std::uint64_t>(
+                {writer::Dimension::appended(1)}, {static_cast<std::uint64_t>(start)});
+            return std::make_shared<writer::instructions::Hdf5DataWrite>(
+                writer::instructions::Hdf5Location(filename, offsetGroups),
+                name,
+                data,
+                data->datatype());
+          });
+
+      const std::vector<std::string> sizeGroups{GroupName, StepsName, FieldDataName + "Sizes"};
+      instructions_.emplace_back([=](const std::string& filename,
+                                     std::size_t /*counter*/,
+                                     double /*time*/) {
+        const auto data = writer::WriteInline::createShaped<std::int64_t>(
+            {writer::Dimension::appended(1), writer::Dimension::replicated(2)},
+            {static_cast<std::int64_t>(perTuple), static_cast<std::int64_t>(extent->tuples)});
+        return std::make_shared<writer::instructions::Hdf5DataWrite>(
+            writer::instructions::Hdf5Location(filename, sizeGroups), name, data, data->datatype());
+      });
     }
   }
 

@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <fstream>
 #include <mpi.h>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -234,6 +235,86 @@ TEST_CASE("IO/VtkHdf: a time series is one file with a Steps group" * doctest::t
   hdf5.closeGroup();
 
   hdf5.closeGroup();
+  hdf5.closeGroup();
+  hdf5.closeFile();
+}
+
+TEST_CASE("IO/VtkHdf: field data may hold several tuples per step" * doctest::test_suite("io")) {
+  const unit_test::io::TempDir dir;
+  constexpr std::size_t Cells = 2;
+
+  instance::mesh::VtkHdfWriter vtk(
+      "volume", Cells, instance::geometry::Shape::Tetrahedron, 0, true, 0);
+  vtk.addPointProjector(projectTestCell);
+  vtk.addCellData<double>("v1", {}, false, [](double* target, std::size_t index) {
+    target[0] = static_cast<double>(index);
+  });
+
+  // a step contributes as many tuples as it happens to have; a reader takes them apart with the
+  // offsets and sizes rather than by assuming a count
+  const std::vector<std::size_t> tuplesPerStep{2, 1, 3};
+  vtk.addStepFieldData<double>("samples", {2}, [&tuplesPerStep](std::size_t counter, double time) {
+    std::vector<double> values;
+    for (std::size_t tuple = 0; tuple < tuplesPerStep.at(counter); ++tuple) {
+      values.push_back(time);
+      values.push_back(static_cast<double>(tuple));
+    }
+    return values;
+  });
+
+  auto plan = vtk.makeWriter();
+  const std::vector<double> times{0.0, 0.25, 0.5};
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    auto write = plan(dir.prefix(), step, times[step]);
+    unit_test::io::runPlan(write, MPI_COMM_SELF);
+  }
+
+  reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+  hdf5.openFile(dir.prefix() + "-volume.vtkhdf");
+  hdf5.openGroup("VTKHDF");
+
+  hdf5.openGroup("FieldData");
+  const auto samples = hdf5.readData<double>("samples");
+  // the dataset grew by the tuples of each step, not by one entry per step
+  const auto totalTuples =
+      std::accumulate(tuplesPerStep.begin(), tuplesPerStep.end(), std::size_t{0});
+  REQUIRE(samples.size() == totalTuples * 2);
+  CHECK(hdf5.dataRowSize("samples") == 2);
+  hdf5.closeGroup();
+
+  hdf5.openGroup("Steps");
+
+  hdf5.openGroup("FieldDataOffsets");
+  const auto offsets = hdf5.readData<std::uint64_t>("samples");
+  REQUIRE(offsets.size() == times.size());
+  std::size_t running = 0;
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    CHECK(offsets[step] == running);
+    running += tuplesPerStep[step];
+  }
+  hdf5.closeGroup();
+
+  hdf5.openGroup("FieldDataSizes");
+  const auto sizes = hdf5.readData<std::int64_t>("samples");
+  REQUIRE(sizes.size() == times.size() * 2);
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    CHECK(sizes[step * 2] == 2);
+    CHECK(sizes[step * 2 + 1] == static_cast<std::int64_t>(tuplesPerStep[step]));
+  }
+  hdf5.closeGroup();
+
+  hdf5.closeGroup();
+
+  // and the values of a step sit where its offset says they do
+  for (std::size_t step = 0; step < times.size(); ++step) {
+    const auto start = std::accumulate(
+        tuplesPerStep.begin(), tuplesPerStep.begin() + static_cast<long>(step), std::size_t{0});
+    for (std::size_t tuple = 0; tuple < tuplesPerStep[step]; ++tuple) {
+      CHECK(samples[(start + tuple) * 2] == doctest::Approx(times[step]));
+      CHECK(samples[(start + tuple) * 2 + 1] == doctest::Approx(static_cast<double>(tuple)));
+    }
+  }
+
   hdf5.closeGroup();
   hdf5.closeFile();
 }
