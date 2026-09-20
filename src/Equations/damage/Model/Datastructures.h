@@ -14,6 +14,7 @@
 #include "Model/Quantities.h"
 
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <string>
@@ -135,13 +136,33 @@ struct DamageMaterial : public Material {
 
   /// Fastest wave the material can carry, over every state it can be in.
   ///
-  /// The effective shear modulus is 2 mu0 - gammaR alpha (2 xi0 + xi), with
-  /// the damage alpha in [0, 1] and the strain invariant ratio xi in
-  /// [-sqrt(3), sqrt(3)] -- the latter by Cauchy-Schwarz on a symmetric
-  /// tensor, so it is a bound and not an assumption. Damage can stiffen the
-  /// material as well as soften it, which is why this is not the undamaged
-  /// speed: a timestep or a numerical flux scaled with that one would be
-  /// scaled with a speed the simulation can exceed.
+  /// What a wave travels at follows from the tangent of the stress, not from
+  /// its ratio to the strain. With n the strain normalised in the Frobenius
+  /// norm, xi = tr(n) and g = gammaR alpha, differentiating the solid branch
+  /// gives
+  ///
+  ///   C = lambda0 d(x)d + (2 mu0 - 2 g xi0 - g xi) Isym
+  ///         - g (d(x)n + n(x)d) + g xi n(x)n,
+  ///
+  /// whose last two groups no pair of Lame parameters can express. In a
+  /// direction e the acoustic tensor is m Id + S, with m = mu0 - g xi0 -
+  /// g xi / 2 and S supported on the plane spanned by e and n.e. Its largest
+  /// eigenvalue is maximal where n.e is parallel to e, and there, with
+  /// a = e.n.e,
+  ///
+  ///   rho c^2 = lambda0 + 2 mu0 + g (xi (a^2 - 1) - 2 a - 2 xi0).
+  ///
+  /// Since a^2 <= 1 this grows as xi falls, and |n| = 1 holds xi above
+  /// a - sqrt(2 (1 - a^2)); that floor reaches the range limit -sqrt(3) at
+  /// a = -1 / sqrt(3), and only there. The excess over the undamaged
+  /// stiffness is therefore 4 / sqrt(3) - 2 xi0 per unit of gammaR, all of it
+  /// carried at alpha = 1, and negative xi0 is the case where damage only
+  /// softens and the undamaged speed already bounds everything.
+  ///
+  /// The size of the strain drops out: the tangent depends on its direction
+  /// alone, so this is a constant of the material rather than something a
+  /// cell has to be asked for. It bounds the solid branch; a granular branch
+  /// with non-zero aB would add a term of its own.
   /// The stiffness of the undamaged solid, which is what an interface between
   /// two cells is judged by at setup. The damaged one is a function of the
   /// state and has no place in a tensor that is filled once.
@@ -163,9 +184,9 @@ struct DamageMaterial : public Material {
   }
 
   [[nodiscard]] double getMaxWaveSpeed() const override {
-    constexpr double MaxInvariantRatio = 1.7320508075688772; // sqrt(3)
-    const double shear = 2.0 * mu0 + gammaR * (MaxInvariantRatio - 2.0 * xi0);
-    return std::sqrt((lambda0 + shear) / rho);
+    constexpr double TangentExcess = 2.3094010767585034; // 4 / sqrt(3)
+    const double damage = std::max(gammaR * (TangentExcess - 2.0 * xi0), 0.0);
+    return std::sqrt((lambda0 + 2.0 * mu0 + damage) / rho);
   }
 
   DamageMaterial() = default;
