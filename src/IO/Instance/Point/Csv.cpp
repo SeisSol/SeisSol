@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <fstream>
 #include <functional>
+#include <ios>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -101,6 +102,15 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Csv::make
         filename, writer::WriteBuffer::create(rowcache_.c_str(), rowcache_.size()), 0, true));
     return writer;
   };
+}
+
+void Csv::writeFile(const std::string& path) {
+  std::ofstream stream(path, std::ios::out);
+  if (!stream.good()) {
+    logError() << "Could not write the table" << path << ".";
+  }
+  stream << header() << rows();
+  resetStorage();
 }
 
 std::size_t CsvTable::column(const std::string& name) const {

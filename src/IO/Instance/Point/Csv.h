@@ -51,6 +51,15 @@ class Csv : public TableWriter {
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() override;
 
+  /**
+   * @brief Writes the header and the rows collected so far to @p path, from the calling rank.
+   *
+   * For the tables a run leaves next to its output, which one rank assembles in full and which
+   * nothing in the simulation waits for. What a simulation produces while it runs goes through
+   * makeWriter instead, so that the ranks write their own rows and no one gathers.
+   */
+  void writeFile(const std::string& path);
+
   private:
   [[nodiscard]] std::ostringstream&
       field(std::ostringstream& stream, const std::string& value, bool text) const;
