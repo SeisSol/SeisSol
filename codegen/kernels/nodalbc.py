@@ -52,13 +52,21 @@ def addKernels(
         alignStride=False,
     )
 
+    # The boundary condition acts on the quantities that enter the Riemann
+    # problem, which is the leading block of the rotation for materials that
+    # carry more quantities than that.
+    nq = aderdg.numberOfQuantities()
+
     generator.add(
         "rotateBoundaryCondition",
         [
             easi_boundary_map["ab"]
-            <= aderdg.Tinv["ac"] * easi_boundary_map_global["cd"] * aderdg.T["db"],
+            <= aderdg.Tinv["ac"].subslice("a", 0, nq).subslice("c", 0, nq)
+            * easi_boundary_map_global["cd"]
+            * aderdg.T["db"].subslice("d", 0, nq).subslice("b", 0, nq),
             easi_boundary_constant["a"]
-            <= aderdg.Tinv["am"] * easi_boundary_constant_global["m"],
+            <= aderdg.Tinv["am"].subslice("a", 0, nq).subslice("m", 0, nq)
+            * easi_boundary_constant_global["m"],
         ],
     )
 
@@ -123,22 +131,26 @@ def addKernels(
     fold_dirichlet = (
         aderdg.AplusT["mp"]
         <= aderdg.AplusT["mp"]
-        + aderdg.Tinv["bm"] * easi_boundary_map["ab"] * aderdg.AminusT["ap"]
+        + aderdg.Tinv["bm"].subslice("b", 0, nq).subslice("m", 0, nq)
+        * easi_boundary_map["ab"]
+        * aderdg.AminusT["ap"]
     )
     generator.add("foldDirichlet", fold_dirichlet)
 
     fold_free_surface_gravity = (
         aderdg.AplusT["mp"]
         <= aderdg.AplusT["mp"]
-        + aderdg.Tinv["om"] * fsg_map["oq"] * aderdg.AminusT["qp"]
+        + aderdg.Tinv["om"].subslice("o", 0, nq).subslice("m", 0, nq)
+        * fsg_map["oq"]
+        * aderdg.AminusT["qp"]
     )
     generator.add("foldFreeSurfaceGravity", fold_free_surface_gravity)
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
         dirichlet_flux = (
-            lambda i: aderdg.Q["kp"]
-            <= aderdg.Q["kp"]
+            lambda i: aderdg.extendedQTensor()["kp"]
+            <= aderdg.extendedQTensor()["kp"]
             + dt
             * aderdg.db.dirichletLift[i]["k"]
             * easi_boundary_constant["o"]
@@ -146,8 +158,8 @@ def addKernels(
         )
 
         fsg_flux = (
-            lambda i: aderdg.Q["kp"]
-            <= aderdg.Q["kp"]
+            lambda i: aderdg.extendedQTensor()["kp"]
+            <= aderdg.extendedQTensor()["kp"]
             + g2m
             * rho[""]
             * aderdg.db.project2nFaceTo3m[i]["kn"]

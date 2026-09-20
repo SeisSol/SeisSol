@@ -48,6 +48,9 @@ class Local : public LocalKernel {
   kernel::localFluxExt localFluxKernelPrototype_;
   kernel::local localKernelPrototype_;
 
+  kernel::fsgFlux fsgFlux_;
+  kernel::dirichletFlux dirichletFlux_;
+
 #ifdef ACL_DEVICE
   kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
   kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype_;

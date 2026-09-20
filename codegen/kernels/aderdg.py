@@ -334,8 +334,8 @@ class LinearADERDG(ADERDGBase):
             generator.add(f"{name_prefix}volume", volume, target=target)
 
             localFluxNodal = (
-                lambda i: self.Q["kp"]
-                <= self.Q["kp"]
+                lambda i: self.extendedQTensor()["kp"]
+                <= self.extendedQTensor()["kp"]
                 + self.db.project2nFaceTo3m[i]["kn"]
                 * self.INodal["no"]
                 * self.AminusT["op"]
