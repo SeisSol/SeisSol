@@ -446,7 +446,15 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       xHigh = (active && !gPos) ? x : xHigh;
 
       const real dxOld = dx;
-      const real xNewton = x - g / dG;
+      // Newton on h(u) = g(exp(u)) rather than on g(V): h'(u) = dG * V, so the step is
+      // multiplicative. Where mu is in its logarithmic branch the residual is nearly linear in
+      // log V, and that is where the locked and creeping lanes sit -- the ones that set the cost,
+      // since the warp only leaves once every lane has converged. The clamp keeps exp() inside
+      // the range before the bracket test gets to reject the step, and a multiplicative step
+      // cannot leave the positive axis.
+      const real du =
+          std::min(std::max(-g / (dG * x), static_cast<real>(-60.0)), static_cast<real>(60.0));
+      const real xNewton = x * std::exp(du);
       // Bisect geometrically. The bracket spans the whole admissible range of slip rates, from
       // almostZero() up to the free-slip limit tau/eta_s, so its arithmetic midpoint sits many
       // orders of magnitude above the root of a locked or creeping point, and a fallback would
