@@ -13,6 +13,25 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+Output file names
+~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+Every mesh output is now named after what it holds, so three file names changed.
+Post-processing that opens them by name has to follow.
+
+* The wavefield written through Xdmf was ``<prefix>.xdmf``; it is now
+  ``<prefix>-wavefield.xdmf``, next to the ``<prefix>-wavefield.vtkhdf`` that the
+  high-order output already used. The bare prefix carried no indication of what
+  was in the file.
+* The high-order free-surface output was ``<prefix>-free-surface.vtkhdf``; it is
+  now ``<prefix>-surface.vtkhdf``, which is what the Xdmf free-surface output has
+  always been called.
+* The high-order elementwise fault output was ``<prefix>-fault-elementwise.vtkhdf``;
+  it is now ``<prefix>-fault.vtkhdf``, matching the Xdmf fault output. The output
+  it is distinguished from -- the on-fault receivers -- is written by a different
+  module under a different name, so the qualifier distinguished nothing.
+
 Refined wavefield output
 ~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)
