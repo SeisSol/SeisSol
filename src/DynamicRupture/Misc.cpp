@@ -91,10 +91,8 @@ FrictionLawParameters::FrictionLawParameters(
 
   for (std::uint32_t i = 0; i < parameters.nucleationCount; ++i) {
     this->t0[i] = static_cast<real>(parameters.t0[i]);
-    this->s0[i] = static_cast<real>(parameters.s0[i]);
   }
   // the initial state, the source without a rise time
   this->t0[parameters.nucleationCount] = 0;
-  this->s0[parameters.nucleationCount] = 0;
 }
 } // namespace seissol::dr

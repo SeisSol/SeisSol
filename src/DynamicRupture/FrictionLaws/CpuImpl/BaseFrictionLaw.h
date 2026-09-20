@@ -113,6 +113,7 @@ class BaseFrictionLaw : public FrictionSolver {
           common::computeInitialStress(initialStress,
                                        &stressSourceInFaultCS_[ltsFace * sourceCount],
                                        &stressSourcePressure_[ltsFace * sourceCount],
+                                       &stressSourceOnset_[ltsFace * sourceCount],
                                        this->drParameters_,
                                        updateTime);
 

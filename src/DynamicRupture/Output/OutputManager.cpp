@@ -432,10 +432,12 @@ void OutputManager::initPickpointOutput() {
               // the stress the fault starts out under, which is every source in effect then
               const dr::FrictionLawParameters frictionLawParameters(
                   seissolInstance_.parameters().drParameters);
-              const auto* stresses = drStorage_->layer(position.color)
-                                         .var<DynamicRupture::StressSourceInFaultCS>();
+              const auto& drLayer = drStorage_->layer(position.color);
+              const auto* stresses = drLayer.var<DynamicRupture::StressSourceInFaultCS>();
+              const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>();
               auto unrotatedInitialStress = dr::stressAtTime(
                   &stresses[position.cell * frictionLawParameters.sourceCount],
+                  &onsets[position.cell * frictionLawParameters.sourceCount],
                   frictionLawParameters,
                   static_cast<std::uint32_t>(receiver.gpIndex),
                   static_cast<real>(0.0));

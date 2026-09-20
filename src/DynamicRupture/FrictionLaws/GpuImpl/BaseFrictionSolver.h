@@ -183,6 +183,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
             ctx.initialStress,
             &ctx.data->stressSourceInFaultCS[ctx.ltsFace * sourceCount],
             &ctx.data->stressSourcePressure[ctx.ltsFace * sourceCount],
+            &ctx.data->stressSourceOnset[ctx.ltsFace * sourceCount],
             ctx.data->drParameters,
             updateTime,
             ctx.pointIndex);

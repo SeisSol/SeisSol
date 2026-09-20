@@ -197,8 +197,10 @@ void ReceiverOutput::calcFaultOutput(
 
     // the whole tensor, since the total traction output rotates it
     const auto* stressSources = local.layer->var<DynamicRupture::StressSourceInFaultCS>();
+    const auto* stressSourceOnset = local.layer->var<DynamicRupture::StressSourceOnset>();
     const auto initialStress =
         stressAtTime(&stressSources[local.ltsId * frictionLawParameters_.sourceCount],
+                     &stressSourceOnset[local.ltsId * frictionLawParameters_.sourceCount],
                      frictionLawParameters_,
                      static_cast<std::uint32_t>(local.gpIndex),
                      static_cast<real>(local.time));

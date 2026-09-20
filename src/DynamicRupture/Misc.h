@@ -308,9 +308,8 @@ struct FrictionLawParameters {
   real etaDampEnd{std::numeric_limits<real>::infinity()};
   /// rise time of the forced rupture ramp, which is not one of the stress sources
   real forcedRuptureRiseTime{0.0};
-  /// rise time and onset of every stress source; see stressSourceCount
+  /// rise time of every stress source; the onset is a field, see StressSourceOnset
   std::array<real, MaxStressSources> t0{};
-  std::array<real, MaxStressSources> s0{};
   std::uint32_t sourceCount{1};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
@@ -329,14 +328,17 @@ struct FrictionLawParameters {
  *
  * @param[in] sources the stress of every source of the face, i.e. the face's slice of the
  *                    storage array
+ * @param[in] onsets the onset of every source of the face, at this point
  */
 inline std::array<real, 6> stressAtTime(const real (*sources)[6][misc::NumPaddedPoints],
+                                        const real (*onsets)[misc::NumPaddedPoints],
                                         const FrictionLawParameters& parameters,
                                         std::uint32_t pointIndex,
                                         real time) {
   std::array<real, 6> stress{};
   for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
-    const real fraction = stressSourceFraction(time, parameters.t0[source], parameters.s0[source]);
+    const real fraction =
+        stressSourceFraction(time, parameters.t0[source], onsets[source][pointIndex]);
     for (std::size_t component = 0; component < stress.size(); ++component) {
       stress[component] += sources[source][component][pointIndex] * fraction;
     }

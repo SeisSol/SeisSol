@@ -67,6 +67,7 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
     const auto sourceCount = stressSourceCount(*drParameters_);
     auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>();
     auto* pressure = layer.var<DynamicRupture::StressSourcePressure>();
+    auto* onset = layer.var<DynamicRupture::StressSourceOnset>();
     for (std::uint32_t source = 0; source < sourceCount; ++source) {
       for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
@@ -74,6 +75,7 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
             stressInFaultCS[ltsFace * sourceCount + source][dim][pointIndex] = 0;
           }
           pressure[ltsFace * sourceCount + source][pointIndex] = 0;
+          onset[ltsFace * sourceCount + source][pointIndex] = 0;
         }
       }
     }

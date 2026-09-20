@@ -137,6 +137,12 @@ class BaseDRInitializer {
    * @return vector of strings, with the identifiers for the initial stress.
    */
   std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(int readNucleation);
+
+  /**
+   * The fault parameter that carries the onset of a nucleation, per point. Where the fault does
+   * not provide it, the onset of the parameter file holds for all points of that nucleation.
+   */
+  static std::string onsetIdentifier(int readNucleation);
 };
 
 } // namespace dr::initializer

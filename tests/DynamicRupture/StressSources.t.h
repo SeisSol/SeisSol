@@ -48,7 +48,7 @@ constexpr std::array<RampSample, 8> RampSamples{{
     {0x1.2000000000000p+2, 0x1.0000000000000p+2, 0x1.0000000000000p+0, 0x1.f7efeac14b167p-1},
 }};
 
-/// a parameter set with the given rise times and onsets, the initial state appended as usual
+/// a parameter set with the given rise times, the initial state appended as usual
 FrictionLawParameters withSources(const std::vector<std::pair<double, double>>& nucleations) {
   seissol::initializer::parameters::DRParameters parameters{};
   parameters.nucleationCount = static_cast<std::uint32_t>(nucleations.size());
@@ -57,6 +57,19 @@ FrictionLawParameters withSources(const std::vector<std::pair<double, double>>& 
     parameters.s0[i] = nucleations[i].second;
   }
   return FrictionLawParameters(parameters);
+}
+
+/// the onsets of a face, as the initializer lays them out: the nucleations, then the initial state
+void withOnsets(real (*onsets)[seissol::dr::misc::NumPaddedPoints],
+                const FrictionLawParameters& parameters,
+                const std::vector<double>& nucleations) {
+  for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
+    const auto onset =
+        source + 1 < parameters.sourceCount ? nucleations[source] : 0.0;
+    for (std::uint32_t point = 0; point < seissol::dr::misc::NumPaddedPoints; ++point) {
+      onsets[source][point] = static_cast<real>(onset);
+    }
+  }
 }
 
 } // namespace stresssources
@@ -115,20 +128,17 @@ TEST_CASE("Stress sources of a parameter set" * doctest::test_suite("dynamicrupt
   REQUIRE(parameters.sourceCount == 3);
   // the configured nucleations keep the indices the parameter file gives them
   REQUIRE(parameters.t0[0] == static_cast<real>(1.0));
-  REQUIRE(parameters.s0[0] == static_cast<real>(0.5));
   REQUIRE(parameters.t0[1] == static_cast<real>(2.0));
-  REQUIRE(parameters.s0[1] == static_cast<real>(3.0));
   // the initial state follows them, without a rise time and in effect from the start
   REQUIRE(parameters.t0[2] == static_cast<real>(0.0));
-  REQUIRE(parameters.s0[2] == static_cast<real>(0.0));
-  REQUIRE(stressSourceFraction(static_cast<real>(0.0), parameters.t0[2], parameters.s0[2]) ==
+  REQUIRE(stressSourceFraction(static_cast<real>(0.0), parameters.t0[2], static_cast<real>(0.0)) ==
           static_cast<real>(1.0));
   // the forced rupture ramp is none of the sources and keeps the rise time of the first nucleation
   REQUIRE(parameters.forcedRuptureRiseTime == static_cast<real>(1.0));
 
   const auto none = withSources({});
   REQUIRE(none.sourceCount == 1);
-  REQUIRE(stressSourceFraction(static_cast<real>(0.0), none.t0[0], none.s0[0]) ==
+  REQUIRE(stressSourceFraction(static_cast<real>(0.0), none.t0[0], static_cast<real>(0.0)) ==
           static_cast<real>(1.0));
 }
 
@@ -140,6 +150,8 @@ TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrup
   constexpr std::uint32_t Point = 3;
 
   alignas(Alignment) static real sources[MaxStressSources][6][NumPaddedPoints]{};
+  alignas(Alignment) static real onsets[MaxStressSources][NumPaddedPoints]{};
+  withOnsets(onsets, parameters, {0.5, 3.0});
   for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
     for (std::size_t component = 0; component < 6; ++component) {
       sources[source][component][Point] =
@@ -149,7 +161,7 @@ TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrup
 
   // before every nucleation has started, a point carries the initial state and nothing else
   {
-    const auto stress = stressAtTime(sources, parameters, Point, static_cast<real>(0.0));
+    const auto stress = stressAtTime(sources, onsets, parameters, Point, static_cast<real>(0.0));
     for (std::size_t component = 0; component < 6; ++component) {
       REQUIRE(stress[component] == sources[parameters.sourceCount - 1][component][Point]);
     }
@@ -158,12 +170,12 @@ TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrup
   // once they have, the fractions they have reached are what enters
   {
     const auto time = static_cast<real>(4.0);
-    const auto stress = stressAtTime(sources, parameters, Point, time);
+    const auto stress = stressAtTime(sources, onsets, parameters, Point, time);
     for (std::size_t component = 0; component < 6; ++component) {
       real expected = 0;
       for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
         expected += sources[source][component][Point] *
-                    stressSourceFraction(time, parameters.t0[source], parameters.s0[source]);
+                    stressSourceFraction(time, parameters.t0[source], onsets[source][Point]);
       }
       REQUIRE(stress[component] == expected);
     }
@@ -184,6 +196,8 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
   constexpr std::uint32_t Point = 5;
 
   alignas(Alignment) static real sources[MaxStressSources][6][NumPaddedPoints]{};
+  alignas(Alignment) static real onsets[MaxStressSources][NumPaddedPoints]{};
+  withOnsets(onsets, parameters, {0.5, 3.0, 2.0});
   for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
     for (std::size_t component = 0; component < 6; ++component) {
       sources[source][component][Point] = static_cast<real>(7 * source + component) - 5;
@@ -194,15 +208,46 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
   std::array<std::array<real, 6>, Steps> forward{};
   for (std::size_t step = 0; step < Steps; ++step) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    forward[step] = stressAtTime(sources, parameters, Point, time);
+    forward[step] = stressAtTime(sources, onsets, parameters, Point, time);
   }
   for (std::size_t step = Steps; step-- > 0;) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    const auto backward = stressAtTime(sources, parameters, Point, time);
+    const auto backward = stressAtTime(sources, onsets, parameters, Point, time);
     for (std::size_t component = 0; component < 6; ++component) {
       REQUIRE(backward[component] == forward[step][component]);
     }
   }
+}
+
+/// the onset is a field, so two points of a face may reach the same source at different times
+TEST_CASE("Stress sources with an onset per point" * doctest::test_suite("dynamicrupture")) {
+  using namespace stresssources;
+  using seissol::dr::misc::NumPaddedPoints;
+
+  const auto parameters = withSources({{1.0, 0.0}});
+  alignas(Alignment) static real sources[MaxStressSources][6][NumPaddedPoints]{};
+  alignas(Alignment) static real onsets[MaxStressSources][NumPaddedPoints]{};
+
+  for (std::uint32_t point = 0; point < NumPaddedPoints; ++point) {
+    sources[0][0][point] = static_cast<real>(4.0);
+    sources[1][0][point] = static_cast<real>(1.0);
+    // the nucleation sweeps across the face
+    onsets[0][point] = static_cast<real>(point);
+    onsets[1][point] = static_cast<real>(0.0);
+  }
+
+  const auto time = static_cast<real>(3.5);
+  for (std::uint32_t point = 0; point < NumPaddedPoints; ++point) {
+    const auto stress = stressAtTime(sources, onsets, parameters, point, time);
+    const auto expected =
+        static_cast<real>(1.0) +
+        static_cast<real>(4.0) * stressSourceFraction(time, parameters.t0[0], onsets[0][point]);
+    REQUIRE(stress[0] == expected);
+  }
+  // it has passed the first points and not yet reached the last
+  REQUIRE(stressAtTime(sources, onsets, parameters, 0, time)[0] == static_cast<real>(5.0));
+  REQUIRE(stressAtTime(sources, onsets, parameters, NumPaddedPoints - 1, time)[0] ==
+          static_cast<real>(1.0));
 }
 
 } // namespace seissol::unit_test
