@@ -7,6 +7,7 @@
 
 #include "BinaryWriter.h"
 
+#include "FileProperties.h"
 #include "IO/Writer/Instructions/Binary.h"
 #include "Parallel/MPI.h"
 
@@ -23,8 +24,9 @@ namespace seissol::io::writer::file {
 BinaryFile::BinaryFile(MPI_Comm comm) : comm_(comm) {}
 void BinaryFile::openFile(const std::string& name, bool append) {
   const auto mode = append ? MPI_MODE_APPEND : 0;
+  // the same hints the HDF5 backend uses; the payload of an Xdmf output goes through here
   MPI_File_open(
-      comm_, name.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY | mode, MPI_INFO_NULL, &file_);
+      comm_, name.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY | mode, outputMpioHints(), &file_);
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   int rank = 0;

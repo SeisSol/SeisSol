@@ -12,6 +12,7 @@
 #include "IO/Datatype/MPIType.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Metadata/Xml.h"
+#include "IO/Writer/File/FileProperties.h"
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
@@ -271,8 +272,7 @@ void XdmfWriter::addData(const std::string& name,
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
 
-  [[maybe_unused]] const auto alignment =
-      utils::Env("").getOptional<std::size_t>("XDMFWRITER_ALIGNMENT");
+  const auto alignment = writer::file::outputAlignment();
 
   instrarray.emplace_back([=](const std::string& preFilename, std::size_t counter) {
     WriteResult result{};
@@ -303,8 +303,8 @@ void XdmfWriter::addData(const std::string& name,
       const auto trueFilename = filename + "-dataset" + std::to_string(datasetId);
       result.format = "Binary";
       result.location = trueFilename;
-      result.instruction =
-          std::make_shared<writer::instructions::BinaryWrite>(trueFilepath, data, 0, counter > 0);
+      result.instruction = std::make_shared<writer::instructions::BinaryWrite>(
+          trueFilepath, data, alignment, counter > 0);
     } else {
       const std::string datasetName = "dataset" + std::to_string(datasetId);
       result.format = "HDF";
