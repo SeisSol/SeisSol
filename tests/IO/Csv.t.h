@@ -7,130 +7,94 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Datatype.h"
 #include "IO/Instance/Point/Csv.h"
-#include "IO/Instance/Point/TableWriter.h"
 
-#include <memory>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 namespace seissol::unit_test {
+
+namespace {
 using namespace seissol::io::instance::point;
-using namespace seissol::io::datatype;
 
-TEST_CASE("Csv quote simple string" * doctest::test_suite("io")) {
-  const Csv csv;
-  CHECK(csv.quote("hello") == "\"hello\"");
-  CHECK(csv.quote("") == "\"\"");
-  CHECK(csv.quote("abc") == "\"abc\"");
+//! A table of the shape the metadata writers produce: a name, a rank, and a number.
+Csv makeTable(CsvFormat format = {}) {
+  Csv csv("threads", format);
+  csv.addTextColumn("hostname", 16);
+  csv.addColumn<std::int32_t>("rank");
+  csv.addColumn<double>("weight");
+  return csv;
+}
+} // namespace
+
+TEST_CASE("IO/Csv: only text is quoted by default" * doctest::test_suite("io")) {
+  auto csv = makeTable();
+  csv.addText("node01");
+  csv.addCell<std::int32_t>(3);
+  csv.addCell<double>(0.5);
+
+  CHECK(csv.header() == "\"hostname\",\"rank\",\"weight\"\n");
+
+  const auto table = parseCsv(csv.header() + csv.rows());
+  REQUIRE(table.rows.size() == 1);
+  CHECK(table.header == std::vector<std::string>{"hostname", "rank", "weight"});
+  CHECK(table.rows[0][table.column("hostname")] == "node01");
+  CHECK(table.rows[0][table.column("rank")] == "3");
 }
 
-TEST_CASE("Csv quote escapes internal quotes" * doctest::test_suite("io")) {
-  const Csv csv;
-  std::ostringstream stream;
-  csv.quote(stream, "say \"hi\"");
-  // Internal quotes should be doubled: say ""hi""
-  CHECK(stream.str() == "\"say \"\"hi\"\"\"");
+TEST_CASE("IO/Csv: the punctuation is the writer's to choose" * doctest::test_suite("io")) {
+  CsvFormat format;
+  format.delimiter = ';';
+  format.quoting = CsvQuoting::All;
+
+  auto csv = makeTable(format);
+  csv.addText("node01");
+  csv.addCell<std::int32_t>(3);
+  csv.addCell<double>(0.5);
+
+  const auto text = csv.header() + csv.rows();
+  CHECK(text.find(';') != std::string::npos);
+  CHECK(text.find("\"3\"") != std::string::npos);
+
+  // and the same settings read it back
+  const auto table = parseCsv(text, format);
+  REQUIRE(table.rows.size() == 1);
+  CHECK(table.rows[0][table.column("rank")] == "3");
 }
 
-TEST_CASE("Csv quote no special chars" * doctest::test_suite("io")) {
-  const Csv csv;
-  std::ostringstream stream;
-  csv.quote(stream, "plain");
-  CHECK(stream.str() == "\"plain\"");
+TEST_CASE("IO/Csv: a value may hold the punctuation" * doctest::test_suite("io")) {
+  Csv csv("quoted");
+  csv.addTextColumn("text", 24);
+  csv.addColumn<std::int32_t>("n");
+
+  csv.addText("a,b");
+  csv.addCell<std::int32_t>(1);
+  csv.addText("say \"hi\"");
+  csv.addCell<std::int32_t>(2);
+
+  const auto table = parseCsv(csv.header() + csv.rows());
+  REQUIRE(table.rows.size() == 2);
+  CHECK(table.rows[0][0] == "a,b");
+  CHECK(table.rows[1][0] == "say \"hi\"");
+  CHECK(table.rows[1][1] == "2");
 }
 
-TEST_CASE("Csv header" * doctest::test_suite("io")) {
-  Csv csv;
-  auto f64 = std::make_shared<F64Datatype>();
-  csv.addQuantity(TableQuantity{"time", f64});
-  csv.addQuantity(TableQuantity{"value", f64});
+TEST_CASE("IO/Csv: text is cut to the length its column holds" * doctest::test_suite("io")) {
+  Csv csv("short");
+  csv.addTextColumn("text", 4);
 
-  std::string hdr = csv.header();
-  // Expected: "time";"value"\n
-  CHECK(hdr == "\"time\";\"value\"\n");
+  csv.addText("abcdefgh");
+
+  const auto table = parseCsv(csv.header() + csv.rows());
+  REQUIRE(table.rows.size() == 1);
+  CHECK(table.rows[0][0] == "abcd");
 }
 
-TEST_CASE("Csv header single column" * doctest::test_suite("io")) {
-  Csv csv;
-  auto f32 = std::make_shared<F32Datatype>();
-  csv.addQuantity(TableQuantity{"x", f32});
-  CHECK(csv.header() == "\"x\"\n");
-}
-
-TEST_CASE("Csv rows with data" * doctest::test_suite("io")) {
-  Csv csv;
-  auto f64 = std::make_shared<F64Datatype>();
-  auto i32 = std::make_shared<IntegerDatatype>(sizeof(long long), true);
-
-  csv.addQuantity(TableQuantity{"time", f64});
-  csv.addQuantity(TableQuantity{"step", i32});
-
-  // Add a row: time=1.5, step=10
-  const double t1 = 1.5;
-  const long long s1 = 10;
-  csv.addCell(t1);
-  csv.addCell(s1);
-
-  // Add another row: time=2.5, step=20
-  const double t2 = 2.5;
-  const long long s2 = 20;
-  csv.addCell(t2);
-  csv.addCell(s2);
-
-  const std::string result = csv.rows();
-
-  // Each row should have two quoted values separated by ;
-  // Values are produced by toStringRaw, so for double it's %.16g style
-  CHECK(result.find("1.5") != std::string::npos);
-  CHECK(result.find("10") != std::string::npos);
-  CHECK(result.find("2.5") != std::string::npos);
-  CHECK(result.find("20") != std::string::npos);
-
-  // Two rows = two newlines
-  std::size_t newlines = 0;
-  for (const char c : result) {
-    if (c == '\n') {
-      ++newlines;
-    }
-  }
-  CHECK(newlines == 2);
-}
-
-TEST_CASE("Csv rows empty" * doctest::test_suite("io")) {
-  Csv csv;
-  auto f64 = std::make_shared<F64Datatype>();
-  csv.addQuantity(TableQuantity{"x", f64});
-
-  // No cells added → empty rows
-  CHECK(csv.rows().empty());
-}
-
-TEST_CASE("Csv resetStorage clears data" * doctest::test_suite("io")) {
-  Csv csv;
-  auto f64 = std::make_shared<F64Datatype>();
-  csv.addQuantity(TableQuantity{"x", f64});
-
-  const double val = 42.0;
-  csv.addCell(val);
-  CHECK_FALSE(csv.rows().empty());
-
-  csv.resetStorage();
-  CHECK(csv.rows().empty());
-}
-
-TEST_CASE("TableWriter addQuantity and getRowDatatype" * doctest::test_suite("io")) {
-  // Use Csv as a concrete TableWriter subclass
-  Csv csv;
-  auto f64 = std::make_shared<F64Datatype>();
-  auto f32 = std::make_shared<F32Datatype>();
-
-  csv.addQuantity(TableQuantity{"alpha", f64});
-  csv.addQuantity(TableQuantity{"beta", f32});
-
-  auto rowType = csv.getRowDatatype();
-  // Should be a struct with size = 8 + 4 = 12
-  CHECK(rowType->size() == 12);
+TEST_CASE("IO/Csv: a row without a closing newline still counts" * doctest::test_suite("io")) {
+  const auto table = parseCsv("a,b\n1,2\n3,4");
+  REQUIRE(table.rows.size() == 2);
+  CHECK(table.rows[1][1] == "4");
 }
 
 } // namespace seissol::unit_test
