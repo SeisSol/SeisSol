@@ -191,14 +191,13 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
   const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
-      "pickpointformat",
+      "format",
       "csv",
       {
           {"csv", ReceiverOutputFormat::Csv},
           {"hdf5", ReceiverOutputFormat::Hdf5},
       });
-  const auto samplechunk =
-      reader->readWithDefault("pickpointsamplechunk", static_cast<std::size_t>(0));
+  const auto samplechunk = reader->readWithDefault("samplechunk", static_cast<std::size_t>(0));
   const auto aggregate = reader->readWithDefault("aggregateperrank", false);
 
   reader->warnDeprecated({"noutpoints", "maxpickstore"});
