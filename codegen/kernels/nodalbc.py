@@ -70,17 +70,6 @@ def addKernels(
         ],
     )
 
-    projectToNodalBoundary = (
-        lambda j: aderdg.INodal["kp"]
-        <= aderdg.db.V3mTo2nFace[j][aderdg.t("km")] * aderdg.I["mp"]
-    )
-
-    generator.addFamily(
-        "projectToNodalBoundary",
-        simpleParameterSpace(4),
-        projectToNodalBoundary,
-    )
-
     rho = Tensor("rho", ())
 
     mainstresscnt = 3 if aderdg.velocityOffset() > 1 else 1

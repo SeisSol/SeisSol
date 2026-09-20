@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
 
 #include "GeneratedCode/kernel.h"
+#include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Local.h"
 #include "Physics/InitialField.h"
@@ -50,6 +51,9 @@ class Local : public LocalKernel {
 
   kernel::fsgFlux fsgFlux_;
   kernel::dirichletFlux dirichletFlux_;
+  kernel::localFluxNodal nodalLfKrnlPrototype_;
+
+  kernels::AnalyticalBoundary analyticalBoundary_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volumeExt deviceVolumeKernelPrototype_;

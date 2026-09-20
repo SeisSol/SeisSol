@@ -17,7 +17,7 @@
 #include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
-#include "DirichletBoundary.h"
+#include "Kernels/AnalyticalBoundary.h"
 #pragma GCC diagnostic pop
 #include "Physics/InitialField.h"
 
@@ -60,9 +60,7 @@ class Local : public LocalKernel {
   kernel::localFlux localFluxKernelPrototype_;
   kernel::localFluxNodal nodalLfKrnlPrototype_;
 
-  kernel::projectToNodalBoundary projectKrnlPrototype_;
-
-  kernels::DirichletBoundary dirichletBoundary_;
+  kernels::AnalyticalBoundary analyticalBoundary_;
 
   kernel::fsgFlux fsgFlux_;
   kernel::dirichletFlux dirichletFlux_;

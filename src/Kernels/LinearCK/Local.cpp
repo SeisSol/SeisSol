@@ -12,13 +12,13 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
-#include "DirichletBoundary.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
@@ -60,8 +60,6 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
   nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
 
-  projectKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
-
   fsgFlux_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
   dirichletFlux_.dirichletLift = global.onHost->dirichletLift;
 
@@ -83,46 +81,6 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceDirichletFlux_.dirichletLift = global.onDevice->dirichletLift;
 #endif
 }
-
-namespace {
-
-struct ApplyAnalyticalSolution {
-  ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
-                          LTS::Ref& data)
-      : initConditions_(initConditions), localData_(data) {}
-
-  void operator()(const real* nodes,
-                  double time,
-                  seissol::init::INodal::view::type& boundaryDofs) const {
-    assert(initConditions_ != nullptr);
-
-    constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
-    alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
-
-#pragma omp simd
-    for (std::size_t i = 0; i < NodeCount; ++i) {
-      nodesVec[i][0] = nodes[i * 3 + 0];
-      nodesVec[i][1] = nodes[i * 3 + 1];
-      nodesVec[i][2] = nodes[i * 3 + 2];
-    }
-
-    // NOTE: not yet tested for multisim setups
-    // (only implemented to get the build to work)
-
-    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
-      initConditions_->at(s % initConditions_->size())
-          ->evaluate(
-              time, nodesVec, NodeCount, localData_.get<LTS::Material>(), slicedBoundaryDofs);
-    }
-  }
-
-  private:
-  const std::vector<std::unique_ptr<physics::InitialField>>* initConditions_;
-  LTS::Ref& localData_;
-};
-
-} // namespace
 
 void Local::computeIntegral(
     real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
@@ -202,14 +160,11 @@ void Local::computeIntegral(
       assert(initConds_ != nullptr);
       const auto applyAnalyticalSolution = ApplyAnalyticalSolution(initConds_, data);
 
-      dirichletBoundary_.evaluateTimeDependent(timeIntegratedDoFs,
-                                               face,
-                                               cellBoundaryMapping[face],
-                                               projectKrnlPrototype_,
-                                               applyAnalyticalSolution,
-                                               dofsFaceBoundaryNodal,
-                                               time,
-                                               timeStepWidth);
+      analyticalBoundary_.evaluate(cellBoundaryMapping[face],
+                                   applyAnalyticalSolution,
+                                   dofsFaceBoundaryNodal,
+                                   time,
+                                   timeStepWidth);
       nodalLfKrnl.execute(face);
       break;
     }
@@ -398,14 +353,11 @@ void Local::evaluateBatchedTimeDependentBc(
             assert(initConds != nullptr);
             const ApplyAnalyticalSolution applyAnalyticalSolution(initConds_, data);
 
-            dirichletBoundary_.evaluateTimeDependent(nullptr,
-                                                     face,
-                                                     data.get<LTS::BoundaryMapping>()[face],
-                                                     projectKrnlPrototype_,
-                                                     applyAnalyticalSolution,
-                                                     dofsFaceBoundaryNodal,
-                                                     time,
-                                                     timeStepWidth);
+            analyticalBoundary_.evaluate(data.get<LTS::BoundaryMapping>()[face],
+                                         applyAnalyticalSolution,
+                                         dofsFaceBoundaryNodal,
+                                         time,
+                                         timeStepWidth);
 
             std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));
           });

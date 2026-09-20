@@ -11,6 +11,7 @@
 
 #include "Common/Marker.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Monitoring/Metric.h"
 
@@ -49,6 +50,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
   fsgFlux_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
   dirichletFlux_.dirichletLift = global.onHost->dirichletLift;
+  nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
@@ -126,6 +128,24 @@ void Local::computeIntegral(
       kernel.execute(face);
       break;
     }
+    case FaceType::Analytical: {
+      assert(initConds_ != nullptr);
+      const auto applyAnalyticalSolution = kernels::ApplyAnalyticalSolution(initConds_, data);
+
+      alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+      analyticalBoundary_.evaluate(cellBoundaryMapping[face],
+                                   applyAnalyticalSolution,
+                                   dofsFaceBoundaryNodal,
+                                   time,
+                                   timeStepWidth);
+
+      auto nodalLfKrnl = nodalLfKrnlPrototype_;
+      nodalLfKrnl.Qext = Qext;
+      nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+      nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+      nodalLfKrnl.execute(face);
+      break;
+    }
     default:
       // No boundary condition.
       break;
@@ -166,6 +186,9 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
         break;
       case FaceType::Dirichlet:
         estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux>(face);
+        break;
+      case FaceType::Analytical:
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
         break;
       default:
         break;
