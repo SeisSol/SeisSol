@@ -661,9 +661,11 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   return supplied;
 }
 
-EasiBoundary::EasiBoundary(const std::string& fileName) : model_(loadEasiModel(fileName)) {}
+EasiBoundary::EasiBoundary(const std::string& fileName)
+    : model_(loadEasiModel(fileName)) {}
 
-EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model_(other.model_) {}
+EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept
+    : model_(other.model_) {}
 
 EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
   std::swap(model_, other.model_);
@@ -673,13 +675,10 @@ EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
 EasiBoundary::~EasiBoundary() { delete model_; }
 
 void EasiBoundary::query(const double* barycenter,
-                         real* mapTermsData,
-                         real* constantTermsData) const {
+                               real* mapTermsData,
+                               real* constantTermsData) const {
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
-  }
-  if (multisim::NumSimulations != 1) {
-    logError() << "easi-provided boundary data does not support fused simulations.";
   }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
@@ -702,6 +701,7 @@ void EasiBoundary::query(const double* barycenter,
   const auto& varNames = model::MaterialT::Quantities;
 
   auto mapTerms = init::easiBoundaryMapGlobal::view::create(mapTermsData);
+  auto constantTerms = init::easiBoundaryConstantGlobal::view::create(constantTermsData);
 
   easi::ArraysAdapter<real> adapter{};
   std::unordered_set<std::string> known;
@@ -709,10 +709,11 @@ void EasiBoundary::query(const double* barycenter,
   for (size_t i = 0; i < varNames.size(); ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
     known.insert(termName);
+    auto& term = multisim::multisimWrap(constantTerms, 0, i);
     if (supplied.count(termName) > 0) {
-      adapter.addBindingPoint(termName, constantTermsData + i);
+      adapter.addBindingPoint(termName, &term);
     } else {
-      constantTermsData[i] = 0.0;
+      term = 0.0;
     }
   }
   for (size_t i = 0; i < varNames.size(); ++i) {
@@ -745,6 +746,14 @@ void EasiBoundary::query(const double* barycenter,
   }
 
   easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
+
+  // The condition does not depend on the simulation index, so every fused
+  // simulation gets the same one.
+  for (std::size_t sim = 1; sim < multisim::NumSimulations; ++sim) {
+    for (size_t i = 0; i < varNames.size(); ++i) {
+      multisim::multisimWrap(constantTerms, sim, i) = multisim::multisimWrap(constantTerms, 0, i);
+    }
+  }
 }
 
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
