@@ -60,9 +60,10 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
 
     // the stress the fault starts out under, which is every source that is in effect at the
     // beginning of the simulation and not only the initial state
-    const FrictionLawParameters frictionLawParameters(*drParameters_);
+    const auto sourceCount = stressSourceCount(*drParameters_);
     const auto* stressSources = layer.var<LTSRateAndState::StressSourceInFaultCS>();
     const auto* stressSourceOnset = layer.var<LTSRateAndState::StressSourceOnset>();
+    const auto* stressSourceRiseTime = layer.var<LTSRateAndState::StressSourceRiseTime>();
 
     const auto initialSlipRate =
         misc::magnitude(drParameters_->rsInitialSlipRate1, drParameters_->rsInitialSlipRate2);
@@ -89,9 +90,10 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
 
         // compute initial friction and state
         const auto initialStress =
-            stressAtTime(&stressSources[ltsFace * frictionLawParameters.sourceCount],
-                         &stressSourceOnset[ltsFace * frictionLawParameters.sourceCount],
-                         frictionLawParameters,
+            stressAtTime(&stressSources[ltsFace * sourceCount],
+                         &stressSourceRiseTime[ltsFace * sourceCount],
+                         &stressSourceOnset[ltsFace * sourceCount],
+                         sourceCount,
                          pointIndex,
                          static_cast<real>(0.0));
         const auto stateAndFriction = computeInitialStateAndFriction(initialStress[XY],

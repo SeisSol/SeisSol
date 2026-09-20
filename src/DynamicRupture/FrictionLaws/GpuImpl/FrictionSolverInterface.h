@@ -41,6 +41,7 @@ struct FrictionLawData {
   const DRGodunovData* __restrict godunovData{};
   const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints]{};
   const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints]{};
+  const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
@@ -127,6 +128,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     data->qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(place);
     data->stressSourcePressure = layerData.var<DynamicRupture::StressSourcePressure>(place);
     data->stressSourceOnset = layerData.var<DynamicRupture::StressSourceOnset>(place);
+    data->stressSourceRiseTime = layerData.var<DynamicRupture::StressSourceRiseTime>(place);
   }
 
   protected:

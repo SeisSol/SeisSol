@@ -72,6 +72,8 @@ struct DynamicRupture {
   struct StressSourcePressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   /// the onset of every source of this face, per point; see dr::stressSourceCount
   struct StressSourceOnset : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  /// the rise time of every source of this face, per point; see dr::stressSourceCount
+  struct StressSourceRiseTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct Mu : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct AccumulatedSlipMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
   };
@@ -133,6 +135,8 @@ struct DynamicRupture {
         mask, Alignment, allocationModeDR(), true, stressSourceCount);
     storage.add<StressSourcePressure>(mask, Alignment, allocationModeDR(), true, stressSourceCount);
     storage.add<StressSourceOnset>(mask, Alignment, allocationModeDR(), true, stressSourceCount);
+    storage.add<StressSourceRiseTime>(
+        mask, Alignment, allocationModeDR(), true, stressSourceCount);
 
     storage.add<RuptureTimePending>(mask, Alignment, allocationModeDR());
     storage.add<DynStressTime>(mask, Alignment, allocationModeDR());

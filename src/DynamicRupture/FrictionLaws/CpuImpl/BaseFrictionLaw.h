@@ -114,7 +114,8 @@ class BaseFrictionLaw : public FrictionSolver {
                                        &stressSourceInFaultCS_[ltsFace * sourceCount],
                                        &stressSourcePressure_[ltsFace * sourceCount],
                                        &stressSourceOnset_[ltsFace * sourceCount],
-                                       this->drParameters_,
+                                       &stressSourceRiseTime_[ltsFace * sourceCount],
+                                       sourceCount,
                                        updateTime);
 
           static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,

@@ -97,6 +97,7 @@ class FrictionSolver {
   DRGodunovData* __restrict godunovData_{};
   real (*__restrict stressSourcePressure_)[misc::NumPaddedPoints]{};
   real (*__restrict stressSourceOnset_)[misc::NumPaddedPoints]{};
+  real (*__restrict stressSourceRiseTime_)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime_)[misc::NumPaddedPoints]{};

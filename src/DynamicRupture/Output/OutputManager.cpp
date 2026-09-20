@@ -430,17 +430,19 @@ void OutputManager::initPickpointOutput() {
               const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
 
               // the stress the fault starts out under, which is every source in effect then
-              const dr::FrictionLawParameters frictionLawParameters(
-                  seissolInstance_.parameters().drParameters);
+              const auto sourceCount =
+                  dr::stressSourceCount(seissolInstance_.parameters().drParameters);
               const auto& drLayer = drStorage_->layer(position.color);
               const auto* stresses = drLayer.var<DynamicRupture::StressSourceInFaultCS>();
               const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>();
-              auto unrotatedInitialStress = dr::stressAtTime(
-                  &stresses[position.cell * frictionLawParameters.sourceCount],
-                  &onsets[position.cell * frictionLawParameters.sourceCount],
-                  frictionLawParameters,
-                  static_cast<std::uint32_t>(receiver.gpIndex),
-                  static_cast<real>(0.0));
+              const auto* riseTimes = drLayer.var<DynamicRupture::StressSourceRiseTime>();
+              auto unrotatedInitialStress =
+                  dr::stressAtTime(&stresses[position.cell * sourceCount],
+                                   &riseTimes[position.cell * sourceCount],
+                                   &onsets[position.cell * sourceCount],
+                                   sourceCount,
+                                   static_cast<std::uint32_t>(receiver.gpIndex),
+                                   static_cast<real>(0.0));
 
               seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
               alignAlongDipAndStrikeKernel.stressRotationMatrix =

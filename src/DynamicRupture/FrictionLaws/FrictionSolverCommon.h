@@ -434,7 +434,8 @@ SEISSOL_HOSTDEVICE inline void
  * @param[in] stressSourceInFaultCS the stress of every source of this face
  * @param[in] stressSourcePressure
  * @param[in] stressSourceOnset the onset of every source of this face, per point
- * @param[in] parameters
+ * @param[in] stressSourceRiseTime the rise time of every source of this face, per point
+ * @param[in] sourceCount
  * @param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
@@ -443,7 +444,8 @@ SEISSOL_HOSTDEVICE inline void computeInitialStress(
     const real (*__restrict stressSourceInFaultCS)[6][misc::NumPaddedPoints],
     const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints],
     const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints],
-    const FrictionLawParameters& parameters,
+    const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints],
+    std::uint32_t sourceCount,
     real fullUpdateTime,
     uint32_t startIndex = 0) {
   constexpr auto Exec = RangeExecutor<Type>::Exec;
@@ -465,16 +467,14 @@ SEISSOL_HOSTDEVICE inline void computeInitialStress(
     VariableIndexing<Exec>::index(initialStress.fluidPressure, i) = static_cast<real>(0.0);
   }
 
-  for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
-    const real riseTime = parameters.t0[source];
-
+  for (std::uint32_t source = 0; source < sourceCount; ++source) {
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       const auto i{startIndex + index};
-      const real fraction =
-          stressSourceFraction(fullUpdateTime, riseTime, stressSourceOnset[source][i]);
+      const real fraction = stressSourceFraction(
+          fullUpdateTime, stressSourceRiseTime[source][i], stressSourceOnset[source][i]);
       VariableIndexing<Exec>::index(initialStress.normalStress, i) +=
           stressSourceInFaultCS[source][NormalIndex][i] * fraction;
       VariableIndexing<Exec>::index(initialStress.traction1, i) +=

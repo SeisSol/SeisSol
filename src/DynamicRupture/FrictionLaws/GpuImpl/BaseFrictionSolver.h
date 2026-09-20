@@ -184,7 +184,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
             &ctx.data->stressSourceInFaultCS[ctx.ltsFace * sourceCount],
             &ctx.data->stressSourcePressure[ctx.ltsFace * sourceCount],
             &ctx.data->stressSourceOnset[ctx.ltsFace * sourceCount],
-            ctx.data->drParameters,
+            &ctx.data->stressSourceRiseTime[ctx.ltsFace * sourceCount],
+            sourceCount,
             updateTime,
             ctx.pointIndex);
 

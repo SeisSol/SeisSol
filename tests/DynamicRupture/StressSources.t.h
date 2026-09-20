@@ -59,15 +59,14 @@ FrictionLawParameters withSources(const std::vector<std::pair<double, double>>& 
   return FrictionLawParameters(parameters);
 }
 
-/// the onsets of a face, as the initializer lays them out: the nucleations, then the initial state
-void withOnsets(real (*onsets)[seissol::dr::misc::NumPaddedPoints],
-                const FrictionLawParameters& parameters,
-                const std::vector<double>& nucleations) {
-  for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
-    const auto onset =
-        source + 1 < parameters.sourceCount ? nucleations[source] : 0.0;
+/// a field of a face, as the initializer lays it out: the nucleations, then the initial state
+void withField(real (*field)[seissol::dr::misc::NumPaddedPoints],
+               std::uint32_t sourceCount,
+               const std::vector<double>& nucleations) {
+  for (std::uint32_t source = 0; source < sourceCount; ++source) {
+    const auto value = source + 1 < sourceCount ? nucleations[source] : 0.0;
     for (std::uint32_t point = 0; point < seissol::dr::misc::NumPaddedPoints; ++point) {
-      onsets[source][point] = static_cast<real>(onset);
+      field[source][point] = static_cast<real>(value);
     }
   }
 }
@@ -126,20 +125,13 @@ TEST_CASE("Stress sources of a parameter set" * doctest::test_suite("dynamicrupt
 
   const auto parameters = withSources({{1.0, 0.5}, {2.0, 3.0}});
   REQUIRE(parameters.sourceCount == 3);
-  // the configured nucleations keep the indices the parameter file gives them
-  REQUIRE(parameters.t0[0] == static_cast<real>(1.0));
-  REQUIRE(parameters.t0[1] == static_cast<real>(2.0));
-  // the initial state follows them, without a rise time and in effect from the start
-  REQUIRE(parameters.t0[2] == static_cast<real>(0.0));
-  REQUIRE(stressSourceFraction(static_cast<real>(0.0), parameters.t0[2], static_cast<real>(0.0)) ==
-          static_cast<real>(1.0));
   // the forced rupture ramp is none of the sources and keeps the rise time of the first nucleation
   REQUIRE(parameters.forcedRuptureRiseTime == static_cast<real>(1.0));
 
-  const auto none = withSources({});
-  REQUIRE(none.sourceCount == 1);
-  REQUIRE(stressSourceFraction(static_cast<real>(0.0), none.t0[0], static_cast<real>(0.0)) ==
-          static_cast<real>(1.0));
+  REQUIRE(withSources({}).sourceCount == 1);
+  // the initial state has neither a rise time nor an onset, so it is in effect from the start
+  REQUIRE(stressSourceFraction(static_cast<real>(0.0), static_cast<real>(0.0),
+                               static_cast<real>(0.0)) == static_cast<real>(1.0));
 }
 
 TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrupture")) {
@@ -151,7 +143,9 @@ TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrup
 
   alignas(Alignment) static real sources[MaxStressSources][6][NumPaddedPoints]{};
   alignas(Alignment) static real onsets[MaxStressSources][NumPaddedPoints]{};
-  withOnsets(onsets, parameters, {0.5, 3.0});
+  alignas(Alignment) static real riseTimes[MaxStressSources][NumPaddedPoints]{};
+  withField(onsets, parameters.sourceCount, {0.5, 3.0});
+  withField(riseTimes, parameters.sourceCount, {1.0, 2.0});
   for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
     for (std::size_t component = 0; component < 6; ++component) {
       sources[source][component][Point] =
@@ -161,7 +155,8 @@ TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrup
 
   // before every nucleation has started, a point carries the initial state and nothing else
   {
-    const auto stress = stressAtTime(sources, onsets, parameters, Point, static_cast<real>(0.0));
+    const auto stress = stressAtTime(
+        sources, riseTimes, onsets, parameters.sourceCount, Point, static_cast<real>(0.0));
     for (std::size_t component = 0; component < 6; ++component) {
       REQUIRE(stress[component] == sources[parameters.sourceCount - 1][component][Point]);
     }
@@ -170,12 +165,14 @@ TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrup
   // once they have, the fractions they have reached are what enters
   {
     const auto time = static_cast<real>(4.0);
-    const auto stress = stressAtTime(sources, onsets, parameters, Point, time);
+    const auto stress =
+        stressAtTime(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
     for (std::size_t component = 0; component < 6; ++component) {
       real expected = 0;
       for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
         expected += sources[source][component][Point] *
-                    stressSourceFraction(time, parameters.t0[source], onsets[source][Point]);
+                    stressSourceFraction(
+                        time, riseTimes[source][Point], onsets[source][Point]);
       }
       REQUIRE(stress[component] == expected);
     }
@@ -197,7 +194,9 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
 
   alignas(Alignment) static real sources[MaxStressSources][6][NumPaddedPoints]{};
   alignas(Alignment) static real onsets[MaxStressSources][NumPaddedPoints]{};
-  withOnsets(onsets, parameters, {0.5, 3.0, 2.0});
+  alignas(Alignment) static real riseTimes[MaxStressSources][NumPaddedPoints]{};
+  withField(onsets, parameters.sourceCount, {0.5, 3.0, 2.0});
+  withField(riseTimes, parameters.sourceCount, {1.0, 2.0, 0.0});
   for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
     for (std::size_t component = 0; component < 6; ++component) {
       sources[source][component][Point] = static_cast<real>(7 * source + component) - 5;
@@ -208,11 +207,13 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
   std::array<std::array<real, 6>, Steps> forward{};
   for (std::size_t step = 0; step < Steps; ++step) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    forward[step] = stressAtTime(sources, onsets, parameters, Point, time);
+    forward[step] =
+        stressAtTime(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
   }
   for (std::size_t step = Steps; step-- > 0;) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    const auto backward = stressAtTime(sources, onsets, parameters, Point, time);
+    const auto backward =
+        stressAtTime(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
     for (std::size_t component = 0; component < 6; ++component) {
       REQUIRE(backward[component] == forward[step][component]);
     }
@@ -227,26 +228,31 @@ TEST_CASE("Stress sources with an onset per point" * doctest::test_suite("dynami
   const auto parameters = withSources({{1.0, 0.0}});
   alignas(Alignment) static real sources[MaxStressSources][6][NumPaddedPoints]{};
   alignas(Alignment) static real onsets[MaxStressSources][NumPaddedPoints]{};
+  alignas(Alignment) static real riseTimes[MaxStressSources][NumPaddedPoints]{};
 
   for (std::uint32_t point = 0; point < NumPaddedPoints; ++point) {
     sources[0][0][point] = static_cast<real>(4.0);
     sources[1][0][point] = static_cast<real>(1.0);
-    // the nucleation sweeps across the face
+    // the nucleation sweeps across the face, and takes longer the further it gets
     onsets[0][point] = static_cast<real>(point);
+    riseTimes[0][point] = static_cast<real>(1.0) + static_cast<real>(point) / 8;
     onsets[1][point] = static_cast<real>(0.0);
+    riseTimes[1][point] = static_cast<real>(0.0);
   }
 
   const auto time = static_cast<real>(3.5);
+  const auto count = parameters.sourceCount;
   for (std::uint32_t point = 0; point < NumPaddedPoints; ++point) {
-    const auto stress = stressAtTime(sources, onsets, parameters, point, time);
+    const auto stress = stressAtTime(sources, riseTimes, onsets, count, point, time);
     const auto expected =
         static_cast<real>(1.0) +
-        static_cast<real>(4.0) * stressSourceFraction(time, parameters.t0[0], onsets[0][point]);
+        static_cast<real>(4.0) *
+            stressSourceFraction(time, riseTimes[0][point], onsets[0][point]);
     REQUIRE(stress[0] == expected);
   }
   // it has passed the first points and not yet reached the last
-  REQUIRE(stressAtTime(sources, onsets, parameters, 0, time)[0] == static_cast<real>(5.0));
-  REQUIRE(stressAtTime(sources, onsets, parameters, NumPaddedPoints - 1, time)[0] ==
+  REQUIRE(stressAtTime(sources, riseTimes, onsets, count, 0, time)[0] == static_cast<real>(5.0));
+  REQUIRE(stressAtTime(sources, riseTimes, onsets, count, NumPaddedPoints - 1, time)[0] ==
           static_cast<real>(1.0));
 }
 

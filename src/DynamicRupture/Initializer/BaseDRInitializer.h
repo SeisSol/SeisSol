@@ -143,6 +143,13 @@ class BaseDRInitializer {
    * not provide it, the onset of the parameter file holds for all points of that nucleation.
    */
   static std::string onsetIdentifier(int readNucleation);
+
+  /**
+   * The fault parameter that carries the rise time of a nucleation, per point. Where the fault
+   * does not provide it, the rise time of the parameter file holds for all points of that
+   * nucleation.
+   */
+  static std::string riseTimeIdentifier(int readNucleation);
 };
 
 } // namespace dr::initializer
