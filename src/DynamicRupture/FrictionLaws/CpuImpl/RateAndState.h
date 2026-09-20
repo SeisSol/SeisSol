@@ -498,10 +498,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * (cf. the derivative below); bisection converges to a root inside the bracket either way, so
    * the solver does not rest on uniqueness.
    * We take Newton while it stays in the bracket and outruns bisection, else bisect. The bracket
-   * width is non-increasing and halves on every fallback, so termination is relative in SLIP-RATE
-   * space (|dV| < xacc * V). Two floors keep that test reachable in finite precision: xacc is
-   * clamped to a few ulp, and an iterate whose residual has sunk into the rounding noise of its
-   * own evaluation counts as converged, because no further step can be told from noise.
+   * is non-increasing and loses half of its decades on every fallback, so the iterate settles and
+   * termination is relative in SLIP-RATE space (|dV| < xacc * V). Two floors keep that test
+   * reachable in finite precision: xacc is clamped to a few ulp, and an iterate whose residual has
+   * sunk into the rounding noise of its own evaluation counts as converged, because no further step
+   * can be told from noise.
    */
   bool invertSlipRateIterative(std::size_t ltsFace,
                                const std::array<real, misc::NumPaddedPoints>& localStateVariable,

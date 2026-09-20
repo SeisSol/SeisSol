@@ -361,10 +361,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     // Without the coupling dG < -1 everywhere and the root is unique; the coupling can weaken dG
     // (cf. below), and bisection converges to a root in the bracket either way.
     // rtsafe: Newton while it stays in the bracket and outruns bisection, else bisect.
-    // Bracket width is non-increasing and halves on every fallback => termination is relative
-    // in V-space (|dV| < xacc * V), with two floors that keep the test reachable in finite
-    // precision: xacc clamped to a few ulp, and a residual that has sunk into the rounding
-    // noise of its own evaluation.
+    // The bracket is non-increasing and loses half of its decades on every fallback => the
+    // iterate settles and termination is relative in V-space (|dV| < xacc * V), with two floors
+    // that keep the test reachable in finite precision: xacc clamped to a few ulp, and a residual
+    // that has sunk into the rounding noise of its own evaluation.
 
     const auto details = Derived::getMuDetails(ctx, localStateVariable);
     const real tau = absoluteShearStress;
