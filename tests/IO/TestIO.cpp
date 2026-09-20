@@ -17,6 +17,7 @@
 #include "Datatype/MPIType.t.h"
 #include "Deduplicate.t.h"
 #include "Distributor.t.h"
+#include "Geometry.t.h"
 #include "Grouping.t.h"
 #include "Hdf5Roundtrip.t.h"
 #include "HdfWriteRead.t.h"

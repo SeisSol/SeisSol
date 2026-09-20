@@ -54,6 +54,25 @@ enum class WriterGroup : int32_t {
   Monolith
 };
 
+/**
+ * @brief The grouping a format can hold, given the one that was asked for.
+ *
+ * Only VTKHDF can do more than a full snapshot per step. Rather than refusing to run over it, an
+ * output that cannot have what was asked for says so and falls back, since what decides the
+ * format is a different parameter than the one that asked for the grouping.
+ */
+inline WriterGroup
+    supportedWriterGroup(WriterGroup requested, WriterFormat format, const std::string& name) {
+  if (format != WriterFormat::Xdmf || requested == WriterGroup::FullSnapshot) {
+    return requested;
+  }
+  logWarning() << "The" << name
+               << "output is written as Xdmf, which holds one step per file and references the "
+                  "unchanging parts from each of them. Its time series setting is ignored; set a "
+                  "vtkorder for this output to write VTKHDF, which can hold one.";
+  return WriterGroup::FullSnapshot;
+}
+
 struct WriterConfig {
   uint32_t order{0};
   WriterFormat format{WriterFormat::Vtk};

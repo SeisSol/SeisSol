@@ -185,6 +185,22 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
   }
 }
 
+namespace {
+//! @brief The file grouping a time series mode asks the writer for.
+io::instance::geometry::WriterGroup
+    writerGroupOf(seissol::initializer::parameters::TimeSeriesMode mode) {
+  switch (mode) {
+  case seissol::initializer::parameters::TimeSeriesMode::Incremental:
+    return io::instance::geometry::WriterGroup::IncrementalSnapshot;
+  case seissol::initializer::parameters::TimeSeriesMode::Monolith:
+    return io::instance::geometry::WriterGroup::Monolith;
+  case seissol::initializer::parameters::TimeSeriesMode::Snapshot:
+    return io::instance::geometry::WriterGroup::FullSnapshot;
+  }
+  return io::instance::geometry::WriterGroup::FullSnapshot;
+}
+} // namespace
+
 void OutputManager::initElementwiseOutput() {
   logInfo() << "Setting up the fault output.";
   ewOutputBuilder_->build(ewOutputData_);
@@ -203,15 +219,20 @@ void OutputManager::initElementwiseOutput() {
   const auto pointCount = io::instance::geometry::numPoints(
       std::max(order, 1U), io::instance::geometry::Shape::Triangle);
 
+  const auto format = orderPre < 0 ? io::instance::geometry::WriterFormat::Xdmf
+                                   : io::instance::geometry::WriterFormat::Vtk;
+
   const auto config = io::instance::geometry::WriterConfig{
       order,
-      orderPre < 0 ? io::instance::geometry::WriterFormat::Xdmf
-                   : io::instance::geometry::WriterFormat::Vtk,
+      format,
       seissolParameters.output.xdmfWriterBackend ==
               seissol::initializer::parameters::XdmfBackend::Posix
           ? io::instance::geometry::WriterBackend::Binary
           : io::instance::geometry::WriterBackend::Hdf5,
-      io::instance::geometry::WriterGroup::FullSnapshot,
+      io::instance::geometry::supportedWriterGroup(
+          writerGroupOf(seissolParameters.output.elementwiseParameters.timeSeries),
+          format,
+          "elementwise fault"),
       seissolParameters.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter(

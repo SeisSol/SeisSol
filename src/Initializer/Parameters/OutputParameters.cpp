@@ -34,6 +34,31 @@ ProjectionMethod readProjectionMethod(ParameterReader* reader,
           {"l2", ProjectionMethod::L2},
       });
 }
+
+TimeSeriesMode readTimeSeriesMode(ParameterReader* reader,
+                                  const std::string& field,
+                                  const std::string& defaultValue) {
+  return reader->readWithDefaultStringEnum<TimeSeriesMode>(
+      field,
+      defaultValue,
+      {
+          {"snapshot", TimeSeriesMode::Snapshot},
+          {"incremental", TimeSeriesMode::Incremental},
+          {"monolith", TimeSeriesMode::Monolith},
+      });
+}
+
+std::string timeSeriesName(TimeSeriesMode mode) {
+  switch (mode) {
+  case TimeSeriesMode::Incremental:
+    return "incremental";
+  case TimeSeriesMode::Monolith:
+    return "monolith";
+  case TimeSeriesMode::Snapshot:
+    return "snapshot";
+  }
+  return "snapshot";
+}
 } // namespace
 
 void warnIntervalAndDisable(bool& enabled,
@@ -69,7 +94,8 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   return CheckpointParameters{enabled, interval};
 }
 
-ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader) {
+ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader,
+                                                     const std::string& defaultTimeSeries) {
   auto* reader = baseReader->readSubNode("elementwise");
 
   const auto printTimeIntervalSec = reader->readWithDefault("printtimeinterval_sec", 1.0);
@@ -85,8 +111,10 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
 
   const auto vtkorder = reader->readWithDefault("vtkorder", -1);
 
+  const auto timeSeries = readTimeSeriesMode(reader, "timeseries", defaultTimeSeries);
+
   return ElementwiseFaultParameters{
-      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder};
+      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder, timeSeries};
 }
 
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
@@ -116,7 +144,8 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
                                 terminatorMomentRateThreshold};
 }
 
-FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader) {
+FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
+                                                      const std::string& defaultTimeSeries) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("surfaceoutput", false);
@@ -141,7 +170,10 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
   // FreeSurfaceIntegrator::computeSubTriangleAverages), i.e. an L2 projection.
   const auto projection = readProjectionMethod(reader, "surfaceprojection", "l2");
 
-  return FreeSurfaceOutputParameters{enabled, refinement, interval, vtkorder, projection};
+  const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
+
+  return FreeSurfaceOutputParameters{
+      enabled, refinement, interval, vtkorder, projection, timeSeries};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
@@ -205,7 +237,8 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
                                   collectiveio};
 }
 
-WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
+WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
+                                                  const std::string& defaultTimeSeries) {
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = false;
@@ -276,6 +309,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
   // refinement::VariableSubsampler), unlike the free-surface output.
   const auto projection = readProjectionMethod(reader, "wavefieldprojection", "pointwise");
 
+  const auto timeSeries = readTimeSeriesMode(reader, "wavefieldtimeseries", defaultTimeSeries);
+
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
   }
@@ -291,13 +326,20 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
                                    groups,
                                    computeRotation,
                                    computeStrain,
-                                   projection};
+                                   projection,
+                                   timeSeries};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
+
+  // Each output has a field of its own that falls back to this one. Passing the fallback on as a
+  // string keeps that one reader helper in charge of validating every one of them; going through
+  // the enum and back also settles the spelling of what the user wrote.
+  const auto defaultTimeSeries =
+      timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot"));
   const auto loopStatisticsNetcdfOutput =
       reader->readWithDefault("loopstatisticsnetcdfoutput", false);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
@@ -315,12 +357,12 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);
-  const auto elementwiseParameters = readElementwiseParameters(baseReader);
+  const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
   const auto energyParameters = readEnergyParameters(baseReader);
-  const auto freeSurfaceParameters = readFreeSurfaceParameters(baseReader);
+  const auto freeSurfaceParameters = readFreeSurfaceParameters(baseReader, defaultTimeSeries);
   const auto pickpointParameters = readPickpointParameters(baseReader);
   const auto receiverParameters = readReceiverParameters(baseReader);
-  const auto waveFieldParameters = readWaveFieldParameters(baseReader);
+  const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries);
 
   reader->warnDeprecated({"projection",
                           "rotation",

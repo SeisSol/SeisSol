@@ -191,6 +191,13 @@ xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with
 ! HDF5 support.
 
+outputtimeseries = 'snapshot' ! how the steps of a mesh output are distributed over files:
+! 'snapshot' writes one self-contained file per step, 'incremental' keeps the geometry in a file
+! of its own that the snapshots link to, and 'monolith' writes a single VTKHDF time series for the
+! whole run. Only VTKHDF can do more than 'snapshot', so this needs a vtkorder on the output in
+! question. Can be set per output with wavefieldtimeseries, surfacetimeseries, and timeseries in
+! the elementwise section.
+
 EnergyOutput = 1 ! Computation of energy, written in csv file
 EnergyTerminalOutput = 1 ! Write energy to standard output
 EnergyTerminalPrecision = 6 ! Number of significant digits to display in energy terminal output

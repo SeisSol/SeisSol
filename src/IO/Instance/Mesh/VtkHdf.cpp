@@ -346,7 +346,9 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
     const auto filenameConst = prefix + "-" + self.name_ + constSuffix;
     const auto filenameConstFile = lastPrefix.back() + "-" + self.name_ + constSuffix;
     const auto filenamePvu = prefix + "-" + self.name_ + ".pvd";
-    pvu.emplace_back(metadata::PvuEntry{filenameFile, time});
+    if (!self.temporal_) {
+      pvu.emplace_back(metadata::PvuEntry{filenameFile, time});
+    }
     auto writer = writer::Writer();
 
     if (fullWrite) {
@@ -375,7 +377,11 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
         writer::WriteInline::createArray<std::size_t>({1}, {counter}),
         datatype::inferDatatype<decltype(counter)>(),
         self.temporal_ ? writer::instructions::Append::Steps : writer::instructions::Append::None));
-    writer.addInstructions(metadata::makePvu(pvu).instructions(filenamePvu));
+    // A time series carries its own step list, and every step would enter the collection under
+    // the same file name, so there is nothing for a pvd to say.
+    if (!self.temporal_) {
+      writer.addInstructions(metadata::makePvu(pvu).instructions(filenamePvu));
+    }
     return writer;
   };
 }

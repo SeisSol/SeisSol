@@ -50,8 +50,21 @@
 #include <vector>
 
 namespace {
-
 using namespace seissol;
+
+//! @brief The file grouping a time series mode asks the writer for.
+io::instance::geometry::WriterGroup
+    writerGroupOf(seissol::initializer::parameters::TimeSeriesMode mode) {
+  switch (mode) {
+  case seissol::initializer::parameters::TimeSeriesMode::Incremental:
+    return io::instance::geometry::WriterGroup::IncrementalSnapshot;
+  case seissol::initializer::parameters::TimeSeriesMode::Monolith:
+    return io::instance::geometry::WriterGroup::Monolith;
+  case seissol::initializer::parameters::TimeSeriesMode::Snapshot:
+    return io::instance::geometry::WriterGroup::FullSnapshot;
+  }
+  return io::instance::geometry::WriterGroup::FullSnapshot;
+}
 
 namespace projection = seissol::numerical::projection;
 
@@ -299,15 +312,20 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       projNodal = makeVolumeTable(projection::Source::Nodal, {});
     }
 
+    const auto format = orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
+                                    : io::instance::geometry::WriterFormat::Vtk;
+
     const auto config = io::instance::geometry::WriterConfig{
         order,
-        orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
-                    : io::instance::geometry::WriterFormat::Vtk,
+        format,
         seissolParams.output.xdmfWriterBackend ==
                 seissol::initializer::parameters::XdmfBackend::Posix
             ? io::instance::geometry::WriterBackend::Binary
             : io::instance::geometry::WriterBackend::Hdf5,
-        io::instance::geometry::WriterGroup::FullSnapshot,
+        io::instance::geometry::supportedWriterGroup(
+            writerGroupOf(seissolParams.output.waveFieldParameters.timeSeries),
+            format,
+            "wavefield"),
         seissolParams.output.hdfcompress};
 
     io::writer::ScheduledWriter schedWriter;
@@ -585,15 +603,20 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
     const auto truePoints = io::instance::geometry::applyMaps(subcells, trueBase);
 
+    const auto format = orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
+                                    : io::instance::geometry::WriterFormat::Vtk;
+
     const auto config = io::instance::geometry::WriterConfig{
         order,
-        orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
-                    : io::instance::geometry::WriterFormat::Vtk,
+        format,
         seissolParams.output.xdmfWriterBackend ==
                 seissol::initializer::parameters::XdmfBackend::Posix
             ? io::instance::geometry::WriterBackend::Binary
             : io::instance::geometry::WriterBackend::Hdf5,
-        io::instance::geometry::WriterGroup::FullSnapshot,
+        io::instance::geometry::supportedWriterGroup(
+            writerGroupOf(seissolParams.output.freeSurfaceParameters.timeSeries),
+            format,
+            "free surface"),
         seissolParams.output.hdfcompress};
 
     auto writer = io::instance::geometry::GeometryWriter(
