@@ -26,3 +26,4 @@
 #include "Instruction.t.h"
 #include "Points.t.h"
 #include "Pvd.t.h"
+#include "WriterModule.t.h"

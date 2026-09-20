@@ -12,6 +12,7 @@
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Instance/Point/Grouping.h"
+#include "IO/Instance/Point/Hdf5Table.h"
 #include "IO/Reader/File/Hdf5Reader.h"
 #include "Parallel/MPI.h"
 #include "WriterHarness.t.h"
@@ -360,6 +361,86 @@ TEST_CASE("IO/Grouping: the groups agree across ranks" * doctest::test_suite("io
   for (const auto count : covered) {
     CHECK(count == 1);
   }
+}
+
+TEST_CASE("IO/Hdf5Table: a rank without points of a table still writes with it" *
+          doctest::test_suite("io")) {
+  using namespace seissol::io::instance::point;
+
+  const SharedTempDir dir;
+  const auto rank = Mpi::mpi.rank();
+  const auto size = Mpi::mpi.size();
+
+  const auto quantity = [](const std::string& name) {
+    return TableQuantity{name, datatype::inferDatatype<double>()};
+  };
+  const std::vector<TableQuantity> small{quantity("v1"), quantity("v2")};
+  const std::vector<TableQuantity> large{quantity("v1"), quantity("v2"), quantity("p")};
+
+  // only rank 0 holds a point of the wider set, so every other rank takes part in declaring and
+  // appending to a table it has nothing to put in
+  std::vector<std::vector<TableQuantity>> pointQuantities{small};
+  if (rank == 0) {
+    pointQuantities.push_back(large);
+  }
+
+  Hdf5Table table("points", pointQuantities, Mpi::mpi.comm(), 4);
+  const auto& grouping = table.grouping();
+  REQUIRE(grouping.groupCount() == 2);
+
+  const auto smallGroup = grouping.group[0];
+  const auto largeGroup = smallGroup == 0 ? 1 : 0;
+  CHECK(table.localPointCount(smallGroup) == 1);
+  CHECK(table.localPointCount(largeGroup) == (rank == 0 ? 1U : 0U));
+  CHECK(grouping.globalCount[smallGroup] == static_cast<std::size_t>(size));
+  CHECK(grouping.globalCount[largeGroup] == 1);
+
+  auto plan = table.makeWriter();
+  const std::vector<std::size_t> samplesPerWrite{2, 3};
+  std::size_t written = 0;
+  for (std::size_t step = 0; step < samplesPerWrite.size(); ++step) {
+    const auto samples = samplesPerWrite[step];
+    for (std::size_t group = 0; group < grouping.groupCount(); ++group) {
+      auto* storage = reinterpret_cast<double*>(table.prepare(group, samples));
+      const auto points = table.localPointCount(group);
+      const auto components = table.sampleSize(group) / sizeof(double);
+      for (std::size_t sample = 0; sample < samples; ++sample) {
+        for (std::size_t point = 0; point < points; ++point) {
+          for (std::size_t component = 0; component < components; ++component) {
+            storage[(sample * points + point) * components + component] =
+                1000.0 * rank + 10.0 * static_cast<double>(written + sample) +
+                static_cast<double>(component);
+          }
+        }
+      }
+    }
+    auto write = plan(dir.prefix(), step, static_cast<double>(step));
+    unit_test::io::runPlan(write, Mpi::mpi.comm());
+    written += samples;
+  }
+
+  MPI_Barrier(Mpi::mpi.comm());
+
+  reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+  hdf5.openFile(dir.prefix() + "-points.h5");
+  hdf5.openGroup("points");
+
+  // the narrow table holds a row per rank and sample, the wide one only the row of rank 0
+  const auto narrow = hdf5.readData<double>("group" + std::to_string(smallGroup));
+  CHECK(narrow.size() == written * static_cast<std::size_t>(size) * 2);
+  const auto wide = hdf5.readData<double>("group" + std::to_string(largeGroup));
+  CHECK(wide.size() == written * 3);
+
+  // and the row of a rank sits where the grouping said it would
+  for (std::size_t sample = 0; sample < written; ++sample) {
+    for (int other = 0; other < size; ++other) {
+      const auto base = (sample * static_cast<std::size_t>(size) + other) * 2;
+      CHECK(narrow[base] == doctest::Approx(1000.0 * other + 10.0 * static_cast<double>(sample)));
+    }
+  }
+
+  hdf5.closeGroup();
+  hdf5.closeFile();
 }
 
 } // namespace seissol::unit_test
