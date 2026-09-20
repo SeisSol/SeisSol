@@ -6,6 +6,8 @@
 
   SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+.. _env_vars:
+
 Environment variables
 =====================
 
@@ -52,10 +54,21 @@ Output
   accepted under its previous name ``SEISSOL_VERTEXFILTER``.
 
 Two further variables are, for historic reasons, named ``XDMFWRITER``; they are
-also accepted with a ``SEISSOL_IO_`` prefix:
+also accepted with a ``SEISSOL_IO_`` prefix, which is the name to use:
 
-* ``XDMFWRITER_ALIGNMENT``: alignment for the Xdmf Hdf5 backend
+* ``XDMFWRITER_ALIGNMENT``: how far the bulk data of an output is aligned in the
+  file. A bulk write straddling a stripe boundary makes more than one storage
+  target take part in a single write, which serialises them; what the right
+  value is depends on the file system, so there is no default.
 * ``XDMFWRITER_BLOCK_SIZE``: block size for the output (both posix and Hdf5)
+
+The MPI-IO hints the output passes through are read the same way, under the
+names ROMIO understands and with an ``MPIO_`` in front, so
+``SEISSOL_IO_MPIO_ROMIO_DS_WRITE`` sets ``romio_ds_write``. Recognised are
+``ind_rd_buffer_size``, ``ind_wr_buffer_size``, ``romio_ds_read``,
+``romio_ds_write``, ``cb_buffer_size``, ``cb_nodes``, ``romio_cb_read``,
+``romio_cb_write``, ``striping_factor`` and ``striping_unit``. Which of them
+help is again a property of the file system.
 
 .. _asynchronous-output:
 

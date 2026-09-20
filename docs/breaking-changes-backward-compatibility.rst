@@ -13,6 +13,41 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The fault tag of the elementwise fault output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+The ``fault-tag`` cell field of the elementwise fault output carried the
+identifier of the face rather than the tag the mesh gave it, which is what the
+``global-id`` field beside it holds, so the files had the identifier twice and
+the tag not at all. Post-processing that read ``fault-tag`` and got what it
+expected was reading an identifier; one that grouped by it was grouping by face.
+
+The on-fault and off-fault receiver files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+``receiverFormat = 'hdf5'`` writes a different file. It used to be one wide
+table with a column count taken from the widest receiver, described by the
+attributes ``DimNames`` and ``VariableNames``; it is now a dataset per quantity
+set, with the quantities as the members of a compound and the receivers
+described by columns beside it. :ref:`off_fault_receivers` has the layout.
+Post-processing of ``-receivers.h5`` has to follow.
+
+The text output, which is the default, is unchanged, and so is the file name and
+the write interval. The on-fault receivers gained the same HDF5 layout as an
+option under ``format = 'hdf5'`` in the ``Pickpoint`` section, but keep writing
+text unless it is asked for.
+
+The tables beside the output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+The column names of ``-clustering.csv``, ``-threadPinning.csv`` and
+``-miniSeissol.csv`` are now quoted, like every other piece of text in those
+files. What the columns are and what they hold is unchanged. A reader using a
+CSV parser needs no change; one comparing the header line literally does.
+
 Output file names
 ~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)

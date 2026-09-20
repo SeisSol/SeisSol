@@ -128,7 +128,23 @@ Example
    refinement = 1
    wavefieldvtkorder = -1
    wavefieldprojection = 'pointwise'
+   wavefieldtimeseries = 'snapshot'
    /
+
+File groupings
+--------------
+
+``wavefieldtimeseries`` overrides ``outputtimeseries`` for the wavefield output,
+so that it can be written as one file for the whole run while the other outputs
+stay one file per step, or the other way round. It takes effect only with
+``wavefieldvtkorder`` set; see :ref:`io_infrastructure` for what the groupings
+are.
+
+At ``wavefieldvtkorder = -1`` and ``0`` the corners a cell shares with its
+neighbours are written once, which makes the point array as large as the mesh
+rather than as large as the mesh times the number of cells a vertex touches. The
+merging happens within a rank, and can be switched off with
+``SEISSOL_IO_VERTEXFILTER=0``.
 
 High-Order VTKHDF Output
 ------------------------
