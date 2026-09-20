@@ -247,6 +247,9 @@ namespace seissol::dr {
 // avoid us allocating dynamic arrays in the parameters.
 constexpr std::size_t MaxNucleations = 16;
 
+/// bound on the stress sources of a face, which are the nucleations plus the initial state
+constexpr std::size_t MaxStressSources = MaxNucleations + 1;
+
 /**
  * The fraction of a stress source that is in effect at the given time, for a source with the
  * given rise time and onset.
@@ -306,8 +309,8 @@ struct FrictionLawParameters {
   /// rise time of the forced rupture ramp, which is not one of the stress sources
   real forcedRuptureRiseTime{0.0};
   /// rise time and onset of every stress source; see stressSourceCount
-  std::array<real, MaxNucleations + 1> t0{};
-  std::array<real, MaxNucleations + 1> s0{};
+  std::array<real, MaxStressSources> t0{};
+  std::array<real, MaxStressSources> s0{};
   std::uint32_t sourceCount{1};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
