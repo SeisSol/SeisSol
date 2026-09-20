@@ -33,6 +33,7 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
+#include <cstdint>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -428,17 +429,16 @@ void OutputManager::initPickpointOutput() {
             {
               const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
 
-              // the initial state is the last stress source of a face
-              const auto sourceCount =
-                  dr::stressSourceCount(seissolInstance_.parameters().drParameters);
+              // the stress the fault starts out under, which is every source in effect then
+              const dr::FrictionLawParameters frictionLawParameters(
+                  seissolInstance_.parameters().drParameters);
               const auto* stresses = drStorage_->layer(position.color)
                                          .var<DynamicRupture::StressSourceInFaultCS>();
-              const auto& initialStress = stresses[position.cell * sourceCount + sourceCount - 1];
-              std::array<real, 6> unrotatedInitialStress{};
-              for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
-                   ++stressVar) {
-                unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
-              }
+              auto unrotatedInitialStress = dr::stressAtTime(
+                  &stresses[position.cell * frictionLawParameters.sourceCount],
+                  frictionLawParameters,
+                  static_cast<std::uint32_t>(receiver.gpIndex),
+                  static_cast<real>(0.0));
 
               seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
               alignAlongDipAndStrikeKernel.stressRotationMatrix =
