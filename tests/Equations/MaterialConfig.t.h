@@ -58,7 +58,7 @@ TEST_CASE("Config check" * doctest::test_suite("equations")) {
   }
   if (seissol::Config::MaterialType == MaterialType::Anisotropic) {
     CHECK(MaterialT::NumQuantities == 9);
-    CHECK(MaterialT::SupportsDR == false);
+    CHECK(MaterialT::SupportsDR == true);
     CHECK(MaterialT::Parameters == 22);
     CHECK(MaterialT::Mechanisms == 0);
   }

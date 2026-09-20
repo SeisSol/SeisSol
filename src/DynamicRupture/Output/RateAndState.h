@@ -22,6 +22,12 @@ class RateAndState : public ReceiverOutput {
            std::min(effectiveNormalStress, static_cast<real>(0.0));
   }
 
+  real computeLocalStrengthSlope(LocalInfo& local) override {
+    const auto effectiveNormalStress =
+        local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
+    return effectiveNormalStress < 0 ? local.frictionCoefficient : static_cast<real>(0.0);
+  }
+
   real computeStateVariable(LocalInfo& local) override {
     return getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
   }

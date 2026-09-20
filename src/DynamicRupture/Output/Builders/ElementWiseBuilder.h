@@ -90,7 +90,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
                                            static_cast<int>(faceIdx),
                                            faceSideIdx,
                                            elementIdx,
-                                           element.globalId,
+                                           &fault,
                                            order,
                                            multisim::NumSimulations},
                                           std::make_pair(globalFace, referenceTriangle));

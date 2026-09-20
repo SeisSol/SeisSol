@@ -131,7 +131,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
-                                     MaterialT& material) {
+                                     const MaterialT& material) {
     return material;
   }
 

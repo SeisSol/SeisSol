@@ -261,8 +261,8 @@ bool Pinning::areAllCpusOnline() {
 }
 
 void Pinning::pinToFreeCPUs() const {
-  auto freeMask = getFreeCPUsMask();
 #ifndef __APPLE__
+  auto freeMask = getFreeCPUsMask();
   sched_setaffinity(0, sizeof(cpu_set_t), &(freeMask.set));
 #endif // __APPLE__
 }

@@ -127,6 +127,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   impl_->setMeshReader(&userMesher);
 
   const auto& seissolParameters = seissolInstance_.parameters();
+  impl_->setDrParameters(&seissolParameters.drParameters);
+
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
   const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
@@ -243,7 +245,7 @@ void OutputManager::initElementwiseOutput() {
 
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index, std::size_t) {
-        *target = receiverPoints[index * dataCount * multisim::NumSimulations].faultTag;
+        *target = receiverPoints[index * dataCount * multisim::NumSimulations].globalFaultFaceId();
       });
 
   writer.addCellData<std::size_t>(
@@ -419,6 +421,11 @@ void OutputManager::initPickpointOutput() {
               file << "# x1\t" << makeFormatted(point[0]) << '\n';
               file << "# x2\t" << makeFormatted(point[1]) << '\n';
               file << "# x3\t" << makeFormatted(point[2]) << '\n';
+              file << "# face-global-id\t" << receiver.globalFaultFaceId() << '\n';
+              file << "# plus-cell-global-id\t" << receiver.elementGlobalIndex << '\n';
+              file << "# plus-face-side\t" << receiver.localFaceSideId << '\n';
+              file << "# minus-cell-global-id\t" << receiver.elementNeighborGlobalIndex << '\n';
+              file << "# minus-face-side\t" << receiver.localNeighborFaceSideId << '\n';
             }
 
             // stress info

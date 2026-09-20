@@ -60,7 +60,9 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
       receiver.faultFaceIndex = data.faultFaceIndex;
       receiver.localFaceSideId = data.localFaceSideId;
       receiver.elementIndex = data.elementId;
-      receiver.elementGlobalIndex = data.globalId;
+      receiver.elementGlobalIndex = data.fault->globalId;
+      receiver.localNeighborFaceSideId = data.fault->neighborSide;
+      receiver.elementNeighborGlobalIndex = data.fault->neighborGlobalId;
       receiver.globalReceiverIndex = points_.size();
       receiver.global = getTrianglePointByCoords(std::get<Global>(face), point);
       receiver.reference = getTrianglePointByCoords(std::get<Reference>(face), point);

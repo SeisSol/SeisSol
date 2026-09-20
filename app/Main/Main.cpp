@@ -86,11 +86,10 @@ int main(int argc, char* argv[]) {
       LIKWID_MARKER_REGISTER("SeisSol");
       LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
       LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
-      LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
       LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
-      LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureFinalizeImposedState");
       LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
-      LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureTimeStepLoop");
     }
 
 #pragma omp parallel
@@ -116,7 +115,7 @@ int main(int argc, char* argv[]) {
 
     if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
       // Check if on a GNU system (Linux) or other platform
-#if defined(__GNUC__) || defined(__linux__)
+#if defined(__GNUC__) && defined(__linux__)
       feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
       logInfo() << "Enabling floating point exception handlers.";
 #else

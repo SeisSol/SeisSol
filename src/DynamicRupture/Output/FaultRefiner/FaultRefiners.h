@@ -22,7 +22,7 @@ class FaultRefiner {
     int faultFaceIndex{};
     int localFaceSideId{};
     int elementId{-1};
-    std::size_t globalId{};
+    const Fault* fault{nullptr};
     std::uint32_t order{0};
     std::size_t simcount{1};
   };
