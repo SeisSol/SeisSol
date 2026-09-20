@@ -603,12 +603,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which
         // the coupling can weaken g. It stays strictly decreasing as long as
         //   |etaNormal| * mu < eta_proj + |sigma| * mu' ,
-        // i.e. roughly |etaNormal| / eta_proj < 1 / mu. Positive definiteness of the 3x3 impedance
-        // already bounds that ratio by sqrt(eta_nn / eta_proj), so the two limits are within a few
-        // percent of each other and the fallback below only triggers for an impedance close to
-        // singular. For etaNormal > 0 the coupled derivative is the better conditioned of the two.
-        // dGFrozen is negative by construction, which keeps the Newton step pointing into the
-        // bracket even when the coupled one would not.
+        // which is NOT a comfortable margin: scanning dGCoupled over the whole bracket, a locked
+        // point at |etaNormal| = eta_proj already peaks at dGCoupled = -0.06, and turns positive
+        // slightly above that ratio; a slipping or nearly open point holds out to roughly three
+        // times eta_proj. Positive definiteness of the 3x3 impedance bounds the ratio by
+        // sqrt(eta_nn / eta_proj), so a strongly anisotropic material lands close to the edge.
+        // Past it g has several roots in the bracket and the solve returns one of them -- still a
+        // solution of the discrete problem, but not necessarily the intended branch. This is why
+        // the bracket, rather than the derivative, carries the robustness here.
+        // For etaNormal > 0 the coupled derivative is the better conditioned of the two. dGFrozen
+        // is negative by construction, which keeps the Newton step pointing into the bracket even
+        // when the coupled one would not.
         const real dG = (dGCoupled < static_cast<real>(0.0)) ? dGCoupled : dGFrozen;
 
         const real xNewton = x - g[pointIndex] / dG;

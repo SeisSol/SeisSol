@@ -412,10 +412,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const real dGCoupled = -invEtaS * (absSigma * dMuF + dAbsSigma * muF) - static_cast<real>(1);
       // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which the
       // coupling can weaken g. It stays strictly decreasing as long as
-      // |etaNormal| * mu < eta_proj + |sigma| * mu'. Positive definiteness of the 3x3 impedance
-      // bounds |etaNormal| / eta_proj by sqrt(eta_nn / eta_proj), which is within a few percent of
-      // that limit, so the fallback only triggers for an impedance close to singular. dGFrozen is
-      // negative by construction, which keeps the Newton step pointing into the bracket.
+      // |etaNormal| * mu < eta_proj + |sigma| * mu', which is NOT a comfortable margin: a locked
+      // point at |etaNormal| = eta_proj already peaks at dGCoupled = -0.06 over the bracket and
+      // turns positive slightly above that ratio, a slipping one holds out to roughly three times
+      // eta_proj. Positive definiteness bounds the ratio by sqrt(eta_nn / eta_proj), so a strongly
+      // anisotropic material lands close to the edge. Past it g has several roots in the bracket
+      // and the solve returns one of them, which is why the bracket rather than the derivative
+      // carries the robustness. dGFrozen is negative by construction, which keeps the Newton step
+      // pointing into the bracket.
       const real dG = (dGCoupled < static_cast<real>(0)) ? dGCoupled : dGFrozen;
 
       // |sigma| * mu and tau cancel at the root, so the rounding error of g does not shrink with
