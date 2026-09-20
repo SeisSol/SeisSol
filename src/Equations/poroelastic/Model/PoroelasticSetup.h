@@ -71,6 +71,14 @@ struct MaterialSetup<PoroElasticMaterial> {
     return genericFaceTypeSupport(faceType);
   }
 
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType /*faceType*/, const PoroelasticMaterial& /*material*/) {
+    return true;
+  }
+
   struct AdditionalPoroelasticParameters {
     Eigen::Matrix<double, 6, 1> alpha;
     double KBar;

@@ -26,6 +26,15 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
     return genericFaceTypeSupport(faceType);
   }
 
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType /*faceType*/,
+                                const ViscoElasticMaterialParametrized<N>& /*material*/) {
+    return true;
+  }
+
   template <typename T>
   static void
       getTransposedViscoelasticCoefficientMatrix(double omega, unsigned dim, unsigned mech, T& M) {

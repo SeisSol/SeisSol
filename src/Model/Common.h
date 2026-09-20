@@ -55,6 +55,25 @@ constexpr FaceTypeSupport faceTypeSupport(FaceType faceType) {
   return MaterialSetup<MaterialT>::supportsFaceType(faceType);
 }
 
+/**
+ * Some boundary conditions are defined for a material model only where the cell behind the face
+ * meets an additional requirement. The requirement is stated without a cell, so that it can be
+ * reported on ranks that hold no offending cell themselves.
+ */
+constexpr FaceTypeSupport genericFaceTypeCellRequirement(FaceType /*faceType*/) {
+  return faceTypeSupported();
+}
+
+template <typename MaterialT>
+constexpr FaceTypeSupport faceTypeCellRequirement(FaceType faceType) {
+  return MaterialSetup<MaterialT>::cellRequirementForFaceType(faceType);
+}
+
+template <typename MaterialT>
+bool faceTypeCellAdmissible(FaceType faceType, const MaterialT& material) {
+  return MaterialSetup<MaterialT>::cellMeetsFaceType(faceType, material);
+}
+
 template <typename T>
 constexpr bool testIfAcoustic(T mu) {
   return std::abs(mu) <= std::numeric_limits<T>::epsilon();

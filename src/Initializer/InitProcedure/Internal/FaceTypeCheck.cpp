@@ -16,6 +16,7 @@
 #include "Parallel/MPI.h"
 #include "Physics/Scenario/Registry.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <mpi.h>
@@ -30,36 +31,50 @@ std::uint32_t faceTypeBit(FaceType faceType) {
   return std::uint32_t{1} << static_cast<std::uint8_t>(faceType);
 }
 
-std::uint32_t collectFaceTypes(LTS::Storage& storage) {
-  std::uint32_t present = 0;
+struct FaceTypeCensus {
+  std::uint32_t present{0};
+  std::uint32_t cellRejected{0};
+};
+
+FaceTypeCensus collectFaceTypes(LTS::Storage& storage) {
+  FaceTypeCensus census;
 
   const LayerMask ghostMask(Ghost);
   for (auto& layer : storage.leaves(ghostMask)) {
     const auto* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* materialData = layer.var<LTS::MaterialData>();
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        present |= faceTypeBit(cellInformation[cell].faceTypes[face]);
+        const auto faceType = cellInformation[cell].faceTypes[face];
+        census.present |= faceTypeBit(faceType);
+        if (!model::faceTypeCellAdmissible<model::MaterialT>(faceType, materialData[cell])) {
+          census.cellRejected |= faceTypeBit(faceType);
+        }
       }
     }
   }
 
   // A rank without a face of some type must not conclude that the type is absent; all ranks
   // have to reach the same verdict, or the run deadlocks instead of aborting.
-  MPI_Allreduce(MPI_IN_PLACE, &present, 1, MPI_UINT32_T, MPI_BOR, Mpi::mpi.comm());
+  std::array<std::uint32_t, 2> reduced{census.present, census.cellRejected};
+  MPI_Allreduce(
+      MPI_IN_PLACE, reduced.data(), reduced.size(), MPI_UINT32_T, MPI_BOR, Mpi::mpi.comm());
+  census.present = reduced[0];
+  census.cellRejected = reduced[1];
 
-  return present;
+  return census;
 }
 
 } // namespace
 
 void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType scenarioType) {
-  const auto present = collectFaceTypes(storage);
+  const auto census = collectFaceTypes(storage);
 
   std::stringstream problems;
   std::size_t problemCount = 0;
 
   for (const auto faceType : FaceTypes) {
-    if ((present & faceTypeBit(faceType)) == 0) {
+    if ((census.present & faceTypeBit(faceType)) == 0) {
       continue;
     }
 
@@ -74,6 +89,11 @@ void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType 
       ++problemCount;
       problems << "\n  " << faceTypeName(faceType) << ": not implemented by the solver used for "
                << model::MaterialT::Text << " (" << solver.reason << ")";
+    } else if ((census.cellRejected & faceTypeBit(faceType)) != 0) {
+      ++problemCount;
+      const auto requirement = model::faceTypeCellRequirement<model::MaterialT>(faceType);
+      problems << "\n  " << faceTypeName(faceType) << ": present on a cell that does not qualify ("
+               << requirement.reason << ")";
     } else if (faceType == FaceType::Analytical) {
       const auto scenario = physics::scenario::analyticalBoundaryAvailability(scenarioType);
       if (!scenario.available) {

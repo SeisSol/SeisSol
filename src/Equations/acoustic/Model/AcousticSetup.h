@@ -30,6 +30,14 @@ struct MaterialSetup<AcousticMaterial> {
     return faceTypeSupported();
   }
 
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType /*faceType*/, const AcousticMaterial& /*material*/) {
+    return true;
+  }
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& matM) {

@@ -28,6 +28,15 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
     return genericFaceTypeSupport(faceType);
   }
 
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType /*faceType*/,
+                                const ViscoElasticMaterialParametrized<N>& /*material*/) {
+    return true;
+  }
+
   using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
   template <typename T>

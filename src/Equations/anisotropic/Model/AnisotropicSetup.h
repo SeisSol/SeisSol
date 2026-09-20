@@ -29,6 +29,14 @@ struct MaterialSetup<AnisotropicMaterial> {
     return genericFaceTypeSupport(faceType);
   }
 
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType /*faceType*/, const AnisotropicMaterial& /*material*/) {
+    return true;
+  }
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {
