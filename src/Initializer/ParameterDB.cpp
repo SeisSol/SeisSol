@@ -678,9 +678,9 @@ DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) no
 
 DirichletCondition::~DirichletCondition() { delete model_; }
 
-void DirichletCondition::query(const double* barycenter,
-                               real* mapTermsData,
-                               real* constantTermsData) const {
+BoundaryFrame DirichletCondition::query(const double* barycenter,
+                                        real* mapTermsData,
+                                        real* constantTermsData) const {
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
@@ -709,6 +709,13 @@ void DirichletCondition::query(const double* barycenter,
 
   easi::ArraysAdapter<real> adapter{};
   std::unordered_set<std::string> known;
+
+  // easi supplies numbers, so the frame is stated as one: 0 for global, 1 for face-aligned.
+  real frame = 0.0;
+  known.insert("frame");
+  if (supplied.count("frame") > 0) {
+    adapter.addBindingPoint("frame", &frame);
+  }
 
   for (size_t i = 0; i < varNames.size(); ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
@@ -751,6 +758,12 @@ void DirichletCondition::query(const double* barycenter,
 
   easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
 
+  if (frame != 0.0 && frame != 1.0) {
+    logError() << "The boundary condition file supplies a frame of" << frame
+               << "-- it has to be 0 for a condition stated in global coordinates, or 1 for one "
+                  "stated in the face-aligned basis.";
+  }
+
   // The condition does not depend on the simulation index, so every fused
   // simulation gets the same one.
   for (std::size_t sim = 1; sim < multisim::NumSimulations; ++sim) {
@@ -758,6 +771,8 @@ void DirichletCondition::query(const double* barycenter,
       multisim::multisimWrap(constantTerms, sim, i) = multisim::multisimWrap(constantTerms, 0, i);
     }
   }
+
+  return frame == 0.0 ? BoundaryFrame::Global : BoundaryFrame::FaceAligned;
 }
 
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,

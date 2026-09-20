@@ -166,6 +166,13 @@ class FaultParameterDB : public ParameterDB {
   std::unordered_map<std::string, std::pair<real*, unsigned>> parameters_;
 };
 
+/**
+ * The frame the affine boundary condition is stated in. Global is the default; face-aligned
+ * lets a condition be stated in terms of the face normal, which a condition that mirrors or
+ * fixes a direction needs on a boundary that is not axis-aligned.
+ */
+enum class BoundaryFrame { Global, FaceAligned };
+
 class DirichletCondition {
   public:
   explicit DirichletCondition(const std::string& fileName);
@@ -178,7 +185,8 @@ class DirichletCondition {
 
   ~DirichletCondition();
 
-  void query(const double* barycenter, real* mapTermsData, real* constantTermsData) const;
+  [[nodiscard]] BoundaryFrame
+      query(const double* barycenter, real* mapTermsData, real* constantTermsData) const;
 
   private:
   easi::Component* model_;

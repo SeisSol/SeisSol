@@ -116,16 +116,22 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 
             real globalMapData[tensor::dirichletMapGlobal::size()];
             real globalConstantData[tensor::dirichletOffsetGlobal::size()];
-            dirichletCondition->query(faceBarycenter, globalMapData, globalConstantData);
+            const auto frame =
+                dirichletCondition->query(faceBarycenter, globalMapData, globalConstantData);
 
-            kernel::rotateBoundaryCondition rotateKrnl;
-            rotateKrnl.dirichletMapGlobal = globalMapData;
-            rotateKrnl.dirichletOffsetGlobal = globalConstantData;
-            rotateKrnl.dirichletMap = dirichletMap;
-            rotateKrnl.dirichletOffset = dirichletOffset;
-            rotateKrnl.T = matTData;
-            rotateKrnl.Tinv = matTinvData;
-            rotateKrnl.execute();
+            if (frame == BoundaryFrame::FaceAligned) {
+              std::copy_n(globalMapData, tensor::dirichletMap::size(), dirichletMap);
+              std::copy_n(globalConstantData, tensor::dirichletOffset::size(), dirichletOffset);
+            } else {
+              kernel::rotateBoundaryCondition rotateKrnl;
+              rotateKrnl.dirichletMapGlobal = globalMapData;
+              rotateKrnl.dirichletOffsetGlobal = globalConstantData;
+              rotateKrnl.dirichletMap = dirichletMap;
+              rotateKrnl.dirichletOffset = dirichletOffset;
+              rotateKrnl.T = matTData;
+              rotateKrnl.Tinv = matTinvData;
+              rotateKrnl.execute();
+            }
           } else {
             logError() << "Dirichlet face found, but no boundary condition definition given.";
           }
