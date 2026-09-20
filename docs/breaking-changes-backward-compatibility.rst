@@ -13,6 +13,15 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+Dynamic rupture checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(since TODO, `#TODO <https://github.com/SeisSol/SeisSol/pull/TODO>`_)
+
+The stress a fault point is under is now a function of the simulation time and of the fault parameters, rather than a quantity that the time step adds the nucleation to.
+The two checkpoint records that carried it, ``initialStressInFaultCS`` and ``initialPressure``, no longer exist, and checkpoints written before this change cannot be restored.
+Restarting in the middle of a nucleation episode is exact from here on, since nothing about the episode is carried through the checkpoint.
+
 Energy Output
 ~~~~~~~~~~~~~
 (since 0.9.0, `#531 <https://github.com/SeisSol/SeisSol/pull/531>`_, April 2022)
