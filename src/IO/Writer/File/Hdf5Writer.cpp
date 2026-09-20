@@ -139,109 +139,142 @@ void Hdf5File::writeAttribute(const async::ExecInfo& info,
 namespace {
 
 /**
- * The shape of a dataset and of this rank's share of it, in the order HDF5 wants the dimensions:
- * an optional step dimension for an appendable dataset, then the distributed dimension, then the
- * fixed trailing dimensions of the data source.
+ * The shape of a dataset and of this rank's share of it, dimension by dimension, in file order.
  *
- * Three shapes are needed, and they differ in ways that are easy to conflate:
+ * Four shapes are needed, and they differ in ways that are easy to conflate:
  *   - globalSizes / globalSizesMax describe the dataset,
- *   - localSizes describes what this rank has in memory, and is zero where it has nothing,
+ *   - blockSizes describes what this rank has in memory, and is zero where it has nothing,
+ *   - roundSizes describes one collective round of it, which is what the memory dataspace holds,
  *   - chunkSizes describes the storage layout. It has to agree across ranks and be positive
  *     everywhere, so it cannot be derived from what the local rank contributes.
+ *
+ * At most one dimension is distributed and at most one is appended, but neither has to be the
+ * first, and they may be the same one -- that is the flat array a VTKHDF time series slices by
+ * itself. Rounds always split the leading dimension, because that is the one a block is
+ * contiguous along in memory.
  */
 struct DatasetLayout {
-  //! Rows this rank writes; zero for a rank that contributes nothing.
-  std::size_t count{0};
-  //! Rows over all ranks.
-  std::size_t allcount{0};
-  //! Where this rank's rows start.
-  std::size_t offset{0};
-  //! Rows one collective write may move, bounded so that it stays below the MPI-IO limit.
-  std::size_t roundSize{0};
-  //! Rows this rank writes in one round.
-  std::size_t roundCount{0};
-  //! Rounds needed by the rank that needs the most.
-  std::size_t rounds{0};
-
+  //! Where this rank's block starts, before the part the dataset already holds.
+  std::vector<hsize_t> starts;
+  std::vector<hsize_t> blockSizes;
+  std::vector<hsize_t> roundSizes;
   std::vector<hsize_t> globalSizes;
   std::vector<hsize_t> globalSizesMax;
-  std::vector<hsize_t> localSizes;
   std::vector<hsize_t> chunkSizes;
 
-  static DatasetLayout of(const async::ExecInfo& info,
-                          const std::shared_ptr<DataSource>& source,
-                          MPI_Comm comm,
-                          instructions::Append append);
+  //! The dimension a write extends, if any.
+  std::optional<std::size_t> appendedDim;
+  //! Entries the dataset gains along that dimension with this write; the same on every rank.
+  std::size_t growth{0};
+
+  //! Entries of the leading dimension one collective round may move.
+  std::size_t roundSize{1};
+  //! Rounds needed by the rank that needs the most.
+  std::size_t rounds{1};
+  //! Whether this rank has anything to contribute at all.
+  bool empty{false};
+
+  static DatasetLayout
+      of(const async::ExecInfo& info, const std::shared_ptr<DataSource>& source, MPI_Comm comm);
 };
 
 DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
                                 const std::shared_ptr<DataSource>& source,
-                                MPI_Comm comm,
-                                instructions::Append append) {
+                                MPI_Comm comm) {
   const MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
 
-  // the replicated dimensions are fixed, so the distributed one is what is left of the count
-  std::size_t rows = source->count(info);
-  std::size_t rowLength = 1;
-  for (const auto& dimension : source->dimensions()) {
-    if (dimension.isDistributed()) {
-      continue;
+  const auto& dimensions = source->dimensions();
+
+  std::optional<std::size_t> distributedDim;
+  for (std::size_t i = 0; i < dimensions.size(); ++i) {
+    if (dimensions[i].isDistributed()) {
+      distributedDim = i;
     }
-    assert(rows % dimension.size == 0);
-    rows /= dimension.size;
-    rowLength *= dimension.size;
   }
+
+  // Every dimension but the distributed one declares its extent, so what a rank holds along the
+  // distributed one is what is left of the element count.
+  std::size_t declared = 1;
+  for (const auto& dimension : dimensions) {
+    if (!dimension.isDistributed()) {
+      declared *= dimension.size;
+    }
+  }
+  assert(declared > 0);
+  const std::size_t total = source->count(info);
+  assert(total % declared == 0);
+  const std::size_t localRows = total / declared;
 
   int rank = 0;
   MPI_Comm_rank(comm, &rank);
 
+  std::size_t count = localRows;
+  std::size_t allcount = localRows;
+  std::size_t offset = 0;
+  if (distributedDim.has_value()) {
+    MPI_Allreduce(&count, &allcount, 1, sizetype, MPI_SUM, comm);
+    MPI_Exscan(&count, &offset, 1, sizetype, MPI_SUM, comm);
+  }
+
   DatasetLayout layout;
-  // if we don't write distributed data, only one rank needs to do the work
-  layout.count = (source->distributed() || rank == 0) ? rows : 0;
+  layout.starts.resize(dimensions.size(), 0);
+  layout.blockSizes.resize(dimensions.size(), 0);
+  layout.globalSizes.resize(dimensions.size(), 0);
+  layout.globalSizesMax.resize(dimensions.size(), 0);
+  layout.chunkSizes.resize(dimensions.size(), 1);
 
-  // TODO: adjust roundSize according to dimensions and datatype size
-  layout.roundSize = std::max(1_UZ, 2'000'000'000_UZ / (source->datatype()->size() * rowLength));
-  layout.roundCount = std::min(layout.roundSize, layout.count);
-
-  std::size_t localRounds = (layout.count + layout.roundSize - 1) / layout.roundSize;
-  layout.rounds = localRounds;
-  layout.allcount = layout.count;
-  MPI_Allreduce(&localRounds, &layout.rounds, 1, sizetype, MPI_MAX, comm);
-  MPI_Allreduce(&layout.count, &layout.allcount, 1, sizetype, MPI_SUM, comm);
-  MPI_Exscan(&layout.count, &layout.offset, 1, sizetype, MPI_SUM, comm);
-
-  // Append::Flat extends the dimension the ranks are already concatenated along instead of adding
-  // one of its own, which is what a reader of a VTKHDF time series expects. It is only meaningful
-  // where there is such a dimension.
-  const bool appendAlongDistributed = append == instructions::Append::Flat && source->distributed();
-
-  if (append != instructions::Append::None && !appendAlongDistributed) {
-    layout.globalSizesMax.push_back(H5S_UNLIMITED);
-    layout.globalSizes.push_back(1);
-    layout.localSizes.push_back(1);
-    layout.chunkSizes.push_back(1);
-  }
-  if (source->distributed()) {
-    layout.globalSizesMax.push_back(appendAlongDistributed ? H5S_UNLIMITED : layout.allcount);
-    layout.globalSizes.push_back(layout.allcount);
-    layout.localSizes.push_back(layout.roundCount);
-    // HDF5 handles data one chunk at a time, and for a dataset with a filter written in parallel
-    // it gathers every chunk onto a single rank to compress it. Chunking the whole dataset into
-    // one piece would therefore serialise the compression and hold the entire array on one rank,
-    // so aim for a few MB instead.
-    constexpr std::size_t TargetChunkBytes = 4UL * 1024 * 1024;
-    const std::size_t rowBytes = std::max(1_UZ, source->datatype()->size() * rowLength);
-    layout.chunkSizes.push_back(
-        std::clamp(TargetChunkBytes / rowBytes, 1_UZ, std::max(1_UZ, layout.allcount)));
-  }
-  for (const auto& dimension : source->dimensions()) {
-    if (dimension.isDistributed()) {
-      continue;
+  // HDF5 handles data one chunk at a time, and for a dataset with a filter written in parallel it
+  // gathers every chunk onto a single rank to compress it. Chunking the whole dataset into one
+  // piece would therefore serialise the compression and hold the entire array on one rank, so aim
+  // for a few MB along the distributed dimension instead.
+  constexpr std::size_t TargetChunkBytes = 4UL * 1024 * 1024;
+  std::size_t rowBytes = source->datatype()->size();
+  for (const auto& dimension : dimensions) {
+    if (!dimension.isDistributed()) {
+      rowBytes *= dimension.size;
     }
-    layout.globalSizesMax.push_back(dimension.size);
-    layout.globalSizes.push_back(dimension.size);
-    layout.localSizes.push_back(dimension.size);
-    layout.chunkSizes.push_back(std::max<hsize_t>(1, dimension.size));
+  }
+  rowBytes = std::max(1_UZ, rowBytes);
+
+  for (std::size_t i = 0; i < dimensions.size(); ++i) {
+    const auto& dimension = dimensions[i];
+    if (dimension.isDistributed()) {
+      layout.starts[i] = offset;
+      layout.blockSizes[i] = count;
+      layout.globalSizes[i] = allcount;
+      layout.chunkSizes[i] =
+          std::clamp(TargetChunkBytes / rowBytes, 1_UZ, std::max(1_UZ, allcount));
+    } else {
+      layout.blockSizes[i] = dimension.size;
+      layout.globalSizes[i] = dimension.size;
+      // One write is one chunk along an appended dimension, so that a reader taking a step out of
+      // the dataset touches as few chunks as it can.
+      layout.chunkSizes[i] = std::max<hsize_t>(1, dimension.size);
+    }
+    layout.globalSizesMax[i] = dimension.isAppended() ? H5S_UNLIMITED : layout.globalSizes[i];
+    if (dimension.isAppended()) {
+      layout.appendedDim = i;
+      layout.growth = dimension.isDistributed() ? allcount : dimension.size;
+    }
+  }
+
+  layout.empty = std::any_of(
+      layout.blockSizes.begin(), layout.blockSizes.end(), [](hsize_t size) { return size == 0; });
+
+  // Rounds split the leading dimension: a block is contiguous along it in memory, so a round is
+  // one run of bytes rather than a gather.
+  layout.roundSizes = layout.blockSizes;
+  if (!dimensions.empty()) {
+    std::size_t trailing = source->datatype()->size();
+    for (std::size_t i = 1; i < dimensions.size(); ++i) {
+      trailing *= std::max<std::size_t>(1, layout.blockSizes[i]);
+    }
+    layout.roundSize = std::max(1_UZ, 2'000'000'000_UZ / std::max(1_UZ, trailing));
+    layout.roundSizes[0] = std::min<hsize_t>(layout.roundSize, layout.blockSizes[0]);
+
+    std::size_t localRounds = (layout.blockSizes[0] + layout.roundSize - 1) / layout.roundSize;
+    MPI_Allreduce(&localRounds, &layout.rounds, 1, sizetype, MPI_MAX, comm);
+    layout.rounds = std::max(1_UZ, layout.rounds);
   }
 
   return layout;
@@ -253,44 +286,11 @@ void Hdf5File::writeData(const async::ExecInfo& info,
                          const std::string& name,
                          const std::shared_ptr<DataSource>& source,
                          const std::shared_ptr<datatype::Datatype>& targetType,
-                         int compress,
-                         instructions::Append append) {
+                         int compress) {
 
-  const auto layout = DatasetLayout::of(info, source, comm_, append);
+  const auto layout = DatasetLayout::of(info, source, comm_);
 
-  const auto& dimensions = source->shape();
-  const auto count = layout.count;
-  const auto allcount = layout.allcount;
-  const auto offset = layout.offset;
-  const auto rounds = layout.rounds;
-  const auto chunksize = layout.roundSize;
-  const auto chunkcount = layout.roundCount;
-  const auto& globalSizes = layout.globalSizes;
-  const auto& globalSizesMax = layout.globalSizesMax;
-  const auto& localSizes = layout.localSizes;
-  const auto& chunkSizes = layout.chunkSizes;
-
-  const std::size_t actualDimensions = localSizes.size();
-
-  std::vector<hsize_t> writeStart;
-  std::vector<hsize_t> writeLength;
-
-  std::size_t dyndim = 0;
-
-  const bool appendAlongDistributed = append == instructions::Append::Flat && source->distributed();
-  if (append != instructions::Append::None && !appendAlongDistributed) {
-    writeStart.push_back(0);
-    writeLength.push_back(1);
-    dyndim = 1;
-  }
-  if (source->distributed()) {
-    writeStart.push_back(offset);
-    writeLength.push_back(chunkcount);
-  }
-  for (const auto& dim : dimensions) {
-    writeStart.push_back(0);
-    writeLength.push_back(dim);
-  }
+  const auto dimensionCount = layout.blockSizes.size();
 
   const hid_t h5dxlist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5dxlist);
@@ -298,39 +298,38 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   const hid_t h5memtype = datatype::convertToHdf5(source->datatype());
 
-  const hid_t h5memspace = _eh(H5Screate_simple(localSizes.size(), localSizes.data(), nullptr));
+  const hid_t h5memspace =
+      _eh(H5Screate_simple(layout.roundSizes.size(), layout.roundSizes.data(), nullptr));
 
   hid_t h5space = H5S_NULL;
   hid_t h5data = H5S_NULL;
-  //! Rows already in the dataset, for data appended along the distributed dimension.
+  //! What the dataset already holds along the appended dimension.
   std::size_t appendBase = 0;
 
   const auto exists = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
 
   bool create = true;
   if (exists > 0) {
-    if (append != instructions::Append::None) {
+    if (layout.appendedDim.has_value()) {
+      const auto appendedDim = layout.appendedDim.value();
+
       h5data = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));
 
       h5space = _eh(H5Dget_space(h5data));
 
-      std::vector<hsize_t> newGlobalSizes(globalSizes.size());
-      std::vector<hsize_t> newGlobalSizesMax(globalSizes.size());
+      std::vector<hsize_t> newGlobalSizes(dimensionCount);
+      std::vector<hsize_t> newGlobalSizesMax(dimensionCount);
       _eh(H5Sget_simple_extent_dims(h5space, newGlobalSizes.data(), newGlobalSizesMax.data()));
 
       _eh(H5Sclose(h5space));
 
-      if (newGlobalSizesMax[0] != H5S_UNLIMITED) {
+      if (newGlobalSizesMax[appendedDim] != H5S_UNLIMITED) {
         logError()
             << "Hdf5 writer error: tried to append to a dataset where there is nothing to append.";
       }
 
-      // for distributed data the dataset grows by a whole round of it, and this rank writes at
-      // its usual offset inside the part that was just added
-      const auto grow = appendAlongDistributed ? allcount : 1_UZ;
-      appendBase = newGlobalSizes[0];
-      writeStart[0] = appendBase;
-      newGlobalSizes[0] += grow;
+      appendBase = newGlobalSizes[appendedDim];
+      newGlobalSizes[appendedDim] += layout.growth;
 
       _eh(H5Dset_extent(h5data, newGlobalSizes.data()));
 
@@ -347,9 +346,9 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   if (create) {
     hid_t h5filter = H5P_DEFAULT;
-    if (!chunkSizes.empty()) {
+    if (!layout.chunkSizes.empty()) {
       h5filter = _eh(H5Pcreate(H5P_DATASET_CREATE));
-      _eh(H5Pset_chunk(h5filter, chunkSizes.size(), chunkSizes.data()));
+      _eh(H5Pset_chunk(h5filter, layout.chunkSizes.size(), layout.chunkSizes.data()));
       if (compress > 0) {
         const int deflateStrength = compress;
         _eh(H5Pset_deflate(h5filter, deflateStrength));
@@ -368,8 +367,9 @@ void Hdf5File::writeData(const async::ExecInfo& info,
                   H5P_DEFAULT,
                   H5P_DEFAULT));
 
-    assert(globalSizes.size() == globalSizesMax.size());
-    h5space = _eh(H5Screate_simple(globalSizes.size(), globalSizes.data(), globalSizesMax.data()));
+    assert(layout.globalSizes.size() == layout.globalSizesMax.size());
+    h5space = _eh(H5Screate_simple(
+        layout.globalSizes.size(), layout.globalSizes.data(), layout.globalSizesMax.data()));
     h5data = _eh(H5Dcreate(
         handles_.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT));
 
@@ -379,38 +379,35 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     _eh(H5Tclose(h5type));
   }
 
-  std::size_t written = 0;
+  std::vector<hsize_t> writeStart = layout.starts;
+  if (layout.appendedDim.has_value()) {
+    writeStart[layout.appendedDim.value()] += appendBase;
+  }
+  std::vector<hsize_t> writeLength = layout.roundSizes;
 
-  std::vector<hsize_t> nullstart(actualDimensions);
+  const std::vector<hsize_t> nullstart(dimensionCount);
 
-  const char* data = reinterpret_cast<const char*>(source->getPointer(info));
+  const char* dataloc = reinterpret_cast<const char*>(source->getPointer(info));
 
-  // TODO(David): maybe always compute in the loop instead?
-  std::size_t baseWriteSize = targetType->size();
-  for (const auto& dim : dimensions) {
-    baseWriteSize *= dim;
+  //! Bytes one entry of the leading dimension takes in the source buffer.
+  std::size_t leadingStride = source->datatype()->size();
+  for (std::size_t i = 1; i < dimensionCount; ++i) {
+    leadingStride *= std::max<hsize_t>(1, layout.blockSizes[i]);
   }
 
-  const char* dataloc = data;
+  std::size_t written = 0;
 
-  for (std::size_t i = 0; i < rounds; ++i) {
-    if (source->distributed()) {
-      writeStart[dyndim] = (appendAlongDistributed ? appendBase : 0) + offset + written;
-      writeLength[dyndim] = std::min(count - written, chunkcount);
+  for (std::size_t round = 0; round < layout.rounds; ++round) {
+    if (dimensionCount > 0) {
+      writeStart[0] = layout.starts[0] + written;
+      if (layout.appendedDim.value_or(dimensionCount) == 0) {
+        writeStart[0] += appendBase;
+      }
+      writeLength[0] = std::min<hsize_t>(layout.blockSizes[0] - written, layout.roundSizes[0]);
     }
 
-    const auto [memspace, space] = [&]() -> std::pair<hid_t, hid_t> {
-      if (nullstart.empty()) {
-        return {h5memspace, h5space};
-      } else if (writeLength[dyndim] > 0 || !source->distributed()) {
-        _eh(H5Sselect_hyperslab(
-            h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
-
-        _eh(H5Sselect_hyperslab(
-            h5space, H5S_SELECT_SET, writeStart.data(), nullptr, writeLength.data(), nullptr));
-
-        return {h5memspace, h5space};
-      } else {
+    if (!nullstart.empty()) {
+      if (layout.empty || writeLength[0] == 0) {
         // This rank contributes nothing in this round, but still has to take part in the write.
         // A null dataspace would express that, but it is neither simple nor scalar, so HDF5 drops
         // the whole write to independent I/O -- which it cannot do at all once the dataset has a
@@ -418,18 +415,21 @@ void Hdf5File::writeData(const async::ExecInfo& info,
         // on the real dataspaces says the same thing and keeps the write collective.
         _eh(H5Sselect_none(h5memspace));
         _eh(H5Sselect_none(h5space));
-        return {h5memspace, h5space};
+      } else {
+        _eh(H5Sselect_hyperslab(
+            h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
+
+        _eh(H5Sselect_hyperslab(
+            h5space, H5S_SELECT_SET, writeStart.data(), nullptr, writeLength.data(), nullptr));
       }
-    }();
-
-    _eh(H5Dwrite(h5data, h5memtype, memspace, space, h5dxlist, dataloc));
-
-    std::size_t writeSize = baseWriteSize;
-    if (source->distributed()) {
-      written += writeLength[dyndim];
-      writeSize *= writeLength[dyndim];
     }
-    dataloc += writeSize;
+
+    _eh(H5Dwrite(h5data, h5memtype, h5memspace, h5space, h5dxlist, dataloc));
+
+    if (dimensionCount > 0) {
+      written += writeLength[0];
+      dataloc += writeLength[0] * leadingStride;
+    }
   }
 
   _eh(H5Sclose(h5space));
@@ -500,8 +500,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
   if (write.location.dataset().has_value()) {
     file.openDataset(write.location.dataset().value());
   }
-  file.writeData(
-      info, write.name, write.dataSource, write.targetType, write.compress, write.append);
+  file.writeData(info, write.name, write.dataSource, write.targetType, write.compress);
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }

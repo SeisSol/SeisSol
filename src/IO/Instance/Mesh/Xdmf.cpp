@@ -262,18 +262,21 @@ XdmfWriter::XdmfWriter(const std::string& name,
       true,
       localElementCount,
       vertexMap.has_value()
-          ? writer::GeneratedBuffer::createElementwise<int64_t>(
+          ? writer::GeneratedBuffer::createElementwiseShaped<int64_t>(
                 localElementCount,
                 1,
-                {pointsPerElement_},
+                payloadDimensions({pointsPerElement_}, true),
                 [=, map = std::move(vertexMap->connectivity)](int64_t* target, std::size_t index) {
                   for (std::size_t i = 0; i < selfPointsPerElement; ++i) {
                     target[i] = static_cast<int64_t>(map[index * selfPointsPerElement + i] +
                                                      selfPointOffset);
                   }
                 })
-          : writer::GeneratedBuffer::createElementwise<int64_t>(
-                localElementCount, 1, {pointsPerElement_}, [=](int64_t* target, std::size_t index) {
+          : writer::GeneratedBuffer::createElementwiseShaped<int64_t>(
+                localElementCount,
+                1,
+                payloadDimensions({pointsPerElement_}, true),
+                [=](int64_t* target, std::size_t index) {
                   for (std::size_t i = 0; i < selfPointsPerElement; ++i) {
                     target[i] =
                         static_cast<int64_t>(selfPointsPerElement * index + i + selfPointOffset);
@@ -345,8 +348,6 @@ void XdmfWriter::addData(const std::string& name,
           datasetName,
           data,
           data->datatype(),
-          // a step dimension, so that a time step can be sliced out of the dataset
-          isConst ? writer::instructions::Append::None : writer::instructions::Append::Steps,
           compress);
     }
 

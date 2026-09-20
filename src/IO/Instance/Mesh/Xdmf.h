@@ -38,6 +38,26 @@ class XdmfWriter {
              int32_t compress,
              std::optional<VertexMap> vertexMap = {});
 
+  /**
+   * @brief The shape of a payload dataset.
+   *
+   * Data that changes is kept in a single dataset with a leading dimension per step, so that a
+   * step can be sliced out of it; data that does not is written once and referenced from every
+   * step.
+   */
+  [[nodiscard]] static std::vector<writer::Dimension>
+      payloadDimensions(const std::vector<std::size_t>& shape, bool isConst) {
+    std::vector<writer::Dimension> result;
+    if (!isConst) {
+      result.push_back(writer::Dimension::appended(1));
+    }
+    result.push_back(writer::Dimension::distributed());
+    for (const auto size : shape) {
+      result.push_back(writer::Dimension::replicated(size));
+    }
+    return result;
+  }
+
   void addData(const std::string& name,
                const std::string& type,
                bool isConst,
@@ -53,10 +73,10 @@ class XdmfWriter {
   template <typename F>
   void addPointProjector(F&& projector) {
     const auto data =
-        writer::GeneratedBuffer::createElementwise<double>(pointSourceCount_,
-                                                           pointsPerSource_,
-                                                           std::vector<std::size_t>{3},
-                                                           std::forward<F>(projector));
+        writer::GeneratedBuffer::createElementwiseShaped<double>(pointSourceCount_,
+                                                                 pointsPerSource_,
+                                                                 payloadDimensions({3}, true),
+                                                                 std::forward<F>(projector));
 
     addData("XYZ", "Geometry", true, localPointCount_, data);
   }
@@ -66,8 +86,11 @@ class XdmfWriter {
                     const std::vector<std::size_t>& dimensions,
                     bool isConst,
                     F&& pointMapper) {
-    const auto data = writer::GeneratedBuffer::createElementwise<T>(
-        localElementCount_, pointsPerElement_, dimensions, std::forward<F>(pointMapper));
+    const auto data =
+        writer::GeneratedBuffer::createElementwiseShaped<T>(localElementCount_,
+                                                            pointsPerElement_,
+                                                            payloadDimensions(dimensions, isConst),
+                                                            std::forward<F>(pointMapper));
     addData(name, "AttributeNode", isConst, localPointCount_, data);
   }
 
@@ -76,8 +99,8 @@ class XdmfWriter {
                    const std::vector<std::size_t>& dimensions,
                    bool isConst,
                    F&& cellMapper) {
-    const auto data = writer::GeneratedBuffer::createElementwise<T>(
-        localElementCount_, 1, dimensions, std::forward<F>(cellMapper));
+    const auto data = writer::GeneratedBuffer::createElementwiseShaped<T>(
+        localElementCount_, 1, payloadDimensions(dimensions, isConst), std::forward<F>(cellMapper));
     addData(name, "AttributeCell", isConst, localElementCount_, data);
   }
 

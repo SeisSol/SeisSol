@@ -29,6 +29,7 @@ class DataSource {
   DataSource(std::shared_ptr<datatype::Datatype> datatype,
              const std::vector<std::size_t>& shape,
              bool leadingDistributed);
+  DataSource(std::shared_ptr<datatype::Datatype> datatype, std::vector<Dimension> dimensions);
   virtual ~DataSource();
 
   virtual YAML::Node serialize() = 0;
@@ -46,9 +47,14 @@ class DataSource {
    */
   [[nodiscard]] virtual bool managed() const = 0;
 
-  //! @brief The full shape, at most one dimension of which is distributed, and that one first.
+  //! @brief The full shape: at most one dimension distributed, at most one appended.
   [[nodiscard]] const std::vector<Dimension>& dimensions() const;
-  //! @brief The replicated dimensions, i.e. dimensions() without a leading distributed one.
+  /**
+   * @brief The sizes of the dimensions that neither move between ranks nor grow between writes.
+   *
+   * What one entry of the data holds, in other words. An attribute or an Xdmf payload describes
+   * itself with these; the dataset writer works off dimensions() instead.
+   */
   [[nodiscard]] const std::vector<std::size_t>& shape() const;
   [[nodiscard]] bool distributed() const;
   [[nodiscard]] std::shared_ptr<seissol::io::datatype::Datatype> datatype() const;
@@ -67,6 +73,11 @@ class WriteInline : public DataSource {
               std::size_t size,
               std::shared_ptr<datatype::Datatype> datatype,
               const std::vector<std::size_t>& shape);
+
+  WriteInline(const void* dataPtr,
+              std::size_t size,
+              std::shared_ptr<datatype::Datatype> datatype,
+              std::vector<Dimension> dimensions);
 
   explicit WriteInline(YAML::Node node);
 
@@ -105,6 +116,16 @@ class WriteInline : public DataSource {
     return std::make_shared<WriteInline>(data.data(), sizeof(T) * data.size(), datatype, shape);
   }
 
+  //! @brief An array whose shape says how it joins what is already in the dataset.
+  template <typename T>
+  static std::shared_ptr<DataSource> createShaped(
+      const std::vector<Dimension>& dimensions,
+      const std::vector<T>& data,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
+    return std::make_shared<WriteInline>(
+        data.data(), sizeof(T) * data.size(), datatype, dimensions);
+  }
+
   private:
   std::vector<unsigned char> data_;
 };
@@ -137,6 +158,11 @@ class WriteBuffer : public DataSource {
               std::shared_ptr<datatype::Datatype> datatype,
               const std::vector<std::size_t>& shape);
 
+  WriteBuffer(const void* data,
+              size_t size,
+              std::shared_ptr<datatype::Datatype> datatype,
+              std::vector<Dimension> dimensions);
+
   YAML::Node serialize() override;
 
   [[nodiscard]] const void* getLocalPointer() const override;
@@ -159,6 +185,16 @@ class WriteBuffer : public DataSource {
     return std::make_shared<WriteBuffer>(data, count, datatype, shape);
   }
 
+  //! @brief A buffer whose shape says how it joins what is already in the dataset.
+  template <typename T>
+  static std::shared_ptr<DataSource> createShaped(
+      const T* data,
+      size_t count,
+      const std::vector<Dimension>& dimensions,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
+    return std::make_shared<WriteBuffer>(data, count, datatype, dimensions);
+  }
+
   private:
   const void* data_;
   size_t size_;
@@ -173,12 +209,15 @@ class AdhocBuffer : public DataSource {
   AdhocBuffer(std::shared_ptr<datatype::Datatype> datatype, const std::vector<std::size_t>& shape)
       : DataSource(std::move(datatype), shape, true) {}
 
+  AdhocBuffer(std::shared_ptr<datatype::Datatype> datatype, std::vector<Dimension> dimensions)
+      : DataSource(std::move(datatype), std::move(dimensions)) {}
+
   YAML::Node serialize() override {
     YAML::Node node;
     node["id"] = id_;
     node["datatype"] = datatype()->serialize();
     node["type"] = "buffer";
-    node["shape"] = shape();
+    node["dimensions"] = serializeDimensions(dimensions());
     return node;
   }
 
@@ -206,10 +245,21 @@ class GeneratedBuffer : public AdhocBuffer {
                   std::function<void(void*)> generator,
                   std::shared_ptr<datatype::Datatype> datatype,
                   const std::vector<std::size_t>& shape)
-      : AdhocBuffer(std::move(datatype), shape), generator_(std::move(generator)),
+      : GeneratedBuffer(sourceCount,
+                        targetCount,
+                        std::move(generator),
+                        std::move(datatype),
+                        makeDimensions(shape, true)) {}
+
+  GeneratedBuffer(std::size_t sourceCount,
+                  std::size_t targetCount,
+                  std::function<void(void*)> generator,
+                  std::shared_ptr<datatype::Datatype> datatype,
+                  std::vector<Dimension> dimensions)
+      : AdhocBuffer(std::move(datatype), std::move(dimensions)), generator_(std::move(generator)),
         sourceCount_(sourceCount), targetStride_(targetCount) {
 
-    for (auto dim : shape) {
+    for (auto dim : shape()) {
       targetStride_ *= dim;
     }
   }
@@ -227,9 +277,23 @@ class GeneratedBuffer : public AdhocBuffer {
       const std::vector<std::size_t>& shape,
       const F& handler,
       const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
+    return createElementwiseShaped<T>(
+        sourceCount, targetCount, makeDimensions(shape, true), handler, datatype);
+  }
+
+  //! @brief As createElementwise, with the shape stated rather than assumed.
+  template <typename T, typename F>
+  static std::shared_ptr<GeneratedBuffer> createElementwiseShaped(
+      std::size_t sourceCount,
+      std::size_t targetCount,
+      const std::vector<Dimension>& dimensions,
+      const F& handler,
+      const std::shared_ptr<datatype::Datatype>& datatype = datatype::inferDatatype<T>()) {
     std::size_t localTargetStride = targetCount;
-    for (auto dim : shape) {
-      localTargetStride *= dim;
+    for (const auto& dimension : dimensions) {
+      if (!dimension.isDistributed() && !dimension.isAppended()) {
+        localTargetStride *= dimension.size;
+      }
     }
     return std::make_shared<GeneratedBuffer>(
         sourceCount,
@@ -243,7 +307,7 @@ class GeneratedBuffer : public AdhocBuffer {
           }
         },
         datatype,
-        shape);
+        dimensions);
   }
 
   private:

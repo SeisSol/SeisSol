@@ -18,25 +18,6 @@
 
 namespace seissol::io::writer::instructions {
 
-/**
- * @brief How a dataset grows from one write to the next.
- *
- * Which of the two growing modes is wanted depends on the reader, not on the data: a VTKHDF time
- * series wants one flat array that it slices with its step offsets, while a table indexed by both
- * time and entry wants the two as separate dimensions.
- */
-enum class Append : std::uint8_t {
-  //! Written once. Writing the same dataset a second time is an error.
-  None,
-  //! A leading dimension is added, and every write contributes one entry along it.
-  Steps,
-  //! The distributed dimension itself grows, so the data stays one flat array.
-  Flat
-};
-
-//! @brief The name Append::value is serialised under, and back.
-std::string appendName(Append append);
-Append appendFromName(const std::string& name);
 class Hdf5Location {
   public:
   explicit Hdf5Location(const std::string& longstring);
@@ -85,14 +66,19 @@ struct Hdf5DataWrite : public WriteInstruction {
   std::string name;
   std::shared_ptr<writer::DataSource> dataSource;
   std::shared_ptr<datatype::Datatype> targetType;
-  Append append;
   int compress;
 
+  /**
+   * @brief Writes @p dataSource to a dataset.
+   *
+   * Whether the dataset is written once or extended by every write follows from the shape of the
+   * source: a dimension marked as appended makes the dataset unlimited there, and every write
+   * lands behind what is already in it.
+   */
   Hdf5DataWrite(const Hdf5Location& location,
                 const std::string& name,
                 std::shared_ptr<writer::DataSource> dataSource,
                 std::shared_ptr<datatype::Datatype> targetType,
-                Append append = Append::None,
                 int compress = 0);
 
   YAML::Node serialize() override;

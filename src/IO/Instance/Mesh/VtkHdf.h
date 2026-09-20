@@ -53,6 +53,24 @@ class VtkHdfWriter {
                bool attribute = false);
 
   /**
+   * @brief The shape of bulk data in this file.
+   *
+   * In a time series the steps are concatenated along the same dimension the ranks are split
+   * along -- one flat array that the step offsets slice -- so that dimension both moves between
+   * ranks and grows. Data that does not change is written once and read again by every step.
+   */
+  [[nodiscard]] std::vector<writer::Dimension> bulkDimensions(const std::vector<std::size_t>& shape,
+                                                              bool isConst) const {
+    std::vector<writer::Dimension> result;
+    result.push_back((!isConst && temporal_) ? writer::Dimension::distributedAppended()
+                                             : writer::Dimension::distributed());
+    for (const auto size : shape) {
+      result.push_back(writer::Dimension::replicated(size));
+    }
+    return result;
+  }
+
+  /**
    * @brief Installs the source of the point coordinates.
    *
    * Without a vertex map the projector is called once per cell and fills its corners; with one it
@@ -60,11 +78,8 @@ class VtkHdfWriter {
    */
   template <typename F>
   void addPointProjector(F&& projector) {
-    const auto data =
-        writer::GeneratedBuffer::createElementwise<double>(pointSourceCount_,
-                                                           pointsPerSource_,
-                                                           std::vector<std::size_t>{3},
-                                                           std::forward<F>(projector));
+    const auto data = writer::GeneratedBuffer::createElementwiseShaped<double>(
+        pointSourceCount_, pointsPerSource_, bulkDimensions({3}, true), std::forward<F>(projector));
 
     addData("Points", std::optional<std::string>(), true, data);
   }
@@ -74,8 +89,11 @@ class VtkHdfWriter {
                     const std::vector<std::size_t>& dimensions,
                     bool isConst,
                     F&& pointMapper) {
-    const auto data = writer::GeneratedBuffer::createElementwise<T>(
-        localElementCount_, pointsPerElement_, dimensions, std::forward<F>(pointMapper));
+    const auto data =
+        writer::GeneratedBuffer::createElementwiseShaped<T>(localElementCount_,
+                                                            pointsPerElement_,
+                                                            bulkDimensions(dimensions, isConst),
+                                                            std::forward<F>(pointMapper));
     addData(name, PointDataName, isConst, data);
     if (temporal_) {
       addStepOffset(name, PointDataName + "Offsets", isConst ? 0 : globalPointCount_);
@@ -87,8 +105,8 @@ class VtkHdfWriter {
                    const std::vector<std::size_t>& dimensions,
                    bool isConst,
                    F&& cellMapper) {
-    const auto data = writer::GeneratedBuffer::createElementwise<T>(
-        localElementCount_, 1, dimensions, std::forward<F>(cellMapper));
+    const auto data = writer::GeneratedBuffer::createElementwiseShaped<T>(
+        localElementCount_, 1, bulkDimensions(dimensions, isConst), std::forward<F>(cellMapper));
     addData(name, CellDataName, isConst, data);
     if (temporal_) {
       addStepOffset(name, CellDataName + "Offsets", isConst ? 0 : globalElementCount_);
@@ -100,7 +118,20 @@ class VtkHdfWriter {
                     const std::vector<std::size_t>& dimensions,
                     bool isConst,
                     const std::vector<T>& data) {
-    const auto datasource = writer::WriteInline::createArray(dimensions, data);
+    // Field data is not split across the ranks, so a time series grows it along a dimension of
+    // its own rather than along a distributed one.
+    std::vector<writer::Dimension> shape;
+    if (!isConst && temporal_) {
+      shape.push_back(writer::Dimension::appended(dimensions.empty() ? 1 : dimensions.front()));
+      for (std::size_t i = 1; i < dimensions.size(); ++i) {
+        shape.push_back(writer::Dimension::replicated(dimensions[i]));
+      }
+    } else {
+      for (const auto size : dimensions) {
+        shape.push_back(writer::Dimension::replicated(size));
+      }
+    }
+    const auto datasource = writer::WriteInline::createShaped(shape, data);
     addData(name, FieldDataName, isConst, datasource);
     if (temporal_) {
       const auto tuples = dimensions.empty() ? 1 : dimensions.front();

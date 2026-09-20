@@ -204,17 +204,35 @@ TEST_CASE("IO/Instruction: the time series adds the step bookkeeping" * doctest:
   CHECK(contains(paths, "/VTKHDF/Steps/ConnectivityIdOffsets"));
   CHECK(contains(paths, "/VTKHDF/Steps/CellDataOffsets/v1"));
 
-  // non-const data is appended, const data is not
+  // non-const data is appended, const data is not, and the appending happens along the dimension
+  // the ranks are already concatenated along
+  const auto appendedDimensions = [](const instructions::Hdf5DataWrite* data) {
+    std::vector<std::size_t> result;
+    const auto& dimensions = data->dataSource->dimensions();
+    for (std::size_t i = 0; i < dimensions.size(); ++i) {
+      if (dimensions[i].isAppended()) {
+        result.push_back(i);
+      }
+    }
+    return result;
+  };
+
   for (const auto& instruction : plan.getInstructions()) {
     auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get());
     if (data == nullptr) {
       continue;
     }
     if (target(instruction) == "/VTKHDF/CellData/v1") {
-      CHECK(data->append);
+      CHECK(appendedDimensions(data) == std::vector<std::size_t>{0});
+      CHECK(data->dataSource->dimensions()[0].isDistributed());
     }
     if (target(instruction) == "/VTKHDF/Connectivity") {
-      CHECK_FALSE(data->append);
+      CHECK(appendedDimensions(data).empty());
+    }
+    if (target(instruction) == "/VTKHDF/Steps/Values") {
+      // one entry per step, along a dimension of its own
+      CHECK(appendedDimensions(data) == std::vector<std::size_t>{0});
+      CHECK_FALSE(data->dataSource->dimensions()[0].isDistributed());
     }
   }
 }

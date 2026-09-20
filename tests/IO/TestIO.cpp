@@ -16,6 +16,7 @@
 #include "Datatype/Inference.t.h"
 #include "Datatype/MPIType.t.h"
 #include "Deduplicate.t.h"
+#include "Dimension.t.h"
 #include "Distributor.t.h"
 #include "Geometry.t.h"
 #include "Grouping.t.h"
