@@ -13,8 +13,8 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
-#include <array>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <string>
