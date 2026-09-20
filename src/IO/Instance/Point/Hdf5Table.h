@@ -8,14 +8,19 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_POINT_HDF5TABLE_H_
 #define SEISSOL_SRC_IO_INSTANCE_POINT_HDF5TABLE_H_
 
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
 #include "IO/Instance/Point/Grouping.h"
 #include "IO/Writer/Writer.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
+#include <memory>
 #include <mpi.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::io::instance::point {
@@ -64,6 +69,28 @@ class Hdf5Table {
   //! @brief Points of @p group this rank holds.
   [[nodiscard]] std::size_t localPointCount(std::size_t group) const;
 
+  //! @brief Where local point @p point sits in the block of its group that this rank holds.
+  [[nodiscard]] std::size_t localRow(std::size_t point) const;
+
+  /**
+   * @brief Adds a value per point that does not change, written once next to the tables.
+   *
+   * In the caller's point order, like the point map, and split across the ranks the same way, so
+   * that a reader lines the two up row by row. @p shape is what the value of one point holds.
+   */
+  template <typename T>
+  void addPointData(const std::string& name,
+                    const std::vector<std::size_t>& shape,
+                    const std::vector<T>& values) {
+    PointData entry;
+    entry.name = name;
+    entry.shape = shape;
+    entry.datatype = datatype::inferDatatype<T>();
+    entry.bytes.resize(values.size() * sizeof(T));
+    std::memcpy(entry.bytes.data(), values.data(), entry.bytes.size());
+    pointData_.emplace_back(std::move(entry));
+  }
+
   /**
    * @brief Storage for the samples of @p group that the next write is to carry.
    *
@@ -83,6 +110,14 @@ class Hdf5Table {
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter();
 
   private:
+  //! A value per point that is written once, alongside the tables.
+  struct PointData {
+    std::string name;
+    std::vector<std::size_t> shape;
+    std::shared_ptr<datatype::Datatype> datatype;
+    std::vector<char> bytes;
+  };
+
   std::string name_;
   Grouping grouping_;
   MPI_Comm comm_;
@@ -93,8 +128,11 @@ class Hdf5Table {
   std::vector<std::size_t> samples_;
   //! Per group, how many points this rank holds.
   std::vector<std::size_t> localPoints_;
+  //! Per local point, where it sits in the block of its group that this rank holds.
+  std::vector<std::size_t> localRow_;
   //! The point map, kept alive for as long as the write that carries it.
   std::vector<std::uint64_t> index_;
+  std::vector<PointData> pointData_;
 };
 
 } // namespace seissol::io::instance::point

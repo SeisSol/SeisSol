@@ -12,7 +12,6 @@ add_library(seissol-resultwriter OBJECT
     DofSync.cpp
     EnergyOutput.cpp
     MiniSeisSolWriter.cpp
-    ParallelHdf5ReceiverWriter.cpp
     PickpointWriter.cpp
     ReceiverWriter.cpp
     ThreadsPinningWriter.cpp

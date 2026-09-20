@@ -11,15 +11,19 @@
 
 #include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
+#include "IO/Instance/Point/Grouping.h"
+#include "IO/Instance/Point/Hdf5Table.h"
+#include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Modules/Modules.h"
 #include "Parallel/MPI.h"
-#include "ParallelHdf5ReceiverWriter.h"
+#include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
@@ -82,12 +86,6 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
     }
   }
   return points;
-}
-
-// --------------------------------------------------------------------------
-// Helper function for HDF5 output file name
-std::string ReceiverWriter::hdf5FileName(const std::string& prefix) {
-  return prefix + "-receivers.h5";
 }
 
 std::string ReceiverWriter::fileName(std::size_t pointId) const {
@@ -256,165 +254,107 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 
   if (format_ == seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
-    // -------------------------------------------------------
-    // Now, sum up total # of receivers across ranks
-    auto localCountH = static_cast<hsize_t>(localReceiverCount);
-    hsize_t totalReceiversH = 0;
-    MPI_Allreduce(&localCountH,
-                  &totalReceiversH,
-                  1,
-                  seissol::Mpi::castToMpiType<hsize_t>(),
-                  MPI_SUM,
-                  seissol::Mpi::mpi.comm());
-    totalReceivers_ = static_cast<std::size_t>(totalReceiversH);
-
-    // We also need the offset in the "receivers" dimension for this rank
-    hsize_t localReceiverOffsetH = 0;
-    MPI_Exscan(&localCountH,
-               &localReceiverOffsetH,
-               1,
-               seissol::Mpi::castToMpiType<hsize_t>(),
-               MPI_SUM,
-               seissol::Mpi::mpi.comm());
-    if (seissol::Mpi::mpi.rank() == 0) {
-      localReceiverOffsetH = 0;
+    // What a receiver records follows from the material of the element it sits in, so the table
+    // is told for every one of them and gathers those that agree into a table of their own.
+    const auto names = variableNames();
+    std::vector<io::instance::point::TableQuantity> quantitySet;
+    quantitySet.reserve(names.size());
+    for (const auto& name : names) {
+      quantitySet.push_back(
+          io::instance::point::TableQuantity{name, io::datatype::inferDatatype<real>()});
     }
-    localReceiverOffset_ = static_cast<std::size_t>(localReceiverOffsetH);
 
-    // We can now open the single HDF5 file if not done yet:
-    if (hdf5Writer_ == nullptr) {
+    const std::vector<std::vector<io::instance::point::TableQuantity>> pointQuantities(
+        orderedReceivers().size(), quantitySet);
 
-      // Find the local maximum ncols
-      std::size_t localNcols = 0;
-      for (const auto& cluster : receiverClusters_) {
-        localNcols = std::max(localNcols, static_cast<std::size_t>(cluster->ncols()));
+    table_ = std::make_unique<io::instance::point::Hdf5Table>(
+        "receivers", pointQuantities, seissol::Mpi::mpi.comm(), sampleChunk_);
+
+    // which receiver of the file a row belongs to, and where it sits
+    std::vector<std::uint64_t> pointIds;
+    std::vector<double> coordinates;
+    for (const auto& entry : orderedReceivers()) {
+      pointIds.push_back(static_cast<std::uint64_t>(entry.receiver->pointId));
+      for (int dimension = 0; dimension < 3; ++dimension) {
+        coordinates.push_back(entry.receiver->position[dimension]);
       }
-
-      // Gather the global maximum ncols
-      std::size_t globalNcols = 0;
-      MPI_Allreduce(&localNcols,
-                    &globalNcols,
-                    1,
-                    seissol::Mpi::castToMpiType<std::size_t>(),
-                    MPI_MAX,
-                    seissol::Mpi::mpi.comm());
-
-      hdf5Writer_ =
-          std::make_unique<ParallelHdf5ReceiverWriter>(seissol::Mpi::mpi.comm(),
-                                                       hdf5FileName(fileNamePrefix_),
-                                                       static_cast<hsize_t>(totalReceivers_),
-                                                       static_cast<hsize_t>(globalNcols));
-
-      hdf5Writer_->writeVariableNames(variableNames());
     }
+    table_->addPointData("PointId", {}, pointIds);
+    table_->addPointData("Coordinates", {3}, coordinates);
 
-    hdf5Writer_->writeCoordinates(points);
+    io::writer::ScheduledWriter scheduled;
+    scheduled.name = "receivers";
+    scheduled.interval = syncInterval();
+    scheduled.planWrite = [this, plan = table_->makeWriter()](
+                              const std::string& prefix, std::size_t counter, double time) {
+      stopwatch_.start();
+      collectSamples();
+      auto writer = plan(prefix, counter, time);
+      logInfo() << "Collected receivers in" << stopwatch_.stop() << "seconds.";
+      return writer;
+    };
+    seissolInstance_.outputManager().addOutput(scheduled);
   }
 }
 
-// --------------------------------------------------------------------------
-
-void ReceiverWriter::syncPoint(double /*currentTime*/) {
-
-  if (format_ == seissol::initializer::parameters::ReceiverOutputFormat::Csv) {
-    if (receiverClusters_.empty()) {
-      return;
-    }
-
-    stopwatch_.start();
-
-    for (auto& cluster : receiverClusters_) {
-      auto ncols = cluster->ncols();
-      for (auto& receiver : *cluster) {
-        assert(receiver.output.size() % ncols == 0);
-        const size_t nSamples = receiver.output.size() / ncols;
-
-        std::ofstream file;
-        file.open(fileName(receiver.pointId), std::ios::app);
-        file << std::scientific << std::setprecision(15);
-        for (size_t i = 0; i < nSamples; ++i) {
-          for (size_t q = 0; q < ncols; ++q) {
-            file << "  " << receiver.output[q + i * ncols];
-          }
-          file << std::endl;
-        }
-        file.close();
-        receiver.output.clear();
-      }
-    }
-
-    auto time = stopwatch_.stop();
-    logInfo() << "Wrote receivers in" << time << "seconds.";
-    return;
-  }
-
-  size_t totalNewSamples = 0;
-  size_t localReceiverCount = 0;
-
-  for (const auto& cluster : receiverClusters_) {
-    for (const auto& receiver : *cluster) {
-      const size_t thisReceiverSamples = receiver.output.size() / cluster->ncols();
-      totalNewSamples = std::max(totalNewSamples, thisReceiverSamples);
-      localReceiverCount++;
-    }
-  }
-
-  const bool noData = (localReceiverCount == 0 || totalNewSamples == 0);
-  auto actualTimeCount = noData ? 0 : totalNewSamples;
-
-  struct LocalReceiverData {
-    kernels::Receiver* rcv;
-    kernels::ReceiverCluster* clus;
-  };
-  std::vector<LocalReceiverData> localReceivers;
-  localReceivers.reserve(localReceiverCount);
-
+std::vector<ReceiverWriter::OrderedReceiver> ReceiverWriter::orderedReceivers() {
+  std::vector<OrderedReceiver> receivers;
   for (auto& cluster : receiverClusters_) {
     for (auto& receiver : *cluster) {
-      localReceivers.push_back({&receiver, cluster.get()});
+      receivers.push_back(OrderedReceiver{&receiver, cluster->ncols()});
     }
   }
+  // the rows of a rank are its receivers in the order of the file they were read from, which is
+  // the order the point map and the coordinates are written in as well
+  std::sort(
+      receivers.begin(), receivers.end(), [](const OrderedReceiver& a, const OrderedReceiver& b) {
+        return a.receiver->pointId < b.receiver->pointId;
+      });
+  return receivers;
+}
 
-  std::sort(localReceivers.begin(),
-            localReceivers.end(),
-            [](const LocalReceiverData& a, const LocalReceiverData& b) {
-              return a.rcv->pointId < b.rcv->pointId;
-            });
+void ReceiverWriter::collectSamples() {
+  const auto receivers = orderedReceivers();
+  const auto& grouping = table_->grouping();
 
-  std::vector<std::uint64_t> pointIds;
-  pointIds.reserve(localReceiverCount);
-  for (const auto& lr : localReceivers) {
-    pointIds.push_back(static_cast<std::uint64_t>(lr.rcv->pointId));
+  // How far a table grows is the same on every rank, so the sample count is agreed on rather than
+  // taken from what this rank happens to hold -- a rank without receivers holds none at all.
+  std::vector<std::size_t> samples(grouping.groupCount(), 0);
+  for (std::size_t i = 0; i < receivers.size(); ++i) {
+    const auto group = grouping.group[i];
+    samples[group] =
+        std::max(samples[group], receivers[i].receiver->output.size() / receivers[i].columns);
+  }
+  if (!samples.empty()) {
+    MPI_Allreduce(MPI_IN_PLACE,
+                  samples.data(),
+                  static_cast<int>(samples.size()),
+                  seissol::Mpi::castToMpiType<std::size_t>(),
+                  MPI_MAX,
+                  seissol::Mpi::mpi.comm());
   }
 
-  const auto ncols = localReceivers.empty() ? 0 : localReceivers[0].clus->ncols();
-  std::vector<double> hdf5Data(totalNewSamples * localReceiverCount * ncols);
+  std::vector<char*> storage(grouping.groupCount(), nullptr);
+  for (std::size_t group = 0; group < grouping.groupCount(); ++group) {
+    storage[group] = table_->prepare(group, samples[group]);
+  }
 
-  for (size_t lr = 0; lr < localReceivers.size(); ++lr) {
-    auto& rec = *localReceivers[lr].rcv;
-    const size_t nSamples = rec.output.size() / ncols;
+  for (std::size_t i = 0; i < receivers.size(); ++i) {
+    auto& receiver = *receivers[i].receiver;
+    const auto columns = receivers[i].columns;
+    const auto group = grouping.group[i];
+    const auto row = table_->localRow(i);
+    const auto points = table_->localPointCount(group);
+    const auto held = receiver.output.size() / columns;
 
-    for (size_t t = 0; t < nSamples; ++t) {
-      for (size_t v = 0; v < ncols; ++v) {
-        const double value = rec.output[t * ncols + v];
-        const size_t idx = t * (localReceiverCount * ncols) + lr * ncols + v;
-        hdf5Data[idx] = value;
-      }
+    // a receiver with fewer samples than the longest one of its table leaves the rest of its
+    // column as prepare left it
+    for (std::size_t sample = 0; sample < std::min(held, samples[group]); ++sample) {
+      auto* target = reinterpret_cast<real*>(storage[group]) + (sample * points + row) * columns;
+      std::copy_n(receiver.output.data() + sample * columns, columns, target);
     }
-    rec.output.clear();
+    receiver.output.clear();
   }
-
-  const std::vector<double> emptyBuffer;
-  const std::vector<std::uint64_t> emptyPointIds;
-
-  hdf5Writer_->writeChunk(static_cast<hsize_t>(nextTimeOffset_),
-                          static_cast<hsize_t>(actualTimeCount),
-                          noData ? emptyPointIds : pointIds,
-                          noData ? emptyBuffer : hdf5Data);
-
-  hdf5Writer_->flush();
-
-  nextTimeOffset_ += totalNewSamples;
 }
 
 // --------------------------------------------------------------------------
@@ -429,7 +369,7 @@ void ReceiverWriter::shutdown() {
   for (auto& cluster : receiverClusters_) {
     cluster->freeData();
   }
-  hdf5Writer_.reset();
+  table_.reset();
 }
 
 // --------------------------------------------------------------------------

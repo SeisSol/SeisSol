@@ -128,6 +128,15 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Hdf5Table
           "Index",
           writer::WriteBuffer::create(index_.data(), grouping_.group.size(), {2}),
           datatype::inferDatatype<std::uint64_t>()));
+
+      for (const auto& entry : pointData_) {
+        writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
+            writer::instructions::Hdf5Location(filename, {name_}),
+            entry.name,
+            writer::WriteBuffer::create(
+                entry.bytes.data(), grouping_.group.size(), entry.shape, entry.datatype),
+            entry.datatype));
+      }
     }
 
     return writer;

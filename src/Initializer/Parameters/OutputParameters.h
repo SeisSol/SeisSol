@@ -108,6 +108,14 @@ struct ReceiverOutputParameters {
   double samplingInterval{0};
   std::string fileName;
   bool collectiveio{false};
+  /**
+   * @brief How far a storage chunk of the HDF5 receiver output reaches along the sample axis.
+   *
+   * Zero lets the writer decide. The chunking is settled when the file is created, while the
+   * number of samples a write carries varies as soon as the sampling interval does not divide
+   * the write interval, so which value pays off is a property of how the file is read afterwards.
+   */
+  std::size_t samplechunk{0};
 };
 
 struct OutputInterval {

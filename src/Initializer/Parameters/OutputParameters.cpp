@@ -221,6 +221,8 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   warnIntervalAndDisable(enabled, samplingInterval, "receiveroutput", "pickdt");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+  const auto samplechunk =
+      reader->readWithDefault("receiversamplechunk", static_cast<std::size_t>(0));
 
   if (enabled && !fileName.has_value()) {
     logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
@@ -234,7 +236,8 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
                                   interval,
                                   samplingInterval,
                                   fileName.value_or(""),
-                                  collectiveio};
+                                  collectiveio,
+                                  samplechunk};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,

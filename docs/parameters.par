@@ -173,6 +173,10 @@ pickdt = 0.005                       ! Pickpoint Sampling
 ReceiverOutputInterval = 10.0
 ReceiverComputeRotation = 0          ! Compute Rotation of the velocity field at the receivers
 ReceiverComputeStrainRate = 0            ! Compute strain rate at the receivers
+receiversamplechunk = 0              ! (hdf5 only) how far a storage chunk reaches along the
+! sample axis; 0 lets the writer decide. The chunking is fixed when the file is created, while
+! the number of samples a write carries varies as soon as pickdt does not divide
+! ReceiverOutputInterval, so which value pays off depends on how the file is read afterwards.
 
 ! Free surface output
 SurfaceOutput = 1
