@@ -16,11 +16,35 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::io::writer::instructions {
+
+std::string appendName(Append append) {
+  if (append == Append::Steps) {
+    return "steps";
+  }
+  if (append == Append::Flat) {
+    return "flat";
+  }
+  return "none";
+}
+
+Append appendFromName(const std::string& name) {
+  if (name == "steps") {
+    return Append::Steps;
+  }
+  if (name == "flat") {
+    return Append::Flat;
+  }
+  if (name != "none") {
+    logError() << "Unknown append mode" << name << "in a write plan.";
+  }
+  return Append::None;
+}
 Hdf5Location::Hdf5Location(const std::string& longstring) {
   auto parts = utils::StringUtils::split(longstring, ':');
   assert(parts.size() == 2);
@@ -105,7 +129,7 @@ Hdf5DataWrite::Hdf5DataWrite(const Hdf5Location& location,
                              const std::string& name,
                              std::shared_ptr<writer::DataSource> dataSource,
                              std::shared_ptr<datatype::Datatype> targetType,
-                             bool append,
+                             Append append,
                              int compress)
     : location(location), name(name), dataSource(std::move(dataSource)),
       targetType(std::move(targetType)), append(append), compress(compress) {}
@@ -118,7 +142,7 @@ YAML::Node Hdf5DataWrite::serialize() {
   node["targetType"] = targetType->serialize();
   node["writer"] = "hdf5";
   node["type"] = "data";
-  node["append"] = append;
+  node["append"] = appendName(append);
   node["compress"] = compress;
   return node;
 }
@@ -127,7 +151,8 @@ Hdf5DataWrite::Hdf5DataWrite(YAML::Node node)
     : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
       dataSource(writer::DataSource::deserialize(node["source"])),
       targetType(datatype::Datatype::deserialize(node["targetType"])),
-      append(node["append"].as<bool>()), compress(node["compress"].as<int>()) {}
+      append(appendFromName(node["append"].as<std::string>())),
+      compress(node["compress"].as<int>()) {}
 
 std::vector<std::shared_ptr<DataSource>> Hdf5DataWrite::dataSources() { return {dataSource}; }
 

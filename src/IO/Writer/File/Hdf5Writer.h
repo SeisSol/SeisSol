@@ -34,7 +34,7 @@ class Hdf5File {
                  const std::shared_ptr<DataSource>& source,
                  const std::shared_ptr<datatype::Datatype>& targetType,
                  int compress,
-                 bool append);
+                 instructions::Append append);
   void writeLinkExternal(const std::string& name,
                          const std::string& targetFile,
                          const std::string& targetPath);

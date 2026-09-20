@@ -314,7 +314,8 @@ void XdmfWriter::addData(const std::string& name,
           datasetName,
           data,
           data->datatype(),
-          !isConst,
+          // a step dimension, so that a time step can be sliced out of the dataset
+          isConst ? writer::instructions::Append::None : writer::instructions::Append::Steps,
           compress);
     }
 

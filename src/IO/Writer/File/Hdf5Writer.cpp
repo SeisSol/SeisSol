@@ -171,13 +171,13 @@ struct DatasetLayout {
   static DatasetLayout of(const async::ExecInfo& info,
                           const std::shared_ptr<DataSource>& source,
                           MPI_Comm comm,
-                          bool append);
+                          instructions::Append append);
 };
 
 DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
                                 const std::shared_ptr<DataSource>& source,
                                 MPI_Comm comm,
-                                bool append) {
+                                instructions::Append append) {
   const MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
 
   // the replicated dimensions are fixed, so the distributed one is what is left of the count
@@ -210,12 +210,12 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   MPI_Allreduce(&layout.count, &layout.allcount, 1, sizetype, MPI_SUM, comm);
   MPI_Exscan(&layout.count, &layout.offset, 1, sizetype, MPI_SUM, comm);
 
-  // Appending to distributed data extends the dimension the ranks are already concatenated
-  // along, rather than adding one of its own: a reader of, say, a VTKHDF time series expects one
-  // flat array that it slices with the step offsets, not an array with a step dimension.
-  const bool appendAlongDistributed = append && source->distributed();
+  // Append::Flat extends the dimension the ranks are already concatenated along instead of adding
+  // one of its own, which is what a reader of a VTKHDF time series expects. It is only meaningful
+  // where there is such a dimension.
+  const bool appendAlongDistributed = append == instructions::Append::Flat && source->distributed();
 
-  if (append && !appendAlongDistributed) {
+  if (append != instructions::Append::None && !appendAlongDistributed) {
     layout.globalSizesMax.push_back(H5S_UNLIMITED);
     layout.globalSizes.push_back(1);
     layout.localSizes.push_back(1);
@@ -254,7 +254,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
                          const std::shared_ptr<DataSource>& source,
                          const std::shared_ptr<datatype::Datatype>& targetType,
                          int compress,
-                         bool append) {
+                         instructions::Append append) {
 
   const auto layout = DatasetLayout::of(info, source, comm_, append);
 
@@ -277,8 +277,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   std::size_t dyndim = 0;
 
-  const bool appendAlongDistributed = append && source->distributed();
-  if (append && !appendAlongDistributed) {
+  const bool appendAlongDistributed = append == instructions::Append::Flat && source->distributed();
+  if (append != instructions::Append::None && !appendAlongDistributed) {
     writeStart.push_back(0);
     writeLength.push_back(1);
     dyndim = 1;
@@ -309,7 +309,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   bool create = true;
   if (exists > 0) {
-    if (append) {
+    if (append != instructions::Append::None) {
       h5data = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));
 
       h5space = _eh(H5Dget_space(h5data));
@@ -327,7 +327,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
       // for distributed data the dataset grows by a whole round of it, and this rank writes at
       // its usual offset inside the part that was just added
-      const auto grow = source->distributed() ? allcount : 1_UZ;
+      const auto grow = appendAlongDistributed ? allcount : 1_UZ;
       appendBase = newGlobalSizes[0];
       writeStart[0] = appendBase;
       newGlobalSizes[0] += grow;
@@ -395,7 +395,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   for (std::size_t i = 0; i < rounds; ++i) {
     if (source->distributed()) {
-      writeStart[dyndim] = appendBase + offset + written;
+      writeStart[dyndim] = (appendAlongDistributed ? appendBase : 0) + offset + written;
       writeLength[dyndim] = std::min(count - written, chunkcount);
     }
 
