@@ -376,8 +376,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       // state: the density and the undamaged moduli are in the wave speeds of
       // this face already.
       if constexpr (seissol::dr::NodalImpedance) {
+        // The strain a side carries before the first timestep belongs to the
+        // frame it was given in, and what a node reads is rotated into the
+        // frame of the face; so it is rotated here, once.
+        std::array<double, 36> nodalBond{};
+        seissol::model::getBondMatrix(
+            fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, nodalBond);
         seissol::dr::setNodalImpedanceParameters(
-            *plusMaterial, *minusMaterial, nodalImpedanceParams[ltsFace]);
+            *plusMaterial, *minusMaterial, nodalBond, nodalImpedanceParams[ltsFace]);
       }
 
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);

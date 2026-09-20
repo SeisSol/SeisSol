@@ -16,7 +16,9 @@
 #include "Equations/Datastructures.h"
 #include "Kernels/Precision.h"
 
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
 namespace seissol::dr {
@@ -99,6 +101,11 @@ struct NodalImpedanceParameters {
   real mu0Minus{};
   real gammaRMinus{};
   real xi0Minus{};
+  /// The strain each side carries before the first timestep, rotated into the
+  /// frame of this face. The tangent of the stress turns on the direction of
+  /// the total strain, and at a fault the background dominates it.
+  real epsInitPlus[6]{};
+  real epsInitMinus[6]{};
 };
 
 /// Fills what the impedance of a node needs from the material of the two
@@ -110,6 +117,7 @@ struct NodalImpedanceParameters {
 template <typename MaterialT>
 void setNodalImpedanceParameters([[maybe_unused]] const MaterialT& plus,
                                  [[maybe_unused]] const MaterialT& minus,
+                                 [[maybe_unused]] const std::array<double, 36>& rotation,
                                  [[maybe_unused]] NodalImpedanceParameters& parameters) {
   if constexpr (NodalImpedance) {
     parameters.rhoPlus = plus.rho;
@@ -122,6 +130,32 @@ void setNodalImpedanceParameters([[maybe_unused]] const MaterialT& plus,
     parameters.mu0Minus = minus.mu0;
     parameters.gammaRMinus = minus.gammaR;
     parameters.xi0Minus = minus.xi0;
+
+    // A strain in tensor components rotates with the matrix a stress rotates
+    // with; only the engineering convention, which doubles the shear, would
+    // need the other one.
+    const double plusStrain[6] = {plus.epsInitXX,
+                                  plus.epsInitYY,
+                                  plus.epsInitZZ,
+                                  plus.epsInitXY,
+                                  plus.epsInitYZ,
+                                  plus.epsInitXZ};
+    const double minusStrain[6] = {minus.epsInitXX,
+                                   minus.epsInitYY,
+                                   minus.epsInitZZ,
+                                   minus.epsInitXY,
+                                   minus.epsInitYZ,
+                                   minus.epsInitXZ};
+    for (std::size_t row = 0; row < 6; ++row) {
+      double rotatedPlus = 0.0;
+      double rotatedMinus = 0.0;
+      for (std::size_t col = 0; col < 6; ++col) {
+        rotatedPlus += rotation[row * 6 + col] * plusStrain[col];
+        rotatedMinus += rotation[row * 6 + col] * minusStrain[col];
+      }
+      parameters.epsInitPlus[row] = static_cast<real>(rotatedPlus);
+      parameters.epsInitMinus[row] = static_cast<real>(rotatedMinus);
+    }
   }
 }
 
@@ -141,22 +175,18 @@ struct FaultImpedancesImpl {};
 
 template <>
 struct FaultImpedancesImpl<Executor::Host, true> {
-  alignas(Alignment) real etaS[misc::NumPaddedPoints]{};
-  alignas(Alignment) real invEtaS[misc::NumPaddedPoints]{};
-  alignas(Alignment) real invZs[misc::NumPaddedPoints]{};
-  alignas(Alignment) real invZp[misc::NumPaddedPoints]{};
-  alignas(Alignment) real invZsNeig[misc::NumPaddedPoints]{};
-  alignas(Alignment) real invZpNeig[misc::NumPaddedPoints]{};
+  alignas(Alignment) real admittance[9][misc::NumPaddedPoints]{};
+  alignas(Alignment) real admittanceNeig[9][misc::NumPaddedPoints]{};
+  alignas(Alignment) real eta[9][misc::NumPaddedPoints]{};
+  alignas(Alignment) real lateralStress[9][misc::NumPaddedPoints]{};
 };
 
 template <>
 struct FaultImpedancesImpl<Executor::Device, true> {
-  real etaS{};
-  real invEtaS{};
-  real invZs{};
-  real invZp{};
-  real invZsNeig{};
-  real invZpNeig{};
+  real admittance[9]{};
+  real admittanceNeig[9]{};
+  real eta[9]{};
+  real lateralStress[9]{};
 };
 
 template <Executor Executor>
@@ -164,52 +194,271 @@ using FaultImpedances = FaultImpedancesImpl<Executor, NodalImpedance>;
 
 /// The impedance at one node, which is what the device keeps per thread. The
 /// same type, so that a node's impedance and a face's cannot drift into two
-/// definitions of the same six numbers.
+/// definitions of the same three matrices.
 using NodalImpedanceT = FaultImpedancesImpl<Executor::Device, true>;
 
-/// The impedance a wave sees at one node of a face.
+/// Eigenvalues of a symmetric 3x3, from the trigonometric solution of its
+/// characteristic cubic. No iteration, and no branch beyond the one that says
+/// the matrix is already diagonal.
+SEISSOL_HOSTDEVICE inline void eigenvaluesSymmetric(const real matrix[9], real values[3]) {
+  const auto offDiagonal = matrix[1] * matrix[1] + matrix[2] * matrix[2] + matrix[5] * matrix[5];
+  if (offDiagonal <= static_cast<real>(0.0)) {
+    values[0] = matrix[0];
+    values[1] = matrix[4];
+    values[2] = matrix[8];
+    return;
+  }
+  const auto mean = (matrix[0] + matrix[4] + matrix[8]) / static_cast<real>(3.0);
+  const auto spread =
+      (matrix[0] - mean) * (matrix[0] - mean) + (matrix[4] - mean) * (matrix[4] - mean) +
+      (matrix[8] - mean) * (matrix[8] - mean) + static_cast<real>(2.0) * offDiagonal;
+  const auto scale = std::sqrt(spread / static_cast<real>(6.0));
+  real shifted[9];
+  for (std::size_t k = 0; k < 9; ++k) {
+    shifted[k] = matrix[k] / scale;
+  }
+  shifted[0] -= mean / scale;
+  shifted[4] -= mean / scale;
+  shifted[8] -= mean / scale;
+  const auto determinant = shifted[0] * (shifted[4] * shifted[8] - shifted[5] * shifted[7]) -
+                           shifted[1] * (shifted[3] * shifted[8] - shifted[5] * shifted[6]) +
+                           shifted[2] * (shifted[3] * shifted[7] - shifted[4] * shifted[6]);
+  auto argument = determinant / static_cast<real>(2.0);
+  argument = argument < static_cast<real>(-1.0)
+                 ? static_cast<real>(-1.0)
+                 : (argument > static_cast<real>(1.0) ? static_cast<real>(1.0) : argument);
+  const auto angle = std::acos(argument) / static_cast<real>(3.0);
+  constexpr auto TwoThirdsPi = static_cast<real>(2.0943951023931953);
+  values[0] = mean + static_cast<real>(2.0) * scale * std::cos(angle);
+  values[2] = mean + static_cast<real>(2.0) * scale * std::cos(angle + TwoThirdsPi);
+  values[1] = static_cast<real>(3.0) * mean - values[0] - values[2];
+}
+
+/// The inverse square root of a symmetric positive definite 3x3.
 ///
-/// The moduli follow the state here, so this is a property of a point and an
-/// instant rather than of the material. It is the secant linearisation the
-/// volume carries, not the exact tangent: the tangent has terms in the outer
-/// product of the strain with itself, and its acoustic tensor would depend on
-/// the direction of the normal relative to the principal strain axes. The
-/// secant is what the volume's wave speed uses, and a face that carried a
-/// different material than the cells beside it is worse than a face that
-/// carries an approximate one.
-///
-/// The solid branch alone, without the breakage blend, for the same reason.
-SEISSOL_HOSTDEVICE inline NodalImpedanceT nodalImpedance(const NodalImpedanceParameters& params,
-                                                         real alphaPlus,
-                                                         real xiPlus,
-                                                         real alphaMinus,
-                                                         real xiMinus) {
-  const auto shear = [](real mu0, real gammaR, real xi0, real alpha, real xi) {
-    // 2 mu_eff, as the volume forms it
-    return static_cast<real>(2.0 * mu0 - 2.0 * gammaR * xi0 * alpha - gammaR * alpha * xi);
+/// Through Cayley-Hamilton on both halves: the square root is a combination of
+/// the matrix, its square and the identity once the invariants of the root are
+/// known, and inverting it is that statement again. No eigenvector is formed
+/// and no inverse is taken, which is what makes it exact where two of the
+/// three eigenvalues coincide -- at a fault, the two shear waves.
+SEISSOL_HOSTDEVICE inline void inverseSqrtSymmetric(const real matrix[9], real result[9]) {
+  const auto product = [](const real* a, const real* b, real* out) {
+    for (std::size_t row = 0; row < 3; ++row) {
+      for (std::size_t col = 0; col < 3; ++col) {
+        real sum = static_cast<real>(0.0);
+        for (std::size_t k = 0; k < 3; ++k) {
+          sum += a[3 * row + k] * b[3 * k + col];
+        }
+        out[3 * row + col] = sum;
+      }
+    }
   };
+  real values[3];
+  eigenvaluesSymmetric(matrix, values);
+  const auto first = std::sqrt(values[0]) + std::sqrt(values[1]) + std::sqrt(values[2]);
+  const auto third = std::sqrt(values[0] * values[1] * values[2]);
+  const auto trace = matrix[0] + matrix[4] + matrix[8];
+  const auto second = static_cast<real>(0.5) * (first * first - trace);
 
-  const auto twoMuPlus =
-      shear(params.mu0Plus, params.gammaRPlus, params.xi0Plus, alphaPlus, xiPlus);
-  const auto twoMuMinus =
-      shear(params.mu0Minus, params.gammaRMinus, params.xi0Minus, alphaMinus, xiMinus);
+  real square[9];
+  product(matrix, matrix, square);
+  const auto scale = first * second - third;
+  real root[9];
+  for (std::size_t k = 0; k < 9; ++k) {
+    root[k] = (-square[k] + (first * first - second) * matrix[k]) / scale;
+  }
+  root[0] += first * third / scale;
+  root[4] += first * third / scale;
+  root[8] += first * third / scale;
 
-  const auto zp = std::sqrt(static_cast<real>(params.rhoPlus) *
-                            (static_cast<real>(params.lambda0Plus) + twoMuPlus));
-  const auto zpNeig = std::sqrt(static_cast<real>(params.rhoMinus) *
-                                (static_cast<real>(params.lambda0Minus) + twoMuMinus));
-  const auto zs = std::sqrt(static_cast<real>(params.rhoPlus) * static_cast<real>(0.5) * twoMuPlus);
-  const auto zsNeig =
-      std::sqrt(static_cast<real>(params.rhoMinus) * static_cast<real>(0.5) * twoMuMinus);
+  real rootSquare[9];
+  product(root, root, rootSquare);
+  for (std::size_t k = 0; k < 9; ++k) {
+    result[k] = (rootSquare[k] - first * root[k]) / third;
+  }
+  result[0] += second / third;
+  result[4] += second / third;
+  result[8] += second / third;
+}
 
-  NodalImpedanceT impedance{};
-  impedance.invZp = static_cast<real>(1.0) / zp;
-  impedance.invZpNeig = static_cast<real>(1.0) / zpNeig;
-  impedance.invZs = static_cast<real>(1.0) / zs;
-  impedance.invZsNeig = static_cast<real>(1.0) / zsNeig;
-  impedance.invEtaS = impedance.invZs + impedance.invZsNeig;
-  impedance.etaS = static_cast<real>(1.0) / impedance.invEtaS;
-  return impedance;
+/// The tangent of the stress at one node, in Voigt, as the 6 by 6 that a
+/// strain in tensor components is contracted with.
+///
+/// With n the strain normalised in the Frobenius norm, xi = tr(n) and
+/// g = gammaR alpha,
+///
+///   C = lambda0 d(x)d + (2 mu0 - 2 g xi0 - g xi) Isym
+///         - g (d(x)n + n(x)d) + g xi n(x)n,
+///
+/// whose last two groups no pair of Lame parameters expresses. The solid
+/// branch alone, without the breakage blend.
+SEISSOL_HOSTDEVICE inline void damageTangent(real lambda0,
+                                             real mu0,
+                                             real gammaR,
+                                             real xi0,
+                                             real alpha,
+                                             const real strain[6],
+                                             real tangent[36]) {
+  constexpr real Weight[6] = {static_cast<real>(1.0),
+                              static_cast<real>(1.0),
+                              static_cast<real>(1.0),
+                              static_cast<real>(2.0),
+                              static_cast<real>(2.0),
+                              static_cast<real>(2.0)};
+  const auto i1 = strain[0] + strain[1] + strain[2];
+  real i2 = static_cast<real>(0.0);
+  for (std::size_t k = 0; k < 6; ++k) {
+    i2 += Weight[k] * strain[k] * strain[k];
+  }
+  const auto floor = std::numeric_limits<real>::epsilon() * std::numeric_limits<real>::epsilon();
+  const auto deformed = i2 > floor;
+  const auto root = std::sqrt(deformed ? i2 : floor);
+  // A node at rest has no direction to give, and there the material is the
+  // undamaged one whatever the damage says.
+  const auto xi = deformed ? i1 / root : static_cast<real>(0.0);
+  const auto coupling = deformed ? gammaR * alpha : static_cast<real>(0.0);
+  const auto shear =
+      static_cast<real>(2.0) * mu0 - static_cast<real>(2.0) * coupling * xi0 - coupling * xi;
+
+  constexpr real Delta[6] = {static_cast<real>(1.0),
+                             static_cast<real>(1.0),
+                             static_cast<real>(1.0),
+                             static_cast<real>(0.0),
+                             static_cast<real>(0.0),
+                             static_cast<real>(0.0)};
+  for (std::size_t a = 0; a < 6; ++a) {
+    const auto na = deformed ? strain[a] / root : static_cast<real>(0.0);
+    for (std::size_t b = 0; b < 6; ++b) {
+      const auto nb = deformed ? strain[b] / root : static_cast<real>(0.0);
+      auto value = lambda0 * Delta[a] * Delta[b] - coupling * (Delta[a] * nb + na * Delta[b]) +
+                   coupling * xi * na * nb;
+      if (a == b) {
+        value += shear * (a < 3 ? static_cast<real>(1.0) : static_cast<real>(0.5));
+      }
+      tangent[6 * a + b] = value;
+    }
+  }
+}
+
+/// The admittance a wave sees at one node of a face.
+///
+/// The acoustic tensor of the tangent in the face normal, which the face frame
+/// puts on the first axis, is Gamma_ik = C_i1k1; the admittance is
+/// (rho Gamma)^-1/2, which is where a scalar would carry 1 / (rho c).
+SEISSOL_HOSTDEVICE inline void
+    admittanceFromTangent(real rho, const real tangent[36], real admittance[9]) {
+  // Voigt index of the pair (i, normal): nn, nt1, nt2. Read as plain tensor
+  // components -- a Voigt weight belongs to a contraction with a strain, and
+  // this is not one.
+  constexpr std::size_t Traction[3] = {0, 3, 5};
+  real gamma[9];
+  for (std::size_t i = 0; i < 3; ++i) {
+    for (std::size_t k = 0; k < 3; ++k) {
+      gamma[3 * i + k] = rho * tangent[6 * Traction[i] + Traction[k]];
+    }
+  }
+  inverseSqrtSymmetric(gamma, admittance);
+}
+
+/// The inverse of a 3x3, by cofactors.
+SEISSOL_HOSTDEVICE inline void inverse3(const real matrix[9], real result[9]) {
+  const auto determinant = matrix[0] * (matrix[4] * matrix[8] - matrix[5] * matrix[7]) -
+                           matrix[1] * (matrix[3] * matrix[8] - matrix[5] * matrix[6]) +
+                           matrix[2] * (matrix[3] * matrix[7] - matrix[4] * matrix[6]);
+  result[0] = (matrix[4] * matrix[8] - matrix[5] * matrix[7]) / determinant;
+  result[1] = (matrix[2] * matrix[7] - matrix[1] * matrix[8]) / determinant;
+  result[2] = (matrix[1] * matrix[5] - matrix[2] * matrix[4]) / determinant;
+  result[3] = (matrix[5] * matrix[6] - matrix[3] * matrix[8]) / determinant;
+  result[4] = (matrix[0] * matrix[8] - matrix[2] * matrix[6]) / determinant;
+  result[5] = (matrix[2] * matrix[3] - matrix[0] * matrix[5]) / determinant;
+  result[6] = (matrix[3] * matrix[7] - matrix[4] * matrix[6]) / determinant;
+  result[7] = (matrix[1] * matrix[6] - matrix[0] * matrix[7]) / determinant;
+  result[8] = (matrix[0] * matrix[4] - matrix[1] * matrix[3]) / determinant;
+}
+
+/// The stress a face carries outside its Riemann problem, as the map from the
+/// traction it solves for.
+///
+/// Across the waves of the face normal only the strains with a traction index
+/// jump; the three tangential ones carry no flux through the face and stand
+/// still. So with T the traction indices and L the lateral ones,
+///
+///   d sigma_L = C_LT w d eps_T   and   d sigma_T = C_TT w d eps_T,
+///
+/// and the map is (C_LT w) (C_TT w)^-1. For an undamaged solid it comes out
+/// as lambda / (lambda + 2 mu) on the two normal rows and nothing else;
+/// damage fills in the shear column, which no isotropic modulus reaches.
+SEISSOL_HOSTDEVICE inline void lateralFromTangent(const real tangent[36], real lateralStress[9]) {
+  constexpr std::size_t Traction[3] = {0, 3, 5};
+  constexpr std::size_t Lateral[3] = {1, 2, 4};
+  constexpr real Weight[3] = {
+      static_cast<real>(1.0), static_cast<real>(2.0), static_cast<real>(2.0)};
+  real tractionBlock[9];
+  real lateralBlock[9];
+  for (std::size_t i = 0; i < 3; ++i) {
+    for (std::size_t k = 0; k < 3; ++k) {
+      tractionBlock[3 * i + k] = tangent[6 * Traction[i] + Traction[k]] * Weight[k];
+      lateralBlock[3 * i + k] = tangent[6 * Lateral[i] + Traction[k]] * Weight[k];
+    }
+  }
+  real inverse[9];
+  inverse3(tractionBlock, inverse);
+  for (std::size_t i = 0; i < 3; ++i) {
+    for (std::size_t k = 0; k < 3; ++k) {
+      real sum = static_cast<real>(0.0);
+      for (std::size_t j = 0; j < 3; ++j) {
+        sum += lateralBlock[3 * i + j] * inverse[3 * j + k];
+      }
+      lateralStress[3 * i + k] = sum;
+    }
+  }
+}
+
+/// Everything one node of a face needs: the admittance of both sides, the eta
+/// they make, and the map onto the stress outside the Riemann problem. All of
+/// it out of the tangent, which is formed once per side and read three times.
+SEISSOL_HOSTDEVICE inline void nodalAdmittance(const NodalImpedanceParameters& params,
+                                               real alphaPlus,
+                                               const real strainPlus[6],
+                                               real alphaMinus,
+                                               const real strainMinus[6],
+                                               real admittancePlus[9],
+                                               real admittanceMinus[9],
+                                               real eta[9],
+                                               real lateralStress[9]) {
+  real totalPlus[6];
+  real totalMinus[6];
+  for (std::size_t k = 0; k < 6; ++k) {
+    totalPlus[k] = strainPlus[k] + params.epsInitPlus[k];
+    totalMinus[k] = strainMinus[k] + params.epsInitMinus[k];
+  }
+
+  real tangentPlus[36];
+  real tangentMinus[36];
+  damageTangent(params.lambda0Plus,
+                params.mu0Plus,
+                params.gammaRPlus,
+                params.xi0Plus,
+                alphaPlus,
+                totalPlus,
+                tangentPlus);
+  damageTangent(params.lambda0Minus,
+                params.mu0Minus,
+                params.gammaRMinus,
+                params.xi0Minus,
+                alphaMinus,
+                totalMinus,
+                tangentMinus);
+  admittanceFromTangent(params.rhoPlus, tangentPlus, admittancePlus);
+  admittanceFromTangent(params.rhoMinus, tangentMinus, admittanceMinus);
+  // The plus side, because that is where the fault output evaluates them.
+  lateralFromTangent(tangentPlus, lateralStress);
+
+  real sum[9];
+  for (std::size_t k = 0; k < 9; ++k) {
+    sum[k] = admittancePlus[k] + admittanceMinus[k];
+  }
+  inverse3(sum, eta);
 }
 
 /// The strain invariant ratio at a node, from the six Voigt components of the

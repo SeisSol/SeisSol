@@ -409,31 +409,35 @@ void ReceiverOutput::calcFaultOutput(
 }
 
 NodalImpedanceT ReceiverOutput::nodalImpedanceAt(const LocalInfo& local) {
-  if constexpr (NodalImpedance) {
-    const auto& params = (local.layer->var<DynamicRupture::NodalImpedanceParams>())[local.ltsId];
-    const auto ratio = [](const auto& values) {
-      return strainRatio(values[QuantityIndices::EXX],
-                         values[QuantityIndices::EYY],
-                         values[QuantityIndices::EZZ],
-                         values[QuantityIndices::EXY],
-                         values[QuantityIndices::EYZ],
-                         values[QuantityIndices::EXZ]);
-    };
-    return nodalImpedance(params,
-                          local.faceAlignedValuesPlus[QuantityIndices::ALPHA],
-                          ratio(local.faceAlignedValuesPlus),
-                          local.faceAlignedValuesMinus[QuantityIndices::ALPHA],
-                          ratio(local.faceAlignedValuesMinus));
+  NodalImpedanceT impedance{};
+  if constexpr (!NodalImpedance) {
+    // Only a material whose moduli follow the state has an impedance per
+    // node; for every other one it belongs to the face, and the callers ask
+    // the face instead of coming here.
+    return impedance;
   } else {
-    // The impedance belongs to the face; the same six numbers, per face.
-    const auto& impAndEta = (local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId];
-    NodalImpedanceT impedance{};
-    impedance.invZp = impAndEta.invZp;
-    impedance.invZpNeig = impAndEta.invZpNeig;
-    impedance.invZs = impAndEta.invZs;
-    impedance.invZsNeig = impAndEta.invZsNeig;
-    impedance.etaS = impAndEta.etaS;
-    impedance.invEtaS = impAndEta.invEtaS;
+    const auto& params = (local.layer->var<DynamicRupture::NodalImpedanceParams>())[local.ltsId];
+    const auto gather = [](const auto& values, real* into) {
+      into[0] = values[QuantityIndices::EXX];
+      into[1] = values[QuantityIndices::EYY];
+      into[2] = values[QuantityIndices::EZZ];
+      into[3] = values[QuantityIndices::EXY];
+      into[4] = values[QuantityIndices::EYZ];
+      into[5] = values[QuantityIndices::EXZ];
+    };
+    real strainPlus[6];
+    real strainMinus[6];
+    gather(local.faceAlignedValuesPlus, strainPlus);
+    gather(local.faceAlignedValuesMinus, strainMinus);
+    nodalAdmittance(params,
+                    local.faceAlignedValuesPlus[QuantityIndices::ALPHA],
+                    strainPlus,
+                    local.faceAlignedValuesMinus[QuantityIndices::ALPHA],
+                    strainMinus,
+                    impedance.admittance,
+                    impedance.admittanceNeig,
+                    impedance.eta,
+                    impedance.lateralStress);
     return impedance;
   }
 }
@@ -474,15 +478,31 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
       }
     }();
 
+    // Where the moduli follow the state the matrices belong to this point, and
+    // they are formed here the way the friction solve forms them at a node.
+    // Where they belong to the face they were assembled once, and are wider
+    // than three by three wherever the interface carries a fluid column.
+    [[maybe_unused]] NodalImpedanceT nodal{};
+    if constexpr (NodalImpedance) {
+      nodal = nodalImpedanceAt(local);
+    }
+    const auto* __restrict admittance =
+        NodalImpedance ? nodal.admittance : impedanceMatrices.impedance;
+    const auto* __restrict admittanceNeig =
+        NodalImpedance ? nodal.admittanceNeig : impedanceMatrices.impedanceNeig;
+    const auto* __restrict etaMatrix = NodalImpedance ? nodal.eta : impedanceMatrices.eta;
+    const auto* __restrict lateralMap =
+        NodalImpedance ? nodal.lateralStress : impedanceMatrices.lateralStress;
+
     // Y+ T+ and Y- T-; the matrices are dense and column major, so [col * Count + row]
     std::array<real, Count> admittedPlus{};
     std::array<real, Count> admittedMinus{};
     for (std::size_t k = 0; k < Count; ++k) {
       for (std::size_t j = 0; j < Count; ++j) {
-        admittedPlus[j] += impedanceMatrices.impedance[k * Count + j] *
-                           local.faceAlignedValuesPlus[StressIndices[k]];
-        admittedMinus[j] += impedanceMatrices.impedanceNeig[k * Count + j] *
-                            local.faceAlignedValuesMinus[StressIndices[k]];
+        admittedPlus[j] +=
+            admittance[k * Count + j] * local.faceAlignedValuesPlus[StressIndices[k]];
+        admittedMinus[j] +=
+            admittanceNeig[k * Count + j] * local.faceAlignedValuesMinus[StressIndices[k]];
       }
     }
 
@@ -490,7 +510,7 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     for (std::size_t k = 0; k < Count; ++k) {
       const real rhs = diff(VelocityIndices[k]) + admittedPlus[k] + admittedMinus[k];
       for (std::size_t j = 0; j < Count; ++j) {
-        traction[j] += impedanceMatrices.eta[k * Count + j] * rhs;
+        traction[j] += etaMatrix[k * Count + j] * rhs;
       }
     }
 
@@ -506,9 +526,9 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     real normalVelocity = local.faceAlignedValuesPlus[QuantityIndices::U];
     std::array<real, 3> lateralStress{};
     for (std::size_t k = 0; k < Count; ++k) {
-      normalVelocity += impedanceMatrices.impedance[k * Count + 0] * tractionDiff[k];
+      normalVelocity += admittance[k * Count + 0] * tractionDiff[k];
       for (std::size_t j = 0; j < 3; ++j) {
-        lateralStress[j] += impedanceMatrices.lateralStress[k * 3 + j] * tractionDiff[k];
+        lateralStress[j] += lateralMap[k * 3 + j] * tractionDiff[k];
       }
     }
     local.faultNormalVelocity = normalVelocity;
@@ -521,10 +541,9 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     local.faceAlignedStress23 =
         local.faceAlignedValuesPlus[QuantityIndices::SYZ] + lateralStress[2];
   } else {
-    // The impedance of this point, formed the way the friction solve forms
-    // it -- from the state that is here. Where it belongs to the face, the
-    // two are the same four numbers and this is the face's.
-    const auto impedance = nodalImpedanceAt(local);
+    // An isotropic material whose moduli do not follow the state: the
+    // impedance belongs to the face, and these are its four numbers.
+    const auto& impedance = (local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId];
     const real normalDivisor = impedance.invZp + impedance.invZpNeig;
     const real shearDivisor = impedance.invZs + impedance.invZsNeig;
 
@@ -662,14 +681,35 @@ void ReceiverOutput::computeSlipRate(
     projectOntoStrikeAndDip(
         local, local.slipRateTangent1, local.slipRateTangent2, tangent1, tangent2, strike, dip);
   } else {
-    // the shear block of eta is a multiple of the identity for every material with an isotropic
-    // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
-    // a scalar is exact and the order of scaling and rotation does not matter
-    const auto invEtaS = nodalImpedanceAt(local).invEtaS;
-    local.slipRateStrike =
-        -invEtaS * (rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY]);
-    local.slipRateDip =
-        -invEtaS * (rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]);
+    if constexpr (NodalImpedance) {
+      // The sum of the two admittances is what turns a traction difference
+      // into a slip rate, and for this material it is a matrix: the two shear
+      // rows couple, and they reach the normal row as well.
+      const auto nodal = nodalImpedanceAt(local);
+      const real difference[3] = {
+          static_cast<real>(0.0),
+          rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY],
+          rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]};
+      const auto apply = [&](std::size_t row) {
+        real sum = static_cast<real>(0.0);
+        for (std::size_t k = 0; k < 3; ++k) {
+          sum +=
+              (nodal.admittance[k * 3 + row] + nodal.admittanceNeig[k * 3 + row]) * difference[k];
+        }
+        return -sum;
+      };
+      local.slipRateStrike = apply(1);
+      local.slipRateDip = apply(2);
+    } else {
+      // the shear block of eta is a multiple of the identity for every material with an isotropic
+      // frame -- poroelasticity included, where the fluid column does not reach the shear rows --
+      // so a scalar is exact and the order of scaling and rotation does not matter
+      const auto invEtaS = (local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId].invEtaS;
+      local.slipRateStrike =
+          -invEtaS * (rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY]);
+      local.slipRateDip =
+          -invEtaS * (rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]);
+    }
   }
 }
 

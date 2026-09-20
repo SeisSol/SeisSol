@@ -132,8 +132,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
   const auto* __restrict qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
-                model::MaterialT::Type == model::MaterialType::Viscoelastic ||
-                model::MaterialT::Type == model::MaterialType::Damage) {
+                model::MaterialT::Type == model::MaterialType::Viscoelastic) {
     using Indexing = VariableIndexing<RangeExecutor<Type>::Exec>;
 
     using namespace dr::misc::quantity_indices;
@@ -146,52 +145,12 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto i{startLoopIndex + index};
 
-      // Where the moduli follow the state, the impedance is a property of this
-      // node and this instant. Formed here, once, and kept with the stresses:
-      // a friction law has no way back to the state.
-      if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
-        const auto ratio = [&](const auto* side) {
-          return dr::strainRatio(side[o][EXX][i],
-                                 side[o][EYY][i],
-                                 side[o][EZZ][i],
-                                 side[o][EXY][i],
-                                 side[o][EYZ][i],
-                                 side[o][EXZ][i]);
-        };
-        const auto impedance = dr::nodalImpedance(*nodalImpedanceParams,
-                                                  qIPlus[o][ALPHA][i],
-                                                  ratio(qIPlus),
-                                                  qIMinus[o][ALPHA][i],
-                                                  ratio(qIMinus));
-        Indexing::index(faultStresses.etaS, i) = impedance.etaS;
-        Indexing::index(faultStresses.invEtaS, i) = impedance.invEtaS;
-        Indexing::index(faultStresses.invZp, i) = impedance.invZp;
-        Indexing::index(faultStresses.invZs, i) = impedance.invZs;
-        Indexing::index(faultStresses.invZpNeig, i) = impedance.invZpNeig;
-        Indexing::index(faultStresses.invZsNeig, i) = impedance.invZsNeig;
-      }
-
-      // The same four numbers either way; where they belong to a node they
-      // were just formed there, which is why the arithmetic below needs no
-      // branch of its own.
-      const auto read = [&](const auto& nodal, real constant) {
-        if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
-          return Indexing::index(nodal, i);
-        } else {
-          return constant;
-        }
-      };
-      const auto invZp = read(faultStresses.invZp, impAndEta.invZp);
-      const auto invZs = read(faultStresses.invZs, impAndEta.invZs);
-      const auto invZpNeig = read(faultStresses.invZpNeig, impAndEta.invZpNeig);
-      const auto invZsNeig = read(faultStresses.invZsNeig, impAndEta.invZsNeig);
-      const auto etaS = read(faultStresses.etaS, impAndEta.etaS);
-      // eta_p is not kept: it is the harmonic sum of what is, and only the
-      // Riemann problem reads it.
-      const auto etaP = (model::MaterialT::Type == model::MaterialType::Damage
-                             ? static_cast<real>(1.0) / (invZp + invZpNeig)
-                             : impAndEta.etaP) *
-                        etaPDamp;
+      const auto invZp = impAndEta.invZp;
+      const auto invZs = impAndEta.invZs;
+      const auto invZpNeig = impAndEta.invZpNeig;
+      const auto invZsNeig = impAndEta.invZsNeig;
+      const auto etaS = impAndEta.etaS;
+      const auto etaP = impAndEta.etaP * etaPDamp;
 
       Indexing::index(faultStresses.normalStress, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
@@ -236,13 +195,61 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
       velDiff[1] = qIMinus[o][V][i] - qIPlus[o][V][i];
       velDiff[2] = qIMinus[o][W][i] - qIPlus[o][W][i];
 
+      // The three matrices the Riemann problem reads. Where the moduli belong
+      // to the material they were assembled once for the whole face; where
+      // they follow the state they belong to this node and this instant, and
+      // are kept with the stresses so that the way back and the energy read
+      // the same ones.
+      const real* __restrict admittance = impedanceMatrices.impedance;
+      const real* __restrict admittanceNeig = impedanceMatrices.impedanceNeig;
+      const real* __restrict etaMatrix = impedanceMatrices.eta;
+      [[maybe_unused]] real nodalPlus[9];
+      [[maybe_unused]] real nodalMinus[9];
+      [[maybe_unused]] real nodalEta[9];
+      [[maybe_unused]] real nodalLateral[9];
+      if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
+        const auto gather = [&](const auto* side, real* into) {
+          into[0] = side[o][EXX][i];
+          into[1] = side[o][EYY][i];
+          into[2] = side[o][EZZ][i];
+          into[3] = side[o][EXY][i];
+          into[4] = side[o][EYZ][i];
+          into[5] = side[o][EXZ][i];
+        };
+        real strainPlus[6];
+        real strainMinus[6];
+        gather(qIPlus, strainPlus);
+        gather(qIMinus, strainMinus);
+        dr::nodalAdmittance(*nodalImpedanceParams,
+                            qIPlus[o][ALPHA][i],
+                            strainPlus,
+                            qIMinus[o][ALPHA][i],
+                            strainMinus,
+                            nodalPlus,
+                            nodalMinus,
+                            nodalEta,
+                            nodalLateral);
+        for (std::uint32_t k = 0; k < 9; ++k) {
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.admittance[k], i) =
+              nodalPlus[k];
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.admittanceNeig[k], i) =
+              nodalMinus[k];
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.eta[k], i) = nodalEta[k];
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.lateralStress[k], i) =
+              nodalLateral[k];
+        }
+        admittance = nodalPlus;
+        admittanceNeig = nodalMinus;
+        etaMatrix = nodalEta;
+      }
+
       real strP[Count]{};
       real strM[Count]{};
       const auto rowCompute = [&](auto linear, auto qindex) {
 #pragma unroll
         for (std::uint32_t j = 0; j < Count; ++j) {
-          strP[j] += impedanceMatrices.impedance[linear * Count + j] * qIPlus[o][qindex][i];
-          strM[j] += impedanceMatrices.impedanceNeig[linear * Count + j] * qIMinus[o][qindex][i];
+          strP[j] += admittance[linear * Count + j] * qIPlus[o][qindex][i];
+          strM[j] += admittanceNeig[linear * Count + j] * qIMinus[o][qindex][i];
         }
       };
       rowCompute(0, N);
@@ -259,7 +266,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
       for (std::uint32_t k = 0; k < Count; ++k) {
 #pragma unroll
         for (std::uint32_t j = 0; j < Count; ++j) {
-          res[j] += impedanceMatrices.eta[k * Count + j] * (velDiff[k] + strP[k] + strM[k]);
+          res[j] += etaMatrix[k * Count + j] * (velDiff[k] + strP[k] + strM[k]);
         }
       }
 
@@ -341,19 +348,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
-                model::MaterialT::Type == model::MaterialType::Viscoelastic ||
-                model::MaterialT::Type == model::MaterialType::Damage) {
-    // The same four numbers either way; where the impedance belongs to a node
-    // they were formed there, in the precomputation, and kept with the
-    // stresses. Which is why the arithmetic below needs no branch of its own.
-    const auto readImpedance = [&](const auto& nodal, real constant, std::size_t at) {
-      if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
-        return Acc::index(nodal, at);
-      } else {
-        return constant;
-      }
-    };
-
+                model::MaterialT::Type == model::MaterialType::Viscoelastic) {
     using namespace dr::misc::quantity_indices;
 
 #ifndef ACL_DEVICE
@@ -363,10 +358,10 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
          index += NumPointsRange::Step) {
       auto i{startIndex + index};
 
-      const auto invZp = readImpedance(faultStresses.invZp, impAndEta.invZp, i);
-      const auto invZs = readImpedance(faultStresses.invZs, impAndEta.invZs, i);
-      const auto invZpNeig = readImpedance(faultStresses.invZpNeig, impAndEta.invZpNeig, i);
-      const auto invZsNeig = readImpedance(faultStresses.invZsNeig, impAndEta.invZsNeig, i);
+      const auto invZp = impAndEta.invZp;
+      const auto invZs = impAndEta.invZs;
+      const auto invZpNeig = impAndEta.invZpNeig;
+      const auto invZsNeig = impAndEta.invZsNeig;
 
       const auto normalStress = Acc::index(tractionResults.normalStress, i);
       const auto traction1 = Acc::index(tractionResults.traction1, i);
@@ -447,8 +442,22 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         }
       };
 
-      handleSide(state.minus, qIMinus, impedanceMatrices.impedanceNeig, -1);
-      handleSide(state.plus, qIPlus, impedanceMatrices.impedance, 1);
+      // Where the impedance belongs to a node it was formed in the
+      // precomputation and kept with the stresses; a friction law has no way
+      // back to the state it came from.
+      if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
+        real nodalPlus[9];
+        real nodalMinus[9];
+        for (std::uint32_t k = 0; k < 9; ++k) {
+          nodalPlus[k] = Acc::index(faultStresses.admittance[k], i);
+          nodalMinus[k] = Acc::index(faultStresses.admittanceNeig[k], i);
+        }
+        handleSide(state.minus, qIMinus, nodalMinus, -1);
+        handleSide(state.plus, qIPlus, nodalPlus, 1);
+      } else {
+        handleSide(state.minus, qIMinus, impedanceMatrices.impedanceNeig, -1);
+        handleSide(state.plus, qIPlus, impedanceMatrices.impedance, 1);
+      }
     }
   }
 }
@@ -793,9 +802,20 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
                [[maybe_unused]] real tmag) {
   if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
     // Formed at this node in the precomputation, from the state that was
-    // there; a friction law has no way back to it.
-    return std::pair<real, real>{VariableIndexing<Exec>::index(faultStresses.etaS, index),
-                                 VariableIndexing<Exec>::index(faultStresses.invEtaS, index)};
+    // there; a friction law has no way back to it. Projected onto the slip
+    // direction the same way an anisotropic face projects its own, because
+    // the tangent this material carries couples the two shear modes.
+    constexpr std::uint32_t Count = 3;
+
+    const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
+    const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
+
+    const auto entry = [&](std::uint32_t row, std::uint32_t col) {
+      return VariableIndexing<Exec>::index(faultStresses.eta[Count * col + row], index);
+    };
+    const real etaProj = entry(1, 1) * n1 * n1 + entry(2, 1) * n1 * n2 + entry(1, 2) * n2 * n1 +
+                         entry(2, 2) * n2 * n2;
+    return std::pair<real, real>{etaProj, static_cast<real>(1.0) / etaProj};
   } else if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
     // the anisotropic block is always 3x3 (no fluid pressure component)
     constexpr std::uint32_t Count = 3;
@@ -841,10 +861,15 @@ SEISSOL_HOSTDEVICE inline real
                      [[maybe_unused]] real t2,
                      [[maybe_unused]] real tmag) {
   if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
-    // Zero, and not by omission: the linearisation this material is carried
-    // by is isotropic in its effective moduli, so the normal and the shear
-    // modes of a face do not couple.
-    return static_cast<real>(0.0);
+    // The tangent this material carries couples the normal mode of a face to
+    // its shear modes, so there is a row to read rather than a zero to state.
+    constexpr std::uint32_t Count = 3;
+
+    const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
+    const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
+
+    return VariableIndexing<Exec>::index(faultStresses.eta[Count * 1 + 0], index) * n1 +
+           VariableIndexing<Exec>::index(faultStresses.eta[Count * 2 + 0], index) * n2;
   } else if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
     // the anisotropic block is always 3x3 (no fluid pressure component)
     constexpr std::uint32_t Count = 3;
