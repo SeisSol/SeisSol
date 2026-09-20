@@ -387,6 +387,17 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     real muF{0};
     bool converged = false;
 
+    // A point that carries no normal stress at the free-slip limit has its root exactly there:
+    // |sigma| vanishes, g is the line tau * invEtaS - V, and g(xHigh) = 0. That is worth taking
+    // directly, because it is the one root rtsafe cannot approach: a root on the bracket boundary
+    // leaves the Newton step the same size as the previous one, so the guard falls back to
+    // bisection on every iteration and the solve spends its whole budget halving.
+    if (effectiveNormalStress(normalStress, normalStressStick, etaNormal, xHigh) ==
+        static_cast<real>(0.0)) {
+      x = xHigh;
+      converged = true;
+    }
+
     for (uint32_t i = 0; i < ctx.data->drParameters.rsMaxNumberSlipRateUpdates; i++) {
       const bool active = !converged;
 

@@ -538,12 +538,21 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       const real lo = rs::almostZero();
       const real hi = std::max(lo, absoluteShearStress[pointIndex] * invEta[pointIndex]);
+      // A point that carries no normal stress at the free-slip limit has its root exactly there:
+      // |sigma| vanishes, g is the line Theta * invEta - V, and g(hi) = 0. That is worth taking
+      // directly, because it is the one root rtsafe cannot approach: a root on the bracket
+      // boundary leaves the Newton step the same size as the previous one, so the guard falls
+      // back to bisection on every iteration and the solve spends its whole budget halving.
+      const bool openAtLimit =
+          effectiveNormalStress(normalStress, normalStressStick, etaNormal, hi, pointIndex) ==
+          static_cast<real>(0.0);
       xLow[pointIndex] = lo;
       xHigh[pointIndex] = hi;
       slipRateTest[pointIndex] =
-          std::min(std::max(this->slipRateMagnitude_[ltsFace][pointIndex], lo), hi);
+          openAtLimit ? hi
+                      : std::min(std::max(this->slipRateMagnitude_[ltsFace][pointIndex], lo), hi);
       dxOld[pointIndex] = hi - lo;
-      converged[pointIndex] = 0;
+      converged[pointIndex] = openAtLimit ? 1 : 0;
     }
 
     bool allConverged = false;
