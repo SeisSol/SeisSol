@@ -24,6 +24,7 @@
 #include "ResultWriter/FreeSurfaceWriterExecutor.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -124,6 +125,15 @@ void seissol::writer::FreeSurfaceWriter::init(
     const std::string& backupTimeStamp) {
   if (!enabled_) {
     return;
+  }
+
+  if constexpr (seissol::multisim::MultisimEnabled) {
+    // FreeSurfaceIntegrator::calculateOutput reads the sub-triangle DOFs with a
+    // stride that spans the components only, and the output buffers it fills
+    // hold one value per sub-triangle. Both would have to account for the
+    // simulation dimension.
+    logError() << "The free surface output does not support fused simulations. Use the VTK free "
+                  "surface output instead, by setting a non-negative vtkorder.";
   }
 
   freeSurfaceIntegrator_ = freeSurfaceIntegrator;
