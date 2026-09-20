@@ -8,11 +8,6 @@
 #include <doctest.h>
 
 #include "AsyncWriter.t.h"
-<<<<<<< ours
-=======
-#include "Deduplicate.t.h"
-#include "Grouping.t.h"
-    >>>>>>> theirs
 #include "BufferRegistry.t.h"
 #include "Csv.t.h"
 #include "Datatype.t.h"
@@ -22,6 +17,7 @@
 #include "Datatype/MPIType.t.h"
 #include "Deduplicate.t.h"
 #include "Distributor.t.h"
+#include "Grouping.t.h"
 #include "Hdf5Roundtrip.t.h"
 #include "HdfWriteRead.t.h"
 #include "Instruction.t.h"
