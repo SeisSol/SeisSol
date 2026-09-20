@@ -366,6 +366,81 @@ TEST_CASE("IO/VtkHdf: an incremental snapshot links to the constant data" *
   }
 }
 
+TEST_CASE("IO/VtkHdf: cells share their corners at order 0" * doctest::test_suite("io")) {
+  // the unit cube as six tetrahedra: the cells write twenty-four corners between them, but the
+  // cube has only eight
+  constexpr double Vertices[8][3] = {
+      {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 1}, {1, 0, 1}, {0, 1, 1}, {1, 1, 1}};
+  constexpr std::size_t Cells[6][4] = {
+      {0, 1, 3, 7}, {0, 1, 7, 5}, {0, 5, 7, 4}, {0, 3, 2, 7}, {0, 6, 4, 7}, {0, 2, 6, 7}};
+
+  const unit_test::io::TempDir dir;
+  instance::geometry::WriterConfig config;
+  config.order = 0;
+  config.format = instance::geometry::WriterFormat::Vtk;
+
+  instance::geometry::GeometryWriter geometry(
+      "volume",
+      6,
+      instance::geometry::Shape::Tetrahedron,
+      config,
+      1,
+      [&](double* target, std::size_t cell, std::size_t /*subcell*/) {
+        for (std::size_t corner = 0; corner < 4; ++corner) {
+          for (std::size_t d = 0; d < 3; ++d) {
+            target[corner * 3 + d] = Vertices[Cells[cell][corner]][d];
+          }
+        }
+      });
+  geometry.addGeometryOutput<double>(
+      "v1", {}, false, [](double* target, std::size_t cell, std::size_t /*subcell*/) {
+        target[0] = static_cast<double>(cell);
+      });
+
+  auto plan = geometry.makeWriter()(dir.prefix(), 0, 0.0);
+  unit_test::io::runPlan(plan, MPI_COMM_SELF);
+
+  reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+  hdf5.openFile(dir.prefix() + "-volume-0.vtkhdf");
+  hdf5.openGroup("VTKHDF");
+
+  CHECK(hdf5.readData<std::int64_t>("NumberOfCells").at(0) == 6);
+  CHECK(hdf5.readData<std::int64_t>("NumberOfPoints").at(0) == 8);
+  // the connectivity keeps one entry per corner of every cell
+  CHECK(hdf5.readData<std::int64_t>("NumberOfConnectivityIds").at(0) == 24);
+
+  const auto offsets = hdf5.readData<std::int64_t>("Offsets");
+  REQUIRE(offsets.size() == 7);
+  CHECK(offsets.back() == 24);
+
+  // every corner still resolves to the coordinates the projector gave it
+  const auto connectivity = hdf5.readData<std::int64_t>("Connectivity");
+  const auto points = hdf5.readData<double>("Points");
+  REQUIRE(connectivity.size() == 24);
+  REQUIRE(points.size() == 8 * 3);
+  for (std::size_t cell = 0; cell < 6; ++cell) {
+    for (std::size_t corner = 0; corner < 4; ++corner) {
+      const auto point = connectivity[cell * 4 + corner];
+      REQUIRE(point >= 0);
+      REQUIRE(static_cast<std::size_t>(point) < 8);
+      for (std::size_t d = 0; d < 3; ++d) {
+        CHECK(points[point * 3 + d] == doctest::Approx(Vertices[Cells[cell][corner]][d]));
+      }
+    }
+  }
+
+  hdf5.openGroup("CellData");
+  const auto values = hdf5.readData<double>("v1");
+  REQUIRE(values.size() == 6);
+  for (std::size_t cell = 0; cell < 6; ++cell) {
+    CHECK(values[cell] == doctest::Approx(static_cast<double>(cell)));
+  }
+  hdf5.closeGroup();
+
+  hdf5.closeGroup();
+  hdf5.closeFile();
+}
+
 // ---------------------------------------------------------------------------
 // Xdmf: the declared dimensions have to match the payload that is written
 // ---------------------------------------------------------------------------

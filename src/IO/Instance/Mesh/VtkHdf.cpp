@@ -36,7 +36,8 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::size_t targetDegree,
                            bool temporal,
                            std::int32_t compress,
-                           bool constFile)
+                           bool constFile,
+                           std::optional<VertexMap> vertexMap)
     : name_(name), localElementCount_(localElementCount), globalElementCount_(localElementCount),
       pointsPerElement_(
           geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)),
@@ -54,9 +55,34 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
-  pointOffset_ = elementOffset_ * pointsPerElement_;
-  localPointCount_ = localElementCount * pointsPerElement_;
-  globalPointCount_ = globalElementCount_ * pointsPerElement_;
+  connectivityOffset_ = elementOffset_ * pointsPerElement_;
+  localPointCount_ =
+      vertexMap.has_value() ? vertexMap->localPointCount : localElementCount * pointsPerElement_;
+  if (vertexMap.has_value()) {
+    // shared points, so how many this rank has is no longer a multiple of the cell count.
+    // MPI_Exscan leaves the result untouched on rank 0, so it has to start at zero.
+    pointOffset_ = 0;
+    globalPointCount_ = localPointCount_;
+    MPI_Exscan(&localPointCount_,
+               &pointOffset_,
+               1,
+               datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
+               MPI_SUM,
+               seissol::Mpi::mpi.comm());
+    MPI_Allreduce(&localPointCount_,
+                  &globalPointCount_,
+                  1,
+                  datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
+                  MPI_SUM,
+                  seissol::Mpi::mpi.comm());
+    pointSourceCount_ = localPointCount_;
+    pointsPerSource_ = 1;
+  } else {
+    pointOffset_ = connectivityOffset_;
+    globalPointCount_ = globalElementCount_ * pointsPerElement_;
+    pointSourceCount_ = localElementCount_;
+    pointsPerSource_ = pointsPerElement_;
+  }
 
   const auto version = temporal ? std::vector<int64_t>{2, 0} : std::vector<int64_t>{1, 0};
 
@@ -78,6 +104,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   const auto selfGlobalPointCount = globalPointCount_;
   const auto selfLocalPointCount = localPointCount_;
   const auto selfPointOffset = pointOffset_;
+  const auto selfConnectivityOffset = connectivityOffset_;
   const auto selfPointsPerElement = pointsPerElement_;
   const auto selfType = type_;
 
@@ -88,11 +115,12 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
           temporal,
           writer::WriteInline::createArray<int64_t>(
               {1}, {static_cast<int64_t>(selfGlobalElementCount)}));
-  addData(
-      "NumberOfConnectivityIds",
-      {},
-      temporal,
-      writer::WriteInline::createArray<int64_t>({1}, {static_cast<int64_t>(selfGlobalPointCount)}));
+  // one entry per corner of every cell, which stays the same when the points are shared
+  addData("NumberOfConnectivityIds",
+          {},
+          temporal,
+          writer::WriteInline::createArray<int64_t>(
+              {1}, {static_cast<int64_t>(selfGlobalElementCount * selfPointsPerElement)}));
   addData(
       "NumberOfPoints",
       {},
@@ -108,7 +136,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
               1,
               std::vector<std::size_t>(),
               [=](int64_t* target, std::size_t index) {
-                target[0] = index * selfPointsPerElement + selfPointOffset;
+                target[0] = index * selfPointsPerElement + selfConnectivityOffset;
               }));
   addData("Types",
           {},
@@ -118,14 +146,28 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
               1,
               std::vector<std::size_t>(),
               [=](uint8_t* target, std::size_t /*index*/) { target[0] = selfType; }));
-  addData("Connectivity",
-          {},
-          true,
-          writer::GeneratedBuffer::createElementwise<int64_t>(
-              selfLocalPointCount,
-              1,
-              std::vector<std::size_t>(),
-              [=](int64_t* target, std::size_t index) { target[0] = index + selfPointOffset; }));
+  addData(
+      "Connectivity",
+      {},
+      true,
+      vertexMap.has_value()
+          ? writer::GeneratedBuffer::createElementwise<int64_t>(
+                selfLocalElementCount,
+                selfPointsPerElement,
+                std::vector<std::size_t>(),
+                [=, map = std::move(vertexMap->connectivity)](int64_t* target, std::size_t index) {
+                  for (std::size_t corner = 0; corner < selfPointsPerElement; ++corner) {
+                    target[corner] = static_cast<int64_t>(
+                        map[index * selfPointsPerElement + corner] + selfPointOffset);
+                  }
+                })
+          : writer::GeneratedBuffer::createElementwise<int64_t>(
+                selfLocalPointCount,
+                1,
+                std::vector<std::size_t>(),
+                [=](int64_t* target, std::size_t index) {
+                  target[0] = static_cast<int64_t>(index + selfPointOffset);
+                }));
 
   if (temporal) {
     // https://docs.vtk.org/en/latest/vtk_file_formats/vtkhdf_file_format/vtkhdf_specifications.html

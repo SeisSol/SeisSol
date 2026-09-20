@@ -313,26 +313,27 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
-    auto writer = io::instance::geometry::GeometryWriter("wavefield",
-                                                         celllist.size(),
-                                                         io::instance::geometry::Shape::Tetrahedron,
-                                                         config,
-                                                         subcells.size());
+    auto writer = io::instance::geometry::GeometryWriter(
+        "wavefield",
+        celllist.size(),
+        io::instance::geometry::Shape::Tetrahedron,
+        config,
+        subcells.size(),
 
-    writer.addPointProjector([=](double* target, std::size_t index, std::size_t subcell) {
-      const auto& element = meshReader.getElements()[cellIndices[index]];
-      const auto& vertexArray = meshReader.getVertices();
+        [=](double* target, std::size_t index, std::size_t subcell) {
+          const auto& element = meshReader.getElements()[cellIndices[index]];
+          const auto& vertexArray = meshReader.getVertices();
 
-      for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
-        seissol::transformations::tetrahedronReferenceToGlobal(
-            vertexArray[element.vertices[0]].coords,
-            vertexArray[element.vertices[1]].coords,
-            vertexArray[element.vertices[2]].coords,
-            vertexArray[element.vertices[3]].coords,
-            truePoints[subcell][i].data(),
-            &target[i * 3]);
-      }
-    });
+          for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
+            seissol::transformations::tetrahedronReferenceToGlobal(
+                vertexArray[element.vertices[0]].coords,
+                vertexArray[element.vertices[1]].coords,
+                vertexArray[element.vertices[2]].coords,
+                vertexArray[element.vertices[3]].coords,
+                truePoints[subcell][i].data(),
+                &target[i * 3]);
+          }
+        });
 
     const auto rank = seissol::Mpi::mpi.rank();
     writer.addCellData<int>(
@@ -595,13 +596,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         io::instance::geometry::WriterGroup::FullSnapshot,
         seissolParams.output.hdfcompress};
 
-    auto writer = io::instance::geometry::GeometryWriter("surface",
-                                                         freeSurfaceIntegrator.backmap.size(),
-                                                         io::instance::geometry::Shape::Triangle,
-                                                         config,
-                                                         subcells.size());
+    auto writer = io::instance::geometry::GeometryWriter(
+        "surface",
+        freeSurfaceIntegrator.backmap.size(),
+        io::instance::geometry::Shape::Triangle,
+        config,
+        subcells.size(),
 
-    writer.addPointProjector(
         [=, &freeSurfaceIntegrator](double* target, std::size_t index, std::size_t subcell) {
           auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
           auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];

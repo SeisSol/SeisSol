@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_IO_INSTANCE_MESH_XDMF_H_
 
 #include "IO/Instance/Geometry/Typedefs.h"
+#include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Instructions/Instruction.h"
 #include "IO/Writer/Writer.h"
 
@@ -34,7 +35,8 @@ class XdmfWriter {
              geometry::Shape shape,
              std::size_t targetDegree,
              bool binary,
-             int32_t compress);
+             int32_t compress,
+             std::optional<VertexMap> vertexMap = {});
 
   void addData(const std::string& name,
                const std::string& type,
@@ -42,11 +44,17 @@ class XdmfWriter {
                std::size_t localCount,
                const std::shared_ptr<writer::DataSource>& data);
 
+  /**
+   * @brief Installs the source of the point coordinates.
+   *
+   * Without a vertex map the projector is called once per cell and fills its corners; with one it
+   * is called once per point and fills that point.
+   */
   template <typename F>
   void addPointProjector(F&& projector) {
     const auto data =
-        writer::GeneratedBuffer::createElementwise<double>(localElementCount_,
-                                                           pointsPerElement_,
+        writer::GeneratedBuffer::createElementwise<double>(pointSourceCount_,
+                                                           pointsPerSource_,
                                                            std::vector<std::size_t>{3},
                                                            std::forward<F>(projector));
 
@@ -89,6 +97,9 @@ class XdmfWriter {
   std::size_t globalPointCount_;
   std::size_t pointOffset_;
   std::size_t pointsPerElement_;
+  //! How the point projector is called; see addPointProjector.
+  std::size_t pointSourceCount_{0};
+  std::size_t pointsPerSource_{0};
   std::size_t datasetCount_{0};
   std::vector<std::function<void(std::size_t, double)>> hooks_;
   std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructionsConst_;

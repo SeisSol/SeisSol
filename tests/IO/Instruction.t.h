@@ -224,8 +224,21 @@ TEST_CASE("IO/Instruction: the subdivision multiplies the cell count" * doctest:
   instance::geometry::WriterConfig config;
   config.order = 0;
   config.format = instance::geometry::WriterFormat::Vtk;
+  // the projector is handed to the writer, since the number of points a file holds is only known
+  // once they have been looked at
   instance::geometry::GeometryWriter geometry(
-      "volume", 2, instance::geometry::Shape::Tetrahedron, config, 4);
+      "volume",
+      2,
+      instance::geometry::Shape::Tetrahedron,
+      config,
+      4,
+      [](double* target, std::size_t cell, std::size_t subcell) {
+        for (std::size_t vertex = 0; vertex < 4; ++vertex) {
+          target[vertex * 3 + 0] = static_cast<double>(cell);
+          target[vertex * 3 + 1] = static_cast<double>(subcell);
+          target[vertex * 3 + 2] = static_cast<double>(vertex);
+        }
+      });
 
   std::vector<std::size_t> seenCells;
   std::vector<std::size_t> seenSubcells;

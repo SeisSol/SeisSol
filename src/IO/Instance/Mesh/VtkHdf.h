@@ -22,6 +22,19 @@
 #include <memory>
 
 namespace seissol::io::instance::mesh {
+
+/**
+ * @brief Which point each corner of each cell refers to.
+ *
+ * Without one, every cell writes its own copy of its corners. With one, the points are written
+ * once and the cells index into them, which is what makes an order 0 output as large as the mesh
+ * rather than as large as the mesh times the number of cells a vertex touches.
+ */
+struct VertexMap {
+  std::size_t localPointCount{0};
+  //! localElementCount * pointsPerElement entries, each below localPointCount
+  std::vector<std::size_t> connectivity;
+};
 class VtkHdfWriter {
   public:
   VtkHdfWriter(const std::string& name,
@@ -30,7 +43,8 @@ class VtkHdfWriter {
                std::size_t targetDegree,
                bool temporal,
                std::int32_t compress,
-               bool constFile = false);
+               bool constFile = false,
+               std::optional<VertexMap> vertexMap = {});
 
   void addData(const std::string& name,
                const std::optional<std::string>& group,
@@ -38,11 +52,17 @@ class VtkHdfWriter {
                const std::shared_ptr<writer::DataSource>& data,
                bool attribute = false);
 
+  /**
+   * @brief Installs the source of the point coordinates.
+   *
+   * Without a vertex map the projector is called once per cell and fills its corners; with one it
+   * is called once per point and fills that point.
+   */
   template <typename F>
   void addPointProjector(F&& projector) {
     const auto data =
-        writer::GeneratedBuffer::createElementwise<double>(localElementCount_,
-                                                           pointsPerElement_,
+        writer::GeneratedBuffer::createElementwise<double>(pointSourceCount_,
+                                                           pointsPerSource_,
                                                            std::vector<std::size_t>{3},
                                                            std::forward<F>(projector));
 
@@ -125,6 +145,12 @@ class VtkHdfWriter {
   std::size_t globalPointCount_;
   std::size_t pointOffset_;
   std::size_t pointsPerElement_;
+  //! Where this rank's entries start in the concatenated connectivity, which is not the point
+  //! offset once the points are shared.
+  std::size_t connectivityOffset_{0};
+  //! How the point projector is called; see addPointProjector.
+  std::size_t pointSourceCount_{0};
+  std::size_t pointsPerSource_{0};
   std::vector<std::function<void(std::size_t, double)>> hooks_;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, std::size_t, double)>>

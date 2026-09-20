@@ -211,30 +211,31 @@ void OutputManager::initElementwiseOutput() {
       io::instance::geometry::WriterGroup::FullSnapshot,
       seissolParameters.output.hdfcompress};
 
-  auto writer = io::instance::geometry::GeometryWriter("fault",
-                                                       receiverPoints.size() / dataCount /
-                                                           multisim::NumSimulations,
-                                                       io::instance::geometry::Shape::Triangle,
-                                                       config,
-                                                       1);
+  auto writer = io::instance::geometry::GeometryWriter(
+      "fault",
+      receiverPoints.size() / dataCount / multisim::NumSimulations,
+      io::instance::geometry::Shape::Triangle,
+      config,
+      1,
 
-  writer.addPointProjector([=](double* target, std::size_t index, std::size_t) {
-    if (order > 0) {
-      for (std::size_t i = 0; i < pointCount; ++i) {
-        for (std::size_t j = 0; j < Cell::Dim; ++j) {
-          target[i * Cell::Dim + j] =
-              receiverPoints[(pointCount * index + i) * multisim::NumSimulations].global.coords[j];
+      [=](double* target, std::size_t index, std::size_t) {
+        if (order > 0) {
+          for (std::size_t i = 0; i < pointCount; ++i) {
+            for (std::size_t j = 0; j < Cell::Dim; ++j) {
+              target[i * Cell::Dim + j] =
+                  receiverPoints[(pointCount * index + i) * multisim::NumSimulations]
+                      .global.coords[j];
+            }
+          }
+        } else {
+          const auto& triangle = receiverPoints[index * multisim::NumSimulations].globalTriangle;
+          for (std::size_t i = 0; i < pointCount; ++i) {
+            for (std::size_t j = 0; j < Cell::Dim; ++j) {
+              target[i * Cell::Dim + j] = triangle.point(i).coords[j];
+            }
+          }
         }
-      }
-    } else {
-      const auto& triangle = receiverPoints[index * multisim::NumSimulations].globalTriangle;
-      for (std::size_t i = 0; i < pointCount; ++i) {
-        for (std::size_t j = 0; j < Cell::Dim; ++j) {
-          target[i * Cell::Dim + j] = triangle.point(i).coords[j];
-        }
-      }
-    }
-  });
+      });
 
   const auto rank = seissol::Mpi::mpi.rank();
   writer.addCellData<int>(

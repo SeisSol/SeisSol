@@ -206,7 +206,8 @@ XdmfWriter::XdmfWriter(const std::string& name,
                        geometry::Shape shape,
                        std::size_t targetDegree,
                        bool binary,
-                       int32_t compress)
+                       int32_t compress,
+                       std::optional<VertexMap> vertexMap)
     : name_(name), type_(geometry::xdmfType(shape, targetDegree)), binary_(binary),
       compress_(compress), localElementCount_(localElementCount),
       globalElementCount_(localElementCount),
@@ -224,8 +225,25 @@ XdmfWriter::XdmfWriter(const std::string& name,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
-  pointOffset_ = elementOffset_ * pointsPerElement_;
-  localPointCount_ = localElementCount * pointsPerElement_;
+  localPointCount_ =
+      vertexMap.has_value() ? vertexMap->localPointCount : localElementCount * pointsPerElement_;
+  if (vertexMap.has_value()) {
+    // shared points, so how many this rank has is no longer a multiple of the cell count.
+    // MPI_Exscan leaves the result untouched on rank 0, so it has to start at zero.
+    pointOffset_ = 0;
+    MPI_Exscan(&localPointCount_,
+               &pointOffset_,
+               1,
+               datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
+               MPI_SUM,
+               seissol::Mpi::mpi.comm());
+    pointSourceCount_ = localPointCount_;
+    pointsPerSource_ = 1;
+  } else {
+    pointOffset_ = elementOffset_ * pointsPerElement_;
+    pointSourceCount_ = localElementCount;
+    pointsPerSource_ = pointsPerElement_;
+  }
   globalPointCount_ = globalElementCount_ * pointsPerElement_;
 
   if (binary_ && compress_ > 0) {
@@ -238,16 +256,29 @@ XdmfWriter::XdmfWriter(const std::string& name,
   const auto selfPointOffset = pointOffset_;
   const auto selfPointsPerElement = pointsPerElement_;
 
-  addData(type_,
-          "Topology",
-          true,
-          localElementCount,
-          writer::GeneratedBuffer::createElementwise<int64_t>(
-              localElementCount, 1, {pointsPerElement_}, [=](int64_t* target, std::size_t index) {
-                for (std::size_t i = 0; i < selfPointsPerElement; ++i) {
-                  target[i] = selfPointsPerElement * index + i + selfPointOffset;
-                }
-              }));
+  addData(
+      type_,
+      "Topology",
+      true,
+      localElementCount,
+      vertexMap.has_value()
+          ? writer::GeneratedBuffer::createElementwise<int64_t>(
+                localElementCount,
+                1,
+                {pointsPerElement_},
+                [=, map = std::move(vertexMap->connectivity)](int64_t* target, std::size_t index) {
+                  for (std::size_t i = 0; i < selfPointsPerElement; ++i) {
+                    target[i] = static_cast<int64_t>(map[index * selfPointsPerElement + i] +
+                                                     selfPointOffset);
+                  }
+                })
+          : writer::GeneratedBuffer::createElementwise<int64_t>(
+                localElementCount, 1, {pointsPerElement_}, [=](int64_t* target, std::size_t index) {
+                  for (std::size_t i = 0; i < selfPointsPerElement; ++i) {
+                    target[i] =
+                        static_cast<int64_t>(selfPointsPerElement * index + i + selfPointOffset);
+                  }
+                }));
 }
 
 void XdmfWriter::addData(const std::string& name,

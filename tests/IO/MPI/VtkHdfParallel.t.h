@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Reader/File/Hdf5Reader.h"
@@ -210,6 +211,78 @@ TEST_CASE("IO/VtkHdf: compression survives unequal partitions" * doctest::test_s
     CHECK(values[index] == doctest::Approx(static_cast<double>(index % 7)));
   }
   hdf5.closeGroup();
+
+  hdf5.closeGroup();
+  hdf5.closeFile();
+}
+
+/**
+ * With shared points the number a rank contributes is no longer its cell count times the corners
+ * of a cell, so the point offsets come out of their own scan rather than out of the element one.
+ * That scan is what this checks.
+ */
+TEST_CASE("IO/VtkHdf: shared points are offset per rank" * doctest::test_suite("io")) {
+  const auto rank = static_cast<std::size_t>(Mpi::mpi.rank());
+  const auto size = static_cast<std::size_t>(Mpi::mpi.size());
+  REQUIRE(size > 1);
+
+  // rank r writes r cells, all four corners of each at the same place, so it contributes exactly
+  // one point -- and none at all when it has no cells
+  const auto localCells = rank;
+  const auto globalCells = (size * (size - 1)) / 2;
+  const auto contributingRanks = size - 1;
+
+  const SharedTempDir dir;
+  instance::geometry::WriterConfig config;
+  config.order = 0;
+  config.format = instance::geometry::WriterFormat::Vtk;
+
+  instance::geometry::GeometryWriter geometry(
+      "volume",
+      localCells,
+      instance::geometry::Shape::Tetrahedron,
+      config,
+      1,
+      [=](double* target, std::size_t /*cell*/, std::size_t /*subcell*/) {
+        for (std::size_t corner = 0; corner < 4; ++corner) {
+          target[corner * 3 + 0] = static_cast<double>(rank);
+          target[corner * 3 + 1] = 0.0;
+          target[corner * 3 + 2] = 0.0;
+        }
+      });
+  geometry.addGeometryOutput<double>(
+      "v1", {}, false, [=](double* target, std::size_t cell, std::size_t /*subcell*/) {
+        target[0] = static_cast<double>(rank * 1000 + cell);
+      });
+
+  auto plan = geometry.makeWriter()(dir.prefix(), 0, 0.0);
+  unit_test::io::runPlan(plan, Mpi::mpi.comm());
+  MPI_Barrier(Mpi::mpi.comm());
+
+  reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+  hdf5.openFile(dir.prefix() + "-volume-0.vtkhdf");
+  hdf5.openGroup("VTKHDF");
+
+  CHECK(hdf5.readData<std::int64_t>("NumberOfCells").at(0) ==
+        static_cast<std::int64_t>(globalCells));
+  // one point per contributing rank, not four per cell
+  CHECK(hdf5.readData<std::int64_t>("NumberOfPoints").at(0) ==
+        static_cast<std::int64_t>(contributingRanks));
+  CHECK(hdf5.readData<std::int64_t>("NumberOfConnectivityIds").at(0) ==
+        static_cast<std::int64_t>(globalCells * 4));
+
+  // every cell points at the one point of the rank that wrote it
+  const auto connectivity = hdf5.readData<std::int64_t>("Connectivity");
+  const auto points = hdf5.readData<double>("Points");
+  REQUIRE(connectivity.size() == globalCells * 4);
+  REQUIRE(points.size() == contributingRanks * 3);
+  for (std::size_t entry = 0; entry < connectivity.size(); ++entry) {
+    const auto point = connectivity[entry];
+    REQUIRE(point >= 0);
+    REQUIRE(static_cast<std::size_t>(point) < contributingRanks);
+    // rank 0 contributes nothing, so the point of rank r is the (r-1)th
+    CHECK(points[point * 3] == doctest::Approx(static_cast<double>(point + 1)));
+  }
 
   hdf5.closeGroup();
   hdf5.closeFile();

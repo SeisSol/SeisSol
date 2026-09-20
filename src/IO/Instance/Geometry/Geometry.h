@@ -9,11 +9,15 @@
 #define SEISSOL_SRC_IO_INSTANCE_GEOMETRY_GEOMETRY_H_
 
 #include "Common/Real.h"
+#include "Deduplicate.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Instance/Mesh/Xdmf.h"
 
+#include <algorithm>
+#include <optional>
 #include <variant>
+#include <vector>
 
 namespace seissol::io::instance::geometry {
 
@@ -40,11 +44,14 @@ struct WriterConfig {
 
 class GeometryWriter {
   private:
+  template <typename F>
   static std::variant<mesh::VtkHdfWriter, mesh::XdmfWriter>
       getUnderlyingWriter(const std::string& name,
                           std::size_t localElementCount,
                           Shape shape,
-                          const WriterConfig& config) {
+                          const WriterConfig& config,
+                          std::size_t subdivide,
+                          F projector) {
     if (config.time == WriterGroup::Monolith && config.format == WriterFormat::Xdmf) {
       logError() << "A monolithic time series output is only available for the VTKHDF format.";
     }
@@ -53,44 +60,83 @@ class GeometryWriter {
       // from every time step, so there is nothing for a separate const file to save here.
       logError() << "An incremental snapshot output is only available for the VTKHDF format.";
     }
-    if (config.format == WriterFormat::Xdmf) {
-      return mesh::XdmfWriter(name,
-                              localElementCount,
-                              shape,
-                              config.order,
-                              config.backend == WriterBackend::Binary,
-                              config.compress);
-    } else {
-      return mesh::VtkHdfWriter(name,
-                                localElementCount,
-                                shape,
-                                config.order,
-                                config.time == WriterGroup::Monolith,
-                                config.compress,
-                                config.time == WriterGroup::IncrementalSnapshot);
+    // the projector is handed one cell at a time, subcells included
+    const auto cellProjector = [projector, subdivide](double* data, std::size_t index) {
+      std::invoke(projector, data, index / subdivide, index % subdivide);
+    };
+
+    std::optional<mesh::VertexMap> vertexMap;
+    std::vector<double> uniquePoints;
+    if (config.order == 0) {
+      // At degree 0 the points of a cell are its corners, and a corner belongs to every cell
+      // around it -- about twenty of them in a tetrahedral mesh. Writing each of them once makes
+      // the point array that much smaller. From degree 1 on the points are Lagrange nodes, which
+      // neighbouring cells deliberately do not share, since the solution is discontinuous there.
+      const auto pointsPerCell = numPoints(1, shape);
+      std::vector<double> coordinates(localElementCount * pointsPerCell * 3);
+      for (std::size_t cell = 0; cell < localElementCount; ++cell) {
+        cellProjector(coordinates.data() + cell * pointsPerCell * 3, cell);
+      }
+
+      auto merged = deduplicatePoints(coordinates);
+      // read the count before the points are moved out from under it
+      const auto uniqueCount = merged.pointCount();
+      uniquePoints = std::move(merged.points);
+      vertexMap = mesh::VertexMap{uniqueCount, std::move(merged.indices)};
     }
+
+    const auto pointProjector = [&](auto& writer) {
+      if (vertexMap.has_value()) {
+        writer.addPointProjector([points = uniquePoints](double* target, std::size_t index) {
+          std::copy_n(points.data() + index * 3, 3, target);
+        });
+      } else {
+        writer.addPointProjector(cellProjector);
+      }
+    };
+
+    if (config.format == WriterFormat::Xdmf) {
+      auto writer = mesh::XdmfWriter(name,
+                                     localElementCount,
+                                     shape,
+                                     config.order,
+                                     config.backend == WriterBackend::Binary,
+                                     config.compress,
+                                     vertexMap);
+      pointProjector(writer);
+      return writer;
+    }
+
+    auto writer = mesh::VtkHdfWriter(name,
+                                     localElementCount,
+                                     shape,
+                                     config.order,
+                                     config.time == WriterGroup::Monolith,
+                                     config.compress,
+                                     config.time == WriterGroup::IncrementalSnapshot,
+                                     vertexMap);
+    pointProjector(writer);
+    return writer;
   }
 
   public:
+  /**
+   * @brief Creates the writer.
+   *
+   * @p projector is handed a cell and a subcell and fills the coordinates of that subcell's
+   * points. It is taken here rather than added afterwards because the number of points a file
+   * holds is only known once they have been looked at: at degree 0 the coinciding ones are merged.
+   */
+  template <typename F>
   GeometryWriter(const std::string& name,
                  std::size_t localElementCount,
                  Shape shape,
                  const WriterConfig& config,
-                 std::size_t subdivide = 1)
+                 std::size_t subdivide,
+                 F projector)
       : config_(config), subdivide_(subdivide),
-        underlying_(getUnderlyingWriter(name, subdivide * localElementCount, shape, config)) {}
-
-  template <typename F>
-  void addPointProjector(F projector) {
-    const auto subdivide = this->subdivide_;
-    std::visit(
-        [&](auto& writer) {
-          writer.addPointProjector([projector, subdivide](auto* data, std::size_t index) {
-            std::invoke(projector, data, index / subdivide, index % subdivide);
-          });
-        },
-        underlying_);
-  }
+        underlying_(getUnderlyingWriter(
+            name, subdivide * localElementCount, shape, config, subdivide, projector)) {}
 
   template <typename T, typename F>
   void addGeometryOutput(const std::string& name,
