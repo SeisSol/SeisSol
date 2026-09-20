@@ -275,4 +275,24 @@ real computeTriangleArea(ExtTriangle& triangle) {
   const auto normal = vector1.cross(vector2);
   return 0.5 * normal.norm();
 }
+
+std::size_t
+    firstReceiverOfCell(std::size_t cell, std::size_t pointsPerCell, std::size_t simulationCount) {
+  return cell * pointsPerCell * simulationCount;
+}
+
+int faultTagOfCell(const ReceiverPoints& receiverPoints,
+                   std::size_t cell,
+                   std::size_t pointsPerCell,
+                   std::size_t simulationCount) {
+  return receiverPoints[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].faultTag;
+}
+
+std::size_t globalFaceIdOfCell(const ReceiverPoints& receiverPoints,
+                               std::size_t cell,
+                               std::size_t pointsPerCell,
+                               std::size_t simulationCount) {
+  return receiverPoints[firstReceiverOfCell(cell, pointsPerCell, simulationCount)]
+      .globalFaultFaceId();
+}
 } // namespace seissol::dr

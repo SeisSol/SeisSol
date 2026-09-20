@@ -12,6 +12,7 @@
 #include "Geometry/MeshReader.h"
 
 #include <array>
+#include <cstddef>
 #include <memory>
 
 namespace seissol {
@@ -67,6 +68,37 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
                                                    const VrtxCoords* minusElementCoords[4]);
 
 real computeTriangleArea(ExtTriangle& triangle);
+
+/**
+ * @brief The index of the first receiver an output cell owns.
+ *
+ * The refiner emits the receivers of a cell point-major and simulation-minor, so a cell owns
+ * @p pointsPerCell * @p simulationCount consecutive entries. Properties that every receiver of
+ * the cell shares are read off the first of them.
+ */
+std::size_t
+    firstReceiverOfCell(std::size_t cell, std::size_t pointsPerCell, std::size_t simulationCount);
+
+/**
+ * @brief The fault tag of an output cell, as the mesh assigned it to the face.
+ *
+ * This is the group the face was tagged with in the mesh file, not an identifier: several faces
+ * carry the same tag, and a mesh that tags nothing leaves it at its default.
+ */
+int faultTagOfCell(const ReceiverPoints& receiverPoints,
+                   std::size_t cell,
+                   std::size_t pointsPerCell,
+                   std::size_t simulationCount);
+
+/**
+ * @brief The global identifier of the face an output cell sits on.
+ *
+ * Unique across the mesh, since it is built from the global element index and the side.
+ */
+std::size_t globalFaceIdOfCell(const ReceiverPoints& receiverPoints,
+                               std::size_t cell,
+                               std::size_t pointsPerCell,
+                               std::size_t simulationCount);
 } // namespace seissol::dr
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_

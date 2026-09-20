@@ -14,6 +14,7 @@
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
@@ -245,7 +246,7 @@ void OutputManager::initElementwiseOutput() {
 
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index, std::size_t) {
-        *target = receiverPoints[index * dataCount * multisim::NumSimulations].faultTag;
+        *target = faultTagOfCell(receiverPoints, index, dataCount, multisim::NumSimulations);
       });
 
   writer.addCellData<std::size_t>(
@@ -253,7 +254,7 @@ void OutputManager::initElementwiseOutput() {
       {},
       true,
       [=, &receiverPoints](std::size_t* target, std::size_t index, std::size_t) {
-        *target = receiverPoints[index * dataCount * multisim::NumSimulations].globalFaultFaceId();
+        *target = globalFaceIdOfCell(receiverPoints, index, dataCount, multisim::NumSimulations);
       });
 
   misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
