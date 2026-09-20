@@ -190,12 +190,27 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   const auto pickpointFileName = reader->readPath("ppfilename");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+  const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
+      "pickpointformat",
+      "csv",
+      {
+          {"csv", ReceiverOutputFormat::Csv},
+          {"hdf5", ReceiverOutputFormat::Hdf5},
+      });
+  const auto samplechunk =
+      reader->readWithDefault("pickpointsamplechunk", static_cast<std::size_t>(0));
   const auto aggregate = reader->readWithDefault("aggregateperrank", false);
 
   reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
-  return PickpointParameters{
-      printTimeInterval, interval, outputMask, pickpointFileName, aggregate, collectiveio};
+  return PickpointParameters{printTimeInterval,
+                             interval,
+                             outputMask,
+                             pickpointFileName,
+                             aggregate,
+                             collectiveio,
+                             format,
+                             samplechunk};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {

@@ -18,8 +18,11 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "IO/Datatype/Inference.h"
 #include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Instance/Geometry/Typedefs.h"
+#include "IO/Instance/Point/Grouping.h"
+#include "IO/Instance/Point/Hdf5Table.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -44,11 +47,13 @@
 #include <fstream>
 #include <iomanip>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -327,6 +332,12 @@ void OutputManager::initPickpointOutput() {
       seissolParameters.output.pickpointParameters.writeInterval);
   seissolInstance_.pickpointWriter().setupWriter([&]() { flushPickpointDataToFile(); });
 
+  if (seissolParameters.output.pickpointParameters.format ==
+      seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
+    initPickpointTable();
+    return;
+  }
+
   if (seissolParameters.output.pickpointParameters.collectiveio) {
     logError() << "Collective IO for the on-fault receiver output is still under construction.";
   }
@@ -574,7 +585,154 @@ void OutputManager::writePickpointOutput(double time, double dt) {
   }
 }
 
+void OutputManager::initPickpointTable() {
+  const auto& seissolParameters = seissolInstance_.parameters();
+
+  // A receiver of the fault output is one point of one simulation, so what it records is the
+  // time plus the active components -- the per-simulation column names the text files carry are
+  // a row of their own here.
+  std::vector<io::instance::point::TableQuantity> quantitySet;
+  quantitySet.push_back(
+      io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<real>()});
+  misc::forEach(ppOutputData_.begin()->second->vars, [&](const auto& var, int i) {
+    if (var.isActive) {
+      for (std::size_t dim = 0; dim < var.dim(); ++dim) {
+        quantitySet.push_back(io::instance::point::TableQuantity{
+            VariableLabels[i][dim], io::datatype::inferDatatype<real>()});
+      }
+    }
+  });
+
+  // the rows of a rank are its receivers by the number they have in the receiver file, and the
+  // simulations of one of them next to each other
+  ppTableRows_.clear();
+  for (const auto& [layerId, outputData] : ppOutputData_) {
+    for (std::size_t point = 0; point < outputData->receiverPoints.size(); ++point) {
+      ppTableRows_.emplace_back(layerId, point);
+    }
+  }
+  std::sort(ppTableRows_.begin(), ppTableRows_.end(), [this](const auto& a, const auto& b) {
+    const auto& left = ppOutputData_.at(a.first)->receiverPoints[a.second];
+    const auto& right = ppOutputData_.at(b.first)->receiverPoints[b.second];
+    return std::tie(left.globalReceiverIndex, left.simIndex) <
+           std::tie(right.globalReceiverIndex, right.simIndex);
+  });
+
+  const std::vector<std::vector<io::instance::point::TableQuantity>> pointQuantities(
+      ppTableRows_.size(), quantitySet);
+  ppTable_ = std::make_unique<io::instance::point::Hdf5Table>(
+      "faultreceivers",
+      pointQuantities,
+      seissol::Mpi::mpi.comm(),
+      seissolParameters.output.pickpointParameters.samplechunk);
+
+  // what the header of a text file states about a receiver, as a column each
+  std::vector<std::uint64_t> receiverIds;
+  std::vector<std::uint64_t> simulations;
+  std::vector<std::uint64_t> faceIds;
+  std::vector<std::int64_t> plusCells;
+  std::vector<std::int64_t> plusSides;
+  std::vector<std::int64_t> minusCells;
+  std::vector<std::int64_t> minusSides;
+  std::vector<double> coordinates;
+  for (const auto& [layerId, point] : ppTableRows_) {
+    const auto& receiver = ppOutputData_.at(layerId)->receiverPoints[point];
+    receiverIds.push_back(static_cast<std::uint64_t>(receiver.globalReceiverIndex));
+    simulations.push_back(static_cast<std::uint64_t>(receiver.simIndex));
+    faceIds.push_back(static_cast<std::uint64_t>(receiver.globalFaultFaceId()));
+    plusCells.push_back(static_cast<std::int64_t>(receiver.elementGlobalIndex));
+    plusSides.push_back(receiver.localFaceSideId);
+    minusCells.push_back(static_cast<std::int64_t>(receiver.elementNeighborGlobalIndex));
+    minusSides.push_back(receiver.localNeighborFaceSideId);
+    for (std::size_t dimension = 0; dimension < Cell::Dim; ++dimension) {
+      coordinates.push_back(receiver.global.coords[dimension]);
+    }
+  }
+  ppTable_->addPointData("ReceiverId", {}, receiverIds);
+  ppTable_->addPointData("SimulationIndex", {}, simulations);
+  ppTable_->addPointData("FaceId", {}, faceIds);
+  ppTable_->addPointData("PlusCellId", {}, plusCells);
+  ppTable_->addPointData("PlusFaceSide", {}, plusSides);
+  ppTable_->addPointData("MinusCellId", {}, minusCells);
+  ppTable_->addPointData("MinusFaceSide", {}, minusSides);
+  ppTable_->addPointData("Coordinates", {Cell::Dim}, coordinates);
+
+  io::writer::ScheduledWriter scheduled;
+  scheduled.name = "faultreceivers";
+  scheduled.interval = seissolParameters.output.pickpointParameters.writeInterval;
+  scheduled.planWrite = [this, plan = ppTable_->makeWriter()](
+                            const std::string& prefix, std::size_t counter, double time) {
+    collectPickpointSamples();
+    return plan(prefix, counter, time);
+  };
+  seissolInstance_.outputManager().addOutput(scheduled);
+}
+
+void OutputManager::collectPickpointSamples() {
+  const auto& grouping = ppTable_->grouping();
+
+  // How far a table grows has to be the same everywhere, and the clusters a rank holds do not all
+  // cache the same number of samples between two writes.
+  std::vector<std::size_t> samples(grouping.groupCount(), 0);
+  for (std::size_t row = 0; row < ppTableRows_.size(); ++row) {
+    const auto group = grouping.group[row];
+    samples[group] =
+        std::max(samples[group], ppOutputData_.at(ppTableRows_[row].first)->currentCacheLevel);
+  }
+  if (!samples.empty()) {
+    MPI_Allreduce(MPI_IN_PLACE,
+                  samples.data(),
+                  static_cast<int>(samples.size()),
+                  seissol::Mpi::castToMpiType<std::size_t>(),
+                  MPI_MAX,
+                  seissol::Mpi::mpi.comm());
+  }
+
+  std::vector<real*> storage(grouping.groupCount(), nullptr);
+  for (std::size_t group = 0; group < grouping.groupCount(); ++group) {
+    auto* prepared = ppTable_->prepare(group, samples[group]);
+    storage[group] = reinterpret_cast<real*>(prepared);
+    // A receiver that cached fewer samples than the longest one of its table leaves the rest of
+    // its column unset, and a zero there is a value a reader cannot tell from a measurement.
+    const auto values = samples[group] * ppTable_->localPointCount(group) *
+                        ppTable_->sampleSize(group) / sizeof(real);
+    std::fill_n(storage[group], values, std::numeric_limits<real>::quiet_NaN());
+  }
+
+  for (std::size_t row = 0; row < ppTableRows_.size(); ++row) {
+    const auto [layerId, point] = ppTableRows_[row];
+    auto& outputData = *ppOutputData_.at(layerId);
+    const auto group = grouping.group[row];
+    const auto column = ppTable_->localRow(row);
+    const auto points = ppTable_->localPointCount(group);
+    const auto components = ppTable_->sampleSize(group) / sizeof(real);
+
+    for (std::size_t level = 0; level < std::min(outputData.currentCacheLevel, samples[group]);
+         ++level) {
+      auto* target = storage[group] + (level * points + column) * components;
+      std::size_t position = 0;
+      target[position++] = static_cast<real>(outputData.cachedTime[level]);
+      misc::forEach(outputData.vars, [&](const auto& var, int) {
+        if (var.isActive) {
+          for (std::size_t dim = 0; dim < var.dim(); ++dim) {
+            target[position++] = var(dim, level, point);
+          }
+        }
+      });
+    }
+  }
+
+  for (auto& [layerId, outputData] : ppOutputData_) {
+    outputData->currentCacheLevel = 0;
+  }
+}
+
 void OutputManager::flushPickpointDataToFile() {
+  if (ppTable_ != nullptr) {
+    // the tables are filled and handed over by the writer they are registered with
+    return;
+  }
+
   for (auto& [layerId, outputData] : ppOutputData_) {
     for (const auto& ppfile : ppFiles_.at(layerId)) {
       std::stringstream data;

@@ -88,6 +88,8 @@ struct FreeSurfaceOutputParameters {
   TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
 };
 
+enum class ReceiverOutputFormat { Csv, Hdf5 };
+
 struct PickpointParameters {
   int printTimeInterval{1};
   double writeInterval{VeryLongTime};
@@ -95,9 +97,10 @@ struct PickpointParameters {
   std::optional<std::string> pickpointFileName;
   bool aggregate{false};
   bool collectiveio{false};
+  ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
+  //! @brief As ReceiverOutputParameters::samplechunk, for the on-fault receivers.
+  std::size_t samplechunk{0};
 };
-
-enum class ReceiverOutputFormat { Csv, Hdf5 };
 
 struct ReceiverOutputParameters {
   bool enabled{false};

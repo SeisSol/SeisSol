@@ -178,6 +178,12 @@ receiversamplechunk = 0              ! (hdf5 only) how far a storage chunk reach
 ! the number of samples a write carries varies as soon as pickdt does not divide
 ! ReceiverOutputInterval, so which value pays off depends on how the file is read afterwards.
 
+! on-fault receivers
+pickpointformat = 'csv'              ! 'csv' (default) writes one text file per receiver, 'hdf5'
+! one table for all of them, next to the other output
+pickpointsamplechunk = 0             ! as receiversamplechunk, for the on-fault receivers
+
+
 ! Free surface output
 SurfaceOutput = 1
 SurfaceOutputRefinement = 1
