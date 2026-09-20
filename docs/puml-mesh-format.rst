@@ -87,7 +87,7 @@ In the default format (``i32``), the 4 boundary condition ids for each tetrahedr
 
 Other boundary formats (``i64``) have a 16-bit offset and use 0xffff as a mask instead. The format ``i32x4`` stores each boundary value in an array value of its own, instead of compressing all four values into one integer.
 
-SeisSol indexes the boundary conditions as follows:
+SeisSol indexes the boundary conditions as follows. What each of them does is described in :doc:`boundary-conditions`.
 
 - 0: regular. A regular face between two cells.
 
@@ -103,7 +103,7 @@ SeisSol indexes the boundary conditions as follows:
 
 - 6: regular. Like face type 0, a regular face between two cells. Formerly known as "periodic" or "identified".
 
-- 7: analytical. Boundary condition given by
+- 7: analytical. Boundary condition; no neighbor. The state behind the face is the analytical solution of the configured scenario (see :doc:`boundary-conditions`).
 
 - n>64: dynamic rupture. A dynamic rupture face between two cells, but with a different tag. (see :doc:`fault-tagging`)
 
