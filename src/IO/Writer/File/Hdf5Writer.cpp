@@ -251,6 +251,9 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
       // the dataset touches as few chunks as it can.
       layout.chunkSizes[i] = std::max<hsize_t>(1, dimension.size);
     }
+    if (dimension.chunk > 0) {
+      layout.chunkSizes[i] = dimension.chunk;
+    }
     layout.globalSizesMax[i] = dimension.isAppended() ? H5S_UNLIMITED : layout.globalSizes[i];
     if (dimension.isAppended()) {
       layout.appendedDim = i;

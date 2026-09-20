@@ -51,15 +51,29 @@ struct Dimension {
   std::size_t size{0};
   Extent extent{Extent::Replicated};
   Growth growth{Growth::Fixed};
+  /**
+   * @brief How far a storage chunk reaches along this dimension, or zero to let the writer pick.
+   *
+   * The chunking is settled when the dataset is created and holds for the whole run, so a
+   * dimension whose per-write extent varies cannot have the writer derive it from the first
+   * write and expect it to fit the rest. Which value pays off depends on how the file is read
+   * afterwards, which is not something the writer can know.
+   */
+  std::size_t chunk{0};
 
   static Dimension replicated(std::size_t size) {
-    return {size, Extent::Replicated, Growth::Fixed};
+    return {size, Extent::Replicated, Growth::Fixed, 0};
   }
-  static Dimension distributed() { return {0, Extent::Distributed, Growth::Fixed}; }
+  static Dimension distributed() { return {0, Extent::Distributed, Growth::Fixed, 0}; }
 
-  //! @brief A dimension every write extends by @p size entries, the same number on every rank.
-  static Dimension appended(std::size_t size) {
-    return {size, Extent::Replicated, Growth::Appended};
+  /**
+   * @brief A dimension every write extends by @p size entries, the same number on every rank.
+   *
+   * @p chunk is the storage chunk extent along it; zero takes @p size, which is right where
+   * every write contributes the same amount.
+   */
+  static Dimension appended(std::size_t size, std::size_t chunk = 0) {
+    return {size, Extent::Replicated, Growth::Appended, chunk};
   }
 
   /**
@@ -68,7 +82,7 @@ struct Dimension {
    * What a flat array a reader slices by itself looks like: one write contributes a round of
    * distributed data, and the next one lands behind it.
    */
-  static Dimension distributedAppended() { return {0, Extent::Distributed, Growth::Appended}; }
+  static Dimension distributedAppended() { return {0, Extent::Distributed, Growth::Appended, 0}; }
 
   [[nodiscard]] bool isDistributed() const { return extent == Extent::Distributed; }
   [[nodiscard]] bool isAppended() const { return growth == Growth::Appended; }
@@ -123,6 +137,7 @@ inline YAML::Node serializeDimensions(const std::vector<Dimension>& dimensions) 
     entry["size"] = dimension.size;
     entry["distributed"] = dimension.isDistributed();
     entry["appended"] = dimension.isAppended();
+    entry["chunk"] = dimension.chunk;
     node.push_back(entry);
   }
   return node;
@@ -135,7 +150,8 @@ inline std::vector<Dimension> deserializeDimensions(const YAML::Node& node) {
     result.push_back(
         Dimension{entry["size"].as<std::size_t>(),
                   entry["distributed"].as<bool>() ? Extent::Distributed : Extent::Replicated,
-                  entry["appended"].as<bool>() ? Growth::Appended : Growth::Fixed});
+                  entry["appended"].as<bool>() ? Growth::Appended : Growth::Fixed,
+                  entry["chunk"].as<std::size_t>()});
   }
   return result;
 }

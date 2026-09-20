@@ -21,6 +21,7 @@
 #include "Geometry.t.h"
 #include "Grouping.t.h"
 #include "Hdf5Roundtrip.t.h"
+#include "Hdf5Table.t.h"
 #include "HdfWriteRead.t.h"
 #include "Instruction.t.h"
 #include "Points.t.h"
