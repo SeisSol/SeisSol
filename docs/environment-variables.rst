@@ -45,7 +45,14 @@ GPU-specific environment variables are listed on its :ref:`own page <gpu-env>`.
 Output
 ------
 
-Two environment variables exist (for historic reasons named ``XDMFWRITER``):
+* ``SEISSOL_IO_VERTEXFILTER``: whether the coinciding points of an order 0
+  output (that is, one written without ``wavefieldvtkorder``, ``surfacevtkorder``
+  or ``vtkorder``) are merged into one. On by default; the merging happens
+  within a rank, so points on a partition boundary stay duplicated. Also
+  accepted under its previous name ``SEISSOL_VERTEXFILTER``.
+
+Two further variables are, for historic reasons, named ``XDMFWRITER``; they are
+also accepted with a ``SEISSOL_IO_`` prefix:
 
 * ``XDMFWRITER_ALIGNMENT``: alignment for the Xdmf Hdf5 backend
 * ``XDMFWRITER_BLOCK_SIZE``: block size for the output (both posix and Hdf5)

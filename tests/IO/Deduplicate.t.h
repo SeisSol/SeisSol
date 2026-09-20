@@ -8,11 +8,15 @@
 #include <doctest.h>
 
 #include "IO/Instance/Geometry/Deduplicate.h"
+#include "IO/Instance/Geometry/Geometry.h"
 
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
+#include <optional>
 #include <random>
 #include <set>
+#include <string>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -103,6 +107,63 @@ TEST_CASE("IO/Deduplicate: an empty input is handled" * doctest::test_suite("io"
   const auto map = deduplicatePoints({});
   CHECK(map.pointCount() == 0);
   CHECK(map.indices.empty());
+}
+
+namespace {
+//! Sets the variable for the duration of the scope, and puts back what was there.
+class ScopedEnv {
+  public:
+  ScopedEnv(const char* name, const char* value) : name_(name) {
+    const char* previous = std::getenv(name);
+    if (previous != nullptr) {
+      previous_ = std::string(previous);
+    }
+    setenv(name, value, 1);
+  }
+  ~ScopedEnv() {
+    if (previous_.has_value()) {
+      setenv(name_, previous_.value().c_str(), 1);
+    } else {
+      unsetenv(name_);
+    }
+  }
+  ScopedEnv(const ScopedEnv&) = delete;
+  auto operator=(const ScopedEnv&) -> ScopedEnv& = delete;
+  ScopedEnv(ScopedEnv&&) = delete;
+  auto operator=(ScopedEnv&&) -> ScopedEnv& = delete;
+
+  private:
+  const char* name_;
+  std::optional<std::string> previous_;
+};
+} // namespace
+
+TEST_CASE("IO/Deduplicate: the vertex filter can be switched off" * doctest::test_suite("io")) {
+  using seissol::io::instance::geometry::vertexFilterEnabled;
+
+  SUBCASE("On when nothing is set") {
+    unsetenv("SEISSOL_IO_VERTEXFILTER");
+    unsetenv("SEISSOL_VERTEXFILTER");
+    CHECK(vertexFilterEnabled());
+  }
+
+  SUBCASE("The current name switches it") {
+    unsetenv("SEISSOL_VERTEXFILTER");
+    const ScopedEnv env("SEISSOL_IO_VERTEXFILTER", "0");
+    CHECK_FALSE(vertexFilterEnabled());
+  }
+
+  SUBCASE("The previous name still switches it") {
+    unsetenv("SEISSOL_IO_VERTEXFILTER");
+    const ScopedEnv env("SEISSOL_VERTEXFILTER", "0");
+    CHECK_FALSE(vertexFilterEnabled());
+  }
+
+  SUBCASE("The current name wins over the previous one") {
+    const ScopedEnv previous("SEISSOL_VERTEXFILTER", "0");
+    const ScopedEnv current("SEISSOL_IO_VERTEXFILTER", "1");
+    CHECK(vertexFilterEnabled());
+  }
 }
 
 } // namespace seissol::unit_test

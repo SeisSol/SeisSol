@@ -16,10 +16,30 @@
 
 #include <algorithm>
 #include <optional>
+#include <string>
+#include <utils/env.h>
 #include <variant>
 #include <vector>
 
 namespace seissol::io::instance::geometry {
+
+/**
+ * @brief Whether coinciding points of an order 0 output are merged into one.
+ *
+ * On by default. Merging costs a pass over the local points at setup and saves about a factor of
+ * twenty in the point array of a tetrahedral mesh; turning it off is for the case where a reader
+ * wants the points of a cell to belong to that cell alone.
+ *
+ * SEISSOL_IO_VERTEXFILTER is the name to use; SEISSOL_VERTEXFILTER is what the previous writer
+ * read and is accepted so that existing job scripts keep working.
+ */
+inline bool vertexFilterEnabled() {
+  auto value = utils::Env("SEISSOL_IO_").getOptional<bool>("VERTEXFILTER");
+  if (!value.has_value()) {
+    value = utils::Env("SEISSOL_").getOptional<bool>("VERTEXFILTER");
+  }
+  return value.value_or(true);
+}
 
 enum class WriterFormat : int32_t { Xdmf, Vtk };
 
@@ -67,7 +87,7 @@ class GeometryWriter {
 
     std::optional<mesh::VertexMap> vertexMap;
     std::vector<double> uniquePoints;
-    if (config.order == 0) {
+    if (config.order == 0 && vertexFilterEnabled()) {
       // At degree 0 the points of a cell are its corners, and a corner belongs to every cell
       // around it -- about twenty of them in a tetrahedral mesh. Writing each of them once makes
       // the point array that much smaller. From degree 1 on the points are Lagrange nodes, which
