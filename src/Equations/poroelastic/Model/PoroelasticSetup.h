@@ -67,6 +67,18 @@ struct zInvInitializerForLoop {
 
 template <>
 struct MaterialSetup<PoroElasticMaterial> {
+  static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
+    return genericFaceTypeSupport(faceType);
+  }
+
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType /*faceType*/, const PoroelasticMaterial& /*material*/) {
+    return true;
+  }
+
   struct AdditionalPoroelasticParameters {
     Eigen::Matrix<double, 6, 1> alpha;
     double KBar;

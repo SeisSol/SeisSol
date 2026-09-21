@@ -20,6 +20,7 @@
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BoundaryHelper.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -86,6 +87,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
 
 #pragma omp parallel
     {
@@ -228,17 +230,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto fluxDefault =
               isSpecialBC(side) ? modelParameters.fluxNearFault : modelParameters.flux;
 
-          // exclude boundary conditions
-          static const std::vector<FaceType> GodunovBoundaryConditions = {
-              FaceType::FreeSurface,
-              FaceType::FreeSurfaceGravity,
-              FaceType::Analytical,
-              FaceType::Outflow};
-
-          const auto enforceGodunovBc = std::any_of(
-              GodunovBoundaryConditions.begin(),
-              GodunovBoundaryConditions.end(),
-              [&](auto condition) { return condition == cellInformation[cell].faceTypes[side]; });
+          const auto enforceGodunovBc =
+              boundaryProperties(cellInformation[cell].faceTypes[side]).enforcesGodunovFlux;
 
           const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
 
@@ -277,12 +270,33 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           neighKrnl.T = matTData;
           neighKrnl.Tinv = matTinvData;
           neighKrnl.star(0) = matATtildeData;
-          if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
-              cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
-            // already rotated
+          if (boundaryProperties(cellInformation[cell].faceTypes[side]).usesFaceAlignedGhostState) {
             neighKrnl.Tinv = init::identityT::Values;
           }
           neighKrnl.execute();
+
+          if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
+            // the Dirichlet map is constant over the face, so it becomes part of
+            // the local flux solver; what is left of the boundary condition is
+            // the constant offset
+            kernel::foldDirichlet foldKrnl;
+            foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
+            foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+            foldKrnl.Tinv = matTinvData;
+            foldKrnl.dirichletMap = boundaryMapping[cell][side].dirichletMap;
+            foldKrnl.execute();
+          }
+
+          if (cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
+            // the free-surface-gravity map is constant over the face, so it becomes
+            // part of the local flux solver; what is left of the boundary condition
+            // is the displacement-driven offset
+            kernel::foldFreeSurfaceGravity foldKrnl;
+            foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
+            foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+            foldKrnl.Tinv = matTinvData;
+            foldKrnl.execute();
+          }
         }
 
         seissol::model::initializeSpecificLocalData(

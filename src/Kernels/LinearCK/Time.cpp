@@ -52,13 +52,13 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  projectDerivativeToNodalBoundaryRotated_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  fsgKernelPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
   deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceDerivativeToNodalBoundaryRotated_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceFsgKernelPrototype_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -125,15 +125,14 @@ void Spacetime::computeAder(const real* coeffs,
       if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
           data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
-                    projectDerivativeToNodalBoundaryRotated_,
+                    fsgKernelPrototype_,
                     data.get<LTS::BoundaryMapping>()[face],
                     data.get<LTS::FaceDisplacements>()[face],
                     tmp.nodalAvgDisplacements[face].data(),
-                    *this,
                     derivativesBuffer,
+                    coeffs,
                     timeStepWidth,
-                    data.get<LTS::Material>(),
-                    data.get<LTS::CellInformation>().faceTypes[face]);
+                    data.get<LTS::Material>());
       }
     }
   }
@@ -145,7 +144,6 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
@@ -201,14 +199,8 @@ void Spacetime::computeBatchedAder(
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      bc.evaluateOnDevice(face,
-                          deviceDerivativeToNodalBoundaryRotated_,
-                          *this,
-                          dataTable,
-                          materialTable,
-                          timeStepWidth,
-                          device_,
-                          runtime);
+      bc.evaluateOnDevice(
+          face, deviceFsgKernelPrototype_, dataTable, timeStepWidth, device_, runtime);
     }
   }
 #else

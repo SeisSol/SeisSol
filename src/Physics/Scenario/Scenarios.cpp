@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Physics/InitialField.h"
+#include "Physics/Scenario/Scenarios.h"
 
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"

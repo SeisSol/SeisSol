@@ -123,6 +123,7 @@ struct GlobalData {
 
   seissol::nodal::tensor::V3mTo2nFace::Container<const real*> v3mTo2nFace;
   seissol::tensor::project2nFaceTo3m::Container<const real*> project2nFaceTo3m;
+  seissol::tensor::dirichletLift::Container<const real*> dirichletLift;
 
   /**
    * Addresses of the global face to nodal matrices
@@ -274,22 +275,24 @@ struct BoundaryFaceInformation {
   real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
   real dataT[seissol::tensor::T::size()]{};
   real dataTinv[seissol::tensor::Tinv::size()]{};
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
+  real dirichletOffset[seissol::tensor::dirichletOffset::size()]{};
+  real dirichletMap[seissol::tensor::dirichletMap::size()]{};
+  real fsgData[3]{};
 };
 
 struct CellBoundaryMapping {
   real* nodes{nullptr};
   real* dataT{nullptr};
   real* dataTinv{nullptr};
-  real* easiBoundaryConstant{nullptr};
-  real* easiBoundaryMap{nullptr};
+  real* dirichletOffset{nullptr};
+  real* dirichletMap{nullptr};
+  real* fsgData{nullptr};
 
   CellBoundaryMapping() = default;
   explicit CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
       : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
-        easiBoundaryConstant(faceInfo.easiBoundaryConstant),
-        easiBoundaryMap(faceInfo.easiBoundaryMap) {}
+        dirichletOffset(faceInfo.dirichletOffset), dirichletMap(faceInfo.dirichletMap),
+        fsgData(faceInfo.fsgData) {}
 };
 
 struct GravitationSetup {

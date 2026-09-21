@@ -166,19 +166,27 @@ class FaultParameterDB : public ParameterDB {
   std::unordered_map<std::string, std::pair<real*, unsigned>> parameters_;
 };
 
-class EasiBoundary {
+/**
+ * The frame the affine boundary condition is stated in. Global is the default; face-aligned
+ * lets a condition be stated in terms of the face normal, which a condition that mirrors or
+ * fixes a direction needs on a boundary that is not axis-aligned.
+ */
+enum class BoundaryFrame { Global, FaceAligned };
+
+class DirichletCondition {
   public:
-  explicit EasiBoundary(const std::string& fileName);
+  explicit DirichletCondition(const std::string& fileName);
 
-  EasiBoundary() : model_(nullptr) {};
-  EasiBoundary(const EasiBoundary&) = delete;
-  EasiBoundary& operator=(const EasiBoundary&) = delete;
-  EasiBoundary(EasiBoundary&& other) noexcept;
-  EasiBoundary& operator=(EasiBoundary&& other) noexcept;
+  DirichletCondition() : model_(nullptr) {};
+  DirichletCondition(const DirichletCondition&) = delete;
+  DirichletCondition& operator=(const DirichletCondition&) = delete;
+  DirichletCondition(DirichletCondition&& other) noexcept;
+  DirichletCondition& operator=(DirichletCondition&& other) noexcept;
 
-  ~EasiBoundary();
+  ~DirichletCondition();
 
-  void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
+  [[nodiscard]] BoundaryFrame
+      query(const double* barycenter, real* mapTermsData, real* constantTermsData) const;
 
   private:
   easi::Component* model_;

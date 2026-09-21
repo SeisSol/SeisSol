@@ -15,9 +15,9 @@
 
 namespace seissol::initializer {
 
-class EasiBoundary;
+class DirichletCondition;
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
-                                const std::optional<EasiBoundary>& easiBoundary,
+                                const std::optional<DirichletCondition>& dirichletCondition,
                                 LTS::Storage& ltsStorage);
 
 } // namespace seissol::initializer

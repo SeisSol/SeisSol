@@ -13,6 +13,7 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
+#include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
 #include "Initializer/InitProcedure/Internal/Recording.h"
 #include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/MemoryManager.h"
@@ -214,6 +215,15 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   auto& meshReader = seissolInstance.meshReader();
   auto& memoryManager = seissolInstance.memoryManager();
 
+  std::optional<DirichletCondition> dirichletCondition;
+  if (seissolParams.model.hasBoundaryFile) {
+    dirichletCondition = DirichletCondition(seissolParams.model.boundaryFileName);
+  }
+
+  // the boundary mappings carry the Dirichlet map, which the flux solvers absorb
+  seissol::initializer::initializeBoundaryMappings(
+      meshReader, dirichletCondition, memoryManager.ltsStorage());
+
   seissol::initializer::initializeCellLocalMatrices(
       meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
 
@@ -231,16 +241,10 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
   memoryManager.initFrictionData();
 
-  std::optional<EasiBoundary> boundaryScript;
-  if (seissolParams.model.hasBoundaryFile) {
-    boundaryScript = EasiBoundary(seissolParams.model.boundaryFileName);
-  }
-
-  seissol::initializer::initializeBoundaryMappings(
-      meshReader, boundaryScript, memoryManager.ltsStorage());
-
-  internal::setupRecorders(
-      memoryManager.ltsStorage(), memoryManager.drStorage(), seissolParams.model.plasticity);
+  internal::setupRecorders(memoryManager.ltsStorage(),
+                           memoryManager.drStorage(),
+                           seissolParams.model.plasticity,
+                           seissolInstance.gravitationSetup().acceleration);
 
   auto itmParameters = seissolInstance.parameters().model.itmParameters;
 
@@ -349,6 +353,9 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
   logInfo() << "Flux near fault:"
             << parameters::fluxToString(seissolInstance.parameters().model.fluxNearFault).c_str();
+
+  internal::checkFaceTypeSupport(seissolInstance.memoryManager().ltsStorage(),
+                                 seissolInstance.parameters().initialization.type);
 
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)

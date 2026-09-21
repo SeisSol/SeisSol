@@ -70,3 +70,7 @@ elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
     endfunction()
     target_link_libraries(seissol-common-properties INTERFACE dpcpp::interface)
 endif()
+
+function(make_device_hostapi_lib NAME FILES)
+    make_device_api(${NAME} ${FILES})
+endfunction()

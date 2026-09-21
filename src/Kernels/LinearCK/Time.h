@@ -43,7 +43,6 @@ class Spacetime : public SpacetimeKernel {
                           LTS::Layer& layer,
                           LocalTmp& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
-                          recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
@@ -51,11 +50,12 @@ class Spacetime : public SpacetimeKernel {
 
   protected:
   kernel::derivative krnlPrototype_;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated_;
+
+  kernel::fsgKernel fsgKernelPrototype_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype_;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated_;
+  kernel::gpu_fsgKernel deviceFsgKernelPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
 };

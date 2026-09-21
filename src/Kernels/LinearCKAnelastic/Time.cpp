@@ -14,6 +14,7 @@
 #include "Kernels/MemoryOps.h"
 #include "Monitoring/Metric.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -41,6 +42,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
          0);
 
   krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  fsgKernelPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
@@ -73,13 +75,32 @@ void Spacetime::computeAder(const real* coeffs,
 
   kernel::derivative krnl = krnlPrototype_;
 
+  // Only a small fraction of cells has the gravitational free surface boundary condition
+  updateDisplacement &= [&]() {
+    bool anyOfResult = false;
+    for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
+      anyOfResult |= data.get<LTS::CellInformation>().faceTypes[i] == FaceType::FreeSurfaceGravity;
+    }
+    return anyOfResult;
+  }();
+
+  // the gravitational free surface boundary condition reads every derivative, so
+  // they have to stay around for the whole timestep
+  alignas(PagesizeStack) real derivativesScratch[Solver::DerivativesSize];
+  real* derivativesBuffer = timeDerivativesOrSTP;
+  if (derivativesBuffer == nullptr && updateDisplacement) {
+    derivativesBuffer = derivativesScratch;
+  }
+
   krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
-  if (timeDerivativesOrSTP != nullptr) {
-    streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), timeDerivativesOrSTP);
-    real* derOut = timeDerivativesOrSTP;
+  if (derivativesBuffer != nullptr) {
+    if (updateDisplacement) {
+      std::copy_n(data.get<LTS::Dofs>(), tensor::dQ::size(0), derivativesBuffer);
+    } else {
+      streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), derivativesBuffer);
+    }
     for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-      derOut += tensor::dQ::size(i - 1);
-      krnl.dQ(i) = derOut;
+      krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
     }
   } else {
     for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -110,8 +131,24 @@ void Spacetime::computeAder(const real* coeffs,
 
   krnl.execute();
 
-  // TODO(Lukas) Implement!
   // Compute integrated displacement over time step if needed.
+  if (updateDisplacement) {
+    auto& bc = tmp.gravitationalFreeSurfaceBc;
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
+          data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
+        bc.evaluate(face,
+                    fsgKernelPrototype_,
+                    data.get<LTS::BoundaryMapping>()[face],
+                    data.get<LTS::FaceDisplacements>()[face],
+                    tmp.nodalAvgDisplacements[face].data(),
+                    derivativesBuffer,
+                    coeffs,
+                    timeStepWidth,
+                    data.get<LTS::Material>());
+      }
+    }
+  }
 }
 
 PerformanceEstimate Spacetime::metrics() const {
@@ -195,7 +232,6 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE

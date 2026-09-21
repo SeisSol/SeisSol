@@ -36,14 +36,12 @@ class AbstractRecorder {
   virtual void setUpContext(initializer::Layer<VarmapT>& layer) {
     currentTable_ = &layer.template getConditionalTable<inner_keys::Wp>();
     currentDrTable_ = &layer.template getConditionalTable<inner_keys::Dr>();
-    currentMaterialTable_ = &layer.template getConditionalTable<inner_keys::Material>();
     currentIndicesTable_ = &layer.template getConditionalTable<inner_keys::Indices>();
     currentLayer_ = &layer;
   }
 
   ConditionalPointersToRealsTable* currentTable_{nullptr};
   DrConditionalPointersToRealsTable* currentDrTable_{nullptr};
-  ConditionalMaterialTable* currentMaterialTable_{nullptr};
   ConditionalIndicesTable* currentIndicesTable_{nullptr};
   initializer::Layer<VarmapT>* currentLayer_{nullptr};
 };
@@ -73,9 +71,13 @@ class CompositeRecorder : public AbstractRecorder<VarmapT> {
 
 class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
+  explicit LocalIntegrationRecorder(double g) : g_(g) {}
+
   void record(LTS::Layer& layer) override;
 
   protected:
+  double g_{9.81};
+
   void setUpContext(LTS::Layer& layer) override {
     integratedDofsAddressCounter_ = 0;
     derivativesAddressCounter_ = 0;

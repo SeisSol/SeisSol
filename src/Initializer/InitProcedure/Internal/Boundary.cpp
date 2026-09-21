@@ -9,6 +9,7 @@
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Initializer/BoundaryHelper.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/Boundary.h"
 #include "Memory/Descriptor/LTS.h"
@@ -41,7 +42,7 @@ void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& stora
 #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
     for (std::size_t cell = 0; cell < layerSize; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+        if (boundaryProperties(cellInformation[cell].faceTypes[face]).requiresFaceData) {
           ++numberOfBoundaryFaces;
         }
       }
@@ -66,7 +67,7 @@ void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& stora
     std::size_t boundaryFace = 0;
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+        if (boundaryProperties(cellInformation[cell].faceTypes[face]).requiresFaceData) {
           boundaryMapping[cell][face] = CellBoundaryMapping(faceInformation[boundaryFace]);
           boundaryMappingDevice[cell][face] =
               CellBoundaryMapping(faceInformationDevice[boundaryFace]);

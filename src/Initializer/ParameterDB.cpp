@@ -44,8 +44,10 @@
 #include <iterator>
 #include <memory>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -663,90 +665,114 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   return supplied;
 }
 
-EasiBoundary::EasiBoundary(const std::string& fileName) : model_(loadEasiModel(fileName)) {}
+DirichletCondition::DirichletCondition(const std::string& fileName)
+    : model_(loadEasiModel(fileName)) {}
 
-EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model_(other.model_) {}
+DirichletCondition::DirichletCondition(DirichletCondition&& other) noexcept
+    : model_(other.model_) {}
 
-EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
+DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) noexcept {
   std::swap(model_, other.model_);
   return *this;
 }
 
-EasiBoundary::~EasiBoundary() { delete model_; }
+DirichletCondition::~DirichletCondition() { delete model_; }
 
-void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
+BoundaryFrame DirichletCondition::query(const double* barycenter,
+                                        real* mapTermsData,
+                                        real* constantTermsData) const {
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
-  if (tensor::INodal::Shape[1] != 9) {
-    logError() << "easi-provided boundary data is only supported for elastic material at the "
-                  "moment currently.";
-  }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
-  constexpr auto NumNodes = tensor::INodal::Shape[0];
-  auto query = easi::Query{NumNodes, 3};
-  size_t offset{0};
-  for (std::size_t i = 0; i < NumNodes; ++i) {
-    query.x(i, 0) = nodes[offset++];
-    query.x(i, 1) = nodes[offset++];
-    query.x(i, 2) = nodes[offset++];
-    query.group(i) = 1;
-  }
+
+  // The boundary condition is constant over the face, so it is sampled at the
+  // face barycenter.
+  auto query = easi::Query{1, 3};
+  query.x(0, 0) = barycenter[0];
+  query.x(0, 1) = barycenter[1];
+  query.x(0, 2) = barycenter[2];
+  query.group(0) = 1;
+
   const auto& supplied = model_->suppliedParameters();
 
-  // Shear stresses are irrelevant for riemann problem
-  // Hence they have dummy names and won't be used for this bc.
-  // We have 9 variables s.t. our tensors have the correct shape.
-  const auto varNames =
-      std::array<std::string, 9>{"Tn", "Ts", "Td", "unused1", "unused2", "unused3", "u", "v", "w"};
+  // The ghost cell state is an affine function of the interior state, given in
+  // global coordinates: q_ghost = A q_inside + b. The entries of A are named
+  // map_{to}_{from}, those of b const_{to}, where the quantity names are the
+  // ones of the material at hand. Mirroring the x velocity at the ghost cell is
+  // therefore map_v1_v1: -1.
+  const auto& varNames = model::MaterialT::Quantities;
 
-  // We read out a affine transformation s.t. val in ghost cell
-  // is equal to A * val_inside + b
-  // Note that easi only supports
-
-  // Constant terms stores all terms of the vector b
-  auto constantTerms = init::easiBoundaryConstant::view::create(constantTermsData);
-
-  // Map terms stores all terms of the linear map A
-  auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
+  auto mapTerms = init::dirichletMapGlobal::view::create(mapTermsData);
+  auto constantTerms = init::dirichletOffsetGlobal::view::create(constantTermsData);
 
   easi::ArraysAdapter<real> adapter{};
+  std::unordered_set<std::string> known;
 
-  // Constant terms are named const_{varName}, e.g. const_u
-  offset = 0;
-  for (const auto& varName : varNames) {
-    const auto termName = std::string{"const_"} + varName;
-    if (supplied.count(termName) > 0) {
-      adapter.addBindingPoint(termName, constantTermsData + offset, constantTerms.shape(0));
-    }
-    ++offset;
+  // easi supplies numbers, so the frame is stated as one: 0 for global, 1 for face-aligned.
+  real frame = 0.0;
+  known.insert("frame");
+  if (supplied.count("frame") > 0) {
+    adapter.addBindingPoint("frame", &frame);
   }
-  // Map terms are named map_{varA}_{varB}, e.g. map_u_v
-  // Mirroring the velocity at the ghost cell would imply the param
-  // map_u_u: -1
-  offset = 0;
+
   for (size_t i = 0; i < varNames.size(); ++i) {
-    const auto& varName = varNames[i];
+    const auto termName = std::string{"const_"} + varNames[i];
+    known.insert(termName);
+    auto& term = multisim::multisimWrap(constantTerms, 0, i);
+    if (supplied.count(termName) > 0) {
+      adapter.addBindingPoint(termName, &term);
+    } else {
+      term = 0.0;
+    }
+  }
+  for (size_t i = 0; i < varNames.size(); ++i) {
     for (size_t j = 0; j < varNames.size(); ++j) {
-      const auto& otherVarName = varNames[j];
       auto termName = std::string{"map_"};
-      termName += varName;
+      termName += varNames[i];
       termName += "_";
-      termName += otherVarName;
+      termName += varNames[j];
+      known.insert(termName);
       if (supplied.count(termName) > 0) {
-        adapter.addBindingPoint(
-            termName, mapTermsData + offset, mapTerms.shape(0) * mapTerms.shape(1));
+        adapter.addBindingPoint(termName, &mapTerms(i, j));
       } else {
         // Default: Extrapolate
-        for (size_t k = 0; k < mapTerms.shape(2); ++k) {
-          mapTerms(i, j, k) = (varName == otherVarName) ? 1.0 : 0.0;
-        }
+        mapTerms(i, j) = (i == j) ? 1.0 : 0.0;
       }
-      ++offset;
     }
   }
+
+  for (const auto& termName : supplied) {
+    if (known.count(termName) == 0) {
+      std::ostringstream valid;
+      for (size_t i = 0; i < varNames.size(); ++i) {
+        valid << (i == 0 ? "" : ", ") << varNames[i];
+      }
+      logError() << "The boundary condition file supplies" << termName
+                 << "which is not a term of the boundary condition. Terms are named"
+                 << "map_{to}_{from} and const_{to}, where both quantity names are one of:"
+                 << valid.str() << ".";
+    }
+  }
+
   easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
+
+  if (frame != 0.0 && frame != 1.0) {
+    logError() << "The boundary condition file supplies a frame of" << frame
+               << "-- it has to be 0 for a condition stated in global coordinates, or 1 for one "
+                  "stated in the face-aligned basis.";
+  }
+
+  // The condition does not depend on the simulation index, so every fused
+  // simulation gets the same one.
+  for (std::size_t sim = 1; sim < multisim::NumSimulations; ++sim) {
+    for (size_t i = 0; i < varNames.size(); ++i) {
+      multisim::multisimWrap(constantTerms, sim, i) = multisim::multisimWrap(constantTerms, 0, i);
+    }
+  }
+
+  return frame == 0.0 ? BoundaryFrame::Global : BoundaryFrame::FaceAligned;
 }
 
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
