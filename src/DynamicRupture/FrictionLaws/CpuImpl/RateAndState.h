@@ -634,15 +634,22 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // when the coupled one would not.
         const real dG = (dGCoupled < static_cast<real>(0.0)) ? dGCoupled : dGFrozen;
 
-        // Newton on h(u) = g(exp(u)) rather than on g(V): h'(u) = dG * V, so the step is
-        // multiplicative. Where mu is in its logarithmic branch the residual is nearly linear in
-        // log V, and that is where the locked and creeping points sit -- the ones that set the
-        // cost, since the loop only leaves once every point of the face has converged. The clamp
-        // keeps exp() inside the range before the bracket test gets to reject the step, and a
-        // multiplicative step cannot leave the positive axis.
-        const real du = std::min(std::max(-g[pointIndex] / (dG * x), static_cast<real>(-60.0)),
-                                 static_cast<real>(60.0));
-        const real xNewton = x * std::exp(du);
+        // Which variable the residual is closer to linear in is written in dG itself: it carries
+        // the strength term and the -1 of the radiation damping. Where the strength term wins,
+        // mu is in its logarithmic branch and g is nearly linear in log V; where the damping
+        // wins, g is nearly linear in V. The two are equal at dG = -2.
+        //
+        // The log step is Newton on h(u) = g(exp(u)), h'(u) = dG * V, hence multiplicative. The
+        // clamp keeps exp() inside the range before the bracket test gets to reject the step, and
+        // a multiplicative step cannot leave the positive axis.
+        real xNewton{};
+        if (dG < static_cast<real>(-2.0)) {
+          const real du = std::min(std::max(-g[pointIndex] / (dG * x), static_cast<real>(-60.0)),
+                                   static_cast<real>(60.0));
+          xNewton = x * std::exp(du);
+        } else {
+          xNewton = x - g[pointIndex] / dG;
+        }
         // Bisect geometrically. The bracket spans the whole admissible range of slip rates,
         // from almostZero() up to the free-slip limit tau/eta_s, so its arithmetic midpoint sits
         // many orders of magnitude above the root of a locked or creeping point, and a fallback
