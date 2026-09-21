@@ -25,6 +25,7 @@
 #include "Numerical/TimeBasis.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -72,6 +73,15 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
 
   alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
+
+  // The recursion reads the state where the cell keeps it, so the slot the
+  // expansion reserves for its zeroth coefficient stays empty here. Whoever
+  // reads the expansion back reaches that slot like any other, and would take
+  // whatever the buffer happened to hold for the state -- so the state goes
+  // there, as the linear solver puts it there for the same reason.
+  if (timeDerivatives != nullptr) {
+    std::copy_n(data.get<LTS::Dofs>(), tensor::dQ::size(0), derivativesBuffer);
+  }
 
   const auto& local = data.get<LTS::LocalIntegration>().specific;
 
