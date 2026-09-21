@@ -13,6 +13,9 @@
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
+#include <cmath>
+#include <limits>
+
 namespace seissol::dr::friction_law::gpu {
 /**
  * General implementation of a rate and state solver
@@ -216,8 +219,16 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = slipRateTest;
       ctx.data->mu[ctx.ltsFace][ctx.pointIndex] = exportMu;
 
-      hasConvergedOuter =
-          std::abs(localSlipRateMagnitude - slipRateTest) < ctx.data->drParameters.rsStateTolerance;
+      // Relative, like the criterion of the inner solve: the slip rates this loop walks through
+      // span twenty decades, and a fixed step in m/s is a different demand at every one of them --
+      // no requirement at all where a point creeps, and more precision than the inner solve
+      // resolves where it slips fast. The tolerance is raised to a few ulp, since no nonzero
+      // relative step is smaller.
+      const auto stateTolerance =
+          std::max(static_cast<real>(ctx.data->drParameters.rsStateTolerance),
+                   static_cast<real>(4.0) * std::numeric_limits<real>::epsilon());
+      hasConvergedOuter = std::abs(localSlipRateMagnitude - slipRateTest) <=
+                          stateTolerance * std::abs(slipRateTest);
 
       // exit early and prevent thread/load data divergence
       deviceWarpBarrier(ctx);
@@ -349,56 +360,149 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      real slipRateMagnitude,
                                                      real invEtaS,
                                                      real& exportMu) {
-
-    // Note that we need double precision here, since single precision led to NaNs.
-    real muF{0.0};
-    real dMuF{0.0};
-    real g{0.0};
-    real dG{0.0};
-    slipRateTest = slipRateMagnitude;
+    // Solve  g(V) = -invEtaS * (|sigma(V)| * mu(V) - tau) - V = 0   for V = slipRateTest,
+    // with sigma following the slip rate through the anisotropic normal coupling. The bracket is
+    // closed-form and survives that coupling: it only needs mu(0) = 0, mu >= 0, |sigma| >= 0
+    // (no search, endpoints not evaluated):
+    //   g(0+)          = invEtaS * tau             > 0
+    //   g(tau*invEtaS) = -invEtaS*|sigma(.)|*mu(.) <= 0
+    // Without the coupling dG < -1 everywhere and the root is unique; the coupling can weaken dG
+    // (cf. below), and bisection converges to a root in the bracket either way.
+    // rtsafe: Newton while it stays in the bracket and outruns bisection, else bisect.
+    // The bracket is non-increasing and loses half of its decades on every fallback => the
+    // iterate settles and termination is relative in V-space (|dV| < xacc * V), with two floors
+    // that keep the test reachable in finite precision: xacc clamped to a few ulp, and a residual
+    // that has sunk into the rounding noise of its own evaluation.
 
     const auto details = Derived::getMuDetails(ctx, localStateVariable);
+    const real tau = absoluteShearStress;
+
+    real xLow = friction_law::rs::almostZero();
+    real xHigh = std::max(xLow, tau * invEtaS); // tau~0 => collapses to ~0, root ~0
+    real x = std::min(std::max(slipRateMagnitude, xLow), xHigh); // warm start, clamped
+    real dx = xHigh - xLow;                                      // becomes dxOld on first iteration
+
+    // Number of roundings that enter one residual evaluation; used to size both floors below.
+    constexpr real NoiseFactor = 4;
+    constexpr real Eps = std::numeric_limits<real>::epsilon();
+
+    // rsSlipRateTolerance is a RELATIVE step tolerance. A nonzero step is at least one ulp of the
+    // iterate, so a tolerance below Eps cannot be met at all and would leave the exact-fixed-point
+    // guard as the only way out. Clamp it to a few ulp.
+    const real xacc =
+        std::max(static_cast<real>(ctx.data->drParameters.rsSlipRateTolerance), NoiseFactor * Eps);
+
+    real muF{0};
+    bool converged = false;
+
+    // A point that carries no normal stress at the free-slip limit has its root exactly there:
+    // |sigma| vanishes, g is the line tau * invEtaS - V, and g(xHigh) = 0. That is worth taking
+    // directly, because it is the one root rtsafe cannot approach: a root on the bracket boundary
+    // leaves the Newton step the same size as the previous one, so the guard falls back to
+    // bisection on every iteration and the solve spends its whole budget halving.
+    if (effectiveNormalStress(normalStress, normalStressStick, etaNormal, xHigh) ==
+        static_cast<real>(0.0)) {
+      x = xHigh;
+      converged = true;
+    }
 
     for (uint32_t i = 0; i < ctx.data->drParameters.rsMaxNumberSlipRateUpdates; i++) {
-      muF = Derived::updateMu(ctx, slipRateTest, details);
+      const bool active = !converged;
 
-      const auto sigma =
-          effectiveNormalStress(normalStress, normalStressStick, etaNormal, slipRateTest);
+      // >>> precision knob: evaluate muF/g/dG in double (promote sigma, tau, x) to drop the
+      //     noise floor AND make the sign below exact. Needs a double mu() evaluation.
+      muF = Derived::updateMu(ctx, x, details);
+      const real dMuF = Derived::updateMuDerivative(ctx, x, details);
+      // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen: that
+      // moves the normal coupling out of the outer fixed point and into this Newton.
+      const real sigma = effectiveNormalStress(normalStress, normalStressStick, etaNormal, x);
+      const real absSigma = std::abs(sigma);
+      const real g = -invEtaS * (absSigma * muF - tau) - x;
 
-      g = -invEtaS * (std::abs(sigma) * muF - absoluteShearStress) - slipRateTest;
-
-      const bool converged = std::abs(g) < ctx.data->drParameters.rsSlipRateTolerance;
-
-      if (converged) {
-        // we've reached the fixed point
-        // NOTE: in doubt, a fixed-point mu can be recovered from slipRateTest at this point.
-        // just invert -invEtaS * (std::abs(normalStress) * muF - absoluteShearStress) ==
-        // slipRateTest for muF in that case.
-        exportMu = muF;
-        return true;
-      }
-
-      dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
-
-      // derivative of g. |sigma| = -sigma while the fault is closed, and sigma follows the slip
-      // rate through the anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
-      real dAbsSigma = static_cast<real>(0.0);
+      // |sigma| = -sigma while the fault is closed, and sigma follows the slip rate through the
+      // anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
+      real dAbsSigma{};
       if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-        dAbsSigma = (sigma < static_cast<real>(0.0)) ? etaNormal : static_cast<real>(0.0);
+        dAbsSigma = (sigma < static_cast<real>(0)) ? etaNormal : static_cast<real>(0);
+      } else {
+        dAbsSigma = static_cast<real>(0);
       }
-      const auto dGFrozen = -invEtaS * (std::abs(sigma) * dMuF) - static_cast<real>(1.0);
-      const auto dGCoupled =
-          -invEtaS * (std::abs(sigma) * dMuF + dAbsSigma * muF) - static_cast<real>(1.0);
+      const real dGFrozen = -invEtaS * (absSigma * dMuF) - static_cast<real>(1);
+      const real dGCoupled = -invEtaS * (absSigma * dMuF + dAbsSigma * muF) - static_cast<real>(1);
       // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which the
-      // coupling can weaken g. It stays strictly decreasing -- and the root unique, which is what a
-      // bracketed solver needs -- as long as |etaNormal| * mu < eta_proj + |sigma| * mu'. Positive
-      // definiteness of the 3x3 impedance bounds |etaNormal| / eta_proj by sqrt(eta_nn / eta_proj),
-      // which is within a few percent of that limit, so the fallback only triggers for an impedance
-      // close to singular. dGFrozen is negative by construction.
-      dG = (dGCoupled < static_cast<real>(0.0)) ? dGCoupled : dGFrozen;
-      slipRateTest = std::max(friction_law::rs::almostZero(), slipRateTest - (g / dG));
+      // coupling can weaken g. It stays strictly decreasing as long as
+      // |etaNormal| * mu < eta_proj + |sigma| * mu', which is NOT a comfortable margin: a locked
+      // point at |etaNormal| = eta_proj already peaks at dGCoupled = -0.06 over the bracket and
+      // turns positive slightly above that ratio, a slipping one holds out to roughly three times
+      // eta_proj. Positive definiteness bounds the ratio by sqrt(eta_nn / eta_proj), so a strongly
+      // anisotropic material lands close to the edge. Past it g has several roots in the bracket
+      // and the solve returns one of them, which is why the bracket rather than the derivative
+      // carries the robustness. dGFrozen is negative by construction, which keeps the Newton step
+      // pointing into the bracket.
+      const real dG = (dGCoupled < static_cast<real>(0)) ? dGCoupled : dGFrozen;
+
+      // |sigma| * mu and tau cancel at the root, so the rounding error of g does not shrink with
+      // the iterate: it stays at Eps times the magnitude of the two cancelling terms. Below that
+      // level the sign of g -- and with it the bracket update -- carries no information.
+      const real gNoise = NoiseFactor * Eps * invEtaS * (absSigma * muF + tau);
+
+      // maintain the straddling bracket from sign(g) (g decreasing):
+      //   g > 0 => root at larger  V => raise lower bound
+      //   g < 0 => root at smaller V => lower upper bound
+      const bool gPos = g > static_cast<real>(0);
+      xLow = (active && gPos) ? x : xLow;
+      xHigh = (active && !gPos) ? x : xHigh;
+
+      const real dxOld = dx;
+      // Which variable the residual is closer to linear in is written in dG itself: it carries
+      // the strength term and the -1 of the radiation damping. Where the strength term wins, mu
+      // is in its logarithmic branch and g is nearly linear in log V; where the damping wins, g
+      // is nearly linear in V. The two are equal at dG = -2.
+      //
+      // The log step is Newton on h(u) = g(exp(u)), h'(u) = dG * V, hence multiplicative. The
+      // clamp keeps exp() inside the range before the bracket test gets to reject the step, and a
+      // multiplicative step cannot leave the positive axis.
+      real xNewton{};
+      if (dG < static_cast<real>(-2.0)) {
+        const real du =
+            std::min(std::max(-g / (dG * x), static_cast<real>(-60.0)), static_cast<real>(60.0));
+        xNewton = x * std::exp(du);
+      } else {
+        xNewton = x - g / dG;
+      }
+      // Bisect geometrically. The bracket spans the whole admissible range of slip rates, from
+      // almostZero() up to the free-slip limit tau/eta_s, so its arithmetic midpoint sits many
+      // orders of magnitude above the root of a locked or creeping point, and a fallback would
+      // then need one halving per factor of two to walk back down. The geometric midpoint halves
+      // the number of decades instead, which is the scale the root lives on. The two square roots
+      // keep the product from underflowing for the smallest brackets.
+      const real xBisect = std::sqrt(xLow) * std::sqrt(xHigh);
+
+      // bisect if Newton leaves the bracket or does not outrun bisection
+      const bool useBisect = (xNewton <= xLow) || (xNewton >= xHigh) ||
+                             (std::abs(static_cast<real>(2) * g) > std::abs(dxOld * dG));
+      const real xUpdated = useBisect ? xBisect : xNewton;
+      dx = xUpdated - x;
+
+      // V-space convergence, residual-noise floor, and the no-representable-change guard
+      // => cannot livelock
+      const bool nowConverged =
+          (std::abs(dx) < xacc * std::abs(x)) || (std::abs(g) <= gNoise) || (xUpdated == x);
+
+      // advance active, not-yet-converged lanes; freeze at the converged point so that
+      // slipRateTest and exportMu are the mu-consistent pair at that point
+      converged |= nowConverged;
+      x = converged ? x : xUpdated;
+
+      deviceWarpBarrier(ctx);
+      if (deviceWarpAll(ctx, converged)) {
+        break;
+      }
     }
-    return false;
+
+    slipRateTest = x;
+    exportMu = Derived::updateMu(ctx, x, details);
+    return converged;
   }
 
   /**
