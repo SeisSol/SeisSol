@@ -158,7 +158,10 @@ double ReceiverCluster::calcReceivers(double time,
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     const std::size_t recvCount = receivers_.size();
-    const auto receiverHandler = [this, timeStepWidth, time, expansionPoint, executor](
+    // What the predictor asks of this step is the same for every receiver, so
+    // it is formed once here and carried into the handler.
+    const auto stepCoeffs = timeStepCoefficients(timeStepWidth);
+    const auto receiverHandler = [this, timeStepWidth, time, expansionPoint, executor, stepCoeffs](
                                      std::size_t i) {
       alignas(Alignment) real timeTransported[Solver::IntegralsSize]{};
       alignas(Alignment) real timeEvaluated[tensor::Q::size()]{};
@@ -193,8 +196,7 @@ double ReceiverCluster::calcReceivers(double time,
                 deviceCollector_->get(deviceIndices_[i])));
       }
 
-      const auto integrationCoeffs = timeIntegrate(0, timeStepWidth, timeStepWidth);
-      spacetimeKernel_.computeAder(integrationCoeffs,
+      spacetimeKernel_.computeAder(stepCoeffs,
                                    timeStepWidth,
                                    tmpReceiverData,
                                    tmp,

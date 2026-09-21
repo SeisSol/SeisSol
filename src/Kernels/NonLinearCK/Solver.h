@@ -44,6 +44,7 @@ struct Solver {
   /// doing it.
   template <typename RealT>
   using TimeBasis = seissol::numerical::CompoundTimeBasis<TimeCoefficients,
+                                                          TimeQuadrature,
                                                           seissol::numerical::MonomialBasis<RealT>,
                                                           seissol::numerical::LegendreBasis<RealT>>;
 
@@ -72,6 +73,13 @@ struct Solver {
   /// for: that includes a cell whose faces are all boundaries, which would
   /// have no buffer at all.
   static constexpr bool RequiresOwnIntegrals = true;
+
+  /// Whether the predictor has to sample its flux over the step instead of
+  /// integrating it in closed form. A solver that samples is handed the rule to
+  /// sample with; forming one for a solver that does not would cost a little
+  /// per step and answer nothing.
+  static constexpr bool RequiresTimeQuadrature = true;
+
   static constexpr bool FluxSolverFromTable = true;
   static constexpr std::size_t IntegralsSize = tensor::I::size();
 

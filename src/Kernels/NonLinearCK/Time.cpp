@@ -22,7 +22,6 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
-#include "Numerical/TimeBasis.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
@@ -45,6 +44,15 @@ namespace {
 constexpr real invariantFloor() {
   return std::numeric_limits<real>::epsilon() * std::numeric_limits<real>::epsilon();
 }
+
+/// How many time nodes the step kernel was generated for. Its table of
+/// evaluation coefficients is indexed (node, coefficient), so the stride from
+/// one coefficient to the next is the number of nodes.
+constexpr std::size_t stepNodes() { return tensor::evaluate::index(0, 1); }
+static_assert(stepNodes() == ConvergenceOrder + 1,
+              "The step samples with a rule that has the ends of the step among its nodes, which "
+              "is one node more than the order. The generated kernel was built for a different "
+              "number, and writing the rule into it would write past its tables.");
 } // namespace
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
@@ -59,7 +67,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::computeAder(const TimeCoefficients& coeffs,
+void Spacetime::computeAder(const TimeStepCoefficients& coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
@@ -110,29 +118,29 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
   }
   derivative.I = timeIntegrated;
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    derivative.power(der) = coeffs.state[der];
+    derivative.power(der) = coeffs.integral.state[der];
   }
   derivative.execute();
 
-  // Everything nonlinear, in one kernel. What we choose here is where it
-  // samples: the nodes and weights of the quadrature, and the coefficients
-  // that evaluate the expansion there.
-  const Solver::TimeBasis<real> basis(ConvergenceOrder);
-  const auto [nodes, weights] = basis.quadratureWithEndpoints(timeStepWidth);
+  // Everything nonlinear, in one kernel. Where it samples is a question about
+  // the step rather than about this cell, so the rule arrives with the step:
+  // the nodes, their weights, and the coefficients that evaluate the
+  // expansions at each of them.
+  const auto& quadrature = coeffs.quadrature;
 
   kernel::damageStep step = step_;
   step.dQ(0) = data.get<LTS::Dofs>();
   for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     step.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
-  for (std::size_t q = 0; q < nodes.size(); ++q) {
-    const auto evaluation = basis.point(nodes[q], timeStepWidth);
+  assert(quadrature.nodes.size() == stepNodes());
+  for (std::size_t q = 0; q < quadrature.nodes.size(); ++q) {
     for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
-      step.evaluate(q, i) = evaluation.state[i];
+      step.evaluate(q, i) = quadrature.coefficients[q].state[i];
     }
-    step.weight(q) = weights[q];
+    step.weight(q) = quadrature.weights[q];
   }
-  // How far the internal variables have travelled by each node follows from
+  // How far the internal variables have traveled by each node follows from
   // where the nodes are, which the kernel knows; how wide the step those
   // nodes span is, it does not.
   step.stepWidth = timeStepWidth;
@@ -162,7 +170,7 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
 }
 
 void Spacetime::computeBatchedAder(
-    SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
+    SEISSOL_GPU_PARAM const TimeStepCoefficients& coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
@@ -230,21 +238,20 @@ void Spacetime::computeBatchedAder(
   derivative.Q =
       const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    derivative.power(der) = coeffs.state[der];
+    derivative.power(der) = coeffs.integral.state[der];
   }
   derivative.linearAllocator.initialize(tmpMem.get());
   derivative.streamPtr = runtime.stream();
   derivative.execute();
 
-  // The rule the step samples with is the launch code's, as it is serially.
-  const Solver::TimeBasis<real> basis(ConvergenceOrder);
-  const auto [nodes, weights] = basis.quadratureWithEndpoints(timeStepWidth);
-  for (std::size_t q = 0; q < nodes.size(); ++q) {
-    const auto evaluation = basis.point(nodes[q], timeStepWidth);
+  // The rule the step samples with arrives with the step, as it does serially.
+  const auto& quadrature = coeffs.quadrature;
+  assert(quadrature.nodes.size() == stepNodes());
+  for (std::size_t q = 0; q < quadrature.nodes.size(); ++q) {
     for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
-      step.evaluate(q, i) = evaluation.state[i];
+      step.evaluate(q, i) = quadrature.coefficients[q].state[i];
     }
-    step.weight(q) = weights[q];
+    step.weight(q) = quadrature.weights[q];
   }
   step.stepWidth = timeStepWidth;
 

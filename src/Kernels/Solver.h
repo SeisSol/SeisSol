@@ -79,5 +79,18 @@ inline std::vector<TimeCoefficients> timeCollocate(const std::vector<double>& po
   return coefficients;
 }
 
+/// Everything a predictor needs of one step of `timestep`, formed once for the
+/// step: the coefficients that integrate over it, and -- where the solver has
+/// to sample a flux it cannot integrate -- the rule it samples with, whose
+/// nodes include the ends of the step so that the chain of nodes covers it
+/// without a gap and the first node is the state itself.
+inline TimeStepCoefficients timeStepCoefficients(double timestep) {
+  TimeStepCoefficients coefficients{timeIntegrate(0, timestep, timestep), {}};
+  if constexpr (Solver::RequiresTimeQuadrature) {
+    coefficients.quadrature = timeBasis().quadratureWithEndpoints(timestep);
+  }
+  return coefficients;
+}
+
 } // namespace seissol::kernels
 #endif // SEISSOL_SRC_KERNELS_SOLVER_H_

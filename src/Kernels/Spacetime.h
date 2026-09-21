@@ -40,7 +40,10 @@ class SpacetimeKernel : public Kernel {
    * for computing the space-time evolution may vary (e.g. CK vs STP); see the respective subfolder
    * names for more infos.
    *
-   * @param coeffs The time basis coefficients used for the integrated integration.
+   * @param coeffs What this step asks of the time bases: the coefficients that integrate
+   * over the step, and, for a solver that has to sample a flux it cannot integrate in
+   * closed form, the rule it samples with. Formed once for the step, because neither is a
+   * question about the cell.
    * @param timeStepWidth The size of the current timestep
    * @param data Cell data reference object (contains references to all stored data arrays for that
    * cell)
@@ -50,7 +53,7 @@ class SpacetimeKernel : public Kernel {
    * @param timeDerivativesOrSTP Output: space-time evoluion.
    * @param updateDisplacement Update the face displacement (needed for elastic-acoustic)
    */
-  virtual void computeAder(const TimeCoefficients& coeffs,
+  virtual void computeAder(const TimeStepCoefficients& coeffs,
                            double timeStepWidth,
                            LTS::Ref& data,
                            LocalTmp& tmp,
@@ -58,7 +61,7 @@ class SpacetimeKernel : public Kernel {
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
 
-  virtual void computeBatchedAder(const TimeCoefficients& coeffs,
+  virtual void computeBatchedAder(const TimeStepCoefficients& coeffs,
                                   double timeStepWidth,
                                   LTS::Layer& layer,
                                   LocalTmp& tmp,

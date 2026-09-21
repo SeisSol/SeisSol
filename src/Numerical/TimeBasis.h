@@ -41,9 +41,9 @@ class TimeBasis {
 
     A solver whose flux is nonlinear in the state cannot integrate it in
     closed form and samples it instead. Where it samples is a question about
-    the timestep rather than about the basis, so the rule lives here, with the
-    coefficients that go with it, and not in the kernel that happens to need
-    it first.
+    the timestep rather than about the basis, so the rule lives here and not in
+    the kernel that happens to need it first; the coefficients that read an
+    expansion at its nodes are paired with it one level up.
   */
   [[nodiscard]] std::pair<std::vector<double>, std::vector<double>>
       quadrature(double timestep) const {
@@ -231,9 +231,14 @@ one basis and a time operation is one call. Where the two bases coincide the
 work is done once.
 
 `CoefficientsT` is whatever the caller wants filled; it needs a `state` and an
-`extra` member that can be written through iterators.
+`extra` member that can be written through iterators. `QuadratureT` is what a
+quadrature is returned in; it is built from the nodes, their weights, and one
+`CoefficientsT` per node, in that order.
 */
-template <typename CoefficientsT, typename StateBasisT, typename ExtraBasisT = StateBasisT>
+template <typename CoefficientsT,
+          typename QuadratureT,
+          typename StateBasisT,
+          typename ExtraBasisT = StateBasisT>
 class CompoundTimeBasis {
   public:
   explicit CompoundTimeBasis(std::size_t order) : order_(order), state_(order), extra_(order) {}
@@ -253,20 +258,39 @@ class CompoundTimeBasis {
   }
 
   /*
-    The quadrature rules are questions about the timestep rather than about a
-    basis, so either member answers them alike; the state's does.
+    A quadrature over one step: where to sample it, with what weight, and the
+    coefficients that read every expansion at each of its nodes.
+
+    A solver whose flux is nonlinear in the state cannot integrate that flux in
+    closed form and samples it instead, so all three travel together -- and
+    pairing a rule with the coefficients of both expansions is the same job
+    this class does for the time operations. Doing it here is what keeps a
+    quadrature one call, and keeps whoever samples from having to evaluate a
+    basis at its own nodes.
+
+    Which nodes a rule has is a question about the timestep rather than about a
+    basis, so either member answers that part alike; the state's does.
   */
-  [[nodiscard]] std::pair<std::vector<double>, std::vector<double>>
-      quadrature(double timestep) const {
-    return state_.quadrature(timestep);
+  [[nodiscard]] QuadratureT quadrature(double timestep) const {
+    return collocate(state_.quadrature(timestep), timestep);
   }
 
-  [[nodiscard]] std::pair<std::vector<double>, std::vector<double>>
-      quadratureWithEndpoints(double timestep) const {
-    return state_.quadratureWithEndpoints(timestep);
+  [[nodiscard]] QuadratureT quadratureWithEndpoints(double timestep) const {
+    return collocate(state_.quadratureWithEndpoints(timestep), timestep);
   }
 
   private:
+  /// A rule, with every expansion evaluated at each of its nodes.
+  [[nodiscard]] QuadratureT collocate(std::pair<std::vector<double>, std::vector<double>> rule,
+                                      double timestep) const {
+    QuadratureT result{std::move(rule.first), std::move(rule.second), {}};
+    result.coefficients.reserve(result.nodes.size());
+    for (const auto& node : result.nodes) {
+      result.coefficients.push_back(point(node, timestep));
+    }
+    return result;
+  }
+
   template <typename Operation>
   [[nodiscard]] CoefficientsT both(Operation&& operation) const {
     CoefficientsT coefficients{};

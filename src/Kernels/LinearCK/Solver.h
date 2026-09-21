@@ -33,8 +33,8 @@ struct Solver {
   /// The bases of every expansion this solver keeps. It transports only its
   /// state, so there is one.
   template <typename RealT>
-  using TimeBasis = seissol::numerical::CompoundTimeBasis<TimeCoefficients,
-                                                          seissol::numerical::MonomialBasis<RealT>>;
+  using TimeBasis = seissol::numerical::
+      CompoundTimeBasis<TimeCoefficients, TimeQuadrature, seissol::numerical::MonomialBasis<RealT>>;
 
   /// Whether the face flux solvers are built from the flux itself rather than
   /// from a Godunov state. A Godunov state is a state, so the solver it
@@ -52,6 +52,13 @@ struct Solver {
   /// for: that includes a cell whose faces are all boundaries, which would
   /// have no buffer at all.
   static constexpr bool RequiresOwnIntegrals = false;
+
+  /// Whether the predictor has to sample its flux over the step instead of
+  /// integrating it in closed form. A solver that samples is handed the rule to
+  /// sample with; forming one for a solver that does not would cost a little
+  /// per step and answer nothing.
+  static constexpr bool RequiresTimeQuadrature = false;
+
   static constexpr bool FluxSolverFromTable = false;
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();

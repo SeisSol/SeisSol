@@ -30,7 +30,7 @@ namespace seissol::kernels::solver::nonlinearck {
 /// expansion and takes the transported tensor back.
 ///
 /// The Cauchy-Kovalevskaya recursion runs unchanged, on star matrices that
-/// linearise the material about the cell mean. What it produces is a time
+/// linearize the material about the cell mean. What it produces is a time
 /// expansion of the state, not of the flux -- for a nonlinear flux the two are
 /// not the same thing. The flux is therefore evaluated pointwise at the time
 /// quadrature nodes and integrated there, which is also where the internal
@@ -43,14 +43,14 @@ namespace seissol::kernels::solver::nonlinearck {
 class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeAder(const TimeCoefficients& coeffs,
+  void computeAder(const TimeStepCoefficients& coeffs,
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
                    real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
-  void computeBatchedAder(const TimeCoefficients& coeffs,
+  void computeBatchedAder(const TimeStepCoefficients& coeffs,
                           double timeStepWidth,
                           LTS::Layer& layer,
                           LocalTmp& tmp,

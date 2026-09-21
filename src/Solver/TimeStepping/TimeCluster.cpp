@@ -372,7 +372,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
   const auto timeStepWidth = timeStepSize();
-  const auto integrationCoeffs = seissol::kernels::timeIntegrate(0, timeStepWidth, timeStepWidth);
+  const auto stepCoeffs = seissol::kernels::timeStepCoefficients(timeStepWidth);
 
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
     firstprivate(tmp) schedule(static)
@@ -390,7 +390,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     }
 
     spacetimeKernel_.computeAder(
-        integrationCoeffs, timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
+        stepCoeffs, timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
 
     // Compute local integrals (including local boundary conditions)
     localKernel_.computeIntegral(bufferPointer, data, tmp, ct_.correctionTime, timeStepWidth);
@@ -446,7 +446,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
   const double timeStepWidth = timeStepSize();
-  const auto integrationCoeffs = seissol::kernels::timeIntegrate(0, timeStepWidth, timeStepWidth);
+  const auto stepCoeffs = seissol::kernels::timeStepCoefficients(timeStepWidth);
 
   const ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
@@ -455,7 +455,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
       computeGraphKey,
       *clusterData_,
       [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-        spacetimeKernel_.computeBatchedAder(integrationCoeffs,
+        spacetimeKernel_.computeBatchedAder(stepCoeffs,
                                             timeStepWidth,
                                             *clusterData_,
                                             tmp,

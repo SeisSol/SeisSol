@@ -42,7 +42,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
   real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
   real* const* derivatives = layer.var<LTS::Derivatives>();
 
-  const auto integrationCoeffs = seissol::kernels::timeIntegrate(0, Timestep, Timestep);
+  const auto stepCoeffs = seissol::kernels::timeStepCoefficients(Timestep);
 
 #pragma omp parallel
   {
@@ -53,7 +53,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
-          integrationCoeffs, Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+          stepCoeffs, Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
     }
     LIKWID_MARKER_STOP("ader");
   }
@@ -111,7 +111,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
   real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
   real* const* derivatives = layer.var<LTS::Derivatives>();
 
-  const auto integrationCoeffs = seissol::kernels::timeIntegrate(0, Timestep, Timestep);
+  const auto stepCoeffs = seissol::kernels::timeStepCoefficients(Timestep);
 
 #pragma omp parallel
   {
@@ -122,7 +122,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
       data.spacetimeKernel.computeAder(
-          integrationCoeffs, Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+          stepCoeffs, Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
       data.localKernel.computeIntegral(stepIntegrals[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("local");

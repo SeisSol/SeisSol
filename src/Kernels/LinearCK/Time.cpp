@@ -62,7 +62,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::computeAder(const TimeCoefficients& coeffs,
+void Spacetime::computeAder(const TimeStepCoefficients& coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
@@ -103,7 +103,7 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
   krnl.I = timeIntegrated;
   // powers in the taylor-series expansion
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    krnl.power(der) = coeffs.state[der];
+    krnl.power(der) = coeffs.integral.state[der];
   }
 
   if (updateDisplacement) {
@@ -140,7 +140,7 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
 }
 
 void Spacetime::computeBatchedAder(
-    SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
+    SEISSOL_GPU_PARAM const TimeStepCoefficients& coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
@@ -191,7 +191,7 @@ void Spacetime::computeBatchedAder(
     auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
 
     for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-      derivativesKrnl.power(der) = coeffs.state[der];
+      derivativesKrnl.power(der) = coeffs.integral.state[der];
     }
     derivativesKrnl.linearAllocator.initialize(tmpMem.get());
     derivativesKrnl.streamPtr = runtime.stream();

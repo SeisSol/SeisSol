@@ -40,7 +40,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::computeAder(const TimeCoefficients& coeffs,
+void Spacetime::computeAder(const TimeStepCoefficients& coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp& tmp,
@@ -98,7 +98,7 @@ void Spacetime::computeAder(const TimeCoefficients& coeffs,
 
   // powers in the taylor-series expansion
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    krnl.power(der) = coeffs.state[der];
+    krnl.power(der) = coeffs.integral.state[der];
   }
 
   krnl.execute();
@@ -183,7 +183,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
 }
 
 void Spacetime::computeBatchedAder(
-    SEISSOL_GPU_PARAM const TimeCoefficients& coeffs,
+    SEISSOL_GPU_PARAM const TimeStepCoefficients& coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
@@ -246,7 +246,7 @@ void Spacetime::computeBatchedAder(
 
     for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
       // update scalar for this derivative
-      krnl.power(der) = coeffs.state[der];
+      krnl.power(der) = coeffs.integral.state[der];
     }
 
     krnl.streamPtr = runtime.stream();
