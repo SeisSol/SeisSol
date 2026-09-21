@@ -997,6 +997,54 @@ def _command_self_test(args):
     return 1 if failed else 0
 
 
+def locate(coords, connect, point):
+    """Return the smallest barycentric coordinate of a point in its cell.
+
+    The value is negative if no cell contains the point, zero if it lies on a
+    face, an edge or a vertex, and positive if it is strictly interior.
+    """
+    best = -np.inf
+    for cell in connect:
+        x = coords[cell]
+        frame = np.column_stack([x[1] - x[0], x[2] - x[0], x[3] - x[0]])
+        local = np.linalg.solve(frame, np.asarray(point) - x[0])
+        smallest = min(1.0 - local.sum(), *local)
+        best = max(best, smallest)
+    return best
+
+
+def _command_locate(args):
+    """Check that every receiver is strictly inside a cell of every mesh.
+
+    A point on a face, an edge or a vertex has no well-defined cell; which one
+    it is assigned to can depend on the decomposition, and since a DG
+    solution is discontinuous across faces, the same run then reports
+    different values on different rank counts. On these meshes that is easy
+    to hit: every cube diagonal is an edge shared by all six tetrahedra.
+    """
+    import h5py
+
+    points = []
+    for line in Path(args.receivers).read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            points.append([float(value) for value in line.split()])
+    failed = False
+    for path in args.files:
+        with h5py.File(path, "r") as handle:
+            coords = handle["geometry"][:]
+            connect = handle["connect"][:].astype(np.int64)
+        margins = [locate(coords, connect, point) for point in points]
+        worst = min(margins)
+        ok = worst >= args.margin
+        failed |= not ok
+        status = "ok" if ok else "FAILED"
+        print(
+            f"[{status}] {Path(path).name}: smallest barycentric coordinate "
+            + ", ".join(f"{margin:.4f}" for margin in margins)
+        )
+    return 1 if failed else 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="generate the small PUML meshes used for verification"
@@ -1029,6 +1077,19 @@ def main(argv=None):
 
     listing = commands.add_parser("list", help="show the known meshes")
     listing.set_defaults(func=_command_list)
+
+    locate_parser = commands.add_parser(
+        "locate", help="check that receivers lie strictly inside a cell"
+    )
+    locate_parser.add_argument("receivers")
+    locate_parser.add_argument("files", nargs="+")
+    locate_parser.add_argument(
+        "--margin",
+        type=float,
+        default=0.01,
+        help="required distance from the cell boundary, in barycentric units",
+    )
+    locate_parser.set_defaults(func=_command_locate)
 
     self_test = commands.add_parser("self-test", help="build and validate all meshes")
     self_test.set_defaults(func=_command_self_test)

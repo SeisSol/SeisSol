@@ -1,5 +1,5 @@
 &equations
-MaterialFileName = 'material.yaml'
+MaterialFileName = 'material-elastic.yaml'           ! replaced per build by the runner
 Plasticity = 0
 /
 

@@ -1,0 +1,11 @@
+# Water. The acoustic model reads rho and lambda; mu is given as zero, as in
+# the acoustic case of precomputed-seissol.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    1000.0
+        mu:     0.0
+        lambda: 2.25e9

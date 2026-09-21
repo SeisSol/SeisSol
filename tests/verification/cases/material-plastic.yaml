@@ -1,0 +1,23 @@
+# The elastic solid with Drucker-Prager parameters. SeisSol reads the
+# plasticity parameters from the material file unless a separate plasticity
+# file is given. The initial stress is a hydrostatic compression, which has no
+# deviatoric part and is therefore below yield for any positive cohesion: a
+# zero perturbation must stay exactly zero, and anything that departs from
+# that comes from the plasticity update acting on a state it should not touch.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:          2700.0
+        mu:           3.24e10
+        lambda:       3.24e10
+        bulkFriction: 0.6
+        plastCo:      1.0e6
+        s_xx:         -1.0e7
+        s_yy:         -1.0e7
+        s_zz:         -1.0e7
+        s_xy:         0.0
+        s_yz:         0.0
+        s_xz:         0.0

@@ -208,8 +208,13 @@ def read_receiver(path):
     return names, rows
 
 
-def check_outputs(work, prefix, require_finite, activity):
-    """Check that the run produced finite output, and that it did something."""
+def check_outputs(work, prefix, require_finite, activity, expect_zero=False):
+    """Check that the run produced finite output, and that it did something.
+
+    With ``expect_zero`` the demand is the opposite: every recorded value
+    except the time has to be exactly zero, as it must be for a zero initial
+    state without sources.
+    """
     problems = []
     receivers = sorted(
         (work / Path(prefix).parent).glob(f"{Path(prefix).name}-receiver-*.dat")
@@ -227,6 +232,20 @@ def check_outputs(work, prefix, require_finite, activity):
         if not rows:
             problems.append(f"{path.name}: no samples")
             continue
+        if expect_zero:
+            nonzero = [
+                (abs(value), column)
+                for row in rows
+                for column, value in enumerate(row[1:], start=1)
+                if value != 0.0
+            ]
+            if nonzero:
+                size, column = max(nonzero)
+                name = names[column] if column < len(names) else str(column)
+                problems.append(
+                    f"{path.name}: {len(nonzero)} nonzero values where zero is "
+                    f"required, largest |{name}| = {size:.3g}"
+                )
         for row in rows:
             for column, value in enumerate(row):
                 if require_finite and not math.isfinite(value):
@@ -376,6 +395,63 @@ def compare_receivers(reference, candidate, prefix, tolerance, floor):
 # --------------------------------------------------------------------------
 
 
+# SeisSol's own report of a parameter it does not understand. Turned into a
+# failure here: a misspelt key otherwise runs with the default and the case
+# verifies something other than what it claims.
+UNKNOWN_PARAMETER = re.compile(
+    r"The field\s+(\S+)\s+in\s+(\S*)\s*was given in the parameter file, "
+    r"but is unknown to SeisSol"
+)
+TIMESTEP_LINE = re.compile(r"Minimum timestep[^:]*:\s*([-+0-9.eE]+)\s*(\S*?)s\b")
+SI_PREFIXES = {
+    "": 1.0,
+    "m": 1e-3,
+    "\u00b5": 1e-6,
+    "u": 1e-6,
+    "n": 1e-9,
+    "p": 1e-12,
+}
+
+
+def check_log(log, timestep):
+    """Check what only the log can tell: the parameters and the time step."""
+    problems = []
+
+    unknown = sorted(
+        {
+            f"{section}.{field}" if section else field
+            for field, section in UNKNOWN_PARAMETER.findall(log)
+        }
+    )
+    if unknown:
+        problems.append(f"parameters unknown to SeisSol: {', '.join(unknown)}")
+
+    if timestep is not None:
+        matches = TIMESTEP_LINE.findall(log)
+        if not matches:
+            problems.append(
+                "the log does not report the time step, so the requested width "
+                "cannot be confirmed"
+            )
+        else:
+            # the last report is the effective one; with a wiggle factor
+            # SeisSol reports the step before and after applying it
+            value, prefix = matches[-1]
+            if prefix not in SI_PREFIXES:
+                problems.append(f"cannot interpret the time step unit {prefix!r}s")
+            else:
+                effective = float(value) * SI_PREFIXES[prefix]
+                # the value is printed with four decimals after the prefix,
+                # which bounds how closely it can be compared
+                if abs(effective - timestep) > 1e-5 * timestep:
+                    problems.append(
+                        f"the time step is {effective:.6g} s, not the requested "
+                        f"{timestep:.6g} s: FixTimeStep only caps the step, and the "
+                        "CFL limit of this mesh, material and order is below it"
+                    )
+    return problems
+
+
 def record(path, payload):
     if path is None:
         return
@@ -385,6 +461,8 @@ def record(path, payload):
 
 
 def _command_run(args):
+    if args.expect_zero and args.activity:
+        raise SystemExit("--expect-zero and --activity contradict each other")
     capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
     result = {
         "name": args.name,
@@ -407,7 +485,21 @@ def _command_run(args):
 
     case_dir = Path(args.case_dir)
     parameters = ParameterFile((case_dir / args.parameters).read_text(encoding="utf-8"))
-    for name in args.file:
+
+    # file names and overrides may depend on the build, e.g. the material file
+    # differs per equation system; a file this suite does not yet provide for
+    # the configuration is a gap in the suite, reported as a skip
+    substitutions = {key: str(value) for key, value in capabilities.items()}
+    files = [name.format(**substitutions) for name in args.file]
+    overrides = [entry.format(**substitutions) for entry in args.set]
+    missing = [name for name in files if not (case_dir / name).exists()]
+    if missing:
+        result["status"] = "skipped"
+        result["reason"] = [f"the suite has no {name} yet" for name in missing]
+        record(args.result, result)
+        print("skipped: " + "; ".join(result["reason"]))
+        return SKIP_RETURN_CODE
+    for name in files:
         shutil.copy(case_dir / name, work / Path(name).name)
 
     # an absolute mesh path keeps the working directory free of copies
@@ -416,12 +508,23 @@ def _command_run(args):
     # that is reproducible across rank counts and partitioner versions
     parameters.set("MeshNml", "PartitioningLib", "'none'")
     if args.timestep is not None:
-        # a fixed width makes the step size independent of mesh, material and
-        # order, which is what lets different builds be compared at all
+        # FixTimeStep caps the step; below the CFL limit of every cell it is
+        # the step, which makes runs comparable across meshes, materials and
+        # orders. check_log confirms from the log that the cap is the active
+        # constraint. A power of two keeps N * dt, EndTime / dt and the
+        # accumulated time exact, so SeisSol computes exactly N steps of
+        # exactly dt: with a decimal width, the step count ceil(EndTime / dt)
+        # comes out as N + 1 for about one N in fourteen.
+        mantissa, _ = math.frexp(args.timestep)
+        if args.timestep <= 0 or mantissa != 0.5:
+            raise SystemExit(
+                f"the time step {args.timestep!r} is not a power of two; "
+                f"use e.g. {2.0 ** round(math.log2(abs(args.timestep) or 1.0))!r}"
+            )
         parameters.set("Discretization", "FixTimeStep", repr(args.timestep))
         if args.steps is not None:
             parameters.set("AbortCriteria", "EndTime", repr(args.steps * args.timestep))
-    apply_overrides(parameters, args.set)
+    apply_overrides(parameters, overrides)
 
     prefix = parameters.get("Output", "OutputFile") or "output/out"
     (work / Path(prefix).parent).mkdir(parents=True, exist_ok=True)
@@ -443,7 +546,17 @@ def _command_run(args):
     environment.setdefault("OMP_PROC_BIND", "close")
 
     print("running:", " ".join(command))
-    completed = subprocess.run(command, cwd=work, env=environment, check=False)
+    completed = subprocess.run(
+        command,
+        cwd=work,
+        env=environment,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    (work / "seissol.log").write_bytes(completed.stdout)
+    log = completed.stdout.decode("utf-8", errors="replace")
+    sys.stdout.write(log)
 
     result["status"] = "run"
     result["command"] = command
@@ -452,7 +565,10 @@ def _command_run(args):
     if completed.returncode != 0:
         problems.append(f"exit code {completed.returncode}")
     else:
-        problems += check_outputs(work, prefix, args.require_finite, args.activity)
+        problems += check_log(log, args.timestep)
+        problems += check_outputs(
+            work, prefix, args.require_finite, args.activity, args.expect_zero
+        )
 
     if not problems and args.thresholds:
         key = "{}/o{}/{}".format(
@@ -608,6 +724,11 @@ def main(argv=None):
         action="store_true",
         default=bool(os.environ.get("SEISSOL_RECORD_THRESHOLDS")),
         help="print the observed errors in a form that can be pasted into the table",
+    )
+    run.add_argument(
+        "--expect-zero",
+        action="store_true",
+        help="require every recorded value to be exactly zero",
     )
     run.add_argument("--no-finite-check", dest="require_finite", action="store_false")
     run.set_defaults(require_finite=True, func=_command_run)
