@@ -907,28 +907,66 @@ class DamageADERDG(NonLinearCK):
         """What the cell adds to its own state, from its own integrals.
 
         The flux is linear in the velocity and the stress, and both are
-        transported, so the volume term is a constant map: no nodal detour and
-        nothing to evaluate. The source integral of the internal variables
-        rides along, because it is the other half of the same update and it is
-        addition.
+        transported, so the volume term is a constant map in the quantities: no
+        nodal detour and nothing to evaluate. It is not a constant map in the
+        cell, though -- the derivative it integrates is taken along a reference
+        direction, and which physical direction that is, is what the cell was
+        meshed with. So each reference direction carries the row of the
+        Jacobian that belongs to it, exactly as the operator the recursion
+        transports by does; a flux table read at the reference index instead
+        would be the flux of a cell whose Jacobian is the identity, which is
+        no cell of a real mesh.
+
+        The source integral of the internal variables rides along, because it
+        is the other half of the same update and it is addition.
         """
         velocity = self.transportGroupSlice("v")
         stress = self.transportGroupSlice("sigma")
         internal = (self.transportStateExtent(), self.numQuantities())
+        nq = self.numQuantities()
 
+        # The same two tables the face flux is built from, read along the
+        # physical direction the Jacobian names rather than along the
+        # reference direction the stiffness matrix does.
+        velocityMap = Tensor(
+            "velocityFluxMap",
+            (3, 3, nq),
+            np.stack([fluxMap(VELOCITY_FLUX[d], 3, nq) for d in range(3)]),
+        )
+        stressMap = Tensor(
+            "stressFluxMap",
+            (3, 6, nq),
+            np.stack([fluxMap(STRESS_FLUX[d], 6, nq) for d in range(3)]),
+        )
+
+        # One contracted table per reference direction. Temporaries rather
+        # than a single product, so that the geometry meets the tables once
+        # per direction and not once per basis function.
+        velocityRows = [
+            Tensor(f"volumeVelocityRows{r}", (3, nq), temporary=True) for r in range(3)
+        ]
+        stressRows = [
+            Tensor(f"volumeStressRows{r}", (6, nq), temporary=True) for r in range(3)
+        ]
+
+        statements = list(self.parameterStatements())
         volume = self.Q["kp"]
-        for d in range(3):
-            volume = volume + self.db.kDivM[d][self.t("kl")] * (
-                self.I["lm"].subslice("m", *velocity) * self.toFluxV[d]["mp"]
+        for r in range(3):
+            statements += [
+                velocityRows[r]["mp"] <= self.db.star[r]["d"] * velocityMap["dmp"],
+                stressRows[r]["cp"] <= self.db.star[r]["d"] * stressMap["dcp"],
+            ]
+            volume = volume + self.db.kDivM[r][self.t("kl")] * (
+                self.I["lm"].subslice("m", *velocity) * velocityRows[r]["mp"]
                 + self.rhoInv
                 * self.I["lc"].subslice("c", *stress)
-                * self.toFluxS[d]["cp"]
+                * stressRows[r]["cp"]
             )
 
         generator.add(
             f"{prefix}damageCellIntegral",
-            [
-                *self.parameterStatements(),
+            statements
+            + [
                 self.Q["kp"] <= volume,
                 self.Q["kn"].subslice("n", *internal)
                 <= self.Q["kn"].subslice("n", *internal) + self.sourceI["kn"],

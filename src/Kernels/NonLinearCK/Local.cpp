@@ -50,6 +50,12 @@ void Local::computeIntegral(real* timeIntegratedDoFs,
   krnl.Q = data.get<LTS::Dofs>();
   krnl.sourceI = tmp.sourceIntegral;
   krnl.materialParameters = data.get<LTS::LocalIntegration>().specific.parameters;
+  // The reference direction a derivative is taken along is not a physical one:
+  // which physical direction it is, is the geometry the cell was meshed with,
+  // and the volume term needs it as much as the recursion does.
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+  }
   krnl.execute();
 
   // Every face flux is assembled where both wave speeds are, which is the
@@ -83,9 +89,17 @@ void Local::computeBatchedIntegral(
       offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
   static_assert(ParametersOffset % sizeof(real) == 0,
                 "The material of a cell is not aligned to the real size.");
-  krnl.materialParameters = const_cast<const real**>(
+  const auto** localIntegrationPtrs = const_cast<const real**>(
       (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+  krnl.materialParameters = localIntegrationPtrs;
   krnl.extraOffset_materialParameters = ParametersOffset / sizeof(real);
+
+  // As on the host: the geometry of the cell, reached the way the material is.
+  SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    krnl.star(i) = localIntegrationPtrs;
+    krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+  }
 
   auto tmpMem = runtime.memoryHandle<real>((yateto::getMaxTmpMemRequired(krnl) * krnl.numElements) /
                                            sizeof(real));
@@ -124,9 +138,17 @@ void Local::evaluateBatchedTimeDependentBc(
       offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
   static_assert(ParametersOffset % sizeof(real) == 0,
                 "The material of a cell is not aligned to the real size.");
-  krnl.materialParameters = const_cast<const real**>(
+  const auto** localIntegrationPtrs = const_cast<const real**>(
       (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+  krnl.materialParameters = localIntegrationPtrs;
   krnl.extraOffset_materialParameters = ParametersOffset / sizeof(real);
+
+  // As on the host: the geometry of the cell, reached the way the material is.
+  SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    krnl.star(i) = localIntegrationPtrs;
+    krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+  }
 
   auto tmpMem = runtime.memoryHandle<real>((yateto::getMaxTmpMemRequired(krnl) * krnl.numElements) /
                                            sizeof(real));
