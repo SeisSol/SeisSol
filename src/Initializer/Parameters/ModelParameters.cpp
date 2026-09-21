@@ -11,6 +11,7 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <string>
 #include <unordered_set>
@@ -72,6 +73,20 @@ DamageParameters readDamageParameters(ParameterReader* baseReader) {
     }
     if (parameters.breakageRate < 0.0 || parameters.healingRate < 0.0) {
       logError() << "The breakage and healing rates must not be negative.";
+    }
+    const bool noGranularBranch = std::all_of(parameters.granular.begin(),
+                                              parameters.granular.end(),
+                                              [](double value) { return value == 0.0; });
+    if (parameters.breakageRate > 0.0 && noGranularBranch) {
+      // A cell that has broken all the way then has no moduli at all: its
+      // stress is identically zero, so it carries no waves, and a face that
+      // scales its dissipation with a bound formed from those moduli scales it
+      // with zero. Nothing about that is caught later -- a run of it looks like
+      // a uniform state that will not stay uniform.
+      logWarning() << "Breakage is switched on, but every coefficient of the granular branch"
+                   << "is zero. A fully broken cell then has no stress and no wave speed;"
+                   << "set ab0 to mu0 and ab2 to lambda0 / 2 for a branch that carries the"
+                   << "same waves as the solid one.";
     }
   }
 

@@ -30,6 +30,12 @@ struct ITMParameters {
 /// than from easi. The defaults are the configuration the published
 /// implementation runs: no breakage, no healing, and a granular branch that
 /// is never reached.
+///
+/// What those defaults mean for a run: the damage grows to the critical damage
+/// of the cell's strain direction and stops there, because that is where the
+/// solid branch stops describing anything and there is no breakage to take
+/// over. The state past that point is not modelled rather than modelled badly,
+/// which is the side to err on -- the medium has no waves there.
 struct DamageParameters {
   double breakageRate{0.0};
   double healingRate{0.0};
