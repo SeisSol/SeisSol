@@ -32,7 +32,6 @@ from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 from yateto import Scalar, Tensor
-from yateto.memory import CSCMemoryLayout
 from yateto.type import Datatype
 
 #: Position of the two internal variables on the quantity axis.
@@ -217,26 +216,6 @@ class DamageADERDG(NonLinearCK):
         self.pickAlpha = Tensor("selectAlpha", (nq,), unit(ALPHA, nq))
         self.pickBreakage = Tensor("selectBreakage", (nq,), unit(BREAKAGE, nq))
         self.epsInit = Tensor("epsInit", (6,))
-        # The directional maps hold nine non-zeros at most, scattered, so a
-        # bounding box buys nothing and they are stored by their pattern.
-        self.toFluxV = [
-            Tensor(
-                f"velocityToFlux{axis}",
-                (3, nq),
-                fluxMap(VELOCITY_FLUX[d], 3, nq),
-                CSCMemoryLayout,
-            )
-            for d, axis in enumerate("XYZ")
-        ]
-        self.toFluxS = [
-            Tensor(
-                f"stressToFlux{axis}",
-                (6, nq),
-                fluxMap(STRESS_FLUX[d], 6, nq),
-                CSCMemoryLayout,
-            )
-            for d, axis in enumerate("XYZ")
-        ]
         # Modale Koeffizienten auf den Zellmittelwert. Aus den Quadraturge-
         # wichten und der Auswertung an den Knoten gebildet, damit es nicht
         # davon abhaengt, wie die konstante Basisfunktion normiert ist.
