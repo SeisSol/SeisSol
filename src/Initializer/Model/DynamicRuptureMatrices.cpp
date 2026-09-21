@@ -112,8 +112,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       DynamicRupture::Storage& drStorage) {
   real matTData[tensor::T::size()]{};
   real matTinvData[tensor::Tinv::size()]{};
-  real matAPlusData[tensor::star::size(0)]{};
-  real matAMinusData[tensor::star::size(0)]{};
+  // A flux Jacobian of the face normal, one per side.
+  using Setup = seissol::model::MaterialSetup<seissol::model::MaterialT>;
+  real matAPlusData[Setup::CoefficientSize]{};
+  real matAMinusData[Setup::CoefficientSize]{};
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
@@ -341,8 +343,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Wave speeds and Coefficient Matrices
-      auto matAPlus = init::star::view<0>::create(matAPlusData);
-      auto matAMinus = init::star::view<0>::create(matAMinusData);
+      auto matAPlus = Setup::CoefficientView::create(matAPlusData);
+      auto matAMinus = Setup::CoefficientView::create(matAMinusData);
 
       waveSpeedsPlus[ltsFace].density = plusMaterial->getDensity();
       waveSpeedsMinus[ltsFace].density = minusMaterial->getDensity();

@@ -346,6 +346,13 @@ struct MaterialSetupDefaults {
   static void getTransposedSourceCoefficientTensor(const MaterialT& /*material*/,
                                                    T& /*sourceMatrix*/) {}
 
+  /// The directional flux Jacobian of the material, which is what
+  /// getTransposedCoefficientMatrix writes and what a flux solver is built
+  /// from. For a material whose operator is assembled per step this is wider
+  /// than what a cell keeps for the recursion, so the two are named apart.
+  using CoefficientView = init::star::view<0>;
+  static constexpr std::size_t CoefficientSize = tensor::star::size(0);
+
   /// What the cell keeps for the recursion to transport by.
   ///
   /// For a material whose moduli are fixed this is the operator itself,
@@ -357,12 +364,12 @@ struct MaterialSetupDefaults {
                                const double gradEta[3],
                                const double gradZeta[3],
                                real starMatrices[3][tensor::star::size(0)]) {
-    real matATData[tensor::star::size(0)];
-    real matBTData[tensor::star::size(0)];
-    real matCTData[tensor::star::size(0)];
-    auto matAT = init::star::view<0>::create(matATData);
-    auto matBT = init::star::view<0>::create(matBTData);
-    auto matCT = init::star::view<0>::create(matCTData);
+    real matATData[CoefficientSize];
+    real matBTData[CoefficientSize];
+    real matCTData[CoefficientSize];
+    auto matAT = CoefficientView::create(matATData);
+    auto matBT = CoefficientView::create(matBTData);
+    auto matCT = CoefficientView::create(matCTData);
     matAT.setZero();
     matBT.setZero();
     matCT.setZero();

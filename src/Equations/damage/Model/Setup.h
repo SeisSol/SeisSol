@@ -71,6 +71,12 @@ struct MaterialSetup<DamageMaterial> : public MaterialSetupDefaults<DamageMateri
         material, dim, material.lambda0, material.mu0, matM);
   }
 
+  /// A flux Jacobian of this material is as wide as its state; what a cell
+  /// keeps under the name of the transported operator is the geometry, which
+  /// is three numbers.
+  using CoefficientView = init::transport::view<0>;
+  static constexpr std::size_t CoefficientSize = tensor::transport::size(0);
+
   /// The Jacobian of the element, one row per reference direction.
   ///
   /// The operator this material transports by follows the state, so what a

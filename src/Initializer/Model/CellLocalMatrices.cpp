@@ -70,15 +70,12 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
 #pragma omp parallel
     {
-      real matATData[tensor::star::size(0)]{};
-      real matATtildeData[tensor::star::size(0)]{};
-      real matBTData[tensor::star::size(1)]{};
-      real matCTData[tensor::star::size(2)]{};
-      auto matAT = init::star::view<0>::create(matATData);
-      // matAT with elastic parameters in local coordinate system, used for flux kernel
-      auto matATtilde = init::star::view<0>::create(matATtildeData);
-      auto matBT = init::star::view<0>::create(matBTData);
-      auto matCT = init::star::view<0>::create(matCTData);
+      // A flux Jacobian of one direction, in the frame of the face it is taken
+      // for; not the same width as what a cell keeps for the recursion
+      // wherever the operator is assembled per step.
+      using Setup = seissol::model::MaterialSetup<seissol::model::MaterialT>;
+      real matATtildeData[Setup::CoefficientSize]{};
+      auto matATtilde = Setup::CoefficientView::create(matATtildeData);
 
       real matTData[seissol::tensor::T::size()]{};
       real matTinvData[seissol::tensor::Tinv::size()]{};
