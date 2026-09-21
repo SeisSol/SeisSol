@@ -38,10 +38,10 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>

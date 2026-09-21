@@ -33,9 +33,9 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
-#include <cstdint>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <fstream>

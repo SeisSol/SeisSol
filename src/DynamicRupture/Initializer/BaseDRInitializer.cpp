@@ -265,8 +265,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       const auto riseTime = riseTimeIdentifier(i + 1);
       riseTimeFromFault[i] = this->faultProvides(riseTime);
       if (riseTimeFromFault[i]) {
-        parameterToStorageMap.insert(
-            {riseTime, reinterpret_cast<real*>(&stressSourceRiseTime[i])});
+        parameterToStorageMap.insert({riseTime, reinterpret_cast<real*>(&stressSourceRiseTime[i])});
       }
     }
 
@@ -343,9 +342,8 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
                 << (onsetFromFault[i] ? "from " + onsetIdentifier(i + 1)
                                       : "to be " + std::to_string(drParameters_->s0[i]) + " s")
                 << "and its rise time"
-                << (riseTimeFromFault[i]
-                        ? "from " + riseTimeIdentifier(i + 1)
-                        : "to be " + std::to_string(drParameters_->t0[i]) + " s")
+                << (riseTimeFromFault[i] ? "from " + riseTimeIdentifier(i + 1)
+                                         : "to be " + std::to_string(drParameters_->t0[i]) + " s")
                 << ".";
       if (riseTimeNegative[i]) {
         logWarning() << "Nucleation" << (i + 1)

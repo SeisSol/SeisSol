@@ -87,7 +87,5 @@ FrictionLawParameters::FrictionLawParameters(
       rsStateTolerance(parameters.rsStateTolerance),
       isFrictionEnergyRequired(parameters.isFrictionEnergyRequired),
       isCheckAbortCriteraEnabled(parameters.isCheckAbortCriteraEnabled),
-      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities) {
-
-}
+      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities) {}
 } // namespace seissol::dr

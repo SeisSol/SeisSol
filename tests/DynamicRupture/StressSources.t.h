@@ -130,7 +130,8 @@ TEST_CASE("Stress sources of a parameter set" * doctest::test_suite("dynamicrupt
 
   REQUIRE(withSources({}).sourceCount == 1);
   // the initial state has neither a rise time nor an onset, so it is in effect from the start
-  REQUIRE(stressSourceFraction(static_cast<real>(0.0), static_cast<real>(0.0),
+  REQUIRE(stressSourceFraction(static_cast<real>(0.0),
+                               static_cast<real>(0.0),
                                static_cast<real>(0.0)) == static_cast<real>(1.0));
 }
 
@@ -171,8 +172,7 @@ TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrup
       real expected = 0;
       for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
         expected += sources[source][component][Point] *
-                    stressSourceFraction(
-                        time, riseTimes[source][Point], onsets[source][Point]);
+                    stressSourceFraction(time, riseTimes[source][Point], onsets[source][Point]);
       }
       REQUIRE(stress[component] == expected);
     }
@@ -207,8 +207,7 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
   std::array<std::array<real, 6>, Steps> forward{};
   for (std::size_t step = 0; step < Steps; ++step) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    forward[step] =
-        stressAtTime(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
+    forward[step] = stressAtTime(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
   }
   for (std::size_t step = Steps; step-- > 0;) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
@@ -246,8 +245,7 @@ TEST_CASE("Stress sources with an onset per point" * doctest::test_suite("dynami
     const auto stress = stressAtTime(sources, riseTimes, onsets, count, point, time);
     const auto expected =
         static_cast<real>(1.0) +
-        static_cast<real>(4.0) *
-            stressSourceFraction(time, riseTimes[0][point], onsets[0][point]);
+        static_cast<real>(4.0) * stressSourceFraction(time, riseTimes[0][point], onsets[0][point]);
     REQUIRE(stress[0] == expected);
   }
   // it has passed the first points and not yet reached the last

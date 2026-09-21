@@ -84,13 +84,12 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(DynamicRupture::S
     using namespace dr::misc::quantity_indices;
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        const auto initialStress =
-            stressAtTime(&stressSources[ltsFace * sourceCount],
-                         &stressSourceRiseTime[ltsFace * sourceCount],
-                         &stressSourceOnset[ltsFace * sourceCount],
-                         sourceCount,
-                         pointIndex,
-                         static_cast<real>(0.0));
+        const auto initialStress = stressAtTime(&stressSources[ltsFace * sourceCount],
+                                                &stressSourceRiseTime[ltsFace * sourceCount],
+                                                &stressSourceOnset[ltsFace * sourceCount],
+                                                sourceCount,
+                                                pointIndex,
+                                                static_cast<real>(0.0));
         regularizedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -
             mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0), initialStress[XX]);

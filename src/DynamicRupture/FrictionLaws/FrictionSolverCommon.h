@@ -439,15 +439,15 @@ SEISSOL_HOSTDEVICE inline void
  * @param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
-SEISSOL_HOSTDEVICE inline void computeInitialStress(
-    FaultStresses<RangeExecutor<Type>::Exec>& __restrict initialStress,
-    const real (*__restrict stressSourceInFaultCS)[6][misc::NumPaddedPoints],
-    const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints],
-    const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints],
-    const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints],
-    std::uint32_t sourceCount,
-    real fullUpdateTime,
-    uint32_t startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void
+    computeInitialStress(FaultStresses<RangeExecutor<Type>::Exec>& __restrict initialStress,
+                         const real (*__restrict stressSourceInFaultCS)[6][misc::NumPaddedPoints],
+                         const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints],
+                         const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints],
+                         const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints],
+                         std::uint32_t sourceCount,
+                         real fullUpdateTime,
+                         uint32_t startIndex = 0) {
   constexpr auto Exec = RangeExecutor<Type>::Exec;
   using Range = typename NumPoints<Type>::Range;
 

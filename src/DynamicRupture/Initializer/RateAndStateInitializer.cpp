@@ -89,22 +89,21 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
         }
 
         // compute initial friction and state
-        const auto initialStress =
-            stressAtTime(&stressSources[ltsFace * sourceCount],
-                         &stressSourceRiseTime[ltsFace * sourceCount],
-                         &stressSourceOnset[ltsFace * sourceCount],
-                         sourceCount,
-                         pointIndex,
-                         static_cast<real>(0.0));
+        const auto initialStress = stressAtTime(&stressSources[ltsFace * sourceCount],
+                                                &stressSourceRiseTime[ltsFace * sourceCount],
+                                                &stressSourceOnset[ltsFace * sourceCount],
+                                                sourceCount,
+                                                pointIndex,
+                                                static_cast<real>(0.0));
         const auto stateAndFriction = computeInitialStateAndFriction(initialStress[XY],
-                                                                    initialStress[XZ],
-                                                                    initialStress[XX],
-                                                                    rsA[ltsFace][pointIndex],
-                                                                    rsB[ltsFace][pointIndex],
-                                                                    rsSl0[ltsFace][pointIndex],
-                                                                    drParameters_->rsSr0,
-                                                                    rsF0[ltsFace][pointIndex],
-                                                                    initialSlipRate);
+                                                                     initialStress[XZ],
+                                                                     initialStress[XX],
+                                                                     rsA[ltsFace][pointIndex],
+                                                                     rsB[ltsFace][pointIndex],
+                                                                     rsSl0[ltsFace][pointIndex],
+                                                                     drParameters_->rsSr0,
+                                                                     rsF0[ltsFace][pointIndex],
+                                                                     initialSlipRate);
         stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
         mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
       }

@@ -104,8 +104,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
         seissol::initializer::AllocationPlace::Device;
     data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
     data->impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
-    data->stressSourceInFaultCS =
-        layerData.var<DynamicRupture::StressSourceInFaultCS>(place);
+    data->stressSourceInFaultCS = layerData.var<DynamicRupture::StressSourceInFaultCS>(place);
     data->mu = layerData.var<DynamicRupture::Mu>(place);
     data->accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(place);
     data->slip1 = layerData.var<DynamicRupture::Slip1>(place);
