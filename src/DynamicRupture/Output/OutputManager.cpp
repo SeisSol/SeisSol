@@ -545,7 +545,13 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
 
 void OutputManager::writePickpointOutput(double time, double dt) {
   for (const auto& [id, _] : ppOutputData_) {
-    writePickpointOutput(id, time, dt, 0, 1, runtime_);
+    // Nothing has been predicted yet, so what there is to write is the state at
+    // the point the expansion is about: a nominal step of one, evaluated at its
+    // start -- the same (mesh timestep, offset into it) order the stepping call
+    // uses. A zero timestep is not a stand-in for it: a basis that is scaled by
+    // the step, as the one the carried columns are projected into is, divides by
+    // it.
+    writePickpointOutput(id, time, dt, 1, 0, runtime_);
   }
 }
 
