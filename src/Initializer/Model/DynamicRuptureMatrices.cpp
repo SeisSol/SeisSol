@@ -14,6 +14,7 @@
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
@@ -579,6 +580,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
       dynamicRupture::kernel::rotateFluxMatrix krnl;
+      // A flux solver built from the flux of the face normal reads constants of
+      // the layout -- which quantity feeds which equation, and the normal of a
+      // face frame. One built from a star matrix reads none, which is why this
+      // did not have to be here before a material derived its traction.
+      krnl.bindGlobals(Pool::host());
       krnl.T = matTData;
 
       seissol::model::bindFaultFluxSolver(krnl, *plusMaterial, matAPlusData);
