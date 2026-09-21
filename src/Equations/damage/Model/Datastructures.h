@@ -193,7 +193,7 @@ struct DamageMaterial : public Material {
   ///
   /// with L the weight on d(x)d, M the one on Isym and X the one on the mixed
   /// group -- for the granular branch L = P'', M = 2P - xi P' and X = P' - xi
-  /// P''. The dependence on a is a quadratic and is maximised in closed form;
+  /// P''. The dependence on a is a quadratic and is maximized in closed form;
   /// what is left is the invariant ratio, which the coefficients are a cubic in
   /// at worst, and which is scanned. The constraint that ties a to xi is not
   /// imposed, and neither is a negative bound kept: both err upwards, which

@@ -27,7 +27,7 @@ faulting, and friction"); the breakage variable, the granular branch and the
 transition between the two come from Lyakhovsky and Ben-Zion (2014, *Pure and
 Applied Geophysics*, "A continuum damage-breakage faulting model and
 solid-granular transitions"). What is described here is how those equations are
-discretised, what the implementation covers, and where it stops.
+discretized, what the implementation covers, and where it stops.
 
 It is meant for what happens *around* a fault rather than on it -- the
 off-fault damage zone, the softening of the medium during rupture, and the

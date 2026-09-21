@@ -34,7 +34,7 @@ struct ITMParameters {
 /// What those defaults mean for a run: the damage grows to the critical damage
 /// of the cell's strain direction and stops there, because that is where the
 /// solid branch stops describing anything and there is no breakage to take
-/// over. The state past that point is not modelled rather than modelled badly,
+/// over. The state past that point is not modeled rather than modeled badly,
 /// which is the side to err on -- the medium has no waves there.
 struct DamageParameters {
   double breakageRate{0.0};
