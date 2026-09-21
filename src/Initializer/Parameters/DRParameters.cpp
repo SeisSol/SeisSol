@@ -63,6 +63,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
     logWarning() << "Using FL=2 for the linear slip weakening friction law is deprecated; consider "
                     "switching it to FL=16";
+    frictionLawType = FrictionLawType::LinearSlipWeakening;
   }
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
