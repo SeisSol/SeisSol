@@ -105,6 +105,7 @@ repos:
     -   id: clang-format
         name: '[C++] clang-format'
         files: ^(src|app|tests)
+        types_or: [c, c++, cuda]
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
