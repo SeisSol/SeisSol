@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # Linear slip weakening with a forced rupture time, which SeisSol enables
 # when the file provides it. The cases using this file delay the
 # nucleation past the end of the run, so the forced rupture alone breaks

@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # Linear slip weakening, after TPV5, with a short d_c so that the weakening
 # branch is reached within the run. Strength mu_s * 120 MPa = 81.24 MPa lies
 # between the initial 70 MPa and the 90 MPa reached with nucleation.

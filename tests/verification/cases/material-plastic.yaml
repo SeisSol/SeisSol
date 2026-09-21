@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # The elastic solid with Drucker-Prager parameters. SeisSol reads the
 # plasticity parameters from the material file unless a separate plasticity
 # file is given. The initial stress is a hydrostatic compression, which has no

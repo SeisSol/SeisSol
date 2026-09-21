@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # Imposed slip rates. One file serves all three source time functions, as in
 # the Northridge cases of precomputed-seissol: these laws read their own
 # parameters and ignore the rest, and they need no initial stress. The times

@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # Rate and state with thermal pressurization, after TPV101 and TPV105. The
 # nucleation stress exceeds what the direct effect can hold at creep rates,
 # so slip turns dynamic within the run instead of after the long state

@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+version = 1
+
+# license the verification files which cannot cover themselves: parameter
+# files, whose comment syntax the parameter reader may not accept before the
+# first section, and JSON, which has none; this includes snapshot references
+
+[[annotations]]
+path = ["**/*.par", "**/*.json", "**/*.json.in"]
+SPDX-FileCopyrightText = "2026 SeisSol Group"
+SPDX-License-Identifier = "BSD-3-Clause"
