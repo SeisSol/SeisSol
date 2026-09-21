@@ -413,8 +413,8 @@ void checkOrder() {
     const double x = ReferenceArguments[N][i];
     const double reference = ReferenceValues[N][i];
     const T value = functions::phi<N, T>(static_cast<T>(x));
-    REQUIRE(std::isfinite(static_cast<double>(value)));
-    REQUIRE(ulpDistance(value, reference) < MaxUlp);
+    CHECK(std::isfinite(static_cast<double>(value)));
+    CHECK(ulpDistance(value, reference) < MaxUlp);
   }
 }
 
@@ -425,7 +425,7 @@ void checkOrders(std::index_sequence<Ns...> /*orders*/) {
 
 template <std::size_t N, typename T>
 void checkZero() {
-  REQUIRE(functions::phi<N, T>(T{0}) == T{1} / functions::phifunctions::factorial<T>(N));
+  CHECK(functions::phi<N, T>(T{0}) == T{1} / functions::phifunctions::factorial<T>(N));
 }
 
 template <typename T, std::size_t... Ns>
@@ -450,8 +450,8 @@ void checkRecurrence() {
       const double amplification =
           (std::abs(static_cast<double>(summand)) + static_cast<double>(offset)) /
           std::abs(static_cast<double>(lower));
-      REQUIRE(ulpDistance(static_cast<T>(summand + offset), static_cast<double>(lower)) <
-              MaxUlp * amplification);
+      CHECK(ulpDistance(static_cast<T>(summand + offset), static_cast<double>(lower)) <
+            MaxUlp * amplification);
     }
   }
 }
@@ -472,11 +472,11 @@ void checkPositivity() {
     if (!std::isfinite(static_cast<double>(value))) {
       continue;
     }
-    REQUIRE(value >= T{0});
+    CHECK(value >= T{0});
     // only exp itself decays fast enough to underflow; from the first order on the decay is
     // algebraic, phi_n(x) -> -1/((n-1)! x), and the value stays representable
     if constexpr (N > 0) {
-      REQUIRE(value > T{0});
+      CHECK(value > T{0});
     }
   }
 }
@@ -497,7 +497,7 @@ void checkBranchAgreement() {
               x);
       const T difference = (std::exp(x) - functions::phifunctions::truncatedExponential<N, T>(x)) /
                            functions::phifunctions::integerPower(x, N);
-      REQUIRE(ulpDistance(series, static_cast<double>(difference)) < MaxUlp);
+      CHECK(ulpDistance(series, static_cast<double>(difference)) < MaxUlp);
     }
   }
 }
@@ -519,7 +519,7 @@ void checkRemainder() {
         std::abs(reference) > static_cast<double>(std::numeric_limits<T>::min()) &&
         std::isfinite(static_cast<double>(value));
     if (representable) {
-      REQUIRE(ulpDistance(value, reference) < MaxUlp);
+      CHECK(ulpDistance(value, reference) < MaxUlp);
     }
   }
 }
@@ -532,7 +532,7 @@ void checkRemainders(std::index_sequence<Ns...> /*orders*/) {
 template <std::size_t N, typename T>
 void checkBatch(T x) {
   const auto batch = functions::phiUpTo<N, T>(x);
-  REQUIRE(ulpDistance(batch[N], static_cast<double>(functions::phi<N, T>(x))) < MaxUlp);
+  CHECK(ulpDistance(batch[N], static_cast<double>(functions::phi<N, T>(x))) < MaxUlp);
   if constexpr (N > 0) {
     checkBatch<N - 1, T>(x);
   }
@@ -597,7 +597,7 @@ TEST_CASE_TEMPLATE("Exponential series remainders reproduce the reference" *
 TEST_CASE("The first order remainder is expm1" * doctest::test_suite("numerical")) {
   for (int i = -300; i <= 300; ++i) {
     const double x = i * 0.05;
-    REQUIRE(functions::expRemainder<1, double>(x) == std::expm1(x));
+    CHECK(functions::expRemainder<1, double>(x) == std::expm1(x));
   }
 }
 
@@ -621,8 +621,8 @@ TEST_CASE("The truncated phi series holds within the bound it was sized for" *
                 "a smaller bound has to buy a shorter series");
   for (int i = -250; i <= 250; ++i) {
     const double x = i * (Bound / 250.0);
-    REQUIRE(phifunctionstest::ulpDistance(functions::phiTruncated<3, Terms>(x),
-                                          functions::phi<3, double>(x)) < phifunctionstest::MaxUlp);
+    CHECK(phifunctionstest::ulpDistance(functions::phiTruncated<3, Terms>(x),
+                                        functions::phi<3, double>(x)) < phifunctionstest::MaxUlp);
   }
 }
 

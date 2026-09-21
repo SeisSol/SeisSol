@@ -316,13 +316,14 @@ TEST_CASE_TEMPLATE("Regularized Yoffe function" * doctest::test_suite("numerical
   // gives up (tauR / tauS)^2 in relative accuracy; the bound admits that factor and no more,
   // which is what keeps the test honest about where the accuracy actually goes
   for (const auto& sample : Samples) {
+    CAPTURE(sample);
     const double ratio = sample.tauR / sample.tauS;
     const double maxUlp = 8.0 * (1.0 + ratio * ratio);
     const double peak = peakOf<RealT>(sample.tauS, sample.tauR);
     const auto value = regularizedYoffe<RealT>(static_cast<RealT>(sample.time),
                                                static_cast<RealT>(sample.tauS),
                                                static_cast<RealT>(sample.tauR));
-    REQUIRE(peakDistance(value, reference<RealT>(sample), peak) < maxUlp);
+    CHECK(peakDistance(value, reference<RealT>(sample), peak) < maxUlp);
   }
 }
 
@@ -349,14 +350,14 @@ TEST_CASE_TEMPLATE("Regularized Yoffe is continuous across its branches" *
       for (const auto time : {below, at, above}) {
         const auto value =
             regularizedYoffe<RealT>(time, static_cast<RealT>(tauS), static_cast<RealT>(tauR));
-        REQUIRE(std::isfinite(static_cast<double>(value)));
+        CHECK(std::isfinite(static_cast<double>(value)));
         // the ends of the support are genuine zeros, where the formula rounds to either sign
-        REQUIRE(static_cast<double>(value) > -tolerance);
+        CHECK(static_cast<double>(value) > -tolerance);
       }
       const auto jump =
           regularizedYoffe<RealT>(above, static_cast<RealT>(tauS), static_cast<RealT>(tauR)) -
           regularizedYoffe<RealT>(below, static_cast<RealT>(tauS), static_cast<RealT>(tauR));
-      REQUIRE(std::abs(static_cast<double>(jump)) < tolerance);
+      CHECK(std::abs(static_cast<double>(jump)) < tolerance);
     }
   }
 }
@@ -381,11 +382,11 @@ TEST_CASE_TEMPLATE("Regularized Yoffe has unit integral and compact support" *
       integral += static_cast<double>(regularizedYoffe<RealT>(
           static_cast<RealT>(i * h), static_cast<RealT>(tauS), static_cast<RealT>(tauR)));
     }
-    REQUIRE(integral * h == doctest::Approx(1.0).epsilon(1e-3));
+    CHECK(integral * h == doctest::Approx(1.0).epsilon(1e-3));
     for (const double outside : {-1.0, -1e-3, support + 1e-3, 10 * support}) {
-      REQUIRE(regularizedYoffe<RealT>(static_cast<RealT>(outside),
-                                      static_cast<RealT>(tauS),
-                                      static_cast<RealT>(tauR)) == static_cast<RealT>(0));
+      CHECK(regularizedYoffe<RealT>(static_cast<RealT>(outside),
+                                    static_cast<RealT>(tauS),
+                                    static_cast<RealT>(tauR)) == static_cast<RealT>(0));
     }
   }
 }
@@ -400,11 +401,12 @@ TEST_CASE("Regularized Yoffe in a wider accumulator" * doctest::test_suite("nume
   // the final rounding of the result, and nothing of the second difference
   constexpr double MaxUlp = 16.0;
   for (const auto& sample : Samples) {
+    CAPTURE(sample);
     const double peak = peakOf<float>(sample.tauS, sample.tauR);
     const auto value = regularizedYoffe<float, double>(static_cast<float>(sample.time),
                                                        static_cast<float>(sample.tauS),
                                                        static_cast<float>(sample.tauR));
-    REQUIRE(peakDistance(value, sample.singleValue, peak) < MaxUlp);
+    CHECK(peakDistance(value, sample.singleValue, peak) < MaxUlp);
   }
 }
 
