@@ -595,6 +595,24 @@ class DamageADERDG(NonLinearCK):
         # Damage and breakage grow with the strain energy above the onset
         # threshold; below it the damage heals at its own rate, and the cell
         # stops once either variable saturates.
+        #
+        # Saturation of the damage is the critical damage and not one. One is
+        # where the variable runs out of room; the critical damage is where the
+        # model says the solid branch stops describing anything and the breakage
+        # takes over, and it is the smaller of the two -- the three-way minimum
+        # above caps against one itself. Reading one instead let a run drive the
+        # damage past the point where the tangent of its own stress is no longer
+        # positive, and there the medium carries no waves: a uniform state grows
+        # roundoff instead of staying put, at a rate that does not care what the
+        # timestep is, because what it has left is well-posedness and not
+        # accuracy. Where the critical damage is one -- every scenario with a
+        # mild gammaR -- this is the guard that stood here before, to the digit.
+        #
+        # It is the model's own bound rather than a bound on hyperbolicity: the
+        # minimum caps against the damage at which the effective shear modulus
+        # vanishes, which is a loss of ellipticity, but the compressional family
+        # can reach zero earlier for a strain direction the cap does not look
+        # at. A fourth term in the minimum would be where that goes.
         drive, growing = self.drive, self.growing
         statements += [
             drive["l"] <= gammaR * yf.mul(intact["l"], yf.mul(i2["l"], xi["l"] + xi0)),
@@ -602,7 +620,7 @@ class DamageADERDG(NonLinearCK):
             <= yf.logical_and(
                 yf.greater(xi["l"] + xi0, floor),
                 yf.logical_and(
-                    yf.less(yf.sum(self.meanAlpha["u"], "u"), 1.0),
+                    yf.less(yf.sum(self.meanAlpha["u"], "u"), critical["l"]),
                     yf.less(yf.sum(self.meanBreakage["u"], "u"), 1.0),
                 ),
             ),
