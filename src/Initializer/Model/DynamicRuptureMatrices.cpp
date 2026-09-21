@@ -391,6 +391,20 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
       seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
 
+      // Where the traction sits in what a cell transports. It is the first, the
+      // fourth and the sixth of the stress components, but the stress is only
+      // the front of the layout for a material that has it in its state -- one
+      // that derives it carries it further along, and then so does the map from
+      // the interpolated state to the traction of the face.
+      constexpr auto TractionRows = []() {
+        constexpr auto Offset = generated::TransportTractionOffset;
+        std::array<std::size_t, 3> rows{};
+        for (std::size_t i = 0; i < rows.size(); ++i) {
+          rows[i] = Offset + seissol::model::SymTensor2Traction[i];
+        }
+        return rows;
+      }();
+
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Anisotropic:
         [[fallthrough]];
@@ -443,8 +457,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         copyEigenToYateto(impedanceMatrix, impedanceView);
         copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
         copyEigenToYateto(etaMatrix, etaView);
-        copyEigenToYateto(bMatrix, tractionPlusMatrix, std::array<size_t, 3>{0, 3, 5});
-        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, std::array<size_t, 3>{0, 3, 5});
+        copyEigenToYateto(bMatrix, tractionPlusMatrix, TractionRows);
+        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, TractionRows);
 
         // reconstruction of the stress components outside of the Riemann problem; only needed by
         // the fault receiver output, which evaluates them on the plus side
@@ -505,14 +519,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         const double etaS = cZsP * cZsM / (cZsP + cZsM);
 
         tractionPlusMatrix.setZero();
-        tractionPlusMatrix(0, 0) = etaP / cZpP;
-        tractionPlusMatrix(3, 1) = etaS / cZsP;
-        tractionPlusMatrix(5, 2) = etaS / cZsP;
+        tractionPlusMatrix(TractionRows[0], 0) = etaP / cZpP;
+        tractionPlusMatrix(TractionRows[1], 1) = etaS / cZsP;
+        tractionPlusMatrix(TractionRows[2], 2) = etaS / cZsP;
 
         tractionMinusMatrix.setZero();
-        tractionMinusMatrix(0, 0) = etaP / cZpM;
-        tractionMinusMatrix(3, 1) = etaS / cZsM;
-        tractionMinusMatrix(5, 2) = etaS / cZsM;
+        tractionMinusMatrix(TractionRows[0], 0) = etaP / cZpM;
+        tractionMinusMatrix(TractionRows[1], 1) = etaS / cZsM;
+        tractionMinusMatrix(TractionRows[2], 2) = etaS / cZsM;
         break;
       }
       }
