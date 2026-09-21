@@ -262,6 +262,11 @@ class DamageADERDG(NonLinearCK):
         self.xi = temporary("xi")
         self.intact = temporary("intact")
         self.twoMuEff = temporary("twoMuEff")
+        # The isotropic pair of the blended tangent, which is what a bound on a
+        # wave is formed from. Not the solid pair: past a breakage of zero the
+        # moduli a wave sees are not the ones the solid branch has.
+        self.lambdaBlend = temporary("lambdaBlend")
+        self.twoMuBlend = temporary("twoMuBlend")
         self.sigmaNodal = temporary("sigmaNodal", 6)
         self.critical = temporary("criticalDamage")
         self.drive = temporary("damageDrive")
@@ -422,6 +427,32 @@ class DamageADERDG(NonLinearCK):
             * trace["c"],
         ]
 
+        # The isotropic pair of the tangent of the blended stress, which is what
+        # the bounds a face scales its dissipation with are formed from. Both
+        # branches are positively homogeneous of degree one in the strain, so
+        # differentiating F = P(xi) I2 once more than the stress does gives the
+        # granular pair as
+        #
+        #   2 mu = 2 P - xi P' = 2 aB0 + aB1 xi - aB3 xi^3,
+        #   lambda = P''       = 2 aB2 + 6 aB3 xi,
+        #
+        # and the blend is the same convex one the stress is under. The two
+        # coincide with the solid pair at a breakage of zero, which is the only
+        # place the solid pair on its own was ever right.
+        statements += [
+            self.twoMuBlend["l"]
+            <= yf.mul(intact["l"], twoMuEff["l"])
+            + yf.mul(
+                breakage["l"],
+                2.0 * aB[0]
+                + aB[1] * xi["l"]
+                - aB[3] * yf.mul(xi["l"], yf.mul(xi["l"], xi["l"])),
+            ),
+            self.lambdaBlend["l"]
+            <= lambda0 * intact["l"]
+            + yf.mul(breakage["l"], 2.0 * aB[2] + 6.0 * aB[3] * xi["l"]),
+        ]
+
         return statements
 
     def waveSpeedStatements(self):
@@ -447,8 +478,10 @@ class DamageADERDG(NonLinearCK):
         # dissipation, which is the wrong side to err on. It is what keeps a
         # cell that has left the model from taking the run with it, and the
         # state that got there is the thing to look at.
-        pSquared = yf.maximum(self.rhoInv * (self.lambda0 + self.twoMuEff["l"]), 0.0)
-        sSquared = yf.maximum(self.rhoInv * 0.5 * self.twoMuEff["l"], 0.0)
+        pSquared = yf.maximum(
+            self.rhoInv * (self.lambdaBlend["l"] + self.twoMuBlend["l"]), 0.0
+        )
+        sSquared = yf.maximum(self.rhoInv * 0.5 * self.twoMuBlend["l"], 0.0)
         return [
             self.nodeWave["u"] <= yf.mul(yf.max(pSquared, "l"), self.unitColumn["u"]),
             self.nodeShear["u"] <= yf.mul(yf.max(sSquared, "l"), self.unitColumn["u"]),
@@ -749,21 +782,50 @@ class DamageADERDG(NonLinearCK):
         wave travels at the former.
 
         With n the mean strain normalised in the Frobenius norm, xi = tr(n)
-        and g = gammaR alpha, the tangent is
+        and g = gammaR alpha, the tangent of the solid branch is
 
           C = lambda0 d(x)d + (2 mu0 - 2 g xi0 - g xi) Isym
                 - g (d(x)n + n(x)d) + g xi n(x)n,
 
         which is not isotropic: the last two groups have no pair of Lame
-        parameters behind them. Written in Voigt it is a plain 6 by 6, and the
-        directional operator is that matrix placed in the rows where a stress
-        feeds a velocity, plus the geometry where a velocity feeds a strain.
-        The Jacobian of the cell weighs the three reference directions.
+        parameters behind them.
+
+        The stress is a convex blend of that branch and a granular one, so the
+        tangent is the same blend of the two tangents. The granular branch is
+        the gradient of F = P(xi) I2, and differentiating it once more than the
+        stress does gives
+
+          C_gr = (2P - xi P') Isym + P'' d(x)d
+                   + (P' - xi P'') (d(x)n + n(x)d) - xi (P' - xi P'') n(x)n,
+
+        which has the same four groups -- so the blend costs four scalars and
+        not a second matrix. With aB1 = aB3 = 0 it reduces to 2 aB0 Isym +
+        2 aB2 d(x)d, an isotropic pair, and the granular case of the plane wave
+        is the statement that those two are Hooke's law.
+
+        Taking the solid branch alone was wrong wherever the breakage is not
+        zero: the recursion then transports at speeds the medium does not have,
+        which a uniform state at breakage one shows as a growth of roundoff
+        rather than as an error.
+
+        Written in Voigt it is a plain 6 by 6, and the directional operator is
+        that matrix placed in the rows where a stress feeds a velocity, plus the
+        geometry where a velocity feeds a strain. The Jacobian of the cell
+        weighs the three reference directions.
         """
         nq = self.numQuantities()
         mean = Tensor("meanState", (nq,), temporary=True)
         meanStrain = Tensor("meanStrain", (6,), temporary=True)
         meanAlpha = Tensor("meanAlpha", (), temporary=True)
+        meanBreakage = Tensor("meanBreakageTangent", (), temporary=True)
+        intactMean = Tensor("intactMean", (), temporary=True)
+        across = Tensor("granularAcross", (), temporary=True)
+        granularShear = Tensor("granularShear", (), temporary=True)
+        granularVolume = Tensor("granularVolume", (), temporary=True)
+        volumetric = Tensor("tangentVolumetric", (), temporary=True)
+        isotropicPart = Tensor("tangentIsotropic", (), temporary=True)
+        mixed = Tensor("tangentMixed", (), temporary=True)
+        directional = Tensor("tangentDirectional", (), temporary=True)
         direction = Tensor("strainDirection", (6,), temporary=True)
         tangent = Tensor("tangent", (6, 6), temporary=True)
         invariantI1 = Tensor("meanI1", (), temporary=True)
@@ -781,6 +843,7 @@ class DamageADERDG(NonLinearCK):
             mean["p"] <= self.cellMean["k"] * self.Q["kp"],
             meanStrain["c"] <= mean["p"] * self.pickStrain["pc"] + self.epsInit["c"],
             meanAlpha[""] <= mean["p"] * self.pickAlpha["p"],
+            meanBreakage[""] <= mean["p"] * self.pickBreakage["p"],
             invariantI1[""] <= meanStrain["c"] * self.trace["c"],
             invariantI2[""]
             <= yf.mul(meanStrain["c"], meanStrain["c"]) * self.voigt["c"],
@@ -805,16 +868,41 @@ class DamageADERDG(NonLinearCK):
                 self.gammaR * meanAlpha[""],
                 0.0,
             ),
+            # What the solid branch puts on each of the four groups.
             shear[""]
             <= 2.0 * self.mu0
             - 2.0 * yf.mul(coupling[""], self.xi0)
             - yf.mul(coupling[""], ratio[""]),
+            # And the granular one. `across` is P' - xi P'' = aB1 - 3 aB3 xi^2,
+            # which is what both the mixed group and the directional one are
+            # built from; with aB1 = aB3 = 0 it is zero and the branch is the
+            # isotropic pair alone.
+            across[""] <= self.aB[1] - 3.0 * self.aB[3] * yf.mul(ratio[""], ratio[""]),
+            granularShear[""]
+            <= 2.0 * self.aB[0]
+            + self.aB[1] * ratio[""]
+            - self.aB[3] * yf.mul(ratio[""], yf.mul(ratio[""], ratio[""])),
+            granularVolume[""] <= 2.0 * self.aB[2] + 6.0 * self.aB[3] * ratio[""],
+            # The blend, one scalar per group.
+            intactMean[""] <= 1.0 - meanBreakage[""],
+            volumetric[""]
+            <= yf.mul(intactMean[""], self.lambda0)
+            + yf.mul(meanBreakage[""], granularVolume[""]),
+            isotropicPart[""]
+            <= yf.mul(intactMean[""], shear[""])
+            + yf.mul(meanBreakage[""], granularShear[""]),
+            mixed[""]
+            <= -yf.mul(intactMean[""], coupling[""])
+            + yf.mul(meanBreakage[""], across[""]),
+            directional[""]
+            <= yf.mul(intactMean[""], yf.mul(coupling[""], ratio[""]))
+            - yf.mul(meanBreakage[""], yf.mul(ratio[""], across[""])),
             tangent["cd"]
-            <= self.lambda0 * delta["c"] * delta["d"]
-            + yf.mul(shear[""], isotropic["cd"])
-            - yf.mul(coupling[""], delta["c"] * direction["d"])
-            - yf.mul(coupling[""], direction["c"] * delta["d"])
-            + yf.mul(yf.mul(coupling[""], ratio[""]), direction["c"] * direction["d"]),
+            <= yf.mul(volumetric[""], delta["c"] * delta["d"])
+            + yf.mul(isotropicPart[""], isotropic["cd"])
+            + yf.mul(mixed[""], delta["c"] * direction["d"])
+            + yf.mul(mixed[""], direction["c"] * delta["d"])
+            + yf.mul(directional[""], direction["c"] * direction["d"]),
         ]
         for r in range(3):
             statements += [
