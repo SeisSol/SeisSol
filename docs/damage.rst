@@ -89,6 +89,15 @@ exceeds the onset ratio :math:`\xi_0` and heals where it does not, at rates
 how sharp that transition is. Both are sources rather than fluxes: they do not
 propagate, they are made where the strain is.
 
+The damage saturates at that critical value rather than at one. One is where
+the variable runs out of room; the critical damage is where the solid branch
+stops describing anything, and it is the smaller of the two. Past it the
+tangent of the stress need no longer be positive, and a medium there carries no
+waves -- a uniform state then grows roundoff at a rate that does not depend on
+the timestep, because what it has lost is well-posedness rather than accuracy.
+For a mild :math:`\gamma_R` the critical damage is one and the two bounds
+coincide.
+
 Momentum and the strain rate are as usual --
 :math:`\rho \partial_t v = \nabla \cdot \sigma` and
 :math:`\partial_t \epsilon = \tfrac{1}{2}(\nabla v + \nabla v^{T})` -- so
@@ -140,9 +149,15 @@ Per model, from the ``[equations]`` section of the :ref:`parameter file
 +------------------------------------------+---------------------+------------------------+------------------+
 
 The defaults reproduce a run with damage but without breakage or healing,
-which is the configuration the model is usually first compared against.
+which is the configuration the model is usually first compared against. Such a
+run has a definite end: the damage grows to the critical damage of the cell's
+strain direction and stops there, because there is no breakage to take over.
+
 ``betaalpha`` divides and must be positive; the two rates must not be
-negative. Both are checked when the parameter file is read.
+negative. A positive breakage rate with every granular coefficient at zero is
+warned about: a cell that has broken all the way then has no moduli at all, so
+it carries no stress and no waves, and nothing later in a run says so. All
+three are checked when the parameter file is read.
 
 How it is solved
 ----------------
@@ -162,15 +177,32 @@ dissipation of the numerical flux is scaled. The stress of a cell is a
 question about that cell's material and its damage, so the cell answers it --
 a neighbour never rebuilds it.
 
-**The flux is a Rusanov flux with a state-dependent speed.** The dissipation
-is scaled by the larger of the two sides' wave speeds, and those speeds follow
-the damage: a softened cell carries slower waves and gets a smaller
+**The numerical flux carries a state-dependent speed.** Both a Rusanov and a
+Godunov flux are available, as for any other material, and the dissipation of
+either is scaled by the larger of the two sides' wave speeds. Those speeds
+follow the damage: a softened cell carries slower waves and gets a smaller
 correction. The speed is accumulated over the step rather than taken at an
 instant, so it is well defined for a neighbour reading a part of the step.
 
-The timestep is bounded by the *undamaged* wave speed, which is a bound over
-all states the cell can reach. A run does not have to be restarted when a cell
-softens.
+The Godunov flux dissipates with the absolute value of the flux Jacobian of the
+face normal. For a system whose state is a strain that is
+
+.. math::
+
+   |A| = \mathrm{diag}\!\left(S\,\Gamma^{-1/2}\,T,\ \Gamma^{1/2}\right),
+
+with :math:`\Gamma` the acoustic tensor of the face normal, :math:`T` the map
+from a strain to the traction it carries over the density, and :math:`S` the
+lift of a vector back onto a strain. Written that way the strain rows read the
+*transported stress* rather than the cell's own strain, so no material crosses
+a face here either, and the form is positive semi-definite for the energy of
+the system whatever pair of speeds it is given -- which is what keeps it sound
+once the damage has made the tangent anisotropic.
+
+The timestep is bounded by the stiffest state the cell can reach, over both
+branches of the constitutive law and over :math:`\alpha \in [0, 1]`. A run does
+not have to be restarted when a cell softens, and a granular branch stiffer
+than the solid one is accounted for rather than run past.
 
 What is supported
 -----------------
@@ -178,12 +210,12 @@ What is supported
 +-------------------------------------------+--------------------------------------------------+
 | Boundary conditions                       | regular, periodic, outflow, free surface         |
 +-------------------------------------------+--------------------------------------------------+
-| Local time stepping                       | mechanism complete, not verified                 |
+| Local time stepping                       | yes, and as accurate as for a linear material    |
 +-------------------------------------------+--------------------------------------------------+
 | GPU                                       | interior faces; a face without a neighbour is    |
 |                                           | refused at setup                                 |
 +-------------------------------------------+--------------------------------------------------+
-| Dynamic rupture                           | no                                               |
+| Dynamic rupture                           | yes, through a nodal matrix impedance            |
 +-------------------------------------------+--------------------------------------------------+
 | Plasticity                                | no -- the rheology already carries the           |
 |                                           | inelastic part                                   |
@@ -197,18 +229,31 @@ What is supported
 Three of those entries deserve their reason.
 
 *Dynamic rupture* needs a mechanical traction at the fault, and here the
-traction is derived from the state rather than being part of it. Joining the
-two means evaluating the constitutive relation on the fault's quadrature
-points and letting the friction laws read the result; until that exists the
-material says it does not support faults rather than handing the friction laws
-something that looks like a traction and is not.
+traction is derived from the state rather than being part of it: the
+constitutive relation is evaluated on the fault's quadrature points and the
+friction laws read the result. The impedance a node scales its Riemann problem
+with is a matrix and not four scalars, because the tangent of this stress is not
+isotropic -- the normal mode couples to the shear modes and the two shear modes
+to each other -- and it belongs to a point and an instant rather than to the
+face. In the elastic limit the rupture reproduces the linear elastic one on the
+same mesh and with the same clustering to better than 0.2 percent in rupture
+time, peak slip rate and final slip.
+
+A scenario that states the fault background twice will count it twice. The
+friction law compares the fault file's initial stress plus the interpolated
+traction against the strength, and an initial strain in the material already
+contributes to the second of those. Either the fault file or the material may
+carry the background, not both.
 
 *Local time stepping* works by reconstructing a part of a neighbour's step.
 For the state that is the usual Taylor sum; for the stress it is a second
-expansion, projected onto a Legendre basis in time and stored alongside. The
-mechanism is complete in both directions, but whether a reconstructed
-subinterval agrees with global time stepping to the order of the scheme is
-something a comparison run has to say, and that comparison has not been made.
+expansion, projected onto a Legendre basis in time and stored alongside. What
+that reconstruction costs is the same as for a linear material: on a graded
+periodic box the difference between a run with global time stepping and one at
+a cluster ratio of two agrees with the linear solver's own difference to within
+ten percent, and both fall at first order in the timestep. The second expansion
+is therefore not what limits it -- the clustered scheme is, for either
+material.
 
 *The stored energy* is absent from the energy output rather than approximated.
 The free energy of this rheology carries a square root of the second strain
@@ -228,10 +273,19 @@ undeformed cell therefore behaves exactly elastically rather than producing a
 NaN, which matters because it is the initial state of most runs.
 
 The strain invariant ratio is bounded by :math:`\pm\sqrt{3}` for any strain,
-and the wave-speed bound the timestep uses is taken over that range together
-with :math:`\alpha \in [0, 1]`. If a run reports a strain invariant ratio
-outside those bounds, the state has left the model's range of validity, not
-merely its range of accuracy.
+and the wave-speed bound the timestep uses is taken over that range, over
+:math:`\alpha \in [0, 1]`, and over both branches of the constitutive law. If a
+run reports a strain invariant ratio outside those bounds, the state has left
+the model's range of validity, not merely its range of accuracy.
+
+The bound is a bound on the tangent, and a tangent is not always positive. The
+critical damage the growth saturates at caps against the damage at which the
+effective shear modulus vanishes, which keeps that modulus positive; the
+compressional family can reach zero earlier for a strain direction that cap does
+not look at. At :math:`\gamma_R = 6\times 10^{10}` and :math:`\xi = 0` it does so
+at :math:`\alpha \approx 0.46`, above the critical damage that binds there. A
+uniform state that will not stay uniform, at a rate independent of the timestep,
+is what leaving that range looks like from the outside.
 
 In single precision the model is more delicate than a linear one: it takes a
 square root and a difference of invariants per node and timestep. Runs that
