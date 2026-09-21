@@ -20,12 +20,22 @@ travels through, the broken rock is softer, and the softer rock carries the
 next wave differently. The continuum damage-breakage rheology describes that
 feedback with two internal variables and a stress that depends on them.
 
+The rheology is not SeisSol's. The damage variable, the strain invariant ratio
+the model measures loading by, and the modulus :math:`\gamma_R` that couples the
+two are due to Lyakhovsky, Ben-Zion and Agnon (1997, *JGR*, "Distributed damage,
+faulting, and friction"); the breakage variable, the granular branch and the
+transition between the two come from Lyakhovsky and Ben-Zion (2014, *Pure and
+Applied Geophysics*, "A continuum damage-breakage faulting model and
+solid-granular transitions"). What is described here is how those equations are
+discretised, what the implementation covers, and where it stops.
+
 It is meant for what happens *around* a fault rather than on it -- the
 off-fault damage zone, the softening of the medium during rupture, and the
 question of how much of an earthquake's energy goes into breaking rock instead
 of radiating away. On a fault itself, the friction laws of :doc:`dynamic
-rupture <dynamic-rupture>` describe the same physics in a different way, and
-the two are not yet joined here (see `What is supported`_).
+rupture <dynamic-rupture>` describe the same physics in a different way; the two
+can be run together, with the friction law reading a traction the constitutive
+relation forms (see `What is supported`_).
 
 Quantities
 ----------
@@ -75,9 +85,18 @@ breakage:
        + \left(2a_0 + a_1 \xi - a_3 \xi^3\right)\epsilon
      \right]
 
+Both branches are gradients of a free energy rather than constitutive laws
+written down directly: the solid one of the energy of Lyakhovsky, Ben-Zion and
+Agnon (1997), the granular one of :math:`F = P(\xi)\,I_2` with
+:math:`P` the cubic in the invariant ratio whose coefficients are
+:math:`a_0 \dots a_3`. That is why the factors the :math:`a_i` carry above are
+not the ones the polynomial carries -- they are what differentiating puts there.
+
 At :math:`\alpha = 0` and :math:`B = 0` the first branch is Hooke's law with
 the Lamé parameters :math:`\lambda_0` and :math:`\mu_0`, which is the check
-the implementation is verified against. As :math:`\alpha` grows, the shear
+the implementation is verified against. At :math:`B = 1` with
+:math:`a_1 = a_3 = 0` the second is Hooke's law too, with :math:`2\mu = 2a_0`
+and :math:`\lambda = 2a_2`, which is the other check. As :math:`\alpha` grows, the shear
 modulus degrades through :math:`\gamma_R`, and the coupling term
 :math:`\gamma_R \alpha \sqrt{I_2}` makes the stress depend on the *kind* of
 loading and not only on its size.
