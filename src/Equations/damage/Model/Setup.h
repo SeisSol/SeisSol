@@ -17,7 +17,7 @@
 
 namespace seissol::model {
 
-/// Linearisation of the flux about the cell's mean state.
+/// Linearization of the flux about the cell's mean state.
 ///
 /// This is the operator the Cauchy-Kovalevskaya recursion runs on, not the
 /// constitutive law: the law itself is evaluated pointwise by the kernels. The
@@ -57,8 +57,8 @@ void getTransposedCoefficientMatrix(
 
 /// What the generic setup asks of this material.
 ///
-/// The linearisation the recursion runs on is the undamaged one: the star
-/// matrices are built once per cell, and a linearisation that followed the
+/// The linearization the recursion runs on is the undamaged one: the star
+/// matrices are built once per cell, and a linearization that followed the
 /// damage would have to be rebuilt every step. What follows the damage is the
 /// constitutive law the kernels evaluate pointwise, and the flux the faces are
 /// scaled with -- not this operator.
@@ -74,8 +74,15 @@ struct MaterialSetup<DamageMaterial> : public MaterialSetupDefaults<DamageMateri
   /// A flux Jacobian of this material is as wide as its state; what a cell
   /// keeps under the name of the transported operator is the geometry, which
   /// is three numbers.
+  ///
+  /// The tensor that holds it is generated only for the solver that assembles
+  /// its operator per step. Every build compiles every material's setup, so
+  /// where that tensor does not exist this falls back to the default -- which
+  /// nothing then reads, because nothing in such a build is this material.
+#ifdef SEISSOL_KERNELS_NONLINEARCK
   using CoefficientView = init::transport::view<0>;
   static constexpr std::size_t CoefficientSize = tensor::transport::size(0);
+#endif
 
   /// The Jacobian of the element, one row per reference direction.
   ///

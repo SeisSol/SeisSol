@@ -16,6 +16,7 @@
 namespace seissol::tensor {
 struct Iane;
 struct sourceI;
+struct transport;
 } // namespace seissol::tensor
 
 namespace seissol::kernels {

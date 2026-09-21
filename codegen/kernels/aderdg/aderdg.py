@@ -295,6 +295,16 @@ class ADERDGBase(ABC):
                 target=target,
             )
 
+    def addTransport(self, generator, targets):
+        """The operator the derivative recursion transports by, per step.
+
+        There is nothing to assemble for a solver whose flux is linear: the
+        operator is the one the cell was set up with, and it is the same at
+        every step. Only a material whose moduli follow the state has to
+        linearize about where the cell currently is, and it says so by
+        overriding this.
+        """
+
     def addStateToTransport(self, generator, targets):
         """What a cell transports, at one instant, from its state at that
         instant.
