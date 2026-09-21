@@ -26,6 +26,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
         specialization_(drParameters) {}
 
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                             const FaultStresses<Executor::Host>& initialStress,
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
@@ -35,12 +36,18 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     alignas(Alignment) std::array<real, misc::NumPaddedPoints> strengthSlopeBuffer{};
 
     // computes fault strength, which is the critical value whether active slip exists.
-    this->calcStrengthHook(faultStresses, strengthBuffer, strengthSlopeBuffer, timeIndex, ltsFace);
+    this->calcStrengthHook(
+        faultStresses, initialStress, strengthBuffer, strengthSlopeBuffer, timeIndex, ltsFace);
 
     // computes resulting slip rates, traction and slip dependent on current friction
     // coefficient and strength
-    this->calcSlipRateAndTraction(
-        faultStresses, tractionResults, strengthBuffer, strengthSlopeBuffer, timeIndex, ltsFace);
+    this->calcSlipRateAndTraction(faultStresses,
+                                  initialStress,
+                                  tractionResults,
+                                  strengthBuffer,
+                                  strengthSlopeBuffer,
+                                  timeIndex,
+                                  ltsFace);
 
     // integrate state variable in time
     this->calcStateVariableHook(stateVariableBuffer, timeIndex, ltsFace);
@@ -63,6 +70,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
    *  also updates the directional slip1 and slip2
    */
   void calcSlipRateAndTraction(const FaultStresses<Executor::Host>& faultStresses,
+                               const FaultStresses<Executor::Host>& initialStress,
                                TractionResults<Executor::Host>& tractionResults,
                                std::array<real, misc::NumPaddedPoints>& strength,
                                std::array<real, misc::NumPaddedPoints>& strengthSlope,
@@ -71,10 +79,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS_[ltsFace][3][pointIndex] +
-                                  faultStresses.traction1[pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS_[ltsFace][5][pointIndex] +
-                                  faultStresses.traction2[pointIndex];
+      const real totalTraction1 =
+          initialStress.traction1[pointIndex] + faultStresses.traction1[pointIndex];
+      const real totalTraction2 =
+          initialStress.traction2[pointIndex] + faultStresses.traction2[pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
       const auto [eta, invEta] = common::projectEta(this->impAndEta_[ltsFace],
@@ -189,6 +197,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   void calcStrengthHook(const FaultStresses<Executor::Host>& faultStresses,
+                        const FaultStresses<Executor::Host>& initialStress,
                         std::array<real, misc::NumPaddedPoints>& strength,
                         std::array<real, misc::NumPaddedPoints>& strengthSlope,
                         uint32_t timeIndex,
@@ -199,10 +208,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       // The anisotropic normal/shear coupling is deliberately *not* applied here: since the
       // strength is affine in the normal stress, it is handled exactly through the divisor in
       // calcSlipRateAndTraction, using the slope filled in below.
-      const real totalNormalStress = this->initialStressInFaultCS_[ltsFace][0][pointIndex] +
-                                     faultStresses.normalStress[pointIndex] +
-                                     this->initialPressure_[ltsFace][pointIndex] +
-                                     faultStresses.fluidPressure[pointIndex];
+      const real totalNormalStress =
+          initialStress.normalStress[pointIndex] + faultStresses.normalStress[pointIndex] +
+          initialStress.fluidPressure[pointIndex] + faultStresses.fluidPressure[pointIndex];
 
       strength[pointIndex] =
           -cohesion_[ltsFace][pointIndex] -
@@ -256,13 +264,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       // Forced rupture time
       real f2 = 0.0;
-      if (this->drParameters_.t0[0] == 0) {
+      if (this->drParameters_.forcedRuptureRiseTime == 0) {
         // avoid branching
         // if time > forcedRuptureTime, then f2 = 1.0, else f2 = 0.0
         f2 = static_cast<real>(time >= this->forcedRuptureTime_[ltsFace][pointIndex]);
       } else {
         f2 = std::clamp((time - this->forcedRuptureTime_[ltsFace][pointIndex]) /
-                            this->drParameters_.t0[0],
+                            this->drParameters_.forcedRuptureRiseTime,
                         static_cast<real>(0.0),
                         static_cast<real>(1.0));
       }

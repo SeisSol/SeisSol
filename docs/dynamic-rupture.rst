@@ -374,8 +374,14 @@ Nucleation
 SeisSol provides several options to enforce artificial nucleation within a limited temporal and spatial extent.
 The additional nucleation stress applied to the fault plane needs to be specified using the parameters ``Tnuc_s`` (along strike), ``Tnuc_d`` (along dip), and ``Tnuc_n`` (normal stress).
 Alternatively, if the stress state is described by the full stress tensor, use parameters ``nuc_xx``, ``nuc_yy``, ``nuc_zz``, ``nuc_yz``, ``nuc_xz``, and ``nuc_xy``.
-The parameter ``s_0`` defines the start time of artificial nucleation, while ``t_0`` sets the characteristic nucleation time over which the additional stress is applied.
-By default, :code:`s_0 = 0` and :code:`t_0 = 0`.
+The parameter ``s_0`` defines the start time of artificial nucleation, while ``t_0`` sets the characteristic nucleation time over which the additional stress is applied, measured from the start time.
+A nucleation is therefore in effect between ``s_0`` and ``s_0 + t_0``.
+By default, :code:`s_0 = 0` and :code:`t_0 = 0`; a vanishing ``t_0`` applies the whole additional stress at once, at the start time.
+
+Both of them may instead be given per point in the fault `yaml` file, as ``nuc_onset`` and ``nuc_rise_time``.
+Where the fault provides one of them, it replaces the parameter of the same meaning for that nucleation; where it does not, the parameter holds for all points.
+A ``nuc_onset`` that varies over the fault describes a nucleation front that travels across it, at whatever speed the field prescribes, while ``nuc_rise_time`` sets how long a point takes to reach the full additional stress once the front has passed it.
+Note that the fault is then fully nucleated at the largest onset plus the rise time there, and not at ``s_0 + t_0``.
 
 Multiple nucleations
 ^^^^^^^^^^^^^^^^^^^^
@@ -387,6 +393,11 @@ For each episode, parameters can be specified with numbered suffixes:
 - Characteristic nucleation times: ``t_0``, ``t2_0``, ``t3_0``, ...
 - Projected nucleation stress components: ``Tnuc_s``, ``Tnuc2_s``, ``Tnuc3_s``, ...
 - Nucleation stress tensor components: ``nuc_xy``, ``nuc2_xy``, ``nuc3_xy``, ...
+- Per point start times: ``nuc_onset``, ``nuc2_onset``, ``nuc3_onset``, ...
+- Per point characteristic nucleation times: ``nuc_rise_time``, ``nuc2_rise_time``, ``nuc3_rise_time``, ...
+
+Every episode is applied independently of the others, so two regions of the fault that are to nucleate with different characteristic times can be given as two episodes with stress patches that do not overlap.
+At initialization, SeisSol reports for every episode whether it is parameterized by traction or by stress, and whether its start time and characteristic time come from the fault `yaml` file or from the parameter file.
 
 Forced rupture time
 ^^^^^^^^^^^^^^^^^^^

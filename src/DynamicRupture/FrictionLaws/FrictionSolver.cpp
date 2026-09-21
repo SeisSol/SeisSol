@@ -40,8 +40,7 @@ void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
   impAndEta_ = layerData.var<DynamicRupture::ImpAndEta>(place);
   impedanceMatrices_ = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
-  initialStressInFaultCS_ = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
-  nucleationStressInFaultCS_ = layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
+  stressSourceInFaultCS_ = layerData.var<DynamicRupture::StressSourceInFaultCS>(place);
   mu_ = layerData.var<DynamicRupture::Mu>(place);
   accumulatedSlipMagnitude_ = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(place);
   slip1_ = layerData.var<DynamicRupture::Slip1>(place);
@@ -62,7 +61,8 @@ void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   dynStressTimePending_ = layerData.var<DynamicRupture::DynStressTimePending>(place);
   qInterpolatedPlus_ = layerData.var<DynamicRupture::QInterpolatedPlus>(place);
   qInterpolatedMinus_ = layerData.var<DynamicRupture::QInterpolatedMinus>(place);
-  initialPressure_ = layerData.var<DynamicRupture::InitialPressure>(place);
-  nucleationPressure_ = layerData.var<DynamicRupture::NucleationPressure>(place);
+  stressSourcePressure_ = layerData.var<DynamicRupture::StressSourcePressure>(place);
+  stressSourceOnset_ = layerData.var<DynamicRupture::StressSourceOnset>(place);
+  stressSourceRiseTime_ = layerData.var<DynamicRupture::StressSourceRiseTime>(place);
 }
 } // namespace seissol::dr::friction_law

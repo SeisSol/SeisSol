@@ -424,44 +424,65 @@ SEISSOL_HOSTDEVICE inline void
 }
 
 /**
- * adjusts initial stresses based on the given nucleation ones
+ * The initial stress in effect at the given time, in the layout of the fault stresses it is added
+ * to: every stress source of the face at the fraction of it that has been applied so far.
  *
- * @param[out] initialStressInFaultCS
- * @param[in] nucleationStressInFaultCS
- * @param[in] t0
- * @param[in] dt
- * @param[in] index - device iteration index
+ * The initial state is the source without a rise time, so it enters the sum like any other and
+ * needs no case of its own.
+ *
+ * @param[out] initialStress
+ * @param[in] stressSourceInFaultCS the stress of every source of this face
+ * @param[in] stressSourcePressure
+ * @param[in] stressSourceOnset the onset of every source of this face, per point
+ * @param[in] stressSourceRiseTime the rise time of every source of this face, per point
+ * @param[in] sourceCount
+ * @param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
-// See https://github.com/llvm/llvm-project/issues/60163
-// NOLINTNEXTLINE
 SEISSOL_HOSTDEVICE inline void
-    adjustInitialStress(real initialStressInFaultCS[6][misc::NumPaddedPoints],
-                        const real nucleationStressInFaultCS[6][misc::NumPaddedPoints],
-                        // See https://github.com/llvm/llvm-project/issues/60163
-                        // NOLINTNEXTLINE
-                        real initialPressure[misc::NumPaddedPoints],
-                        const real nucleationPressure[misc::NumPaddedPoints],
-                        real fullUpdateTime,
-                        real t0,
-                        real s0,
-                        real dt,
-                        uint32_t startIndex = 0) {
-  if (fullUpdateTime <= t0 + s0 && fullUpdateTime >= s0) {
-    const real gNuc =
-        gaussianNucleationFunction::smoothStepIncrement<real>(fullUpdateTime - s0, dt, t0);
+    computeInitialStress(FaultStresses<RangeExecutor<Type>::Exec>& __restrict initialStress,
+                         const real (*__restrict stressSourceInFaultCS)[6][misc::NumPaddedPoints],
+                         const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints],
+                         const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints],
+                         const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints],
+                         std::uint32_t sourceCount,
+                         real fullUpdateTime,
+                         uint32_t startIndex = 0) {
+  constexpr auto Exec = RangeExecutor<Type>::Exec;
+  using Range = typename NumPoints<Type>::Range;
 
-    using Range = typename NumPoints<Type>::Range;
+  // the components of the stress tensor which take part in the fault-normal Riemann problem
+  constexpr std::size_t NormalIndex = 0;
+  constexpr std::size_t Traction1Index = 3;
+  constexpr std::size_t Traction2Index = 5;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+    const auto i{startIndex + index};
+    VariableIndexing<Exec>::index(initialStress.normalStress, i) = static_cast<real>(0.0);
+    VariableIndexing<Exec>::index(initialStress.traction1, i) = static_cast<real>(0.0);
+    VariableIndexing<Exec>::index(initialStress.traction2, i) = static_cast<real>(0.0);
+    VariableIndexing<Exec>::index(initialStress.fluidPressure, i) = static_cast<real>(0.0);
+  }
+
+  for (std::uint32_t source = 0; source < sourceCount; ++source) {
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      auto pointIndex{startIndex + index};
-      for (uint32_t i = 0; i < 6; i++) {
-        initialStressInFaultCS[i][pointIndex] += nucleationStressInFaultCS[i][pointIndex] * gNuc;
-      }
-      initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
+      const auto i{startIndex + index};
+      const real fraction = stressSourceFraction(
+          fullUpdateTime, stressSourceRiseTime[source][i], stressSourceOnset[source][i]);
+      VariableIndexing<Exec>::index(initialStress.normalStress, i) +=
+          stressSourceInFaultCS[source][NormalIndex][i] * fraction;
+      VariableIndexing<Exec>::index(initialStress.traction1, i) +=
+          stressSourceInFaultCS[source][Traction1Index][i] * fraction;
+      VariableIndexing<Exec>::index(initialStress.traction2, i) +=
+          stressSourceInFaultCS[source][Traction2Index][i] * fraction;
+      VariableIndexing<Exec>::index(initialStress.fluidPressure, i) +=
+          stressSourcePressure[source][i] * fraction;
     }
   }
 }

@@ -41,6 +41,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -82,6 +83,7 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
     parallel::runtime::StreamRuntime& runtime,
+    double stateTime,
     double time,
     double dt,
     double indt) {
@@ -127,7 +129,7 @@ void ReceiverOutput::calcFaultOutput(
                         level,
                         timeCoeffs,
                         integrateCoeffs,
-                        time,
+                        stateTime,
                         frictionTime](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
@@ -147,7 +149,7 @@ void ReceiverOutput::calcFaultOutput(
     local.fusedIndex = outputData->receiverPoints[i].simIndex;
     local.state = outputData.get();
 
-    local.time = time;
+    local.time = stateTime;
     local.deltaT = frictionTime.deltaT.back();
     local.printWarning = &this->printRSFWarning_;
 
@@ -191,14 +193,24 @@ void ReceiverOutput::calcFaultOutput(
       timeKernel_.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
     }
 
-    const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
-
     local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
-    local.iniTraction1 = initStresses[QuantityIndices::XY][local.gpIndex];
-    local.iniTraction2 = initStresses[QuantityIndices::XZ][local.gpIndex];
-    local.iniNormalTraction = initStresses[QuantityIndices::XX][local.gpIndex];
+    // the whole tensor, since the total traction output rotates it
+    const auto sourceCount = stressSourceCount(*drParameters_);
+    const auto* stressSources = local.layer->var<DynamicRupture::StressSourceInFaultCS>();
+    const auto* stressSourceOnset = local.layer->var<DynamicRupture::StressSourceOnset>();
+    const auto* stressSourceRiseTime = local.layer->var<DynamicRupture::StressSourceRiseTime>();
+    const auto initialStress = stressAtTime(&stressSources[local.ltsId * sourceCount],
+                                            &stressSourceRiseTime[local.ltsId * sourceCount],
+                                            &stressSourceOnset[local.ltsId * sourceCount],
+                                            sourceCount,
+                                            static_cast<std::uint32_t>(local.gpIndex),
+                                            static_cast<real>(local.time));
+
+    local.iniTraction1 = initialStress[QuantityIndices::XY];
+    local.iniTraction2 = initialStress[QuantityIndices::XZ];
+    local.iniNormalTraction = initialStress[QuantityIndices::XX];
     local.fluidPressure = this->computeFluidPressure(local);
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
@@ -328,7 +340,7 @@ void ReceiverOutput::calcFaultOutput(
       std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
       for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
-        unrotatedInitStress[stressVar] = initStresses[stressVar][local.gpIndex];
+        unrotatedInitStress[stressVar] = initialStress[stressVar];
       }
       alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
@@ -694,7 +706,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
 }
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
-  return {drStorage_->info<DynamicRupture::InitialStressInFaultCS>().index,
+  return {drStorage_->info<DynamicRupture::StressSourceInFaultCS>().index,
           drStorage_->info<DynamicRupture::Mu>().index,
           drStorage_->info<DynamicRupture::RuptureTime>().index,
           drStorage_->info<DynamicRupture::AccumulatedSlipMagnitude>().index,
