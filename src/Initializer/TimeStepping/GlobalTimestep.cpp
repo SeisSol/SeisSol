@@ -62,6 +62,14 @@ GlobalTimestep
   parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(seissolParams.model.materialFileName, *queryGen);
 
+  // What a material is told beyond easi -- the parameters that belong to the
+  // model and not to a point -- it has to be told here as well. A bound on a
+  // wave may be formed from them, and a material asked for one before it has
+  // them answers for a model with all of them at zero.
+  for (auto& material : materials) {
+    material.initialize(seissolParams.model);
+  }
+
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
 

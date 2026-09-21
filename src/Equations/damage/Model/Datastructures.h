@@ -183,10 +183,51 @@ struct DamageMaterial : public Material {
     }
   }
 
+  /// Stiffest the granular branch can be, over every strain direction.
+  ///
+  /// Its tangent has the same four groups the solid one has, and in both of
+  /// them the directional group is minus the invariant ratio times the mixed
+  /// one. So the acoustic tensor in a direction e comes out as
+  ///
+  ///   rho c^2 = L + M + X (2 a - xi a^2),   a = e.n.e,
+  ///
+  /// with L the weight on d(x)d, M the one on Isym and X the one on the mixed
+  /// group -- for the granular branch L = P'', M = 2P - xi P' and X = P' - xi
+  /// P''. The dependence on a is a quadratic and is maximised in closed form;
+  /// what is left is the invariant ratio, which the coefficients are a cubic in
+  /// at worst, and which is scanned. The constraint that ties a to xi is not
+  /// imposed, and neither is a negative bound kept: both err upwards, which
+  /// costs a timestep rather than a run.
+  ///
+  /// With aB1 = aB3 = 0 the mixed group is zero and this is 2 aB0 + 2 aB2, the
+  /// isotropic pair of a granular branch that has one.
+  [[nodiscard]] double granularStiffness() const {
+    constexpr double RatioLimit = 1.7320508075688772; // sqrt(3)
+    constexpr std::size_t Samples = 257;
+    double stiffest = 0.0;
+    for (std::size_t sample = 0; sample < Samples; ++sample) {
+      const double ratio =
+          -RatioLimit + 2.0 * RatioLimit * static_cast<double>(sample) / (Samples - 1);
+      const double volumetric = 2.0 * aB[2] + 6.0 * aB[3] * ratio;
+      const double isotropic = 2.0 * aB[0] + aB[1] * ratio - aB[3] * ratio * ratio * ratio;
+      const double mixed = aB[1] - 3.0 * aB[3] * ratio * ratio;
+      double directional = std::max(mixed * (2.0 - ratio), -mixed * (2.0 + ratio));
+      if (mixed * ratio > 0.0 && std::abs(ratio) >= 1.0) {
+        directional = std::max(directional, mixed / ratio);
+      }
+      stiffest = std::max(stiffest, volumetric + isotropic + directional);
+    }
+    return stiffest;
+  }
+
   [[nodiscard]] double getMaxWaveSpeed() const override {
     constexpr double TangentExcess = 2.3094010767585034; // 4 / sqrt(3)
     const double damage = std::max(gammaR * (TangentExcess - 2.0 * xi0), 0.0);
-    return std::sqrt((lambda0 + 2.0 * mu0 + damage) / rho);
+    const double solid = lambda0 + 2.0 * mu0 + damage;
+    // The stress is a convex blend of the two branches, so the acoustic tensor
+    // is, and so the larger of the two bounds is one for the blend. Taking the
+    // solid branch alone was a bound only for a medium that never breaks.
+    return std::sqrt(std::max(solid, granularStiffness()) / rho);
   }
 
   DamageMaterial() = default;
