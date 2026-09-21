@@ -88,19 +88,57 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
   /// the solver it builds maps the state onto itself; what a cell transports
   /// here is wider than its state, so the flux of the face normal is
   /// assembled instead.
-  /// The two projectors a face frame splits its coupled quantities into,
-  /// rotated into the frame the flux is applied in.
+  /// One entry of a wave family in the face frame: which state row it feeds,
+  /// which transported quantity feeds it, and with what weight.
+  struct FamilyEntry {
+    std::size_t row;
+    std::size_t column;
+    double weight;
+  };
+
+  /// The two matrices a face frame splits its coupled quantities into, rotated
+  /// into the frame the flux is applied in.
   ///
-  /// In the face frame the split is by index and nothing else: the normal
-  /// strain and the normal velocity travel at the compressional speed, the
-  /// two shear pairs at the shear one, and the three strain components that
-  /// carry no flux across this face travel at neither. Rotating turns two
-  /// diagonals into two matrices, which is the whole cost of asking each
-  /// family for its own speed.
+  /// Together they are the absolute value of the flux Jacobian of the face
+  /// normal, which is what an upwind flux dissipates with. For a system whose
+  /// state is a strain that is
+  ///
+  ///   |A| = diag( S Q^(-1/2) T , Q^(1/2) ),
+  ///
+  /// with Q the acoustic tensor of the face normal, T the map from a strain to
+  /// the traction it carries over the density, and S the lift of a vector back
+  /// onto a strain. The point of writing it this way is that T of the state is
+  /// the traction, and the traction is transported: the strain rows read the
+  /// stress a cell hands over, not its own strain, so no material crosses a
+  /// face here either. In the face frame it reads
+  ///
+  ///   eps_nn  <- sigma_nn  / (rho c_p),   v_n <- c_p v_n,
+  ///   eps_nt  <- sigma_nt  / (2 rho c_s), v_t <- c_s v_t,
+  ///
+  /// and the three strain components a face normal does not transport are fed
+  /// by nothing, which is what their zero eigenvalue says.
+  ///
+  /// Reading the strain instead would not merely be a different amount of
+  /// dissipation. Dissipativity is M |A| being symmetric and positive
+  /// semi-definite for the energy metric M = diag(W C, rho), and a family
+  /// written as an index projector on the strain fails both: it has
+  /// eigenvalues of either sign, so a face built that way feeds the modes it
+  /// is there to damp. The form above is symmetric and semi-definite by
+  /// construction -- the strain part of the rate is rho tau . Q^(-1/2) tau
+  /// with tau the traction jump over the density -- and it stays so for any
+  /// positive pair of speeds, which is what keeps it safe once the damage has
+  /// made the tangent anisotropic and the two families only a surrogate.
+  ///
+  /// The weights carry the undamaged moduli, so that a scalar per family is
+  /// still all a step has to supply: the speeds the kernel multiplies with are
+  /// the damaged ones, and rho c^2 of the undamaged material is what turns
+  /// them back into the reciprocal the strain rows want. That is exact in the
+  /// elastic limit and errs towards more dissipation away from it.
   static void writeUpwindDissipation(const double* normal,
                                      const double* tangent1,
                                      const double* tangent2,
                                      double scale,
+                                     const MaterialT& material,
                                      ProjectorView& pressure,
                                      ProjectorView& shear) {
     real rotationData[tensor::ghostMap::size()]{};
@@ -114,35 +152,60 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
     model::detail::writeRotationBlocks<true>(
         MaterialT::TransportGroups, normal, tangent1, tangent2, inverse);
 
-    // Voigt order, so the normal pair is (0, 6) and the two shear pairs are
-    // (3, 7) and (5, 8); 1, 2 and 4 are the strain components a face normal
-    // does not transport.
-    constexpr std::array<std::size_t, 2> Pressure{0, 6};
-    constexpr std::array<std::size_t, 4> Shear{3, 5, 7, 8};
+    const double lambda = material.getLambdaBar();
+    const double mu = material.getMuBar();
 
-    // Over the groups rather than over the block. A rotation mixes the rows of
-    // a group among themselves and no further, so the conjugation is zero
-    // between the two -- and the layout of a flux solver says so: the strain
-    // rows are not fed by a velocity column and the matrix has no place to put
-    // one. Writing the zero there writes past the pattern, which lands on some
-    // other entry's slot.
-    const auto conjugate =
-        [&](const auto& family, std::size_t begin, std::size_t end, auto& target) {
-          for (std::size_t row = begin; row < end; ++row) {
-            for (std::size_t column = begin; column < end; ++column) {
-              real sum = 0.0;
-              for (const auto entry : family) {
-                sum += rotation(row, entry) * inverse(entry, column);
-              }
-              target(row, column) = scale * sum;
+    // Where each group sits: the strain and the velocity of the state, and the
+    // stress and the velocity of what is transported. Asked for by role, so a
+    // layout that moves a group does not silently move a dissipation with it.
+    constexpr std::size_t StrainRow = roleOffset(MaterialT::PrimaryGroups, FaceRole::Traction);
+    constexpr std::size_t StrainExtent = roleExtent(MaterialT::PrimaryGroups, FaceRole::Traction);
+    constexpr std::size_t VelocityRow = roleOffset(MaterialT::PrimaryGroups, FaceRole::Velocity);
+    constexpr std::size_t VelocityExtent = roleExtent(MaterialT::PrimaryGroups, FaceRole::Velocity);
+    constexpr std::size_t StressColumn = roleOffset(MaterialT::TransportGroups, FaceRole::Traction);
+    constexpr std::size_t VelocityColumn =
+        roleOffset(MaterialT::TransportGroups, FaceRole::Velocity);
+
+    // Voigt order, so the normal component of a face frame is 0 and the two
+    // shear components naming it are 3 and 5.
+    const std::array<FamilyEntry, 2> Pressure{
+        {{StrainRow + 0, StressColumn + 0, 1.0 / (lambda + 2.0 * mu)},
+         {VelocityRow + 0, VelocityColumn + 0, 1.0}}};
+    const std::array<FamilyEntry, 4> Shear{{{StrainRow + 3, StressColumn + 3, 0.5 / mu},
+                                            {StrainRow + 5, StressColumn + 5, 0.5 / mu},
+                                            {VelocityRow + 1, VelocityColumn + 1, 1.0},
+                                            {VelocityRow + 2, VelocityColumn + 2, 1.0}}};
+
+    // Per pair of groups rather than over the block: a rotation mixes the rows
+    // of a group among themselves and no further, so the conjugation is zero
+    // between any two that this does not name. The matrix is indexed by what
+    // feeds it first and what it feeds second, which is the order the flux
+    // kernel contracts it in.
+    const auto conjugate = [&](const auto& family,
+                               std::size_t rowBegin,
+                               std::size_t rowExtent,
+                               std::size_t columnBegin,
+                               std::size_t columnExtent,
+                               auto& target) {
+      for (std::size_t row = rowBegin; row < rowBegin + rowExtent; ++row) {
+        for (std::size_t column = columnBegin; column < columnBegin + columnExtent; ++column) {
+          real sum = 0.0;
+          for (const auto& entry : family) {
+            const bool inBlock = entry.row >= rowBegin && entry.row < rowBegin + rowExtent &&
+                                 entry.column >= columnBegin &&
+                                 entry.column < columnBegin + columnExtent;
+            if (inBlock) {
+              sum += rotation(row, entry.row) * entry.weight * inverse(entry.column, column);
             }
           }
-        };
-    constexpr std::size_t StrainEnd = 6;
-    conjugate(Pressure, 0, StrainEnd, pressure);
-    conjugate(Pressure, StrainEnd, generated::CoupledQuantities, pressure);
-    conjugate(Shear, 0, StrainEnd, shear);
-    conjugate(Shear, StrainEnd, generated::CoupledQuantities, shear);
+          target(column, row) = scale * sum;
+        }
+      }
+    };
+    conjugate(Pressure, StrainRow, StrainExtent, StressColumn, StrainExtent, pressure);
+    conjugate(Pressure, VelocityRow, VelocityExtent, VelocityColumn, VelocityExtent, pressure);
+    conjugate(Shear, StrainRow, StrainExtent, StressColumn, StrainExtent, shear);
+    conjugate(Shear, VelocityRow, VelocityExtent, VelocityColumn, VelocityExtent, shear);
   }
 
   static void assembleTabulatedFaceFlux(FaceType faceType,
@@ -214,7 +277,8 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
     shear.setZero();
     if (!outflow && !rupture) {
       if (upwind) {
-        writeUpwindDissipation(normal, tangent1, tangent2, 0.5 * faceScale, dissipation, shear);
+        writeUpwindDissipation(
+            normal, tangent1, tangent2, 0.5 * faceScale, materialLocal, dissipation, shear);
       } else {
         for (std::size_t row = 0; row < generated::CoupledQuantities; ++row) {
           dissipation(row, row) = 0.5 * faceScale;
