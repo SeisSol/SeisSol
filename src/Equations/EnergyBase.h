@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <type_traits>
 
 namespace seissol::model {
 
@@ -151,18 +152,30 @@ inline constexpr std::array ElasticEnergies{
 };
 
 /**
- * A damaged material reports what its state says exactly.
+ * What a damaged cell reports.
  *
- * Its stored energy does not appear here. The free energy of the rheology
- * carries a square root of the second strain invariant and terms of third
- * order in the state, and the moments the energy output offers reach second
- * order in polynomials -- so it cannot be assembled here at all, and the
- * granular branch's potential has to be settled against the reference before
- * anything is reported under that name. A column of zeros would be worse than
- * a column that is absent.
+ * The free energy of the rheology is homogeneous of degree two in the strain,
+ * so it is half the stress contracted with the strain -- and both are columns
+ * of the transported tensor, which makes it a quadratic moment of that tensor.
+ * Its difference from what the same strain would store in the undamaged solid
+ * is what the damage has released. Of that difference the part linear in the
+ * onset ratio is the damage times a quadratic form of the strain, which the
+ * trilinear mass form integrates exactly; the part with the square root of the
+ * second invariant is no polynomial and is reported as what remains. The two
+ * need not share a sign: in compression the first invariant is negative, and
+ * the root part with it.
+ *
+ * Kinetic and free energy are the two parts of the mechanical energy, and are
+ * grouped as such; the released energy and its parts are not parts of it.
  */
 inline constexpr std::array DamageEnergies{
-    EnergyDescriptor{"damage_kinetic_energy", EnergyUnit::Energy, "damage", "Kinetic energy:", {}},
+    EnergyDescriptor{
+        "damage_kinetic_energy", EnergyUnit::Energy, "damage", "Mechanical energy:", "kinematic"},
+    EnergyDescriptor{"damage_free_energy", EnergyUnit::Energy, "damage", {}, "free"},
+    EnergyDescriptor{"damage_undamaged_energy", EnergyUnit::Energy, {}, {}, {}},
+    EnergyDescriptor{"damage_released_energy", EnergyUnit::Energy, {}, {}, {}},
+    EnergyDescriptor{"damage_released_onset_energy", EnergyUnit::Energy, {}, {}, {}},
+    EnergyDescriptor{"damage_released_root_energy", EnergyUnit::Energy, {}, {}, {}},
     EnergyDescriptor{"mean_damage", EnergyUnit::Scalar, {}, {}, {}},
     EnergyDescriptor{"mean_breakage", EnergyUnit::Scalar, {}, {}, {}},
 };
@@ -206,6 +219,13 @@ inline constexpr std::array DarcyEnergies{
  *   initEnergyData -- builds EnergyData once, at setup
  *   computeMoments -- builds Moments for one cell
  *   computeEnergies-- evaluates the energies for one cell and one simulation
+ *   WeightColumn   -- optional: the column of the transported tensor that weighs
+ *                     the trilinear moment; see EnergyWeightColumn
+ *
+ * computeEnergies receives three moments of the transported tensor I over the
+ * reference element: \\int I_J, \\int I_I I_J and \\int w I_I I_J, the last
+ * with w the column a material names as WeightColumn. For a solver whose flux
+ * is linear in its state, I is that state.
  *
  * Output positions are looked up by name with detail::indexOf rather than
  * hard-coded, so reordering the list cannot silently misplace a value.
@@ -224,6 +244,20 @@ inline constexpr std::array DarcyEnergies{
  */
 template <typename MaterialT>
 struct EnergyCompute;
+
+/// A material that names no column has no use for the trilinear moment, and
+/// the energy output does not form it.
+inline constexpr std::size_t NoEnergyWeight = static_cast<std::size_t>(-1);
+
+template <typename ComputeT, typename = void>
+struct EnergyWeightColumn {
+  static constexpr std::size_t Value = NoEnergyWeight;
+};
+
+template <typename ComputeT>
+struct EnergyWeightColumn<ComputeT, std::void_t<decltype(ComputeT::WeightColumn)>> {
+  static constexpr std::size_t Value = ComputeT::WeightColumn;
+};
 
 } // namespace seissol::model
 

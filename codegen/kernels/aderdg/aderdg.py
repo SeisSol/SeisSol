@@ -572,47 +572,81 @@ class ADERDGBase(ABC):
         self.addEnergyProducts(generator)
 
     def addEnergyProducts(self, generator):
-        """Mass-matrix moments of Q, used by the volume energy output.
+        """Mass-form moments of what a cell transports, for the volume energy.
 
-        momentQ[0,J]  == \\int_{T_ref} Q_J
-        momentQQ[I,J] == \\int_{T_ref} Q_I Q_J
+        momentQ[0,J]           == \\int_{T_ref} I_J
+        momentQQ[I,J]          == \\int_{T_ref} I_I I_J
+        momentQQweighted[I,J]  == \\int_{T_ref} w I_I I_J
 
-        Multiply by the Jacobi determinant to obtain the physical integral. Both
-        are exact, as opposed to evaluating at quadrature points.
+        taken of the transported tensor I rather than of the state: for a
+        solver whose flux is linear in its state the two are the same, and for
+        one that transports more -- a stress it evaluates, say -- the energy
+        wants what is transported. The third is weighted by a field w given in
+        the modal basis, and it is where the trilinear mass form enters: a
+        quantity that varies over the element and scales a quadratic one, a
+        density that is a polynomial or a damage variable that scales a strain
+        energy, is integrated by it exactly rather than by its cell mean.
+
+        Multiply by the Jacobi determinant to obtain the physical integral. All
+        three are exact, as opposed to evaluating at quadrature points.
 
         Note: this lives in ADERDGBase (not LinearCK), because the
         viscoelastic2 generator derives directly from ADERDGBase and would
         otherwise not get the kernels at all.
         """
+        extent = self.numTransportQuantities()
         # Only the cell integral is needed, so M3 is narrowed to its first row.
         # subselect keeps the rank and sets the extent to 1, which turns the
         # kernel from an nb x nq product into an nq one.
         momentQ = OptionalDimTensor(
             "momentQ",
-            self.Q.optName(),
-            self.Q.optSize(),
-            self.Q.optPos(),
-            (1, self.numQuantities()),
+            self.I.optName(),
+            self.I.optSize(),
+            self.I.optPos(),
+            (1, extent),
             alignStride=True,
         )
         generator.add(
             "momentQCompute",
-            momentQ["IJ"] <= self.db.M3["Ij"].subselect("I", 0) * self.Q["jJ"],
+            momentQ["IJ"] <= self.db.M3["Ij"].subselect("I", 0) * self.I["jJ"],
         )
 
-        # The fused-simulation index 's' occurs in the result and in both Q
+        # The fused-simulation index 's' occurs in the result and in both
         # factors, i.e. it is a batch index. yateto handles that as of
         # <yateto batch-index fix>; without it this asserts in the GEMM factory.
         momentQQ = OptionalDimTensor(
             "momentQQ",
-            self.Q.optName(),
-            self.Q.optSize(),
-            self.Q.optPos(),
-            (self.numQuantities(), self.numQuantities()),
+            self.I.optName(),
+            self.I.optSize(),
+            self.I.optPos(),
+            (extent, extent),
         )
         generator.add(
             "momentQQCompute",
-            momentQQ["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"],
+            momentQQ["IJ"] <= self.db.M3["ij"] * self.I["iI"] * self.I["jJ"],
+        )
+
+        # The weight differs per fused simulation as the state does, so it
+        # carries the same optional index.
+        weight = OptionalDimTensor(
+            "energyWeight",
+            self.I.optName(),
+            self.I.optSize(),
+            self.I.optPos(),
+            (self.num3DBasisFunctions(),),
+            alignStride=True,
+        )
+        momentQQweighted = OptionalDimTensor(
+            "momentQQweighted",
+            self.I.optName(),
+            self.I.optSize(),
+            self.I.optPos(),
+            (extent, extent),
+        )
+        generator.add(
+            "momentQQweightedCompute",
+            momentQQweighted["IJ"]
+            <= self.db.M3tri["ijk"] * weight["i"] * self.I["jI"] * self.I["kJ"],
         )
 
     @abstractmethod

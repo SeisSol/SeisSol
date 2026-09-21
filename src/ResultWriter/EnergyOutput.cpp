@@ -528,6 +528,7 @@ void EnergyOutput::computeVolumeEnergies() {
     const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
     const auto* pstrainData = layer.var<LTS::PStrain>();
     const auto* dofsData = layer.var<LTS::Dofs>();
+    const auto* localIntegrationData = layer.var<LTS::LocalIntegration>();
     const auto* energyData = layer.var<LTS::EnergyData>();
     // only allocated for materials with anelastic variables
     const auto* dofsAneData = layer.var<LTS::DofsAne>();
@@ -561,23 +562,57 @@ void EnergyOutput::computeVolumeEnergies() {
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
 
+      // What the cell transports, which is its state wherever the flux is
+      // linear in it. The energy is taken of it either way: a solver that
+      // transports a stress it evaluates has the stress there and nowhere else.
+      alignas(Alignment) real transported[tensor::I::size()];
+      kernels::Time timeKernel;
+      timeKernel.stateToTransport(
+          dofsData[cell], localIntegrationData[cell].specific, transported);
+
       alignas(Alignment) real linData[tensor::momentQ::size()];
       auto lin = init::momentQ::view::create(linData);
-      // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
+      // cell integral: momentQ(0, J) == \int_{T_ref} I_J
       kernel::momentQCompute krnl;
       krnl.bindGlobals(*global_);
       krnl.momentQ = linData;
-      krnl.Q = dofsData[cell];
+      krnl.I = transported;
       krnl.execute();
 
       alignas(Alignment) real quadData[tensor::momentQQ::size()];
       auto quad = init::momentQQ::view::create(quadData);
-      // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
+      // second moments: momentQQ(I, J) == \int_{T_ref} I_I I_J
       kernel::momentQQCompute krnl2;
       krnl2.bindGlobals(*global_);
       krnl2.momentQQ = quadData;
-      krnl2.Q = dofsData[cell];
+      krnl2.I = transported;
       krnl2.execute();
+
+      // second moments weighted by the column a material names:
+      // momentQQweighted(I, J) == \int_{T_ref} w I_I I_J, through the
+      // trilinear mass form. Left at zero where no column is named.
+      using Compute = model::EnergyCompute<model::MaterialT>;
+      constexpr auto WeightColumn = model::EnergyWeightColumn<Compute>::Value;
+      alignas(Alignment) real weightedData[tensor::momentQQweighted::size()]{};
+      auto weighted = init::momentQQweighted::view::create(weightedData);
+      if constexpr (WeightColumn != model::NoEnergyWeight) {
+        alignas(Alignment) real weightData[tensor::energyWeight::size()]{};
+        auto weightView = init::energyWeight::view::create(weightData);
+        auto transportedView = init::I::view::create(transported);
+        for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+          auto weightSub = multisim::simtensor(weightView, sim);
+          auto transportedSub = multisim::simtensor(transportedView, sim);
+          for (std::size_t k = 0; k < weightSub.shape(0); ++k) {
+            weightSub(k) = transportedSub(k, WeightColumn);
+          }
+        }
+        kernel::momentQQweightedCompute krnl3;
+        krnl3.bindGlobals(*global_);
+        krnl3.momentQQweighted = weightedData;
+        krnl3.energyWeight = weightData;
+        krnl3.I = transported;
+        krnl3.execute();
+      }
 
       const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
           dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr);
@@ -586,11 +621,12 @@ void EnergyOutput::computeVolumeEnergies() {
 
         auto linSub = multisim::simtensor(lin, sim);
         auto quadSub = multisim::simtensor(quad, sim);
+        auto weightedSub = multisim::simtensor(weighted, sim);
 
         // assume _constant_ material over a cell (will need adjustments for e.g. #1297)
 
         const auto localValues = model::EnergyCompute<model::MaterialT>::computeEnergies(
-            material, energyData[cell], linSub, quadSub, moments, sim);
+            material, energyData[cell], linSub, quadSub, weightedSub, moments, sim);
 
         for (std::size_t i = 0; i < localValues.size(); ++i) {
           energyValues[localValues.size() * sim + i] += jacobiDet * localValues[i];

@@ -118,12 +118,13 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
    * Everything below evaluates these in a volumetric/deviatoric split, which
    * avoids inverting any 6x6 matrix.
    */
-  template <typename LinearViewT, typename QuadraticViewT>
+  template <typename LinearViewT, typename QuadraticViewT, typename WeightedViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const ViscoMaterial& material,
                       const typename ViscoMaterial::EnergyData& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
+                      const WeightedViewT& /*weightedSub*/,
                       const Moments& moments,
                       std::size_t sim) {
     std::array<double, EnergyCount> output{};

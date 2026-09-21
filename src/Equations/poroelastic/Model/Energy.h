@@ -50,12 +50,13 @@ struct EnergyCompute<PoroElasticMaterial> {
     return {};
   }
 
-  template <typename LinearViewT, typename QuadraticViewT>
+  template <typename LinearViewT, typename QuadraticViewT, typename WeightedViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const PoroElasticMaterial& material,
                       const PoroElasticMaterial::EnergyData& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
+                      const WeightedViewT& /*weightedSub*/,
                       const Moments& /*moments*/,
                       std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
