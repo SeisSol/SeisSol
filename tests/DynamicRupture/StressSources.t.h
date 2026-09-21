@@ -13,6 +13,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 
@@ -49,7 +50,8 @@ constexpr std::array<RampSample, 8> RampSamples{{
 }};
 
 /// a parameter set with the given rise times, the initial state appended as usual
-FrictionLawParameters withSources(const std::vector<std::pair<double, double>>& nucleations) {
+inline FrictionLawParameters
+    withSources(const std::vector<std::pair<double, double>>& nucleations) {
   seissol::initializer::parameters::DRParameters parameters{};
   parameters.nucleationCount = static_cast<std::uint32_t>(nucleations.size());
   for (std::size_t i = 0; i < nucleations.size(); ++i) {
@@ -60,9 +62,9 @@ FrictionLawParameters withSources(const std::vector<std::pair<double, double>>& 
 }
 
 /// a field of a face, as the initializer lays it out: the nucleations, then the initial state
-void withField(real (*field)[seissol::dr::misc::NumPaddedPoints],
-               std::uint32_t sourceCount,
-               const std::vector<double>& nucleations) {
+inline void withField(real (*field)[seissol::dr::misc::NumPaddedPoints],
+                      std::uint32_t sourceCount,
+                      const std::vector<double>& nucleations) {
   for (std::uint32_t source = 0; source < sourceCount; ++source) {
     const auto value = source + 1 < sourceCount ? nucleations[source] : 0.0;
     for (std::uint32_t point = 0; point < seissol::dr::misc::NumPaddedPoints; ++point) {
@@ -201,7 +203,8 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
   withField(riseTimes, parameters.sourceCount, {1.0, 2.0, 0.0});
   for (std::uint32_t source = 0; source < parameters.sourceCount; ++source) {
     for (std::size_t component = 0; component < 6; ++component) {
-      sources[source][component][Point] = static_cast<real>(7 * source + component) - 5;
+      sources[source][component][Point] =
+          static_cast<real>(static_cast<std::size_t>(7 * source) + component) - 5;
     }
   }
 

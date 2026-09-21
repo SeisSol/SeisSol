@@ -9,8 +9,8 @@
 
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/DRParameters.h"
+#include "Kernels/Precision.h"
 
-#include <algorithm>
 #include <cmath>
 #include <string>
 #include <utils/logger.h>
