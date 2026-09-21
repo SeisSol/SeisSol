@@ -43,28 +43,6 @@
 
 namespace seissol::initializer {
 
-namespace {
-
-void setStarMatrix(const real* matAT,
-                   const real* matBT,
-                   const real* matCT,
-                   const double grad[3],
-                   real* starMatrix) {
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
-    starMatrix[idx] = grad[0] * matAT[idx];
-  }
-
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
-    starMatrix[idx] += grad[1] * matBT[idx];
-  }
-
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
-    starMatrix[idx] += grad[2] * matCT[idx];
-  }
-}
-
-} // namespace
-
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,

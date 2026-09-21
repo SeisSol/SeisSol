@@ -792,7 +792,7 @@ class DamageADERDG(NonLinearCK):
         ratio = Tensor("meanXi", (), temporary=True)
         coupling = Tensor("meanCoupling", (), temporary=True)
         shear = Tensor("meanShear", (), temporary=True)
-        place = [Tensor(f"momentumRows({r})", (6, 3), temporary=True) for r in range(3)]
+        place = [Tensor(f"momentumRows{r}", (6, 3), temporary=True) for r in range(3)]
 
         delta, isotropic = self.deltaVoigt, self.isotropicVoigt
         floor = self.floor
