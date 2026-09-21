@@ -18,6 +18,9 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(SEISSOL_MINITEST_TIMEOUT 300 CACHE STRING
     "Timeout in seconds for a single verification case")
+set(SEISSOL_MINITEST_MPIEXEC_FLAGS "" CACHE STRING
+    "Extra launcher flags for the verification cases, e.g. --oversubscribe on a \
+machine with fewer cores than the rank counts the cases ask for")
 set(SEISSOL_VERIFY_SCRIPT "" CACHE FILEPATH
     "Path to verify.py; probed under the source tree when empty")
 
@@ -108,7 +111,7 @@ define_property(GLOBAL PROPERTY SEISSOL_DECLARED_CASES
 function(seissol_add_minitest)
   cmake_parse_arguments(MT
       ""
-      "NAME;MESH;PARAMETERS;RANKS;THREADS;STEPS;TIMESTEP"
+      "NAME;MESH;PARAMETERS;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS"
       "REQUIRE;SET;FILES;ACTIVITY;LABELS"
       ${ARGN})
   if (NOT MT_NAME OR NOT MT_MESH OR NOT MT_PARAMETERS)
@@ -168,12 +171,18 @@ function(seissol_add_minitest)
   endforeach()
 
   if (MT_RANKS GREATER 1 AND MPIEXEC_EXECUTABLE)
+    # the equals form is required: these values start with a dash and would
+    # otherwise be taken for the next option
     list(APPEND arguments
-         --mpiexec ${MPIEXEC_EXECUTABLE}
-         --numproc-flag ${MPIEXEC_NUMPROC_FLAG})
-    if (MPIEXEC_PREFLAGS)
-      list(APPEND arguments --mpiexec-flags ${MPIEXEC_PREFLAGS})
-    endif()
+         "--mpiexec=${MPIEXEC_EXECUTABLE}"
+         "--numproc-flag=${MPIEXEC_NUMPROC_FLAG}")
+    foreach (flag ${MPIEXEC_PREFLAGS} ${SEISSOL_MINITEST_MPIEXEC_FLAGS})
+      list(APPEND arguments "--mpiexec-flag=${flag}")
+    endforeach()
+  endif()
+
+  if (MT_THRESHOLDS)
+    list(APPEND arguments --thresholds ${CMAKE_CURRENT_SOURCE_DIR}/cases/${MT_THRESHOLDS})
   endif()
 
   add_test(NAME verification.${MT_NAME}
@@ -185,6 +194,7 @@ function(seissol_add_minitest)
       # the runner reports a configuration this build lacks as skipped, so that
       # it is neither a failure nor silently absent
       SKIP_RETURN_CODE 77
+      FIXTURES_SETUP case.${MT_NAME}
       FIXTURES_REQUIRED "minimesh.${MT_MESH};verification"
       PROCESSORS ${slots}
       TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
@@ -270,6 +280,99 @@ seissol_add_minitest(
     REQUIRE equations=elastic
     ACTIVITY "v1:1e-12"
     LABELS "smoke;dr")
+
+
+# ---------------------------------------------------------------------------
+# seissol_add_comparison(NAME <name> REFERENCE <case> CANDIDATE <case>
+#                        [TOLERANCE r] [PREFIX p] [LABELS label ...])
+#
+# Holds two runs against each other. A tolerance of zero demands identical
+# output. The runner propagates a skip: if either input was skipped because
+# this build lacks the configuration, so is the comparison.
+# ---------------------------------------------------------------------------
+
+function(seissol_add_comparison)
+  cmake_parse_arguments(CMP
+      ""
+      "NAME;REFERENCE;CANDIDATE;TOLERANCE;PREFIX"
+      "LABELS"
+      ${ARGN})
+  if (NOT CMP_TOLERANCE)
+    set(CMP_TOLERANCE 0)
+  endif()
+  if (NOT CMP_PREFIX)
+    set(CMP_PREFIX output/mini)
+  endif()
+
+  add_test(NAME verification.${CMP_NAME}
+           COMMAND ${Python3_EXECUTABLE}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py compare
+                   --name ${CMP_NAME}
+                   --reference ${CMAKE_CURRENT_BINARY_DIR}/work/${CMP_REFERENCE}
+                   --candidate ${CMAKE_CURRENT_BINARY_DIR}/work/${CMP_CANDIDATE}
+                   --reference-result ${CMAKE_CURRENT_BINARY_DIR}/results/${CMP_REFERENCE}.json
+                   --candidate-result ${CMAKE_CURRENT_BINARY_DIR}/results/${CMP_CANDIDATE}.json
+                   --result ${CMAKE_CURRENT_BINARY_DIR}/results/${CMP_NAME}.json
+                   --prefix ${CMP_PREFIX}
+                   --tolerance ${CMP_TOLERANCE})
+  set_tests_properties(verification.${CMP_NAME} PROPERTIES
+      SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED "case.${CMP_REFERENCE};case.${CMP_CANDIDATE};verification"
+      TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
+      LABELS "verification;${CMP_LABELS}")
+
+  set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
+      "    {\"name\": \"${CMP_NAME}\", \"mesh\": \"-\", \"requires\": []},\n")
+endfunction()
+
+# ---------------------------------------------------------------------------
+# Stage 1: hold runs against each other. The receiver output carries about
+# sixteen digits, so it can support a claim of identity; the analysis CSV is
+# printed at the default stream precision and cannot.
+# ---------------------------------------------------------------------------
+
+seissol_add_comparison(
+    NAME bitwise-box48-mpi4
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi")
+
+seissol_add_comparison(
+    NAME bitwise-box48-threads4
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-threads4
+    TOLERANCE 0
+    LABELS "bitwise;threads")
+
+# ---------------------------------------------------------------------------
+# Stage 2: the analytical error. A planar wave only satisfies a fully periodic
+# mesh, so this is the mesh the measurement runs on. The thresholds are
+# deliberately unset; see cases/thresholds.json.
+# ---------------------------------------------------------------------------
+
+seissol_add_minitest(
+    NAME convergence-periodic162
+    MESH periodic162
+    PARAMETERS wave.par
+    FILES material.yaml receiver.dat
+    STEPS 100
+    TIMESTEP 1e-4
+    THRESHOLDS thresholds.json
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS convergence)
+
+seissol_add_minitest(
+    NAME convergence-periodicx72
+    MESH periodicx72
+    PARAMETERS wave.par
+    FILES material.yaml receiver.dat
+    STEPS 100
+    TIMESTEP 1e-4
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS convergence)
 
 # ---------------------------------------------------------------------------
 # Coverage. Runs after the cases because it cleans up the fixture they

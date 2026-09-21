@@ -1,0 +1,52 @@
+{
+  "comment": [
+    "Error thresholds for the analytical comparison, keyed by the build",
+    "configuration. A null threshold means the value is recorded and printed",
+    "but not judged: the numbers are deliberately absent until they have been",
+    "measured. Fill them from a run of ctest -L convergence with",
+    "SEISSOL_RECORD_THRESHOLDS=1, which writes the observed values next to",
+    "each case, and set each threshold with headroom over the spread seen",
+    "across compilers, rank counts and architectures.",
+    "Use the relative norms: the absolute ones scale with the amplitude of",
+    "the initial condition. L1 and L2 are reduced with MPI_SUM and are",
+    "therefore not reproducible across rank counts; LInf uses MPI_MAX and is."
+  ],
+  "entries": {
+    "elastic/o2/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    },
+    "elastic/o3/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    },
+    "elastic/o4/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    },
+    "elastic/o5/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    },
+    "elastic/o6/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    },
+    "acoustic/o4/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    },
+    "anisotropic/o4/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    },
+    "poroelastic/o4/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    },
+    "viscoelastic2/o4/double": {
+      "L2_rel": null,
+      "LInf_rel": null
+    }
+  }
+}

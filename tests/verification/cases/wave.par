@@ -5,6 +5,11 @@ Plasticity = 0
 
 &IniCondition
 cICType = 'Planarwave'
+! One wavelength across a mesh of edge length 100, propagating along x. A
+! planar wave is only consistent with a fully periodic mesh; on a mesh with
+! free surfaces the reflection dominates, so only the periodic meshes are
+! used to measure an error against the analytical solution.
+kVec = 0.06283185307179587 0.0 0.0
 /
 
 &MeshNml

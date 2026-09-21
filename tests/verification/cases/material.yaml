@@ -5,8 +5,15 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-!ConstantMap
-map:
-  rho: 2700.0
-  mu: 3.24e10
-  lambda: 3.24e10
+# The mini meshes put every cell in group 1, matching the gmsh convention that
+# PUMgen carries over, so a group filter here behaves as it does for a real
+# mesh instead of taking a shortcut the real cases do not have.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        mu:     3.24e10
+        lambda: 3.24e10

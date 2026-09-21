@@ -252,6 +252,125 @@ def check_outputs(work, prefix, require_finite, activity):
     return problems
 
 
+def read_analysis(path):
+    """Read ``<prefix>-analysis.csv``, which SeisSol writes at the end of a run.
+
+    The file holds one row per quantity and norm. Note that the values are
+    printed with the default stream precision, so roughly six significant
+    digits: enough to judge a convergence threshold, not enough to compare two
+    runs against each other. Use the receiver output for that.
+    """
+    norms = {}
+    rows = path.read_text(encoding="utf-8").splitlines()
+    for row in rows[1:]:
+        fields = [field.strip() for field in row.split(",")]
+        if len(fields) != 3:
+            continue
+        variable, norm, value = fields
+        norms.setdefault(norm, {})[variable] = float(value)
+    return norms
+
+
+def check_analysis(work, prefix, thresholds_file, key, record):
+    """Judge the analytical error, or record it when no threshold is set."""
+    path = work / f"{prefix}-analysis.csv"
+    if not path.exists():
+        return [
+            "no analysis output; the initial condition has no analytical solution"
+        ], {}
+    norms = read_analysis(path)
+    observed = {norm: max(values.values()) for norm, values in norms.items()}
+
+    table = json.loads(Path(thresholds_file).read_text(encoding="utf-8"))
+    wanted = table.get("entries", {}).get(key)
+    if wanted is None:
+        print(
+            f"no thresholds for {key}; observed "
+            + ", ".join(f"{n}={v:.6g}" for n, v in sorted(observed.items()))
+        )
+        return [], observed
+
+    problems = []
+    for norm, limit in sorted(wanted.items()):
+        seen = observed.get(norm)
+        if seen is None:
+            problems.append(f"{norm} is not in the analysis output")
+        elif limit is None:
+            # recorded, not judged: a threshold nobody measured is a threshold
+            # that either passes everything or fails on the first compiler
+            print(f"{key} {norm} = {seen:.6g} (no threshold set)")
+        elif seen > limit:
+            problems.append(f"{norm} is {seen:.6g}, above the threshold {limit:.6g}")
+    if record:
+        print("record:", json.dumps({key: observed}))
+    return problems, observed
+
+
+def compare_receivers(reference, candidate, prefix, tolerance, floor):
+    """Compare two runs' receiver output.
+
+    With a tolerance of zero the files are compared byte for byte, which is the
+    only way to state bit identity about an ASCII output. A mismatch is then
+    quantified anyway, because a difference of 1e-16 and one of 1e-3 call for
+    completely different investigations.
+    """
+    problems = []
+    worst = {}
+
+    def receivers(root):
+        directory = root / Path(prefix).parent
+        return {
+            path.name: path
+            for path in directory.glob(f"{Path(prefix).name}-receiver-*.dat")
+        }
+
+    left, right = receivers(reference), receivers(candidate)
+    if not left:
+        return ["the reference run wrote no receiver output"], worst
+    missing = sorted(set(left) - set(right))
+    extra = sorted(set(right) - set(left))
+    if missing:
+        problems.append(f"missing in the candidate: {', '.join(missing)}")
+    if extra:
+        problems.append(f"only in the candidate: {', '.join(extra)}")
+
+    identical = True
+    for name in sorted(set(left) & set(right)):
+        if left[name].read_bytes() == right[name].read_bytes():
+            continue
+        identical = False
+        names, rows_left = read_receiver(left[name])
+        _, rows_right = read_receiver(right[name])
+        if len(rows_left) != len(rows_right):
+            problems.append(
+                f"{name}: {len(rows_left)} samples against {len(rows_right)}"
+            )
+            continue
+        for row_left, row_right in zip(rows_left, rows_right):
+            for column, (a, b) in enumerate(zip(row_left, row_right)):
+                label = names[column] if column < len(names) else str(column)
+                relative = abs(a - b) / max(abs(a), abs(b), floor)
+                worst[label] = max(worst.get(label, 0.0), relative)
+
+    if identical:
+        print("receiver output is byte for byte identical")
+    else:
+        summary = ", ".join(
+            f"{label}={value:.3g}" for label, value in sorted(worst.items())
+        )
+        print(f"largest relative differences: {summary}")
+        exceeded = {label: value for label, value in worst.items() if value > tolerance}
+        if exceeded:
+            problems.append(
+                "relative difference above the tolerance "
+                f"{tolerance:.3g}: "
+                + ", ".join(
+                    f"{label}={value:.3g}" for label, value in sorted(exceeded.items())
+                )
+            )
+    return problems, worst
+
+
 # --------------------------------------------------------------------------
 # running
 # --------------------------------------------------------------------------
@@ -335,6 +454,65 @@ def _command_run(args):
     else:
         problems += check_outputs(work, prefix, args.require_finite, args.activity)
 
+    if not problems and args.thresholds:
+        key = "{}/o{}/{}".format(
+            capabilities["equations"], capabilities["order"], capabilities["precision"]
+        )
+        analysis_problems, observed = check_analysis(
+            work, prefix, args.thresholds, key, args.record
+        )
+        problems += analysis_problems
+        result["analysis"] = observed
+        result["configuration"] = key
+
+    result["problems"] = problems
+    record(args.result, result)
+    for problem in problems:
+        print(f"error: {problem}", file=sys.stderr)
+    return 1 if problems else 0
+
+
+def _command_compare(args):
+    """Compare two runs, propagating a skip when either of them was skipped."""
+    result = {
+        "name": args.name,
+        "reference": args.reference,
+        "candidate": args.candidate,
+    }
+
+    inputs = {}
+    for role, path in (
+        ("reference", args.reference_result),
+        ("candidate", args.candidate_result),
+    ):
+        if path is None or not Path(path).exists():
+            result["status"] = "skipped"
+            result["reason"] = [f"the {role} run left no result behind"]
+            record(args.result, result)
+            print(f"skipped: the {role} run did not report")
+            return SKIP_RETURN_CODE
+        inputs[role] = json.loads(Path(path).read_text(encoding="utf-8"))
+
+    skipped = [role for role, payload in inputs.items() if payload["status"] != "run"]
+    if skipped:
+        # a comparison whose inputs this build cannot produce is not a failure
+        reason = [f"the {role} run was skipped" for role in skipped]
+        result["status"] = "skipped"
+        result["reason"] = reason
+        record(args.result, result)
+        print("skipped: " + "; ".join(reason))
+        return SKIP_RETURN_CODE
+
+    problems, worst = compare_receivers(
+        Path(args.reference),
+        Path(args.candidate),
+        args.prefix,
+        args.tolerance,
+        args.floor,
+    )
+    result["status"] = "run"
+    result["tolerance"] = args.tolerance
+    result["worst-relative"] = worst
     result["problems"] = problems
     record(args.result, result)
     for problem in problems:
@@ -406,8 +584,12 @@ def main(argv=None):
     run.add_argument("--steps", type=int)
     run.add_argument("--timestep", type=float)
     run.add_argument("--mpiexec", default="")
+    # these are passed as --flag=value because their values start with a dash,
+    # which argparse would otherwise read as the next option
     run.add_argument("--numproc-flag", default="-n")
-    run.add_argument("--mpiexec-flags", nargs="*", default=[])
+    run.add_argument(
+        "--mpiexec-flag", action="append", default=[], dest="mpiexec_flags"
+    )
     run.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
     run.add_argument("--file", action="append", default=[], metavar="NAME")
     run.add_argument("--require", action="append", default=[], metavar="KEY=VALUE")
@@ -418,8 +600,43 @@ def main(argv=None):
         metavar="COLUMN:THRESHOLD",
         help="insist that the run actually excited something",
     )
+    run.add_argument(
+        "--thresholds", help="judge the analytical error against this table"
+    )
+    run.add_argument(
+        "--record",
+        action="store_true",
+        default=bool(os.environ.get("SEISSOL_RECORD_THRESHOLDS")),
+        help="print the observed errors in a form that can be pasted into the table",
+    )
     run.add_argument("--no-finite-check", dest="require_finite", action="store_false")
     run.set_defaults(require_finite=True, func=_command_run)
+
+    compare = commands.add_parser("compare", help="compare two runs against each other")
+    compare.add_argument("--name", required=True)
+    compare.add_argument(
+        "--reference", required=True, help="working directory of the reference"
+    )
+    compare.add_argument(
+        "--candidate", required=True, help="working directory of the candidate"
+    )
+    compare.add_argument("--reference-result", required=True)
+    compare.add_argument("--candidate-result", required=True)
+    compare.add_argument("--prefix", default="output/mini")
+    compare.add_argument(
+        "--tolerance",
+        type=float,
+        default=0.0,
+        help="largest permitted relative difference; zero demands identical files",
+    )
+    compare.add_argument(
+        "--floor",
+        type=float,
+        default=1e-30,
+        help="denominator floor, so that two near-zero values do not look far apart",
+    )
+    compare.add_argument("--result")
+    compare.set_defaults(func=_command_compare)
 
     coverage = commands.add_parser(
         "coverage", help="account for declared versus run cases"
