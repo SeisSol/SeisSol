@@ -83,6 +83,7 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
     parallel::runtime::StreamRuntime& runtime,
+    double stateTime,
     double time,
     double dt,
     double indt) {
@@ -128,7 +129,7 @@ void ReceiverOutput::calcFaultOutput(
                         level,
                         timeCoeffs,
                         integrateCoeffs,
-                        time,
+                        stateTime,
                         frictionTime](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
@@ -148,7 +149,7 @@ void ReceiverOutput::calcFaultOutput(
     local.fusedIndex = outputData->receiverPoints[i].simIndex;
     local.state = outputData.get();
 
-    local.time = time;
+    local.time = stateTime;
     local.deltaT = frictionTime.deltaT.back();
     local.printWarning = &this->printRSFWarning_;
 

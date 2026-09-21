@@ -177,7 +177,7 @@ void seissol::writer::FaultWriter::syncPoint(double currentTime) {
 
   if (callbackObject_ != nullptr) {
     seissolInstance_.dofSync().syncDofs(currentTime);
-    callbackObject_->updateElementwiseOutput();
+    callbackObject_->updateElementwiseOutput(currentTime);
   }
   write(currentTime);
 }

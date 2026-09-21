@@ -282,7 +282,7 @@ void OutputManager::initElementwiseOutput() {
     auto& self = *this;
     writer.addHook([&](std::size_t, double currentTime) {
       seissolInstance_.dofSync().syncDofs(currentTime);
-      self.updateElementwiseOutput();
+      self.updateElementwiseOutput(currentTime);
     });
 
     io::writer::ScheduledWriter schedWriter;
@@ -516,6 +516,7 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
 }
 
 void OutputManager::writePickpointOutput(std::size_t layerId,
+                                         double stateTime,
                                          double time,
                                          double dt,
                                          double meshDt,
@@ -542,6 +543,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
                                seissolParameters.drParameters.slipRateOutputType,
                                outputData,
                                runtime,
+                               stateTime,
                                time,
                                meshDt,
                                meshInDt);
@@ -553,7 +555,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
 
 void OutputManager::writePickpointOutput(double time, double dt) {
   for (const auto& [id, _] : ppOutputData_) {
-    writePickpointOutput(id, time, dt, 0, 1, runtime_);
+    writePickpointOutput(id, time, time, dt, 0, 1, runtime_);
   }
 }
 
@@ -588,13 +590,16 @@ void OutputManager::flushPickpointDataToFile() {
   }
 }
 
-void OutputManager::updateElementwiseOutput() {
+void OutputManager::updateElementwiseOutput(double time) {
   if (this->ewOutputBuilder_) {
     const auto& seissolParameters = seissolInstance_.parameters();
+    // at a synchronization point every cluster has just completed a time step ending here, so this
+    // is also the time the stored friction state belongs to
     impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                            seissolParameters.drParameters.slipRateOutputType,
                            ewOutputData_,
-                           runtime_);
+                           runtime_,
+                           time);
     runtime_.wait();
   }
 }
