@@ -141,10 +141,21 @@ set_tests_properties(verification.receivers PROPERTIES
                      FIXTURES_REQUIRED "${mesh_fixtures}"
                      LABELS "verification;smoke")
 
+add_test(NAME verification.faultreceivers
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault48.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/faultskew48.puml.h5)
+set_tests_properties(verification.faultreceivers PROPERTIES
+                     FIXTURES_REQUIRED "minimesh.fault48;minimesh.faultskew48"
+                     LABELS "verification;smoke;dr")
+
 # ---------------------------------------------------------------------------
 # seissol_add_minitest(NAME <name> MESH <mesh> PARAMETERS <file>
 #                      [MATERIAL file] [RANKS n] [THREADS n] [STEPS n]
 #                      [TIMESTEP dt] [THRESHOLDS file] [EXPECT_ZERO]
+#                      [EXPECT_FAILURE regex]
 #                      [REQUIRE key=value ...] [SET Section.Key=Value ...]
 #                      [FILES name ...] [ACTIVITY column:threshold ...]
 #                      [LABELS label ...])
@@ -159,7 +170,7 @@ set_tests_properties(verification.receivers PROPERTIES
 function(seissol_add_minitest)
   cmake_parse_arguments(MT
       "EXPECT_ZERO"
-      "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS"
+      "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE"
       "REQUIRE;SET;FILES;ACTIVITY;LABELS"
       ${ARGN})
   if (NOT MT_NAME OR NOT MT_MESH OR NOT MT_PARAMETERS)
@@ -217,6 +228,9 @@ function(seissol_add_minitest)
   endif()
   if (MT_EXPECT_ZERO)
     list(APPEND arguments --expect-zero)
+  endif()
+  if (MT_EXPECT_FAILURE)
+    list(APPEND arguments "--expect-failure=${MT_EXPECT_FAILURE}")
   endif()
   foreach (entry ${MT_SET})
     list(APPEND arguments --set ${entry})
@@ -474,6 +488,144 @@ seissol_add_comparison(
     REFERENCE smoke-box48
     CANDIDATE smoke-fault48
     TOLERANCE 1e-6
+    LABELS "identity;dr")
+
+
+# ---------------------------------------------------------------------------
+# Friction laws.
+#
+# seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [MESH mesh]
+#                     [RANKS n] [EXPECT_FAILURE regex] [EXPECT_ZERO])
+#
+# Every law runs on fault48 from rest, with a nucleation stress that breaks
+# the fault within the run. The activity demand is a slip rate above 1e-6 m/s
+# in either fault direction: ten orders of magnitude above the creep rate the
+# rate-and-state laws start from, and exactly zero for a locked fault.
+#
+# Which easi file a law gets matters beyond its own parameters: SeisSol
+# chooses between the Cartesian and the traction parametrization, and
+# switches the forced rupture time on, by what the file provides. Each law
+# therefore gets a file with exactly its parameters.
+# ---------------------------------------------------------------------------
+
+function(seissol_add_rupture)
+  cmake_parse_arguments(RUP
+      "EXPECT_ZERO"
+      "NAME;FL;FAULT;MESH;RANKS;EXPECT_FAILURE"
+      "SET;LABELS"
+      ${ARGN})
+  if (NOT RUP_MESH)
+    set(RUP_MESH fault48)
+  endif()
+  set(options "")
+  if (RUP_EXPECT_ZERO)
+    list(APPEND options EXPECT_ZERO)
+  else()
+    list(APPEND options ACTIVITY "SRs|SRd:1e-6")
+  endif()
+  if (RUP_EXPECT_FAILURE)
+    list(APPEND options EXPECT_FAILURE "${RUP_EXPECT_FAILURE}")
+  endif()
+  if (RUP_RANKS)
+    list(APPEND options RANKS ${RUP_RANKS})
+  endif()
+  seissol_add_minitest(
+      NAME ${RUP_NAME}
+      MESH ${RUP_MESH}
+      PARAMETERS rupture.par
+      FILES ${RUP_FAULT} faultreceiver.dat
+      STEPS 64
+      REQUIRE equations=elastic
+      SET "DynamicRupture.FL=${RUP_FL}"
+          "DynamicRupture.ModelFileName='${RUP_FAULT}'"
+          ${RUP_SET}
+      ${options}
+      LABELS "dr;${RUP_LABELS}")
+endfunction()
+
+set(SEISSOL_RS
+    "DynamicRupture.RS_f0=0.6"
+    "DynamicRupture.RS_sr0=1e-6"
+    "DynamicRupture.RS_b=0.012"
+    "DynamicRupture.RS_iniSlipRate1=1e-16"
+    "DynamicRupture.RS_iniSlipRate2=0.0")
+set(SEISSOL_RS_FVW
+    "DynamicRupture.RS_f0=0.6"
+    "DynamicRupture.RS_sr0=1e-6"
+    "DynamicRupture.RS_b=0.014"
+    "DynamicRupture.RS_muW=0.2"
+    "DynamicRupture.RS_iniSlipRate1=1e-16"
+    "DynamicRupture.RS_iniSlipRate2=0.0")
+set(SEISSOL_TP
+    "DynamicRupture.thermalPress=1"
+    "DynamicRupture.tp_iniTemp=483.15"
+    "DynamicRupture.tp_iniPressure=0.0"
+    "DynamicRupture.tp_thermalDiffusivity=1.0e-6"
+    "DynamicRupture.tp_heatCapacity=2.7e6"
+    "DynamicRupture.tp_undrainedTPResponse=0.1e6")
+# delays the nucleation stress past the end of the run
+set(SEISSOL_NO_NUCLEATION "DynamicRupture.s_0=1.0")
+
+seissol_add_rupture(NAME rupture-lsw FL 16 FAULT fault-lsw.yaml)
+# the forced rupture time is a separate branch, taken only if the file
+# provides it; without nucleation it is the only thing breaking the fault
+seissol_add_rupture(NAME rupture-lsw-forced FL 16 FAULT fault-lsw-forced.yaml
+                    SET ${SEISSOL_NO_NUCLEATION})
+seissol_add_rupture(NAME rupture-lsw-bimaterial FL 6 FAULT fault-lsw.yaml
+                    SET "DynamicRupture.pc_vstar=0.1" "DynamicRupture.pc_prakashLength=0.1")
+seissol_add_rupture(NAME rupture-lsw-tpapprox FL 1058 FAULT fault-lsw.yaml)
+# FL=2 is documented as a deprecated spelling of FL=16
+seissol_add_rupture(NAME rupture-lsw-legacy FL 2 FAULT fault-lsw.yaml)
+
+foreach (law aging:3 slip:4 svw:7)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  seissol_add_rupture(NAME rupture-rs-${name} FL ${number} FAULT fault-rs.yaml
+                      SET ${SEISSOL_RS})
+  seissol_add_rupture(NAME rupture-rs-${name}-tp FL ${number} FAULT fault-rs-tp.yaml
+                      SET ${SEISSOL_RS} ${SEISSOL_TP})
+endforeach()
+seissol_add_rupture(NAME rupture-rs-fvw FL 103 FAULT fault-rs-fvw.yaml
+                    SET ${SEISSOL_RS_FVW})
+seissol_add_rupture(NAME rupture-rs-fvw-tp FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP})
+
+foreach (law yoffe:33 gaussian:34 delta:35)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  seissol_add_rupture(NAME rupture-imposed-${name} FL ${number} FAULT fault-imposed.yaml
+                      SET "DynamicRupture.SlipRateOutputType=0")
+endforeach()
+
+# disabled on purpose in SeisSol; it has to be refused at initialization
+seissol_add_rupture(NAME rupture-rs-aging-nucleation FL 101 FAULT fault-rs.yaml
+                    SET ${SEISSOL_RS}
+                    EXPECT_FAILURE "friction law 101 currently disabled")
+
+# a prestressed fault below its strength is locked and must not radiate: the
+# initial stress is background, and nothing of it may leak into the wavefield
+seissol_add_rupture(NAME null-faultskew48-lsw FL 16 FAULT fault-lsw.yaml
+                    MESH faultskew48 SET ${SEISSOL_NO_NUCLEATION} EXPECT_ZERO
+                    LABELS null)
+
+# rupture across rank boundaries: fault faces end up in the copy layer
+seissol_add_rupture(NAME rupture-lsw-mpi4 FL 16 FAULT fault-lsw.yaml RANKS 4
+                    LABELS mpi)
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-mpi4
+    REFERENCE rupture-lsw
+    CANDIDATE rupture-lsw-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi;dr")
+
+# a deprecated spelling of the same law has to give the same run
+seissol_add_comparison(
+    NAME identity-lsw-legacy
+    REFERENCE rupture-lsw
+    CANDIDATE rupture-lsw-legacy
+    TOLERANCE 0
     LABELS "identity;dr")
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,23 @@
+# Linear slip weakening with a forced rupture time, which SeisSol enables
+# when the file provides it. The cases using this file delay the
+# nucleation past the end of the run, so the forced rupture alone breaks
+# the fault: 70 MPa lies above the dynamic strength mu_d * 120 MPa = 63 MPa.
+!ConstantMap
+map:
+  s_xx:   -120.0e6
+  s_yy:   0.0
+  s_zz:   0.0
+  s_xy:   70.0e6
+  s_yz:   0.0
+  s_xz:   0.0
+  nuc_xx: 0.0
+  nuc_yy: 0.0
+  nuc_zz: 0.0
+  nuc_xy: 20.0e6
+  nuc_yz: 0.0
+  nuc_xz: 0.0
+  mu_s:     0.677
+  mu_d:     0.525
+  d_c:      0.001
+  cohesion: 0.0
+  forced_rupture_time: 4.8828125e-04

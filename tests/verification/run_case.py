@@ -211,16 +211,21 @@ def read_receiver(path):
 def check_outputs(work, prefix, require_finite, activity, expect_zero=False):
     """Check that the run produced finite output, and that it did something.
 
-    With ``expect_zero`` the demand is the opposite: every recorded value
-    except the time has to be exactly zero, as it must be for a zero initial
-    state without sources.
+    Both the volume receivers and the on-fault receivers are read. With
+    ``expect_zero`` the demand is the opposite of activity: every value the
+    volume receivers record, except the time, has to be exactly zero, as it
+    must be for a zero initial state without sources. The on-fault receivers
+    are left out of that demand, since friction coefficients and state
+    variables are not zero on a fault at rest.
     """
     problems = []
-    receivers = sorted(
-        (work / Path(prefix).parent).glob(f"{Path(prefix).name}-receiver-*.dat")
-    )
-    if not receivers:
+    directory = work / Path(prefix).parent
+    name = Path(prefix).name
+    volume = sorted(directory.glob(f"{name}-receiver-*.dat"))
+    fault = sorted(directory.glob(f"{name}-faultreceiver-*.dat"))
+    if not volume:
         return ["no receiver output was written"]
+    receivers = volume + fault
 
     extrema = {}
     for path in receivers:
@@ -232,7 +237,7 @@ def check_outputs(work, prefix, require_finite, activity, expect_zero=False):
         if not rows:
             problems.append(f"{path.name}: no samples")
             continue
-        if expect_zero:
+        if expect_zero and path in volume:
             nonzero = [
                 (abs(value), column)
                 for row in rows
@@ -255,18 +260,22 @@ def check_outputs(work, prefix, require_finite, activity, expect_zero=False):
                 extrema[name] = max(extrema.get(name, 0.0), abs(value))
 
     for demand in activity:
-        name, _, threshold = demand.partition(":")
+        # "SRs|SRd:1e-6" is satisfied by either column; which fault direction
+        # carries the slip depends on the orientation convention, which the
+        # check has no business assuming
+        names, _, threshold = demand.partition(":")
         threshold = float(threshold)
-        seen = extrema.get(name)
-        if seen is None:
+        candidates = names.split("|")
+        seen = [extrema[candidate] for candidate in candidates if candidate in extrema]
+        if not seen:
             problems.append(
-                f"activity check wants {name!r}, which the receivers do not "
+                f"activity check wants {names!r}, which the receivers do not "
                 f"contain (have: {', '.join(sorted(extrema))})"
             )
-        elif seen <= threshold:
+        elif max(seen) <= threshold:
             # a case that runs cleanly but never excites anything tests nothing
             problems.append(
-                f"max |{name}| is {seen:g}, expected more than {threshold:g}"
+                f"max |{names}| is {max(seen):g}, expected more than {threshold:g}"
             )
     return problems
 
@@ -338,10 +347,12 @@ def compare_receivers(reference, candidate, prefix, tolerance, floor):
 
     def receivers(root):
         directory = root / Path(prefix).parent
-        return {
-            path.name: path
-            for path in directory.glob(f"{Path(prefix).name}-receiver-*.dat")
-        }
+        name = Path(prefix).name
+        found = {}
+        for kind in ("receiver", "faultreceiver"):
+            for path in directory.glob(f"{name}-{kind}-*.dat"):
+                found[path.name] = path
+        return found
 
     left, right = receivers(reference), receivers(candidate)
     if not left:
@@ -522,6 +533,8 @@ def _command_run(args):
                 f"use e.g. {2.0 ** round(math.log2(abs(args.timestep) or 1.0))!r}"
             )
         parameters.set("Discretization", "FixTimeStep", repr(args.timestep))
+        # one receiver sample per step, at exactly the step times
+        parameters.set("Output", "pickdt", repr(args.timestep))
         if args.steps is not None:
             parameters.set("AbortCriteria", "EndTime", repr(args.steps * args.timestep))
     apply_overrides(parameters, overrides)
@@ -562,6 +575,21 @@ def _command_run(args):
     result["command"] = command
     result["returncode"] = completed.returncode
     problems = []
+    if args.expect_failure is not None:
+        # a configuration that SeisSol refuses on purpose has to be refused
+        # cleanly, with the reason in the log, rather than crash or run
+        if completed.returncode == 0:
+            problems.append("the run succeeded, but a refusal was expected")
+        elif re.search(args.expect_failure, log) is None:
+            problems.append(
+                f"the run failed with exit code {completed.returncode}, but the "
+                f"log does not contain {args.expect_failure!r}"
+            )
+        result["problems"] = problems
+        record(args.result, result)
+        for problem in problems:
+            print(f"error: {problem}", file=sys.stderr)
+        return 1 if problems else 0
     if completed.returncode != 0:
         problems.append(f"exit code {completed.returncode}")
     else:
@@ -724,6 +752,11 @@ def main(argv=None):
         action="store_true",
         default=bool(os.environ.get("SEISSOL_RECORD_THRESHOLDS")),
         help="print the observed errors in a form that can be pasted into the table",
+    )
+    run.add_argument(
+        "--expect-failure",
+        metavar="REGEX",
+        help="require the run to fail with a log line matching REGEX",
     )
     run.add_argument(
         "--expect-zero",

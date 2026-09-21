@@ -1,0 +1,12 @@
+# Imposed slip rates. One file serves all three source time functions, as in
+# the Northridge cases of precomputed-seissol: these laws read their own
+# parameters and ignore the rest, and they need no initial stress. The times
+# are powers of two, like the step, so that onset and rise fall on steps.
+!ConstantMap
+map:
+  strike_slip:       1.0
+  dip_slip:          0.0
+  rupture_onset:     2.44140625e-04
+  tau_S:             4.8828125e-04
+  tau_R:             1.953125e-03
+  rupture_rise_time: 9.765625e-04

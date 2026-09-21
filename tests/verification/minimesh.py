@@ -1013,6 +1013,33 @@ def locate(coords, connect, point):
     return best
 
 
+def locate_on_fault(coords, connect, tags, point, tolerance=1e-9):
+    """Return the smallest barycentric coordinate of a point on the fault.
+
+    Only faces tagged as dynamic rupture are considered, and only those whose
+    plane contains the point. The value is negative if no such face contains
+    it, zero if it lies on an edge or a vertex of the fault triangulation.
+    """
+    point = np.asarray(point, dtype=np.float64)
+    best = -np.inf
+    rupture = FACE_TYPES["dynamic-rupture"]
+    for cell, slot in zip(*np.nonzero(tags == rupture)):
+        a, b, c = coords[connect[cell, list(FACE_VERTICES[slot])]]
+        normal = np.cross(b - a, c - a)
+        area = np.linalg.norm(normal)
+        scale = max(np.linalg.norm(b - a), np.linalg.norm(c - a))
+        if abs(np.dot(point - a, normal)) / area > tolerance * scale:
+            continue
+        # barycentric coordinates from signed sub-areas
+        weights = [
+            np.dot(np.cross(c - b, point - b), normal),
+            np.dot(np.cross(a - c, point - c), normal),
+            np.dot(np.cross(b - a, point - a), normal),
+        ]
+        best = max(best, min(weights) / area**2)
+    return best
+
+
 def _command_locate(args):
     """Check that every receiver is strictly inside a cell of every mesh.
 
@@ -1033,7 +1060,13 @@ def _command_locate(args):
         with h5py.File(path, "r") as handle:
             coords = handle["geometry"][:]
             connect = handle["connect"][:].astype(np.int64)
-        margins = [locate(coords, connect, point) for point in points]
+            if args.fault:
+                boundary_format, _, _ = infer_formats(handle)
+                tags = decode_boundary(handle["boundary"][:], boundary_format)
+        if args.fault:
+            margins = [locate_on_fault(coords, connect, tags, p) for p in points]
+        else:
+            margins = [locate(coords, connect, point) for point in points]
         worst = min(margins)
         ok = worst >= args.margin
         failed |= not ok
@@ -1083,6 +1116,11 @@ def main(argv=None):
     )
     locate_parser.add_argument("receivers")
     locate_parser.add_argument("files", nargs="+")
+    locate_parser.add_argument(
+        "--fault",
+        action="store_true",
+        help="the points are on-fault receivers; locate them on the rupture faces",
+    )
     locate_parser.add_argument(
         "--margin",
         type=float,

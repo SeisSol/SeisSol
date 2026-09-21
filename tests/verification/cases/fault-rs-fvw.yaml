@@ -1,0 +1,18 @@
+# Rate and state with fast velocity weakening, after TPV104.
+!ConstantMap
+map:
+  s_xx:   -120.0e6
+  s_yy:   0.0
+  s_zz:   0.0
+  s_xy:   40.0e6
+  s_yz:   0.0
+  s_xz:   0.0
+  nuc_xx: 0.0
+  nuc_yy: 0.0
+  nuc_zz: 0.0
+  nuc_xy: 45.0e6
+  nuc_yz: 0.0
+  nuc_xz: 0.0
+  rs_a:     0.01
+  rs_sl0:   0.4
+  rs_srW:   0.1

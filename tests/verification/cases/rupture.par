@@ -1,0 +1,58 @@
+&equations
+MaterialFileName = 'material-elastic.yaml'           ! replaced per build by the runner
+Plasticity = 0
+/
+
+&IniCondition
+cICType = 'Zero'
+/
+
+&DynamicRupture
+FL = 16                                        ! replaced per friction law
+ModelFileName = 'fault-lsw.yaml'               ! replaced per friction law
+! The fault is the plane x = 0. SeisSol takes the plus side of a fault face to
+! be the side the reference point is on; a reference point in the fault plane
+! puts both cells of every fault face on the minus side.
+XRef = -1.0e5
+YRef = 0.0
+ZRef = 0.0
+OutputPointType = 3
+t_0 = 9.765625e-04                             ! nucleation ramp of 16 steps
+/
+
+&Pickpoint
+printtimeinterval = 1
+PPFileName = 'faultreceiver.dat'
+/
+
+&MeshNml
+MeshFile = 'mesh.puml.h5'
+meshgenerator = 'PUML'
+PartitioningLib = 'none'
+/
+
+&Discretization
+CFL = 0.5
+FixTimeStep = 6.103515625e-05                  ! set by the runner
+ClusteredLTS = 1                               ! GTS; LTS makes rank counts incomparable
+/
+
+&Output
+OutputFile = 'output/mini'
+wavefieldoutput = 0
+SurfaceOutput = 0
+ReceiverOutput = 1
+pickdt = 6.103515625e-05                       ! set by the runner
+RFileName = 'receiver.dat'
+xdmfWriterBackend = 'posix'
+/
+
+&AbortCriteria
+EndTime = 3.90625e-03                          ! set by the runner
+/
+
+&Analysis
+/
+
+&Debugging
+/
