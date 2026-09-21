@@ -21,29 +21,23 @@ set(SEISSOL_MINITEST_TIMEOUT 300 CACHE STRING
 set(SEISSOL_MINITEST_MPIEXEC_FLAGS "" CACHE STRING
     "Extra launcher flags for the verification cases, e.g. --oversubscribe on a \
 machine with fewer cores than the rank counts the cases ask for")
-set(SEISSOL_VERIFY_SCRIPT "" CACHE FILEPATH
-    "Path to verify.py; probed under the source tree when empty")
+set(SEISSOL_SNAPSHOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/references" CACHE PATH
+    "Where the snapshot references live; may point to a separate repository")
+# The tolerances are a property of the environment a build runs in, relative
+# to the one the references were computed in, not of the cases: identical
+# environments reproduce the references bit for bit. Zero is therefore the
+# default, and another environment sets its own tolerance from the deviation
+# the failing comparison reports.
+set(SEISSOL_SNAPSHOT_TOLERANCE_DOUBLE 0 CACHE STRING
+    "Largest relative deviation from the snapshot references, double precision")
+set(SEISSOL_SNAPSHOT_TOLERANCE_SINGLE 0 CACHE STRING
+    "Largest relative deviation from the snapshot references, single precision")
 
 # 2^-14 s. It lies below the CFL limit of every mini mesh up to order 8 for
 # the materials in cases/, with a margin of at least 1.26, so the cap in
 # FixTimeStep is what sets the step. Being a power of two, it also keeps
 # N * dt and the accumulated time exact; the runner insists on both.
 set(SEISSOL_MINITEST_TIMESTEP 6.103515625e-05)
-
-if (NOT SEISSOL_VERIFY_SCRIPT)
-  foreach (candidate scripts/verify.py .ci/verify.py tools/verify.py verify.py)
-    if (EXISTS "${PROJECT_SOURCE_DIR}/${candidate}")
-      set(SEISSOL_VERIFY_SCRIPT "${PROJECT_SOURCE_DIR}/${candidate}"
-          CACHE FILEPATH "" FORCE)
-      break()
-    endif()
-  endforeach()
-endif()
-if (SEISSOL_VERIFY_SCRIPT)
-  message(STATUS "Verification: comparison script at ${SEISSOL_VERIFY_SCRIPT}")
-else()
-  message(STATUS "Verification: no verify.py found, comparison cases will skip")
-endif()
 
 # ---------------------------------------------------------------------------
 # What this build can do.
@@ -69,6 +63,12 @@ endif()
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Capabilities.json.in
     ${CMAKE_CURRENT_BINARY_DIR}/capabilities.json
+    @ONLY
+)
+# not what the build can do, but where it runs; recorded with every snapshot
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Environment.json.in
+    ${CMAKE_CURRENT_BINARY_DIR}/environment.json
     @ONLY
 )
 
@@ -155,7 +155,7 @@ set_tests_properties(verification.faultreceivers PROPERTIES
 # seissol_add_minitest(NAME <name> MESH <mesh> PARAMETERS <file>
 #                      [MATERIAL file] [RANKS n] [THREADS n] [STEPS n]
 #                      [TIMESTEP dt] [THRESHOLDS file] [EXPECT_ZERO]
-#                      [EXPECT_FAILURE regex]
+#                      [EXPECT_FAILURE regex] [NO_SNAPSHOT] [SNAPSHOT_KEY key]
 #                      [REQUIRE key=value ...] [SET Section.Key=Value ...]
 #                      [FILES name ...] [ACTIVITY column:threshold ...]
 #                      [LABELS label ...])
@@ -165,12 +165,17 @@ set_tests_properties(verification.faultreceivers PROPERTIES
 # overrides may contain {equations}, {order} or {precision}; MATERIAL defaults
 # to material-{equations}.yaml, and a build whose equation system has no such
 # file yet skips the case, which keeps that gap visible as well.
+#
+# Every case that computes something gets a snapshot test holding it against
+# a stored reference, one per numerical configuration as SNAPSHOT_KEY names
+# it. Cases on several ranks or threads get none: their bit identity with the
+# serial case is tested directly, and the serial case carries the snapshot.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_minitest)
   cmake_parse_arguments(MT
-      "EXPECT_ZERO"
-      "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE"
+      "EXPECT_ZERO;NO_SNAPSHOT"
+      "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE;SNAPSHOT_KEY"
       "REQUIRE;SET;FILES;ACTIVITY;LABELS"
       ${ARGN})
   if (NOT MT_NAME OR NOT MT_MESH OR NOT MT_PARAMETERS)
@@ -216,6 +221,7 @@ function(seissol_add_minitest)
       --work-dir ${CMAKE_CURRENT_BINARY_DIR}/work/${MT_NAME}
       --result ${CMAKE_CURRENT_BINARY_DIR}/results/${MT_NAME}.json
       --mesh ${SEISSOL_MINIMESH_DIR}/${MT_MESH}.puml.h5
+      --mesh-manifest ${SEISSOL_MINIMESH_DIR}/${MT_MESH}.json
       --parameters ${MT_PARAMETERS}
       --ranks ${MT_RANKS}
       --threads ${MT_THREADS}
@@ -277,6 +283,34 @@ function(seissol_add_minitest)
   endif()
   set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
       "    {\"name\": \"${MT_NAME}\", \"mesh\": \"${MT_MESH}\", \"requires\": [${requires_json}]},\n")
+
+  if (NOT MT_SNAPSHOT_KEY)
+    set(MT_SNAPSHOT_KEY "{equations}-m{mechanisms}-o{order}-{precision}-s{fused}")
+  endif()
+  if (NOT MT_NO_SNAPSHOT AND NOT MT_EXPECT_ZERO AND NOT MT_EXPECT_FAILURE
+      AND MT_RANKS EQUAL 1 AND MT_THREADS EQUAL 1)
+    add_test(NAME verification.snapshot.${MT_NAME}
+             COMMAND ${Python3_EXECUTABLE}
+                     ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py snapshot
+                     --name ${MT_NAME}
+                     --case-result ${CMAKE_CURRENT_BINARY_DIR}/results/${MT_NAME}.json
+                     --work ${CMAKE_CURRENT_BINARY_DIR}/work/${MT_NAME}
+                     --reference-dir ${SEISSOL_SNAPSHOT_DIR}
+                     --key ${MT_SNAPSHOT_KEY}
+                     --capabilities ${CMAKE_CURRENT_BINARY_DIR}/capabilities.json
+                     --environment ${CMAKE_CURRENT_BINARY_DIR}/environment.json
+                     --source-dir ${PROJECT_SOURCE_DIR}
+                     --tolerance-double ${SEISSOL_SNAPSHOT_TOLERANCE_DOUBLE}
+                     --tolerance-single ${SEISSOL_SNAPSHOT_TOLERANCE_SINGLE}
+                     --result ${CMAKE_CURRENT_BINARY_DIR}/results/snapshot-${MT_NAME}.json)
+    set_tests_properties(verification.snapshot.${MT_NAME} PROPERTIES
+        SKIP_RETURN_CODE 77
+        FIXTURES_REQUIRED "case.${MT_NAME};verification"
+        TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
+        LABELS "verification;snapshot")
+    set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
+        "    {\"name\": \"snapshot-${MT_NAME}\", \"mesh\": \"${MT_MESH}\", \"requires\": []},\n")
+  endif()
 endfunction()
 
 # ---------------------------------------------------------------------------
@@ -510,7 +544,7 @@ seissol_add_comparison(
 
 function(seissol_add_rupture)
   cmake_parse_arguments(RUP
-      "EXPECT_ZERO"
+      "EXPECT_ZERO;NO_SNAPSHOT"
       "NAME;FL;FAULT;MESH;RANKS;EXPECT_FAILURE"
       "SET;LABELS"
       ${ARGN})
@@ -529,10 +563,15 @@ function(seissol_add_rupture)
   if (RUP_RANKS)
     list(APPEND options RANKS ${RUP_RANKS})
   endif()
+  if (RUP_NO_SNAPSHOT)
+    list(APPEND options NO_SNAPSHOT)
+  endif()
   seissol_add_minitest(
       NAME ${RUP_NAME}
       MESH ${RUP_MESH}
       PARAMETERS rupture.par
+      # the rupture method changes the result of every case with a fault
+      SNAPSHOT_KEY "{equations}-m{mechanisms}-o{order}-{precision}-s{fused}-{rupture-method}"
       FILES ${RUP_FAULT} faultreceiver.dat
       STEPS 64
       REQUIRE equations=elastic
@@ -574,8 +613,9 @@ seissol_add_rupture(NAME rupture-lsw-forced FL 16 FAULT fault-lsw-forced.yaml
 seissol_add_rupture(NAME rupture-lsw-bimaterial FL 6 FAULT fault-lsw.yaml
                     SET "DynamicRupture.pc_vstar=0.1" "DynamicRupture.pc_prakashLength=0.1")
 seissol_add_rupture(NAME rupture-lsw-tpapprox FL 1058 FAULT fault-lsw.yaml)
-# FL=2 is documented as a deprecated spelling of FL=16
-seissol_add_rupture(NAME rupture-lsw-legacy FL 2 FAULT fault-lsw.yaml)
+# FL=2 is documented as a deprecated spelling of FL=16; its identity with
+# FL=16 is tested directly, so it needs no snapshot of its own
+seissol_add_rupture(NAME rupture-lsw-legacy FL 2 FAULT fault-lsw.yaml NO_SNAPSHOT)
 
 foreach (law aging:3 slip:4 svw:7)
   string(REPLACE ":" ";" law ${law})
