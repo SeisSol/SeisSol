@@ -12,6 +12,11 @@ from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.input import parseJSONMatrixFile
 
+# The face relation index of a dynamic rupture face: 0 selects the plus side, 1 the minus side.
+# The minus side carries the face orientation index of the shared face, which the canonical
+# vertex numbering pins to zero.
+NumFaceRelations = 2
+
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInterface):
 
@@ -116,7 +121,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         name_prefix = generate_kernel_name_prefix(target)
         generator.addFamily(
             f"{name_prefix}evaluateAndRotateQAtInterpolationPoints",
-            simpleParameterSpace(4, 4),
+            simpleParameterSpace(4, NumFaceRelations),
             interpolateQGenerator,
             interpolateQPrefetch if target == "cpu" else None,
             target=target,
@@ -165,7 +170,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         name_prefix = generate_kernel_name_prefix(target)
         generator.addFamily(
             f"{name_prefix}projectToDR",
-            simpleParameterSpace(4, 4),
+            simpleParameterSpace(4, NumFaceRelations),
             multiInterpolateQ,
             None,
             target=target,
@@ -184,7 +189,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         name_prefix = generate_kernel_name_prefix(target)
         generator.addFamily(
             f"{name_prefix}nodalFlux",
-            simpleParameterSpace(4, 4),
+            simpleParameterSpace(4, NumFaceRelations),
             nodalFluxGenerator,
             nodalFluxPrefetch if target == "cpu" else None,
             target=target,

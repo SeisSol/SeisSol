@@ -171,18 +171,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       // already set: faceInformation[ltsFace].meshFace = meshFace;
       faceInformation[ltsFace].plusSide = fault[meshFace].side;
       faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
-      if (fault[meshFace].element >= 0) {
-        faceInformation[ltsFace].faceRelation =
-            elements[fault[meshFace].element].sideOrientations[fault[meshFace].side] + 1;
-        faceInformation[ltsFace].plusSideOnThisRank = true;
-      } else {
-        /// \todo check if this is correct
-        faceInformation[ltsFace].faceRelation =
-            elements[fault[meshFace].neighborElement]
-                .sideOrientations[fault[meshFace].neighborSide] +
-            1;
-        faceInformation[ltsFace].plusSideOnThisRank = false;
-      }
+      // Face relation 1 addresses the minus side at a zero face orientation index, which the
+      // canonical vertex numbering guarantees on every interior face. Both sides of an MPI
+      // split fault face therefore agree on it without exchanging anything.
+      faceInformation[ltsFace].faceRelation = 1;
+      faceInformation[ltsFace].plusSideOnThisRank = fault[meshFace].element >= 0;
 
       /// Look for time derivative mapping in all duplicates
       // TODO: change datatype after #1420

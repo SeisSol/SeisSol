@@ -56,23 +56,15 @@ struct GlobalData {
   seissol::tensor::fMrT::Container<const real*> localChangeOfBasisMatricesTransposed;
 
   /**
-   * Addresses of the transposed global change of basis matrices:
+   * Addresses of the transposed global change of basis matrices, left-multiplied with the
+   * neighboring flux matrix:
    *
-   *    0: \f$ ( R^1 )^T \f$
-   *    1: \f$ ( R^2 )^T \f$
-   *    2: \f$ ( R^3 )^T \f$
-   *    3: \f$ ( R^4 )^T \f$
+   *    0: \f$ F^{+,1} ( R^1 )^T \f$
+   *    1: \f$ F^{+,1} ( R^2 )^T \f$
+   *    2: \f$ F^{+,1} ( R^3 )^T \f$
+   *    3: \f$ F^{+,1} ( R^4 )^T \f$
    **/
-  seissol::tensor::rT::Container<const real*> neighborChangeOfBasisMatricesTransposed;
-
-  /**
-   * Addresses of the global flux matrices:
-   *
-   *    0: \f$ F^{+,1} \f$
-   *    1: \f$ F^{+,2} \f$
-   *    2: \f$ F^{+,3} \f$
-   **/
-  seissol::tensor::fP::Container<const real*> neighborFluxMatrices;
+  seissol::tensor::fPrT::Container<const real*> neighborChangeOfBasisMatricesTransposed;
 
   /**
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):

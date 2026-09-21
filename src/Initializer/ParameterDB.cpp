@@ -385,7 +385,8 @@ easi::Query FaultGPGenerator::generate() const {
     } else {
       element = f.neighborElement;
       side = f.neighborSide;
-      sideOrientation = elements[f.neighborElement].sideOrientations[f.neighborSide];
+      // the canonical vertex numbering pins the face orientation index to zero
+      sideOrientation = 0;
     }
 
     auto coords = cellToVertex.elementCoordinates(element);

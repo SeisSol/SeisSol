@@ -152,6 +152,23 @@ class ADERDGBase(ABC):
             CSCMemoryLayout,
         )
 
+        # The canonical vertex numbering forces the face orientation index to
+        # zero on every interior face, so the neighbouring flux matrix is the
+        # constant fP(0) and folds into the neighbour change of basis. The
+        # stride alignment is given explicitly, since the name based rule would
+        # key off the "fP" prefix, while this tensor takes the role, and hence
+        # the alignment, of a change of basis matrix.
+        self.db.update(
+            tensor_collection_from_constant_expression(
+                "fPrT",
+                lambda j: self.db.fP[0][self.t("mn")] * self.db.rT[j][self.t("nl")],
+                simpleParameterSpace(4),
+                target_indices=self.t("ml"),
+                tensor_args={"alignStride": self.multipleSimulations == 1},
+                zero_tolerance=1e-14,
+            )
+        )
+
     def name(self):
         return ""
 
@@ -423,18 +440,17 @@ class LinearADERDG(ADERDGBase):
 
     def addNeighbor(self, generator, targets):
         neighborFlux = (
-            lambda h, j, i: self.Q["kp"]
+            lambda j, i: self.Q["kp"]
             <= self.Q["kp"]
             + self.db.rDivM[i][self.t("km")]
-            * self.db.fP[h][self.t("mn")]
-            * self.db.rT[j][self.t("nl")]
+            * self.db.fPrT[j][self.t("ml")]
             * self.I["lq"]
             * self.AminusT["qp"]
         )
-        neighborFluxPrefetch = lambda h, j, i: self.I
+        neighborFluxPrefetch = lambda j, i: self.I
         generator.addFamily(
             "neighboringFlux",
-            simpleParameterSpace(3, 4, 4),
+            simpleParameterSpace(4, 4),
             neighborFlux,
             neighborFluxPrefetch,
             target="cpu",
@@ -442,30 +458,29 @@ class LinearADERDG(ADERDGBase):
 
         if "gpu" in targets:
             minusFluxMatrixAccessor = (
-                lambda h, j, i: self.db.rDivM[i][self.t("km")]
-                * self.db.fP[h][self.t("mn")]
-                * self.db.rT[j][self.t("nl")]
+                lambda j, i: self.db.rDivM[i][self.t("km")]
+                * self.db.fPrT[j][self.t("ml")]
             )
             if self.kwargs["enable_premultiply_flux"]:
                 contractionResult = tensor_collection_from_constant_expression(
                     "minusFluxMatrices",
                     minusFluxMatrixAccessor,
-                    simpleParameterSpace(3, 4, 4),
+                    simpleParameterSpace(4, 4),
                     target_indices="kl",
                 )
                 self.db.update(contractionResult)
-                minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[
-                    h, j, i
-                ]["kl"]
+                minusFluxMatrixAccessor = lambda j, i: self.db.minusFluxMatrices[j, i][
+                    "kl"
+                ]
 
             neighborFlux = (
-                lambda h, j, i: self.Q["kp"]
+                lambda j, i: self.Q["kp"]
                 <= self.Q["kp"]
-                + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT["qp"]
+                + minusFluxMatrixAccessor(j, i) * self.I["lq"] * self.AminusT["qp"]
             )
             generator.addFamily(
                 "gpu_neighboringFlux",
-                simpleParameterSpace(3, 4, 4),
+                simpleParameterSpace(4, 4),
                 neighborFlux,
                 target="gpu",
             )

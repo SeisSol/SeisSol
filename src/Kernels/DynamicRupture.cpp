@@ -23,6 +23,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <iterator>
 #include <stdint.h>
 #include <utils/logger.h>
 #include <yateto.h>
@@ -42,6 +43,22 @@
 GENERATE_HAS_MEMBER(I)
 
 namespace seissol::kernels {
+
+// The dynamic rupture families are indexed by the side and the face relation. Relation 0
+// addresses the plus side, relation 1 the minus side at a zero face orientation index, which the
+// canonical vertex numbering guarantees on every interior face.
+static_assert(std::size(dynamicRupture::kernel::nodalFlux::ExecutePtrs) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(
+    std::size(dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::ExecutePtrs) ==
+    Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2n::Size) == Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2nTWDivM::Size) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+
+#ifdef ACL_DEVICE
+static_assert(*DrFaceRelations::Count == Cell::NumFaces * dr::misc::NumFaceRelations);
+#endif
 
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.V3mTo2n = global.onHost->faceToNodalMatrices;
@@ -116,9 +133,9 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
   // interpolate all timesteps in a single kernel
 
-  runtime.envMany(16, [&](void* stream, size_t i) {
-    const auto side = i / 4;
-    const auto faceRelation = i % 4;
+  runtime.envMany(Cell::NumFaces * dr::misc::NumFaceRelations, [&](void* stream, size_t i) {
+    const auto side = i / dr::misc::NumFaceRelations;
+    const auto faceRelation = i % dr::misc::NumFaceRelations;
 
     ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
     if (table.find(minusSideKey) != table.end()) {
