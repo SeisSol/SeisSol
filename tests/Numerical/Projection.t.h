@@ -12,6 +12,7 @@
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Geometry/Points.h"
 #include "IO/Instance/Geometry/Refinement.h"
+#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Projection.h"
 #include "Numerical/Transformation.h"
@@ -22,6 +23,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -30,6 +32,10 @@ using namespace seissol::numerical;
 namespace projection = seissol::numerical::projection;
 
 constexpr double Tolerance = 1e-10;
+// What the code generator ships is stored in the precision of the build, so a comparison against it
+// cannot be tighter than that.
+constexpr double GeneratedTolerance =
+    std::max(Tolerance, 10.0 * static_cast<double>(std::numeric_limits<real>::epsilon()));
 
 // For fused simulations the code generator transposes everything in the `nodal` namespace
 // (cf. kernels/aderdg.py); detect that from a matrix whose shape is not square.
@@ -153,7 +159,8 @@ TEST_CASE("Numerical/Projection: nodal point sets match the generated ones") {
         const auto i = transposed ? d : p;
         const auto j = transposed ? p : d;
         const auto reference = nodes.isInRange(i, j) ? nodes(i, j) : 0.0;
-        REQUIRE(points[p][d] == AbsApprox(reference).epsilon(Tolerance).delta(Tolerance));
+        REQUIRE(points[p][d] ==
+                AbsApprox(reference).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
       }
     }
   }
@@ -165,7 +172,8 @@ TEST_CASE("Numerical/Projection: nodal point sets match the generated ones") {
     for (std::size_t p = 0; p < points.size(); ++p) {
       for (std::size_t d = 0; d < 3; ++d) {
         const auto reference = nodes.isInRange(p, d) ? nodes(p, d) : 0.0;
-        REQUIRE(points[p][d] == AbsApprox(reference).epsilon(Tolerance).delta(Tolerance));
+        REQUIRE(points[p][d] ==
+                AbsApprox(reference).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
       }
     }
   }
@@ -183,7 +191,8 @@ TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated o
         const auto i = transposed ? n : b;
         const auto j = transposed ? b : n;
         const auto expected = reference.isInRange(i, j) ? reference(i, j) : 0.0;
-        REQUIRE(matrix(b, n) == AbsApprox(expected).epsilon(Tolerance).delta(Tolerance));
+        REQUIRE(matrix(b, n) ==
+                AbsApprox(expected).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
       }
     }
   }
@@ -194,7 +203,8 @@ TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated o
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
       for (std::size_t n = 0; n < matrix.cols(); ++n) {
         const auto expected = reference.isInRange(b, n) ? reference(b, n) : 0.0;
-        REQUIRE(matrix(b, n) == AbsApprox(expected).epsilon(Tolerance).delta(Tolerance));
+        REQUIRE(matrix(b, n) ==
+                AbsApprox(expected).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
       }
     }
   }
