@@ -174,13 +174,12 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
     // The mesh itself is written once and every step reads it again, so all of the geometry
     // offsets stay at zero ("Offset value can be repeated for static data"); only the attribute
     // data grows.
-    instructions_.emplace_back(
-        [](const std::string& filename, std::size_t counter, double /*time*/) {
-          return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
-              writer::instructions::Hdf5Location(filename, {GroupName, StepsName}),
-              "NSteps",
-              writer::WriteInline::createArray<int64_t>({}, {static_cast<int64_t>(counter) + 1}));
-        });
+    instructions_.emplace_back([](const std::string& filename, std::size_t step, double /*time*/) {
+      return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+          writer::instructions::Hdf5Location(filename, {GroupName, StepsName}),
+          "NSteps",
+          writer::WriteInline::createArray<int64_t>({}, {static_cast<int64_t>(step) + 1}));
+    });
 
     instructions_.emplace_back(
         [](const std::string& filename, std::size_t /*counter*/, double time) {
@@ -235,13 +234,12 @@ void VtkHdfWriter::addStepOffset(const std::string& name,
     dimensions.push_back(writer::Dimension::replicated(1));
   }
 
-  instructions_.emplace_back(
-      [=](const std::string& filename, std::size_t counter, double /*time*/) {
-        const auto data = writer::WriteInline::createShaped<uint64_t>(
-            dimensions, {static_cast<uint64_t>(counter * perStep)});
-        return std::make_shared<writer::instructions::Hdf5DataWrite>(
-            writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype());
-      });
+  instructions_.emplace_back([=](const std::string& filename, std::size_t step, double /*time*/) {
+    const auto data = writer::WriteInline::createShaped<uint64_t>(
+        dimensions, {static_cast<uint64_t>(step * perStep)});
+    return std::make_shared<writer::instructions::Hdf5DataWrite>(
+        writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype());
+  });
 }
 
 void VtkHdfWriter::addData(const std::string& name,
@@ -321,6 +319,9 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
         if (fullWrite) {
           constCounter = counter;
         }
+        // The same goes for the files themselves: a time series of a resumed run is a file of its
+        // own, so its steps count from the first one of the run.
+        const auto step = counter - constCounter.value();
         for (const auto& hook : self.hooks_) {
           hook(counter, time);
         }
@@ -355,7 +356,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
           writer.addInstruction(instruction(filename, filenameConstFile));
         }
         for (const auto& instruction : self.instructions_) {
-          writer.addInstruction(instruction(filename, counter, time));
+          writer.addInstruction(instruction(filename, step, time));
         }
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
             writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),

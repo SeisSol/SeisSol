@@ -83,11 +83,13 @@ std::string Csv::rows() const {
 }
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> Csv::makeWriter() {
-  return [this](const std::string& prefix, std::size_t counter, double /*time*/) -> writer::Writer {
+  return [this](const std::string& prefix,
+                std::size_t /*counter*/,
+                double /*time*/) -> writer::Writer {
     const auto filename = prefix + "-" + name() + ".csv";
     auto writer = writer::Writer();
 
-    if (counter == 0) {
+    if (startsFile()) {
       // the same on every rank, so it goes in once; it starts the file, replacing what an earlier
       // run left there
       writer.addInstruction(std::make_shared<writer::instructions::BinaryWrite>(

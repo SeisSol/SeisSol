@@ -150,9 +150,9 @@ class VtkHdfWriter {
   /**
    * @brief Adds field data whose values are produced anew for every step.
    *
-   * @p provider is handed the step counter and its time, and returns the tuples of that step laid
-   * out tuple-major; how many it returns may differ from one step to the next. @p components is
-   * what a single tuple holds, and stays the same for the run.
+   * @p provider is handed the number of the step within the file and its time, and returns the
+   * tuples of that step laid out tuple-major; how many it returns may differ from one step to the
+   * next. @p components is what a single tuple holds, and stays the same for the run.
    *
    * The three datasets that describe a step -- its values, where they start, and how many there
    * are -- share the count the provider just produced. They are built in one pass over the
@@ -178,8 +178,8 @@ class VtkHdfWriter {
 
     const std::vector<std::string> dataGroups{GroupName, FieldDataName};
     instructions_.emplace_back([=, provider = std::forward<F>(provider)](
-                                   const std::string& filename, std::size_t counter, double time) {
-      const std::vector<T> values = std::invoke(provider, counter, time);
+                                   const std::string& filename, std::size_t step, double time) {
+      const std::vector<T> values = std::invoke(provider, step, time);
       if (perTuple == 0 || values.size() % perTuple != 0) {
         logError() << "The field data" << name << "produced" << values.size()
                    << "values, which is not a whole number of tuples of" << perTuple

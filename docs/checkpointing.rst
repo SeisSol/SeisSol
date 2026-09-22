@@ -41,6 +41,16 @@ The checkpoint reading is then done automatically when starting SeisSol.
 Note that the checkpoint reading may take a bit of time: the data needs to be re-distributed, since the element partition will have changed compared to the previous simulation.
 Also, the checkpoint will override any set initial condition.
 
+The output of a restarted run goes into files of its own. The numbering of the
+outputs continues where the run before it stopped, but every file of the IO
+module that the restarted run writes -- the wavefield, free-surface and fault
+output, the receiver tables in HDF5, the checkpoints -- is started anew. If a
+file of that name exists already, it is kept under a backup name first, with
+the time of the restart before its extension, e.g.
+``<prefix>-wavefield.bak_2026-01-31_12-00-00.xdmf``. The payload files an Xdmf
+file refers to are kept the same way, under the same time stamp. The text
+receiver files are continued instead.
+
 Current Quirks and Limitations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

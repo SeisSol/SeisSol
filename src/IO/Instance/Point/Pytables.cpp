@@ -23,7 +23,9 @@ namespace seissol::io::instance::point {
 Pytables::Pytables(std::string name) : TableWriter(std::move(name)) {}
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables::makeWriter() {
-  return [this](const std::string& prefix, std::size_t counter, double /*time*/) -> writer::Writer {
+  return [this](const std::string& prefix,
+                std::size_t /*counter*/,
+                double /*time*/) -> writer::Writer {
     const auto filename = prefix + "-" + name() + ".h5";
     auto writer = writer::Writer();
 
@@ -38,8 +40,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables:
         writer::WriteBuffer::create(rowstorageCopy_.data(), rowCount, {}, rowDatatype),
         rowDatatype));
 
-    // first write
-    if (counter == 0) {
+    // first write of this run
+    if (startsFile()) {
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
           writer::instructions::Hdf5Location(filename, {}),
           "CLASS",

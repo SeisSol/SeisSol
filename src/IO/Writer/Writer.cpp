@@ -24,7 +24,7 @@
 namespace seissol::io::writer {
 
 WriteInstance::WriteInstance(MPI_Comm comm, file::RunFiles* runFiles)
-    : hdf5_(comm, runFiles), binary_(comm) {}
+    : hdf5_(comm, runFiles), binary_(comm, runFiles) {}
 
 void WriteInstance::write(const async::ExecInfo& info,
                           const std::shared_ptr<instructions::WriteInstruction>& instruction) {

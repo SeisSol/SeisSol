@@ -48,6 +48,16 @@ The column names of ``-clustering.csv``, ``-threadPinning.csv`` and
 files. What the columns are and what they hold is unchanged. A reader using a
 CSV parser needs no change; one comparing the header line literally does.
 
+Output of a restarted run
+~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+A run restarted from a checkpoint writes its output into new files and continues
+the numbering of the outputs. Files of the same name that exist already, e.g.
+the time series of the run before the restart, are kept under a backup name
+carrying the time of the restart. A single file holding the whole run therefore
+has to be assembled from the backup and the new file. See :ref:`Checkpointing`.
+
 Output file names
 ~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)

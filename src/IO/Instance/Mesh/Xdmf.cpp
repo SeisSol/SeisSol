@@ -25,6 +25,7 @@
 #include <functional>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <utils/env.h>
@@ -314,7 +315,7 @@ void XdmfWriter::addData(const std::string& name,
 
   const auto alignment = writer::file::outputAlignment();
 
-  instrarray.emplace_back([=](const std::string& preFilename, std::size_t counter) {
+  instrarray.emplace_back([=](const std::string& preFilename, std::size_t step) {
     WriteResult result{};
     result.name = name;
     result.type = type;
@@ -328,7 +329,7 @@ void XdmfWriter::addData(const std::string& name,
 
     if (!isConst) {
       // write into a single file
-      result.offset.emplace_back(counter);
+      result.offset.emplace_back(step);
 
       result.offset.emplace_back(0);
       for (std::size_t _ = 0; _ < data->shape().size(); ++_) {
@@ -344,7 +345,7 @@ void XdmfWriter::addData(const std::string& name,
       result.format = "Binary";
       result.location = trueFilename;
       result.instruction = std::make_shared<writer::instructions::BinaryWrite>(
-          trueFilepath, data, alignment, counter > 0);
+          trueFilepath, data, alignment, step > 0);
     } else {
       const std::string datasetName = "dataset" + std::to_string(datasetId);
       result.format = "HDF";
@@ -371,38 +372,46 @@ void XdmfWriter::addHook(const std::function<void(std::size_t, double)>& hook) {
 std::function<writer::Writer(const std::string&, std::size_t, double)> XdmfWriter::makeWriter() {
   logInfo() << "Adding Xdmf writer" << name_;
   const auto self = *this;
-  return [self, meta = XdmfMeta()](const std::string& prefix,
-                                   std::size_t counter,
-                                   double time) mutable -> writer::Writer {
-    for (const auto& hook : self.hooks_) {
-      hook(counter, time);
-    }
+  return
+      [self, meta = XdmfMeta(), firstCounter = std::optional<std::size_t>()](
+          const std::string& prefix, std::size_t counter, double time) mutable -> writer::Writer {
+        for (const auto& hook : self.hooks_) {
+          hook(counter, time);
+        }
 
-    auto writer = writer::Writer();
+        // The files of this output are written anew by every run, including one that resumes from a
+        // checkpoint at a later counter, so where a step lies in them counts from the first step of
+        // the run, and that step writes the mesh.
+        if (!firstCounter.has_value()) {
+          firstCounter = counter;
+        }
+        const auto step = counter - firstCounter.value();
 
-    const auto filenameMeta = prefix + "-" + self.name_ + ".xdmf";
-    const auto foldernameData = prefix + "-" + self.name_ + "-data";
+        auto writer = writer::Writer();
 
-    auto grid = XdmfGrid{};
-    grid.name = "step-" + std::to_string(counter);
-    grid.time = time;
-    if (counter == 0) {
-      for (const auto& instruction : self.instructionsConst_) {
-        const auto invoked = instruction(foldernameData, counter);
-        writer.addInstruction(invoked.instruction);
-        meta.entriesConst.emplace_back(invoked);
-      }
-    }
-    for (const auto& instruction : self.instructions_) {
-      const auto invoked = instruction(foldernameData, counter);
-      writer.addInstruction(invoked.instruction);
-      grid.datasets.emplace_back(invoked);
-    }
-    meta.entries.emplace_back(grid);
+        const auto filenameMeta = prefix + "-" + self.name_ + ".xdmf";
+        const auto foldernameData = prefix + "-" + self.name_ + "-data";
 
-    writer.addInstructions(meta.getxml().instructions(filenameMeta));
-    return writer;
-  };
+        auto grid = XdmfGrid{};
+        grid.name = "step-" + std::to_string(counter);
+        grid.time = time;
+        if (step == 0) {
+          for (const auto& instruction : self.instructionsConst_) {
+            const auto invoked = instruction(foldernameData, step);
+            writer.addInstruction(invoked.instruction);
+            meta.entriesConst.emplace_back(invoked);
+          }
+        }
+        for (const auto& instruction : self.instructions_) {
+          const auto invoked = instruction(foldernameData, step);
+          writer.addInstruction(invoked.instruction);
+          grid.datasets.emplace_back(invoked);
+        }
+        meta.entries.emplace_back(grid);
+
+        writer.addInstructions(meta.getxml().instructions(filenameMeta));
+        return writer;
+      };
 }
 
 } // namespace seissol::io::instance::mesh

@@ -10,6 +10,7 @@
 #include "FileProperties.h"
 #include "IO/Writer/Instructions/Binary.h"
 #include "Parallel/MPI.h"
+#include "RunFiles.h"
 
 #include <async/ExecInfo.h>
 #include <cstddef>
@@ -22,7 +23,16 @@
 namespace seissol::io::writer::file {
 
 BinaryFile::BinaryFile(MPI_Comm comm) : comm_(comm) {}
-void BinaryFile::openFile(const std::string& name, bool append) {
+void BinaryFile::openFile(const std::string& name, bool append, bool backUp) {
+  if (backUp) {
+    int rank = 0;
+    MPI_Comm_rank(comm_, &rank);
+    if (rank == 0) {
+      backUpFile(name);
+    }
+    // no rank may open the file before rank 0 moved the earlier one out of the way
+    MPI_Barrier(comm_);
+  }
   const auto mode = append ? MPI_MODE_APPEND : 0;
   // the same hints the HDF5 backend uses; the payload of an Xdmf output goes through here
   MPI_File_open(
@@ -63,12 +73,15 @@ void BinaryFile::align(std::size_t alignment) {
 }
 void BinaryFile::closeFile() { MPI_File_close(&file_); }
 
-BinaryWriter::BinaryWriter(MPI_Comm comm) : comm_(comm) {}
+BinaryWriter::BinaryWriter(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFiles_(runFiles) {}
 
 void BinaryWriter::write(const async::ExecInfo& info, const instructions::BinaryWrite& write) {
   if (openFiles_.find(write.filename) == openFiles_.end()) {
     openFiles_[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm_));
-    openFiles_[write.filename]->openFile(write.filename, write.append);
+    // as for HDF5: the first write of a resuming run keeps what an earlier run left as a backup
+    const bool backUp =
+        runFiles_ != nullptr && runFiles_->firstWrite(write.filename) && runFiles_->resumed;
+    openFiles_[write.filename]->openFile(write.filename, write.append, backUp);
   }
 
   const void* dataPointer = write.dataSource->getPointer(info);

@@ -132,6 +132,8 @@ class Hdf5Table {
   //! Per group, whether its dataset still lacks the attributes that describe it. They go with
   //! the first write that carries samples, since that is the one that creates the dataset.
   std::vector<bool> undescribed_;
+  //! Whether this run has written the table before.
+  bool started_{false};
   //! The point map, kept alive for as long as the write that carries it.
   std::vector<std::uint64_t> index_;
   std::vector<PointData> pointData_;

@@ -98,6 +98,14 @@ be switched off, see :ref:`SEISSOL_IO_VERTEXFILTER <env_vars>`. From degree one
 on the points are Lagrange nodes, which neighboring cells deliberately do not
 share, and nothing is merged.
 
+Files of a run
+~~~~~~~~~~~~~~
+
+A run owns the files it writes. The first time it writes one, the file is
+created anew, so a run started again into the same output directory replaces
+what the earlier run left there. A run restarted from a checkpoint keeps those
+files under a backup name instead, see :ref:`Checkpointing`.
+
 File groupings
 ~~~~~~~~~~~~~~
 

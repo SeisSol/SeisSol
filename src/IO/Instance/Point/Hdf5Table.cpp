@@ -50,8 +50,8 @@ Hdf5Table::Hdf5Table(std::string name,
       sampleChunk_(sampleChunk) {
   storage_.resize(grouping_.groupCount());
   samples_.resize(grouping_.groupCount(), 0);
-  // a run resumed from a checkpoint appends to datasets that are described already
-  undescribed_.resize(grouping_.groupCount(), false);
+  // every run writes a table file of its own, whose datasets it describes
+  undescribed_.resize(grouping_.groupCount(), true);
   localPoints_.resize(grouping_.groupCount(), 0);
   localRow_.resize(grouping_.group.size());
   for (std::size_t point = 0; point < grouping_.group.size(); ++point) {
@@ -87,13 +87,17 @@ void Hdf5Table::clear() {
 }
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> Hdf5Table::makeWriter() {
-  return [this](const std::string& prefix, std::size_t counter, double /*time*/) -> writer::Writer {
+  return [this](const std::string& prefix,
+                std::size_t /*counter*/,
+                double /*time*/) -> writer::Writer {
     const auto filename = prefix + "-" + name_ + ".h5";
     auto writer = writer::Writer();
 
-    if (counter == 0) {
-      undescribed_.assign(grouping_.groupCount(), true);
-    }
+    // The first write of a run starts the file -- a run resuming from a checkpoint writes a file of
+    // its own, since its points may be split across the ranks differently -- so it carries the
+    // point map.
+    const bool first = !started_;
+    started_ = true;
 
     for (std::size_t group = 0; group < grouping_.groupCount(); ++group) {
       if (samples_[group] == 0) {
@@ -135,7 +139,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Hdf5Table
       }
     }
 
-    if (counter == 0) {
+    if (first) {
       // Where a point of the caller's numbering ended up. The grouping renumbers the points so
       // that every rank owns one run of each group, so without this there is no way back from a
       // row of a dataset to the point it belongs to.

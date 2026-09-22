@@ -67,11 +67,24 @@ class TableWriter {
   virtual std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() = 0;
 
   protected:
+  /**
+   * @brief Whether the plan being built is the first of this run, which starts the file.
+   *
+   * A run resuming from a checkpoint starts a file of its own as well, so this is not the same as
+   * the output counter being zero.
+   */
+  bool startsFile() {
+    const bool first = !started_;
+    started_ = true;
+    return first;
+  }
+
   std::string name_;
   std::vector<TableQuantity> quantities_;
   std::vector<char> rowstorage_;
   std::size_t rowCount_{0};
   std::size_t inrowPos_{0};
+  bool started_{false};
 };
 
 } // namespace seissol::io::instance::point

@@ -7,6 +7,7 @@
 
 #ifndef SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_H_
 #define SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_H_
+#include "IO/Writer/File/RunFiles.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 
@@ -16,23 +17,9 @@
 #include <stack>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace seissol::io::writer::file {
-
-/**
- * @brief The files the outputs of this run have written, remembered from one write to the next.
- *
- * A run owns its output files. The first time it writes one, the file is created anew, whatever an
- * earlier run left under that name; later writes of the same run open it again to append. Only a
- * run that resumes from a checkpoint opens a file it has not written itself, since it continues
- * what the run before it wrote.
- */
-struct RunFiles {
-  bool resumed{false};
-  std::unordered_set<std::string> written;
-};
 
 class Hdf5File {
   public:
@@ -40,9 +27,10 @@ class Hdf5File {
   /**
    * @brief Opens @p name, or creates it if it does not exist yet.
    *
-   * With @p fresh , the file is created in any case, replacing what is there.
+   * With @p fresh , the file is created in any case, replacing what is there; with @p backUp as
+   * well, what is there is kept under a backup name first.
    */
-  void openFile(const std::string& name, bool fresh = false);
+  void openFile(const std::string& name, bool fresh = false, bool backUp = false);
   void openGroup(const std::string& name);
   void openDataset(const std::string& name);
   void writeAttribute(const async::ExecInfo& info,

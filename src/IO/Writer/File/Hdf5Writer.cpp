@@ -17,6 +17,7 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Dimension.h"
 #include "IO/Writer/Instructions/Hdf5.h"
+#include "RunFiles.h"
 
 #include <algorithm>
 #include <async/ExecInfo.h>
@@ -58,7 +59,7 @@ namespace seissol::io::writer::file {
 
 Hdf5File::Hdf5File(MPI_Comm comm) : comm_(comm) {}
 
-void Hdf5File::openFile(const std::string& name, bool fresh) {
+void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
   const hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
 #ifdef H5F_LIBVER_V18
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_V18, H5F_LIBVER_V18));
@@ -89,9 +90,15 @@ void Hdf5File::openFile(const std::string& name, bool fresh) {
   // the file system for all of them, since the ranks may see it differently (e.g. stale caches).
   int rank = 0;
   MPI_Comm_rank(comm_, &rank);
+  // The broadcast also keeps the other ranks from creating the file before rank 0 moved an earlier
+  // one out of the way.
   int exists = 0;
-  if (!fresh && rank == 0) {
-    exists = seissol::directoryExists(seissol::filesystem::directory_entry(name)) ? 1 : 0;
+  if (rank == 0) {
+    if (fresh && backUp) {
+      backUpFile(name);
+    } else if (!fresh) {
+      exists = seissol::directoryExists(seissol::filesystem::directory_entry(name)) ? 1 : 0;
+    }
   }
   MPI_Bcast(&exists, 1, MPI_INT, 0, comm_);
 
@@ -497,16 +504,12 @@ Hdf5Writer::Hdf5Writer(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFile
 
 Hdf5File Hdf5Writer::file(const std::string& name) {
   if (openFiles_.find(name) == openFiles_.end()) {
-    // a file this run has not written yet belongs to an earlier run, and is replaced -- unless this
-    // run continues that one
-    const bool fresh = runFiles_ != nullptr && !runFiles_->resumed &&
-                       runFiles_->written.find(name) == runFiles_->written.end();
+    // a file this run has not written yet belongs to an earlier run, and is replaced; a run
+    // resuming from a checkpoint keeps it as a backup, since it holds the output before that
+    const bool fresh = runFiles_ != nullptr && runFiles_->firstWrite(name);
     Hdf5File file(comm_);
-    file.openFile(name, fresh);
+    file.openFile(name, fresh, fresh && runFiles_->resumed);
     openFiles_.insert({name, file});
-    if (runFiles_ != nullptr) {
-      runFiles_->written.insert(name);
-    }
   }
   return openFiles_.at(name);
 }
