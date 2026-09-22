@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iomanip>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -111,6 +112,27 @@ std::string toStringRawPrimitive(const void* data, int precision) {
   std::ostringstream sstr;
   sstr << std::setprecision(precision) << value;
   return sstr.str();
+}
+
+/**
+ * @brief A floating-point value as the shortest of the usual widths that reads back as the same
+ * value: digits10 significant digits where they suffice, which keeps 0.1 as "0.1", and
+ * max_digits10 otherwise.
+ */
+template <typename T>
+std::string toStringRawExact(const void* data) {
+  const auto value = *reinterpret_cast<const T*>(data);
+  std::ostringstream shortForm;
+  shortForm << std::setprecision(std::numeric_limits<T>::digits10) << value;
+  std::istringstream readBack(shortForm.str());
+  T parsed{};
+  readBack >> parsed;
+  if (!readBack.fail() && parsed == value) {
+    return shortForm.str();
+  }
+  std::ostringstream longForm;
+  longForm << std::setprecision(std::numeric_limits<T>::max_digits10) << value;
+  return longForm.str();
 }
 
 template <typename T>
@@ -212,7 +234,7 @@ YAML::Node F32Datatype::serialize() const {
 }
 
 std::string F32Datatype::toStringRaw(const void* data) const {
-  return toStringRawPrimitive<float>(data, 8);
+  return toStringRawExact<float>(data);
 }
 std::optional<std::vector<uint8_t>> F32Datatype::fromStringRaw(const std::string& str) const {
   return fromStringRawPrimitive<float>(str);
@@ -227,7 +249,7 @@ YAML::Node F64Datatype::serialize() const {
 }
 
 std::string F64Datatype::toStringRaw(const void* data) const {
-  return toStringRawPrimitive<double>(data, 16);
+  return toStringRawExact<double>(data);
 }
 std::optional<std::vector<uint8_t>> F64Datatype::fromStringRaw(const std::string& str) const {
   return fromStringRawPrimitive<double>(str);
@@ -242,7 +264,7 @@ YAML::Node F80Datatype::serialize() const {
 }
 
 std::string F80Datatype::toStringRaw(const void* data) const {
-  return toStringRawPrimitive<long double>(data, 20);
+  return toStringRawExact<long double>(data);
 }
 std::optional<std::vector<uint8_t>> F80Datatype::fromStringRaw(const std::string& str) const {
   return fromStringRawPrimitive<long double>(str);
