@@ -119,3 +119,15 @@ The potency and the seismic moment were computed by averaging the value over all
 Now, to make the integration more exact, they are instead weighed by the quadrature rule
 the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
 may slightly change compared to before.
+
+Free-surface displacement in checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since 2.0.0)
+
+A checkpoint identified the faces of the free surface by the cell number local to
+the rank that wrote it, which names different cells on different ranks. On a
+restart, faces could therefore receive the displacement of another face; with
+the partitioning unchanged this affected a few faces at the rank boundaries,
+with a different one most of them. The faces are now identified by the global
+cell id, and a restart reproduces the displacement exactly. Checkpoints written
+before cannot restore it correctly.
