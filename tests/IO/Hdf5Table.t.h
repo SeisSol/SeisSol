@@ -24,13 +24,15 @@ namespace {
 using namespace seissol::io;
 using namespace seissol::io::instance::point;
 
-TableQuantity real(const std::string& name) {
+TableQuantity doubleColumn(const std::string& name) {
   return {name, seissol::io::datatype::inferDatatype<double>()};
 }
 
 //! What a point of the first group records, and of the second: a quantity more.
-std::vector<TableQuantity> small() { return {real("v1"), real("v2")}; }
-std::vector<TableQuantity> large() { return {real("v1"), real("v2"), real("p")}; }
+std::vector<TableQuantity> small() { return {doubleColumn("v1"), doubleColumn("v2")}; }
+std::vector<TableQuantity> large() {
+  return {doubleColumn("v1"), doubleColumn("v2"), doubleColumn("p")};
+}
 
 //! The value point @p point records for quantity @p quantity at sample @p sample.
 double sampleValue(std::size_t point, std::size_t sample, std::size_t quantity) {
@@ -88,7 +90,7 @@ TEST_CASE("IO/Hdf5Table: the samples of a point lie together" * doctest::test_su
     // the other group has no samples this round, but still takes part in the write
     for (std::size_t other = 0; other < table.grouping().groupCount(); ++other) {
       if (other != group) {
-        table.prepare(other, 0);
+        static_cast<void>(table.prepare(other, 0));
       }
     }
 

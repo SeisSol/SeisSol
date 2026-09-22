@@ -32,7 +32,7 @@ TEST_CASE("IO/Points") {
 
   SUBCASE("Triangle (2D)") {
     using init::vtk2d;
-    using io::instance::geometry::pointsTriangle;
+    using seissol::io::instance::geometry::pointsTriangle;
     pointsCompare(vtk2d::view<1>::create(vtk2d::Values1), pointsTriangle(1));
     pointsCompare(vtk2d::view<2>::create(vtk2d::Values2), pointsTriangle(2));
     pointsCompare(vtk2d::view<3>::create(vtk2d::Values3), pointsTriangle(3));
@@ -45,7 +45,7 @@ TEST_CASE("IO/Points") {
 
   SUBCASE("Tetrahedron (3D)") {
     using init::vtk3d;
-    using io::instance::geometry::pointsTetrahedron;
+    using seissol::io::instance::geometry::pointsTetrahedron;
     pointsCompare(vtk3d::view<1>::create(vtk3d::Values1), pointsTetrahedron(1));
     pointsCompare(vtk3d::view<2>::create(vtk3d::Values2), pointsTetrahedron(2));
     pointsCompare(vtk3d::view<3>::create(vtk3d::Values3), pointsTetrahedron(3));

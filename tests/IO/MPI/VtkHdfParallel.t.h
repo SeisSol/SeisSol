@@ -14,8 +14,8 @@
 #include "IO/Instance/Point/Grouping.h"
 #include "IO/Instance/Point/Hdf5Table.h"
 #include "IO/Reader/File/Hdf5Reader.h"
+#include "IO/WriterHarness.t.h"
 #include "Parallel/MPI.h"
-#include "WriterHarness.t.h"
 
 #include <cstdint>
 #include <cstdlib>

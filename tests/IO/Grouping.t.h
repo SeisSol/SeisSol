@@ -23,17 +23,22 @@ namespace {
 using namespace seissol::io::instance::point;
 using seissol::io::datatype::inferDatatype;
 
-TableQuantity real(const std::string& name) { return {name, inferDatatype<double>()}; }
+TableQuantity doubleQuantity(const std::string& name) { return {name, inferDatatype<double>()}; }
 
 //! what an elastic receiver records
 std::vector<TableQuantity> elastic() {
-  return {real("v1"), real("v2"), real("v3"), real("xx"), real("yy"), real("zz")};
+  return {doubleQuantity("v1"),
+          doubleQuantity("v2"),
+          doubleQuantity("v3"),
+          doubleQuantity("xx"),
+          doubleQuantity("yy"),
+          doubleQuantity("zz")};
 }
 
 //! the same plus the pressure a poroelastic one has
 std::vector<TableQuantity> poroelastic() {
   auto quantities = elastic();
-  quantities.push_back(real("p"));
+  quantities.push_back(doubleQuantity("p"));
   return quantities;
 }
 
@@ -51,8 +56,9 @@ TEST_CASE("IO/Grouping: a quantity set survives its key" * doctest::test_suite("
 
   // the key has to separate sets that differ, in name and in type
   CHECK(quantitySetKey(elastic()) != quantitySetKey(poroelastic()));
-  CHECK(quantitySetKey({real("a")}) != quantitySetKey({real("b")}));
-  CHECK(quantitySetKey({real("a")}) != quantitySetKey({{"a", inferDatatype<std::int64_t>()}}));
+  CHECK(quantitySetKey({doubleQuantity("a")}) != quantitySetKey({doubleQuantity("b")}));
+  CHECK(quantitySetKey({doubleQuantity("a")}) !=
+        quantitySetKey({{"a", inferDatatype<std::int64_t>()}}));
 }
 
 TEST_CASE("IO/Grouping: points are gathered by their quantity set" * doctest::test_suite("io")) {
