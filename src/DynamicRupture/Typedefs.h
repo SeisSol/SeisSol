@@ -241,7 +241,19 @@ SEISSOL_HOSTDEVICE inline void eigenvaluesSymmetric(const real matrix[9], real v
 /// known, and inverting it is that statement again. No eigenvector is formed
 /// and no inverse is taken, which is what makes it exact where two of the
 /// three eigenvalues coincide -- at a fault, the two shear waves.
-SEISSOL_HOSTDEVICE inline void inverseSqrtSymmetric(const real matrix[9], real result[9]) {
+///
+/// It works on the matrix divided by the mean of its eigenvalues and scales
+/// the result back. The matrix is a density times a modulus, some 1e14 per
+/// eigenvalue, and the invariants of its root reach the product of all three:
+/// 2e42, past what single precision holds. The admittance came out not a
+/// number there, at every node of every face, from the first timestep on.
+/// Divided through, every intermediate is of order one in either precision.
+SEISSOL_HOSTDEVICE inline void inverseSqrtSymmetric(const real input[9], real result[9]) {
+  const auto mean = (input[0] + input[4] + input[8]) / static_cast<real>(3.0);
+  real matrix[9];
+  for (std::size_t k = 0; k < 9; ++k) {
+    matrix[k] = input[k] / mean;
+  }
   const auto product = [](const real* a, const real* b, real* out) {
     for (std::size_t row = 0; row < 3; ++row) {
       for (std::size_t col = 0; col < 3; ++col) {
@@ -279,6 +291,12 @@ SEISSOL_HOSTDEVICE inline void inverseSqrtSymmetric(const real matrix[9], real r
   result[0] += second / third;
   result[4] += second / third;
   result[8] += second / third;
+
+  // (mean M)^(-1/2) = mean^(-1/2) M^(-1/2)
+  const auto undo = static_cast<real>(1.0) / std::sqrt(mean);
+  for (std::size_t k = 0; k < 9; ++k) {
+    result[k] *= undo;
+  }
 }
 
 /// The tangent of the stress at one node, in Voigt, as the 6 by 6 that a
@@ -393,12 +411,20 @@ SEISSOL_HOSTDEVICE inline void lateralFromTangent(const real tangent[36], real l
   constexpr std::size_t Lateral[3] = {1, 2, 4};
   constexpr real Weight[3] = {
       static_cast<real>(1.0), static_cast<real>(2.0), static_cast<real>(2.0)};
+  // Both blocks are divided by the same modulus, which leaves lateral times
+  // the inverse of traction where it is and keeps the determinant the inverse
+  // is formed from of order one. In the moduli themselves it is some 4e32,
+  // within a factor of 1e6 of what single precision holds.
+  const auto modulus =
+      (tangent[6 * Traction[0] + Traction[0]] + tangent[6 * Traction[1] + Traction[1]] +
+       tangent[6 * Traction[2] + Traction[2]]) /
+      static_cast<real>(3.0);
   real tractionBlock[9];
   real lateralBlock[9];
   for (std::size_t i = 0; i < 3; ++i) {
     for (std::size_t k = 0; k < 3; ++k) {
-      tractionBlock[3 * i + k] = tangent[6 * Traction[i] + Traction[k]] * Weight[k];
-      lateralBlock[3 * i + k] = tangent[6 * Lateral[i] + Traction[k]] * Weight[k];
+      tractionBlock[3 * i + k] = tangent[6 * Traction[i] + Traction[k]] * Weight[k] / modulus;
+      lateralBlock[3 * i + k] = tangent[6 * Lateral[i] + Traction[k]] * Weight[k] / modulus;
     }
   }
   real inverse[9];
