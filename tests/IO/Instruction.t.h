@@ -16,6 +16,8 @@
 #include "WriterHarness.t.h"
 
 #include <algorithm>
+#include <array>
+#include <atomic>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -258,12 +260,16 @@ TEST_CASE("IO/Instruction: the subdivision multiplies the cell count" * doctest:
         }
       });
 
-  std::vector<std::size_t> seenCells;
-  std::vector<std::size_t> seenSubcells;
+  // the buffer is filled in parallel, so every (cell, subcell) pair counts into a slot of its own
+  std::array<std::atomic<int>, 8> seen{};
+  std::atomic<bool> outOfRange{false};
   geometry.addGeometryOutput<double>(
       "v1", {}, false, [&](double* target, std::size_t cell, std::size_t subcell) {
-        seenCells.push_back(cell);
-        seenSubcells.push_back(subcell);
+        if (cell < 2 && subcell < 4) {
+          ++seen[cell * 4 + subcell];
+        } else {
+          outOfRange = true;
+        }
         target[0] = 0;
       });
 
@@ -274,9 +280,10 @@ TEST_CASE("IO/Instruction: the subdivision multiplies the cell count" * doctest:
   // the writer function is only invoked once the buffers are materialised
   unit_test::io::runPlan(plan, MPI_COMM_SELF);
 
-  REQUIRE(seenCells.size() == 8);
-  CHECK(*std::max_element(seenCells.begin(), seenCells.end()) == 1);
-  CHECK(*std::max_element(seenSubcells.begin(), seenSubcells.end()) == 3);
+  CHECK_FALSE(outOfRange.load());
+  for (const auto& count : seen) {
+    CHECK(count.load() == 1);
+  }
 }
 
 } // namespace seissol::unit_test
