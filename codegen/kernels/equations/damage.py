@@ -121,6 +121,11 @@ def unit(position, extent):
 class DamageADERDG(NonLinearCK):
     def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
         super().__init__(order, multipleSimulations, matricesDir)
+        # The type the kernels compute in, for the one place that has to name
+        # it: a comparison cast into a factor.
+        self.workingType = (
+            Datatype.F32 if kwargs.get("precision") in ("s", "f32") else Datatype.F64
+        )
         self.configure(matricesDir, memLayout, kwargs)
 
     #: Material parameters the kernels read per element, in the order they sit
@@ -849,9 +854,27 @@ class DamageADERDG(NonLinearCK):
         invariantI1 = Tensor("meanI1", (), temporary=True)
         invariantI2 = Tensor("meanI2", (), temporary=True)
         ratio = Tensor("meanXi", (), temporary=True)
+        moving = Tensor("meanMoving", (), temporary=True)
         coupling = Tensor("meanCoupling", (), temporary=True)
         shear = Tensor("meanShear", (), temporary=True)
         place = [Tensor(f"momentumRows{r}", (6, 3), temporary=True) for r in range(3)]
+        # The chain below is spelled out one product at a time, into tensors
+        # declared here. Left as one product of five, the generator orders the
+        # contraction by cost, and in single precision it picks an order whose
+        # intermediate it lays out again afterwards -- after it has decided
+        # from the old layout which operand to transpose. The GEMM that results
+        # then refuses to be generated. Declared tensors keep their layout.
+        #
+        # A declared tensor is dense unless it is told otherwise, and the
+        # product of two dense ones would reach columns the operator does not
+        # store. Their patterns are the columns the two lifts reach.
+        strainColumns = np.tile(np.any(voigtLift(nq) != 0, axis=0), (6, 1))
+        velocityColumns = np.tile(np.any(velocityLift(nq) != 0, axis=0), (6, 1))
+        stressDrive = Tensor("stressDrive", (6, nq), spp=strainColumns, temporary=True)
+        velocityPlace = [
+            Tensor(f"velocityPlace{r}", (6, nq), spp=velocityColumns, temporary=True)
+            for r in range(3)
+        ]
 
         delta, isotropic = self.deltaVoigt, self.isotropicVoigt
         floor = self.floor
@@ -868,24 +891,25 @@ class DamageADERDG(NonLinearCK):
             # The direction of the strain, which is all the tangent asks of it.
             # A cell at rest has no direction to give, and there the material
             # is the undamaged one whatever the damage says.
+            #
+            # Written as a factor of one or zero rather than as a choice. The
+            # GPU generator lowers a choice between two cell values into two
+            # branches and stores the first branch's value from the second, so
+            # a choice here computed nothing on the device. The denominator is
+            # floored so that the branch a resting cell discards is finite: a
+            # zero factor on an infinite value is not zero.
+            moving[""] <= yf.cast(yf.greater(invariantI2[""], floor), self.workingType),
             ratio[""]
-            <= yf.where(
-                yf.greater(invariantI2[""], floor),
-                invariantI1[""] / yf.sqrt(invariantI2[""]),
-                0.0,
+            <= yf.mul(
+                moving[""],
+                invariantI1[""] / yf.sqrt(yf.maximum(invariantI2[""], floor)),
             ),
             direction["c"]
-            <= yf.where(
-                yf.greater(invariantI2[""], floor),
+            <= yf.mul(
+                moving[""],
                 meanStrain["c"] / yf.sqrt(yf.maximum(invariantI2[""], floor)),
-                0.0,
             ),
-            coupling[""]
-            <= yf.where(
-                yf.greater(invariantI2[""], floor),
-                self.gammaR * meanAlpha[""],
-                0.0,
-            ),
+            coupling[""] <= yf.mul(moving[""], self.gammaR * meanAlpha[""]),
             # What the solid branch puts on each of the four groups.
             shear[""]
             <= 2.0 * self.mu0
@@ -922,20 +946,21 @@ class DamageADERDG(NonLinearCK):
             + yf.mul(mixed[""], direction["c"] * delta["d"])
             + yf.mul(directional[""], direction["c"] * direction["d"]),
         ]
+        # What a unit of each quantity drives in the momentum equations: the
+        # tangent, from the strain columns. The Voigt pair of a shear row
+        # counts twice in the contraction the recursion performs, so the
+        # weight rides along; it does not depend on the direction, so it is
+        # formed once.
+        statements += [stressDrive["cq"] <= tangent["ce"] * self.voigtDiagonal["eq"]]
         for r in range(3):
             statements += [
                 place[r]["ci"] <= self.db.star[r]["d"] * self.momentumPlace["dci"],
+                velocityPlace[r]["cp"] <= place[r]["ci"] * self.liftVelocity["ip"],
+                # Both lifts are constants, which is what keeps this inside
+                # the pattern the operator is stored by.
                 self.db.transport[r]["qp"]
                 <= self.db.star[r]["d"] * self.strainFlux["dqp"]
-                # The Voigt pair of a shear row counts twice in the
-                # contraction the recursion performs, so the weight rides
-                # along; both lifts are constants, which is what keeps this
-                # inside the pattern the operator is stored by.
-                - self.rhoInv
-                * tangent["ce"]
-                * self.voigtDiagonal["eq"]
-                * place[r]["ci"]
-                * self.liftVelocity["ip"],
+                - self.rhoInv * stressDrive["cq"] * velocityPlace[r]["cp"],
             ]
 
         for target in targets:
@@ -1026,12 +1051,18 @@ class DamageADERDG(NonLinearCK):
 
         # One contracted table per reference direction. Temporaries rather
         # than a single product, so that the geometry meets the tables once
-        # per direction and not once per basis function.
+        # per direction and not once per basis function. Each is written only
+        # where one of the three directions' tables reaches, and has to say so:
+        # a temporary declared dense is read where nothing wrote it.
+        velocityReach = np.any(velocityMap.values_as_ndarray() != 0, axis=0)
+        stressReach = np.any(stressMap.values_as_ndarray() != 0, axis=0)
         velocityRows = [
-            Tensor(f"volumeVelocityRows{r}", (3, nq), temporary=True) for r in range(3)
+            Tensor(f"volumeVelocityRows{r}", (3, nq), spp=velocityReach, temporary=True)
+            for r in range(3)
         ]
         stressRows = [
-            Tensor(f"volumeStressRows{r}", (6, nq), temporary=True) for r in range(3)
+            Tensor(f"volumeStressRows{r}", (6, nq), spp=stressReach, temporary=True)
+            for r in range(3)
         ]
 
         statements = list(self.parameterStatements())

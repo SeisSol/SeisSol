@@ -122,12 +122,12 @@ void Neighbor::computeBatchedNeighborsIntegral(
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
 
-  constexpr auto ConstantOffset = offsetof(LocalIntegrationData, nApNm1);
-  constexpr auto DissipationOffset = offsetof(NeighboringIntegrationData, nAmNm1);
-  constexpr auto ShearOffset = offsetof(NeighboringIntegrationData, nAmNm1Shear);
-  static_assert(ConstantOffset % sizeof(real) == 0 && DissipationOffset % sizeof(real) == 0 &&
-                    ShearOffset % sizeof(real) == 0,
-                "A face's pair of matrices is not aligned to the real size.");
+  // A face's matrices are reached by where the cell stores them, one array
+  // element per face. Its stride is the storage's own, so it holds whichever
+  // tensor sized the array -- which is not the one the kernel names.
+  SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
+  SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
+  SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1Shear);
 
   constexpr std::array<FaceKinds, 2> BoundaryFaceKeys{FaceKinds::FreeSurface, FaceKinds::Outflow};
 
@@ -159,14 +159,13 @@ void Neighbor::computeBatchedNeighborsIntegral(
         krnl.I = own;
         krnl.INeighbor = other;
         krnl.fluxConstant = localData;
-        krnl.extraOffset_fluxConstant =
-            (ConstantOffset / sizeof(real)) + face * tensor::fluxConstant::size();
+        krnl.extraOffset_fluxConstant = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
         krnl.fluxDissipation = neighborData;
         krnl.extraOffset_fluxDissipation =
-            (DissipationOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
+            SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
         krnl.fluxDissipationShear = neighborData;
         krnl.extraOffset_fluxDissipationShear =
-            (ShearOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
+            SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1Shear, face);
         krnl.streamPtr = stream;
       };
 
@@ -242,16 +241,15 @@ void Neighbor::computeBatchedNeighborsIntegral(
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       local.fluxConstant = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      local.extraOffset_fluxConstant =
-          (ConstantOffset / sizeof(real)) + face * tensor::fluxConstant::size();
+      local.extraOffset_fluxConstant = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
       local.fluxDissipation = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::NeighborIntegrationData))->getDeviceDataPtr());
       local.extraOffset_fluxDissipation =
-          (DissipationOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
+          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
       local.fluxDissipationShear = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::NeighborIntegrationData))->getDeviceDataPtr());
       local.extraOffset_fluxDissipationShear =
-          (ShearOffset / sizeof(real)) + face * tensor::fluxDissipation::size();
+          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1Shear, face);
       local.streamPtr = stream;
 
       auto* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(

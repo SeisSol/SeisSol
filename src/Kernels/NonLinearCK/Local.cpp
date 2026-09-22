@@ -112,52 +112,18 @@ void Local::computeBatchedIntegral(
 }
 
 void Local::evaluateBatchedTimeDependentBc(
-    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
-    SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM double time,
-    SEISSOL_GPU_PARAM double timeStepWidth,
-    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
-#ifdef ACL_DEVICE
-  using namespace seissol::recording;
-
-  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  if (dataTable.find(key) == dataTable.end()) {
-    return;
-  }
-  auto& entry = dataTable[key];
-
-  kernel::gpu_damageCellIntegral krnl = deviceCellIntegral_;
-  krnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
-  krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-  krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-  krnl.sourceI = const_cast<const real**>(
-      (entry.get(inner_keys::Wp::Id::SourceIntegrals))->getDeviceDataPtr());
-
-  constexpr auto ParametersOffset =
-      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
-  static_assert(ParametersOffset % sizeof(real) == 0,
-                "The material of a cell is not aligned to the real size.");
-  const auto** localIntegrationPtrs = const_cast<const real**>(
-      (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-  krnl.materialParameters = localIntegrationPtrs;
-  krnl.extraOffset_materialParameters = ParametersOffset / sizeof(real);
-
-  // As on the host: the geometry of the cell, reached the way the material is.
-  SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = localIntegrationPtrs;
-    krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-  }
-
-  auto tmpMem = runtime.memoryHandle<real>((yateto::getMaxTmpMemRequired(krnl) * krnl.numElements) /
-                                           sizeof(real));
-  krnl.linearAllocator.initialize(tmpMem.get());
-  krnl.streamPtr = runtime.stream();
-  krnl.execute();
-#else
-  logError() << "No GPU implementation provided";
-#endif
+    recording::ConditionalPointersToRealsTable& /*dataTable*/,
+    recording::ConditionalIndicesTable& /*indicesTable*/,
+    LTS::Layer& /*layer*/,
+    double /*time*/,
+    double /*timeStepWidth*/,
+    seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
+  // Nothing to do, as on the host: this material evaluates no time-dependent
+  // boundary condition. Its local integral is the volume and the source term,
+  // which computeBatchedIntegral has already added, and every face -- a
+  // boundary face too -- is assembled in the neighboring integration. The
+  // launch code calls this right after the cell integral, so running that
+  // integral here again added the volume and the source term twice per step.
 }
 
 PerformanceEstimate

@@ -208,6 +208,8 @@ void Spacetime::computeBatchedAder(
       offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, epsInit);
   constexpr auto ParametersOffset =
       offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
+  static_assert(EpsInitOffset % sizeof(real) == 0 && ParametersOffset % sizeof(real) == 0,
+                "The per-cell inputs of the step are not aligned to the real size.");
   SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
   auto* transportPtrs = (entry.get(inner_keys::Wp::Id::Transport))->getDeviceDataPtr();
   assemble.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
@@ -275,13 +277,8 @@ void Spacetime::computeBatchedAder(
 
   // The initial strain and the material sit in the solver's own part of the
   // cell's local integration data, so they are reached the way an anelastic
-  // material's source matrix is: the same pointer, an offset further in.
-  constexpr auto EpsInitOffset =
-      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, epsInit);
-  constexpr auto ParametersOffset =
-      offsetof(LocalIntegrationData, specific) + offsetof(NonLinearLocalData, parameters);
-  static_assert(EpsInitOffset % sizeof(real) == 0 && ParametersOffset % sizeof(real) == 0,
-                "The per-cell inputs of the step are not aligned to the real size.");
+  // material's source matrix is: the same pointer, an offset further in --
+  // the offsets the assembly of the operator above used.
   step.epsInit = localIntegrationPtrs;
   step.extraOffset_epsInit = EpsInitOffset / sizeof(real);
   step.materialParameters = localIntegrationPtrs;
