@@ -10,6 +10,7 @@
 
 #include "DynamicRupture/Misc.h"
 #include "RateAndState.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <cmath>
 
@@ -73,7 +74,8 @@ class FastVelocityWeakeningLaw
     const real exp1v = std::exp(preexp1);
     const real exp1m = -std::expm1(preexp1);
     const real localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
-    assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumBoundaryGaussPoints) &&
+    assert((std::isfinite(localStateVariable) ||
+            pointIndex >= misc::NumBoundaryGaussPoints * multisim::NumSimulations) &&
            "Inf/NaN detected");
     return localStateVariable;
   }
