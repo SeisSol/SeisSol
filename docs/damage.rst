@@ -190,18 +190,18 @@ constitutive relation and the two sources at each of them, and integrates. The
 time rule includes both endpoints of the step, so the internal variables march
 from the start of the step to its end without a gap.
 
-**A cell hands its neighbours more than its state.** What crosses a face is
+**A cell hands its neighbors more than its state.** What crosses a face is
 the integrated state, the integrated stress, and two scalars from which the
 dissipation of the numerical flux is scaled. The stress of a cell is a
 question about that cell's material and its damage, so the cell answers it --
-a neighbour never rebuilds it.
+a neighbor never rebuilds it.
 
 **The numerical flux carries a state-dependent speed.** Both a Rusanov and a
 Godunov flux are available, as for any other material, and the dissipation of
 either is scaled by the larger of the two sides' wave speeds. Those speeds
 follow the damage: a softened cell carries slower waves and gets a smaller
 correction. The speed is accumulated over the step rather than taken at an
-instant, so it is well defined for a neighbour reading a part of the step.
+instant, so it is well defined for a neighbor reading a part of the step.
 
 The Godunov flux dissipates with the absolute value of the flux Jacobian of the
 face normal. For a system whose state is a strain that is
@@ -231,8 +231,10 @@ What is supported
 +-------------------------------------------+--------------------------------------------------+
 | Local time stepping                       | yes, and as accurate as for a linear material    |
 +-------------------------------------------+--------------------------------------------------+
-| GPU                                       | interior faces; a face without a neighbour is    |
-|                                           | refused at setup                                 |
+| GPU                                       | yes, with the same boundaries, dynamic rupture   |
+|                                           | and local time stepping as on the host           |
++-------------------------------------------+--------------------------------------------------+
+| Single precision                          | yes, on the host and on the GPU                  |
 +-------------------------------------------+--------------------------------------------------+
 | Dynamic rupture                           | yes, through a nodal matrix impedance            |
 +-------------------------------------------+--------------------------------------------------+
@@ -264,7 +266,7 @@ traction against the strength, and an initial strain in the material already
 contributes to the second of those. Either the fault file or the material may
 carry the background, not both.
 
-*Local time stepping* works by reconstructing a part of a neighbour's step.
+*Local time stepping* works by reconstructing a part of a neighbor's step.
 For the state that is the usual Taylor sum; for the stress it is a second
 expansion, projected onto a Legendre basis in time and stored alongside. What
 that reconstruction costs is the same as for a linear material: on a graded
@@ -306,7 +308,20 @@ at :math:`\alpha \approx 0.46`, above the critical damage that binds there. A
 uniform state that will not stay uniform, at a rate independent of the timestep,
 is what leaving that range looks like from the outside.
 
-In single precision the model is more delicate than a linear one: it takes a
-square root and a difference of invariants per node and timestep. Runs that
-look qualitatively different between precisions should be read as a warning
-about the state, not about the implementation.
+Single precision holds the moduli, of order :math:`10^{10}`, and their squares,
+but not their cubes. Two places used to form those: the quadratic whose smaller
+root is the critical damage, with a discriminant of order :math:`10^{44}`, and
+the admittance of a fault node, whose invariants reach the product of three
+eigenvalues of :math:`\rho` times a modulus, of order :math:`10^{42}`. Both are
+now computed relative to a modulus -- the quadratic in :math:`\gamma_R / \mu_0`
+and :math:`\lambda_0 / \mu_0`, the admittance on the matrix divided by the mean
+of its eigenvalues -- which leaves every root where it is. In the moduli
+themselves the first let the damage grow well past where breakage sets in, and
+the second made every fault node not a number from the first timestep on.
+
+With that, single precision agrees with double to single precision: the five
+uniform scenarios to the digits single precision carries, the plane wave down
+to a floor of about :math:`10^{-6}` relative, which it reaches at six cells per
+direction, and TPV5 in its elastic limit, with dynamic rupture and local time
+stepping, in the tractions to better than :math:`10^{-5}` relative and in the
+rupture times exactly. That holds for the GPU as it does for the host.
