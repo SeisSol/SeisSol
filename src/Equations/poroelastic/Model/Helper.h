@@ -21,8 +21,8 @@
 #include <yateto.h>
 
 namespace seissol::init {
-class Z;
-class Zinv;
+struct Z;
+struct Zinv;
 } // namespace seissol::init
 
 namespace seissol::model {

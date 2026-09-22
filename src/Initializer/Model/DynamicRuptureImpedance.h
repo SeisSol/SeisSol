@@ -189,8 +189,7 @@ inline Eigen::Matrix2d matrixSqrt2x2(const Eigen::Matrix2d& matrix) {
 template <typename MaterialT>
 DrMatrix admittanceFromBiot(const MaterialT& materialLocal, DrLateralMatrix* lateralStress) {
   static_assert(MaterialT::Type == seissol::model::MaterialType::Poroelastic);
-  const auto params =
-      seissol::model::MaterialSetup<MaterialT>::getAdditionalParameters(materialLocal);
+  const auto params = seissol::model::getAdditionalParameters(materialLocal);
 
   // Gamma, rows/columns ordered as (n, s, d, fluid)
   DrMatrix gamma;
