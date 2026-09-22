@@ -78,8 +78,8 @@ inline std::string XmlAttribute::getImmediate<std::string>() const {
   const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
 
-  // exclude null terminator
-  return std::string(dataConv, dataConv + this->data_->getLocalSize() - 1);
+  // createString stores the text without a null terminator
+  return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 
 inline XmlAttribute XmlAttribute::create(const std::string& name, const std::string& value) {
@@ -160,8 +160,8 @@ inline std::string XmlData::getImmediate<std::string>() const {
   const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
 
-  // exclude null terminator
-  return std::string(dataConv, dataConv + this->data_->getLocalSize() - 1);
+  // createString stores the text without a null terminator
+  return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 
 class XmlFile {
