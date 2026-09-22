@@ -9,12 +9,14 @@
 #ifndef SEISSOL_SRC_KERNELS_MEMORYOPS_H_
 #define SEISSOL_SRC_KERNELS_MEMORYOPS_H_
 
+#include "Alignment.h"
 #include "Kernels/Precision.h"
 
 #ifdef __AVX512F__
 
 #include <immintrin.h>
 
+#define DMO_ALIGNMENT 64
 #define DMO_INCREMENT64 8
 #define DMO_STREAM64(IN, OUT) _mm512_stream_pd(OUT, _mm512_load_pd(IN));
 
@@ -25,6 +27,7 @@
 
 #include <immintrin.h>
 
+#define DMO_ALIGNMENT 64
 #define DMO_INCREMENT64 8
 #define DMO_STREAM64(IN, OUT) _mm512_storenrngo_pd(OUT, _mm512_load_pd(IN));
 
@@ -35,6 +38,7 @@
 
 #include <immintrin.h>
 
+#define DMO_ALIGNMENT 32
 #define DMO_INCREMENT64 4
 #define DMO_STREAM64(IN, OUT) _mm256_stream_pd(OUT, _mm256_load_pd(IN));
 
@@ -45,6 +49,7 @@
 
 #include <immintrin.h>
 
+#define DMO_ALIGNMENT 16
 #define DMO_INCREMENT64 2
 #define DMO_STREAM64(IN, OUT) _mm_stream_pd(OUT, _mm_load_pd(IN));
 
@@ -55,6 +60,7 @@
 
 #include <arm_sve.h>
 
+#define DMO_ALIGNMENT 1
 #define DMO_INCREMENT64 svcntd()
 #define DMO_STREAM64(IN, OUT) svstnt1_f64(svptrue_b64(), OUT, svld1_f64(svptrue_b64(), IN));
 
@@ -64,6 +70,7 @@
 #elif defined(__aarch64__)
 // cf. https://stackoverflow.com/a/61248308
 
+#define DMO_ALIGNMENT 1
 #define DMO_INCREMENT64 2
 #define DMO_STREAM64(IN, OUT)                                                                      \
   uint64_t v1 = *(reinterpret_cast<const uint64_t*>(IN));                                          \
@@ -82,6 +89,7 @@
 
 #else
 
+#define DMO_ALIGNMENT 1
 #define DMO_INCREMENT64 1
 #define DMO_STREAM64(IN, OUT) *(OUT) = *(IN);
 #define DMO_INCREMENT32 1
@@ -89,9 +97,19 @@
 
 #endif
 
+#include <algorithm>
 #include <cassert>
 
 namespace seissol::kernels {
+
+/**
+ * Whether the non-temporal stores of the instruction set can be used: their addresses have to be
+ * aligned to DMO_ALIGNMENT, but the buffers are only guaranteed to be aligned to the memory
+ * alignment, and tensors packed into one buffer to the vector size -- which is lower than the
+ * width of the vector registers e.g. for fused simulations (see process_users_input.cmake).
+ */
+constexpr bool StreamStoreAligned = std::min(Alignment, Vectorsize) >= DMO_ALIGNMENT;
+
 /** Stores X in Y with non-temporal hint.
  *
  * @param numberOfReals The size of X and Y.
@@ -103,19 +121,27 @@ inline void streamstore(std::size_t numberOfReals, const T* x, T* y);
 
 template <>
 inline void streamstore<float>(std::size_t numberOfReals, const float* x, float* y) {
-  assert(numberOfReals % DMO_INCREMENT32 == 0);
+  if constexpr (StreamStoreAligned) {
+    assert(numberOfReals % DMO_INCREMENT32 == 0);
 
-  for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT32) {
-    DMO_STREAM32(&x[i], &y[i])
+    for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT32) {
+      DMO_STREAM32(&x[i], &y[i])
+    }
+  } else {
+    std::copy_n(x, numberOfReals, y);
   }
 }
 
 template <>
 inline void streamstore<double>(std::size_t numberOfReals, const double* x, double* y) {
-  assert(numberOfReals % DMO_INCREMENT64 == 0);
+  if constexpr (StreamStoreAligned) {
+    assert(numberOfReals % DMO_INCREMENT64 == 0);
 
-  for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT64) {
-    DMO_STREAM64(&x[i], &y[i])
+    for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT64) {
+      DMO_STREAM64(&x[i], &y[i])
+    }
+  } else {
+    std::copy_n(x, numberOfReals, y);
   }
 }
 } // namespace seissol::kernels
