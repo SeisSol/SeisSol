@@ -41,8 +41,8 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
     : name_(name), localElementCount_(localElementCount), globalElementCount_(localElementCount),
       pointsPerElement_(
           geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)),
-      type_(geometry::vtkType(shape)), targetDegree_(targetDegree), temporal_(temporal),
-      compress_(compress), constFile_(constFile) {
+      type_(geometry::vtkType(shape)), targetDegree_(targetDegree), constFile_(constFile),
+      temporal_(temporal), compress_(compress) {
   MPI_Exscan(&localElementCount,
              &elementOffset_,
              1,

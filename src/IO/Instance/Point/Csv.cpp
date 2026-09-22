@@ -35,13 +35,12 @@ bool isText(const datatype::Datatype& datatype) {
 
 Csv::Csv(std::string name, CsvFormat format) : TableWriter(std::move(name)), format_(format) {}
 
-std::ostringstream&
-    Csv::field(std::ostringstream& stream, const std::string& value, bool text) const {
+void Csv::field(std::ostringstream& stream, const std::string& value, bool text) const {
   const bool quoted =
       format_.quoting == CsvQuoting::All || (format_.quoting == CsvQuoting::Text && text);
   if (!quoted) {
     stream << value;
-    return stream;
+    return;
   }
   stream << format_.quote;
   for (const char character : value) {
@@ -51,7 +50,6 @@ std::ostringstream&
     }
   }
   stream << format_.quote;
-  return stream;
 }
 
 std::string Csv::header() const {

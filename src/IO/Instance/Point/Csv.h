@@ -61,8 +61,7 @@ class Csv : public TableWriter {
   void writeFile(const std::string& path);
 
   private:
-  [[nodiscard]] std::ostringstream&
-      field(std::ostringstream& stream, const std::string& value, bool text) const;
+  void field(std::ostringstream& stream, const std::string& value, bool text) const;
 
   std::string rowcache_;
   CsvFormat format_;

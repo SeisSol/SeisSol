@@ -120,7 +120,6 @@ class Hdf5Table {
 
   std::string name_;
   Grouping grouping_;
-  MPI_Comm comm_;
   std::size_t sampleChunk_;
   //! Per group, the samples handed over for the next write, laid out (sample, point).
   std::vector<std::vector<char>> storage_;

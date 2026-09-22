@@ -704,7 +704,10 @@ void OutputManager::collectPickpointSamples() {
   }
 
   for (std::size_t row = 0; row < ppTableRows_.size(); ++row) {
-    const auto [layerId, point] = ppTableRows_[row];
+    // named rather than bound, since the lambda below captures the point, which a structured
+    // binding only allows from C++20 on
+    const auto layerId = ppTableRows_[row].first;
+    const auto point = ppTableRows_[row].second;
     auto& outputData = *ppOutputData_.at(layerId);
     const auto group = grouping.group[row];
     const auto column = ppTable_->localRow(row);

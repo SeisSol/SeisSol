@@ -46,7 +46,7 @@ Hdf5Table::Hdf5Table(std::string name,
                      const std::vector<std::vector<TableQuantity>>& pointQuantities,
                      MPI_Comm comm,
                      std::size_t sampleChunk)
-    : name_(std::move(name)), grouping_(groupPoints(pointQuantities, comm)), comm_(comm),
+    : name_(std::move(name)), grouping_(groupPoints(pointQuantities, comm)),
       sampleChunk_(sampleChunk) {
   storage_.resize(grouping_.groupCount());
   samples_.resize(grouping_.groupCount(), 0);
