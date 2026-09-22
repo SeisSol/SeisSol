@@ -449,12 +449,27 @@ endif()
 
 
 # check NUMBER_OF_FUSED_SIMULATIONS
-math(EXPR IS_ALIGNED_MULT_SIMULATIONS
-        "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
-
-if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
-    math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
-    message(WARNING "a number of fused simulations should be multiple of ${FACTOR}. Expect code generation errors and/or degraded performance when continuing.")
+# The simulation index is the leading dimension of all fused tensors, and the code generator pads a
+# leading dimension to the vector size. Padded simulation lanes would only cost memory and work, and
+# the hand-written parts of SeisSol index the fused tensors with NumSimulations as the stride. So
+# reduce the vector size to the largest power of two that divides the fused simulations, in bytes
+# (e.g. to 32 B for 8 single precision simulations on a 64 B architecture). The memory alignment
+# may stay larger.
+set(CODEGEN_VECTORSIZE ${OVERRIDE_VECTORSIZE})
+if (NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
+    math(EXPR FUSED_SIMULATIONS_BYTES "${NUMBER_OF_FUSED_SIMULATIONS} * ${REAL_SIZE_IN_BYTES}")
+    set(FUSED_VECTORSIZE ${VECTORSIZE})
+    math(EXPR FUSED_REMAINDER "${FUSED_SIMULATIONS_BYTES} % ${FUSED_VECTORSIZE}")
+    while (NOT FUSED_REMAINDER EQUAL 0)
+        math(EXPR FUSED_VECTORSIZE "${FUSED_VECTORSIZE} / 2")
+        math(EXPR FUSED_REMAINDER "${FUSED_SIMULATIONS_BYTES} % ${FUSED_VECTORSIZE}")
+    endwhile()
+    if (NOT FUSED_VECTORSIZE EQUAL VECTORSIZE)
+        message(STATUS "Reducing the vector size from ${VECTORSIZE} B to ${FUSED_VECTORSIZE} B, "
+                       "so that the ${NUMBER_OF_FUSED_SIMULATIONS} fused simulations are not padded.")
+        set(VECTORSIZE ${FUSED_VECTORSIZE})
+        set(CODEGEN_VECTORSIZE ${FUSED_VECTORSIZE})
+    endif()
 endif()
 
 #-------------------------------------------------------------------------------
