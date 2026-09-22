@@ -292,7 +292,8 @@ TEST_CASE("Anisotropic DR impedance has orientation dependent normal coupling" *
 // ---------------------------------------------------------------------------
 TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
           doctest::test_suite("dynamicrupture")) {
-  constexpr std::array<std::size_t, 3> StoredRows{0, 3, 5};
+  // the rows initializeDynamicRuptureMatrices writes to
+  constexpr auto StoredRows = AnisotropicImpedance::TractionIndices;
   constexpr std::size_t Rows = 3;
 
   REQUIRE(tensor::tractionPlusMatrix::size() == Rows * 3);

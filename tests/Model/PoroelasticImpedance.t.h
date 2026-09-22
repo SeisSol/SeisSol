@@ -165,7 +165,8 @@ TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicr
 // overwrites a neighboring entry, which is what this pins down.
 // ---------------------------------------------------------------------------
 TEST_CASE("Poroelastic traction matrix pattern" * doctest::test_suite("dynamicrupture")) {
-  constexpr std::array<std::size_t, 4> StoredRows{0, 3, 5, 9};
+  // the rows initializeDynamicRuptureMatrices writes to
+  constexpr auto StoredRows = PoroelasticImpedance::TractionIndices;
   constexpr std::size_t Rows = StoredRows.size();
   constexpr std::size_t Columns = 3;
 
