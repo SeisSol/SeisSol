@@ -476,6 +476,17 @@ with :math:`\mu` the shear modulus (second Lamé parameter).
 
 with :math:`\mu` the shear modulus and :math:`\eta_p` a scalar measure of accumulated plastic strain (off-fault material damage).
 
+**Total momentum:**
+
+.. math::
+
+   \int_{\Omega} \rho\, v_i \,\mathrm{d}\mathbf{x}
+
+for every material, and :math:`\int_{\Omega} (\rho\, v_i^s + \rho_f\, w_i) \,\mathrm{d}\mathbf{x}`
+(the momentum of the mixture) for a poroelastic one. It is reported as ``momentumX``,
+``momentumY`` and ``momentumZ``. Without sources, and as long as no wave has left the domain, it
+is conserved.
+
 
 Names in the output
 ~~~~~~~~~~~~~~~~~~~
