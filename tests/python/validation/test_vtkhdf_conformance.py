@@ -74,10 +74,11 @@ def test_time_steps_are_distinct(vtkhdf_path):
     seen = []
     for time in times:
         grid = step(reader, time)
-        cell_data = grid.GetCellData()
         values = []
-        for index in range(cell_data.GetNumberOfArrays()):
-            values.extend(vtk_to_numpy(cell_data.GetArray(index)).ravel().tolist())
+        # at degree zero the fields are cell data, from degree one on they are point data
+        for data in (grid.GetCellData(), grid.GetPointData()):
+            for index in range(data.GetNumberOfArrays()):
+                values.extend(vtk_to_numpy(data.GetArray(index)).ravel().tolist())
         seen.append(tuple(values))
     # constant arrays are expected to repeat; something has to change
     assert len(set(seen)) > 1, "every step returned the same values"
