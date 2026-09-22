@@ -8,6 +8,9 @@
 #ifndef SEISSOL_TESTS_IO_WRITERHARNESS_T_H_
 #define SEISSOL_TESTS_IO_WRITERHARNESS_T_H_
 
+#include "IO/Datatype/Datatype.h"
+#include "IO/Datatype/Inference.h"
+#include "IO/Reader/File/Hdf5Reader.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Instruction.h"
 #include "IO/Writer/Module/AsyncWriter.h"
@@ -129,6 +132,26 @@ struct TempDir {
 
   [[nodiscard]] std::string prefix() const { return path + "/out"; }
 };
+
+/**
+ * Reads a table of samples, each a compound of the doubles @p quantities , as the flat array of
+ * numbers it is in memory: (sample, point, quantity). HDF5 converts a compound only into another
+ * compound, matching the members by name, so the target type is spelled out here.
+ */
+inline std::vector<double> readSampleTable(seissol::io::reader::file::Hdf5Reader& hdf5,
+                                           const std::string& name,
+                                           const std::vector<std::string>& quantities) {
+  using namespace seissol::io::datatype;
+  std::vector<StructDatatype::MemberInfo> members;
+  for (std::size_t i = 0; i < quantities.size(); ++i) {
+    members.push_back(
+        StructDatatype::MemberInfo{quantities[i], i * sizeof(double), inferDatatype<double>()});
+  }
+  const auto rows = hdf5.dataCount(name);
+  std::vector<double> values(rows * hdf5.dataRowSize(name) * quantities.size());
+  hdf5.readDataRaw(values.data(), name, rows, std::make_shared<StructDatatype>(members));
+  return values;
+}
 
 /**
  * Two tetrahedra sharing a face, in the vertex order the output writes them: the point projector

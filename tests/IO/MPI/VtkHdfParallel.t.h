@@ -426,9 +426,11 @@ TEST_CASE("IO/Hdf5Table: a rank without points of a table still writes with it" 
   hdf5.openGroup("points");
 
   // the narrow table holds a row per rank and sample, the wide one only the row of rank 0
-  const auto narrow = hdf5.readData<double>("group" + std::to_string(smallGroup));
+  const auto narrow =
+      unit_test::io::readSampleTable(hdf5, "group" + std::to_string(smallGroup), {"v1", "v2"});
   CHECK(narrow.size() == written * static_cast<std::size_t>(size) * 2);
-  const auto wide = hdf5.readData<double>("group" + std::to_string(largeGroup));
+  const auto wide =
+      unit_test::io::readSampleTable(hdf5, "group" + std::to_string(largeGroup), {"v1", "v2", "p"});
   CHECK(wide.size() == written * 3);
 
   // and the row of a rank sits where the grouping said it would

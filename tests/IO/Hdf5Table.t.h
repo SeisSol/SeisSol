@@ -104,7 +104,8 @@ TEST_CASE("IO/Hdf5Table: the samples of a point lie together" * doctest::test_su
   hdf5.openGroup("receivers");
 
   // the dataset grew by the samples of each write, not by one row per write
-  const auto values = hdf5.readData<double>("group" + std::to_string(group));
+  const auto values =
+      unit_test::io::readSampleTable(hdf5, "group" + std::to_string(group), {"v1", "v2"});
   REQUIRE(values.size() == written * points * 2);
 
   for (std::size_t sample = 0; sample < written; ++sample) {
