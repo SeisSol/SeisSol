@@ -274,6 +274,10 @@ class DamageADERDG(NonLinearCK):
         self.twoMuBlend = temporary("twoMuBlend")
         self.sigmaNodal = temporary("sigmaNodal", 6)
         self.critical = temporary("criticalDamage")
+        # The two moduli relative to mu0, which is what the critical damage is
+        # computed in; see stepStatements.
+        self.gammaRatio = Tensor("gammaRatio", (), temporary=True)
+        self.lambdaRatio = Tensor("lambdaRatio", (), temporary=True)
         self.drive = temporary("damageDrive")
         # A truth value, and declared as one: a temporary without a datatype
         # is the working precision, and then the condition written into it is
@@ -512,6 +516,10 @@ class DamageADERDG(NonLinearCK):
 
         if first:
             statements += self.parameterStatements()
+            statements += [
+                self.gammaRatio[""] <= yf.div(gammaR, mu0),
+                self.lambdaRatio[""] <= yf.div(lambda0, mu0),
+            ]
 
         # The internal variables enter the step from the state and then march;
         # everything else is rebuilt at every node.
@@ -566,24 +574,34 @@ class DamageADERDG(NonLinearCK):
 
         # The critical damage at which breakage sets in: the smaller root of a
         # quadratic in alpha, capped against the modulus ratio and against one.
+        #
+        # The quadratic is written in moduli relative to mu0, which divides all
+        # three coefficients by mu0 squared and leaves the root where it is. In
+        # the moduli themselves the coefficients are some 1e22 and the
+        # discriminant some 1e44, past what single precision holds: the root
+        # came out infinite there, the cap fell back to the modulus ratio, and a
+        # run in single precision grew the damage well past where breakage sets
+        # in -- with a breakage rate ten thousand times too small. Relative to
+        # mu0 the coefficients are of order one in either precision.
+        g, lam = self.gammaRatio[""], self.lambdaRatio[""]
         quadA = (
-            3.0 * gammaR * gammaR * yf.mul(xi["l"], xi["l"])
-            - 3.0 * gammaR * gammaR
-            + 6.0 * gammaR * gammaR * xi0 * xi["l"]
-            + 4.0 * gammaR * gammaR * xi0 * xi0
+            3.0 * g * g * yf.mul(xi["l"], xi["l"])
+            - 3.0 * g * g
+            + 6.0 * g * g * xi0 * xi["l"]
+            + 4.0 * g * g * xi0 * xi0
         )
         quadB = (
-            -(8.0 * mu0 + 6.0 * lambda0) * gammaR * xi0
-            - gammaR * lambda0 * yf.mul(xi["l"], yf.mul(xi["l"], xi["l"]))
-            - 6.0 * gammaR * mu0 * xi["l"]
+            -(8.0 + 6.0 * lam) * g * xi0
+            - g * lam * yf.mul(xi["l"], yf.mul(xi["l"], xi["l"]))
+            - 6.0 * g * xi["l"]
         )
-        quadC = 4.0 * mu0 * mu0 + 6.0 * mu0 * lambda0
+        quadC = 4.0 + 6.0 * lam
         fromRoot = yf.div(
             -quadB
             - yf.sqrt(yf.maximum(yf.mul(quadB, quadB) - 4.0 * quadA * quadC, floor)),
             2.0 * quadA,
         )
-        fromModuli = yf.div(2.0 * mu0, gammaR * (xi["l"] + 2.0 * xi0))
+        fromModuli = yf.div(2.0, g * (xi["l"] + 2.0 * xi0))
 
         critical = self.critical
         statements += [
