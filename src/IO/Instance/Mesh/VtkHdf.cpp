@@ -7,6 +7,7 @@
 
 #include "VtkHdf.h"
 
+#include "Common/Filesystem.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
@@ -26,7 +27,6 @@
 #include <optional>
 #include <string>
 #include <utils/logger.h>
-#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::io::instance::mesh {
@@ -325,14 +325,18 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
           hook(counter, time);
         }
 
-        const auto lastPrefix = utils::StringUtils::split(prefix, '/');
+        // the .pvd and the links between the files name them relative to the directory they are
+        // in, which is the one of the file that refers to them
+        const auto inDirectory = [](const std::string& path) {
+          return seissol::filesystem::path(path).filename().string();
+        };
         // a time series is one file holding every step; a snapshot is one file per step
         const auto suffix = self.temporal_ ? std::string() : "-" + std::to_string(counter);
         const auto filename = prefix + "-" + self.name_ + suffix + ".vtkhdf";
-        const auto filenameFile = lastPrefix.back() + "-" + self.name_ + suffix + ".vtkhdf";
+        const auto filenameFile = inDirectory(filename);
         const auto constSuffix = "-const-" + std::to_string(constCounter.value()) + ".vtkhdf";
         const auto filenameConst = prefix + "-" + self.name_ + constSuffix;
-        const auto filenameConstFile = lastPrefix.back() + "-" + self.name_ + constSuffix;
+        const auto filenameConstFile = inDirectory(filenameConst);
         const auto filenamePvu = prefix + "-" + self.name_ + ".pvd";
         if (!self.temporal_) {
           pvu.emplace_back(metadata::PvuEntry{filenameFile, time});
