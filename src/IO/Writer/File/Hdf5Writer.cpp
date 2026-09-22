@@ -335,24 +335,16 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 #if H5_VERSION_GE(1, 10, 5)
       // With MPI-IO, the chunks of the grown extent are allocated right away, and HDF5 2.2 does
       // that without opening the chunk index of a dataset that was only just opened (it trips
-      // the assertion `index_is_open` in H5D__chunk_lookup). Asking for the first chunk opens it,
-      // at a cost that does not grow with the number of chunks; a dataset without any chunk yet
-      // has them counted instead, which is just as cheap then.
+      // the assertion `index_is_open` in H5D__chunk_lookup). Looking up the chunk at the origin
+      // opens it; it stops at the first chunk and succeeds without one as well. (Looking a chunk
+      // up by its number, or counting them, walks the whole index on every append.)
       {
-        std::vector<hsize_t> chunkOffset(dimensionCount);
+        const std::vector<hsize_t> origin(dimensionCount, 0);
         unsigned filterMask = 0;
         haddr_t chunkAddress = 0;
         hsize_t chunkSize = 0;
-        herr_t status = 0;
-        H5E_BEGIN_TRY {
-          status = H5Dget_chunk_info(
-              h5data, h5space, 0, chunkOffset.data(), &filterMask, &chunkAddress, &chunkSize);
-        }
-        H5E_END_TRY;
-        if (status < 0) {
-          hsize_t chunkCount = 0;
-          _eh(H5Dget_num_chunks(h5data, h5space, &chunkCount));
-        }
+        _eh(H5Dget_chunk_info_by_coord(
+            h5data, origin.data(), &filterMask, &chunkAddress, &chunkSize));
       }
 #endif
 
