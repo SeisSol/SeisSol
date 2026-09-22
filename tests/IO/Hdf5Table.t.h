@@ -128,4 +128,53 @@ TEST_CASE("IO/Hdf5Table: the samples of a point lie together" * doctest::test_su
   hdf5.closeFile();
 }
 
+TEST_CASE("IO/Hdf5Table: a write without samples leaves the table alone" *
+          doctest::test_suite("io")) {
+  // what the receivers write at the start of a run: nothing has been sampled yet
+  const unit_test::io::TempDir dir;
+
+  const std::vector<std::vector<TableQuantity>> pointQuantities{small(), small()};
+  Hdf5Table table("receivers", pointQuantities, MPI_COMM_SELF);
+  const auto group = table.grouping().group[0];
+  const auto points = table.localPointCount(group);
+  auto plan = table.makeWriter();
+
+  const std::vector<std::size_t> samplesPerWrite{0, 3, 0};
+  std::size_t written = 0;
+  for (std::size_t step = 0; step < samplesPerWrite.size(); ++step) {
+    const auto samples = samplesPerWrite[step];
+    auto* storage = table.prepare(group, samples);
+    for (std::size_t sample = 0; sample < samples; ++sample) {
+      for (std::size_t point = 0; point < points; ++point) {
+        const std::vector<double> values{sampleValue(point, written + sample, 0),
+                                         sampleValue(point, written + sample, 1)};
+        std::memcpy(storage + (sample * points + point) * table.sampleSize(group),
+                    values.data(),
+                    values.size() * sizeof(double));
+      }
+    }
+    auto write = plan(dir.prefix(), step, static_cast<double>(step));
+    unit_test::io::runPlan(write, MPI_COMM_SELF);
+    written += samples;
+  }
+
+  reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+  hdf5.openFile(dir.prefix() + "-receivers.h5");
+  hdf5.openGroup("receivers");
+
+  // the dataset is declared by the first write that has samples, with all the points in it
+  const auto values =
+      unit_test::io::readSampleTable(hdf5, "group" + std::to_string(group), {"v1", "v2"});
+  REQUIRE(values.size() == written * points * 2);
+  for (std::size_t sample = 0; sample < written; ++sample) {
+    for (std::size_t point = 0; point < points; ++point) {
+      CHECK(values[(sample * points + point) * 2] ==
+            doctest::Approx(sampleValue(point, sample, 0)));
+    }
+  }
+
+  hdf5.closeGroup();
+  hdf5.closeFile();
+}
+
 } // namespace seissol::unit_test

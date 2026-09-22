@@ -130,6 +130,9 @@ class Hdf5Table {
   std::vector<std::size_t> localPoints_;
   //! Per local point, where it sits in the block of its group that this rank holds.
   std::vector<std::size_t> localRow_;
+  //! Per group, whether its dataset still lacks the attributes that describe it. They go with
+  //! the first write that carries samples, since that is the one that creates the dataset.
+  std::vector<bool> undescribed_;
   //! The point map, kept alive for as long as the write that carries it.
   std::vector<std::uint64_t> index_;
   std::vector<PointData> pointData_;

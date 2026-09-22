@@ -200,10 +200,11 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
       declared *= dimension.size;
     }
   }
-  assert(declared > 0);
   const std::size_t total = source->count(info);
-  assert(total % declared == 0);
-  const std::size_t localRows = total / declared;
+  // A write whose other dimensions hold nothing -- an append of zero samples, say -- holds nothing
+  // along the distributed one either.
+  assert(declared > 0 ? total % declared == 0 : total == 0);
+  const std::size_t localRows = declared > 0 ? total / declared : 0;
 
   int rank = 0;
   MPI_Comm_rank(comm, &rank);

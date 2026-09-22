@@ -50,6 +50,8 @@ Hdf5Table::Hdf5Table(std::string name,
       sampleChunk_(sampleChunk) {
   storage_.resize(grouping_.groupCount());
   samples_.resize(grouping_.groupCount(), 0);
+  // a run resumed from a checkpoint appends to datasets that are described already
+  undescribed_.resize(grouping_.groupCount(), false);
   localPoints_.resize(grouping_.groupCount(), 0);
   localRow_.resize(grouping_.group.size());
   for (std::size_t point = 0; point < grouping_.group.size(); ++point) {
@@ -89,7 +91,18 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Hdf5Table
     const auto filename = prefix + "-" + name_ + ".h5";
     auto writer = writer::Writer();
 
+    if (counter == 0) {
+      undescribed_.assign(grouping_.groupCount(), true);
+    }
+
     for (std::size_t group = 0; group < grouping_.groupCount(); ++group) {
+      if (samples_[group] == 0) {
+        // Nothing to append. Nor could the dataset be declared from this write if it does not
+        // exist yet: its extent along the points follows from the data. The sample count is the
+        // same on every rank, so all of them skip it alike.
+        continue;
+      }
+
       const auto& quantities = grouping_.quantities[group];
       const auto datatype = sampleDatatype(quantities);
 
@@ -105,7 +118,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Hdf5Table
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
           writer::instructions::Hdf5Location(filename, {name_}), groupName(group), data, datatype));
 
-      if (counter == 0) {
+      if (undescribed_[group]) {
+        undescribed_[group] = false;
         // what the compound of this group is, spelled out the way the grouping reads it back, and
         // how many points there are over all ranks -- neither follows from the dataset alone
         // before it has been written to for the first time
