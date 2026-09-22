@@ -7,12 +7,15 @@
 #ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_ENERGY_H_
 
-#include "Equations/Energy.h"
+#include "Equations/EnergyBase.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
+
+#include <array>
+#include <cstddef>
 
 namespace seissol::model {
 
@@ -102,7 +105,7 @@ struct EnergyCompute<PoroElasticMaterial> {
         0.5 * (params.rhoBar * solidSq + 2 * material.rhoFluid * crossTerm + params.m * darcySq);
 
     // Darcy drag dissipates (viscosity / permeability) |w|^2. Reported as an
-    // instantaneous rate; see the note on EnergyData in Equations/Energy.h.
+    // instantaneous rate; see the note on EnergyData in Equations/EnergyBase.h.
     output[DarcyDissipationIdx] = material.viscosity / material.permeability * darcySq;
 
     // Total momentum of the mixture: rhoBar v_s + rho_f w.

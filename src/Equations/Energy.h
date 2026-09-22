@@ -25,9 +25,7 @@
 #include "Equations/acoustic/Model/Energy.h"
 #include "Equations/anisotropic/Model/Energy.h"
 #include "Equations/elastic/Model/Energy.h"
-#ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/Energy.h"
-#endif
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Equations/viscoelastic2/Model/Energy.h"
 #endif
