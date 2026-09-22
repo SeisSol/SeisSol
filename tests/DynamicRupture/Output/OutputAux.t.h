@@ -193,11 +193,11 @@ TEST_CASE("getElementVertexId ranges" * doctest::test_suite("dynamicrupture")) {
 //! A fault output of @p cellCount cells, emitted the way the refiner emits it: the receivers of a
 //! cell lie consecutively, point-major and simulation-minor.
 inline ReceiverPoints makeFaultOutput(std::size_t cellCount,
-                               std::size_t pointsPerCell,
-                               std::size_t simulationCount,
-                               const std::vector<int>& tags,
-                               const std::vector<std::size_t>& elements,
-                               const std::vector<int>& sides) {
+                                      std::size_t pointsPerCell,
+                                      std::size_t simulationCount,
+                                      const std::vector<int>& tags,
+                                      const std::vector<std::size_t>& elements,
+                                      const std::vector<int>& sides) {
   ReceiverPoints points(cellCount * pointsPerCell * simulationCount);
   for (std::size_t cell = 0; cell < cellCount; ++cell) {
     for (std::size_t point = 0; point < pointsPerCell; ++point) {
