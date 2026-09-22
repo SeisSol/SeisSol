@@ -16,8 +16,10 @@
 #include "Parallel/Pin.h"
 #include "SeisSol.h"
 
+#include <async/Config.h>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <optional>
 #include <string>
@@ -111,7 +113,13 @@ void WriterModule::syncPoint(double time) {
   logInfo() << "Output Writer" << settings_.name << ": triggering write at" << time;
   lastWrite_ = time;
   ++writeCount_;
-  call(AsyncWriterExec{resumed_});
+  // With one thread per output, the writes of all outputs have to run in the order they are issued
+  // in here, which is the same on every rank (see AsyncWriterExec::ticket). Synchronously, they
+  // run in that order anyway, and with dedicated processes, waiting for another output's turn
+  // could hold up the process that is to serve it.
+  static std::uint64_t issued = 0;
+  const std::uint64_t ticket = async::Config::mode() == async::Mode::Thread ? ++issued : 0;
+  call(AsyncWriterExec{resumed_, ticket});
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {

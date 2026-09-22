@@ -13,6 +13,8 @@
 
 #include <async/ExecInfo.h>
 #include <async/Module.h>
+#include <condition_variable>
+#include <cstdint>
 #include <mutex>
 
 namespace seissol::io::writer::module {
@@ -21,6 +23,15 @@ struct AsyncWriterInit {};
 struct AsyncWriterExec {
   //! Whether the run resumes from a checkpoint (see file::RunFiles).
   bool resumed{false};
+  /**
+   * @brief The place of this write among the writes of all outputs, or zero for none.
+   *
+   * With one executor thread per output, the writes run in this order. Every write is collective
+   * on the communicator of its output, and all of them share one lock; taking it in the order the
+   * threads happen to arrive in could let two ranks each wait in a different write for the other.
+   * The places are handed out on the main thread, in the same order on every rank.
+   */
+  std::uint64_t ticket{0};
 };
 
 class AsyncWriter {
@@ -47,6 +58,10 @@ class AsyncWriter {
   MPI_Comm comm_{MPI_COMM_WORLD};
 
   static std::mutex globalLock;
+  //! Signaled whenever a write is done, for the one whose turn is next.
+  static std::condition_variable turn;
+  //! The ticket of the write whose turn it is; guarded by globalLock.
+  static std::uint64_t nextTicket;
   //! What the outputs of this run have written; shared by all of them, and guarded by globalLock.
   static file::RunFiles runFiles;
 };
