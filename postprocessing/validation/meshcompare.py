@@ -69,13 +69,27 @@ def cell_keys(geom, connect, quantum):
     return [tuple(cell.ravel()) for cell in snapped]
 
 
-def match_cells(geom, connect, geom_ref, connect_ref):
+def match_cells(
+    geom,
+    connect,
+    geom_ref,
+    connect_ref,
+    tags=None,
+    tags_ref=None,
+    owners=None,
+    owners_ref=None,
+):
     """Permutations ``ids``, ``ids_ref`` bringing the two cell lists into the same order.
 
     Returns ``None`` if the two files do not consist of the same cells. Vertices are
     snapped to a grid before hashing, so coordinates differing only by round-off still
     match; any ambiguity introduced by the snapping is ruled out afterwards by checking
     the matched cells against each other with a real tolerance.
+
+    Some outputs hold the same geometry more than once: the free-surface output writes a
+    face of an elastic-acoustic interface once for either side. ``tags`` (the
+    ``locationFlag``) become part of the key, so the two sides are never swapped, and
+    ``owners`` (the ``global-id``) decide between cells that are alike even then.
     """
     if len(connect) != len(connect_ref):
         print(
@@ -92,6 +106,9 @@ def match_cells(geom, connect, geom_ref, connect_ref):
 
     keys = cell_keys(geom, connect, quantum)
     keys_ref = cell_keys(geom_ref, connect_ref, quantum)
+    if tags is not None and tags_ref is not None:
+        keys = [key + (int(tag),) for key, tag in zip(keys, tags)]
+        keys_ref = [key + (int(tag),) for key, tag in zip(keys_ref, tags_ref)]
 
     lookup = {}
     for index, key in enumerate(keys_ref):
@@ -107,7 +124,16 @@ def match_cells(geom, connect, geom_ref, connect_ref):
             if unmatched <= 3:
                 print(f"  cell {index} has no counterpart in the reference")
             continue
-        ids_ref[index] = candidates.pop()
+        choice = len(candidates) - 1
+        if owners is not None and owners_ref is not None and len(candidates) > 1:
+            alike = [
+                position
+                for position, candidate in enumerate(candidates)
+                if owners_ref[candidate] == owners[index]
+            ]
+            if alike:
+                choice = alike[-1]
+        ids_ref[index] = candidates.pop(choice)
 
     if unmatched > 0:
         print(f"{unmatched} of {len(keys)} cells could not be matched geometrically.")
@@ -258,7 +284,27 @@ def compare(file, file_ref, epsilon):
         else None
     )
 
-    matched = match_cells(geom, connect, geom_ref, connect_ref)
+    tags = (
+        mesh.Read1dData("locationFlag", mesh.nElements, isInt=True)
+        if "locationFlag" in fields and "locationFlag" in fields_ref
+        else None
+    )
+    tags_ref = (
+        mesh_ref.Read1dData("locationFlag", mesh_ref.nElements, isInt=True)
+        if tags is not None
+        else None
+    )
+
+    matched = match_cells(
+        geom,
+        connect,
+        geom_ref,
+        connect_ref,
+        tags=tags,
+        tags_ref=tags_ref,
+        owners=ids_global,
+        owners_ref=ids_global_ref,
+    )
     aggregated = matched is None
 
     if aggregated:

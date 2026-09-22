@@ -408,6 +408,42 @@ class TestMeshCompareReordering:
         assert "Matched all 4 cells geometrically" in capsys.readouterr().out
 
 
+class TestMeshCompareDuplicateGeometry:
+    """The free-surface output writes a face of an elastic-acoustic interface once
+    for either side: the same geometry twice, with values that may differ, told apart
+    by the locationFlag and the global-id. The two sides must never be swapped."""
+
+    GEOM = np.array(
+        [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]
+    )
+    CONNECT = np.array([[0, 1, 2], [0, 1, 2], [1, 3, 2]])
+    VALUES = np.array([1.0, 5.0, 2.0])
+    FLAGS = np.array([0, 1, 3])
+    IDS = np.array([10, 11, 12])
+
+    @pytest.mark.parametrize("order", [[0, 1, 2], [1, 0, 2]])
+    @pytest.mark.parametrize("with_flags", [True, False])
+    def test_sides_are_not_swapped(self, patch_seissolxdmf, capsys, order, with_flags):
+        def entry(permutation):
+            int_fields = {"global-id": self.IDS[permutation]}
+            if with_flags:
+                int_fields["locationFlag"] = self.FLAGS[permutation]
+            return {
+                "geom": self.GEOM,
+                "connect": self.CONNECT[permutation],
+                "fields": {"v1": self.VALUES[permutation]},
+                "int_fields": int_fields,
+            }
+
+        patch_seissolxdmf["sim.xdmf"] = entry(order)
+        patch_seissolxdmf["ref.xdmf"] = entry([0, 1, 2])
+
+        meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=1e-12)
+        out = capsys.readouterr().out
+        assert "Matched all 3 cells geometrically" in out
+        assert "conformant: True" in out
+
+
 class TestMeshCompareAggregation:
     """Different subdivisions of the same element fall back to a per-element
     comparison instead of failing outright."""
