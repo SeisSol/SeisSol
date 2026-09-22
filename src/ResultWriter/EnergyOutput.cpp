@@ -685,17 +685,18 @@ void EnergyOutput::computeVolumeEnergies() {
         krnl.QEtaNodalProject = qEtaQuad;
         krnl.execute();
 
-        // C-style array due to OpenMP
-        double pMoment[multisim::NumSimulations]{};
-
-#pragma omp simd reduction(+ : pMoment[ : multisim::NumSimulations])
-        for (size_t qp = 0; qp < tensor::QEtaNodalProject::size(); ++qp) {
-          pMoment[qp % multisim::NumSimulations] +=
-              quadratureWeightsTet[qp / multisim::NumSimulations] * qEtaQuad[qp];
-        }
-
+        // go through the view: QEtaNodalProject is padded (at order 6, its 343 points take up 344
+        // entries), and for fused simulations the simulation index leads and may be padded as well
+        static_assert(tensor::QEtaNodalProject::Shape[multisim::BasisFunctionDimension] ==
+                      NumQuadraturePointsTet);
+        auto qEtaQuadView = init::QEtaNodalProject::view::create(qEtaQuad);
         for (size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
-          localPlasticMoment[sim] += mu * jacobiDet * pMoment[sim];
+          const auto qEtaQuadSim = multisim::simtensor(qEtaQuadView, sim);
+          double pMoment = 0;
+          for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
+            pMoment += quadratureWeightsTet[qp] * qEtaQuadSim(qp);
+          }
+          localPlasticMoment[sim] += mu * jacobiDet * pMoment;
         }
       }
     }
