@@ -16,10 +16,14 @@ Skipped when the vtk module is not installed.
 """
 
 import pytest
-from vtkmodules.util.numpy_support import vtk_to_numpy
-from vtkmodules.vtkCommonExecutionModel import vtkStreamingDemandDrivenPipeline as sddp
 
+# every VTK import goes through importorskip, so that the module is skipped rather than failing
+# collection where VTK is not installed
 vtk_io = pytest.importorskip("vtkmodules.vtkIOHDF")
+vtk_to_numpy = pytest.importorskip("vtkmodules.util.numpy_support").vtk_to_numpy
+sddp = pytest.importorskip(
+    "vtkmodules.vtkCommonExecutionModel"
+).vtkStreamingDemandDrivenPipeline
 
 
 def read(path):
