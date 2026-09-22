@@ -51,7 +51,12 @@ Hdf5Table::Hdf5Table(std::string name,
   storage_.resize(grouping_.groupCount());
   samples_.resize(grouping_.groupCount(), 0);
   localPoints_.resize(grouping_.groupCount(), 0);
-  for (const auto group : grouping_.group) {
+  localRow_.resize(grouping_.group.size());
+  for (std::size_t point = 0; point < grouping_.group.size(); ++point) {
+    // the points of a group keep their relative order, so a point's row in the block this rank
+    // holds is the number of points of its group before it
+    const auto group = grouping_.group[point];
+    localRow_[point] = localPoints_[group];
     ++localPoints_[group];
   }
 }
@@ -63,6 +68,8 @@ std::size_t Hdf5Table::sampleSize(std::size_t group) const {
 }
 
 std::size_t Hdf5Table::localPointCount(std::size_t group) const { return localPoints_.at(group); }
+
+std::size_t Hdf5Table::localRow(std::size_t point) const { return localRow_.at(point); }
 
 char* Hdf5Table::prepare(std::size_t group, std::size_t samples) {
   samples_.at(group) = samples;
