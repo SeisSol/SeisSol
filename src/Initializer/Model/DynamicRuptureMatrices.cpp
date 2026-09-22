@@ -11,7 +11,9 @@
 
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
-#include "Equations/Setup.h"          // IWYU pragma: keep
+#include "Equations/Impedance.h"      // IWYU pragma: keep
+#include "Equations/ImpedanceBase.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -107,18 +109,117 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   }
 }
 
-constexpr size_t N = model::DrImpedanceDim;
-
 /**
- * Quantity indices the traction components live at, i.e. the rows of the traction averaging
- * matrices. Poroelasticity carries the fluid pressure as a fourth one; it has to match the
- * sparsity pattern the code generator builds for tractionPlusMatrix.
+ * The "general" material case: impedance, eta and traction averaging matrices of a face whose
+ * admittance is a full matrix, from the admittances of both sides.
+ *
+ * A template, so that the `if constexpr` below depends on MaterialT: every build instantiates it
+ * with its own material, but the body is only compiled for the materials that take this path.
+ * Their code generator gives the traction averaging matrices the full pattern, and their Riemann
+ * problem couples the traction components. Everything else, isotropic elastic and viscoelastic
+ * included, uses the scalar impedances.
  */
-constexpr auto tractionRowIndices() {
-  if constexpr (::seissol::model::MaterialT::Type == ::seissol::model::MaterialType::Poroelastic) {
-    return std::array<size_t, 4>{0, 3, 5, 9};
-  } else {
-    return std::array<size_t, 3>{0, 3, 5};
+template <typename MaterialT>
+void initializeFaultImpedance(const Fault& fault,
+                              std::size_t meshFace,
+                              const MaterialT& plusMaterial,
+                              const MaterialT& minusMaterial,
+                              seissol::dr::ImpedanceMatrices& impedanceMatrices,
+                              DRGodunovData& godunovData,
+                              seissol::dr::ImpedancesAndEta& impAndEta) {
+  if constexpr (MaterialT::Type == seissol::model::MaterialType::Anisotropic ||
+                MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
+    using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
+    constexpr std::size_t N = ImpedanceCompute::Dim;
+    // Zplus, Zminus and eta all share this dimension in the code generator
+    static_assert(N == tensor::Zminus::Shape[0],
+                  "The impedance tensors of the code generator do not match the material.");
+
+    // the normal/tangent vectors are already normalized
+    std::array<double, 36> bond{};
+    seissol::model::getBondMatrix(fault.normal, fault.tangent1, fault.tangent2, bond);
+
+    const auto plusLocal = seissol::model::getRotatedMaterialCoefficients(bond, plusMaterial);
+    const auto minusLocal = seissol::model::getRotatedMaterialCoefficients(bond, minusMaterial);
+
+    // Zplus/Zminus hold the *admittance* Y (traction -> velocity); eta is
+    // (Y+ + Y-)^-1. For anisotropic materials Y is obtained in closed form
+    // from the Christoffel matrix, which is exact also when qS1 and qS2 are
+    // degenerate; for poroelasticity it comes from the Biot mass and stiffness
+    // blocks in the same closed form.
+    const auto faultImpedance =
+        seissol::initializer::model::computeFaultImpedance(plusLocal, minusLocal);
+
+    // The finite and consistency checks are a handful of flops per face and run in every
+    // build: a material that is not positive definite produces NaN admittances right here,
+    // and without the check the run only fails much later and somewhere else. Only the
+    // self-adjointness and definiteness part costs an eigensolve, so that one stays behind
+    // NDEBUG.
+#ifdef NDEBUG
+    constexpr bool CheckSelfAdjoint = false;
+#else
+    constexpr bool CheckSelfAdjoint = true;
+#endif
+    if (const auto violation =
+            seissol::initializer::model::checkFaultImpedance(faultImpedance, CheckSelfAdjoint);
+        violation.has_value()) {
+      logError() << "Invalid dynamic rupture impedance at fault face" << meshFace << ":"
+                 << violation.value();
+    }
+
+    const auto& impedanceMatrix = faultImpedance.admittancePlus;
+    const auto& impedanceNeigMatrix = faultImpedance.admittanceMinus;
+    const auto& etaMatrix = faultImpedance.eta;
+    // the kernel contracts Q["kq"] * tractionMatrix["qp"], i.e. it applies
+    // the transpose -- and b = eta * Y is not symmetric for a bimaterial
+    // anisotropic interface (a few percent for realistic contrasts).
+    const Eigen::Matrix<double, N, N> bMatrix = faultImpedance.bPlus.transpose();
+    const Eigen::Matrix<double, N, N> bNeigMatrix = faultImpedance.bMinus.transpose();
+
+    auto impedanceView = init::Zplus::view::create(impedanceMatrices.impedance);
+    auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices.impedanceNeig);
+    auto etaView = init::eta::view::create(impedanceMatrices.eta);
+    auto tractionPlusMatrix =
+        init::tractionPlusMatrix::view::create(godunovData.tractionPlusMatrix);
+    auto tractionMinusMatrix =
+        init::tractionMinusMatrix::view::create(godunovData.tractionMinusMatrix);
+
+    copyEigenToYateto(impedanceMatrix, impedanceView);
+    copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
+    copyEigenToYateto(etaMatrix, etaView);
+    // the rows of the traction averaging matrices; they have to match the sparsity pattern the
+    // code generator builds for tractionPlusMatrix
+    constexpr auto TractionRows = ImpedanceCompute::TractionIndices;
+    copyEigenToYateto(bMatrix, tractionPlusMatrix, TractionRows);
+    copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, TractionRows);
+
+    // reconstruction of the stress components outside of the Riemann problem; only needed by
+    // the fault receiver output, which evaluates them on the plus side
+    for (std::size_t col = 0; col < N; ++col) {
+      for (std::size_t row = 0; row < 3; ++row) {
+        impedanceMatrices.lateralStress[col * 3 + row] =
+            static_cast<real>(faultImpedance.lateralStressPlus(row, col));
+      }
+    }
+
+    if constexpr (MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
+      // The solid frame is isotropic, so the shear rows of the Biot admittance decouple from
+      // the fault-normal/fluid block and carry the same entry twice. A scalar impedance is
+      // therefore exact here, and taking it from the admittance is what keeps the paths that
+      // read ImpedancesAndEta -- the friction update, the slip accumulation and the receiver
+      // output -- on the same Z_s = sqrt(mu * rho1) as the Riemann solver. Note that rho1 is
+      // the statically condensed density, not the density of the solid grains.
+      const double invZs = faultImpedance.admittancePlus(1, 1);
+      const double invZsNeig = faultImpedance.admittanceMinus(1, 1);
+      const double etaS = faultImpedance.eta(1, 1);
+
+      impAndEta.zs = 1.0 / invZs;
+      impAndEta.zsNeig = 1.0 / invZsNeig;
+      impAndEta.invZs = invZs;
+      impAndEta.invZsNeig = invZsNeig;
+      impAndEta.etaS = etaS;
+      impAndEta.invEtaS = 1.0 / etaS;
+    }
   }
 }
 
@@ -382,96 +483,13 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       case seissol::model::MaterialType::Anisotropic:
         [[fallthrough]];
       case seissol::model::MaterialType::Poroelastic: {
-        // the "general" material case.
-
-        // the normal/tangent vectors are already normalized
-        std::array<double, 36> bond{};
-        seissol::model::getBondMatrix(
-            fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, bond);
-
-        const auto plusLocal = seissol::model::getRotatedMaterialCoefficients(bond, *plusMaterial);
-        const auto minusLocal =
-            seissol::model::getRotatedMaterialCoefficients(bond, *minusMaterial);
-
-        // Zplus/Zminus hold the *admittance* Y (traction -> velocity); eta is
-        // (Y+ + Y-)^-1. For anisotropic materials Y is obtained in closed form
-        // from the Christoffel matrix, which is exact also when qS1 and qS2 are
-        // degenerate; for poroelasticity it comes from the Biot mass and stiffness
-        // blocks in the same closed form.
-        const auto faultImpedance =
-            seissol::initializer::model::computeFaultImpedance(plusLocal, minusLocal);
-
-        // The finite and consistency checks are a handful of flops per face and run in every
-        // build: a material that is not positive definite produces NaN admittances right here,
-        // and without the check the run only fails much later and somewhere else. Only the
-        // self-adjointness and definiteness part costs an eigensolve, so that one stays behind
-        // NDEBUG.
-#ifdef NDEBUG
-        constexpr bool CheckSelfAdjoint = false;
-#else
-        constexpr bool CheckSelfAdjoint = true;
-#endif
-        if (const auto violation =
-                seissol::initializer::model::checkFaultImpedance(faultImpedance, CheckSelfAdjoint);
-            violation.has_value()) {
-          logError() << "Invalid dynamic rupture impedance at fault face" << meshFace << ":"
-                     << violation.value();
-        }
-
-        const auto& impedanceMatrix = faultImpedance.admittancePlus;
-        const auto& impedanceNeigMatrix = faultImpedance.admittanceMinus;
-        const auto& etaMatrix = faultImpedance.eta;
-        // the kernel contracts Q["kq"] * tractionMatrix["qp"], i.e. it applies
-        // the transpose -- and b = eta * Y is not symmetric for a bimaterial
-        // anisotropic interface (a few percent for realistic contrasts).
-        const Eigen::Matrix<double, N, N> bMatrix = faultImpedance.bPlus.transpose();
-        const Eigen::Matrix<double, N, N> bNeigMatrix = faultImpedance.bMinus.transpose();
-
-        auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
-        auto impedanceNeigView =
-            init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig);
-        auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta);
-        auto tractionPlusMatrix =
-            init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
-        auto tractionMinusMatrix =
-            init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
-
-        copyEigenToYateto(impedanceMatrix, impedanceView);
-        copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
-        copyEigenToYateto(etaMatrix, etaView);
-        constexpr auto TractionRows = tractionRowIndices();
-        copyEigenToYateto(bMatrix, tractionPlusMatrix, TractionRows);
-        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, TractionRows);
-
-        // reconstruction of the stress components outside of the Riemann problem; only needed by
-        // the fault receiver output, which evaluates them on the plus side
-        for (std::size_t col = 0; col < N; ++col) {
-          for (std::size_t row = 0; row < 3; ++row) {
-            impedanceMatrices[ltsFace].lateralStress[col * 3 + row] =
-                static_cast<real>(faultImpedance.lateralStressPlus(row, col));
-          }
-        }
-
-        if constexpr (seissol::model::MaterialT::Type ==
-                      seissol::model::MaterialType::Poroelastic) {
-          // The solid frame is isotropic, so the shear rows of the Biot admittance decouple from
-          // the fault-normal/fluid block and carry the same entry twice. A scalar impedance is
-          // therefore exact here, and taking it from the admittance is what keeps the paths that
-          // read ImpedancesAndEta -- the friction update, the slip accumulation and the receiver
-          // output -- on the same Z_s = sqrt(mu * rho1) as the Riemann solver. Note that rho1 is
-          // the statically condensed density, not the density of the solid grains.
-          const double invZs = faultImpedance.admittancePlus(1, 1);
-          const double invZsNeig = faultImpedance.admittanceMinus(1, 1);
-          const double etaS = faultImpedance.eta(1, 1);
-
-          impAndEta[ltsFace].zs = 1.0 / invZs;
-          impAndEta[ltsFace].zsNeig = 1.0 / invZsNeig;
-          impAndEta[ltsFace].invZs = invZs;
-          impAndEta[ltsFace].invZsNeig = invZsNeig;
-          impAndEta[ltsFace].etaS = etaS;
-          impAndEta[ltsFace].invEtaS = 1.0 / etaS;
-        }
-
+        initializeFaultImpedance(fault[meshFace],
+                                 meshFace,
+                                 *plusMaterial,
+                                 *minusMaterial,
+                                 impedanceMatrices[ltsFace],
+                                 godunovData[ltsFace],
+                                 impAndEta[ltsFace]);
         break;
       }
       default: {
