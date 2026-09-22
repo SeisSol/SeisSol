@@ -204,6 +204,18 @@ io::instance::geometry::WriterGroup
   }
   return io::instance::geometry::WriterGroup::FullSnapshot;
 }
+
+//! The samples of the on-fault receivers are taken on streams of their own, and have to be
+//! complete before the host reads them.
+void waitForPickpointSamples(
+    std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& outputData) {
+  for (auto& [layerId, data] : outputData) {
+    if (data->extraRuntime.has_value()) {
+      data->extraRuntime->wait();
+    }
+  }
+}
+
 } // namespace
 
 void OutputManager::initElementwiseOutput() {
@@ -673,6 +685,7 @@ void OutputManager::initPickpointTable() {
 }
 
 void OutputManager::collectPickpointSamples() {
+  waitForPickpointSamples(ppOutputData_);
   const auto& grouping = ppTable_->grouping();
 
   // How far a table grows has to be the same everywhere, and the clusters a rank holds do not all
@@ -740,6 +753,7 @@ void OutputManager::flushPickpointDataToFile() {
     return;
   }
 
+  waitForPickpointSamples(ppOutputData_);
   for (auto& [layerId, outputData] : ppOutputData_) {
     for (const auto& ppfile : ppFiles_.at(layerId)) {
       std::stringstream data;
