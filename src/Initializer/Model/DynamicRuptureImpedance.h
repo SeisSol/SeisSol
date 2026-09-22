@@ -10,6 +10,7 @@
 
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
+#include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
