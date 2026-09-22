@@ -19,6 +19,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
+#include "IO/Writer/File/RunFiles.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -44,6 +45,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
@@ -335,10 +337,19 @@ void EnergyOutput::syncPoint(double time) {
 
 void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
   if (isFileOutputEnabled_) {
-    out_.open(outputFileName_);
-    out_ << std::scientific;
-    out_ << std::setprecision(std::numeric_limits<double>::max_digits10);
-    writeHeader();
+    // a run resuming from a checkpoint keeps the energies up to it, as the other outputs do
+    if (checkpointTime.has_value()) {
+      io::writer::file::backUpFile(outputFileName_);
+    }
+    std::size_t nameWidth = 0;
+    for (const auto& descriptor : energiesStorage_.descriptors()) {
+      nameWidth = std::max(nameWidth, descriptor.name.size());
+    }
+    table_.emplace("energy");
+    table_->addColumn<double>("time");
+    table_->addTextColumn("variable", nameWidth);
+    table_->addColumn<std::uint64_t>("simulation_index");
+    table_->addColumn<double>("measurement");
   }
   syncPoint(checkpointTime.value_or(0));
 }
@@ -893,21 +904,19 @@ void EnergyOutput::checkAbortCriterion(
   }
 }
 
-void EnergyOutput::writeHeader() {
-  out_ << "time,variable,simulation_index,measurement" << std::endl;
-}
-
 void EnergyOutput::writeEnergies(double time) {
   // iterate the descriptors, not the name->handle map: the map is ordered
   // alphabetically, the descriptors in registration order
   const auto& descriptors = energiesStorage_.descriptors();
   for (std::size_t handle = 0; handle < descriptors.size(); ++handle) {
     for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-      out_ << time << "," << descriptors[handle].name << "," << sim << ","
-           << energiesStorage_.energy(handle, sim) << '\n';
+      table_->addCell<double>(time);
+      table_->addText(std::string(descriptors[handle].name));
+      table_->addCell<std::uint64_t>(sim);
+      table_->addCell<double>(energiesStorage_.energy(handle, sim));
     }
   }
-  out_.flush();
+  table_->appendFile(outputFileName_);
 }
 
 bool EnergyOutput::shouldComputeVolumeEnergies() const {

@@ -15,6 +15,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "IO/Instance/Point/Csv.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/PreProcessorMacros.h"
@@ -35,6 +36,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
 #include <string>
 #include <string_view>
@@ -43,36 +45,6 @@
 #include <vector>
 
 namespace seissol::writer {
-
-CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) : fileName_(std::move(fileName)) {}
-
-void CsvAnalysisWriter::writeHeader() {
-  if (isEnabled_) {
-    out_ << "variable,norm,error\n";
-  }
-}
-
-void CsvAnalysisWriter::addObservation(std::string_view variable,
-                                       std::string_view normType,
-                                       real error) {
-  if (isEnabled_) {
-    out_ << variable << "," << normType << "," << error << "\n";
-  }
-}
-
-void CsvAnalysisWriter::enable() {
-  isEnabled_ = true;
-  out_.open(fileName_);
-}
-
-CsvAnalysisWriter::~CsvAnalysisWriter() {
-  if (isEnabled_) {
-    out_.close();
-    if (!out_) {
-      logError() << "Error when writing analysis output to file";
-    }
-  }
-}
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::Mpi::mpi;
@@ -319,12 +291,17 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                0,
                comm);
 
-    auto csvWriter = CsvAnalysisWriter(fileName_);
-
-    if (mpi.rank() == 0) {
-      csvWriter.enable();
-      csvWriter.writeHeader();
-    }
+    // the errors, gathered on rank 0 as they are printed; "LInf_rel" is the longest norm name
+    seissol::io::instance::point::Csv table("analysis");
+    table.addColumn<std::int32_t>("variable");
+    table.addTextColumn("norm", 8);
+    table.addColumn<double>("error");
+    const auto addObservation =
+        [&table](std::size_t variable, const std::string& norm, double error) {
+          table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
+          table.addText(norm);
+          table.addCell<double>(error);
+        };
 
     for (std::size_t i = 0; i < NumQuantities; ++i) {
       VrtxCoords centerSend{};
@@ -353,13 +330,17 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "at rank "
                   << errLInfRecv[i].rank << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1]
                   << ",\t" << centerRecv[2] << "\t]";
-        csvWriter.addObservation(std::to_string(i), "L1", errL1);
-        csvWriter.addObservation(std::to_string(i), "L2", errL2);
-        csvWriter.addObservation(std::to_string(i), "LInf", errLInf);
-        csvWriter.addObservation(std::to_string(i), "L1_rel", errL1Rel);
-        csvWriter.addObservation(std::to_string(i), "L2_rel", errL2Rel);
-        csvWriter.addObservation(std::to_string(i), "LInf_rel", errLInfRel);
+        addObservation(i, "L1", errL1);
+        addObservation(i, "L2", errL2);
+        addObservation(i, "LInf", errLInf);
+        addObservation(i, "L1_rel", errL1Rel);
+        addObservation(i, "L2_rel", errL2Rel);
+        addObservation(i, "LInf_rel", errLInfRel);
       }
+    }
+
+    if (mpi.rank() == 0) {
+      table.writeFile(fileName_);
     }
   }
 }

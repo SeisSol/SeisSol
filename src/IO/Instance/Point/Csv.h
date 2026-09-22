@@ -60,6 +60,14 @@ class Csv : public TableWriter {
    */
   void writeFile(const std::string& path);
 
+  /**
+   * @brief Appends the rows collected so far to @p path, from the calling rank.
+   *
+   * For a table that grows while the simulation runs and that one rank holds in full, such as the
+   * energies. The first call of a run starts the file, with the header, replacing what was there.
+   */
+  void appendFile(const std::string& path);
+
   private:
   void field(std::ostringstream& stream, const std::string& value, bool text) const;
 

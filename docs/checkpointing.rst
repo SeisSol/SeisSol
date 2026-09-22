@@ -48,8 +48,8 @@ output, the receiver tables in HDF5, the checkpoints -- is started anew. If a
 file of that name exists already, it is kept under a backup name first, with
 the time of the restart before its extension, e.g.
 ``<prefix>-wavefield.bak_2026-01-31_12-00-00.xdmf``. The payload files an Xdmf
-file refers to are kept the same way, under the same time stamp. The text
-receiver files are continued instead.
+file refers to are kept the same way, under the same time stamp, and so is the
+energy output. The text receiver files are continued instead.
 
 Current Quirks and Limitations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

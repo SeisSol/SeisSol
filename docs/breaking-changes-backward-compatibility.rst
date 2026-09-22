@@ -43,10 +43,13 @@ The tables beside the output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)
 
-The column names of ``-clustering.csv``, ``-threadPinning.csv`` and
-``-miniSeissol.csv`` are now quoted, like every other piece of text in those
-files. What the columns are and what they hold is unchanged. A reader using a
-CSV parser needs no change; one comparing the header line literally does.
+The column names of ``-clustering.csv``, ``-threadPinning.csv``,
+``-miniSeissol.csv``, ``-energy.csv`` and ``-analysis.csv`` are now quoted, like
+every other piece of text in those files -- in the energy output, the name of
+each quantity as well. Numbers are written in the shortest form that reads back
+as the same value, e.g. ``0.25`` rather than ``2.50000000000000000e-01``. What
+the columns are and what they hold is unchanged. A reader using a CSV parser
+needs no change; one comparing the lines literally does.
 
 Output of a restarted run
 ~~~~~~~~~~~~~~~~~~~~~~~~~

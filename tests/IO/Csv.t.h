@@ -8,8 +8,11 @@
 #include <doctest.h>
 
 #include "IO/Instance/Point/Csv.h"
+#include "WriterHarness.t.h"
 
 #include <cstdint>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -95,6 +98,44 @@ TEST_CASE("IO/Csv: a row without a closing newline still counts" * doctest::test
   const auto table = parseCsv("a,b\n1,2\n3,4");
   REQUIRE(table.rows.size() == 2);
   CHECK(table.rows[1][1] == "4");
+}
+
+TEST_CASE("IO/Csv: a growing table is appended to its file" * doctest::test_suite("io")) {
+  const unit_test::io::TempDir dir;
+  const auto path = dir.prefix() + "-energy.csv";
+  {
+    // what an earlier run left
+    std::ofstream stale(path);
+    stale << "stale\n";
+  }
+
+  Csv csv("energy");
+  csv.addColumn<double>("time");
+  csv.addTextColumn("variable", 16);
+  csv.addColumn<double>("measurement");
+
+  csv.addCell<double>(0.0);
+  csv.addText("elastic_energy");
+  csv.addCell<double>(0.1);
+  csv.appendFile(path);
+
+  csv.addCell<double>(0.5);
+  csv.addText("elastic_energy");
+  csv.addCell<double>(1.0 / 3.0);
+  csv.appendFile(path);
+
+  const std::ifstream stream(path);
+  std::ostringstream buffer;
+  buffer << stream.rdbuf();
+  // the first write of the run starts the file, so the header is there once and the stale line
+  // is gone
+  const auto table = parseCsv(buffer.str());
+  CHECK(table.header == std::vector<std::string>{"time", "variable", "measurement"});
+  REQUIRE(table.rows.size() == 2);
+  CHECK(table.rows[0][2] == "0.1");
+  CHECK(table.rows[1][0] == "0.5");
+  // and a value reads back as the double it was
+  CHECK(std::stod(table.rows[1][2]) == 1.0 / 3.0);
 }
 
 } // namespace seissol::unit_test

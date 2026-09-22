@@ -105,6 +105,19 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Csv::make
   };
 }
 
+void Csv::appendFile(const std::string& path) {
+  const bool first = startsFile();
+  std::ofstream stream(path, first ? std::ios::out : std::ios::app);
+  if (!stream.good()) {
+    logError() << "Could not write the table" << path << ".";
+  }
+  if (first) {
+    stream << header();
+  }
+  stream << rows();
+  resetStorage();
+}
+
 void Csv::writeFile(const std::string& path) {
   std::ofstream stream(path, std::ios::out);
   if (!stream.good()) {
