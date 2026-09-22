@@ -97,6 +97,23 @@ the writer. It is ``wavefieldprojection`` for the wavefield and ``surfaceproject
 surface (see :ref:`wave_field_output` and :ref:`free_surface_output`). The defaults reproduce what
 each output did before -- ``pointwise`` for the wavefield, ``l2`` for the free surface -- so no
 parameter file needs to change; the option exists to make the two comparable when that is wanted.
+Dynamic rupture checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(after 1.3.2, `#1642 <https://github.com/SeisSol/SeisSol/pull/1642>`_, September 2026)
+
+The stress a fault point is under is now a function of the simulation time and of the fault parameters, rather than a quantity that the time step adds the nucleation to.
+The two checkpoint records that carried it, ``initialStressInFaultCS`` and ``initialPressure``, no longer exist, and checkpoints written before this change cannot be restored.
+Restarting in the middle of a nucleation episode is exact from here on, since nothing about the episode is carried through the checkpoint.
+
+Nucleation accuracy
+~~~~~~~~~~~~~~~~~~~
+
+(after 1.3.2, `#1642 <https://github.com/SeisSol/SeisSol/pull/1642>`_, September 2026)
+
+Instead of accumulating over each time step, the nucleations now get evaluated at the exact time value.
+Furthermore, the accuracy of the nucleation source time function was improved.
+As a result, fast (i.e. taking only little timesteps) nucleations may now behave slightly differently to before.
 
 Energy Output
 ~~~~~~~~~~~~~
@@ -269,3 +286,31 @@ The potency and the seismic moment were computed by averaging the value over all
 Now, to make the integration more exact, they are instead weighed by the quadrature rule
 the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
 may slightly change compared to before.
+
+Names of the Energy Output Columns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Four columns of the energy output CSV file were named after a quantity that, in the literature,
+denotes a sum of which they are only one part. They now carry the name of what they actually contain
+(see :ref:`energy_output`); the values themselves are unchanged.
+
++--------------------------+------------------------------------+
+| old                      | new                                |
++==========================+====================================+
+| ``elastic_energy``       | ``elastic_strain_energy``          |
++--------------------------+------------------------------------+
+| ``acoustic_energy``      | ``acoustic_potential_energy``      |
++--------------------------+------------------------------------+
+| ``viscoelastic_energy``  | ``anelastic_strain_energy``        |
++--------------------------+------------------------------------+
+| ``gravitational_energy`` | ``gravitational_potential_energy`` |
++--------------------------+------------------------------------+
+
+For a poroelastic material, the two columns that used to be called ``elastic_energy`` and
+``elastic_kinetic_energy`` are now ``poroelastic_strain_energy`` and
+``poroelastic_kinetic_energy``: both hold a two-phase expression that differs from the
+single-phase one.
+
+The terminal output changed accordingly: the group headings now read
+``Acoustic mechanical energy``, ``Elastic mechanical energy`` and
+``Gravitational potential energy``, and the share printed as ``kinematic`` is now ``kinetic``.

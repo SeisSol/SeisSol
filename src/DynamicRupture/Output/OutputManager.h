@@ -46,13 +46,14 @@ class OutputManager {
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
   void writePickpointOutput(std::size_t layerId,
+                            double stateTime,
                             double time,
                             double dt,
                             double meshDt,
                             double meshInDt,
                             parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
-  void updateElementwiseOutput();
+  void updateElementwiseOutput(double time);
 
   private:
   seissol::SeisSol& seissolInstance_;

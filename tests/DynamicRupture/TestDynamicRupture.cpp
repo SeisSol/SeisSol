@@ -15,4 +15,5 @@
 #include "Output/GeometryPrimitives.t.h"
 #include "Output/OutputAux.t.h"
 #include "Output/Variables.t.h"
+#include "StressSources.t.h"
 #include "Typedefs.t.h"

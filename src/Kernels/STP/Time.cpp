@@ -89,9 +89,8 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
     auto sourceMatrix =
         init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
-    model::zInvInitializerForLoop<0,
-                                  seissol::model::MaterialT::NumQuantities,
-                                  decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
+    model::ZInvInitializer<0, seissol::model::MaterialT::NumQuantities, decltype(sourceMatrix)>(
+        ZinvData, sourceMatrix, timeStepWidth);
     for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
@@ -220,9 +219,7 @@ void Spacetime::computeBatchedAder(
         const auto& localIntegration = layerLocalIntegration[i];
 
         const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
-        model::zInvInitializerForLoop<0,
-                                      seissol::model::MaterialT::NumQuantities,
-                                      decltype(sourceMatrix)>(
+        model::ZInvInitializer<0, seissol::model::MaterialT::NumQuantities, decltype(sourceMatrix)>(
             ZinvData, sourceMatrix, timeStepWidth);
       });
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {

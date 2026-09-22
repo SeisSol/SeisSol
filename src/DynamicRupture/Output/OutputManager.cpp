@@ -324,7 +324,7 @@ void OutputManager::initElementwiseOutput() {
   auto& self = *this;
   writer.addHook([&](std::size_t, double time) {
     self.seissolInstance_.dofSync().syncDofs(time);
-    self.updateElementwiseOutput();
+    self.updateElementwiseOutput(time);
   });
 
   io::writer::ScheduledWriter schedWriter;
@@ -476,13 +476,20 @@ void OutputManager::initPickpointOutput() {
             {
               const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
 
-              const auto* initialStress =
-                  drStorage_->lookup<DynamicRupture::InitialStressInFaultCS>(position);
-              std::array<real, 6> unrotatedInitialStress{};
-              for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
-                   ++stressVar) {
-                unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
-              }
+              // the stress the fault starts out under, which is every source in effect then
+              const auto sourceCount =
+                  dr::stressSourceCount(seissolInstance_.parameters().drParameters);
+              const auto& drLayer = drStorage_->layer(position.color);
+              const auto* stresses = drLayer.var<DynamicRupture::StressSourceInFaultCS>();
+              const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>();
+              const auto* riseTimes = drLayer.var<DynamicRupture::StressSourceRiseTime>();
+              auto unrotatedInitialStress =
+                  dr::stressAtTime(&stresses[position.cell * sourceCount],
+                                   &riseTimes[position.cell * sourceCount],
+                                   &onsets[position.cell * sourceCount],
+                                   sourceCount,
+                                   static_cast<std::uint32_t>(receiver.gpIndex),
+                                   static_cast<real>(0.0));
 
               seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
               alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -556,6 +563,7 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
 }
 
 void OutputManager::writePickpointOutput(std::size_t layerId,
+                                         double stateTime,
                                          double time,
                                          double dt,
                                          double meshDt,
@@ -582,6 +590,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
                                seissolParameters.drParameters.slipRateOutputType,
                                outputData,
                                runtime,
+                               stateTime,
                                time,
                                meshDt,
                                meshInDt);
@@ -593,7 +602,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
 
 void OutputManager::writePickpointOutput(double time, double dt) {
   for (const auto& [id, _] : ppOutputData_) {
-    writePickpointOutput(id, time, dt, 0, 1, runtime_);
+    writePickpointOutput(id, time, time, dt, 0, 1, runtime_);
   }
 }
 
@@ -784,13 +793,16 @@ void OutputManager::flushPickpointDataToFile() {
   }
 }
 
-void OutputManager::updateElementwiseOutput() {
+void OutputManager::updateElementwiseOutput(double time) {
   if (this->ewOutputBuilder_) {
     const auto& seissolParameters = seissolInstance_.parameters();
+    // at a synchronization point every cluster has just completed a time step ending here, so this
+    // is also the time the stored friction state belongs to
     impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                            seissolParameters.drParameters.slipRateOutputType,
                            ewOutputData_,
-                           runtime_);
+                           runtime_,
+                           time);
     runtime_.wait();
   }
 }
