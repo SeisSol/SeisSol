@@ -161,6 +161,7 @@ void ReceiverWriter::init(
   samplingInterval_ = parameters.samplingInterval;
   endTime_ = endTime;
   format_ = parameters.format;
+  sampleChunk_ = parameters.samplechunk;
 
   if (parameters.computeRotation) {
     derivedQuantities_.push_back(std::make_shared<kernels::ReceiverRotation>());
@@ -226,8 +227,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   logInfo() << "Mapping receivers to LTS cells...";
   receiverClusters_.clear();
 
-  size_t localReceiverCount = 0;
-
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point]) {
       const std::size_t meshId = meshIds[point];
@@ -247,7 +246,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
       if (format_ == seissol::initializer::parameters::ReceiverOutputFormat::Csv) {
         writeHeader(point, points[point], mesh.getElements()[meshId].globalId);
       }
-      localReceiverCount++;
 
       receiverClusters_[id]->addReceiver(meshId, point, points[point], mesh, backmap);
     }
@@ -355,6 +353,40 @@ void ReceiverWriter::collectSamples() {
     }
     receiver.output.clear();
   }
+}
+
+// --------------------------------------------------------------------------
+void ReceiverWriter::syncPoint(double /*currentTime*/) {
+  // the HDF5 table is filled by the scheduled writer registered in addPoints
+  if (format_ != seissol::initializer::parameters::ReceiverOutputFormat::Csv ||
+      receiverClusters_.empty()) {
+    return;
+  }
+
+  stopwatch_.start();
+
+  for (auto& cluster : receiverClusters_) {
+    const auto ncols = cluster->ncols();
+    for (auto& receiver : *cluster) {
+      assert(receiver.output.size() % ncols == 0);
+      const std::size_t nSamples = receiver.output.size() / ncols;
+
+      std::ofstream file;
+      file.open(fileName(receiver.pointId), std::ios::app);
+      file << std::scientific << std::setprecision(15);
+      for (std::size_t i = 0; i < nSamples; ++i) {
+        for (std::size_t q = 0; q < ncols; ++q) {
+          file << "  " << receiver.output[q + i * ncols];
+        }
+        file << '\n';
+      }
+      file.close();
+      receiver.output.clear();
+    }
+  }
+
+  const auto time = stopwatch_.stop();
+  logInfo() << "Wrote receivers in" << time << "seconds.";
 }
 
 // --------------------------------------------------------------------------
