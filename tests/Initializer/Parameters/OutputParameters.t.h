@@ -20,6 +20,8 @@ TEST_CASE("readOutputParameters: time series defaults to snapshots" *
   const YAML::Node node = YAML::Load(R"(
     output:
       outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
   )");
   ParameterReader reader(node, "", false);
   const auto params = readOutputParameters(&reader);
@@ -34,6 +36,8 @@ TEST_CASE("readOutputParameters: one setting reaches every mesh output" *
   const YAML::Node node = YAML::Load(R"(
     output:
       outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
       outputtimeseries: 'monolith'
   )");
   ParameterReader reader(node, "", false);
@@ -49,6 +53,8 @@ TEST_CASE("readOutputParameters: an output keeps its own setting" *
   const YAML::Node node = YAML::Load(R"(
     output:
       outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
       outputtimeseries: 'incremental'
       wavefieldtimeseries: 'monolith'
       surfacetimeseries: 'snapshot'
@@ -70,6 +76,8 @@ TEST_CASE("readOutputParameters: the fault output follows the shared setting" *
   const YAML::Node node = YAML::Load(R"(
     output:
       outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
       outputtimeseries: 'incremental'
     elementwise:
       vtkorder: 2
