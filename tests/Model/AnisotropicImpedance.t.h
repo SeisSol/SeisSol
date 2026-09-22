@@ -8,16 +8,20 @@
 #ifndef SEISSOL_TESTS_MODEL_ANISOTROPICIMPEDANCE_T_H_
 #define SEISSOL_TESTS_MODEL_ANISOTROPICIMPEDANCE_T_H_
 
-// The whole file only makes sense for a build whose MaterialT is anisotropic.
-#ifdef USE_ANISOTROPIC
+// The admittance of a material does not depend on the MaterialT of the build, so apart from the
+// layout test of the generated traction matrix, these tests run in every build.
 
 #include <doctest.h>
 
+#include "Alignment.h"
 #include "Equations/Datastructures.h"
+#include "Equations/Impedance.h"
+#include "Equations/ImpedanceBase.h"
 #include "Equations/Setup.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
+#include "ImpedanceReference.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
@@ -30,12 +34,11 @@
 
 namespace seissol::unit_test {
 
-namespace {
-
 using seissol::initializer::model::checkFaultImpedance;
-using seissol::initializer::model::computeAdmittance;
 using seissol::initializer::model::computeFaultImpedance;
-using seissol::initializer::model::DrMatrix;
+using seissol::model::computeAdmittance;
+using AnisotropicImpedance = seissol::model::ImpedanceCompute<seissol::model::AnisotropicMaterial>;
+using DrMatrix = AnisotropicImpedance::Matrix;
 
 struct FaultFrame {
   Eigen::Vector3d normal;
@@ -44,7 +47,7 @@ struct FaultFrame {
 };
 
 /// Right-handed orthonormal frame with the given (unnormalised) normal.
-FaultFrame makeFaultFrame(const Eigen::Vector3d& rawNormal) {
+inline FaultFrame makeFaultFrame(const Eigen::Vector3d& rawNormal) {
   FaultFrame frame;
   frame.normal = rawNormal.normalized();
   const Eigen::Vector3d seed =
@@ -56,8 +59,8 @@ FaultFrame makeFaultFrame(const Eigen::Vector3d& rawNormal) {
 
 /// Rotates a material into the fault-local frame, exactly as
 /// initializeDynamicRuptureMatrices does.
-model::AnisotropicMaterial rotateToFault(const model::AnisotropicMaterial& material,
-                                         const FaultFrame& frame) {
+inline model::AnisotropicMaterial rotateToFault(const model::AnisotropicMaterial& material,
+                                                const FaultFrame& frame) {
   const VrtxCoords normal{frame.normal.x(), frame.normal.y(), frame.normal.z()};
   const VrtxCoords tangent1{frame.tangent1.x(), frame.tangent1.y(), frame.tangent1.z()};
   const VrtxCoords tangent2{frame.tangent2.x(), frame.tangent2.y(), frame.tangent2.z()};
@@ -66,12 +69,12 @@ model::AnisotropicMaterial rotateToFault(const model::AnisotropicMaterial& mater
   return model::getRotatedMaterialCoefficients(bond, material);
 }
 
-model::AnisotropicMaterial isotropicMaterial(double rho, double mu, double lambda) {
+inline model::AnisotropicMaterial isotropicMaterial(double rho, double mu, double lambda) {
   return model::AnisotropicMaterial(model::ElasticMaterial(std::vector<double>{rho, mu, lambda}));
 }
 
 /// VTI with the symmetry axis along z, tilted by `tiltDegrees` towards x.
-model::AnisotropicMaterial tiltedVti(double tiltDegrees) {
+inline model::AnisotropicMaterial tiltedVti(double tiltDegrees) {
   model::AnisotropicMaterial vti;
   vti.rho = 2200.0;
   const double c11 = 3.10e10;
@@ -99,11 +102,33 @@ model::AnisotropicMaterial tiltedVti(double tiltDegrees) {
   return model::getRotatedMaterialCoefficients(bond, vti);
 }
 
-double relError(const DrMatrix& value, const DrMatrix& reference) {
+inline double relError(const DrMatrix& value, const DrMatrix& reference) {
   return (value - reference).cwiseAbs().maxCoeff() / reference.cwiseAbs().maxCoeff();
 }
 
-} // namespace
+/**
+ * The same material in units in which rho = c11 = 1. getEigenDecomposition classifies eigenvalues
+ * and checks its residual against absolute thresholds (see its debug checks), which only make
+ * sense for moduli of order one; with moduli of ~1e10 the zero eigenvalues come out as ~1e-7.
+ */
+inline model::AnisotropicMaterial nondimensionalized(const model::AnisotropicMaterial& material) {
+  model::AnisotropicMaterial scaled = material;
+  scaled.rho = 1.0;
+  for (auto coefficient : {&model::AnisotropicMaterial::c11, &model::AnisotropicMaterial::c12,
+                           &model::AnisotropicMaterial::c13, &model::AnisotropicMaterial::c14,
+                           &model::AnisotropicMaterial::c15, &model::AnisotropicMaterial::c16,
+                           &model::AnisotropicMaterial::c22, &model::AnisotropicMaterial::c23,
+                           &model::AnisotropicMaterial::c24, &model::AnisotropicMaterial::c25,
+                           &model::AnisotropicMaterial::c26, &model::AnisotropicMaterial::c33,
+                           &model::AnisotropicMaterial::c34, &model::AnisotropicMaterial::c35,
+                           &model::AnisotropicMaterial::c36, &model::AnisotropicMaterial::c44,
+                           &model::AnisotropicMaterial::c45, &model::AnisotropicMaterial::c46,
+                           &model::AnisotropicMaterial::c55, &model::AnisotropicMaterial::c56,
+                           &model::AnisotropicMaterial::c66}) {
+    scaled.*coefficient /= material.c11;
+  }
+  return scaled;
+}
 
 // ---------------------------------------------------------------------------
 // 1. Isotropic limit: an anisotropic material built from (lambda, mu) must
@@ -144,6 +169,8 @@ TEST_CASE("Anisotropic DR impedance reduces to the elastic one" *
                                        Eigen::Vector3d::UnitZ(),
                                        Eigen::Vector3d(1, 1, 1),
                                        Eigen::Vector3d(0.3, -0.5, 0.81)};
+  // deterministic on purpose, so that a failure can be reproduced
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng(20260803);
   std::normal_distribution<double> normalDist;
   for (int i = 0; i < 64; ++i) {
@@ -163,6 +190,47 @@ TEST_CASE("Anisotropic DR impedance reduces to the elastic one" *
     CHECK(relError(impedance.bPlus, bRefP) < Epsilon);
     CHECK(relError(impedance.bMinus, bRefM) < Epsilon);
   }
+}
+
+// ---------------------------------------------------------------------------
+// 1b. The isotropic closed form of the elastic (and viscoelastic) material is the isotropic limit
+//     of the Christoffel one -- for the admittance and for the lateral stress reconstruction.
+// ---------------------------------------------------------------------------
+TEST_CASE("Elastic DR impedance is the isotropic limit of the anisotropic one" *
+          doctest::test_suite("dynamicrupture")) {
+  using LateralMatrix = AnisotropicImpedance::LateralMatrix;
+  constexpr double Epsilon = 1e-12;
+
+  const double rho = 2670.0;
+  const double mu = 3.203e10;
+  const double lambda = 3.204e10;
+  const model::ElasticMaterial elastic(std::vector<double>{rho, mu, lambda});
+
+  LateralMatrix lateralElastic = LateralMatrix::Zero();
+  const DrMatrix admittanceElastic = computeAdmittance(elastic, &lateralElastic);
+
+  // the viscoelastic material forwards to the elastic closed form, with its unrelaxed moduli
+  LateralMatrix lateralViscoelastic = LateralMatrix::Zero();
+  const DrMatrix admittanceViscoelastic =
+      computeAdmittance(model::ViscoElasticMaterialParametrized<3>(elastic), &lateralViscoelastic);
+  CHECK(relError(admittanceViscoelastic, admittanceElastic) < Epsilon);
+  CHECK((lateralViscoelastic - lateralElastic).cwiseAbs().maxCoeff() < Epsilon);
+
+  for (const auto& rawNormal : {Eigen::Vector3d(0.0, 0.0, 1.0),
+                                Eigen::Vector3d(1.0, 2.0, 3.0),
+                                Eigen::Vector3d(0.3, -0.5, 0.81)}) {
+    const auto local = rotateToFault(isotropicMaterial(rho, mu, lambda), makeFaultFrame(rawNormal));
+    LateralMatrix lateralAnisotropic = LateralMatrix::Zero();
+    const DrMatrix admittanceAnisotropic = computeAdmittance(local, &lateralAnisotropic);
+
+    CHECK(relError(admittanceElastic, admittanceAnisotropic) < Epsilon);
+    CHECK((lateralElastic - lateralAnisotropic).cwiseAbs().maxCoeff() < Epsilon);
+  }
+
+  const model::ElasticMaterial minus(std::vector<double>{2500.0, 1.6e10, 2.0e10});
+  const auto impedance = computeFaultImpedance(elastic, minus);
+  const auto violation = checkFaultImpedance(impedance);
+  CHECK_MESSAGE(!violation.has_value(), violation.value_or(""));
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +284,7 @@ TEST_CASE("Anisotropic DR impedance has orientation dependent normal coupling" *
   }
 }
 
+#ifdef USE_ANISOTROPIC
 // ---------------------------------------------------------------------------
 // 3. Pins down the flat CSC layout of tractionPlusMatrix that
 //    common::computeFrictionEnergy indexes directly (flat = 3 * col + row,
@@ -243,6 +312,7 @@ TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
     }
   }
 }
+#endif // USE_ANISOTROPIC
 
 // ---------------------------------------------------------------------------
 // 4. Reconstruction of the stress components outside the fault-normal Riemann problem, used by
@@ -250,7 +320,7 @@ TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
 //    isotropic 1 - 2 (cs/cp)^2 formula.
 // ---------------------------------------------------------------------------
 TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dynamicrupture")) {
-  using seissol::initializer::model::DrLateralMatrix;
+  using DrLateralMatrix = AnisotropicImpedance::LateralMatrix;
   constexpr double Epsilon = 1e-12;
 
   // Voigt stiffness matrix of a material, for the direct check below
@@ -267,9 +337,8 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
     const double mu = 3.203e10;
     const double lambda = 3.204e10;
     const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.5, 0.81));
-    const auto lateral =
-        seissol::initializer::model::impedance_detail::lateralStressFromChristoffel(
-            rotateToFault(isotropicMaterial(rho, mu, lambda), frame));
+    const auto lateral = AnisotropicImpedance::lateralStressFromChristoffel(
+        rotateToFault(isotropicMaterial(rho, mu, lambda), frame));
 
     const double cs = std::sqrt(mu / rho);
     const double cp = std::sqrt((lambda + 2 * mu) / rho);
@@ -283,8 +352,7 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
   SUBCASE("reproduces the plane wave stress of a tilted VTI") {
     const auto frame = makeFaultFrame(Eigen::Vector3d::UnitZ());
     const auto material = rotateToFault(tiltedVti(35.0), frame);
-    const auto lateral =
-        seissol::initializer::model::impedance_detail::lateralStressFromChristoffel(material);
+    const auto lateral = AnisotropicImpedance::lateralStressFromChristoffel(material);
     const auto stiffness = voigt(material);
 
     // every polarization of a wave travelling along the fault normal has only the strain rates
@@ -314,21 +382,21 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
   }
 
   SUBCASE("closed form agrees with the eigendecomposition route") {
-    // The poroelastic case has no closed form and goes through
-    // admittanceFromEigendecomposition instead. Checking the two against each other here -- on a
-    // material where the eigensolver is well conditioned -- validates the row/column bookkeeping
-    // of that route, which is all poroelasticity relies on.
+    // admittanceFromEigendecomposition is the reference the anisotropic and the poroelastic closed
+    // form are checked against. Comparing the two here also validates the row/column bookkeeping
+    // of that route. Both are evaluated for the nondimensionalized material: the lateral stress is
+    // dimensionless anyway, and the admittance is compared in the same units.
     const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.5, 0.81));
-    const auto material = rotateToFault(tiltedVti(35.0), frame);
+    const auto material = nondimensionalized(rotateToFault(tiltedVti(35.0), frame));
 
-    DrLateralMatrix fromEigen = DrLateralMatrix::Zero();
-    seissol::initializer::model::impedance_detail::admittanceFromEigendecomposition(material,
-                                                                                    &fromEigen);
-    const auto fromClosedForm =
-        seissol::initializer::model::impedance_detail::lateralStressFromChristoffel(material);
+    DrLateralMatrix lateralFromEigen = DrLateralMatrix::Zero();
+    const DrMatrix admittanceFromEigen =
+        admittanceFromEigendecomposition(material, &lateralFromEigen);
+    const auto lateralFromClosedForm = AnisotropicImpedance::lateralStressFromChristoffel(material);
 
-    CHECK((fromEigen - fromClosedForm).cwiseAbs().maxCoeff() <
-          1e-8 * fromClosedForm.cwiseAbs().maxCoeff());
+    CHECK((lateralFromEigen - lateralFromClosedForm).cwiseAbs().maxCoeff() <
+          1e-10 * lateralFromClosedForm.cwiseAbs().maxCoeff());
+    CHECK(relError(computeAdmittance(material), admittanceFromEigen) < 1e-10);
   }
 }
 
@@ -339,9 +407,6 @@ TEST_CASE("Anisotropic lateral stress reconstruction" * doctest::test_suite("dyn
 // ---------------------------------------------------------------------------
 TEST_CASE("Christoffel matrix recovered from the admittance" *
           doctest::test_suite("dynamicrupture")) {
-  using seissol::initializer::model::christoffelFromAdmittance;
-  using seissol::initializer::model::impedance_detail::christoffelMatrix;
-
   SUBCASE("isotropic limit yields mu for every orientation and rake") {
     const double rho = 2670.0;
     const double mu = 3.203e10;
@@ -352,7 +417,8 @@ TEST_CASE("Christoffel matrix recovered from the admittance" *
                                   Eigen::Vector3d(1.0, 2.0, 3.0),
                                   Eigen::Vector3d(-1.0, 0.4, 0.2)}) {
       const auto local = rotateToFault(material, makeFaultFrame(rawNormal));
-      const Eigen::Matrix3d gamma = christoffelFromAdmittance(computeAdmittance(local), rho);
+      const Eigen::Matrix3d gamma =
+          AnisotropicImpedance::christoffelFromAdmittance(computeAdmittance(local), rho);
 
       CHECK(gamma(1, 1) == doctest::Approx(mu).epsilon(1e-10));
       CHECK(gamma(2, 2) == doctest::Approx(mu).epsilon(1e-10));
@@ -365,9 +431,9 @@ TEST_CASE("Christoffel matrix recovered from the admittance" *
     const auto frame = makeFaultFrame(Eigen::Vector3d(0.3, -0.7, 0.6));
     const auto local = rotateToFault(tiltedVti(35.0), frame);
 
-    const Eigen::Matrix3d reference = christoffelMatrix(local);
+    const Eigen::Matrix3d reference = AnisotropicImpedance::christoffelMatrix(local);
     const Eigen::Matrix3d recovered =
-        christoffelFromAdmittance(computeAdmittance(local), local.rho);
+        AnisotropicImpedance::christoffelFromAdmittance(computeAdmittance(local), local.rho);
     CHECK((recovered - reference).cwiseAbs().maxCoeff() < 1e-10 * reference.cwiseAbs().maxCoeff());
 
     // the two rake directions work against different moduli, so a single number per face cannot
@@ -378,7 +444,5 @@ TEST_CASE("Christoffel matrix recovered from the admittance" *
 }
 
 } // namespace seissol::unit_test
-
-#endif // USE_ANISOTROPIC
 
 #endif // SEISSOL_TESTS_MODEL_ANISOTROPICIMPEDANCE_T_H_

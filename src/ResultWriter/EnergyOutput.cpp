@@ -13,6 +13,7 @@
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
 #include "Equations/EnergyBase.h"
+#include "Equations/anisotropic/Model/Impedance.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -20,7 +21,6 @@
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
-#include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
@@ -30,6 +30,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/Quadrature.h"
@@ -418,9 +419,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             const auto admittance = [](const real* data) {
               return Eigen::Map<const Eigen::Matrix<real, 3, 3>>(data).cast<double>();
             };
-            const auto gammaPlus = seissol::initializer::model::christoffelFromAdmittance(
+            using AnisotropicImpedance = model::ImpedanceCompute<model::AnisotropicMaterial>;
+            const auto gammaPlus = AnisotropicImpedance::christoffelFromAdmittance(
                 admittance(impedanceMatrices[i].impedance), waveSpeedsPlus[i].density);
-            const auto gammaMinus = seissol::initializer::model::christoffelFromAdmittance(
+            const auto gammaMinus = AnisotropicImpedance::christoffelFromAdmittance(
                 admittance(impedanceMatrices[i].impedanceNeig), waveSpeedsMinus[i].density);
 
             const auto* slip = reinterpret_cast<const real(*)[seissol::dr::misc::NumPaddedPoints]>(

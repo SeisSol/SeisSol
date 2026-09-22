@@ -8,15 +8,20 @@
 #ifndef SEISSOL_TESTS_MODEL_POROELASTICIMPEDANCE_T_H_
 #define SEISSOL_TESTS_MODEL_POROELASTICIMPEDANCE_T_H_
 
-#ifdef USE_POROELASTIC
+// The closed form only depends on the material parameters and runs in every build. Comparing it
+// with the eigendecomposition needs MaterialSetup<PoroElasticMaterial>, and the traction matrix
+// pattern is generated code -- those two only run in a poroelastic build.
 
 #include <doctest.h>
 
 #include "Alignment.h"
 #include "Equations/Datastructures.h"
+#include "Equations/Impedance.h"
+#include "Equations/ImpedanceBase.h"
 #include "Equations/Setup.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "ImpedanceReference.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Kernels/Precision.h"
 
@@ -28,28 +33,24 @@
 
 namespace seissol::unit_test {
 
-namespace {
+using PoroelasticImpedance = seissol::model::ImpedanceCompute<seissol::model::PoroElasticMaterial>;
 
 /// bulkSolid, rho, lambda, mu, porosity, permeability, tortuosity, bulkFluid, rhoFluid, viscosity
-model::PoroElasticMaterial testPoroMaterial(double porosity, double tortuosity) {
+inline model::PoroElasticMaterial testPoroMaterial(double porosity, double tortuosity) {
   return model::PoroElasticMaterial(std::vector<double>{
       3.60e10, 2650.0, 4.0e9, 6.0e9, porosity, 1.0e-13, tortuosity, 2.2e9, 1000.0, 1.0e-3});
 }
 
-} // namespace
-
+#ifdef USE_POROELASTIC
 // ---------------------------------------------------------------------------
 // The poroelastic interface has four variables, (sigma_nn, sigma_ns, sigma_nd, p) against
 // (v_n, v_s, v_d, q_n). SeisSol's poroelastic frame is isotropic, so the generalized wave
 // impedance Z = Mass # Gamma has a closed form -- a 2x2 fast/slow P block plus two shear scalars.
 // Checking it against the general eigendecomposition validates both routes against each other.
 // ---------------------------------------------------------------------------
-TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicrupture")) {
-  using seissol::initializer::model::checkFaultImpedance;
-  using seissol::initializer::model::computeAdmittance;
-  using seissol::initializer::model::computeFaultImpedance;
-  using seissol::initializer::model::DrLateralMatrix;
-  using seissol::initializer::model::DrMatrix;
+TEST_CASE("Poroelastic DR impedance closed form agrees with the eigendecomposition" *
+          doctest::test_suite("dynamicrupture")) {
+  using LateralMatrix = PoroelasticImpedance::LateralMatrix;
 
   // the eigendecomposition of the 13x13 Jacobian is comparatively ill conditioned here
   // (cond(R_t) reaches ~1e6 at high porosity), so this is the accuracy we can demand of it
@@ -59,13 +60,12 @@ TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicr
     for (const double tortuosity : {1.0, 1.5, 3.0}) {
       const auto sweepMaterial = testPoroMaterial(porosity, tortuosity);
 
-      DrLateralMatrix lateralClosed = DrLateralMatrix::Zero();
-      const auto admittanceClosed = computeAdmittance(sweepMaterial, &lateralClosed);
+      LateralMatrix lateralClosed = LateralMatrix::Zero();
+      const auto admittanceClosed =
+          seissol::model::computeAdmittance(sweepMaterial, &lateralClosed);
 
-      DrLateralMatrix lateralEigen = DrLateralMatrix::Zero();
-      const auto admittanceEigen =
-          seissol::initializer::model::impedance_detail::admittanceFromEigendecomposition(
-              sweepMaterial, &lateralEigen);
+      LateralMatrix lateralEigen = LateralMatrix::Zero();
+      const auto admittanceEigen = admittanceFromEigendecomposition(sweepMaterial, &lateralEigen);
 
       CHECK((admittanceClosed - admittanceEigen).cwiseAbs().maxCoeff() <
             Epsilon * admittanceEigen.cwiseAbs().maxCoeff());
@@ -73,6 +73,13 @@ TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicr
             Epsilon * lateralEigen.cwiseAbs().maxCoeff());
     }
   }
+}
+#endif // USE_POROELASTIC
+
+TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicrupture")) {
+  using seissol::initializer::model::checkFaultImpedance;
+  using seissol::initializer::model::computeFaultImpedance;
+  using DrMatrix = PoroelasticImpedance::Matrix;
 
   const auto material = testPoroMaterial(0.2, 1.5);
   const auto impedance = computeFaultImpedance(material, material);
@@ -150,6 +157,7 @@ TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicr
   }
 }
 
+#ifdef USE_POROELASTIC
 // ---------------------------------------------------------------------------
 // The traction averaging matrices map all four interface tractions to the three components the
 // frictional work is computed with, so their sparsity pattern has to hold the fluid pressure row.
@@ -181,8 +189,8 @@ TEST_CASE("Poroelastic traction matrix pattern" * doctest::test_suite("dynamicru
   }
 }
 
-} // namespace seissol::unit_test
-
 #endif // USE_POROELASTIC
+
+} // namespace seissol::unit_test
 
 #endif // SEISSOL_TESTS_MODEL_POROELASTICIMPEDANCE_T_H_
