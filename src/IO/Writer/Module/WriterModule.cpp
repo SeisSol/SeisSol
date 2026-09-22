@@ -71,6 +71,7 @@ void WriterModule::startup() {
 
 void WriterModule::simulationStart(std::optional<double> checkpointTime) {
   const auto startTime = checkpointTime.value_or(0);
+  resumed_ = startTime > 0;
   if (startTime == 0) {
     syncPoint(0);
   } else {
@@ -110,7 +111,7 @@ void WriterModule::syncPoint(double time) {
   logInfo() << "Output Writer" << settings_.name << ": triggering write at" << time;
   lastWrite_ = time;
   ++writeCount_;
-  call(AsyncWriterExec{});
+  call(AsyncWriterExec{resumed_});
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {

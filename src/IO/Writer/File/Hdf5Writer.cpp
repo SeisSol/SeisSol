@@ -58,7 +58,7 @@ namespace seissol::io::writer::file {
 
 Hdf5File::Hdf5File(MPI_Comm comm) : comm_(comm) {}
 
-void Hdf5File::openFile(const std::string& name) {
+void Hdf5File::openFile(const std::string& name, bool fresh) {
   const hid_t h5falist = _eh(H5Pcreate(H5P_FILE_ACCESS));
 #ifdef H5F_LIBVER_V18
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_V18, H5F_LIBVER_V18));
@@ -85,10 +85,21 @@ void Hdf5File::openFile(const std::string& name) {
 
   _eh(H5Pset_all_coll_metadata_ops(h5falist, false));
 
-  if (seissol::directoryExists(seissol::filesystem::directory_entry(name))) {
+  // Opening and creating are collective, so every rank has to make the same choice; rank 0 looks at
+  // the file system for all of them, since the ranks may see it differently (e.g. stale caches).
+  int rank = 0;
+  MPI_Comm_rank(comm_, &rank);
+  int exists = 0;
+  if (!fresh && rank == 0) {
+    exists = seissol::directoryExists(seissol::filesystem::directory_entry(name)) ? 1 : 0;
+  }
+  MPI_Bcast(&exists, 1, MPI_INT, 0, comm_);
+
+  if (exists != 0) {
     file_ = _eh(H5Fopen(name.c_str(), H5F_ACC_RDWR, h5falist));
   } else {
-    file_ = _eh(H5Fcreate(name.c_str(), H5F_ACC_EXCL, H5P_DEFAULT, h5falist));
+    file_ =
+        _eh(H5Fcreate(name.c_str(), fresh ? H5F_ACC_TRUNC : H5F_ACC_EXCL, H5P_DEFAULT, h5falist));
   }
   _eh(H5Pclose(h5falist));
 
@@ -474,16 +485,27 @@ void Hdf5File::closeFile() {
   handles_.pop();
 }
 
-Hdf5Writer::Hdf5Writer(MPI_Comm comm) : comm_(comm) {}
+Hdf5Writer::Hdf5Writer(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFiles_(runFiles) {}
+
+Hdf5File Hdf5Writer::file(const std::string& name) {
+  if (openFiles_.find(name) == openFiles_.end()) {
+    // a file this run has not written yet belongs to an earlier run, and is replaced -- unless this
+    // run continues that one
+    const bool fresh = runFiles_ != nullptr && !runFiles_->resumed &&
+                       runFiles_->written.find(name) == runFiles_->written.end();
+    Hdf5File file(comm_);
+    file.openFile(name, fresh);
+    openFiles_.insert({name, file});
+    if (runFiles_ != nullptr) {
+      runFiles_->written.insert(name);
+    }
+  }
+  return openFiles_.at(name);
+}
 
 void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
                                 const instructions::Hdf5AttributeWrite& write) {
-  Hdf5File file(comm_);
-  if (openFiles_.find(write.location.file()) == openFiles_.end()) {
-    file.openFile(write.location.file());
-    openFiles_.insert({write.location.file(), file});
-  }
-  file = openFiles_.at(write.location.file());
+  auto file = this->file(write.location.file());
   for (const auto& groupname : write.location.groups()) {
     file.openGroup(groupname);
   }
@@ -500,12 +522,7 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
 }
 
 void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5DataWrite& write) {
-  Hdf5File file(comm_);
-  if (openFiles_.find(write.location.file()) == openFiles_.end()) {
-    file.openFile(write.location.file());
-    openFiles_.insert({write.location.file(), file});
-  }
-  file = openFiles_.at(write.location.file());
+  auto file = this->file(write.location.file());
   for (const auto& groupname : write.location.groups()) {
     file.openGroup(groupname);
   }
@@ -523,12 +540,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
 
 void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
                                    const instructions::Hdf5LinkExternalWrite& write) {
-  Hdf5File file(comm_);
-  if (openFiles_.find(write.location.file()) == openFiles_.end()) {
-    file.openFile(write.location.file());
-    openFiles_.insert({write.location.file(), file});
-  }
-  file = openFiles_.at(write.location.file());
+  auto file = this->file(write.location.file());
   for (const auto& groupname : write.location.groups()) {
     file.openGroup(groupname);
   }

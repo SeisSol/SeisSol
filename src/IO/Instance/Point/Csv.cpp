@@ -88,9 +88,10 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Csv::make
     auto writer = writer::Writer();
 
     if (counter == 0) {
-      // the same on every rank, so it goes in once
+      // the same on every rank, so it goes in once; it starts the file, replacing what an earlier
+      // run left there
       writer.addInstruction(std::make_shared<writer::instructions::BinaryWrite>(
-          filename, writer::WriteInline::createString(header()), 0, true));
+          filename, writer::WriteInline::createString(header()), 0, false));
     }
     this->rowcache_ = rows();
     this->resetStorage();

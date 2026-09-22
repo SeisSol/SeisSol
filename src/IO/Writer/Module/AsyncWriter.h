@@ -17,7 +17,10 @@
 namespace seissol::io::writer::module {
 struct AsyncWriterInit {};
 
-struct AsyncWriterExec {};
+struct AsyncWriterExec {
+  //! Whether the run resumes from a checkpoint (see file::RunFiles).
+  bool resumed{false};
+};
 
 class AsyncWriter {
   public:
@@ -43,6 +46,8 @@ class AsyncWriter {
   MPI_Comm comm_{MPI_COMM_WORLD};
 
   static std::mutex globalLock;
+  //! What the outputs of this run have written; shared by all of them, and guarded by globalLock.
+  static file::RunFiles runFiles;
 };
 
 using AsyncWriterModule = async::Module<AsyncWriter, AsyncWriterInit, AsyncWriterExec>;

@@ -61,8 +61,14 @@ class LocalExecInfo : public async::ExecInfo {
 /**
  * Materializes the managed buffers of @p writer , serializes the plan, parses it back and executes
  * it on @p comm . Returns the serialized plan, so that a test can inspect it as well.
+ *
+ * With @p runFiles , the parsed plan is carried out directly against that record of the files a
+ * run has written, so that a test can play several runs one after another; otherwise it goes
+ * through the executor, which keeps that record for the whole process.
  */
-inline std::string runPlan(seissol::io::writer::Writer& writer, MPI_Comm comm) {
+inline std::string runPlan(seissol::io::writer::Writer& writer,
+                           MPI_Comm comm,
+                           seissol::io::writer::file::RunFiles* runFiles = nullptr) {
   using namespace seissol::io::writer;
 
   LocalExecInfo info;
@@ -94,6 +100,13 @@ inline std::string runPlan(seissol::io::writer::Writer& writer, MPI_Comm comm) {
   const auto plan = writer.serialize();
   info.resizeBuffer(planId, plan.size());
   std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+
+  if (runFiles != nullptr) {
+    auto instance = Writer(plan).beginWrite(info, comm, runFiles);
+    instance.close();
+    writer.endWrite();
+    return plan;
+  }
 
   // hand it to the real executor rather than calling beginWrite directly, so that the plan
   // travels the way it does in production

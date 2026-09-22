@@ -26,7 +26,7 @@ namespace seissol::io::writer {
 
 class WriteInstance {
   public:
-  explicit WriteInstance(MPI_Comm comm);
+  explicit WriteInstance(MPI_Comm comm, file::RunFiles* runFiles = nullptr);
 
   void write(const async::ExecInfo& info,
              const std::shared_ptr<instructions::WriteInstruction>& instruction);
@@ -54,7 +54,14 @@ class Writer {
 
   std::string serialize();
 
-  WriteInstance beginWrite(const async::ExecInfo& info, MPI_Comm comm);
+  /**
+   * @brief Carries out the plan.
+   *
+   * @p runFiles is what the run has written so far (see file::RunFiles); without it, existing files
+   * are opened and appended to.
+   */
+  WriteInstance
+      beginWrite(const async::ExecInfo& info, MPI_Comm comm, file::RunFiles* runFiles = nullptr);
 
   void endWrite();
 

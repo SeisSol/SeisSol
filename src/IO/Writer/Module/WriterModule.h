@@ -74,6 +74,8 @@ class WriterModule : public seissol::Module, private AsyncWriterModule, private 
   ScheduledWriter settings_;
   double lastWrite_{-1};
   std::size_t writeCount_{0};
+  //! Whether the run continues one that stopped at a checkpoint.
+  bool resumed_{false};
   const parallel::Pinning& pinning_;
 
   // TODO: remove?

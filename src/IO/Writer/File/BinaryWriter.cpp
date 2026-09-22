@@ -27,6 +27,11 @@ void BinaryFile::openFile(const std::string& name, bool append) {
   // the same hints the HDF5 backend uses; the payload of an Xdmf output goes through here
   MPI_File_open(
       comm_, name.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY | mode, outputMpioHints(), &file_);
+  if (!append) {
+    // not appending means writing the file from its start, so whatever it held before goes;
+    // distributed writes are placed behind the current end of the file
+    MPI_File_set_size(file_, 0);
+  }
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   int rank = 0;
