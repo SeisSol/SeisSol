@@ -11,7 +11,6 @@
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/equation-elastic-6-double/tensor.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
