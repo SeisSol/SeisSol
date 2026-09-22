@@ -12,11 +12,29 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Instruction.h"
 
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
 
 namespace seissol::io::instance::metadata {
+
+/**
+ * @brief A double as text that reads back as the same double, e.g. an output time.
+ *
+ * Fifteen significant digits where they suffice, which keeps 0.1 as "0.1", and seventeen where
+ * they do not.
+ */
+inline std::string formatExact(double value) {
+  std::ostringstream shortForm;
+  shortForm << std::setprecision(15) << value;
+  if (std::stod(shortForm.str()) == value) {
+    return shortForm.str();
+  }
+  std::ostringstream longForm;
+  longForm << std::setprecision(17) << value;
+  return longForm.str();
+}
 
 class XmlInstructor {
   public:

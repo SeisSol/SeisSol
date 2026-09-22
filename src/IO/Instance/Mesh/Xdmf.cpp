@@ -183,7 +183,7 @@ struct XdmfMeta {
 
       // add the time node here already
       auto gridTime = std::make_shared<XmlNode>("Time");
-      gridTime->addAttribute(XmlAttribute::create("Value", std::to_string(entry.time)));
+      gridTime->addAttribute(XmlAttribute::create("Value", metadata::formatExact(entry.time)));
       grid->addNode(gridTime);
 
       for (const auto& datasetEntry : entriesConst) {
