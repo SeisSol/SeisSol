@@ -320,6 +320,14 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
       h5space = _eh(H5Dget_space(h5data));
 
+#if H5_VERSION_GE(1, 10, 5)
+      // With MPI-IO, the chunks of the grown extent are allocated right away, and HDF5 2.2 does
+      // that without opening the chunk index of a dataset that was only just opened (it trips
+      // the assertion `index_is_open` in H5D__chunk_lookup). Counting the chunks opens it.
+      hsize_t chunkCount = 0;
+      _eh(H5Dget_num_chunks(h5data, h5space, &chunkCount));
+#endif
+
       std::vector<hsize_t> newGlobalSizes(dimensionCount);
       std::vector<hsize_t> newGlobalSizesMax(dimensionCount);
       _eh(H5Sget_simple_extent_dims(h5space, newGlobalSizes.data(), newGlobalSizesMax.data()));
