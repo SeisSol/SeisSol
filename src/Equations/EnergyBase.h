@@ -223,7 +223,11 @@ inline constexpr std::array DarcyEnergies{
  * integral is a state that would have to be advanced every time step, inside
  * kernels that run on the device, which is out of scope here; integrating the
  * reported rate in postprocessing gives the same quantity to the accuracy of the
- * output interval.
+ * output interval -- as long as the rate evaluated at the output times represents
+ * the time in between. That fails for a relaxation much faster than the time step,
+ * such as Darcy friction at typical permeabilities: the state at an output time is
+ * then out of equilibrium, and the sampled rate depends on the length of the last
+ * time step (see docs/energy-output.rst).
  */
 template <typename MaterialT>
 struct EnergyCompute;

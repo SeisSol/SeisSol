@@ -408,6 +408,22 @@ with dynamic fluid viscosity :math:`\eta_f` and permeability :math:`\kappa`. For
 
 Without external sources, the total energy decreases monotonically due to viscous fluid friction.
 
+.. _darcy_dissipation_stiff:
+
+.. warning::
+
+   For typical permeabilities, the Darcy friction is stiff: the relative fluid velocity
+   :math:`w_i` relaxes within :math:`\rho_f T \kappa / (\phi \eta_f)`, usually microseconds and
+   far below the time step. The solver resolves that relaxation in its element-local predictor,
+   but the state at an output time still carries the part of :math:`w_i` that the last flux
+   update added, which the next predictor removes again within the relaxation time.
+   ``darcy_dissipation_rate`` evaluated from that state is therefore not the dissipation the
+   scheme actually performs: it grows with the length of the last, shortened time step before
+   the output, and can exceed the actual dissipation by orders of magnitude. In this regime --
+   seismic frequencies far below the Biot characteristic frequency, where the physical Darcy
+   dissipation of the waves is small -- do not integrate the column into an energy budget. It is
+   meaningful when the relaxation time is long compared to the time step.
+
 
 Earthquake source energy
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -546,7 +562,8 @@ where :math:`W_\mathrm{pot}` is the respective potential/stored energy and :math
    :math:`W_\mathrm{kin} + W_\mathrm{pot}`. The accuracy of that integration is
    limited by the output interval, so a coarse ``EnergyOutputInterval`` will not
    close the budget to machine precision even for a perfectly conservative
-   scheme.
+   scheme. For a stiff dissipation, the sampled rate is not representative at
+   all; see :ref:`the warning on the Darcy dissipation <darcy_dissipation_stiff>`.
 
 For coupled acoustic-elastic simulations, the global energy balance over both domains reads:
 
