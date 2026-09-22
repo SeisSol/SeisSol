@@ -691,12 +691,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           target[0] = rank;
         });
 
-    writer.addCellData<std::uint8_t>(
+    // four bytes wide, as it has always been written: readers such as seissolxdmf know no narrower
+    // integers
+    writer.addCellData<std::uint32_t>(
         "locationFlag",
         {},
         true,
-        [=,
-         &freeSurfaceIntegrator](std::uint8_t* target, std::size_t index, std::size_t /*subcell*/) {
+        [=, &freeSurfaceIntegrator](
+            std::uint32_t* target, std::size_t index, std::size_t /*subcell*/) {
           target[0] = surfaceLocationFlag[freeSurfaceIntegrator.backmap[index]];
         });
 

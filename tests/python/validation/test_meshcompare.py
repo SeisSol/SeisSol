@@ -444,6 +444,35 @@ class TestMeshCompareDuplicateGeometry:
         assert "conformant: True" in out
 
 
+class TestMeshCompareUnreadableFlags:
+    """A locationFlag that does not come back with one value per cell, as happens when a
+    reader misinterprets its width, has to stop the comparison instead of shortening it.
+    """
+
+    def test_short_flags_fail(self, patch_seissolxdmf, capsys):
+        geom = TestMeshCompareDuplicateGeometry.GEOM
+        connect = TestMeshCompareDuplicateGeometry.CONNECT
+        values = TestMeshCompareDuplicateGeometry.VALUES
+        ids = TestMeshCompareDuplicateGeometry.IDS
+        patch_seissolxdmf["sim.xdmf"] = {
+            "geom": geom,
+            "connect": connect,
+            "fields": {"v1": values},
+            "int_fields": {"global-id": ids, "locationFlag": np.array([0])},
+        }
+        patch_seissolxdmf["ref.xdmf"] = {
+            "geom": geom,
+            "connect": connect,
+            "fields": {"v1": values},
+            "int_fields": {"global-id": ids, "locationFlag": np.array([0, 1, 3])},
+        }
+
+        with pytest.raises(SystemExit) as exc_info:
+            meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=1e-12)
+        assert exc_info.value.code == 1
+        assert "cannot be read as described" in capsys.readouterr().out
+
+
 class TestMeshCompareAggregation:
     """Different subdivisions of the same element fall back to a per-element
     comparison instead of failing outright."""

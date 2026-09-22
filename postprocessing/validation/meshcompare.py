@@ -294,6 +294,15 @@ def compare(file, file_ref, epsilon):
         if tags is not None
         else None
     )
+    # a flag per cell, or the file could not be read as it says; matching on a shorter list would
+    # silently leave most of the cells out of the comparison
+    for name, flags, cells in (("", tags, connect), ("reference ", tags_ref, connect_ref)):
+        if flags is not None and len(flags) != len(cells):
+            print(
+                f"The {name}file holds {len(flags)} values of locationFlag for {len(cells)} "
+                "cells; it cannot be read as described."
+            )
+            sys.exit(1)
 
     matched = match_cells(
         geom,

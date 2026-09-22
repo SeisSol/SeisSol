@@ -78,8 +78,14 @@ struct XdmfDataset {
                const std::string& payload) const {
 
     std::string itemType = "invalid";
-    if (dynamic_cast<datatype::IntegerDatatype*>(datatype.get()) != nullptr) {
-      itemType = "Int";
+    if (const auto* integer = dynamic_cast<datatype::IntegerDatatype*>(datatype.get());
+        integer != nullptr) {
+      // XDMF reads an Int of any precision as at least four bytes wide; a single byte is a Char
+      if (integer->size() == 1) {
+        itemType = integer->sign() ? "Char" : "UChar";
+      } else {
+        itemType = "Int";
+      }
     } else if (dynamic_cast<datatype::F32Datatype*>(datatype.get()) != nullptr) {
       itemType = "Float";
     } else if (dynamic_cast<datatype::F64Datatype*>(datatype.get()) != nullptr) {
