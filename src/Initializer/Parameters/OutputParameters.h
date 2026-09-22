@@ -35,7 +35,7 @@ enum class XdmfBackend : int { Posix, Hdf5 };
  * conservative on each output subcell, the former is cheaper and reproduces the solution exactly
  * at the sampled points.
  *
- * The default differs per output, so that each keeps the behaviour it had before the output
+ * The default differs per output, so that each keeps the behavior it had before the output
  * modules were unified: the wavefield output sampled the solution at the subcell barycenters,
  * while the free-surface output averaged over each subcell.
  */

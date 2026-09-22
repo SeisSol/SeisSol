@@ -33,12 +33,12 @@ Refinement
 .. note::
 
    Up to and including SeisSol v1.3, the subcells of a refined wavefield output were sampled in a
-   different vertex labelling than the one the output mesh was built with. As a result, the value
+   different vertex labeling than the one the output mesh was built with. As a result, the value
    written for a subcell was the solution at the center of one of its siblings -- for
    ``refinement = 1``, three of the four subcells of every element were affected, and for
    ``refinement = 2`` and ``3`` the inner subcells were sampled at a point that is not the center
    of any subcell at all. Only ``refinement = 0`` was unaffected, since the center of the whole
-   element is invariant under that relabelling. Output written with ``refinement > 0`` by an older
+   element is invariant under that relabeling. Output written with ``refinement > 0`` by an older
    version therefore differs from what SeisSol produces now, and the difference is not a
    regression.
 
@@ -141,7 +141,7 @@ stay one file per step, or the other way round. It takes effect only with
 are.
 
 At ``wavefieldvtkorder = -1`` and ``0`` the corners a cell shares with its
-neighbours are written once, which makes the point array as large as the mesh
+neighbors are written once, which makes the point array as large as the mesh
 rather than as large as the mesh times the number of cells a vertex touches. The
 merging happens within a rank, and can be switched off with
 ``SEISSOL_IO_VERTEXFILTER=0``.

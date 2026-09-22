@@ -110,7 +110,7 @@ class GeometryWriter {
       // At degree 0 the points of a cell are its corners, and a corner belongs to every cell
       // around it -- about twenty of them in a tetrahedral mesh. Writing each of them once makes
       // the point array that much smaller. From degree 1 on the points are Lagrange nodes, which
-      // neighbouring cells deliberately do not share, since the solution is discontinuous there.
+      // neighboring cells deliberately do not share, since the solution is discontinuous there.
       const auto pointsPerCell = numPoints(1, shape);
       std::vector<double> coordinates(localElementCount * pointsPerCell * 3);
       for (std::size_t cell = 0; cell < localElementCount; ++cell) {

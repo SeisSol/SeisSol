@@ -39,7 +39,7 @@ struct PointMap {
  *
  * Coordinates are snapped to a grid to find candidates and then compared with @p tolerance, which
  * is relative to the extent of the input. Snapping alone would separate two points that fall on
- * either side of a cell boundary, so the neighbouring cells are searched as well; comparing
+ * either side of a cell boundary, so the neighboring cells are searched as well; comparing
  * afterwards means the grid only has to be fine enough to keep distinct points apart.
  */
 inline PointMap deduplicatePoints(const std::vector<double>& coordinates,
@@ -64,7 +64,7 @@ inline PointMap deduplicatePoints(const std::vector<double>& coordinates,
     extent = std::max(extent, maximum[d] - minimum[d]);
   }
   const auto epsilon = extent > 0 ? extent * tolerance : tolerance;
-  // coarse enough that coinciding points land in the same cell or a neighbouring one
+  // coarse enough that coinciding points land in the same cell or a neighboring one
   const auto spacing = epsilon > 0 ? epsilon * 16 : 1.0;
 
   struct Key {
@@ -73,7 +73,7 @@ inline PointMap deduplicatePoints(const std::vector<double>& coordinates,
   };
   struct KeyHash {
     std::size_t operator()(const Key& key) const {
-      // three odd primes, so that neighbouring cells do not collide systematically
+      // three odd primes, so that neighboring cells do not collide systematically
       return static_cast<std::size_t>(key.x * 73856093L ^ key.y * 19349663L ^ key.z * 83492791L);
     }
   };
@@ -95,11 +95,11 @@ inline PointMap deduplicatePoints(const std::vector<double>& coordinates,
     for (std::int64_t dx = -1; dx <= 1 && found == result.pointCount(); ++dx) {
       for (std::int64_t dy = -1; dy <= 1 && found == result.pointCount(); ++dy) {
         for (std::int64_t dz = -1; dz <= 1 && found == result.pointCount(); ++dz) {
-          const auto neighbour = buckets.find(Key{cell.x + dx, cell.y + dy, cell.z + dz});
-          if (neighbour == buckets.end()) {
+          const auto neighbor = buckets.find(Key{cell.x + dx, cell.y + dy, cell.z + dz});
+          if (neighbor == buckets.end()) {
             continue;
           }
-          for (const auto candidate : neighbour->second) {
+          for (const auto candidate : neighbor->second) {
             const auto* other = &result.points[candidate * 3];
             if (std::abs(current[0] - other[0]) <= epsilon &&
                 std::abs(current[1] - other[1]) <= epsilon &&

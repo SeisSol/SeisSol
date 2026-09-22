@@ -76,7 +76,7 @@ std::int64_t inlineValue(writer::Writer& writer, const std::string& path) {
 } // namespace
 
 // ---------------------------------------------------------------------------
-// Instruction and data source serialisation
+// Instruction and data source serialization
 // ---------------------------------------------------------------------------
 
 TEST_CASE("IO/Instruction: Hdf5Location round-trips" * doctest::test_suite("io")) {
@@ -110,7 +110,7 @@ TEST_CASE("IO/Instruction: common location of two paths" * doctest::test_suite("
   CHECK_FALSE(cellData.commonLocation(other).has_value());
 }
 
-TEST_CASE("IO/Instruction: inline data survives serialisation" * doctest::test_suite("io")) {
+TEST_CASE("IO/Instruction: inline data survives serialization" * doctest::test_suite("io")) {
   const std::vector<std::int64_t> values{3, 1, 4, 1, 5};
   const auto source = WriteInline::createArray<std::int64_t>({values.size()}, values);
 
@@ -123,7 +123,7 @@ TEST_CASE("IO/Instruction: inline data survives serialisation" * doctest::test_s
   CHECK_FALSE(restored->distributed());
 }
 
-TEST_CASE("IO/Instruction: a plan survives serialisation" * doctest::test_suite("io")) {
+TEST_CASE("IO/Instruction: a plan survives serialization" * doctest::test_suite("io")) {
   writer::Writer original;
   original.addInstruction(std::make_shared<instructions::Hdf5DataWrite>(
       instructions::Hdf5Location("file.h5", {"VTKHDF"}),
@@ -277,7 +277,7 @@ TEST_CASE("IO/Instruction: the subdivision multiplies the cell count" * doctest:
   auto plan = geometry.makeWriter()(dir.prefix(), 0, 0.0);
   CHECK(inlineValue(plan, "/VTKHDF/NumberOfCells") == 8);
 
-  // the writer function is only invoked once the buffers are materialised
+  // the writer function is only invoked once the buffers are materialized
   unit_test::io::runPlan(plan, MPI_COMM_SELF);
 
   CHECK_FALSE(outOfRange.load());

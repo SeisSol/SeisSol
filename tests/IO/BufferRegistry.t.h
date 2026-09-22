@@ -187,7 +187,7 @@ TEST_CASE("IO/BufferRegistry: the ids reach the plan" * doctest::test_suite("io"
   const auto ids = registry.assign(plan);
   REQUIRE(ids.size() == 2);
 
-  // the executor finds the data by the id in the serialised plan, so the two have to agree
+  // the executor finds the data by the id in the serialized plan, so the two have to agree
   const auto serialized = plan.serialize();
   for (const auto id : ids) {
     CHECK(serialized.find("id: " + std::to_string(id)) != std::string::npos);

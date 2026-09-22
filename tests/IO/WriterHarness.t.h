@@ -32,8 +32,8 @@ namespace seissol::unit_test::io {
 /**
  * A stand-in for the ASYNC executor, so that a write plan can be run inside a unit test.
  *
- * It performs the same three steps WriterModule does: materialise every managed buffer, hand out
- * ids for them, and expose them again through ExecInfo. The plan is serialised and re-parsed in
+ * It performs the same three steps WriterModule does: materialize every managed buffer, hand out
+ * ids for them, and expose them again through ExecInfo. The plan is serialized and re-parsed in
  * between, exactly as it is when it travels to the executor, so the round trip through YAML is
  * part of what gets exercised here.
  */
@@ -59,14 +59,14 @@ class LocalExecInfo : public async::ExecInfo {
 };
 
 /**
- * Materialises the managed buffers of @p writer , serialises the plan, parses it back and executes
- * it on @p comm . Returns the serialised plan, so that a test can inspect it as well.
+ * Materializes the managed buffers of @p writer , serializes the plan, parses it back and executes
+ * it on @p comm . Returns the serialized plan, so that a test can inspect it as well.
  */
 inline std::string runPlan(seissol::io::writer::Writer& writer, MPI_Comm comm) {
   using namespace seissol::io::writer;
 
   LocalExecInfo info;
-  // buffer 0 is where WriterModule puts the serialised plan; the executor reads it from there
+  // buffer 0 is where WriterModule puts the serialized plan; the executor reads it from there
   const auto planId = info.addBuffer(0);
 
   std::set<DataSource*> handled;

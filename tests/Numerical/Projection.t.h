@@ -374,7 +374,7 @@ TEST_CASE("Numerical/Projection: subcells tile the reference cell without invert
 // The subdivision tables have to be read in the vertex order of the reference simplex that
 // AffineMap::fromVertices reconstructs from -- not in the (rotated) vertex order of the legacy
 // refinement::Tetrahedron::unitTetrahedron(). Getting that wrong is invisible in the volumes:
-// the relabelling is an even permutation, so the subcells still tile the reference cell, they
+// the relabeling is an even permutation, so the subcells still tile the reference cell, they
 // just pick a different diagonal of the inner octahedron.
 TEST_CASE("Numerical/Projection: tetrahedron subdivisions match the legacy refiner") {
   const auto check = [](const std::vector<AffineMap<3, 3>>& subcells,

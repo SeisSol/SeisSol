@@ -45,7 +45,7 @@ and states how many output cells that puts on every surface face.
 ``surfaceprojection`` controls how the solution reaches the output points. ``l2`` (the default)
 averages over each subtriangle, which is what the free surface output has always done; the
 alternative, ``pointwise``, evaluates the solution at the output points instead. Note that the
-default differs from the one of ``wavefieldprojection``, so that both outputs keep the behaviour
+default differs from the one of ``wavefieldprojection``, so that both outputs keep the behavior
 they had before they were unified.
 
 variables

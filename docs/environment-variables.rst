@@ -58,13 +58,13 @@ also accepted with a ``SEISSOL_IO_`` prefix, which is the name to use:
 
 * ``XDMFWRITER_ALIGNMENT``: how far the bulk data of an output is aligned in the
   file. A bulk write straddling a stripe boundary makes more than one storage
-  target take part in a single write, which serialises them; what the right
+  target take part in a single write, which serializes them; what the right
   value is depends on the file system, so there is no default.
 * ``XDMFWRITER_BLOCK_SIZE``: block size for the output (both posix and Hdf5)
 
 The MPI-IO hints the output passes through are read the same way, under the
 names ROMIO understands and with an ``MPIO_`` in front, so
-``SEISSOL_IO_MPIO_ROMIO_DS_WRITE`` sets ``romio_ds_write``. Recognised are
+``SEISSOL_IO_MPIO_ROMIO_DS_WRITE`` sets ``romio_ds_write``. Recognized are
 ``ind_rd_buffer_size``, ``ind_wr_buffer_size``, ``romio_ds_read``,
 ``romio_ds_write``, ``cb_buffer_size``, ``cb_nodes``, ``romio_cb_read``,
 ``romio_cb_write``, ``striping_factor`` and ``striping_unit``. Which of them

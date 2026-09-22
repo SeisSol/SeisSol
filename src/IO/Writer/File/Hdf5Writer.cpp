@@ -71,7 +71,7 @@ void Hdf5File::openFile(const std::string& name) {
   _eh(H5Pset_meta_block_size(h5falist, MetaBlockSize));
 
   // Align datasets to the stripe size of the file system, if it was given. Unaligned bulk writes
-  // make more than one storage target take part in a single write, which serialises them.
+  // make more than one storage target take part in a single write, which serializes them.
   // Objects smaller than the alignment are left where they are: aligning every one of them would
   // pad a file full of small datasets out to a multiple of the stripe size per dataset, which
   // costs far more than the unaligned bulk writes save.
@@ -226,7 +226,7 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
 
   // HDF5 handles data one chunk at a time, and for a dataset with a filter written in parallel it
   // gathers every chunk onto a single rank to compress it. Chunking the whole dataset into one
-  // piece would therefore serialise the compression and hold the entire array on one rank, so aim
+  // piece would therefore serialize the compression and hold the entire array on one rank, so aim
   // for a few MB along the distributed dimension instead.
   constexpr std::size_t TargetChunkBytes = 4UL * 1024 * 1024;
   std::size_t rowBytes = source->datatype()->size();

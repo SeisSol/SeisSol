@@ -39,7 +39,7 @@ inline std::optional<std::string> outputEnv(const std::string& name) {
  * @brief How far the bulk data of an output should be aligned in the file, or zero.
  *
  * Bulk writes that straddle a stripe boundary make more than one storage target take part in a
- * single write, which serialises them. What the right value is depends on the file system, so
+ * single write, which serializes them. What the right value is depends on the file system, so
  * there is nothing sensible to default to.
  */
 inline std::size_t outputAlignment() {

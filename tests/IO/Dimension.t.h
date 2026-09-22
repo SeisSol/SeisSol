@@ -58,7 +58,7 @@ TEST_CASE("IO/Dimension: a source keeps the shape it was given" * doctest::test_
   // only what an entry holds, so neither the growing nor the distributed dimension
   CHECK(source->shape() == std::vector<std::size_t>{3});
 
-  SUBCASE("and survives serialisation") {
+  SUBCASE("and survives serialization") {
     const auto restored = DataSource::deserialize(source->serialize());
     REQUIRE(restored->dimensions().size() == 3);
     CHECK(restored->dimensions()[0].isAppended());

@@ -24,7 +24,7 @@ using P3 = std::array<double, 3>;
 // f(e_3). Via transformations::tetrahedronReferenceToGlobal that identifies Va, Vb, Vc, Vd with
 // element.vertices[0], [1], [2], [3] -- the same identification the legacy
 // refinement::MeshRefiner used. Do not confuse this with the vertex order of the legacy
-// refinement::Tetrahedron::unitTetrahedron(), which is a different (rotated) labelling.
+// refinement::Tetrahedron::unitTetrahedron(), which is a different (rotated) labeling.
 constexpr auto Va = P3{0, 0, 0};
 constexpr auto Vb = P3{1, 0, 0};
 constexpr auto Vc = P3{0, 1, 0};

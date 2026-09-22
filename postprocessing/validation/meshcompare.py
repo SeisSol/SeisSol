@@ -198,7 +198,7 @@ def diagnose_subcell_permutation(groups, quantity, quantity_ref, sample=200, lim
     """Check whether the values of a quantity are permuted *within* each parent element.
 
     Cells that match geometrically can still carry each other's values -- that is what a
-    subdivision sampled in a different vertex labelling looks like. One and the same
+    subdivision sampled in a different vertex labeling looks like. One and the same
     permutation across many elements is a strong hint at such a systematic mismatch, as
     opposed to a genuine numerical difference.
     """

@@ -57,7 +57,7 @@ std::pair<Writer, std::vector<std::int64_t>>
 // ---------------------------------------------------------------------------
 
 /**
- * WriterModule and AsyncWriter only share ExecInfo: buffer 0 carries the serialised plan, the
+ * WriterModule and AsyncWriter only share ExecInfo: buffer 0 carries the serialized plan, the
  * remaining buffers carry the data, and the plan refers to them by the ids WriterModule assigned.
  * If those two ends ever disagree about an id, the executor writes whatever happens to sit at that
  * index -- silently, since every buffer is just bytes.
@@ -73,7 +73,7 @@ TEST_CASE("IO/AsyncWriter: the plan and its buffers travel through ExecInfo" *
   const auto planId = info.addBuffer(0);
   CHECK(planId == 0);
 
-  // materialise the managed buffer and tell the plan where it went, as WriterModule does
+  // materialize the managed buffer and tell the plan where it went, as WriterModule does
   auto sources = writer.getInstructions().front()->dataSources();
   REQUIRE(sources.size() == 1);
   auto* adhoc = dynamic_cast<AdhocBuffer*>(sources.front().get());
@@ -87,7 +87,7 @@ TEST_CASE("IO/AsyncWriter: the plan and its buffers travel through ExecInfo" *
   info.resizeBuffer(planId, plan.size());
   std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
 
-  // the id has to survive into the serialised plan, otherwise the executor cannot find the data
+  // the id has to survive into the serialized plan, otherwise the executor cannot find the data
   CHECK(plan.find("id: " + std::to_string(dataId)) != std::string::npos);
 
   module::AsyncWriter executor;
@@ -155,10 +155,10 @@ TEST_CASE("IO/AsyncWriter: one executor runs several plans" * doctest::test_suit
 }
 
 /**
- * The plan is written into a buffer of exactly its own length, so a serialisation that is not
+ * The plan is written into a buffer of exactly its own length, so a serialization that is not
  * stable under a round trip would truncate or corrupt it on the next step.
  */
-TEST_CASE("IO/AsyncWriter: the serialised plan is stable" * doctest::test_suite("io")) {
+TEST_CASE("IO/AsyncWriter: the serialized plan is stable" * doctest::test_suite("io")) {
   auto [writer, expected] = makePlan("some.h5", "values", 0);
   writer.getInstructions().front()->dataSources().front()->assignId(7);
 

@@ -89,13 +89,13 @@ The wavefield, the free surface and the elementwise fault output share one
 writer. It is fed the points of a cell and the values on them, and writes either
 VTKHDF -- when a ``vtkorder`` is set for that output -- or Xdmf.
 
-At degree zero the corners a cell shares with its neighbours are written once
+At degree zero the corners a cell shares with its neighbors are written once
 and the cells index into them, which makes the point array as large as the mesh
 rather than as large as the mesh times the number of cells a vertex touches. The
 merging happens within a rank, so points on a partition boundary stay
 duplicated, which is what a reader going partition by partition expects. It can
 be switched off, see :ref:`SEISSOL_IO_VERTEXFILTER <env_vars>`. From degree one
-on the points are Lagrange nodes, which neighbouring cells deliberately do not
+on the points are Lagrange nodes, which neighboring cells deliberately do not
 share, and nothing is merged.
 
 File groupings
