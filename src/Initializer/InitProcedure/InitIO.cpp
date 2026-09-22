@@ -157,10 +157,14 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     const auto* meshIds = storage.var<SurfaceLTS::MeshId>();
     const auto* sides = storage.var<SurfaceLTS::Side>();
 
+    const auto& elements = seissolInstance.meshReader().getElements();
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
-      // same as for DR
-      faceIdentifiers[i] = meshIds[i] * 4 + static_cast<std::size_t>(sides[i]);
+      // As for DR, a face is identified by its cell and its side -- by the global id of the cell,
+      // since the mesh id is local to a rank: the same one names different cells on different
+      // ranks, and a restart may distribute the cells differently.
+      faceIdentifiers[i] =
+          elements[meshIds[i]].globalId * Cell::NumFaces + static_cast<std::size_t>(sides[i]);
     }
     checkpoint.registerTree("surface", storage, faceIdentifiers);
     SurfaceLTS::registerCheckpointVariables(checkpoint, storage);

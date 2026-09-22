@@ -100,6 +100,18 @@ the writer. It is ``wavefieldprojection`` for the wavefield and ``surfaceproject
 surface (see :ref:`wave_field_output` and :ref:`free_surface_output`). The defaults reproduce what
 each output did before -- ``pointwise`` for the wavefield, ``l2`` for the free surface -- so no
 parameter file needs to change; the option exists to make the two comparable when that is wanted.
+Free-surface displacement in checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+A checkpoint identified the faces of the free surface by the cell number local to
+the rank that wrote it, which names different cells on different ranks. On a
+restart, faces could therefore receive the displacement of another face; with
+the partitioning unchanged this affected a few faces at the rank boundaries,
+with a different one most of them. The faces are now identified by the global
+cell id, and a restart reproduces the displacement exactly. Checkpoints written
+before cannot restore it correctly.
+
 Dynamic rupture checkpoints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
