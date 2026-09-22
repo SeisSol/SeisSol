@@ -146,7 +146,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
   MPI_Allreduce(MPI_IN_PLACE,
                 globalIds.data(),
                 globalIds.size(),
-                MPI_UINT64_T,
+                seissol::Mpi::castToMpiType<std::uint64_t>(),
                 MPI_MIN,
                 seissol::Mpi::mpi.comm());
 

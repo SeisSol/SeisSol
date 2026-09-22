@@ -24,13 +24,11 @@
 #include <string>
 #include <vector>
 
-namespace seissol::unit_test {
-
-namespace {
+namespace seissol::unit_test::runfiles {
 using namespace seissol::io;
 
 //! A plan writing @p values into a dataset of fixed size, as a checkpoint or a snapshot does.
-writer::Writer fixedPlan(const std::string& path, const std::vector<double>& values) {
+inline writer::Writer fixedPlan(const std::string& path, const std::vector<double>& values) {
   writer::Writer plan;
   plan.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
       writer::instructions::Hdf5Location(path, {"data"}),
@@ -41,7 +39,7 @@ writer::Writer fixedPlan(const std::string& path, const std::vector<double>& val
 }
 
 //! A plan appending @p value to a dataset that grows with every write, as a time series does.
-writer::Writer appendPlan(const std::string& path, double value) {
+inline writer::Writer appendPlan(const std::string& path, double value) {
   writer::Writer plan;
   plan.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
       writer::instructions::Hdf5Location(path, {"data"}),
@@ -51,7 +49,7 @@ writer::Writer appendPlan(const std::string& path, double value) {
   return plan;
 }
 
-std::vector<double> readBack(const std::string& path, const std::string& name) {
+inline std::vector<double> readBack(const std::string& path, const std::string& name) {
   reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
   hdf5.openFile(path);
   hdf5.openGroup("data");
@@ -60,7 +58,6 @@ std::vector<double> readBack(const std::string& path, const std::string& name) {
   hdf5.closeFile();
   return values;
 }
-} // namespace
 
 TEST_CASE("IO/RunFiles: a new run replaces the files an earlier run left" *
           doctest::test_suite("io")) {
@@ -130,4 +127,4 @@ TEST_CASE("IO/RunFiles: a binary write that does not append starts the file over
   CHECK(content() == "short, continued");
 }
 
-} // namespace seissol::unit_test
+} // namespace seissol::unit_test::runfiles

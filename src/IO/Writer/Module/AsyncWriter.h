@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_H_
 #define SEISSOL_SRC_IO_WRITER_MODULE_ASYNCWRITER_H_
 
+#include "IO/Writer/File/Hdf5Writer.h"
 #include "IO/Writer/Writer.h"
 
 #include <async/ExecInfo.h>

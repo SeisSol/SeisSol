@@ -35,7 +35,7 @@ constexpr double Tolerance = 1e-10;
 // What the code generator ships is stored in the precision of the build, so a comparison against it
 // cannot be tighter than that.
 constexpr double GeneratedTolerance =
-    std::max(Tolerance, 10.0 * static_cast<double>(std::numeric_limits<real>::epsilon()));
+    std::max(Tolerance, 10.0 * std::numeric_limits<real>::epsilon());
 
 // For fused simulations the code generator transposes everything in the `nodal` namespace
 // (cf. kernels/aderdg.py); detect that from a matrix whose shape is not square.
