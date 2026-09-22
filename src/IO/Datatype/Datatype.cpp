@@ -195,7 +195,9 @@ StringDatatype::StringDatatype(YAML::Node node) : sizeP_(node["size"].as<size_t>
 
 std::string StringDatatype::toStringRaw(const void* data) const {
   const auto* dataPtr = reinterpret_cast<const uint8_t*>(data);
-  return std::string(dataPtr, dataPtr + sizeP_);
+  // a text shorter than the field is padded with zeros, which are not part of it
+  const auto* end = std::find(dataPtr, dataPtr + sizeP_, 0);
+  return std::string(dataPtr, end);
 }
 std::optional<std::vector<uint8_t>> StringDatatype::fromStringRaw(const std::string& str) const {
   return std::make_optional(std::vector<uint8_t>(str.begin(), str.end()));
