@@ -594,14 +594,18 @@ void OutputManager::initPickpointTable() {
   std::vector<io::instance::point::TableQuantity> quantitySet;
   quantitySet.push_back(
       io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<real>()});
-  misc::forEach(ppOutputData_.begin()->second->vars, [&](const auto& var, int i) {
-    if (var.isActive) {
-      for (std::size_t dim = 0; dim < var.dim(); ++dim) {
-        quantitySet.push_back(io::instance::point::TableQuantity{
-            VariableLabels[i][dim], io::datatype::inferDatatype<real>()});
+  // A rank without on-fault receivers has no point to describe; the table learns the quantity
+  // sets of the other ranks when it groups the points.
+  if (!ppOutputData_.empty()) {
+    misc::forEach(ppOutputData_.begin()->second->vars, [&](const auto& var, int i) {
+      if (var.isActive) {
+        for (std::size_t dim = 0; dim < var.dim(); ++dim) {
+          quantitySet.push_back(io::instance::point::TableQuantity{
+              VariableLabels[i][dim], io::datatype::inferDatatype<real>()});
+        }
       }
-    }
-  });
+    });
+  }
 
   // the rows of a rank are its receivers by the number they have in the receiver file, and the
   // simulations of one of them next to each other
