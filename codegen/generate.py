@@ -92,31 +92,49 @@ def main():
     if cmdLineArgs.vectorsize == 0:
         cmdLineArgs.vectorsize = None
 
-    host_arch = HostArchDefinition(
-        cmdLineArgs.host_arch, cmdLineArgs.precision, cmdLineArgs.vectorsize, None
-    )
-    device_arch = None
-
-    if cmdLineArgs.device_backend != "none":
-        device_arch = DeviceArchDefinition(
-            cmdLineArgs.device_arch,
-            cmdLineArgs.device_vendor,
-            cmdLineArgs.device_backend,
-            cmdLineArgs.precision,
-            cmdLineArgs.vectorsize,
+    def deriveWith(vectorsize):
+        host = HostArchDefinition(
+            cmdLineArgs.host_arch, cmdLineArgs.precision, vectorsize, None
         )
+        device = None
 
-    arch = deriveArchitecture(host_arch, device_arch)
+        if cmdLineArgs.device_backend != "none":
+            device = DeviceArchDefinition(
+                cmdLineArgs.device_arch,
+                cmdLineArgs.device_vendor,
+                cmdLineArgs.device_backend,
+                cmdLineArgs.precision,
+                vectorsize,
+            )
+
+        return deriveArchitecture(host, device), host, device
+
+    arch, host_arch, device_arch = deriveWith(cmdLineArgs.vectorsize)
+
+    # The simulation index is the leading dimension of every fused tensor, and a
+    # leading dimension is padded to the vector size. Padded simulation lanes
+    # hold values nothing computes, and the hand-written parts of SeisSol index
+    # the fused tensors with NumSimulations as the stride, so they would read
+    # that padding as data. Narrow the vector size to the largest one the fused
+    # simulations fill instead -- 32 B for eight single precision simulations on
+    # a 64 B machine. The alignment a buffer starts on is a separate number and
+    # keeps the architecture's value, which is why the two are derived apart.
+    if cmdLineArgs.multipleSimulations > 1:
+        fusedBytes = cmdLineArgs.multipleSimulations * arch.bytesPerReal
+        vectorsize = arch.alignment
+        while fusedBytes % vectorsize != 0:
+            vectorsize //= 2
+        if vectorsize != arch.alignment:
+            print(
+                f"Reducing the vector size from {arch.alignment} B to "
+                f"{vectorsize} B, so that the {cmdLineArgs.multipleSimulations} "
+                f"fused simulations are not padded.",
+                file=sys.stderr,
+            )
+            cmdLineArgs.vectorsize = vectorsize
+            arch, host_arch, device_arch = deriveWith(vectorsize)
+
     fixArchitectureGlobal(arch)
-
-    if cmdLineArgs.multipleSimulations > 1 and (
-        cmdLineArgs.multipleSimulations % arch.alignedReals != 0
-    ):
-        print(
-            f"Warning: a number of fused simulations should be a multiple of "
-            f"{arch.alignedReals}. Expect degraded performance when continuing.",
-            file=sys.stderr,
-        )
 
     os.makedirs(cmdLineArgs.outputDir, exist_ok=True)
     kernels.arch.emit_header(
