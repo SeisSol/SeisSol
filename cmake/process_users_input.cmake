@@ -178,6 +178,12 @@ check_parameter("DEVICE_BACKEND" ${DEVICE_BACKEND} "${DEVICE_BACKEND_OPTIONS};hi
 
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 
+# resolve the alias before anything is looked up by the equation name
+if (EQUATIONS STREQUAL "viscoelastic2")
+    message(STATUS "viscoelastic2 is equivalent to viscoelastic and mapped to it as such.")
+    set(EQUATIONS "viscoelastic" CACHE STRING "" FORCE)
+endif()
+
 check_parameter("SOLVER" ${SOLVER} "${SOLVER_OPTIONS}")
 
 set(_allowed_solvers ${SOLVERS_${EQUATIONS}})
@@ -204,11 +210,6 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
-
-if (EQUATIONS STREQUAL "viscoelastic2")
-    message(STATUS "viscoelastic2 is equivalent to viscoelastic and mapped to it as such.")
-    set(EQUATIONS "viscoelastic" CACHE STRING "" FORCE)
-endif()
 
 string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 
