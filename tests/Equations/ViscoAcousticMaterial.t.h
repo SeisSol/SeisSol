@@ -13,12 +13,12 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace viscoacousticmaterial {
 using ViscoAcoustic = model::ViscoAcousticMaterial<3>;
 
 /// A material with the moduli already fitted, i.e. lambda unrelaxed and theta
 /// holding the negated defects.
-ViscoAcoustic fitted() {
+inline ViscoAcoustic fitted() {
   ViscoAcoustic material;
   material.rho = 1000.0;
   material.lambda = 2.4e9;
@@ -28,9 +28,11 @@ ViscoAcoustic fitted() {
   }
   return material;
 }
-} // namespace
+} // namespace viscoacousticmaterial
 
 TEST_CASE("Visco-acoustic moduli" * doctest::test_suite("equations")) {
+  using namespace viscoacousticmaterial;
+
   const auto material = fitted();
 
   SUBCASE("the bulk defect is the whole defect") {
@@ -65,6 +67,8 @@ TEST_CASE("Visco-acoustic moduli" * doctest::test_suite("equations")) {
 }
 
 TEST_CASE("Visco-acoustic quantity layout" * doctest::test_suite("equations")) {
+  using namespace viscoacousticmaterial;
+
   SUBCASE("pressure is a scalar and the memory variables are too") {
     // The elastic layout has a symmetric tensor here. Carrying that over is
     // what once made the pressure rotate with two velocity components.
@@ -99,6 +103,8 @@ TEST_CASE("Visco-acoustic quantity layout" * doctest::test_suite("equations")) {
 }
 
 TEST_CASE("Visco-acoustic vector constructor" * doctest::test_suite("equations")) {
+  using namespace viscoacousticmaterial;
+
   // Two values per mechanism, a relaxation frequency and the one source entry
   // an acoustic mechanism has. Reading three of them, as the elastic layout
   // would, runs into the next mechanism.

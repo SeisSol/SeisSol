@@ -193,7 +193,7 @@ struct alignas(Alignment) LocalIntegrationData {
   real nApNm1[4][seissol::tensor::AplusT::size()]{};
 
   // solver-specific data
-  typename seissol::model::MaterialT::Solver::LocalData specific;
+  seissol::model::MaterialT::Solver::LocalData specific;
 };
 
 // data for the neighboring boundary integration
@@ -202,7 +202,7 @@ struct alignas(Alignment) NeighboringIntegrationData {
   real nAmNm1[4][seissol::tensor::AminusT::size()]{};
 
   // solver-specific data
-  typename seissol::model::MaterialT::Solver::NeighborData specific;
+  seissol::model::MaterialT::Solver::NeighborData specific;
 };
 
 // material constants per cell

@@ -31,6 +31,7 @@ struct Iane;
 struct Qext;
 struct dQext;
 struct dQane;
+struct Zinv;
 } // namespace seissol::tensor
 
 namespace seissol::initializer::internal {

@@ -13,9 +13,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -42,6 +40,7 @@
 #include <easi/Component.h>
 #include <easi/Query.h>
 #include <exception>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <set>

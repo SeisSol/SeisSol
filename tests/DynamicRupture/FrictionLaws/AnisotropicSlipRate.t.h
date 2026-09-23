@@ -25,14 +25,14 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace anisotropicsliprate {
 
 using seissol::dr::ImpedanceMatrices;
 using seissol::dr::ImpedancesAndEta;
 
 /// eta = (Y+ + Y-)^-1 of a homogeneous fault in a VTI tilted out of the fault plane, rounded.
 /// Symmetric positive definite, with both a shear/shear and a normal/shear coupling.
-ImpedanceMatrices testImpedance() {
+inline ImpedanceMatrices testImpedance() {
   ImpedanceMatrices impedanceMatrices;
   auto eta = init::eta::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.818e6;
@@ -46,7 +46,7 @@ ImpedanceMatrices testImpedance() {
 
 /// eta with a deliberately asymmetric shear block. Physical impedances are self-adjoint, which
 /// makes eta and its transpose interchangeable -- this one tells them apart.
-ImpedanceMatrices asymmetricImpedance() {
+inline ImpedanceMatrices asymmetricImpedance() {
   ImpedanceMatrices impedanceMatrices;
   auto eta = init::eta::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.8e6;
@@ -61,7 +61,7 @@ ImpedanceMatrices asymmetricImpedance() {
   return impedanceMatrices;
 }
 
-ImpedanceMatrices isotropicImpedance(real etaS) {
+inline ImpedanceMatrices isotropicImpedance(real etaS) {
   ImpedanceMatrices impedanceMatrices;
   auto eta = init::eta::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.818e6;
@@ -72,12 +72,12 @@ ImpedanceMatrices isotropicImpedance(real etaS) {
 
 /// Residual of tau0 = (S I + V eta_ss) n with S = strength + slope * V * (eta n)_n, relative to
 /// the trial traction. Zero for the exact solution, whatever route produced it.
-real slipRateResidual(ImpedanceMatrices impedanceMatrices,
-                      const seissol::dr::friction_law::common::SlipRateSolution& solution,
-                      real traction1,
-                      real traction2,
-                      real strength,
-                      real strengthSlope) {
+inline real slipRateResidual(ImpedanceMatrices impedanceMatrices,
+                             const seissol::dr::friction_law::common::SlipRateSolution& solution,
+                             real traction1,
+                             real traction2,
+                             real strength,
+                             real strengthSlope) {
   const auto eta = init::eta::view::create(impedanceMatrices.eta);
   const real slip1 = solution.slipRate * solution.direction1;
   const real slip2 = solution.slipRate * solution.direction2;
@@ -94,7 +94,7 @@ real slipRateResidual(ImpedanceMatrices impedanceMatrices,
          std::sqrt(traction1 * traction1 + traction2 * traction2);
 }
 
-} // namespace
+} // namespace anisotropicsliprate
 
 // ---------------------------------------------------------------------------
 // The solve the linear slip weakening laws and the fault receiver output share. It is checked
@@ -104,6 +104,8 @@ real slipRateResidual(ImpedanceMatrices impedanceMatrices,
 TEST_CASE("Anisotropic slip rate solve" *
           doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) *
           doctest::test_suite("dynamicrupture")) {
+  using namespace anisotropicsliprate;
+
   using seissol::dr::friction_law::common::solveSlipRate;
 
   const ImpedancesAndEta impAndEta{};
@@ -202,6 +204,8 @@ TEST_CASE("Anisotropic slip rate solve" *
 TEST_CASE("Anisotropic impedance projections" *
           doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) *
           doctest::test_suite("dynamicrupture")) {
+  using namespace anisotropicsliprate;
+
   namespace common = seissol::dr::friction_law::common;
 
   const ImpedancesAndEta impAndEta{};

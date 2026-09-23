@@ -18,7 +18,7 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace quantities {
 
 /// A right-handed orthonormal frame, built the way SeisSol's face normals are.
 struct Frame {
@@ -27,7 +27,7 @@ struct Frame {
   VrtxCoords tangent2{};
 };
 
-Frame randomFrame(std::mt19937& rng) {
+inline Frame randomFrame(std::mt19937& rng) {
   std::normal_distribution<double> gauss(0.0, 1.0);
   Frame frame{};
   double norm = 0.0;
@@ -75,9 +75,11 @@ bool insideAGroup(const std::array<model::QuantityGroup, N>& groups,
   return false;
 }
 
-} // namespace
+} // namespace quantities
 
 TEST_CASE("Quantity groups describe the configured material" * doctest::test_suite("model")) {
+  using namespace quantities;
+
   constexpr auto Groups = model::MaterialT::RotationGroups;
 
   // Each declaration has to account for every quantity its matrix covers, and
@@ -106,6 +108,8 @@ TEST_CASE("Quantity groups describe the configured material" * doctest::test_sui
 }
 
 TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("model")) {
+  using namespace quantities;
+
   constexpr double Epsilon = 1e4 * std::numeric_limits<real>::epsilon();
   constexpr std::size_t Size = tensor::T::Shape[0];
   constexpr std::size_t InverseSize = tensor::Tinv::Shape[0];
@@ -115,6 +119,8 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
   auto matT = init::T::view::create(matTData.data());
   auto matTinv = init::Tinv::view::create(matTinvData.data());
 
+  // deterministic on purpose, so that a failure can be reproduced
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng(20260904);
   for (int sample = 0; sample < 32; ++sample) {
     const auto frame = randomFrame(rng);
@@ -129,7 +135,10 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
         for (std::size_t j = 0; j < InverseSize; ++j) {
           double accumulator = 0.0;
           for (std::size_t k = 0; k < InverseSize; ++k) {
-            accumulator += static_cast<double>(matTinv(i, k)) * static_cast<double>(matT(k, j));
+            // accumulate in double, also in a single precision build
+            const double inverseEntry = matTinv(i, k);
+            const double entry = matT(k, j);
+            accumulator += inverseEntry * entry;
           }
           CHECK(std::abs(accumulator - (i == j ? 1.0 : 0.0)) < Epsilon);
         }

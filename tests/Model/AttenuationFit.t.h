@@ -14,7 +14,7 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace attenuationfit {
 
 constexpr double FreqCentral = 1.0;
 constexpr double FreqRatio = 100.0;
@@ -38,9 +38,11 @@ double fittedQ(const MaterialT& material, double frequency, Unrelaxed unrelaxed,
   return std::abs(modulus.real() / modulus.imag());
 }
 
-} // namespace
+} // namespace attenuationfit
 
 TEST_CASE("Attenuation fit reproduces the requested Q" * doctest::test_suite("model")) {
+  using namespace attenuationfit;
+
   SUBCASE("viscoelastic, both wave types") {
     model::ViscoElasticMaterial<3> material;
     material.rho = 2700.0;
@@ -93,6 +95,8 @@ TEST_CASE("Attenuation fit reproduces the requested Q" * doctest::test_suite("mo
 }
 
 TEST_CASE("Attenuation fit leaves a well posed material" * doctest::test_suite("model")) {
+  using namespace attenuationfit;
+
   SUBCASE("viscoelastic") {
     model::ViscoElasticMaterial<3> material;
     material.rho = 2700.0;
