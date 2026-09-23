@@ -1,0 +1,271 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_SETUP_H_
+#define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_SETUP_H_
+
+#include "Equations/elastic/Model/Setup.h"
+#include "Equations/poroelastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Helper.h"
+#include "GeneratedCode/init.h"
+#include "Kernels/Common.h"
+#include "Model/Common.h"
+#include "Numerical/Eigenvalues.h"
+#include "Numerical/Transformation.h"
+
+#include <Eigen/Dense>
+#include <cassert>
+#include <yateto.h>
+
+namespace seissol::model {
+
+#ifdef SEISSOL_KERNELS_STP
+
+template <>
+struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroElasticMaterial> {
+  template <typename T>
+  static void setToZero(T& AT) {
+    AT.setZero();
+  }
+
+  template <typename T>
+  static void
+      getTransposedCoefficientMatrix(const PoroElasticMaterial& material, unsigned dim, T& AT) {
+    setToZero<T>(AT);
+    const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
+    switch (dim) {
+    case 0:
+      AT(0, 6) = -1 / params.rho1;
+      AT(0, 10) = -1 / params.rho2;
+      AT(3, 7) = -1 / params.rho1;
+      AT(3, 11) = -1 / params.rho2;
+      AT(5, 8) = -1 / params.rho1;
+      AT(5, 12) = -1 / params.rho2;
+
+      AT(6, 0) = -params.cBar(0, 0);
+      AT(6, 1) = -params.cBar(1, 0);
+      AT(6, 2) = -params.cBar(2, 0);
+      AT(6, 3) = -params.cBar(5, 0);
+      AT(6, 4) = -params.cBar(3, 0);
+      AT(6, 5) = -params.cBar(4, 0);
+      AT(6, 9) = params.M * params.alpha(0);
+
+      AT(7, 0) = -params.cBar(0, 5);
+      AT(7, 1) = -params.cBar(1, 5);
+      AT(7, 2) = -params.cBar(2, 5);
+      AT(7, 3) = -params.cBar(5, 5);
+      AT(7, 4) = -params.cBar(3, 5);
+      AT(7, 5) = -params.cBar(4, 5);
+      AT(7, 9) = params.M * params.alpha(5);
+
+      AT(8, 0) = -params.cBar(0, 4);
+      AT(8, 1) = -params.cBar(1, 4);
+      AT(8, 2) = -params.cBar(2, 4);
+      AT(8, 3) = -params.cBar(5, 4);
+      AT(8, 4) = -params.cBar(3, 4);
+      AT(8, 5) = -params.cBar(4, 4);
+      AT(8, 9) = params.M * params.alpha(4);
+
+      AT(9, 6) = -params.beta1 / params.rho1;
+      AT(9, 10) = -params.beta2 / params.rho2;
+
+      AT(10, 0) = -params.M * params.alpha(0);
+      AT(10, 1) = -params.M * params.alpha(1);
+      AT(10, 2) = -params.M * params.alpha(2);
+      AT(10, 3) = -params.M * params.alpha(5);
+      AT(10, 4) = -params.M * params.alpha(3);
+      AT(10, 5) = -params.M * params.alpha(4);
+      AT(10, 9) = params.M;
+      break;
+    case 1:
+      AT(1, 7) = -1 / params.rho1;
+      AT(1, 11) = -1 / params.rho2;
+      AT(3, 6) = -1 / params.rho1;
+      AT(3, 10) = -1 / params.rho2;
+      AT(4, 8) = -1 / params.rho1;
+      AT(4, 12) = -1 / params.rho2;
+
+      AT(6, 0) = -params.cBar(0, 5);
+      AT(6, 1) = -params.cBar(1, 5);
+      AT(6, 2) = -params.cBar(2, 5);
+      AT(6, 3) = -params.cBar(5, 5);
+      AT(6, 4) = -params.cBar(3, 5);
+      AT(6, 5) = -params.cBar(4, 5);
+      AT(6, 9) = params.M * params.alpha(5);
+
+      AT(7, 0) = -params.cBar(0, 1);
+      AT(7, 1) = -params.cBar(1, 1);
+      AT(7, 2) = -params.cBar(2, 1);
+      AT(7, 3) = -params.cBar(5, 1);
+      AT(7, 4) = -params.cBar(3, 1);
+      AT(7, 5) = -params.cBar(4, 1);
+      AT(7, 9) = params.M * params.alpha(1);
+
+      AT(8, 0) = -params.cBar(0, 3);
+      AT(8, 1) = -params.cBar(1, 3);
+      AT(8, 2) = -params.cBar(2, 3);
+      AT(8, 3) = -params.cBar(5, 3);
+      AT(8, 4) = -params.cBar(3, 3);
+      AT(8, 5) = -params.cBar(4, 3);
+      AT(8, 9) = params.M * params.alpha(3);
+
+      AT(9, 7) = -params.beta1 / params.rho1;
+      AT(9, 11) = -params.beta2 / params.rho2;
+
+      AT(11, 0) = -params.M * params.alpha(0);
+      AT(11, 1) = -params.M * params.alpha(1);
+      AT(11, 2) = -params.M * params.alpha(2);
+      AT(11, 3) = -params.M * params.alpha(5);
+      AT(11, 4) = -params.M * params.alpha(3);
+      AT(11, 5) = -params.M * params.alpha(4);
+      AT(11, 9) = params.M;
+      break;
+    case 2:
+      AT(2, 8) = -1 / params.rho1;
+      AT(2, 12) = -1 / params.rho2;
+      AT(4, 7) = -1 / params.rho1;
+      AT(4, 11) = -1 / params.rho2;
+      AT(5, 6) = -1 / params.rho1;
+      AT(5, 10) = -1 / params.rho2;
+
+      AT(6, 0) = -params.cBar(0, 4);
+      AT(6, 1) = -params.cBar(1, 4);
+      AT(6, 2) = -params.cBar(2, 4);
+      AT(6, 3) = -params.cBar(5, 4);
+      AT(6, 4) = -params.cBar(3, 4);
+      AT(6, 5) = -params.cBar(4, 4);
+      AT(6, 9) = params.M * params.alpha(4);
+
+      AT(7, 0) = -params.cBar(0, 3);
+      AT(7, 1) = -params.cBar(1, 3);
+      AT(7, 2) = -params.cBar(2, 3);
+      AT(7, 3) = -params.cBar(5, 3);
+      AT(7, 4) = -params.cBar(3, 3);
+      AT(7, 5) = -params.cBar(4, 3);
+      AT(7, 9) = params.M * params.alpha(3);
+
+      AT(8, 0) = -params.cBar(0, 2);
+      AT(8, 1) = -params.cBar(1, 2);
+      AT(8, 2) = -params.cBar(2, 2);
+      AT(8, 3) = -params.cBar(5, 2);
+      AT(8, 4) = -params.cBar(3, 2);
+      AT(8, 5) = -params.cBar(4, 2);
+      AT(8, 9) = params.M * params.alpha(2);
+
+      AT(9, 8) = -params.beta1 / params.rho1;
+      AT(9, 12) = -params.beta2 / params.rho2;
+
+      AT(12, 0) = -params.M * params.alpha(0);
+      AT(12, 1) = -params.M * params.alpha(1);
+      AT(12, 2) = -params.M * params.alpha(2);
+      AT(12, 3) = -params.M * params.alpha(5);
+      AT(12, 4) = -params.M * params.alpha(3);
+      AT(12, 5) = -params.M * params.alpha(4);
+      AT(12, 9) = params.M;
+      break;
+
+    default:
+      logError() << "Cannot create transposed coefficient matrix for dimension " << dim
+                 << ", has to be either 0, 1 or 2.";
+    }
+  }
+
+  template <typename T>
+  static void getTransposedSourceCoefficientTensor(const PoroElasticMaterial& material, T& ET) {
+    const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
+    const double e1 = params.beta1 * material.viscosity / (params.rho1 * material.permeability);
+    const double e2 = params.beta2 * material.viscosity / (params.rho2 * material.permeability);
+
+    ET.setZero();
+    ET(10, 6) = e1;
+    ET(11, 7) = e1;
+    ET(12, 8) = e1;
+
+    ET(10, 10) = e2;
+    ET(11, 11) = e2;
+    ET(12, 12) = e2;
+  }
+
+  static void getTransposedGodunovState(const PoroElasticMaterial& local,
+                                        const PoroElasticMaterial& neighbor,
+                                        FaceType faceType,
+                                        init::QgodLocal::view::type& qGodLocal,
+                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+    // Will be used to check, whether numbers are (numerically) zero
+    constexpr auto ZeroThreshold = 1e-7;
+    using CMatrix = Eigen::Matrix<std::complex<double>,
+                                  PoroElasticMaterial::NumQuantities,
+                                  PoroElasticMaterial::NumQuantities>;
+    using Matrix = Eigen::
+        Matrix<double, PoroElasticMaterial::NumQuantities, PoroElasticMaterial::NumQuantities>;
+    using CVector = Eigen::Matrix<std::complex<double>, PoroElasticMaterial::NumQuantities, 1>;
+
+    auto splitEigenDecomposition = [](const PoroElasticMaterial& material) {
+      auto eigenpair = getEigenDecomposition(material, ZeroThreshold);
+      return std::pair<CVector, CMatrix>{eigenpair.getValuesAsVector(),
+                                         eigenpair.getVectorsAsMatrix()};
+    };
+
+    auto [localEigenvalues, localEigenvectors] = splitEigenDecomposition(local);
+    auto [neighborEigenvalues, neighborEigenvectors] = splitEigenDecomposition(neighbor);
+
+    CMatrix chiMinus = CMatrix::Zero();
+    CMatrix chiPlus = CMatrix::Zero();
+    for (int i = 0; i < 13; i++) {
+      if (localEigenvalues(i).real() < -ZeroThreshold) {
+        chiMinus(i, i) = 1.0;
+      }
+      if (localEigenvalues(i).real() > ZeroThreshold) {
+        chiPlus(i, i) = 1.0;
+      }
+    }
+
+    // matR == eigenvector matrix
+    CMatrix matR = localEigenvectors * chiMinus + neighborEigenvectors * chiPlus;
+    // set null space eigenvectors manually
+    matR(1, 4) = 1.0;
+    matR(2, 5) = 1.0;
+    matR(12, 6) = 1.0;
+    matR(11, 7) = 1.0;
+    matR(4, 8) = 1.0;
+    if (faceType == FaceType::FreeSurface) {
+      Matrix realR = matR.real();
+      getTransposedFreeSurfaceGodunovState(
+          MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
+    } else {
+      // Only the outgoing (negative eigenvalue) projector is computed; qGodLocal is its complement.
+      //
+      // Note that chiMinus and chiPlus are NOT complementary here: the five zero eigenvalues are in
+      // neither of them, so forming both projectors separately leaves the null-space modes out of
+      // both Godunov matrices. Deriving qGodLocal as I - qGodNeighbor assigns them to the local
+      // subsystem, exactly as the elastic and anisotropic setups already do. This does not change
+      // the flux at all -- the affected columns (1, 2, 4, 11, 12) multiply the structurally zero
+      // rows of the star matrix -- but it restores qGodLocal + qGodNeighbor == I, which is what
+      // makes the invariant testable and the flux solver assembly consistent across equation sets.
+      const auto matRT = matR.transpose();
+
+      // Deliberately partialPivLu and not a rank-revealing factorization; cf. ElasticSetup.h
+      const auto matRlu = matRT.partialPivLu();
+      const auto godunovMinus = matRlu.solve(chiMinus * matRT).eval();
+
+      for (unsigned i = 0; i < qGodLocal.shape(0); ++i) {
+        for (unsigned j = 0; j < qGodLocal.shape(1); ++j) {
+          const double identity = (i == j) ? 1.0 : 0.0;
+          qGodLocal(i, j) = identity - godunovMinus(i, j).real();
+          qGodNeighbor(i, j) = godunovMinus(i, j).real();
+          assert(std::abs(godunovMinus(i, j).imag()) < ZeroThreshold);
+        }
+      }
+    }
+  }
+};
+
+#endif
+
+} // namespace seissol::model
+
+#endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_SETUP_H_
