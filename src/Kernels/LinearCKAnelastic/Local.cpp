@@ -29,15 +29,16 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 #ifndef NDEBUG
   for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) % Alignment ==
+    assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) %
+               Vectorsize ==
            0);
   }
   for (std::size_t flux = 0; flux < Cell::NumFaces; ++flux) {
     assert(
         (reinterpret_cast<uintptr_t>(global.onHost->localChangeOfBasisMatricesTransposed(flux))) %
-            Alignment ==
+            Vectorsize ==
         0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(flux))) % Alignment ==
+    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(flux))) % Vectorsize ==
            0);
   }
 #endif
@@ -64,9 +65,9 @@ void Local::computeIntegral(
     real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
-  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
 #endif
 
   alignas(Alignment) real Qext[tensor::Qext::size()];

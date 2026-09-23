@@ -70,10 +70,10 @@ void Spacetime::computeAder(const real* coeffs,
                             real* timeDerivatives,
                             bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Vectorsize == 0);
   assert(timeDerivatives == nullptr ||
-         reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
+         reinterpret_cast<uintptr_t>(timeDerivatives) % Vectorsize == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &= [&]() {
@@ -240,8 +240,8 @@ void Time::evaluate(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Vectorsize == 0);
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 

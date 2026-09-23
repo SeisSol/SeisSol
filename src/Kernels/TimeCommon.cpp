@@ -53,8 +53,8 @@ void TimeCommon::computeIntegrals(Time& time,
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
   for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; dofneighbor++) {
-    assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Alignment == 0);
-    assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Vectorsize == 0);
+    assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Vectorsize == 0);
   }
 #endif
 

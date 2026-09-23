@@ -48,7 +48,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp)
 
 {
-  assert((reinterpret_cast<uintptr_t>(stp)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(stp)) % Vectorsize == 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = krnlPrototype_;
 
@@ -122,9 +122,9 @@ void Spacetime::computeAder(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Vectorsize == 0 ||
          timeDerivatives == nullptr);
 
   alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
