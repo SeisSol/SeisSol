@@ -85,22 +85,28 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
       std::abs((data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth - timeStepWidth) /
                timeStepWidth) < 1e-7;
 
+  // the members of the Zinv family are stored back to back
+  const auto zinvOffset = [](std::size_t i) {
+    return yateto::computeFamilySize<tensor::Zinv>(1, i);
+  };
+
   if (!defaultTimestep) {
     auto sourceMatrix =
         init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
-    real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
+    real zinvData[kernels::familySize<tensor::Zinv>()];
     model::ZInvInitializer<seissol::model::MaterialT,
                            0,
                            seissol::model::MaterialT::NumQuantities,
-                           decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
+                           decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
     for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-      krnl.Zinv(i) = ZinvData[i];
+      krnl.Zinv(i) = zinvData + zinvOffset(i);
     }
-    // krnl.execute has to be run here: ZinvData is only allocated locally
+    // krnl.execute has to be run here: zinvData is only allocated locally
     krnl.execute();
   } else {
+    const real* zinvData = data.get<LTS::LocalIntegration>().specific.Zinv;
     for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-      krnl.Zinv(i) = data.get<LTS::LocalIntegration>().specific.Zinv[i];
+      krnl.Zinv(i) = zinvData + zinvOffset(i);
     }
     krnl.execute();
   }
@@ -200,25 +206,26 @@ void Spacetime::computeBatchedAder(
             timeStepWidth) < 1e-7;
 
     if (defaultTimestep) {
-      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.Zinv);
+      // Zinv is one flat family, so its members are not spaced by the size of a single entry
+      SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.Zinv);
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
             (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-        krnl.extraOffset_Zinv(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, specific.Zinv, i);
+        krnl.extraOffset_Zinv(i) = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv) +
+                                   yateto::computeFamilySize<tensor::Zinv>(1, i);
       }
     } else {
       auto* layerZinvData = layer.var<LTS::ZinvExtra>();
       const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>();
       runtime.enqueueLoop(numElements, [=](std::size_t i) {
-        auto* ZinvData = reinterpret_cast<real(*)[ConvergenceOrder * ConvergenceOrder]>(
-            layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i);
+        auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i;
         const auto& localIntegration = layerLocalIntegration[i];
 
         const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
         model::ZInvInitializer<seissol::model::MaterialT,
                                0,
                                seissol::model::MaterialT::NumQuantities,
-                               decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
+                               decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
       });
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
