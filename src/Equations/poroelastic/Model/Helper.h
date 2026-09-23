@@ -7,26 +7,20 @@
 #ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_HELPER_H_
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_HELPER_H_
 
-#include "Equations/EnergyBase.h"
-#include "Equations/elastic/Model/Setup.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "Kernels/Common.h"
-#include "Model/Common.h"
-#include "Numerical/Eigenvalues.h"
-#include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
-#include <cassert>
-#include <yateto.h>
-
-namespace seissol::init {
-class Z;
-class Zinv;
-} // namespace seissol::init
 
 namespace seissol::model {
 
+/**
+ * Derived quantities of the Biot model.
+ *
+ * They only depend on the material parameters. This header is used by the energy output and the
+ * fault impedance, which compile in every build, so it must not use generated tensors that only
+ * exist in a poroelastic build (such as init::Z and init::Zinv; that is why calcZinv and
+ * ZInvInitializer live in Kernels/STP/Setup.h).
+ */
 struct AdditionalPoroelasticParameters {
   Eigen::Matrix<double, 6, 1> alpha;
   // NOLINTNEXTLINE
@@ -61,7 +55,7 @@ inline AdditionalPoroelasticParameters
                             material.porosity * material.bulkSolid / material.bulkFluid);
   const double m = material.rhoFluid * material.tortuosity / material.porosity;
 
-  Eigen::Matrix<double, 6, 6> cBar = c + cM * alpha * alpha.transpose();
+  const Eigen::Matrix<double, 6, 6> cBar = c + cM * alpha * alpha.transpose();
 
   const double rhoBar =
       (1 - material.porosity) * material.rho + material.porosity * material.rhoFluid;

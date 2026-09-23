@@ -138,37 +138,70 @@ inline constexpr std::array MomentumEnergies{
     EnergyDescriptor{"momentumZ", EnergyUnit::Momentum, {}, {}, {}},
 };
 
+/**
+ * In the acoustics literature, "acoustic energy" denotes the sum of the kinetic
+ * and the potential contribution; the p^2 / 2K term alone is the *potential*
+ * energy of the sound field. The two are therefore reported as the two members
+ * of one group, and only their sum carries the plain name.
+ */
 inline constexpr std::array AcousticEnergies{
-    EnergyDescriptor{
-        "acoustic_kinetic_energy", EnergyUnit::Energy, "acoustic", "Acoustic energy:", "kinematic"},
-    EnergyDescriptor{"acoustic_energy", EnergyUnit::Energy, "acoustic", {}, "potential"},
+    EnergyDescriptor{"acoustic_kinetic_energy",
+                     EnergyUnit::Energy,
+                     "acoustic",
+                     "Acoustic mechanical energy:",
+                     "kinetic"},
+    EnergyDescriptor{"acoustic_potential_energy", EnergyUnit::Energy, "acoustic", {}, "potential"},
 };
 
+/// Kinetic plus strain energy, i.e. the mechanical energy of the solid.
 inline constexpr std::array ElasticEnergies{
-    EnergyDescriptor{
-        "elastic_kinetic_energy", EnergyUnit::Energy, "elastic", "Elastic energy:", "kinematic"},
-    EnergyDescriptor{"elastic_energy", EnergyUnit::Energy, "elastic", {}, "potential"},
+    EnergyDescriptor{"elastic_kinetic_energy",
+                     EnergyUnit::Energy,
+                     "elastic",
+                     "Elastic mechanical energy:",
+                     "kinetic"},
+    EnergyDescriptor{"elastic_strain_energy", EnergyUnit::Energy, "elastic", {}, "strain"},
 };
 
 /**
- * The Maxwell branch springs join the elastic group: they are part of the stored
- * potential energy, so reporting the kinetic/potential split without them would
- * understate the potential share.
+ * The Maxwell branch springs join the elastic group: the strain energy they hold
+ * is part of the stored energy, so reporting the kinetic/strain split without
+ * them would understate the stored share.
  */
 inline constexpr std::array ViscoelasticEnergies{
-    EnergyDescriptor{"viscoelastic_energy", EnergyUnit::Energy, "elastic", {}, "viscoelastic"},
+    EnergyDescriptor{"anelastic_strain_energy", EnergyUnit::Energy, "elastic", {}, "anelastic"},
 };
 
+/**
+ * The acoustic counterpart. Without a shear modulus, the Maxwell branch springs
+ * only hold volumetric strain, i.e. potential energy of the sound field, so they
+ * join the acoustic group instead.
+ */
 inline constexpr std::array ViscoacousticEnergies{
-    EnergyDescriptor{"viscoacoustic_energy", EnergyUnit::Energy, "acoustic", {}, "viscoacoustic"},
+    EnergyDescriptor{"anelastic_potential_energy", EnergyUnit::Energy, "acoustic", {}, "anelastic"},
 };
 
+/// The power absorbed by the Maxwell branch dashpots, shared by both visco materials.
 inline constexpr std::array ViscoEnergies{
     EnergyDescriptor{"viscous_dissipation_rate",
                      EnergyUnit::Power,
                      "viscous_dissipation",
                      "Viscous dissipation rate:",
                      {}},
+};
+
+/**
+ * The two-phase counterparts. The kinetic energy carries the solid-fluid coupling
+ * and the relative fluid motion, the strain energy the storage term of the pore
+ * fluid, so neither coincides with the single-phase expression.
+ */
+inline constexpr std::array PoroelasticEnergies{
+    EnergyDescriptor{"poroelastic_kinetic_energy",
+                     EnergyUnit::Energy,
+                     "poroelastic",
+                     "Poroelastic mechanical energy:",
+                     "kinetic"},
+    EnergyDescriptor{"poroelastic_strain_energy", EnergyUnit::Energy, "poroelastic", {}, "strain"},
 };
 
 inline constexpr std::array DarcyEnergies{
@@ -203,7 +236,11 @@ inline constexpr std::array DarcyEnergies{
  * integral is a state that would have to be advanced every time step, inside
  * kernels that run on the device, which is out of scope here; integrating the
  * reported rate in postprocessing gives the same quantity to the accuracy of the
- * output interval.
+ * output interval -- as long as the rate evaluated at the output times represents
+ * the time in between. That fails for a relaxation much faster than the time step,
+ * such as Darcy friction at typical permeabilities: the state at an output time is
+ * then out of equilibrium, and the sampled rate depends on the length of the last
+ * time step (see docs/energy-output.rst).
  */
 template <typename MaterialT>
 struct EnergyCompute;

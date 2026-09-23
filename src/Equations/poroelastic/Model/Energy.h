@@ -7,18 +7,22 @@
 #ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_ENERGY_H_
 
-#include "Equations/Energy.h"
+#include "Equations/EnergyBase.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 
+#include <array>
+#include <cstddef>
+
 namespace seissol::model {
 
 template <>
 struct EnergyCompute<PoroElasticMaterial> {
-  static constexpr auto Energies = detail::concat(MomentumEnergies, ElasticEnergies, DarcyEnergies);
+  static constexpr auto Energies =
+      detail::concat(MomentumEnergies, PoroelasticEnergies, DarcyEnergies);
   static constexpr std::size_t EnergyCount = Energies.size();
   static_assert(detail::descriptorsWellFormed(Energies),
                 "energy descriptors must be named, unique, and grouped consistently");
@@ -27,14 +31,18 @@ struct EnergyCompute<PoroElasticMaterial> {
   static constexpr auto MomentumXIdx = detail::indexOf(Energies, "momentumX");
   static constexpr auto MomentumYIdx = detail::indexOf(Energies, "momentumY");
   static constexpr auto MomentumZIdx = detail::indexOf(Energies, "momentumZ");
-  static constexpr auto ElasticEnergyIdx = detail::indexOf(Energies, "elastic_energy");
-  static constexpr auto ElasticKineticIdx = detail::indexOf(Energies, "elastic_kinetic_energy");
+  static constexpr auto PoroelasticStrainIdx =
+      detail::indexOf(Energies, "poroelastic_strain_energy");
+  static constexpr auto PoroelasticKineticIdx =
+      detail::indexOf(Energies, "poroelastic_kinetic_energy");
   static constexpr auto DarcyDissipationIdx = detail::indexOf(Energies, "darcy_dissipation_rate");
   static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
   static_assert(MomentumYIdx < EnergyCount, "MomentumY missing from the descriptor list");
   static_assert(MomentumZIdx < EnergyCount, "MomentumZ missing from the descriptor list");
-  static_assert(ElasticEnergyIdx < EnergyCount, "ElasticEnergy missing from the descriptor list");
-  static_assert(ElasticKineticIdx < EnergyCount, "ElasticKinetic missing from the descriptor list");
+  static_assert(PoroelasticStrainIdx < EnergyCount,
+                "PoroelasticStrain missing from the descriptor list");
+  static_assert(PoroelasticKineticIdx < EnergyCount,
+                "PoroelasticKinetic missing from the descriptor list");
   static_assert(DarcyDissipationIdx < EnergyCount,
                 "DarcyDissipation missing from the descriptor list");
   static_assert(MomentumYIdx == MomentumXIdx + 1 && MomentumZIdx == MomentumXIdx + 2,
@@ -97,7 +105,7 @@ struct EnergyCompute<PoroElasticMaterial> {
         0.5 * (params.rhoBar * solidSq + 2 * material.rhoFluid * crossTerm + params.m * darcySq);
 
     // Darcy drag dissipates (viscosity / permeability) |w|^2. Reported as an
-    // instantaneous rate; see the note on EnergyData in Equations/Energy.h.
+    // instantaneous rate; see the note on EnergyData in Equations/EnergyBase.h.
     output[DarcyDissipationIdx] = material.viscosity / material.permeability * darcySq;
 
     // Total momentum of the mixture: rhoBar v_s + rho_f w.
@@ -106,7 +114,7 @@ struct EnergyCompute<PoroElasticMaterial> {
                                  material.rhoFluid * linSub(0, DarcyVelocityIdx + i);
     }
 
-    // Elastic
+    // Strain energy
     auto getStressIndex = [](int i, int j) {
       const static auto Lookup =
           std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
@@ -145,18 +153,18 @@ struct EnergyCompute<PoroElasticMaterial> {
       stressstrain += 1.0 / (2.0 * mu) * getStressPair(i, j, i, j);
       return stressstrain;
     };
-    double curElasticEnergy = 0.0;
+    double curStrainEnergy = 0.0;
     for (int i = 0; i < 3; ++i) {
       for (int j = 0; j < 3; ++j) {
-        curElasticEnergy += computeStressStrain(i, j);
+        curStrainEnergy += computeStressStrain(i, j);
       }
     }
 
     // extra pressure term
-    curElasticEnergy += quadSub(PressureIdx, PressureIdx) / params.M;
+    curStrainEnergy += quadSub(PressureIdx, PressureIdx) / params.M;
 
-    output[ElasticEnergyIdx] = 0.5 * curElasticEnergy;
-    output[ElasticKineticIdx] = curKineticEnergy;
+    output[PoroelasticStrainIdx] = 0.5 * curStrainEnergy;
+    output[PoroelasticKineticIdx] = curKineticEnergy;
 
     return output;
   }

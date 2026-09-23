@@ -215,10 +215,10 @@ void Spacetime::computeBatchedAder(
         const auto& localIntegration = layerLocalIntegration[i];
 
         const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
-        model::zInvInitializerForLoop<0,
-                                      seissol::model::MaterialT::NumQuantities,
-                                      decltype(sourceMatrix)>(
-            ZinvData, sourceMatrix, timeStepWidth);
+        model::ZInvInitializer<seissol::model::MaterialT,
+                               0,
+                               seissol::model::MaterialT::NumQuantities,
+                               decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
       });
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(

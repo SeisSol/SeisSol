@@ -35,12 +35,12 @@ struct EnergyCompute<AnisotropicMaterial> {
   static constexpr auto MomentumXIdx = detail::indexOf(Energies, "momentumX");
   static constexpr auto MomentumYIdx = detail::indexOf(Energies, "momentumY");
   static constexpr auto MomentumZIdx = detail::indexOf(Energies, "momentumZ");
-  static constexpr auto ElasticEnergyIdx = detail::indexOf(Energies, "elastic_energy");
+  static constexpr auto ElasticStrainIdx = detail::indexOf(Energies, "elastic_strain_energy");
   static constexpr auto ElasticKineticIdx = detail::indexOf(Energies, "elastic_kinetic_energy");
   static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
   static_assert(MomentumYIdx < EnergyCount, "MomentumY missing from the descriptor list");
   static_assert(MomentumZIdx < EnergyCount, "MomentumZ missing from the descriptor list");
-  static_assert(ElasticEnergyIdx < EnergyCount, "ElasticEnergy missing from the descriptor list");
+  static_assert(ElasticStrainIdx < EnergyCount, "ElasticStrain missing from the descriptor list");
   static_assert(ElasticKineticIdx < EnergyCount, "ElasticKinetic missing from the descriptor list");
 
   /// No anelastic variables. See the viscoelastic specialization for the
@@ -130,14 +130,14 @@ struct EnergyCompute<AnisotropicMaterial> {
     output[MomentumYIdx] = curMomentumY;
     output[MomentumZIdx] = curMomentumZ;
 
-    double curElasticEnergy = 0;
+    double curStrainEnergy = 0;
     for (int i = 0; i < 6; ++i) {
       for (int j = 0; j < 6; ++j) {
-        curElasticEnergy += data.matS[i + 6 * j] * quadSub(i, j);
+        curStrainEnergy += data.matS[i + 6 * j] * quadSub(i, j);
       }
     }
 
-    output[ElasticEnergyIdx] = 0.5 * curElasticEnergy;
+    output[ElasticStrainIdx] = 0.5 * curStrainEnergy;
     output[ElasticKineticIdx] = curKineticEnergy;
 
     return output;

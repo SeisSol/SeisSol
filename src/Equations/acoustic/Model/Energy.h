@@ -23,9 +23,11 @@ struct EnergyCompute<AcousticMaterial> {
                 "energy descriptors must be named, unique, and grouped consistently");
 
   // output positions, looked up by name so that reordering cannot misplace a value
-  static constexpr auto AcousticEnergyIdx = detail::indexOf(Energies, "acoustic_energy");
+  static constexpr auto AcousticPotentialIdx =
+      detail::indexOf(Energies, "acoustic_potential_energy");
   static constexpr auto AcousticKineticIdx = detail::indexOf(Energies, "acoustic_kinetic_energy");
-  static_assert(AcousticEnergyIdx < EnergyCount, "AcousticEnergy missing from the descriptor list");
+  static_assert(AcousticPotentialIdx < EnergyCount,
+                "AcousticPotential missing from the descriptor list");
   static_assert(AcousticKineticIdx < EnergyCount,
                 "AcousticKinetic missing from the descriptor list");
 
@@ -59,11 +61,12 @@ struct EnergyCompute<AcousticMaterial> {
 
     // Acoustic
     constexpr std::size_t PIdx = 0;
-    const auto k = material.getLambdaBar();
+    // with mu = 0, the bulk modulus K = lambda + 2 mu / 3 is just lambda
+    const auto bulkModulus = material.getLambdaBar();
     const auto pp = quadSub(PIdx, PIdx);
-    const double curAcousticEnergy = pp / (2 * k);
+    const double curAcousticPotentialEnergy = pp / (2 * bulkModulus);
 
-    output[AcousticEnergyIdx] = curAcousticEnergy;
+    output[AcousticPotentialIdx] = curAcousticPotentialEnergy;
     output[AcousticKineticIdx] = curKineticEnergy;
 
     return output;

@@ -13,6 +13,24 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+Dynamic rupture checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(after 1.3.2, `#1642 <https://github.com/SeisSol/SeisSol/pull/1642>`_, September 2026)
+
+The stress a fault point is under is now a function of the simulation time and of the fault parameters, rather than a quantity that the time step adds the nucleation to.
+The two checkpoint records that carried it, ``initialStressInFaultCS`` and ``initialPressure``, no longer exist, and checkpoints written before this change cannot be restored.
+Restarting in the middle of a nucleation episode is exact from here on, since nothing about the episode is carried through the checkpoint.
+
+Nucleation accuracy
+~~~~~~~~~~~~~~~~~~~
+
+(after 1.3.2, `#1642 <https://github.com/SeisSol/SeisSol/pull/1642>`_, September 2026)
+
+Instead of accumulating over each time step, the nucleations now get evaluated at the exact time value.
+Furthermore, the accuracy of the nucleation source time function was improved.
+As a result, fast (i.e. taking only little timesteps) nucleations may now behave slightly differently to before.
+
 Energy Output
 ~~~~~~~~~~~~~
 (since 0.9.0, `#531 <https://github.com/SeisSol/SeisSol/pull/531>`_, April 2022)
@@ -119,6 +137,62 @@ The strain rate output was named just "strain" output for the off-fault receiver
 The corresponding option was likewise called :code:`ReceiverComputeStrain`,
 not :code:`ReceiverComputeStrainRate`.
 
+Poroelastic Time Basis
+~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased, `#1374 <https://github.com/SeisSol/SeisSol/pull/1374>`_, August 2025)
+
+Poroelasticity is solved with a space-time predictor, whose coefficients are expressed in a Legendre
+basis in time, while all other materials use a monomial (Taylor) basis.
+
+Up to this fix, two areas were evaluated
+with the same (monomial) basis on all cases, affecting LTS and the fault stress output.
+
+Poroelastic results may therefore differ from earlier versions.
+
+Poroelastic Dynamic Rupture Impedance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+The shear impedance of a poroelastic fault is now :math:`Z_s = \sqrt{\mu \rho_1}`, with the
+statically condensed density :math:`\rho_1 = \bar\rho - \rho_f^2 / m` that the Biot system
+propagates shear waves with, instead of the density of the solid grains. The scalar impedances used
+by the friction update, the slip accumulation and the fault receiver output now come from the same
+matrix as the Riemann solver, and the wave impedance itself is computed in closed form rather than
+from an eigendecomposition.
+
+Results of poroelastic dynamic rupture simulations change accordingly; how much depends on the
+porosity and the tortuosity. For the material values of the poroelastic test cases the impedance
+drops by 5 to 15 percent.
+
+Frictional Energy of a Bimaterial Fault
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+The interface traction the frictional energy is integrated with is :math:`\tau^* = b^+ \tau^+ +
+b^- \tau^-`, with :math:`b^\pm = \eta Y^\pm`. The energy computation paired :math:`b^+` with the
+traction of the *minus* side and vice versa, which disagreed with both the Riemann solver and the
+:code:`computeTractionInterpolated` kernel the fault output uses.
+
+The two coefficients are equal for a fault with the same material on both sides, so only
+bimaterial faults are affected. The frictional energy in the energy output changes there; the
+simulation itself does not.
+
+Anisotropic Eigenbasis
+~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+One entry of the eigenbasis an anisotropic material is transformed with carried :math:`c_{46}`
+where the derivation asks for :math:`c_{56}`, i.e. the coupling of :math:`\sigma_{xy}` to
+:math:`u_z` instead of the intended one.
+
+The matrix enters the boundary conditions, so anisotropic simulations with a free surface or an
+absorbing boundary change. Materials for which both coefficients vanish -- isotropy, VTI with the
+symmetry axis along a coordinate axis -- are unaffected.
+
 Potency and Seismic Moment Quadrature
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -128,3 +202,31 @@ The potency and the seismic moment were computed by averaging the value over all
 Now, to make the integration more exact, they are instead weighed by the quadrature rule
 the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
 may slightly change compared to before.
+
+Names of the Energy Output Columns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Four columns of the energy output CSV file were named after a quantity that, in the literature,
+denotes a sum of which they are only one part. They now carry the name of what they actually contain
+(see :ref:`energy_output`); the values themselves are unchanged.
+
++--------------------------+------------------------------------+
+| old                      | new                                |
++==========================+====================================+
+| ``elastic_energy``       | ``elastic_strain_energy``          |
++--------------------------+------------------------------------+
+| ``acoustic_energy``      | ``acoustic_potential_energy``      |
++--------------------------+------------------------------------+
+| ``viscoelastic_energy``  | ``anelastic_strain_energy``        |
++--------------------------+------------------------------------+
+| ``gravitational_energy`` | ``gravitational_potential_energy`` |
++--------------------------+------------------------------------+
+
+For a poroelastic material, the two columns that used to be called ``elastic_energy`` and
+``elastic_kinetic_energy`` are now ``poroelastic_strain_energy`` and
+``poroelastic_kinetic_energy``: both hold a two-phase expression that differs from the
+single-phase one.
+
+The terminal output changed accordingly: the group headings now read
+``Acoustic mechanical energy``, ``Elastic mechanical energy`` and
+``Gravitational potential energy``, and the share printed as ``kinematic`` is now ``kinetic``.

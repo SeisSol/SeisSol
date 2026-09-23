@@ -27,17 +27,19 @@ struct EnergyCompute<ElasticMaterial> {
   static constexpr auto MomentumXIdx = detail::indexOf(Energies, "momentumX");
   static constexpr auto MomentumYIdx = detail::indexOf(Energies, "momentumY");
   static constexpr auto MomentumZIdx = detail::indexOf(Energies, "momentumZ");
-  static constexpr auto AcousticEnergyIdx = detail::indexOf(Energies, "acoustic_energy");
+  static constexpr auto AcousticPotentialIdx =
+      detail::indexOf(Energies, "acoustic_potential_energy");
   static constexpr auto AcousticKineticIdx = detail::indexOf(Energies, "acoustic_kinetic_energy");
-  static constexpr auto ElasticEnergyIdx = detail::indexOf(Energies, "elastic_energy");
+  static constexpr auto ElasticStrainIdx = detail::indexOf(Energies, "elastic_strain_energy");
   static constexpr auto ElasticKineticIdx = detail::indexOf(Energies, "elastic_kinetic_energy");
   static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
   static_assert(MomentumYIdx < EnergyCount, "MomentumY missing from the descriptor list");
   static_assert(MomentumZIdx < EnergyCount, "MomentumZ missing from the descriptor list");
-  static_assert(AcousticEnergyIdx < EnergyCount, "AcousticEnergy missing from the descriptor list");
+  static_assert(AcousticPotentialIdx < EnergyCount,
+                "AcousticPotential missing from the descriptor list");
   static_assert(AcousticKineticIdx < EnergyCount,
                 "AcousticKinetic missing from the descriptor list");
-  static_assert(ElasticEnergyIdx < EnergyCount, "ElasticEnergy missing from the descriptor list");
+  static_assert(ElasticStrainIdx < EnergyCount, "ElasticStrain missing from the descriptor list");
   static_assert(ElasticKineticIdx < EnergyCount, "ElasticKinetic missing from the descriptor list");
 
   /// No anelastic variables. See the viscoelastic specialization for the
@@ -83,11 +85,12 @@ struct EnergyCompute<ElasticMaterial> {
     if (std::abs(material.getMuBar()) < 10e-14) {
       // Acoustic
       constexpr std::size_t PIdx = 0;
-      const auto k = material.getLambdaBar();
+      // with mu = 0, the bulk modulus K = lambda + 2 mu / 3 is just lambda
+      const auto bulkModulus = material.getLambdaBar();
       const auto pp = quadSub(PIdx, PIdx);
-      const double curAcousticEnergy = pp / (2 * k);
+      const double curAcousticPotentialEnergy = pp / (2 * bulkModulus);
 
-      output[AcousticEnergyIdx] = curAcousticEnergy;
+      output[AcousticPotentialIdx] = curAcousticPotentialEnergy;
       output[AcousticKineticIdx] = curKineticEnergy;
     } else {
       // Elastic
@@ -113,14 +116,14 @@ struct EnergyCompute<ElasticMaterial> {
         stressstrain += 1.0 / (2.0 * mu) * getStressPair(i, j, i, j);
         return stressstrain;
       };
-      double curElasticEnergy = 0.0;
+      double curStrainEnergy = 0.0;
       for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
-          curElasticEnergy += computeStressStrain(i, j);
+          curStrainEnergy += computeStressStrain(i, j);
         }
       }
 
-      output[ElasticEnergyIdx] = 0.5 * curElasticEnergy;
+      output[ElasticStrainIdx] = 0.5 * curStrainEnergy;
       output[ElasticKineticIdx] = curKineticEnergy;
     }
 

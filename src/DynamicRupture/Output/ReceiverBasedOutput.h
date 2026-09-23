@@ -33,10 +33,21 @@ class ReceiverOutput {
     meshReader_ = userMeshReader;
   }
   void setFaceToLtsMap(::seissol::initializer::StorageBackmap<1>* map) { faceToLtsMap_ = map; }
+  void setDrParameters(const seissol::initializer::parameters::DRParameters* userDrParameters) {
+    drParameters_ = userDrParameters;
+  }
+  /**
+   * @param stateTime the time the stored friction state belongs to, which is the end of the dynamic
+   *                  rupture time step that computed it; the stress sources are evaluated there,
+   *                  where the friction law evaluated them last, so that the tractions rebuilt
+   *                  here are consistent with the state they are rebuilt from
+   * @param time the time the output is recorded under
+   */
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
+                       double stateTime,
                        double time = 0.0,
                        double dt = 1.0,
                        double indt = 0.0);
@@ -48,6 +59,7 @@ class ReceiverOutput {
   LTS::Backmap* wpBackmap_{nullptr};
   DynamicRupture::Storage* drStorage_{nullptr};
   seissol::geometry::MeshReader* meshReader_{nullptr};
+  const seissol::initializer::parameters::DRParameters* drParameters_{nullptr};
   ::seissol::initializer::StorageBackmap<1>* faceToLtsMap_{nullptr};
   real* deviceCopyMemory_{nullptr};
 
@@ -64,6 +76,9 @@ class ReceiverOutput {
     int internalGpIndexFused{};
 
     double time{};
+    /// width of the last sub time step of the friction solve, which is the one the stored friction
+    /// state belongs to
+    double deltaT{};
     bool* printWarning{nullptr};
 
     std::size_t index{};
@@ -92,6 +107,10 @@ class ReceiverOutput {
 
     real slipRateStrike{};
     real slipRateDip{};
+    /// slip rate in the fault-local frame, filled where the friction reconstruction resolves the
+    /// slip direction itself instead of inheriting it from the trial traction
+    real slipRateTangent1{};
+    real slipRateTangent2{};
 
     real
         faceAlignedValuesPlus[tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
@@ -125,18 +144,37 @@ class ReceiverOutput {
   void getNeighborDofs(const real*(&derivatives), std::size_t meshId, std::size_t side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
+  /**
+    d(strength) / d(-sigma_eff), the counterpart of the friction laws' strengthSlope. Only read for
+    materials whose impedance couples shear slip to the fault-normal traction; zero means that the
+    strength does not follow the normal stress.
+   */
+  virtual real computeLocalStrengthSlope(LocalInfo& /*local*/) { return 0.0; }
   virtual real computeFluidPressure(LocalInfo& /*local*/) { return 0.0; }
   virtual real computeStateVariable(LocalInfo& /*local*/) { return 0.0; }
-  static void updateLocalTractions(LocalInfo& local, real strength);
+  static void updateLocalTractions(LocalInfo& local, real strength, real strengthSlope);
   real computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
   virtual void computeSlipRate(LocalInfo& local,
                                const std::array<real, 6>& /*rotatedUpdatedStress*/,
-                               const std::array<real, 6>& /*rotatedStress*/);
+                               const std::array<real, 6>& /*rotatedStress*/,
+                               const std::array<double, 3>& /*tangent1*/,
+                               const std::array<double, 3>& /*tangent2*/,
+                               const std::array<double, 3>& /*strike*/,
+                               const std::array<double, 3>& /*dip*/);
   static void computeSlipRate(LocalInfo& local,
                               const std::array<double, 3>& tangent1,
                               const std::array<double, 3>& tangent2,
                               const std::array<double, 3>& strike,
                               const std::array<double, 3>& dip);
+  /// Writes a fault plane vector given in the (tangent1, tangent2) frame to the slip rate along
+  /// strike and dip.
+  static void projectOntoStrikeAndDip(LocalInfo& local,
+                                      real alongTangent1,
+                                      real alongTangent2,
+                                      const std::array<double, 3>& tangent1,
+                                      const std::array<double, 3>& tangent2,
+                                      const std::array<double, 3>& strike,
+                                      const std::array<double, 3>& dip);
   virtual void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
                                const LocalInfo& local,
                                size_t outputSpecifics,

@@ -179,9 +179,9 @@ TEST_CASE("The stored potential energy is fully accounted for") {
   // as the kinetic energy it is reported against. For a viscoelastic material
   // that includes the Maxwell branch springs: leaving them out would make the
   // printed potential share understate the actual potential.
-  if (declares("elastic_kinetic_energy") && declares("viscoelastic_energy")) {
-    CHECK(groupOf("viscoelastic_energy") == groupOf("elastic_kinetic_energy"));
-    CHECK(groupOf("elastic_energy") == groupOf("elastic_kinetic_energy"));
+  if (declares("elastic_kinetic_energy") && declares("anelastic_strain_energy")) {
+    CHECK(groupOf("anelastic_strain_energy") == groupOf("elastic_kinetic_energy"));
+    CHECK(groupOf("elastic_strain_energy") == groupOf("elastic_kinetic_energy"));
   }
 
   // A dissipation rate is a flux, not a stored energy, and must never be summed

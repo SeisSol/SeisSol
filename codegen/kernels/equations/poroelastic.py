@@ -61,6 +61,14 @@ class PoroelasticADERDG(STP):
         # The fluid velocities relax against the solid ones through Biot drag.
         return [(10, 6), (11, 7), (12, 8)]
 
+    def tractionMatrixSpp(self):
+        # the fluid pressure is the fourth interface traction and enters the three mechanical
+        # components through b = eta * Y, so its row has to be part of the pattern
+        tractionMatrixSpp = np.zeros((self.numQuantities(), 3))
+        for row in (0, 3, 5, 9):
+            tractionMatrixSpp[row, :] = 1
+        return tractionMatrixSpp
+
     def name(self):
         return "poroelastic"
 

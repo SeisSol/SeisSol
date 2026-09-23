@@ -36,19 +36,22 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
   static constexpr auto MomentumXIdx = detail::indexOf(Energies, "momentumX");
   static constexpr auto MomentumYIdx = detail::indexOf(Energies, "momentumY");
   static constexpr auto MomentumZIdx = detail::indexOf(Energies, "momentumZ");
-  static constexpr auto AcousticEnergyIdx = detail::indexOf(Energies, "acoustic_energy");
+  static constexpr auto AcousticPotentialIdx =
+      detail::indexOf(Energies, "acoustic_potential_energy");
   static constexpr auto AcousticKineticIdx = detail::indexOf(Energies, "acoustic_kinetic_energy");
-  static constexpr auto ViscoacousticEnergyIdx = detail::indexOf(Energies, "viscoacoustic_energy");
+  static constexpr auto AnelasticPotentialIdx =
+      detail::indexOf(Energies, "anelastic_potential_energy");
   static constexpr auto ViscousDissipationIdx =
       detail::indexOf(Energies, "viscous_dissipation_rate");
   static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
   static_assert(MomentumYIdx < EnergyCount, "MomentumY missing from the descriptor list");
   static_assert(MomentumZIdx < EnergyCount, "MomentumZ missing from the descriptor list");
-  static_assert(AcousticEnergyIdx < EnergyCount, "AcousticEnergy missing from the descriptor list");
+  static_assert(AcousticPotentialIdx < EnergyCount,
+                "AcousticPotential missing from the descriptor list");
   static_assert(AcousticKineticIdx < EnergyCount,
                 "AcousticKinetic missing from the descriptor list");
-  static_assert(ViscoacousticEnergyIdx < EnergyCount,
-                "ViscoacousticEnergy missing from the descriptor list");
+  static_assert(AnelasticPotentialIdx < EnergyCount,
+                "AnelasticPotential missing from the descriptor list");
   static_assert(ViscousDissipationIdx < EnergyCount,
                 "ViscousDissipation missing from the descriptor list");
 
@@ -194,13 +197,13 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
       dissipationRate += material.omega[m] * quadratic;
     }
 
-    output[ViscoacousticEnergyIdx] = branchEnergy;
+    output[AnelasticPotentialIdx] = branchEnergy;
     output[ViscousDissipationIdx] = dissipationRate;
 
     // No shear branch survives (dMu_m = mu_u * beta_m vanishes with mu_u), so
     // only the volumetric part contributes.
     const auto bulkRelaxed = material.getBulkRelaxed();
-    output[AcousticEnergyIdx] = traceSigmaRSq / (18.0 * bulkRelaxed);
+    output[AcousticPotentialIdx] = traceSigmaRSq / (18.0 * bulkRelaxed);
     output[AcousticKineticIdx] = curKineticEnergy;
 
     return output;
