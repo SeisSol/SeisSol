@@ -19,7 +19,7 @@ namespace seissol::model {
  * They only depend on the material parameters. This header is used by the energy output and the
  * fault impedance, which compile in every build, so it must not use generated tensors that only
  * exist in a poroelastic build (such as init::Z and init::Zinv; that is why calcZinv and
- * ZInvInitializer live in PoroelasticSetup.h).
+ * ZInvInitializer live in Kernels/STP/Setup.h).
  */
 struct AdditionalPoroelasticParameters {
   Eigen::Matrix<double, 6, 1> alpha;

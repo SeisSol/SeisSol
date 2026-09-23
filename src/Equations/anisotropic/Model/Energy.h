@@ -112,7 +112,7 @@ struct EnergyCompute<AnisotropicMaterial> {
                       std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
 
-    constexpr auto UIdx = AnisotropicMaterial::TractionQuantities;
+    constexpr auto UIdx = AnisotropicMaterial::VelocityOffset;
     const auto rho = material.getDensity();
 
     const auto u = linSub(0, UIdx + 0);

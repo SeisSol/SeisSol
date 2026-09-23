@@ -183,6 +183,11 @@ TEST_CASE("The stored potential energy is fully accounted for") {
     CHECK(groupOf("anelastic_strain_energy") == groupOf("elastic_kinetic_energy"));
     CHECK(groupOf("elastic_strain_energy") == groupOf("elastic_kinetic_energy"));
   }
+  // The same holds for a fluid, whose branch springs hold potential energy of the sound field.
+  if (declares("acoustic_kinetic_energy") && declares("anelastic_potential_energy")) {
+    CHECK(groupOf("anelastic_potential_energy") == groupOf("acoustic_kinetic_energy"));
+    CHECK(groupOf("acoustic_potential_energy") == groupOf("acoustic_kinetic_energy"));
+  }
 
   // A dissipation rate is a flux, not a stored energy, and must never be summed
   // into an energy group.

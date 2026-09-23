@@ -55,7 +55,8 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: ALIGNMENT, VECTORSIZE, WITH_GPU, DEVICE_VENDOR
+#
+#       derived input: WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 
@@ -371,12 +372,7 @@ if (NOT NEW_BINARY_NAMING)
     set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_${CUSTOM_BINARY_SUFFIX}")
   endif()
 else()
-  set(NAME_SUFFIX "")
-  if (EQUATIONS STREQUAL "viscoelastic2")
-    set(NAME_SUFFIX "viscoelastic")
-  else()
-    set(NAME_SUFFIX "${EQUATIONS}")
-  endif()
+  set(NAME_SUFFIX "${EQUATIONS}")
   if (NUMBER_OF_MECHANISMS GREATER 0)
     set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
   endif()

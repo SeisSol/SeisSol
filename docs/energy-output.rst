@@ -341,6 +341,19 @@ frequency or frequency ratio.
 Without external sources, the total energy decreases monotonically due to
 internal relaxation.
 
+**Viscoacoustic materials.** Without a shear modulus, only the bulk modulus
+relaxes. The viscoacoustic material therefore carries one scalar memory variable
+per mechanism, driven by the divergence of the velocity -- i.e. the trace of its
+tensor counterpart above -- and everything above reduces to its volumetric part.
+The same holds for a cell with :math:`\mu = 0` in a viscoelastic build. The
+Maxwell branch springs then hold potential energy of the sound field,
+:math:`W_\mathrm{ac,ane}`, which is reported as ``anelastic_potential_energy`` in
+the acoustic group:
+
+.. code-block:: none
+
+   Acoustic mechanical energy: <total> , kinetic x % , potential y % , anelastic z %
+
 
 Poroelastic energy
 ^^^^^^^^^^^^^^^^^^
@@ -505,6 +518,10 @@ solid ones.
 | ``anelastic_strain_energy``        | :math:`W_\mathrm{ane}`    | Strain energy held in the Maxwell branches     |
 |                                    |                           | (viscoelastic only)                            |
 +------------------------------------+---------------------------+------------------------------------------------+
+| ``anelastic_potential_energy``     | :math:`W_\mathrm{ac,ane}` | Potential energy held in the Maxwell branches  |
+|                                    |                           | of the fluid cells (viscoelastic and           |
+|                                    |                           | viscoacoustic only)                            |
++------------------------------------+---------------------------+------------------------------------------------+
 | ``poroelastic_strain_energy``      | :math:`W_p`               | Strain energy of skeleton and pore fluid       |
 |                                    |                           | (poroelastic only)                             |
 +------------------------------------+---------------------------+------------------------------------------------+
@@ -519,7 +536,7 @@ solid ones.
 
 Every column holds one contribution only. The terminal output, in contrast, prints
 one line per group -- ``Acoustic mechanical energy`` for
-:math:`W_\mathrm{ac,pot} + W_\mathrm{ac,kin}`, ``Elastic mechanical energy`` for
+:math:`W_\mathrm{ac,pot} + W_\mathrm{ac,kin} + W_\mathrm{ac,ane}`, ``Elastic mechanical energy`` for
 :math:`W_\mathrm{kin} + W_\mathrm{strain} + W_\mathrm{ane}`, and
 ``Poroelastic mechanical energy`` for :math:`W_\mathrm{kin} + W_p` -- followed by
 the share each contribution has in that sum. So a name that stands for a sum never
@@ -541,6 +558,11 @@ Summary of energy balances
 +---------------------+-------------------------------------+---------------------------------------------+
 | Viscoelastic        | :math:`W_\mathrm{kin} +             | Internal relaxation of the Maxwell          |
 |                     | W_\mathrm{strain} + W_\mathrm{ane}` | branches, ``viscous_dissipation_rate``      |
++---------------------+-------------------------------------+---------------------------------------------+
+| Viscoacoustic       | :math:`W_\mathrm{grav} +            | Internal relaxation of the Maxwell          |
+|                     | W_\mathrm{ac,pot} +                 | branches, ``viscous_dissipation_rate``      |
+|                     | W_\mathrm{ac,kin} +                 |                                             |
+|                     | W_\mathrm{ac,ane}`                  |                                             |
 +---------------------+-------------------------------------+---------------------------------------------+
 | Poroelastic         | :math:`W_\mathrm{kin} + W_p`        | Viscous Darcy friction in the pore fluid,   |
 |                     |                                     | ``darcy_dissipation_rate``                  |

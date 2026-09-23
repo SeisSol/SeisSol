@@ -18,7 +18,15 @@
 #include <vector>
 
 namespace seissol::model {
-enum class MaterialType { Solid, Acoustic, Elastic, Viscoelastic, Anisotropic, Poroelastic };
+enum class MaterialType {
+  Solid,
+  Acoustic,
+  Elastic,
+  Viscoelastic,
+  Viscoacoustic,
+  Anisotropic,
+  Poroelastic
+};
 
 // the local solvers. CK is the default for elastic, acoustic etc.
 // viscoelastic uses CauchyKovalevskiAnelastic (maybe all other materials may be extended to use
@@ -32,10 +40,24 @@ enum class LocalSolver {
   SpaceTimePredictorPoroelastic
 };
 
+/**
+ * A source row stiff enough that a space-time predictor has to factorise it
+ * separately: it carries a damping term on the diagonal and feeds one other
+ * quantity through an off-diagonal entry.
+ */
+struct StiffSourceRow {
+  std::size_t quantity;
+  std::size_t target;
+};
+
 struct Material {
-  static constexpr std::size_t NumQuantities = 0;             // ?
-  static constexpr std::size_t NumberPerMechanism = 0;        // ?
-  static constexpr std::size_t TractionQuantities = 0;        // ?
+  static constexpr std::size_t NumQuantities = 0;      // ?
+  static constexpr std::size_t NumberPerMechanism = 0; // ?
+  /// Materials whose source term is not stiff declare none.
+  static constexpr std::array<StiffSourceRow, 0> StiffSourceRows{};
+
+  static constexpr std::size_t VelocityOffset = 0;
+  static constexpr std::size_t TractionComponents = 0;
   static constexpr std::size_t Mechanisms = 0;                // ?
   static constexpr MaterialType Type = MaterialType::Solid;   // ?
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?

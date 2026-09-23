@@ -490,14 +490,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Integrals>(position);
                 const auto* dofsSingleQuantity1 =
-                    dofsAllQuantities +
-                    QDofSizePadded * (idx1 + model::MaterialT::TractionQuantities);
+                    dofsAllQuantities + QDofSizePadded * (idx1 + model::MaterialT::VelocityOffset);
                 projectVolumeDeriv(target, dofsSingleQuantity1, idx2, index, subcell);
 
                 if (idx1 != idx2) {
                   const auto* dofsSingleQuantity2 =
                       dofsAllQuantities +
-                      QDofSizePadded * (idx2 + model::MaterialT::TractionQuantities);
+                      QDofSizePadded * (idx2 + model::MaterialT::VelocityOffset);
                   std::array<real, MaxVtk3dPoints> itarget{};
                   projectVolumeDeriv(itarget.data(), dofsSingleQuantity2, idx1, index, subcell);
 
@@ -527,13 +526,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity1 =
-                    dofsAllQuantities +
-                    QDofSizePadded * (idx1 + model::MaterialT::TractionQuantities);
+                    dofsAllQuantities + QDofSizePadded * (idx1 + model::MaterialT::VelocityOffset);
                 projectVolumeDeriv(target, dofsSingleQuantity1, idx2, index, subcell);
 
                 const auto* dofsSingleQuantity2 =
-                    dofsAllQuantities +
-                    QDofSizePadded * (idx2 + model::MaterialT::TractionQuantities);
+                    dofsAllQuantities + QDofSizePadded * (idx2 + model::MaterialT::VelocityOffset);
                 std::array<real, MaxVtk3dPoints> itarget{};
                 projectVolumeDeriv(itarget.data(), dofsSingleQuantity2, idx1, index, subcell);
 
@@ -736,10 +733,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto position = backmap.get(meshId);
               const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
 
-              // velocities start at model::MaterialT::TractionQuantities
+              // velocities start at model::MaterialT::VelocityOffset
               const auto* dofsSingleQuantity =
                   dofsAllQuantities +
-                  QDofSizePadded * (model::MaterialT::TractionQuantities + quantity);
+                  QDofSizePadded * (model::MaterialT::VelocityOffset + quantity);
               kernel::projectBasisToVtkFaceFromVolume vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};

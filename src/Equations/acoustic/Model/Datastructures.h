@@ -13,8 +13,9 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
-#include "Kernels/LinearCK/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cmath>
@@ -24,14 +25,11 @@
 #include <vector>
 
 namespace seissol::model {
-struct AcousticLocalData;
-struct AcousticNeighborData;
 
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumElasticQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 1;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Acoustic;
   static inline const std::string Text = "acoustic";
@@ -39,15 +37,31 @@ struct AcousticMaterial : public Material {
   // By definition, the normal stress and pressure are negatives of each other.
   static inline const std::array<std::string, NumQuantities> Quantities = {
       "pprime", "v1", "v2", "v3"};
+  /// The scheme this build advances cells with. The material does not pick
+  /// it; which combinations are allowed is checked when the build is
+  /// configured. It cannot live on the base material, because Config.h
+  /// includes CommonDatastructures.h.
+  using Solver = kernels::SolverSelector<Config::Solver>::Type;
+
+  static constexpr auto PrimaryGroups = AcousticQuantities;
+  static constexpr auto RotationGroups = PrimaryGroups;
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
+
   static constexpr std::size_t Parameters = 1 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = AcousticLocalData;
-  using NeighborSpecificData = AcousticNeighborData;
-  using Solver = kernels::solver::linearck::Solver;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
 
   using EnergyData = std::monostate;
 

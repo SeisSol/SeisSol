@@ -620,7 +620,7 @@ void EnergyOutput::computeVolumeEnergies() {
         }
       }
 
-      constexpr auto UIdx = model::MaterialT::TractionQuantities;
+      constexpr auto UIdx = model::MaterialT::VelocityOffset;
 
       const auto& boundaryMappings = boundaryMappingData[cell];
       // Compute the gravitational potential energy

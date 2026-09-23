@@ -8,39 +8,21 @@
 # SPDX-FileContributor: Sebastian Wolf
 
 import numpy as np
-from kernels.equations.elastic import ElasticADERDG as ADERDGBase
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from kernels.equations.elastic import ElasticADERDG
 
 
-class AnisotropicADERDG(ADERDGBase):
-    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
-        super().__init__(order, multipleSimulations, matricesDir, memLayout)
-        clones = {
-            "star": ["star(0)", "star(1)", "star(2)"],
-        }
-        self.db.update(
-            parseXMLMatrixFile("{}/star_anisotropic.xml".format(matricesDir), clones)
-        )
-        memoryLayoutFromFile(memLayout, self.db, clones)
-
-        self.kwargs = kwargs
-
+class AnisotropicADERDG(ElasticADERDG):
     def name(self):
         return "anisotropic"
-
-    def addInit(self, generator):
-        super().addInit(generator)
-
-    def add_include_tensors(self, include_tensors):
-        super().add_include_tensors(include_tensors)
 
     def tractionMatrixSpp(self):
         # b = eta * Y is dense for an anisotropic impedance, so every traction row carries all
         # three columns
-        tractionMatrixSpp = np.zeros((self.numberOfQuantities(), 3))
+        tractionMatrixSpp = np.zeros((self.numQuantities(), 3))
         for row in (0, 3, 5):
             tractionMatrixSpp[row, :] = 1
         return tractionMatrixSpp
 
 
-EQUATION_CLASS = AnisotropicADERDG
+def kernel_class(**kwargs):
+    return AnisotropicADERDG

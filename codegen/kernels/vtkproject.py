@@ -32,8 +32,8 @@ def addKernels(generator, aderdg, PlasticityMethod, matricesDir, targets=["cpu"]
     )
 
     order = aderdg.order
-    volumeBasisCount = aderdg.numberOf3DBasisFunctions()
-    faceBasisCount = aderdg.numberOf2DBasisFunctions()
+    volumeBasisCount = aderdg.num3DBasisFunctions()
+    faceBasisCount = aderdg.num2DBasisFunctions()
     volumeNodeCount = plasticityDB.v.shape()[0]
     # the face displacement is stored at the nodes2D points; these are unisolvent, hence the
     # node count coincides with the number of 2D basis functions
