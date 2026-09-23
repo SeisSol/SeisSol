@@ -6,12 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/poroelastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Helper.h"
+#include "Equations/poroelastic/Model/Setup.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
+#include "Kernels/STP/Setup.h"
 #include "Model/Common.h"
-#include "Model/PoroelasticSetup.h"
 #include "Numerical/Transformation.h"
 
 #include <cmath>
@@ -95,31 +97,31 @@ class SpaceTimePredictorTestFixture {
 
     // prepare Zinv
     auto zinv0 = init::Zinv::view<0>::create(zMatrix[0]);
-    model::calcZinv(zinv0, et, 0, Dt);
+    model::calcZinv(zinv0, et, 0, model::isStiffRow<model::PoroElasticMaterial>(0), Dt);
     auto zinv1 = init::Zinv::view<1>::create(zMatrix[1]);
-    model::calcZinv(zinv1, et, 1, Dt);
+    model::calcZinv(zinv1, et, 1, model::isStiffRow<model::PoroElasticMaterial>(1), Dt);
     auto zinv2 = init::Zinv::view<2>::create(zMatrix[2]);
-    model::calcZinv(zinv2, et, 2, Dt);
+    model::calcZinv(zinv2, et, 2, model::isStiffRow<model::PoroElasticMaterial>(2), Dt);
     auto zinv3 = init::Zinv::view<3>::create(zMatrix[3]);
-    model::calcZinv(zinv3, et, 3, Dt);
+    model::calcZinv(zinv3, et, 3, model::isStiffRow<model::PoroElasticMaterial>(3), Dt);
     auto zinv4 = init::Zinv::view<4>::create(zMatrix[4]);
-    model::calcZinv(zinv4, et, 4, Dt);
+    model::calcZinv(zinv4, et, 4, model::isStiffRow<model::PoroElasticMaterial>(4), Dt);
     auto zinv5 = init::Zinv::view<5>::create(zMatrix[5]);
-    model::calcZinv(zinv5, et, 5, Dt);
+    model::calcZinv(zinv5, et, 5, model::isStiffRow<model::PoroElasticMaterial>(5), Dt);
     auto zinv6 = init::Zinv::view<6>::create(zMatrix[6]);
-    model::calcZinv(zinv6, et, 6, Dt);
+    model::calcZinv(zinv6, et, 6, model::isStiffRow<model::PoroElasticMaterial>(6), Dt);
     auto zinv7 = init::Zinv::view<7>::create(zMatrix[7]);
-    model::calcZinv(zinv7, et, 7, Dt);
+    model::calcZinv(zinv7, et, 7, model::isStiffRow<model::PoroElasticMaterial>(7), Dt);
     auto zinv8 = init::Zinv::view<8>::create(zMatrix[8]);
-    model::calcZinv(zinv8, et, 8, Dt);
+    model::calcZinv(zinv8, et, 8, model::isStiffRow<model::PoroElasticMaterial>(8), Dt);
     auto zinv9 = init::Zinv::view<9>::create(zMatrix[9]);
-    model::calcZinv(zinv9, et, 9, Dt);
+    model::calcZinv(zinv9, et, 9, model::isStiffRow<model::PoroElasticMaterial>(9), Dt);
     auto zinv10 = init::Zinv::view<10>::create(zMatrix[10]);
-    model::calcZinv(zinv10, et, 10, Dt);
+    model::calcZinv(zinv10, et, 10, model::isStiffRow<model::PoroElasticMaterial>(10), Dt);
     auto zinv11 = init::Zinv::view<11>::create(zMatrix[11]);
-    model::calcZinv(zinv11, et, 11, Dt);
+    model::calcZinv(zinv11, et, 11, model::isStiffRow<model::PoroElasticMaterial>(11), Dt);
     auto zinv12 = init::Zinv::view<12>::create(zMatrix[12]);
-    model::calcZinv(zinv12, et, 12, Dt);
+    model::calcZinv(zinv12, et, 12, model::isStiffRow<model::PoroElasticMaterial>(12), Dt);
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
@@ -186,9 +188,10 @@ class SpaceTimePredictorTestFixture {
     }
 
     auto sourceView = init::ET::view::create(sourceMatrix);
-    krnl.Gk = sourceView(10, 6) * Dt;
-    krnl.Gl = sourceView(11, 7) * Dt;
-    krnl.Gm = sourceView(12, 8) * Dt;
+    for (std::size_t i = 0; i < model::PoroElasticMaterial::StiffSourceRows.size(); ++i) {
+      const auto& row = model::PoroElasticMaterial::StiffSourceRows[i];
+      krnl.G(i) = sourceView(row.quantity, row.target) * Dt;
+    }
 
     krnl.Q = qData;
     krnl.I = timeIntegrated;

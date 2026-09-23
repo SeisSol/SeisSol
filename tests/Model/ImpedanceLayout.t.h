@@ -39,7 +39,7 @@ void checkInterfaceQuantities() {
                           const auto& stop,
                           const auto& indices) {
       REQUIRE(shape[0] == ImpedanceCompute::Dim);
-      // (viscoelastic2 extracts from the elastic quantities only, so this may be less than
+      // (the anelastic solver extracts from the elastic quantities only, so this may be less than
       // MaterialT::NumQuantities)
       const std::size_t quantities = shape[1];
       // the generated matrix only stores its bounding box, column major

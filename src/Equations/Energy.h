@@ -18,16 +18,15 @@
 
 // Gather all Energy headers here.
 // Note: these specializations are keyed on the *material*, not on the solver
-// variant. ViscoElasticMaterial is defined in viscoelastic2/ and shared by both
-// USE_VISCOELASTIC and USE_VISCOELASTIC2 (mirroring Datastructures.h), so there
-// is no viscoelastic/Model/Energy.h. The guards are only needed where the header
+// variant. The guards are only needed where the header
 // pulls in generated tensors that exist for that build alone.
 #include "Equations/acoustic/Model/Energy.h"
 #include "Equations/anisotropic/Model/Energy.h"
 #include "Equations/elastic/Model/Energy.h"
 #include "Equations/poroelastic/Model/Energy.h"
-#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-#include "Equations/viscoelastic2/Model/Energy.h"
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+#include "Equations/viscoacoustic/Model/Energy.h"
+#include "Equations/viscoelastic/Model/Energy.h"
 #endif
 
 // IWYU pragma: end_exports

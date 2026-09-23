@@ -10,28 +10,29 @@
 
 // common::solveSlipRate projects the impedance only for an anisotropic MaterialT; everywhere else
 // every projection collapses to the scalar impedance and there is nothing to check here.
-#ifdef USE_ANISOTROPIC
 
 #include <doctest.h>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Typedefs.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
 
 #include <array>
 #include <cmath>
+#include <type_traits>
 
 namespace seissol::unit_test {
 
-namespace {
+namespace anisotropicsliprate {
 
 using seissol::dr::ImpedanceMatrices;
 using seissol::dr::ImpedancesAndEta;
 
 /// eta = (Y+ + Y-)^-1 of a homogeneous fault in a VTI tilted out of the fault plane, rounded.
 /// Symmetric positive definite, with both a shear/shear and a normal/shear coupling.
-ImpedanceMatrices testImpedance() {
+inline ImpedanceMatrices testImpedance() {
   ImpedanceMatrices impedanceMatrices;
   auto eta = init::eta::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.818e6;
@@ -45,7 +46,7 @@ ImpedanceMatrices testImpedance() {
 
 /// eta with a deliberately asymmetric shear block. Physical impedances are self-adjoint, which
 /// makes eta and its transpose interchangeable -- this one tells them apart.
-ImpedanceMatrices asymmetricImpedance() {
+inline ImpedanceMatrices asymmetricImpedance() {
   ImpedanceMatrices impedanceMatrices;
   auto eta = init::eta::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.8e6;
@@ -60,7 +61,7 @@ ImpedanceMatrices asymmetricImpedance() {
   return impedanceMatrices;
 }
 
-ImpedanceMatrices isotropicImpedance(real etaS) {
+inline ImpedanceMatrices isotropicImpedance(real etaS) {
   ImpedanceMatrices impedanceMatrices;
   auto eta = init::eta::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.818e6;
@@ -71,12 +72,12 @@ ImpedanceMatrices isotropicImpedance(real etaS) {
 
 /// Residual of tau0 = (S I + V eta_ss) n with S = strength + slope * V * (eta n)_n, relative to
 /// the trial traction. Zero for the exact solution, whatever route produced it.
-real slipRateResidual(ImpedanceMatrices impedanceMatrices,
-                      const seissol::dr::friction_law::common::SlipRateSolution& solution,
-                      real traction1,
-                      real traction2,
-                      real strength,
-                      real strengthSlope) {
+inline real slipRateResidual(ImpedanceMatrices impedanceMatrices,
+                             const seissol::dr::friction_law::common::SlipRateSolution& solution,
+                             real traction1,
+                             real traction2,
+                             real strength,
+                             real strengthSlope) {
   const auto eta = init::eta::view::create(impedanceMatrices.eta);
   const real slip1 = solution.slipRate * solution.direction1;
   const real slip2 = solution.slipRate * solution.direction2;
@@ -93,14 +94,18 @@ real slipRateResidual(ImpedanceMatrices impedanceMatrices,
          std::sqrt(traction1 * traction1 + traction2 * traction2);
 }
 
-} // namespace
+} // namespace anisotropicsliprate
 
 // ---------------------------------------------------------------------------
 // The solve the linear slip weakening laws and the fault receiver output share. It is checked
 // against the equations it is supposed to satisfy, not against a second implementation of the
 // same sweep, so a regression in either direction shows up here.
 // ---------------------------------------------------------------------------
-TEST_CASE("Anisotropic slip rate solve" * doctest::test_suite("dynamicrupture")) {
+TEST_CASE("Anisotropic slip rate solve" *
+          doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) *
+          doctest::test_suite("dynamicrupture")) {
+  using namespace anisotropicsliprate;
+
   using seissol::dr::friction_law::common::solveSlipRate;
 
   const ImpedancesAndEta impAndEta{};
@@ -196,7 +201,11 @@ TEST_CASE("Anisotropic slip rate solve" * doctest::test_suite("dynamicrupture"))
 // The projections of eta the friction laws use. They index a flat, column-major array, so the
 // checks below state which index is the row and which the column.
 // ---------------------------------------------------------------------------
-TEST_CASE("Anisotropic impedance projections" * doctest::test_suite("dynamicrupture")) {
+TEST_CASE("Anisotropic impedance projections" *
+          doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) *
+          doctest::test_suite("dynamicrupture")) {
+  using namespace anisotropicsliprate;
+
   namespace common = seissol::dr::friction_law::common;
 
   const ImpedancesAndEta impAndEta{};
@@ -234,7 +243,5 @@ TEST_CASE("Anisotropic impedance projections" * doctest::test_suite("dynamicrupt
 }
 
 } // namespace seissol::unit_test
-
-#endif // USE_ANISOTROPIC
 
 #endif // SEISSOL_TESTS_DYNAMICRUPTURE_FRICTIONLAWS_ANISOTROPICSLIPRATE_T_H_

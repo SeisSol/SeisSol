@@ -170,6 +170,19 @@ inline constexpr std::array ElasticEnergies{
  */
 inline constexpr std::array ViscoelasticEnergies{
     EnergyDescriptor{"anelastic_strain_energy", EnergyUnit::Energy, "elastic", {}, "anelastic"},
+};
+
+/**
+ * The acoustic counterpart. Without a shear modulus, the Maxwell branch springs
+ * only hold volumetric strain, i.e. potential energy of the sound field, so they
+ * join the acoustic group instead.
+ */
+inline constexpr std::array ViscoacousticEnergies{
+    EnergyDescriptor{"anelastic_potential_energy", EnergyUnit::Energy, "acoustic", {}, "anelastic"},
+};
+
+/// The power absorbed by the Maxwell branch dashpots, shared by both visco materials.
+inline constexpr std::array ViscoEnergies{
     EnergyDescriptor{"viscous_dissipation_rate",
                      EnergyUnit::Power,
                      "viscous_dissipation",

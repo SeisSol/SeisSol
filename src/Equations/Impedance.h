@@ -14,11 +14,11 @@
 // Gather all Impedance headers here.
 // Unlike Setup.h and Energy.h, no guards are needed: the admittance of a material only depends on
 // its parameters, not on the generated code of the build. The acoustic material does not support
-// dynamic rupture and has no specialization.
+// dynamic rupture and has no specialization; neither does the viscoacoustic one.
 #include "Equations/anisotropic/Model/Impedance.h"
 #include "Equations/elastic/Model/Impedance.h"
 #include "Equations/poroelastic/Model/Impedance.h"
-#include "Equations/viscoelastic2/Model/Impedance.h"
+#include "Equations/viscoelastic/Model/Impedance.h"
 
 // IWYU pragma: end_exports
 
