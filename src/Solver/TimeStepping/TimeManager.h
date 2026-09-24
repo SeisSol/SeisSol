@@ -9,6 +9,7 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
+#include "CellCluster.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -18,7 +19,6 @@
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/TimeStepping/GhostTimeClusterFactory.h"
 #include "SourceTerm/Typedefs.h"
-#include "TimeCluster.h"
 
 #include <cassert>
 #include <list>
@@ -41,9 +41,9 @@ class TimeManager {
   std::optional<initializer::ClusterLayout> clusterLayout_;
 
   //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<TimeCluster>> clusters_;
-  std::vector<TimeCluster*> highPrioClusters_;
-  std::vector<TimeCluster*> lowPrioClusters_;
+  std::vector<std::unique_ptr<CellCluster>> clusters_;
+  std::vector<CellCluster*> highPrioClusters_;
+  std::vector<CellCluster*> lowPrioClusters_;
 
   //! one dynamic rupture scheduler per pair of interior/copy cluster
   std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers_;

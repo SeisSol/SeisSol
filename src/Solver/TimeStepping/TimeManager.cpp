@@ -26,9 +26,9 @@
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/ActorState.h"
+#include "Solver/TimeStepping/CellCluster.h"
 #include "Solver/TimeStepping/GhostTimeClusterFactory.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
-#include "Solver/TimeStepping/TimeCluster.h"
 
 #include <algorithm>
 #include <cassert>
@@ -136,7 +136,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
 
     auto& cluster = clusters_.emplace_back(
-        std::make_unique<TimeCluster>(clusterId,
+        std::make_unique<CellCluster>(clusterId,
                                       clusterId,
                                       profilingId,
                                       settings,

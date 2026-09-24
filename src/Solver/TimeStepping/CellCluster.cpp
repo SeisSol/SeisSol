@@ -9,7 +9,7 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include "TimeCluster.h"
+#include "CellCluster.h"
 
 #include "Alignment.h"
 #include "Common/Constants.h"
@@ -67,7 +67,7 @@
 
 namespace seissol::time_stepping {
 
-TimeCluster::TimeCluster(unsigned int clusterId,
+CellCluster::CellCluster(unsigned int clusterId,
                          unsigned int globalClusterId,
                          unsigned int profilingId,
                          const SimulationSettings& settings,
@@ -176,11 +176,11 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   }
 }
 
-void TimeCluster::setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) {
+void CellCluster::setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) {
   this->sourceCluster_ = std::move(sourceCluster);
 }
 
-void TimeCluster::writeReceivers(const StepParams& params) {
+void CellCluster::writeReceivers(const StepParams& params) {
   SCOREP_USER_REGION("writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   if (receiverCluster_ != nullptr) {
@@ -189,7 +189,7 @@ void TimeCluster::writeReceivers(const StepParams& params) {
   }
 }
 
-void TimeCluster::computeSources(const StepParams& params) {
+void CellCluster::computeSources(const StepParams& params) {
 #ifdef ACL_DEVICE
   device_.api->putProfilingMark("computeSources", device::ProfilingColors::Blue);
 #endif
@@ -216,7 +216,7 @@ void TimeCluster::computeSources(const StepParams& params) {
 #endif
 }
 
-void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData,
+void CellCluster::computeDynamicRupture(DynamicRupture::Layer& layerData,
                                         const StepParams& params) {
   if (layerData.size() == 0) {
     return;
@@ -280,7 +280,7 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData,
   loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
 }
 
-void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::Layer& layerData,
+void CellCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::Layer& layerData,
                                               SEISSOL_GPU_PARAM const StepParams& params) {
 #ifdef ACL_DEVICE
 
@@ -345,7 +345,7 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
 #endif
 }
 
-PerformanceEstimate TimeCluster::computeDynamicRuptureFlops(DynamicRupture::Layer& layerData) {
+PerformanceEstimate CellCluster::computeDynamicRuptureFlops(DynamicRupture::Layer& layerData) {
   const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
 
   PerformanceEstimate estimate{};
@@ -357,7 +357,7 @@ PerformanceEstimate TimeCluster::computeDynamicRuptureFlops(DynamicRupture::Laye
   return estimate;
 }
 
-void TimeCluster::computeLocalIntegration(const StepParams& params) {
+void CellCluster::computeLocalIntegration(const StepParams& params) {
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   loopStatistics_->begin(regionComputeLocalIntegration_);
@@ -436,7 +436,7 @@ void TimeCluster::computeLocalIntegration(const StepParams& params) {
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
 }
 
-void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepParams& params) {
+void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepParams& params) {
 
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
@@ -533,7 +533,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
 #endif // ACL_DEVICE
 }
 
-void TimeCluster::computeNeighboringIntegration(const StepParams& params) {
+void CellCluster::computeNeighboringIntegration(const StepParams& params) {
   if (settings_.integrate) {
     if (settings_.plasticity) {
       computeNeighboringIntegrationImplementation<true, true>(params);
@@ -549,7 +549,7 @@ void TimeCluster::computeNeighboringIntegration(const StepParams& params) {
   }
 }
 
-void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const StepParams& params) {
+void CellCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const StepParams& params) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
@@ -623,7 +623,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const St
 #endif // ACL_DEVICE
 }
 
-void TimeCluster::computeLocalIntegrationFlops() {
+void CellCluster::computeLocalIntegrationFlops() {
   auto& estimate = estimate_[static_cast<int>(ComputePart::Local)];
   estimate = PerformanceEstimate{};
 
@@ -642,7 +642,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
   }
 }
 
-void TimeCluster::computeNeighborIntegrationFlops() {
+void CellCluster::computeNeighborIntegrationFlops() {
   auto& estimateRegular = estimate_[static_cast<int>(ComputePart::Neighbor)];
   auto& estimateDR = estimate_[static_cast<int>(ComputePart::DRNeighbor)];
 
@@ -660,7 +660,7 @@ void TimeCluster::computeNeighborIntegrationFlops() {
   }
 }
 
-void TimeCluster::computeFlops() {
+void CellCluster::computeFlops() {
   computeLocalIntegrationFlops();
   computeNeighborIntegrationFlops();
   estimate_[static_cast<int>(ComputePart::DRFrictionLawInterior)] =
@@ -673,20 +673,20 @@ void TimeCluster::computeFlops() {
   estimate_[static_cast<int>(ComputePart::PlasticityYield)] = yield;
 }
 
-ActResult TimeCluster::act() {
+ActResult CellCluster::act() {
   actorStateStatistics_->enter(state_);
   const auto result = AbstractTimeCluster::act();
   actorStateStatistics_->enter(state_);
   return result;
 }
 
-void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& /*...*/) {
+void CellCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& /*...*/) {
   // Doesn't do anything
 }
-void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*...*/) {
+void CellCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*...*/) {
   // Doesn't do anything
 }
-void TimeCluster::predict() {
+void CellCluster::predict() {
   assert(state_ == ActorState::Corrected);
   if (clusterData_->size() == 0) {
     return;
@@ -715,7 +715,7 @@ void TimeCluster::predict() {
   streamRuntime_.wait();
 }
 
-void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData, const StepParams& params) {
+void CellCluster::handleDynamicRupture(DynamicRupture::Layer& layerData, const StepParams& params) {
   if (layerData.size() == 0) {
     return;
   }
@@ -757,7 +757,7 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData, const S
   }
 }
 
-void TimeCluster::correct() {
+void CellCluster::correct() {
   assert(state_ == ActorState::Predicted);
   const auto params = stepParams();
 
@@ -803,24 +803,24 @@ void TimeCluster::correct() {
   streamRuntime_.wait();
 }
 
-void TimeCluster::incrementPerformanceMetrics(ComputePart part) {
+void CellCluster::incrementPerformanceMetrics(ComputePart part) {
   seissolInstance_.flopCounter().incrementMetric(perfHandle_[static_cast<std::size_t>(part)],
                                                  estimate_[static_cast<std::size_t>(part)]);
 }
 
-unsigned int TimeCluster::getClusterId() const { return clusterId_; }
+unsigned int CellCluster::getClusterId() const { return clusterId_; }
 
-std::size_t TimeCluster::layerId() const { return clusterData_->id(); }
+std::size_t CellCluster::layerId() const { return clusterData_->id(); }
 
-unsigned int TimeCluster::getGlobalClusterId() const { return globalClusterId_; }
+unsigned int CellCluster::getGlobalClusterId() const { return globalClusterId_; }
 
-HaloType TimeCluster::getLayerType() const { return layerType_; }
-void TimeCluster::setTime(double time) {
+HaloType CellCluster::getLayerType() const { return layerType_; }
+void CellCluster::setTime(double time) {
   AbstractTimeCluster::setTime(time);
   this->receiverTime_ = time;
 }
 
-void TimeCluster::finalize() {
+void CellCluster::finalize() {
   sourceCluster_.host.reset(nullptr);
   sourceCluster_.device.reset(nullptr);
   streamRuntime_.dispose();
@@ -829,7 +829,7 @@ void TimeCluster::finalize() {
 }
 
 template <bool UsePlasticity, bool IntegrateOutput>
-void TimeCluster::computeNeighboringIntegrationImplementation(const StepParams& params) {
+void CellCluster::computeNeighboringIntegrationImplementation(const StepParams& params) {
   const auto clusterSize = clusterData_->size();
   if (clusterSize == 0) {
     return;
@@ -950,7 +950,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(const StepParams& 
   loopStatistics_->end(regionComputeNeighboringIntegration_, clusterSize, profilingId_);
 }
 
-void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
+void CellCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
   if constexpr (isDeviceOn()) {
     if ((place == initializer::AllocationPlace::Host && executor_ == Executor::Device) ||
         (place == initializer::AllocationPlace::Device && executor_ == Executor::Host)) {
@@ -965,7 +965,7 @@ void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
   }
 }
 
-void TimeCluster::finishPhase() {
+void CellCluster::finishPhase() {
   const auto cells = conditionalCounterHost_[0];
   seissolInstance_.flopCounter().incrementMetric(
       perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityYield)],
@@ -981,7 +981,7 @@ void TimeCluster::finishPhase() {
   conditionalCounterDevice_.copyFrom(conditionalCounterHost_);
 }
 
-std::string TimeCluster::description() const {
+std::string CellCluster::description() const {
   const auto identifier = clusterData_->getIdentifier();
   const std::string haloStr = identifier.halo == HaloType::Interior ? "interior" : "copy";
   return "compute-" + haloStr;

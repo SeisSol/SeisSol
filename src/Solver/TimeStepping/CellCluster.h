@@ -8,8 +8,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
-#define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_CELLCLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_CELLCLUSTER_H_
 
 #include "AbstractTimeCluster.h"
 #include "Common/Executor.h"
@@ -47,9 +47,10 @@ class ReceiverCluster;
 namespace seissol::time_stepping {
 
 /**
- * Time cluster, which represents a collection of elements having the same time step width.
+ * The cells of one layer, i.e. of one time cluster and halo type. They all advance with the time
+ * step of their time cluster.
  **/
-class TimeCluster : public AbstractTimeCluster {
+class CellCluster : public AbstractTimeCluster {
   private:
   SimulationSettings settings_;
 
@@ -222,7 +223,7 @@ class TimeCluster : public AbstractTimeCluster {
    * @param globalClusterId global id of this cluster.
    * @param settings simulation settings
    **/
-  TimeCluster(unsigned int clusterId,
+  CellCluster(unsigned int clusterId,
               unsigned int globalClusterId,
               unsigned int profilingId,
               const SimulationSettings& settings,
@@ -242,7 +243,7 @@ class TimeCluster : public AbstractTimeCluster {
               LoopStatistics* loopStatistics,
               ActorStateStatistics* actorStateStatistics);
 
-  ~TimeCluster() override = default;
+  ~CellCluster() override = default;
 
   /**
    * Sets the the cluster's point sources
@@ -276,4 +277,4 @@ class TimeCluster : public AbstractTimeCluster {
 
 } // namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_CELLCLUSTER_H_

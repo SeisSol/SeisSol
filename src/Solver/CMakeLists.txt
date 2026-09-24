@@ -12,11 +12,11 @@ add_library(seissol-solver OBJECT
     TimeStepping/AbstractGhostTimeCluster.cpp
     TimeStepping/AbstractTimeCluster.cpp
     TimeStepping/ActorState.cpp
+    TimeStepping/CellCluster.cpp
     TimeStepping/CommunicationManager.cpp
     TimeStepping/DirectGhostTimeCluster.cpp
     TimeStepping/GhostTimeClusterWithCopy.cpp
     TimeStepping/StepParams.cpp
-    TimeStepping/TimeCluster.cpp
     TimeStepping/TimeManager.cpp
 )
 

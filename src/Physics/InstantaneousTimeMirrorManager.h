@@ -17,7 +17,7 @@
 #include "Modules/Module.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
-#include "Solver/TimeStepping/TimeCluster.h"
+#include "Solver/TimeStepping/CellCluster.h"
 
 #include <vector>
 
