@@ -503,14 +503,15 @@ void OutputManager::initFaceToLtsMap() {
   impl_->setFaceToLtsMap(&faceToLtsMap_);
 }
 
-bool OutputManager::isAtPickpoint(double time, double dt) {
+bool OutputManager::isAtPickpoint(std::size_t layerId, double time, double dt) {
   const auto& seissolParameters = seissolInstance_.parameters();
-  const bool isFirstStep = iterationStep_ == 0;
+  const auto iterationStep = iterationSteps_[layerId];
+  const bool isFirstStep = iterationStep == 0;
   const double abortTime = seissolParameters.timeStepping.endTime;
   const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
 
   const int printTimeInterval = seissolParameters.output.pickpointParameters.printTimeInterval;
-  const bool isOutputIteration = iterationStep_ % printTimeInterval == 0;
+  const bool isOutputIteration = iterationStep % printTimeInterval == 0;
 
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
@@ -524,7 +525,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
                                          parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance_.parameters();
   if (this->ppOutputBuilder_) {
-    if (this->isAtPickpoint(time, dt)) {
+    if (this->isAtPickpoint(layerId, time, dt)) {
       const auto findResult = ppOutputData_.find(layerId);
       if (findResult != ppOutputData_.end()) {
         const auto& outputData = findResult->second;
@@ -549,7 +550,7 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
                                meshInDt);
       }
     }
-    ++iterationStep_;
+    ++iterationSteps_[layerId];
   }
 }
 

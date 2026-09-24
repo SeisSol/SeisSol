@@ -17,6 +17,7 @@
 #include "Parallel/Runtime/Stream.h"
 
 #include <memory>
+#include <unordered_map>
 
 namespace seissol {
 class SeisSol;
@@ -56,7 +57,11 @@ class OutputManager {
   seissol::SeisSol& seissolInstance_;
 
   protected:
-  bool isAtPickpoint(double time, double dt);
+  /**
+   * Whether the layer records its fault receivers in its current step: in its first step, in every
+   * `printTimeInterval`-th step after it, and close to the end of the simulation.
+   */
+  bool isAtPickpoint(std::size_t layerId, double time, double dt);
   void initElementwiseOutput();
   void initPickpointOutput();
 
@@ -82,7 +87,8 @@ class OutputManager {
   ::seissol::initializer::StorageBackmap<1> faceToLtsMap_;
   seissol::geometry::MeshReader* meshReader_{nullptr};
 
-  size_t iterationStep_{0};
+  //! the number of steps each layer has taken so far
+  std::unordered_map<std::size_t, std::size_t> iterationSteps_;
   static constexpr double TimeMargin{1.005};
   std::string backupTimeStamp_;
 
