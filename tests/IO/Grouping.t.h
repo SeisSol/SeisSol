@@ -19,14 +19,16 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace groupingtest {
 using namespace seissol::io::instance::point;
 using seissol::io::datatype::inferDatatype;
 
-TableQuantity doubleQuantity(const std::string& name) { return {name, inferDatatype<double>()}; }
+inline TableQuantity doubleQuantity(const std::string& name) {
+  return {name, inferDatatype<double>()};
+}
 
 //! what an elastic receiver records
-std::vector<TableQuantity> elastic() {
+inline std::vector<TableQuantity> elastic() {
   return {doubleQuantity("v1"),
           doubleQuantity("v2"),
           doubleQuantity("v3"),
@@ -36,13 +38,15 @@ std::vector<TableQuantity> elastic() {
 }
 
 //! the same plus the pressure a poroelastic one has
-std::vector<TableQuantity> poroelastic() {
+inline std::vector<TableQuantity> poroelastic() {
   auto quantities = elastic();
   quantities.push_back(doubleQuantity("p"));
   return quantities;
 }
 
-} // namespace
+} // namespace groupingtest
+
+using namespace groupingtest;
 
 TEST_CASE("IO/Grouping: a quantity set survives its key" * doctest::test_suite("io")) {
   const auto quantities = poroelastic();

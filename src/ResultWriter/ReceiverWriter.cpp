@@ -11,8 +11,10 @@
 
 #include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
+#include "IO/Datatype/Inference.h"
 #include "IO/Instance/Point/Grouping.h"
 #include "IO/Instance/Point/Hdf5Table.h"
+#include "IO/Instance/Point/TableWriter.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"

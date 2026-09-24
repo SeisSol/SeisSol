@@ -14,6 +14,7 @@
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Metadata/Pvd.h"
 #include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Dimension.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
 #include "Parallel/MPI.h"
@@ -26,6 +27,7 @@
 #include <mpi.h>
 #include <optional>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -55,6 +57,8 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
+  // not a member initializer: elementOffset_ is only known once MPI_Exscan has written it
+  // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
   connectivityOffset_ = elementOffset_ * pointsPerElement_;
   localPointCount_ =
       vertexMap.has_value() ? vertexMap->localPointCount : localElementCount * pointsPerElement_;

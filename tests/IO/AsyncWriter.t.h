@@ -24,12 +24,12 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace asyncwritertest {
 using namespace seissol::io;
 using namespace seissol::io::writer;
 
 //! A plan writing one managed buffer, plus the values that buffer is expected to hold.
-std::pair<Writer, std::vector<std::int64_t>>
+inline std::pair<Writer, std::vector<std::int64_t>>
     makePlan(const std::string& file, const std::string& name, std::int64_t base) {
   std::vector<std::int64_t> expected(16);
   for (std::size_t i = 0; i < expected.size(); ++i) {
@@ -50,7 +50,9 @@ std::pair<Writer, std::vector<std::int64_t>>
   return {std::move(writer), expected};
 }
 
-} // namespace
+} // namespace asyncwritertest
+
+using namespace asyncwritertest;
 
 // ---------------------------------------------------------------------------
 // The executor side: everything reaches it through ExecInfo buffers

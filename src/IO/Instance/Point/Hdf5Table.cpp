@@ -10,6 +10,7 @@
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Instance/Point/Grouping.h"
+#include "IO/Instance/Point/TableWriter.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Dimension.h"
 #include "IO/Writer/Instructions/Hdf5.h"

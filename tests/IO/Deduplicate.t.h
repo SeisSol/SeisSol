@@ -21,12 +21,12 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace deduplicatetest {
 using seissol::io::instance::geometry::deduplicatePoints;
 
 //! The cube [0,1]^3 split into six tetrahedra, written the way the output writes them: every cell
 //! repeats its four corners.
-std::vector<double> cubeCorners() {
+inline std::vector<double> cubeCorners() {
   const double vertices[8][3] = {
       {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 1}, {1, 0, 1}, {0, 1, 1}, {1, 1, 1}};
   const int cells[6][4] = {
@@ -40,7 +40,9 @@ std::vector<double> cubeCorners() {
   return result;
 }
 
-} // namespace
+} // namespace deduplicatetest
+
+using namespace deduplicatetest;
 
 TEST_CASE("IO/Deduplicate: coinciding corners become one point" * doctest::test_suite("io")) {
   const auto corners = cubeCorners();
@@ -68,6 +70,8 @@ TEST_CASE("IO/Deduplicate: coinciding corners become one point" * doctest::test_
 
 TEST_CASE("IO/Deduplicate: points that differ are kept apart" * doctest::test_suite("io")) {
   std::vector<double> points;
+  // deterministic on purpose, so that a failure can be reproduced
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 generator(42);
   std::uniform_real_distribution<double> position(-1.0, 1.0);
   for (std::size_t point = 0; point < 500; ++point) {
@@ -109,7 +113,10 @@ TEST_CASE("IO/Deduplicate: an empty input is handled" * doctest::test_suite("io"
   CHECK(map.indices.empty());
 }
 
-namespace {
+// The environment is process-wide state, which is safe to change here since doctest runs the test
+// cases one after the other.
+// NOLINTBEGIN(concurrency-mt-unsafe)
+namespace deduplicatetest {
 //! Sets the variable for the duration of the scope, and puts back what was there.
 class ScopedEnv {
   public:
@@ -122,7 +129,7 @@ class ScopedEnv {
   }
   ~ScopedEnv() {
     if (previous_.has_value()) {
-      setenv(name_, previous_.value().c_str(), 1);
+      setenv(name_, previous_->c_str(), 1);
     } else {
       unsetenv(name_);
     }
@@ -136,7 +143,7 @@ class ScopedEnv {
   const char* name_;
   std::optional<std::string> previous_;
 };
-} // namespace
+} // namespace deduplicatetest
 
 TEST_CASE("IO/Deduplicate: the vertex filter can be switched off" * doctest::test_suite("io")) {
   using seissol::io::instance::geometry::vertexFilterEnabled;
@@ -165,5 +172,6 @@ TEST_CASE("IO/Deduplicate: the vertex filter can be switched off" * doctest::tes
     CHECK(vertexFilterEnabled());
   }
 }
+// NOLINTEND(concurrency-mt-unsafe)
 
 } // namespace seissol::unit_test

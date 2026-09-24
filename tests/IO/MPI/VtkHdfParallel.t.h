@@ -27,7 +27,7 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace vtkhdfparalleltest {
 using namespace seissol::io;
 
 /**
@@ -69,7 +69,9 @@ struct SharedTempDir {
   [[nodiscard]] std::string prefix() const { return path + "/out"; }
 };
 
-} // namespace
+} // namespace vtkhdfparalleltest
+
+using namespace vtkhdfparalleltest;
 
 /**
  * The cell and point offsets of the VTKHDF output come out of an MPI_Exscan over the local element
@@ -317,6 +319,7 @@ TEST_CASE("IO/Grouping: the groups agree across ranks" * doctest::test_suite("io
 
   // only the last rank holds poroelastic points, and rank 0 holds none at all
   std::vector<std::vector<TableQuantity>> points;
+  points.reserve(rank);
   for (std::size_t point = 0; point < rank; ++point) {
     points.push_back(rank + 1 == size ? poroelastic : elastic);
   }
@@ -325,8 +328,8 @@ TEST_CASE("IO/Grouping: the groups agree across ranks" * doctest::test_suite("io
 
   // both groups exist everywhere, in the same order
   REQUIRE(grouping.groupCount() == 2);
-  const auto poroGroup = grouping.quantities[0].size() == 3 ? 0 : 1;
-  const auto elasticGroup = 1 - poroGroup;
+  const std::size_t poroGroup = grouping.quantities[0].size() == 3 ? 0 : 1;
+  const std::size_t elasticGroup = 1 - poroGroup;
   CHECK(grouping.quantities[elasticGroup].size() == 2);
 
   const auto elasticTotal = ((size - 1) * (size - 2)) / 2;

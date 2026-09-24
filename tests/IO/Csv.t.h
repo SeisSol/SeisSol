@@ -18,18 +18,20 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace csvtest {
 using namespace seissol::io::instance::point;
 
 //! A table of the shape the metadata writers produce: a name, a rank, and a number.
-Csv makeTable(CsvFormat format = {}) {
+inline Csv makeTable(CsvFormat format = {}) {
   Csv csv("threads", format);
   csv.addTextColumn("hostname", 16);
   csv.addColumn<std::int32_t>("rank");
   csv.addColumn<double>("weight");
   return csv;
 }
-} // namespace
+} // namespace csvtest
+
+using namespace csvtest;
 
 TEST_CASE("IO/Csv: only text is quoted by default" * doctest::test_suite("io")) {
   auto csv = makeTable();

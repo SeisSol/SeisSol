@@ -26,10 +26,10 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace hdfwritereadtest {
 using namespace seissol::io;
 
-std::string readFile(const std::string& path) {
+inline std::string readFile(const std::string& path) {
   const std::ifstream stream(path);
   REQUIRE(stream.good());
   std::ostringstream buffer;
@@ -38,11 +38,13 @@ std::string readFile(const std::string& path) {
 }
 
 //! Fills the four corners of tetrahedron @p index, as the output does for degree 0.
-void projectTestCell(double* target, std::size_t index) {
+inline void projectTestCell(double* target, std::size_t index) {
   std::copy_n(&unit_test::io::TestVertices[index][0][0], 4 * 3, target);
 }
 
-} // namespace
+} // namespace hdfwritereadtest
+
+using namespace hdfwritereadtest;
 
 // ---------------------------------------------------------------------------
 // VTKHDF: write a small mesh and read the file back

@@ -26,12 +26,11 @@
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <stack>
 #include <string>
 #include <utility>
-#include <utils/env.h>
 #include <utils/logger.h>
-#include <utils/stringutils.h>
 #include <vector>
 
 namespace {
@@ -199,7 +198,7 @@ struct DatasetLayout {
 DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
                                 const std::shared_ptr<DataSource>& source,
                                 MPI_Comm comm) {
-  const MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
+  MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
 
   const auto& dimensions = source->dimensions();
 

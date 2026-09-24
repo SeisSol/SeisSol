@@ -15,9 +15,11 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace dimensiontest {
 using namespace seissol::io::writer;
-} // namespace
+} // namespace dimensiontest
+
+using namespace dimensiontest;
 
 TEST_CASE("IO/Dimension: a shape says how it joins the dataset" * doctest::test_suite("io")) {
   SUBCASE("The common shape has a leading distributed dimension and nothing that grows") {

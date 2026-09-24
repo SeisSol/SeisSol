@@ -23,6 +23,7 @@
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Point/Grouping.h"
 #include "IO/Instance/Point/Hdf5Table.h"
+#include "IO/Instance/Point/TableWriter.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -49,6 +50,7 @@
 #include <ios>
 #include <limits>
 #include <memory>
+#include <mpi.h>
 #include <numeric>
 #include <ostream>
 #include <sstream>

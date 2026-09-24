@@ -17,20 +17,22 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace distributortest {
 using seissol::io::reader::Distributor;
 
 //! @brief Moves @p source, laid out by @p sourceIds, into the order of @p targetIds.
-std::vector<std::int64_t> moved(const std::vector<std::size_t>& sourceIds,
-                                const std::vector<std::size_t>& targetIds,
-                                const std::vector<std::int64_t>& source) {
+inline std::vector<std::int64_t> moved(const std::vector<std::size_t>& sourceIds,
+                                       const std::vector<std::size_t>& targetIds,
+                                       const std::vector<std::int64_t>& source) {
   Distributor distributor(MPI_COMM_SELF);
   distributor.setup(sourceIds, targetIds);
   std::vector<std::int64_t> target(targetIds.size(), 0);
   distributor.distribute(target.data(), source.data()).complete();
   return target;
 }
-} // namespace
+} // namespace distributortest
+
+using namespace distributortest;
 
 TEST_CASE("IO/Distributor: data follows the identifiers it is asked for" *
           doctest::test_suite("io")) {

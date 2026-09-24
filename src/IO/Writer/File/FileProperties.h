@@ -19,7 +19,7 @@
 namespace seissol::io::writer::file {
 
 //! The metadata of one file is gathered into blocks of this size before it is written.
-constexpr std::size_t MetaBlockSize = 1024 * 1024;
+constexpr std::size_t MetaBlockSize = std::size_t{1024} * 1024;
 
 /**
  * @brief The value of an output tuning knob, from the environment.

@@ -10,6 +10,7 @@
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
+#include "IO/Instance/Point/TableWriter.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -113,7 +114,7 @@ Grouping groupPoints(const std::vector<std::vector<TableQuantity>>& pointQuantit
     ++localCount[group];
   }
 
-  const auto sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
+  MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
   std::vector<std::size_t> offset(keys.size(), 0);
   grouping.globalCount.assign(keys.size(), 0);
   if (!keys.empty()) {

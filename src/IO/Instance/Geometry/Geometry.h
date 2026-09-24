@@ -90,7 +90,7 @@ class GeometryWriter {
                           Shape shape,
                           const WriterConfig& config,
                           std::size_t subdivide,
-                          F projector) {
+                          const F& projector) {
     if (config.time == WriterGroup::Monolith && config.format == WriterFormat::Xdmf) {
       logError() << "A monolithic time series output is only available for the VTKHDF format.";
     }
@@ -172,7 +172,7 @@ class GeometryWriter {
                  Shape shape,
                  const WriterConfig& config,
                  std::size_t subdivide,
-                 F projector)
+                 const F& projector)
       : config_(config), subdivide_(subdivide),
         underlying_(getUnderlyingWriter(
             name, subdivide * localElementCount, shape, config, subdivide, projector)) {}

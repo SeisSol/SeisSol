@@ -8,6 +8,7 @@
 #include "Csv.h"
 
 #include "IO/Datatype/Datatype.h"
+#include "IO/Instance/Point/TableWriter.h"
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Writer.h"
@@ -189,7 +190,7 @@ CsvTable parseCsv(const std::string& content, const CsvFormat& format) {
 }
 
 CsvTable readCsv(const std::string& path, const CsvFormat& format) {
-  std::ifstream stream(path);
+  const std::ifstream stream(path);
   if (!stream.good()) {
     logError() << "Could not read the table" << path << ".";
   }

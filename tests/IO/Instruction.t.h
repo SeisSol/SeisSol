@@ -26,12 +26,12 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace instructiontest {
 using namespace seissol::io;
 using namespace seissol::io::writer;
 
 //! The in-file path an instruction writes to, plus its dataset name.
-std::string target(const std::shared_ptr<instructions::WriteInstruction>& instruction) {
+inline std::string target(const std::shared_ptr<instructions::WriteInstruction>& instruction) {
   if (auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()); data != nullptr) {
     return data->location.infilePath() + "/" + data->name;
   }
@@ -42,7 +42,7 @@ std::string target(const std::shared_ptr<instructions::WriteInstruction>& instru
   return {};
 }
 
-std::vector<std::string> targets(writer::Writer& writer) {
+inline std::vector<std::string> targets(writer::Writer& writer) {
   std::vector<std::string> result;
   for (const auto& instruction : writer.getInstructions()) {
     result.push_back(target(instruction));
@@ -50,12 +50,12 @@ std::vector<std::string> targets(writer::Writer& writer) {
   return result;
 }
 
-bool contains(const std::vector<std::string>& haystack, const std::string& needle) {
+inline bool contains(const std::vector<std::string>& haystack, const std::string& needle) {
   return std::find(haystack.begin(), haystack.end(), needle) != haystack.end();
 }
 
 //! The value of an inline int64 dataset, so that the announced global counts can be checked.
-std::int64_t inlineValue(writer::Writer& writer, const std::string& path) {
+inline std::int64_t inlineValue(writer::Writer& writer, const std::string& path) {
   for (const auto& instruction : writer.getInstructions()) {
     auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get());
     if (data == nullptr || target(instruction) != path) {
@@ -73,7 +73,9 @@ std::int64_t inlineValue(writer::Writer& writer, const std::string& path) {
   return 0;
 }
 
-} // namespace
+} // namespace instructiontest
+
+using namespace instructiontest;
 
 // ---------------------------------------------------------------------------
 // Instruction and data source serialization
@@ -92,7 +94,7 @@ TEST_CASE("IO/Instruction: Hdf5Location round-trips" * doctest::test_suite("io")
   CHECK(location.infilePath() == "/VTKHDF/CellData/partition");
 
   auto copy = location;
-  instructions::Hdf5Location restored(copy.serialize());
+  const instructions::Hdf5Location restored(copy.serialize());
   CHECK(restored.file() == location.file());
   CHECK(restored.groups() == location.groups());
   CHECK(restored.infilePath() == location.infilePath());

@@ -8,6 +8,7 @@
 #include "Data.h"
 
 #include "IO/Datatype/Datatype.h"
+#include "IO/Writer/Instructions/Dimension.h"
 
 #include <algorithm>
 #include <async/ExecInfo.h>

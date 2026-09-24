@@ -20,32 +20,34 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace hdf5tabletest {
 using namespace seissol::io;
 using namespace seissol::io::instance::point;
 
-TableQuantity doubleColumn(const std::string& name) {
+inline TableQuantity doubleColumn(const std::string& name) {
   return {name, seissol::io::datatype::inferDatatype<double>()};
 }
 
 //! What a point of the first group records, and of the second: a quantity more.
-std::vector<TableQuantity> small() { return {doubleColumn("v1"), doubleColumn("v2")}; }
-std::vector<TableQuantity> large() {
+inline std::vector<TableQuantity> small() { return {doubleColumn("v1"), doubleColumn("v2")}; }
+inline std::vector<TableQuantity> large() {
   return {doubleColumn("v1"), doubleColumn("v2"), doubleColumn("p")};
 }
 
 //! The value point @p point records for quantity @p quantity at sample @p sample.
-double sampleValue(std::size_t point, std::size_t sample, std::size_t quantity) {
+inline double sampleValue(std::size_t point, std::size_t sample, std::size_t quantity) {
   return 100.0 * static_cast<double>(point) + 10.0 * static_cast<double>(sample) +
          static_cast<double>(quantity);
 }
 
-} // namespace
+} // namespace hdf5tabletest
+
+using namespace hdf5tabletest;
 
 TEST_CASE("IO/Hdf5Table: points are split by what they record" * doctest::test_suite("io")) {
   // three points, two of which record the same quantities
   const std::vector<std::vector<TableQuantity>> pointQuantities{small(), large(), small()};
-  Hdf5Table table("receivers", pointQuantities, MPI_COMM_SELF, 4);
+  const Hdf5Table table("receivers", pointQuantities, MPI_COMM_SELF, 4);
 
   const auto& grouping = table.grouping();
   REQUIRE(grouping.groupCount() == 2);

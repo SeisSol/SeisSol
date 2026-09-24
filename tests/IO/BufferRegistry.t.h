@@ -21,7 +21,7 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace bufferregistrytest {
 using namespace seissol::io::writer;
 using namespace seissol::io::writer::module;
 
@@ -59,7 +59,7 @@ class RecordingAllocator : public BufferAllocator {
 };
 
 //! A plan with one instruction per data source, in the given order.
-Writer planOf(const std::vector<std::shared_ptr<DataSource>>& sources) {
+inline Writer planOf(const std::vector<std::shared_ptr<DataSource>>& sources) {
   Writer writer;
   for (std::size_t i = 0; i < sources.size(); ++i) {
     writer.addInstruction(std::make_shared<instructions::Hdf5DataWrite>(
@@ -71,12 +71,14 @@ Writer planOf(const std::vector<std::shared_ptr<DataSource>>& sources) {
   return writer;
 }
 
-std::shared_ptr<DataSource> managedOf(std::size_t count) {
+inline std::shared_ptr<DataSource> managedOf(std::size_t count) {
   return GeneratedBuffer::createElementwise<char>(
       count, 1, {}, [](char* target, std::size_t index) { target[0] = static_cast<char>(index); });
 }
 
-} // namespace
+} // namespace bufferregistrytest
+
+using namespace bufferregistrytest;
 
 TEST_CASE("IO/BufferRegistry: sources of equal size do not share an id within a write" *
           doctest::test_suite("io")) {

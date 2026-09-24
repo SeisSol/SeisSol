@@ -113,7 +113,7 @@ class EnergyOutput : public Module {
 
   seissol::SeisSol& seissolInstance_;
 
-  bool shouldComputeVolumeEnergies() const;
+  [[nodiscard]] bool shouldComputeVolumeEnergies() const;
 
   bool isEnabled_ = false;
   bool isTerminalOutputEnabled_ = false;

@@ -16,7 +16,6 @@
 #include <optional>
 #include <string>
 #include <utility>
-#include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>

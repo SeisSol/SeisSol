@@ -7,7 +7,6 @@
 
 #include "WriterModule.h"
 
-#include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Module/AsyncWriter.h"
 #include "IO/Writer/Writer.h"
 #include "Modules/Modules.h"
@@ -18,13 +17,11 @@
 
 #include <async/Config.h>
 #include <cassert>
-#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <optional>
 #include <string>
 #include <utils/logger.h>
-#include <vector>
 
 namespace seissol::io::writer::module {
 
