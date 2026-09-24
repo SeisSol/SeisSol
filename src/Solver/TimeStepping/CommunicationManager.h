@@ -10,7 +10,7 @@
 
 #include "Parallel/HelperThread.h"
 #include "Parallel/Pin.h"
-#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/GhostCluster.h"
 
 #include <atomic>
 #include <memory>
@@ -20,7 +20,7 @@
 namespace seissol::time_stepping {
 class AbstractCommunicationManager {
   public:
-  using GhostClustersT = std::vector<std::unique_ptr<AbstractGhostTimeCluster>>;
+  using GhostClustersT = std::vector<std::unique_ptr<GhostCluster>>;
   virtual void progression() = 0;
   [[nodiscard]] virtual bool checkIfFinished() const = 0;
   virtual void reset(double newSyncTime);

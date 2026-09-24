@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "GhostCluster.h"
 
 #include "Common/Executor.h"
 #include "Kernels/Common.h"
@@ -13,68 +13,75 @@
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/ActorState.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
+#include "Solver/TimeStepping/HaloTransport.h"
 
 #include <atomic>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <list>
-#include <mpi.h>
+#include <memory>
 #include <string>
+#include <utility>
 
 namespace seissol::time_stepping {
-bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<std::size_t>& regions) {
-  for (auto region = regions.begin(); region != regions.end();) {
-    MPI_Request* request = &requests[*region];
-    int testSuccess = 0;
-    MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
-    if (testSuccess != 0) {
-      region = regions.erase(region);
-    } else {
-      ++region;
-    }
-  }
-  return regions.empty();
+void GhostCluster::sendCopyLayer() {
+  SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
+  assert(ct_.correctionTime > lastSendTime_);
+  lastSendTime_ = ct_.correctionTime;
+  transport_->startSend();
+  sentMessages_ += copyRegionCount_;
 }
 
-bool AbstractGhostTimeCluster::testForCopyLayerSends() {
+void GhostCluster::receiveGhostLayer() {
+  SCOREP_USER_REGION("receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
+  assert(ct_.predictionTime >= lastSendTime_);
+  transport_->startReceive();
+  receivedMessages_ += ghostRegionCount_;
+}
+
+bool GhostCluster::testForCopyLayerSends() {
   SCOREP_USER_REGION("testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION)
-  return testQueue(sendRequests_.data(), sendQueue_);
+  return transport_->testSend();
 }
 
-ActResult AbstractGhostTimeCluster::act() {
+bool GhostCluster::testForGhostLayerReceives() {
+  SCOREP_USER_REGION("testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION)
+  return transport_->testReceive();
+}
+
+ActResult GhostCluster::act() {
   // Always check for receives/send for quicker MPI progression.
   testForGhostLayerReceives();
   testForCopyLayerSends();
   return AbstractTimeCluster::act();
 }
 
-void AbstractGhostTimeCluster::start() {
+void GhostCluster::start() {
   assert(testForGhostLayerReceives());
   receiveGhostLayer();
 }
 
-void AbstractGhostTimeCluster::predict() {
+void GhostCluster::predict() {
   // Doesn't do anything
 }
 
-void AbstractGhostTimeCluster::correct() {
+void GhostCluster::correct() {
   // Doesn't do anything
 }
 
-bool AbstractGhostTimeCluster::mayCorrect() {
+bool GhostCluster::mayCorrect() {
   return testForCopyLayerSends() && AbstractTimeCluster::mayCorrect();
 }
 
-bool AbstractGhostTimeCluster::mayPredict() {
+bool GhostCluster::mayPredict() {
   return testForGhostLayerReceives() && AbstractTimeCluster::mayPredict();
 }
 
-bool AbstractGhostTimeCluster::maySync() {
+bool GhostCluster::maySync() {
   return testForGhostLayerReceives() && testForCopyLayerSends() && AbstractTimeCluster::maySync();
 }
 
-void AbstractGhostTimeCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
+void GhostCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
   // The copy layer has new data for the remote cluster once it has predicted at least up to the end
   // of the current step of the remote cluster, and at the synchronization point.
   const bool copyAtSync = neighbor.progress->stepsUntilSync.load(std::memory_order_relaxed) <=
@@ -85,7 +92,7 @@ void AbstractGhostTimeCluster::handleNeighborPrediction(const NeighborCluster& n
   }
 }
 
-void AbstractGhostTimeCluster::handleNeighborCorrection(const NeighborCluster& neighbor) {
+void GhostCluster::handleNeighborCorrection(const NeighborCluster& neighbor) {
   // The ghost layer may be overwritten once the copy layer has corrected up to the data received
   // last, and at the synchronization point. Before a correction, the copy layer has predicted
   // exactly as far as it has corrected afterwards.
@@ -109,33 +116,34 @@ void AbstractGhostTimeCluster::handleNeighborCorrection(const NeighborCluster& n
   }
 }
 
-AbstractGhostTimeCluster::AbstractGhostTimeCluster(
-    double maxTimeStepSize,
-    std::uint64_t timeStepRate,
-    std::size_t globalTimeClusterId,
-    std::size_t otherGlobalTimeClusterId,
-    const std::string& displayName,
-    const std::string& otherDisplayName,
-    const seissol::solver::HaloCommunication& meshStructure)
+GhostCluster::GhostCluster(double maxTimeStepSize,
+                           std::uint64_t timeStepRate,
+                           const std::string& displayName,
+                           const std::string& otherDisplayName,
+                           const solver::RemoteClusterPair& regions,
+                           std::unique_ptr<HaloTransport> transport)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
-      globalClusterId_(globalTimeClusterId), otherGlobalClusterId_(otherGlobalTimeClusterId),
-      meshStructure_(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
-      sendRequests_(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).copy.size()),
-      recvRequests_(
-          meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).ghost.size()),
-      displayName_(displayName), otherDisplayName_(otherDisplayName) {}
+      transport_(std::move(transport)), copyRegionCount_(regions.copy.size()),
+      ghostRegionCount_(regions.ghost.size()), displayName_(displayName),
+      otherDisplayName_(otherDisplayName) {}
 
-void AbstractGhostTimeCluster::reset() {
+void GhostCluster::reset() {
   AbstractTimeCluster::reset();
   assert(testForGhostLayerReceives());
   lastSendTime_ = -1;
 }
 
-std::string AbstractGhostTimeCluster::description() const {
+std::string GhostCluster::description() const {
   return "comm-" + displayName_ + "-" + otherDisplayName_;
 }
 
-bool AbstractGhostTimeCluster::timeoutFail() const { return true; }
+bool GhostCluster::timeoutFail() const { return true; }
+
+void GhostCluster::finalize() { transport_->finalize(); }
+
+std::size_t GhostCluster::sentMessages() const { return sentMessages_; }
+
+std::size_t GhostCluster::receivedMessages() const { return receivedMessages_; }
 
 } // namespace seissol::time_stepping

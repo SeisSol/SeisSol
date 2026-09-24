@@ -24,12 +24,12 @@
 #include "ResultWriter/ReceiverWriter.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
-#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/ActorState.h"
 #include "Solver/TimeStepping/CellCluster.h"
-#include "Solver/TimeStepping/GhostTimeClusterFactory.h"
+#include "Solver/TimeStepping/GhostCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
+#include "Solver/TimeStepping/HaloTransport.h"
 
 #include <algorithm>
 #include <array>
@@ -132,7 +132,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               initializer::MemoryManager& memoryManager,
                               const SimulationSettings& settings) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
-  std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
+  std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
 
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
@@ -301,16 +301,14 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
         const auto otherDisplayName = "ghost-" + std::to_string(other.lts);
 
-        auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
-                                                         otherTimeStepRate,
-                                                         layer.id(),
-                                                         i,
-                                                         displayName,
-                                                         otherDisplayName,
-                                                         haloStructure,
-                                                         preferredDataTransferMode,
-                                                         persistent);
-        ghostClusters.push_back(std::move(ghostCluster));
+        const auto& regions = haloStructure.at(layer.id()).at(i);
+        ghostClusters.push_back(std::make_unique<GhostCluster>(
+            otherTimeStepSize,
+            otherTimeStepRate,
+            displayName,
+            otherDisplayName,
+            regions,
+            createHaloTransport(regions, preferredDataTransferMode, persistent)));
 
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*cellClusterBackmap[layer.id()]);
@@ -500,6 +498,26 @@ void TimeManager::freeDynamicResources() {
   for (auto& cluster : clusters_) {
     cluster->finalize();
   }
+
+  // every message sent has to be received somewhere
+  std::array<std::size_t, 2> messages{0, 0};
+  for (auto& cluster : *communicationManager_->getGhostClusters()) {
+    messages[0] += cluster->sentMessages();
+    messages[1] += cluster->receivedMessages();
+    cluster->finalize();
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                messages.data(),
+                messages.size(),
+                Mpi::castToMpiType<std::size_t>(),
+                MPI_SUM,
+                Mpi::mpi.comm());
+  logInfo() << "Halo exchange:" << messages[0] << "messages sent," << messages[1]
+            << "received (summed over all ranks)";
+  if (messages[0] != messages[1]) {
+    logWarning() << "The halo exchange sent and received a different number of messages.";
+  }
+
   communicationManager_.reset(nullptr);
 }
 

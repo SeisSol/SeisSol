@@ -18,7 +18,7 @@
 #include "Monitoring/Stopwatch.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "Solver/TimeStepping/GhostTimeClusterFactory.h"
+#include "Solver/TimeStepping/GhostCluster.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <cassert>
