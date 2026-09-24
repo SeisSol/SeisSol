@@ -25,6 +25,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test::io {

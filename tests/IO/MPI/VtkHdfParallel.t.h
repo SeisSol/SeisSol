@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <mpi.h>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test {
