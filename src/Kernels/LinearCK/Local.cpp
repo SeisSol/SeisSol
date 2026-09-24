@@ -398,7 +398,7 @@ void Local::evaluateBatchedTimeDependentBc(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM double time,
+    SEISSOL_GPU_PARAM const double* time,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 
@@ -432,7 +432,7 @@ void Local::evaluateBatchedTimeDependentBc(
                                                      projectKrnlPrototype_,
                                                      applyAnalyticalSolution,
                                                      dofsFaceBoundaryNodal,
-                                                     time,
+                                                     *time,
                                                      timeStepWidth);
 
             std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));

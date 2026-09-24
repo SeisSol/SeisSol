@@ -26,8 +26,10 @@ PointSourceClusterOnDevice::PointSourceClusterOnDevice(
 std::size_t PointSourceClusterOnDevice::size() const { return sources_->numberOfSources; }
 
 void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
-    double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
-  pointSourceKernel(*clusterMapping_, *sources_, from, to, runtime);
+    double from, double timeStepSize, seissol::parallel::runtime::StreamRuntime& runtime) {
+  pointSourceKernel(*clusterMapping_, *sources_, from, timeStepSize, clock_, runtime);
 }
+
+void PointSourceClusterOnDevice::setClock(const double* deviceClock) { clock_ = deviceClock; }
 
 } // namespace seissol::kernels

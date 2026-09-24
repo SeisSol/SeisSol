@@ -265,6 +265,7 @@ void AbstractTimeCluster::setTime(double time) {
     neighbor.ct.correctionTime = time;
   }
   publishProgress();
+  timeSet(time);
 }
 
 long AbstractTimeCluster::getTimeStepRate() const { return timeStepRate_; }

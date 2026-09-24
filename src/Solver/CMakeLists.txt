@@ -13,6 +13,7 @@ add_library(seissol-solver OBJECT
     TimeStepping/ActorState.cpp
     TimeStepping/CclExchangeScheduler.cpp
     TimeStepping/CellCluster.cpp
+    TimeStepping/ClusterClock.cpp
     TimeStepping/CommunicationManager.cpp
     TimeStepping/DynamicRuptureCluster.cpp
     TimeStepping/ExchangeScheduler.cpp

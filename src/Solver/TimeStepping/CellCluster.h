@@ -24,6 +24,7 @@
 #include "Monitoring/Metric.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Settings.h"
+#include "Solver/TimeStepping/ClusterClock.h"
 #include "Solver/TimeStepping/StepParams.h"
 #include "SourceTerm/Typedefs.h"
 
@@ -65,6 +66,9 @@ class CellCluster : public AbstractTimeCluster {
   kernels::Neighbor neighborKernel_;
 
   seissol::parallel::runtime::StreamRuntime streamRuntime_;
+
+  //! the start of the current step, for the work on the stream
+  ClusterClock clock_;
 
   /*
    * global data
@@ -227,6 +231,7 @@ class CellCluster : public AbstractTimeCluster {
   protected:
   void* recordActionEvent() override;
   void waitForEvent(void* event) override;
+  void timeSet(double time) override;
 
   public:
   [[nodiscard]] std::size_t layerId() const;

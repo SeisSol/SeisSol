@@ -138,6 +138,9 @@ CellCluster::CellCluster(unsigned int clusterId,
 
 void CellCluster::setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) {
   this->sourceCluster_ = std::move(sourceCluster);
+  if (sourceCluster_.device != nullptr) {
+    sourceCluster_.device->setClock(clock_.device());
+  }
 }
 
 void CellCluster::writeReceivers(const StepParams& params) {
@@ -168,7 +171,7 @@ void CellCluster::computeSources(const StepParams& params) {
   if (pointSourceCluster != nullptr) {
     loopStatistics_->begin(regionComputePointSources_);
     pointSourceCluster->addTimeIntegratedPointSources(
-        params.time, params.time + params.timeStepSize, streamRuntime_);
+        params.time, params.timeStepSize, streamRuntime_);
     loopStatistics_->end(regionComputePointSources_, pointSourceCluster->size(), profilingId_);
   }
 #ifdef ACL_DEVICE
@@ -345,7 +348,7 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
   // depends on the current time, and therefore cannot be replayed from the graph above; it neither
   // reads nor writes what the graph computes after the local integral
   localKernel_.evaluateBatchedTimeDependentBc(
-      dataTable, indicesTable, *clusterData_, params.time, timeStepWidth, streamRuntime_);
+      dataTable, indicesTable, *clusterData_, clock_.host(), timeStepWidth, streamRuntime_);
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
   device_.api->popLastProfilingMark();
@@ -505,11 +508,14 @@ void CellCluster::handleNeighborCorrection(const NeighborCluster& /*...*/) {
 }
 void CellCluster::predict() {
   assert(state_ == ActorState::Corrected);
+  const auto params = stepParams();
+
+  // without a device, the clock is up to date on the host; it has to agree with the time
+  assert(isDeviceOn() || *clock_.host() == params.time);
+
   if (clusterData_->size() == 0) {
     return;
   }
-
-  const auto params = stepParams();
 
   writeReceivers(params);
 
@@ -559,10 +565,15 @@ void CellCluster::correct() {
     }
   }
 
+  // the time of the cluster advances by the same step after the correction
+  clock_.advance(params.timeStepSize, streamRuntime_);
+
   if (!concurrent()) {
     streamRuntime_.wait();
   }
 }
+
+void CellCluster::timeSet(double time) { clock_.set(time, streamRuntime_); }
 
 void* CellCluster::recordActionEvent() { return streamRuntime_.eventRecord(); }
 
@@ -597,6 +608,7 @@ void CellCluster::setTime(double time) {
 void CellCluster::finalize() {
   sourceCluster_.host.reset(nullptr);
   sourceCluster_.device.reset(nullptr);
+  clock_.dispose();
   streamRuntime_.dispose();
 
   logDebug() << "#(time steps):" << numberOfTimeSteps_;

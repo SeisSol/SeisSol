@@ -234,7 +234,7 @@ class LinearSlipWeakeningLaw
     const auto t0{ctx.data->drParameters.forcedRuptureRiseTime};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
 
-    real tn = ctx.args->fullUpdateTime;
+    real tn = ctx.fullUpdateTime;
     for (uint32_t i = 0; i <= timeIndex; ++i) {
       tn += ctx.args->deltaT[i];
     }

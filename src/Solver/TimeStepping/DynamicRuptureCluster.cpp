@@ -81,6 +81,7 @@ DynamicRuptureCluster::DynamicRuptureCluster(
   frictionSolver_->allocateAuxiliaryMemory(globalDataOnHost_);
   if constexpr (seissol::isDeviceOn()) {
     frictionSolverDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+    frictionSolverDevice_->setClock(clock_.device());
   }
 
   frictionSolver_->setupLayer(*layerData_, streamRuntime_);
@@ -260,7 +261,11 @@ void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
 }
 
 void DynamicRuptureCluster::interact(const StepParams& params) {
+  // without a device, the clock is up to date on the host; it has to agree with the time
+  assert(isDeviceOn() || *clock_.host() == params.time);
+
   if (layerData_->size() == 0) {
+    clock_.advance(params.timeStepSize, streamRuntime_);
     return;
   }
 
@@ -283,6 +288,9 @@ void DynamicRuptureCluster::interact(const StepParams& params) {
   }
 
   seissolInstance_.flopCounter().incrementMetric(perfHandle_, estimate_);
+
+  // the time of the cluster advances by the same step after the interaction
+  clock_.advance(params.timeStepSize, streamRuntime_);
 
   if (!concurrent()) {
     streamRuntime_.wait();
@@ -309,7 +317,12 @@ ActResult DynamicRuptureCluster::act() {
   return result;
 }
 
-void DynamicRuptureCluster::finalize() { streamRuntime_.dispose(); }
+void DynamicRuptureCluster::finalize() {
+  clock_.dispose();
+  streamRuntime_.dispose();
+}
+
+void DynamicRuptureCluster::timeSet(double time) { clock_.set(time, streamRuntime_); }
 
 void DynamicRuptureCluster::synchronizeTo(seissol::initializer::AllocationPlace place,
                                           void* stream) {

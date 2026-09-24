@@ -19,6 +19,7 @@
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/ActorState.h"
+#include "Solver/TimeStepping/ClusterClock.h"
 #include "Solver/TimeStepping/FaceCluster.h"
 #include "Solver/TimeStepping/StepParams.h"
 
@@ -78,6 +79,7 @@ class DynamicRuptureCluster : public FaceCluster {
   void interact(const StepParams& params) override;
   void* recordActionEvent() override;
   void waitForEvent(void* event) override;
+  void timeSet(double time) override;
 
   private:
   void computeDynamicRupture(const StepParams& params);
@@ -87,6 +89,9 @@ class DynamicRuptureCluster : public FaceCluster {
 
   seissol::SeisSol& seissolInstance_;
   seissol::parallel::runtime::StreamRuntime streamRuntime_;
+
+  //! the start of the current step, for the work on the stream
+  ClusterClock clock_;
   kernels::DynamicRupture dynamicRuptureKernel_;
 
   GlobalData* globalDataOnHost_{nullptr};

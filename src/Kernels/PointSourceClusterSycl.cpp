@@ -24,7 +24,8 @@ namespace seissol::kernels {
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        sourceterm::PointSources& sources,
                        double from,
-                       double to,
+                       double timeStepSize,
+                       const double* clock,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& mapping = clusterMapping.cellToSources;
   auto* __restrict mappingPtr = mapping.data();
@@ -49,10 +50,12 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
         const auto thread = item.get_local_id(0);
 
         if (block < elements) {
+          const double start = clock == nullptr ? from : *clock;
+          const double end = start + timeStepSize;
           pointSourceKernelDevice<SubBlock>(thread,
                                             block,
-                                            from,
-                                            to,
+                                            start,
+                                            end,
                                             mappingPtr,
                                             mInvJInvPhisAtSources,
                                             simulationIndex,

@@ -68,6 +68,11 @@ class AbstractTimeCluster {
 
   [[nodiscard]] bool concurrent() const { return concurrent_; }
 
+  /**
+   * Called after the time of this cluster has been set from outside.
+   */
+  virtual void timeSet(double /*time*/) {}
+
   ActorState state_ = ActorState::Synced;
   ClusterTimes ct_;
   std::vector<NeighborCluster> neighbors_;
