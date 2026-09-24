@@ -9,6 +9,9 @@
 #include "TestHelper.h"
 
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 namespace seissol::unit_test {
 using namespace time_stepping;
 
@@ -187,6 +190,160 @@ TEST_CASE("LTS Timesteping works" * doctest::test_suite("solver")) {
 
   cluster2.act();
   CHECK(cluster2.getState() == ActorState::Synced);
+}
+
+namespace {
+
+struct ActionRecord {
+  std::string cluster;
+  char action;
+  long step;
+};
+
+/**
+ * A cluster that logs its predictions and corrections, and checks that it only ever handles
+ * messages from neighbors it waits for.
+ */
+class LoggingCluster : public time_stepping::AbstractTimeCluster {
+  public:
+  LoggingCluster(std::string name,
+                 double maxTimeStepSize,
+                 long timeStepRate,
+                 std::vector<ActionRecord>& log,
+                 DataReadiness readiness = DataReadiness::AfterPrediction)
+      : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host), name_(std::move(name)),
+        log_(log), readiness_(readiness) {}
+
+  protected:
+  [[nodiscard]] DataReadiness dataReadiness() const override { return readiness_; }
+  void start() override {}
+  void predict() override {
+    log_.push_back({name_, 'P', ct_.predictionsSinceLastSync / ct_.timeStepRate});
+  }
+  void correct() override {
+    log_.push_back({name_, 'C', ct_.stepsSinceLastSync / ct_.timeStepRate});
+  }
+  void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override {
+    CHECK(neighborCluster.waitFor);
+  }
+  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override {
+    CHECK(neighborCluster.waitFor);
+  }
+  void printTimeoutMessage(std::chrono::seconds /*timeSinceLastUpdate*/) override {}
+
+  private:
+  std::string name_;
+  std::vector<ActionRecord>& log_;
+  DataReadiness readiness_;
+};
+
+void runUntilSync(const std::vector<LoggingCluster*>& clusters, double syncTime) {
+  for (auto* cluster : clusters) {
+    cluster->setSyncTime(syncTime);
+    // dereference first due to a clang-tidy recommendation
+    (*cluster).reset();
+  }
+  bool finished = false;
+  std::size_t iterations = 0;
+  while (!finished) {
+    REQUIRE(iterations < 10000);
+    ++iterations;
+    finished = true;
+    for (auto* cluster : clusters) {
+      cluster->act();
+      finished = finished && cluster->synced();
+    }
+  }
+}
+
+std::size_t position(const std::vector<ActionRecord>& log,
+                     const std::string& cluster,
+                     char action,
+                     long step) {
+  for (std::size_t i = 0; i < log.size(); ++i) {
+    if (log[i].cluster == cluster && log[i].action == action && log[i].step == step) {
+      return i;
+    }
+  }
+  FAIL("action not found: " << cluster << " " << action << " " << step);
+  return log.size();
+}
+
+} // namespace
+
+TEST_CASE("A face cluster runs between the predictions and corrections of its cells" *
+          doctest::test_suite("solver")) {
+  constexpr long Steps = 5;
+  // different scheduling orders must lead to the same dependencies
+  const std::vector<std::vector<std::size_t>> orders{{0, 1, 2}, {2, 0, 1}, {1, 2, 0}};
+  for (const auto& order : orders) {
+    std::vector<ActionRecord> log;
+    LoggingCluster interior("interior", 1.0, 1, log);
+    LoggingCluster copy("copy", 1.0, 1, log);
+    LoggingCluster face("face", 1.0, 1, log, DataReadiness::AfterCorrection);
+    interior.connect(copy);
+    face.connect(interior);
+    face.connect(copy);
+
+    const std::vector<LoggingCluster*> all{&interior, &copy, &face};
+    std::vector<LoggingCluster*> clusters;
+    for (const auto index : order) {
+      clusters.push_back(all[index]);
+    }
+    runUntilSync(clusters, static_cast<double>(Steps));
+
+    for (long step = 0; step < Steps; ++step) {
+      const auto faceStep = position(log, "face", 'C', step);
+      for (const std::string cell : {"interior", "copy"}) {
+        // the face needs the predictions of both sides
+        CHECK(position(log, cell, 'P', step) < faceStep);
+        // the cells need the result of the face
+        CHECK(faceStep < position(log, cell, 'C', step));
+        if (step + 1 < Steps) {
+          // the next prediction overwrites what the face reads
+          CHECK(faceStep < position(log, cell, 'P', step + 1));
+          // the next face step overwrites what the cells read
+          CHECK(position(log, cell, 'C', step) < position(log, "face", 'C', step + 1));
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("An observing cluster waits without being waited for" * doctest::test_suite("solver")) {
+  constexpr long Steps = 4;
+  std::vector<ActionRecord> log;
+  LoggingCluster copy("copy", 1.0, 1, log);
+  LoggingCluster ghost("ghost", 1.0, 1, log);
+  LoggingCluster face("face", 1.0, 1, log, DataReadiness::AfterCorrection);
+  copy.connect(ghost);
+  face.connect(copy);
+  face.observe(ghost);
+
+  const auto& faceNeighbors = *face.getNeighborClusters();
+  REQUIRE(faceNeighbors.size() == 2);
+  CHECK(faceNeighbors[1].waitFor);
+  CHECK_FALSE(faceNeighbors[1].notify);
+
+  const auto& ghostNeighbors = *ghost.getNeighborClusters();
+  REQUIRE(ghostNeighbors.size() == 2);
+  CHECK_FALSE(ghostNeighbors[1].waitFor);
+  CHECK(ghostNeighbors[1].notify);
+  CHECK(ghostNeighbors[1].dataReadiness == DataReadiness::AfterCorrection);
+
+  // the copy cluster sees the face as a cluster that provides its data with the correction
+  const auto& copyNeighbors = *copy.getNeighborClusters();
+  REQUIRE(copyNeighbors.size() == 2);
+  CHECK(copyNeighbors[0].dataReadiness == DataReadiness::AfterPrediction);
+  CHECK(copyNeighbors[1].dataReadiness == DataReadiness::AfterCorrection);
+
+  runUntilSync({&ghost, &face, &copy}, static_cast<double>(Steps));
+
+  for (long step = 0; step < Steps; ++step) {
+    // the face needs the ghost data of the step
+    CHECK(position(log, "ghost", 'P', step) < position(log, "face", 'C', step));
+    CHECK(position(log, "face", 'C', step) < position(log, "copy", 'C', step));
+  }
 }
 
 } // namespace seissol::unit_test

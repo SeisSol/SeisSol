@@ -78,6 +78,9 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     ct_.stepsSinceLastSync += ct_.timeStepRate;
     ct_.stepsSinceStart += ct_.timeStepRate;
     for (auto& neighbor : neighbors_) {
+      if (!neighbor.notify) {
+        continue;
+      }
       const bool justBeforeSync = ct_.stepsUntilSync <= ct_.predictionsSinceLastSync;
       const bool sendMessage =
           justBeforeSync || ct_.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
@@ -98,6 +101,9 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     ct_.predictionTime += timeStepSize();
 
     for (auto& neighbor : neighbors_) {
+      if (!neighbor.notify) {
+        continue;
+      }
       // Maybe check also how many steps neighbor has to sync!
       const bool justBeforeSync = ct_.stepsUntilSync <= ct_.predictionsSinceLastSync;
       const bool sendMessage =
@@ -181,13 +187,13 @@ bool AbstractTimeCluster::processMessages() {
 bool AbstractTimeCluster::mayPredict() {
   // We can predict, if our prediction time is smaller/equals than the next correction time of all
   // neighbors.
-  const auto minNeighborSteps = std::min_element(
-      neighbors_.begin(), neighbors_.end(), [](const NeighborCluster& a, const NeighborCluster& b) {
-        return a.ct.nextCorrectionSteps() < b.ct.nextCorrectionSteps();
-      });
-  const bool stepBasedPredict =
-      minNeighborSteps == neighbors_.end() ||
-      ct_.predictionsSinceLastSync < minNeighborSteps->ct.nextCorrectionSteps();
+  bool stepBasedPredict = true;
+  for (const auto& neighbor : neighbors_) {
+    if (neighbor.waitFor) {
+      stepBasedPredict =
+          stepBasedPredict && ct_.predictionsSinceLastSync < neighbor.ct.nextCorrectionSteps();
+    }
+  }
   return stepBasedPredict;
 }
 
@@ -195,10 +201,15 @@ bool AbstractTimeCluster::mayCorrect() {
   // We can correct, if our prediction time is smaller than the one of all neighbors.
   bool stepBasedCorrect = true;
   for (auto& neighbor : neighbors_) {
-    const bool isSynced = neighbor.ct.stepsUntilSync <= neighbor.ct.predictionsSinceLastSync;
-    stepBasedCorrect =
-        stepBasedCorrect &&
-        (isSynced || (ct_.predictionsSinceLastSync <= neighbor.ct.predictionsSinceLastSync));
+    if (!neighbor.waitFor) {
+      continue;
+    }
+    // the progress up to which the neighbor has made its data available
+    const auto provided = neighbor.dataReadiness == DataReadiness::AfterPrediction
+                              ? neighbor.ct.predictionsSinceLastSync
+                              : neighbor.ct.stepsSinceLastSync;
+    const bool isSynced = neighbor.ct.stepsUntilSync <= provided;
+    stepBasedCorrect = stepBasedCorrect && (isSynced || (ct_.predictionsSinceLastSync <= provided));
   }
   return stepBasedCorrect;
 }
@@ -214,7 +225,19 @@ void AbstractTimeCluster::connect(AbstractTimeCluster& other) {
   other.neighbors_.back().inbox = std::make_shared<MessageQueue>();
   neighbors_.back().outbox = other.neighbors_.back().inbox;
   other.neighbors_.back().outbox = neighbors_.back().inbox;
+  neighbors_.back().dataReadiness = other.dataReadiness();
+  other.neighbors_.back().dataReadiness = dataReadiness();
 }
+
+void AbstractTimeCluster::observe(AbstractTimeCluster& other) {
+  connect(other);
+  // this cluster waits for the other one, but not the other way round; consequently, only the
+  // other cluster reports its progress
+  neighbors_.back().notify = false;
+  other.neighbors_.back().waitFor = false;
+}
+
+DataReadiness AbstractTimeCluster::dataReadiness() const { return DataReadiness::AfterPrediction; }
 
 void AbstractTimeCluster::setSyncTime(double newSyncTime) {
   assert(newSyncTime > syncTime_);

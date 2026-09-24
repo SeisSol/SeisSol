@@ -82,11 +82,27 @@ struct ClusterTimes {
   void setTimeStepSize(double newTimeStepSize) { maxTimeStepSize = newTimeStepSize; }
 };
 
+/**
+ * When the data that a cluster provides for one of its steps becomes available to its neighbors.
+ * Cell clusters (and the ghost clusters that stand in for remote ones) provide their data with
+ * the prediction; face clusters provide theirs with their correction.
+ */
+enum class DataReadiness { AfterPrediction, AfterCorrection };
+
 struct NeighborCluster {
   Executor executor;
   ClusterTimes ct;
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
+
+  /// When the data of the neighbor for a step becomes available.
+  DataReadiness dataReadiness{DataReadiness::AfterPrediction};
+
+  /// Whether the cluster waits for the neighbor.
+  bool waitFor{true};
+
+  /// Whether the neighbor waits for the cluster, i.e. needs to be told about its progress.
+  bool notify{true};
 
   NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
 };

@@ -46,6 +46,11 @@ class AbstractTimeCluster {
 
   virtual bool mayPredict();
   virtual bool mayCorrect();
+
+  /**
+   * When the data this cluster provides for a step becomes available to its neighbors.
+   */
+  [[nodiscard]] virtual DataReadiness dataReadiness() const;
   virtual bool maySync();
   virtual void start() = 0;
   virtual void predict() = 0;
@@ -83,7 +88,15 @@ class AbstractTimeCluster {
   [[nodiscard]] virtual ActorPriority getPriority() const;
   virtual void setPriority(ActorPriority priority);
 
+  /**
+   * Connects two clusters that wait for each other.
+   */
   void connect(AbstractTimeCluster& other);
+
+  /**
+   * Makes this cluster wait for `other`, without `other` waiting for this cluster in turn.
+   */
+  void observe(AbstractTimeCluster& other);
   void setSyncTime(double newSyncTime);
 
   [[nodiscard]] ActorState getState() const;
