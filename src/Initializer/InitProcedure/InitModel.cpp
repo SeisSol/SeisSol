@@ -312,7 +312,9 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(
         seissolInstance.parameters().model.plasticity, ltsStorage);
-    ltsStorage.allocateScratchPads();
+    ltsStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env())
+                                       ? initializer::ScratchpadSharing::PerLayer
+                                       : initializer::ScratchpadSharing::Shared);
   }
 
   auto& mm = seissolInstance.memoryManager();

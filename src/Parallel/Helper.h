@@ -39,6 +39,15 @@ bool useCommThread(const T& mpiBasic, utils::Env& env) {
 
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
+/**
+ * Whether each layer gets scratchpads of its own, instead of all layers of a storage sharing one
+ * set. Needed as soon as several layers are updated concurrently; costs the sum instead of the
+ * maximum of the scratchpad demands.
+ */
+inline bool useScratchpadPerLayer(utils::Env& env) {
+  return env.get<bool>("SCRATCHPAD_PER_LAYER", false);
+}
+
 inline void printPersistentMpiInfo(utils::Env& env) {
   if (usePersistentMpi(env)) {
     logInfo() << "Using persistent MPI routines.";

@@ -23,6 +23,7 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
@@ -365,7 +366,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   if constexpr (isDeviceOn()) {
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
-    drStorage.allocateScratchPads();
+    drStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env())
+                                      ? initializer::ScratchpadSharing::PerLayer
+                                      : initializer::ScratchpadSharing::Shared);
   }
 
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures

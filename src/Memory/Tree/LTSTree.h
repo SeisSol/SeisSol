@@ -19,12 +19,24 @@
 #include "Memory/Tree/Colormap.h"
 #include "Monitoring/Unit.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer {
+
+/**
+ * How the layers of a storage share their scratchpads.
+ */
+enum class ScratchpadSharing {
+  /// All layers use the same scratchpads; no two layers may be updated concurrently.
+  Shared,
+  /// Each layer has scratchpads of its own.
+  PerLayer
+};
 
 /*
 Assigns the given value to the target object, initializing the memory in the process.
@@ -77,6 +89,9 @@ class Storage {
   private:
   std::vector<DualMemoryContainer> memoryContainer_;
   std::vector<MemoryInfo> memoryInfo_;
+
+  /// Scratchpads of the slots beyond the first one, indexed as [slot - 1][variable].
+  std::vector<std::vector<DualMemoryContainer>> scratchpadSlots_;
 
   seissol::memory::ManagedAllocator allocator_;
   std::string name_;
@@ -161,6 +176,11 @@ class Storage {
   void synchronizeTo(AllocationPlace place, void* stream) {
     for (auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
+    }
+    for (auto& slot : scratchpadSlots_) {
+      for (auto& container : slot) {
+        container.synchronizeTo(place, stream);
+      }
     }
   }
 
@@ -374,39 +394,87 @@ class Storage {
     }
   }
 
-  // Walks through all leaves, computes the maximum amount of memory for each scratchpad entity,
-  // allocates all scratchpads based on evaluated max. scratchpad sizes, and, finally,
-  // redistributes scratchpads to all leaves.
+  // Allocates the scratchpads and distributes them to the leaves.
   //
-  // Note, all scratchpad entities are shared between leaves.
-  // Do not update leaves in parallel inside of the same MPI rank while using GPUs.
-  void allocateScratchPads() {
-    std::vector<std::size_t> sizes(memoryInfo_.size());
-    for (auto& leaf : this->leaves()) {
-      leaf.findMaxScratchpadSizes(sizes);
+  // The leaves are grouped into slots: the leaves of a slot share their scratchpads, which are
+  // therefore as large as the largest demand in the slot. Leaves of the same slot must not be
+  // updated concurrently; leaves of different slots may.
+  void allocateScratchPads(ScratchpadSharing sharing = ScratchpadSharing::Shared) {
+    const auto varCount = memoryInfo_.size();
+
+    std::vector<std::size_t> slotOfLeaf;
+    std::vector<std::vector<std::size_t>> leafSizes;
+    std::size_t sizeShared = 0;
+    std::size_t sizePerLayer = 0;
+    {
+      std::vector<std::size_t> sizesShared(varCount);
+      for (auto& leaf : this->leaves()) {
+        auto& sizes = leafSizes.emplace_back(varCount);
+        leaf.findMaxScratchpadSizes(sizes);
+        leaf.findMaxScratchpadSizes(sizesShared);
+        slotOfLeaf.push_back(sharing == ScratchpadSharing::Shared ? 0 : slotOfLeaf.size());
+        for (std::size_t var = 0; var < varCount; ++var) {
+          if (memoryInfo_[var].type == MemoryType::Scratchpad) {
+            sizePerLayer += sizes[var];
+          }
+        }
+      }
+      for (std::size_t var = 0; var < varCount; ++var) {
+        if (memoryInfo_[var].type == MemoryType::Scratchpad) {
+          sizeShared += sizesShared[var];
+        }
+      }
+    }
+
+    const auto slotCount = slotOfLeaf.empty()
+                               ? std::size_t{1}
+                               : *std::max_element(slotOfLeaf.begin(), slotOfLeaf.end()) + 1;
+
+    std::vector<std::vector<std::size_t>> slotSizes(slotCount, std::vector<std::size_t>(varCount));
+    for (std::size_t leaf = 0; leaf < leafSizes.size(); ++leaf) {
+      auto& sizes = slotSizes[slotOfLeaf[leaf]];
+      for (std::size_t var = 0; var < varCount; ++var) {
+        sizes[var] = std::max(sizes[var], leafSizes[leaf][var]);
+      }
     }
 
     std::size_t totalSize = 0;
-    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+    for (std::size_t var = 0; var < varCount; ++var) {
       if (memoryInfo_[var].type == MemoryType::Scratchpad) {
-        memoryInfo_[var].size = sizes[var];
-        totalSize += sizes[var];
+        memoryInfo_[var].size = slotSizes[0][var];
+        for (const auto& sizes : slotSizes) {
+          totalSize += sizes[var];
+        }
       }
     }
     if (!name_.empty()) {
       logInfo() << "Storage" << name_
-                << "; scratchpads:" << UnitByte.formatPrefix(totalSize).c_str();
+                << "; scratchpads:" << UnitByte.formatPrefix(totalSize).c_str()
+                << "(shared by all layers:" << UnitByte.formatPrefix(sizeShared).c_str()
+                << "; one per layer:" << UnitByte.formatPrefix(sizePerLayer).c_str() << ")";
     }
 
-    for (size_t id = 0; id < memoryInfo_.size(); ++id) {
-      if (memoryInfo_[id].type == MemoryType::Scratchpad) {
-        memoryContainer_[id].allocate(
-            allocator_, memoryInfo_[id].size, memoryInfo_[id].alignment, memoryInfo_[id].allocMode);
+    scratchpadSlots_.assign(slotCount - 1, std::vector<DualMemoryContainer>(varCount));
+    const auto slotContainers = [&](std::size_t slot) -> std::vector<DualMemoryContainer>& {
+      return slot == 0 ? memoryContainer_ : scratchpadSlots_[slot - 1];
+    };
+
+    for (std::size_t slot = 0; slot < slotCount; ++slot) {
+      auto& containers = slotContainers(slot);
+      for (std::size_t var = 0; var < varCount; ++var) {
+        if (memoryInfo_[var].type == MemoryType::Scratchpad) {
+          containers[var].allocate(allocator_,
+                                   slotSizes[slot][var],
+                                   memoryInfo_[var].alignment,
+                                   memoryInfo_[var].allocMode);
+        }
       }
     }
 
+    std::size_t leafIndex = 0;
     for (auto& leaf : this->leaves()) {
-      leaf.setMemoryRegionsForScratchpads(memoryContainer_);
+      leaf.setMemoryRegionsForScratchpads(slotContainers(slotOfLeaf[leafIndex]));
+      ++leafIndex;
     }
   }
 
