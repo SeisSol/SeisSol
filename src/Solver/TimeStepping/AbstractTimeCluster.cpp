@@ -9,6 +9,7 @@
 
 #include "Common/Executor.h"
 #include "Solver/TimeStepping/ActorState.h"
+#include "Solver/TimeStepping/StepParams.h"
 
 #include <algorithm>
 #include <cassert>
@@ -22,6 +23,10 @@
 
 namespace seissol::time_stepping {
 double AbstractTimeCluster::timeStepSize() const { return ct_.timeStepSize(syncTime_); }
+
+StepParams AbstractTimeCluster::stepParams() const {
+  return computeStepParams(ct_, syncTime_, stepContext_);
+}
 
 AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize,
                                          long timeStepRate,
@@ -236,6 +241,8 @@ void AbstractTimeCluster::reset() {
     neighbor.ct.stepsSinceLastSync = 0;
     neighbor.ct.predictionsSinceLastSync = 0;
   }
+
+  stepContext_ = computeStepContext(ct_, neighbors_);
 }
 
 ActorPriority AbstractTimeCluster::getPriority() const { return priority_; }

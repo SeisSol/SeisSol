@@ -28,6 +28,7 @@
 #include "Monitoring/Metric.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Settings.h"
+#include "Solver/TimeStepping/StepParams.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <list>
@@ -50,13 +51,6 @@ namespace seissol::time_stepping {
  **/
 class TimeCluster : public AbstractTimeCluster {
   private:
-  // Last correction time of the neighboring cluster with higher dt
-  double lastSubTime_{0};
-
-  // The timestep of the largest neighbor. Not well-defined (and not used) for the largest local
-  // timecluster.
-  double neighborTimestep_{0};
-
   SimulationSettings settings_;
 
   seissol::SeisSol& seissolInstance_;
@@ -134,19 +128,19 @@ class TimeCluster : public AbstractTimeCluster {
   /**
    * Writes the receiver output if applicable (receivers present, receivers have to be written).
    **/
-  void writeReceivers();
+  void writeReceivers(const StepParams& params);
 
   /**
    * Computes the source terms if applicable.
    **/
-  void computeSources();
+  void computeSources(const StepParams& params);
 
   /**
    * Computes dynamic rupture.
    **/
-  void computeDynamicRupture(DynamicRupture::Layer& layerData);
+  void computeDynamicRupture(DynamicRupture::Layer& layerData, const StepParams& params);
 
-  void handleDynamicRupture(DynamicRupture::Layer& layerData);
+  void handleDynamicRupture(DynamicRupture::Layer& layerData, const StepParams& params);
 
   /**
    * Computes all cell local integration.
@@ -159,14 +153,9 @@ class TimeCluster : public AbstractTimeCluster {
    * Remark: After this step the DOFs are only updated half with the boundary contribution
    *         of the neighborings cells missing.
    *
-   * @param numberOfCells number of cells.
-   * @param cellInformation cell local information.
-   * @param cellData cell data.
-   * @param buffers time integration buffers.
-   * @param derivatives time derivatives.
-   * @param dofs degrees of freedom.
+   * @param params parameters of the step.
    **/
-  void computeLocalIntegration(bool resetBuffers);
+  void computeLocalIntegration(const StepParams& params);
 
   /**
    * Computes the contribution of the neighboring cells to the boundary integral.
@@ -175,22 +164,18 @@ class TimeCluster : public AbstractTimeCluster {
    *time step.
    * TODO: This excludes dynamic rupture contribution.
    *
-   * @param numberOfCells number of cells.
-   * @param cellInformation cell local information.
-   * @param cellData cell data.
-   * @param faceNeighbors pointers to neighboring time buffers or derivatives.
-   * @param dofs degrees of freedom.
+   * @param params parameters of the step.
    **/
-  void computeNeighboringIntegration(double subTimeStart);
+  void computeNeighboringIntegration(const StepParams& params);
 
-  void computeLocalIntegrationDevice(bool resetBuffers);
-  void computeDynamicRuptureDevice(DynamicRupture::Layer& layerData);
-  void computeNeighboringIntegrationDevice(double subTimeStart);
+  void computeLocalIntegrationDevice(const StepParams& params);
+  void computeDynamicRuptureDevice(DynamicRupture::Layer& layerData, const StepParams& params);
+  void computeNeighboringIntegrationDevice(const StepParams& params);
 
   void computeLocalIntegrationFlops();
 
   template <bool UsePlasticity, bool IntegrateOutput>
-  void computeNeighboringIntegrationImplementation(double subTimeStart);
+  void computeNeighboringIntegrationImplementation(const StepParams& params);
 
   PerformanceEstimate computeLocalIntegrationFlops(std::size_t numberOfCells,
                                                    const CellLocalInformation* cellInformation);
@@ -273,8 +258,6 @@ class TimeCluster : public AbstractTimeCluster {
   void setFaultOutputManager(dr::output::OutputManager* outputManager) {
     faultOutputManager_ = outputManager;
   }
-
-  void reset() override;
 
   void finalize() override;
 

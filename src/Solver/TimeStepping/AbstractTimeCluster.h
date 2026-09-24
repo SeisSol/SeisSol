@@ -10,6 +10,7 @@
 
 #include "ActorState.h"
 #include "Memory/Tree/Layer.h"
+#include "Solver/TimeStepping/StepParams.h"
 
 #include <chrono>
 #include <memory>
@@ -30,8 +31,15 @@ class AbstractTimeCluster {
   ClusterTimes ct_;
   std::vector<NeighborCluster> neighbors_;
   double syncTime_ = 0.0;
+  StepContext stepContext_;
 
   [[nodiscard]] double timeStepSize() const;
+
+  /**
+   * Parameters of the step that starts at the current correction time. Valid between reset() and
+   * the next synchronization point.
+   */
+  [[nodiscard]] StepParams stepParams() const;
 
   void unsafePerformAction(ActorAction action);
   AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
