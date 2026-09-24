@@ -179,8 +179,8 @@ class CellCluster : public AbstractTimeCluster {
   void incrementPerformanceMetrics(ComputePart part);
 
   protected:
-  void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
-  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
+  void handleNeighborPrediction(const NeighborCluster& neighborCluster) override;
+  void handleNeighborCorrection(const NeighborCluster& neighborCluster) override;
   void start() override {}
   void predict() override;
   void correct() override;

@@ -41,8 +41,8 @@ class FaceCluster : public AbstractTimeCluster {
   void predict() final {}
   void correct() final;
 
-  void handleAdvancedPredictionTimeMessage(const NeighborCluster& /*neighborCluster*/) override {}
-  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*neighborCluster*/) override {}
+  void handleNeighborPrediction(const NeighborCluster& /*neighborCluster*/) override {}
+  void handleNeighborCorrection(const NeighborCluster& /*neighborCluster*/) override {}
 };
 
 } // namespace seissol::time_stepping

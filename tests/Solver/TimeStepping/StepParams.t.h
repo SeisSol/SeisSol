@@ -67,8 +67,8 @@ class RecordingCluster : public AbstractTimeCluster {
   }
 
   void correct() override {}
-  void handleAdvancedPredictionTimeMessage(const NeighborCluster& /*neighborCluster*/) override {}
-  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*neighborCluster*/) override {}
+  void handleNeighborPrediction(const NeighborCluster& /*neighborCluster*/) override {}
+  void handleNeighborCorrection(const NeighborCluster& /*neighborCluster*/) override {}
   void printTimeoutMessage(std::chrono::seconds /*timeSinceLastUpdate*/) override {}
 
   private:

@@ -12,29 +12,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <iostream>
-#include <mutex>
 #include <string>
-#include <type_traits>
-#include <variant>
 
 namespace seissol::time_stepping {
-
-inline std::ostream& operator<<(std::ostream& stream, const Message& message) {
-  std::visit(
-      [&stream](auto&& msg) {
-        using T = std::decay_t<decltype(msg)>;
-        if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
-          stream << "AdvancedPredictionTimeMessage, t = " << msg.time;
-        } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
-          stream << "AdvancedCorrectionTimeMessage, t = " << msg.time;
-        } else {
-          static_assert(sizeof(T) == 0, "non-exhaustive visitor");
-        }
-      },
-      message);
-  return stream;
-}
 
 std::string actorStateToString(ActorState state) {
   switch (state) {
@@ -47,22 +27,6 @@ std::string actorStateToString(ActorState state) {
   }
   throw;
 }
-
-void MessageQueue::push(const Message& message) {
-  const std::scoped_lock lock{mutex_};
-  queue_.push(message);
-}
-
-Message MessageQueue::pop() {
-  const std::scoped_lock lock{mutex_};
-  const Message message = queue_.front();
-  queue_.pop();
-  return message;
-}
-
-bool MessageQueue::hasMessages() const { return !queue_.empty(); }
-
-size_t MessageQueue::size() const { return queue_.size(); }
 
 double ClusterTimes::nextCorrectionTime(double syncTime) const {
   return std::min(syncTime, correctionTime + maxTimeStepSize);

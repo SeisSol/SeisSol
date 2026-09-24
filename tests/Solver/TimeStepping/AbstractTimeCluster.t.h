@@ -27,9 +27,9 @@ class MockTimeCluster : public time_stepping::AbstractTimeCluster {
   // NOLINTNEXTLINE
   MAKE_MOCK0(correct, void(void), override);
   // NOLINTNEXTLINE
-  MAKE_MOCK1(handleAdvancedPredictionTimeMessage, void(const NeighborCluster&), override);
+  MAKE_MOCK1(handleNeighborPrediction, void(const NeighborCluster&), override);
   // NOLINTNEXTLINE
-  MAKE_MOCK1(handleAdvancedCorrectionTimeMessage, void(const NeighborCluster&), override);
+  MAKE_MOCK1(handleNeighborCorrection, void(const NeighborCluster&), override);
   // NOLINTNEXTLINE
   MAKE_MOCK1(printTimeoutMessage, void(std::chrono::seconds), override);
 };
@@ -91,10 +91,10 @@ TEST_CASE("GTS Timesteping works" * doctest::test_suite("solver")) {
   while (!isFinished) {
     isFinished = true;
 
-    ALLOW_CALL(cluster1, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
-    ALLOW_CALL(cluster2, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
-    ALLOW_CALL(cluster1, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
-    ALLOW_CALL(cluster2, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
+    ALLOW_CALL(cluster1, handleNeighborCorrection(ANY(NeighborCluster)));
+    ALLOW_CALL(cluster2, handleNeighborCorrection(ANY(NeighborCluster)));
+    ALLOW_CALL(cluster1, handleNeighborPrediction(ANY(NeighborCluster)));
+    ALLOW_CALL(cluster2, handleNeighborPrediction(ANY(NeighborCluster)));
 
     for (auto& cluster : clusters) {
       REQUIRE(cluster->getState() == ActorState::Corrected);
@@ -146,10 +146,10 @@ TEST_CASE("LTS Timesteping works" * doctest::test_suite("solver")) {
     (*cluster).reset();
   }
 
-  ALLOW_CALL(cluster1, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
-  ALLOW_CALL(cluster2, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
-  ALLOW_CALL(cluster1, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
-  ALLOW_CALL(cluster2, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
+  ALLOW_CALL(cluster1, handleNeighborCorrection(ANY(NeighborCluster)));
+  ALLOW_CALL(cluster2, handleNeighborCorrection(ANY(NeighborCluster)));
+  ALLOW_CALL(cluster1, handleNeighborPrediction(ANY(NeighborCluster)));
+  ALLOW_CALL(cluster2, handleNeighborPrediction(ANY(NeighborCluster)));
 
   // First, move from synced -> corrected -> predicted
   for (auto& cluster : clusters) {
@@ -201,8 +201,7 @@ struct ActionRecord {
 };
 
 /**
- * A cluster that logs its predictions and corrections, and checks that it only ever handles
- * messages from neighbors it waits for.
+ * A cluster that logs its predictions and corrections.
  */
 class LoggingCluster : public time_stepping::AbstractTimeCluster {
   public:
@@ -223,12 +222,8 @@ class LoggingCluster : public time_stepping::AbstractTimeCluster {
   void correct() override {
     log_.push_back({name_, 'C', ct_.stepsSinceLastSync / ct_.timeStepRate});
   }
-  void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override {
-    CHECK(neighborCluster.waitFor);
-  }
-  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override {
-    CHECK(neighborCluster.waitFor);
-  }
+  void handleNeighborPrediction(const NeighborCluster& /*neighbor*/) override {}
+  void handleNeighborCorrection(const NeighborCluster& /*neighbor*/) override {}
   void printTimeoutMessage(std::chrono::seconds /*timeSinceLastUpdate*/) override {}
 
   private:
@@ -320,16 +315,10 @@ TEST_CASE("An observing cluster waits without being waited for" * doctest::test_
   face.connect(copy);
   face.observe(ghost);
 
-  const auto& faceNeighbors = *face.getNeighborClusters();
-  REQUIRE(faceNeighbors.size() == 2);
-  CHECK(faceNeighbors[1].waitFor);
-  CHECK_FALSE(faceNeighbors[1].notify);
-
-  const auto& ghostNeighbors = *ghost.getNeighborClusters();
-  REQUIRE(ghostNeighbors.size() == 2);
-  CHECK_FALSE(ghostNeighbors[1].waitFor);
-  CHECK(ghostNeighbors[1].notify);
-  CHECK(ghostNeighbors[1].dataReadiness == DataReadiness::AfterCorrection);
+  // the face waits for the copy and the ghost cluster, while the ghost cluster does not even know
+  // the face cluster
+  CHECK(face.getNeighborClusters()->size() == 2);
+  CHECK(ghost.getNeighborClusters()->size() == 1);
 
   // the copy cluster sees the face as a cluster that provides its data with the correction
   const auto& copyNeighbors = *copy.getNeighborClusters();

@@ -10,43 +10,25 @@
 
 #include "Common/Executor.h"
 
-#include <memory>
-#include <mutex>
-#include <queue>
-#include <variant>
+#include <atomic>
+#include <limits>
+#include <string>
 
 namespace seissol::time_stepping {
 
-struct AdvancedPredictionTimeMessage {
-  double time;
-  long stepsSinceSync;
-};
-
-struct AdvancedCorrectionTimeMessage {
-  double time;
-  long stepsSinceSync;
-};
-
-using Message = std::variant<AdvancedPredictionTimeMessage, AdvancedCorrectionTimeMessage>;
-
-inline std::ostream& operator<<(std::ostream& stream, const Message& message);
-
-class MessageQueue {
-  private:
-  std::queue<Message> queue_;
-  std::mutex mutex_;
-
-  public:
-  MessageQueue() = default;
-  ~MessageQueue() = default;
-
-  void push(const Message& message);
-
-  Message pop();
-
-  [[nodiscard]] bool hasMessages() const;
-
-  [[nodiscard]] size_t size() const;
+/**
+ * The progress of a cluster since the last synchronization point, as seen by the other clusters.
+ *
+ * Only the cluster itself writes its progress, after each of its actions; its neighbors read it,
+ * possibly from other threads. The step counters are written last with release semantics, so that
+ * a neighbor which has read them also sees the data of the steps they count.
+ */
+struct ActorProgress {
+  std::atomic<long> predictionsSinceLastSync{0};
+  std::atomic<long> stepsSinceLastSync{0};
+  std::atomic<long> stepsUntilSync{0};
+  std::atomic<double> predictionTime{0.0};
+  std::atomic<double> correctionTime{0.0};
 };
 
 enum class ActorState { Corrected, Predicted, Synced };
@@ -89,20 +71,20 @@ struct ClusterTimes {
  */
 enum class DataReadiness { AfterPrediction, AfterCorrection };
 
+/**
+ * What a cluster knows about one of the clusters it waits for.
+ */
 struct NeighborCluster {
   Executor executor;
+
+  /// The times of the neighbor; the progress is taken over from `progress` before each decision.
   ClusterTimes ct;
-  std::shared_ptr<MessageQueue> inbox = nullptr;
-  std::shared_ptr<MessageQueue> outbox = nullptr;
+
+  /// The progress the neighbor publishes.
+  const ActorProgress* progress{nullptr};
 
   /// When the data of the neighbor for a step becomes available.
   DataReadiness dataReadiness{DataReadiness::AfterPrediction};
-
-  /// Whether the cluster waits for the neighbor.
-  bool waitFor{true};
-
-  /// Whether the neighbor waits for the cluster, i.e. needs to be told about its progress.
-  bool notify{true};
 
   NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
 };

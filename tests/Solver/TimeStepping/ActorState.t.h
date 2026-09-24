@@ -27,66 +27,6 @@ TEST_CASE("actorStateToString" * doctest::test_suite("solver")) {
 }
 
 // ---------------------------------------------------------------------------
-// MessageQueue
-// ---------------------------------------------------------------------------
-
-TEST_CASE("MessageQueue basic operations" * doctest::test_suite("solver")) {
-  MessageQueue q;
-
-  SUBCASE("Empty queue") {
-    CHECK_FALSE(q.hasMessages());
-    CHECK(q.size() == 0);
-  }
-
-  SUBCASE("Push and pop prediction message") {
-    AdvancedPredictionTimeMessage msg{1.5, 3};
-    q.push(msg);
-    CHECK(q.hasMessages());
-    CHECK(q.size() == 1);
-
-    Message popped = q.pop();
-    CHECK(std::holds_alternative<AdvancedPredictionTimeMessage>(popped));
-    auto& result = std::get<AdvancedPredictionTimeMessage>(popped);
-    CHECK(result.time == doctest::Approx(1.5));
-    CHECK(result.stepsSinceSync == 3);
-    CHECK_FALSE(q.hasMessages());
-  }
-
-  SUBCASE("Push and pop correction message") {
-    AdvancedCorrectionTimeMessage msg{2.0, 5};
-    q.push(msg);
-
-    Message popped = q.pop();
-    CHECK(std::holds_alternative<AdvancedCorrectionTimeMessage>(popped));
-    auto& result = std::get<AdvancedCorrectionTimeMessage>(popped);
-    CHECK(result.time == doctest::Approx(2.0));
-    CHECK(result.stepsSinceSync == 5);
-  }
-
-  SUBCASE("FIFO ordering") {
-    q.push(AdvancedPredictionTimeMessage{1.0, 1});
-    q.push(AdvancedCorrectionTimeMessage{2.0, 2});
-    q.push(AdvancedPredictionTimeMessage{3.0, 3});
-    CHECK(q.size() == 3);
-
-    auto m1 = q.pop();
-    CHECK(std::holds_alternative<AdvancedPredictionTimeMessage>(m1));
-    CHECK(std::get<AdvancedPredictionTimeMessage>(m1).time == doctest::Approx(1.0));
-
-    auto m2 = q.pop();
-    CHECK(std::holds_alternative<AdvancedCorrectionTimeMessage>(m2));
-    CHECK(std::get<AdvancedCorrectionTimeMessage>(m2).time == doctest::Approx(2.0));
-
-    auto m3 = q.pop();
-    CHECK(std::holds_alternative<AdvancedPredictionTimeMessage>(m3));
-    CHECK(std::get<AdvancedPredictionTimeMessage>(m3).time == doctest::Approx(3.0));
-
-    CHECK(q.size() == 0);
-    CHECK_FALSE(q.hasMessages());
-  }
-}
-
-// ---------------------------------------------------------------------------
 // ClusterTimes
 // ---------------------------------------------------------------------------
 
@@ -192,8 +132,8 @@ TEST_CASE("NeighborCluster construction" * doctest::test_suite("solver")) {
   CHECK(nc.ct.maxTimeStepSize == doctest::Approx(0.1));
   CHECK(nc.ct.timeStepRate == 2);
   CHECK(nc.executor == Executor::Host);
-  CHECK(nc.inbox == nullptr);
-  CHECK(nc.outbox == nullptr);
+  CHECK(nc.progress == nullptr);
+  CHECK(nc.dataReadiness == DataReadiness::AfterPrediction);
 }
 
 } // namespace seissol::unit_test

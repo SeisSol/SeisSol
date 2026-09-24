@@ -495,10 +495,10 @@ ActResult CellCluster::act() {
   return result;
 }
 
-void CellCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& /*...*/) {
+void CellCluster::handleNeighborPrediction(const NeighborCluster& /*...*/) {
   // Doesn't do anything
 }
-void CellCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*...*/) {
+void CellCluster::handleNeighborCorrection(const NeighborCluster& /*...*/) {
   // Doesn't do anything
 }
 void CellCluster::predict() {

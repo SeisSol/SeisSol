@@ -45,8 +45,8 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   bool mayPredict() override;
   bool mayCorrect() override;
   bool maySync() override;
-  void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
-  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
+  void handleNeighborPrediction(const NeighborCluster& neighborCluster) override;
+  void handleNeighborCorrection(const NeighborCluster& neighborCluster) override;
 
   [[nodiscard]] bool timeoutFail() const override;
 

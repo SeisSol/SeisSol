@@ -14,6 +14,7 @@
 #include "Solver/TimeStepping/ActorState.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 
+#include <atomic>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -73,27 +74,37 @@ bool AbstractGhostTimeCluster::maySync() {
   return testForGhostLayerReceives() && testForCopyLayerSends() && AbstractTimeCluster::maySync();
 }
 
-void AbstractGhostTimeCluster::handleAdvancedPredictionTimeMessage(
-    const NeighborCluster& /*neighborCluster*/) {
-  assert(testForCopyLayerSends());
-  sendCopyLayer();
+void AbstractGhostTimeCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
+  // The copy layer has new data for the remote cluster once it has predicted at least up to the end
+  // of the current step of the remote cluster, and at the synchronization point.
+  const bool copyAtSync = neighbor.progress->stepsUntilSync.load(std::memory_order_relaxed) <=
+                          neighbor.ct.predictionsSinceLastSync;
+  if (copyAtSync || neighbor.ct.predictionsSinceLastSync >= ct_.nextCorrectionSteps()) {
+    assert(testForCopyLayerSends());
+    sendCopyLayer();
+  }
 }
 
-void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(
-    const NeighborCluster& /*neighborCluster*/) {
-  assert(testForGhostLayerReceives());
+void AbstractGhostTimeCluster::handleNeighborCorrection(const NeighborCluster& neighbor) {
+  // The ghost layer may be overwritten once the copy layer has corrected up to the data received
+  // last, and at the synchronization point. Before a correction, the copy layer has predicted
+  // exactly as far as it has corrected afterwards.
+  const bool copyAtSync = neighbor.progress->stepsUntilSync.load(std::memory_order_relaxed) <=
+                          neighbor.ct.stepsSinceLastSync;
+  if (!copyAtSync && neighbor.ct.stepsSinceLastSync < ct_.predictionsSinceLastSync) {
+    return;
+  }
 
+  assert(testForGhostLayerReceives());
   auto upcomingCorrectionSteps = ct_.stepsSinceLastSync;
   if (state_ == ActorState::Predicted) {
     upcomingCorrectionSteps = ct_.nextCorrectionSteps();
   }
-
-  const bool ignoreMessage = upcomingCorrectionSteps >= ct_.stepsUntilSync;
-
+  const bool atSync = upcomingCorrectionSteps >= ct_.stepsUntilSync;
   // If we are already at a sync point, we must not post an additional receive, as otherwise start()
   // posts an additional request! This is also true for the last sync point (i.e. end of
   // simulation), as in this case we do not want to have any hanging request.
-  if (!ignoreMessage) {
+  if (!atSync) {
     receiveGhostLayer();
   }
 }

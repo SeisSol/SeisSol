@@ -26,6 +26,20 @@ class AbstractTimeCluster {
   const std::chrono::seconds timeout = std::chrono::minutes(15);
   bool alreadyPrintedTimeOut_ = false;
 
+  //! the progress this cluster shows to the clusters waiting for it
+  ActorProgress progress_;
+
+  /**
+   * Makes the current times of this cluster visible to the clusters waiting for it.
+   */
+  void publishProgress();
+
+  /**
+   * Takes over the progress the neighbors have published. For each neighbor that has predicted or
+   * corrected since, the matching handler is called.
+   */
+  void refreshNeighbors();
+
   protected:
   ActorState state_ = ActorState::Synced;
   ClusterTimes ct_;
@@ -55,9 +69,16 @@ class AbstractTimeCluster {
   virtual void start() = 0;
   virtual void predict() = 0;
   virtual void correct() = 0;
-  virtual bool processMessages();
-  virtual void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) = 0;
-  virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
+
+  /**
+   * Called when `neighbor` has predicted since the last refresh; its times are updated already.
+   */
+  virtual void handleNeighborPrediction(const NeighborCluster& neighbor) = 0;
+
+  /**
+   * Called when `neighbor` has corrected since the last refresh; its times are updated already.
+   */
+  virtual void handleNeighborCorrection(const NeighborCluster& neighbor) = 0;
 
   [[nodiscard]] virtual bool timeoutFail() const;
 
@@ -95,6 +116,8 @@ class AbstractTimeCluster {
 
   /**
    * Makes this cluster wait for `other`, without `other` waiting for this cluster in turn.
+   *
+   * All clusters need to be reset before any of them acts again after a synchronization point.
    */
   void observe(AbstractTimeCluster& other);
   void setSyncTime(double newSyncTime);
