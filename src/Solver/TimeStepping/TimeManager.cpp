@@ -278,8 +278,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Create ghost time clusters for MPI
-  const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
-  const auto persistent = usePersistentMpi(seissolInstance_.env());
+  haloTransports_ = std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
+                                                           usePersistentMpi(seissolInstance_.env()),
+                                                           clusterLayout.globalClusterCount);
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
@@ -308,7 +309,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
             displayName,
             otherDisplayName,
             regions,
-            createHaloTransport(regions, preferredDataTransferMode, persistent)));
+            haloTransports_->create(regions, layer.getIdentifier().lts, other.lts)));
 
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*cellClusterBackmap[layer.id()]);
@@ -519,6 +520,7 @@ void TimeManager::freeDynamicResources() {
   }
 
   communicationManager_.reset(nullptr);
+  haloTransports_.reset(nullptr);
 }
 
 void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {

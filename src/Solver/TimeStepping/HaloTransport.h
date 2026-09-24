@@ -11,6 +11,7 @@
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 
+#include <cstddef>
 #include <memory>
 
 namespace seissol::time_stepping {
@@ -61,13 +62,38 @@ class HaloTransport {
   virtual void finalize() {}
 };
 
+class ExchangeScheduler;
+
 /**
- * Creates the transport for the given regions and transfer mode. Persistent transports set up their
- * MPI requests once and restart them for each transfer.
+ * Creates the transports of one process, and holds what they share.
  */
-std::unique_ptr<HaloTransport> createHaloTransport(const solver::RemoteClusterPair& regions,
-                                                   Mpi::DataTransferMode mode,
-                                                   bool persistent);
+class HaloTransportFactory {
+  public:
+  /**
+   * Persistent MPI transports set up their requests once and restart them for each transfer. The
+   * CCL transports set up their communicators here, collectively over all processes.
+   */
+  HaloTransportFactory(Mpi::DataTransferMode mode, bool persistent, std::size_t clusterCount);
+  ~HaloTransportFactory();
+
+  HaloTransportFactory(const HaloTransportFactory&) = delete;
+  HaloTransportFactory(HaloTransportFactory&&) = delete;
+  HaloTransportFactory& operator=(const HaloTransportFactory&) = delete;
+  HaloTransportFactory& operator=(HaloTransportFactory&&) = delete;
+
+  /**
+   * Creates the transport between the copy layer of `cluster` and the ghost layer of
+   * `otherCluster`. The transports need to be destroyed before the factory.
+   */
+  std::unique_ptr<HaloTransport> create(const solver::RemoteClusterPair& regions,
+                                        std::size_t cluster,
+                                        std::size_t otherCluster);
+
+  private:
+  Mpi::DataTransferMode mode_;
+  bool persistent_;
+  std::unique_ptr<ExchangeScheduler> scheduler_;
+};
 
 } // namespace seissol::time_stepping
 

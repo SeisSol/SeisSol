@@ -82,10 +82,11 @@ void seissol::Mpi::printAcceleratorDeviceInfo() {
 }
 
 void seissol::Mpi::setDataTransferModeFromEnv() {
-  const auto envVariable =
-      utils::Env("SEISSOL_").getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
-  if (envVariable.has_value()) {
-    std::string option{envVariable.value()};
+  auto env = utils::Env("SEISSOL_");
+  const auto envVariable = env.getOptional<std::string>("TRANSFER_MODE");
+  const auto envVariableMpi = env.getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
+  if (envVariable.has_value() || envVariableMpi.has_value()) {
+    std::string option{envVariable.value_or(envVariableMpi.value_or("direct"))};
     std::transform(option.begin(), option.end(), option.begin(), [](unsigned char c) {
       return std::tolower(c);
     });
@@ -94,20 +95,29 @@ void seissol::Mpi::setDataTransferModeFromEnv() {
       preferredDataTransferMode_ = DataTransferMode::Direct;
     } else if (option == "host") {
       preferredDataTransferMode_ = DataTransferMode::CopyInCopyOutHost;
+    } else if (option == "ccl") {
+      preferredDataTransferMode_ = DataTransferMode::DirectCcl;
     } else {
-      logWarning() << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
-                   << "Expected values: direct, host.";
+      logWarning() << "Ignoring `SEISSOL_TRANSFER_MODE`."
+                   << "Expected values: direct, host, ccl.";
       option = "direct";
     }
 #ifndef ACL_DEVICE
     if (preferredDataTransferMode_ != DataTransferMode::Direct) {
       logWarning() << "The CPU version of SeisSol supports"
-                   << "only the `direct` MPI transfer mode.";
+                   << "only the `direct` transfer mode.";
       option = "direct";
       preferredDataTransferMode_ = DataTransferMode::Direct;
     }
 #endif
-    logInfo() << "Selected" << option << "MPI data transfer mode as the preferred one";
+#ifndef USE_CCL
+    if (preferredDataTransferMode_ == DataTransferMode::DirectCcl) {
+      logWarning() << "This build of SeisSol does not support the `ccl` transfer mode.";
+      option = "direct";
+      preferredDataTransferMode_ = DataTransferMode::Direct;
+    }
+#endif
+    logInfo() << "Selected" << option << "as data transfer mode between processes.";
   }
 }
 

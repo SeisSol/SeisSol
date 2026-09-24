@@ -11,6 +11,7 @@ add_library(seissol-solver OBJECT
     Simulator.cpp
     TimeStepping/AbstractTimeCluster.cpp
     TimeStepping/ActorState.cpp
+    TimeStepping/CclExchangeScheduler.cpp
     TimeStepping/CellCluster.cpp
     TimeStepping/CommunicationManager.cpp
     TimeStepping/DynamicRuptureCluster.cpp

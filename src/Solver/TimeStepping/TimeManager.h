@@ -19,6 +19,7 @@
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/TimeStepping/GhostCluster.h"
+#include "Solver/TimeStepping/HaloTransport.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <cassert>
@@ -52,6 +53,9 @@ class TimeManager {
   std::vector<AbstractTimeCluster*> clusters_;
   std::vector<AbstractTimeCluster*> highPrioClusters_;
   std::vector<AbstractTimeCluster*> lowPrioClusters_;
+
+  //! what the halo transports share; outlives them
+  std::unique_ptr<HaloTransportFactory> haloTransports_;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
   std::unique_ptr<AbstractCommunicationManager> communicationManager_;
