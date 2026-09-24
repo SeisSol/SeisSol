@@ -27,6 +27,8 @@ class FaceCluster : public AbstractTimeCluster {
   public:
   ~FaceCluster() override = default;
 
+  [[nodiscard]] DataReadiness dataReadiness() const final;
+
   protected:
   FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
 
@@ -34,8 +36,6 @@ class FaceCluster : public AbstractTimeCluster {
    * Does the face work of the step described by `params`.
    */
   virtual void interact(const StepParams& params) = 0;
-
-  [[nodiscard]] DataReadiness dataReadiness() const final;
 
   void start() override {}
   void predict() final {}

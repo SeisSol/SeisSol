@@ -247,6 +247,8 @@ void AbstractTimeCluster::setTime(double time) {
 
 long AbstractTimeCluster::getTimeStepRate() const { return timeStepRate_; }
 
+long AbstractTimeCluster::getStepsUntilSync() const { return ct_.stepsUntilSync; }
+
 void AbstractTimeCluster::finalize() {}
 
 double AbstractTimeCluster::getClusterTimes() { return ct_.getTimeStepSize(); }

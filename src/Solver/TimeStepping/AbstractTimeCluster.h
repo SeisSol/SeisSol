@@ -66,10 +66,6 @@ class AbstractTimeCluster {
   virtual bool mayPredict();
   virtual bool mayCorrect();
 
-  /**
-   * When the data this cluster provides for a step becomes available to its neighbors.
-   */
-  [[nodiscard]] virtual DataReadiness dataReadiness() const;
   virtual bool maySync();
   virtual void start() = 0;
   virtual void predict() = 0;
@@ -136,6 +132,17 @@ class AbstractTimeCluster {
   virtual void finishPhase();
 
   [[nodiscard]] long getTimeStepRate() const;
+
+  /**
+   * The number of steps of the smallest time cluster until the synchronization point; set by
+   * reset().
+   */
+  [[nodiscard]] long getStepsUntilSync() const;
+
+  /**
+   * When the data this cluster provides for a step becomes available to its neighbors.
+   */
+  [[nodiscard]] virtual DataReadiness dataReadiness() const;
 
   [[nodiscard]] std::string identifier() const {
     return description() + "-" + std::to_string(ct_.timeStepRate);

@@ -23,6 +23,7 @@ add_library(seissol-solver OBJECT
     TimeStepping/StagedMpiHaloTransport.cpp
     TimeStepping/StepParams.cpp
     TimeStepping/TimeManager.cpp
+    TimeStepping/TimeSteppingPlan.cpp
 )
 
 target_link_libraries(seissol-solver PUBLIC seissol-common-properties)
