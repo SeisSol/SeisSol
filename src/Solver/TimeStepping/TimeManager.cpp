@@ -16,6 +16,7 @@
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
@@ -31,6 +32,7 @@
 #include "Solver/TimeStepping/HaloCommunication.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -61,6 +63,69 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
 }
 
 TimeManager::~TimeManager() = default;
+
+namespace {
+
+/**
+ * Compares the connections between the clusters with the dependencies that the face neighbors of
+ * the cells impose: each cell layer is connected to every local layer of a time cluster differing
+ * by at most one, and a copy layer additionally to one ghost cluster per ghost layer it exchanges
+ * data with. Dependencies without a connection are an error; connections without a dependency
+ * only cost synchronization.
+ */
+void reportClusterDependencies(initializer::MemoryManager& memoryManager,
+                               const solver::HaloCommunication& haloStructure) {
+  const auto& colorMap = memoryManager.ltsStorage().getColorMap();
+
+  std::size_t connections = 0;
+  std::size_t dependencies = 0;
+  std::size_t missing = 0;
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    std::vector<bool> connected(colorMap.size(), false);
+    for (const auto& other : memoryManager.ltsStorage().leaves(Ghost)) {
+      const auto lts1 = static_cast<int64_t>(layer.getIdentifier().lts);
+      const auto lts2 = static_cast<int64_t>(other.getIdentifier().lts);
+      connected[other.id()] = other.id() != layer.id() && std::abs(lts1 - lts2) <= 1;
+    }
+    if (layer.getIdentifier().halo == HaloType::Copy) {
+      for (const auto [color, halo] : common::enumerate(haloStructure.at(layer.id()))) {
+        connected[color] = connected[color] || !halo.copy.empty() || !halo.ghost.empty();
+      }
+    }
+
+    std::vector<bool> needed(colorMap.size(), false);
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (const auto& neighbor : secondaryInformation[cell].faceNeighbors) {
+        if (neighbor.color < colorMap.size() && neighbor.color != layer.id()) {
+          needed[neighbor.color] = true;
+        }
+      }
+    }
+
+    for (std::size_t color = 0; color < colorMap.size(); ++color) {
+      connections += connected[color] ? 1 : 0;
+      dependencies += needed[color] ? 1 : 0;
+      missing += (needed[color] && !connected[color]) ? 1 : 0;
+    }
+  }
+
+  std::array<std::size_t, 3> counts{connections, dependencies, missing};
+  MPI_Allreduce(MPI_IN_PLACE,
+                counts.data(),
+                counts.size(),
+                Mpi::castToMpiType<std::size_t>(),
+                MPI_SUM,
+                Mpi::mpi.comm());
+
+  logInfo() << "Cell cluster connections:" << counts[0]
+            << "; needed by face neighbors:" << counts[1] << "(summed over all ranks)";
+  if (counts[2] > 0) {
+    logError() << counts[2] << "dependencies between cell layers have no connection.";
+  }
+}
+
+} // namespace
 
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               const solver::HaloCommunication& haloStructure,
@@ -260,6 +325,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   clusteringWriter.write();
+
+  reportClusterDependencies(memoryManager, haloStructure);
 
   // Sort clusters by time step size in increasing order
   auto rateSorter = [](const auto& a, const auto& b) {
