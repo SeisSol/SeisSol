@@ -285,9 +285,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     logInfo() << "The clusters take their steps along the time stepping plan.";
   }
 
-  haloTransports_ = std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
-                                                           usePersistentMpi(seissolInstance_.env()),
-                                                           clusterLayout.globalClusterCount);
+  haloTransports_ =
+      std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
+                                             usePersistentMpi(seissolInstance_.env()),
+                                             useCclPerDirection(seissolInstance_.env()),
+                                             clusterLayout.globalClusterCount);
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);

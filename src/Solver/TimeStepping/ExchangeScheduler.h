@@ -12,6 +12,7 @@
 #include "Solver/TimeStepping/HaloTransport.h"
 
 #include <cstddef>
+#include <utility>
 #include <vector>
 
 namespace seissol::time_stepping {
@@ -19,23 +20,40 @@ namespace seissol::time_stepping {
 class ScheduledTransport;
 
 /**
+ * In which order the groups of the different directions go out.
+ */
+enum class LaunchOrder {
+  /// each direction on a stream of its own, independently of the others
+  PerDirection,
+  /// all directions on one stream, in an order that is the same on all processes
+  Global
+};
+
+/**
  * Launches the halo exchanges of one process for libraries whose point-to-point operations occupy
  * the stream they run on until the peers have posted their counterparts, as NCCL, RCCL and oneCCL
  * do.
  *
- * Each direction of exchange, from the copy layers of one time cluster to the ghost layers of
- * another one, has a communicator and a stream of its own. A process can take part in a direction
- * both as sender (with its copy layer of the first cluster) and as receiver (into its ghost layer
- * next to its copy layer of the second cluster). For each exchange, the scheduler waits until the
- * process is ready for all of its operations in that direction, and launches them as one group.
- * Consequently, all processes launch the groups of a direction in the same order, and a group
- * never waits for an operation that a process has queued behind another one.
+ * A direction of exchange goes from the copy layers of one time cluster to the ghost layers of
+ * another one. A process can take part in a direction both as sender (with its copy layer of the
+ * first cluster) and as receiver (into its ghost layer next to its copy layer of the second
+ * cluster). For each exchange, the scheduler waits until the process is ready for all of its
+ * operations in that direction, and launches them as one group. Consequently, all processes
+ * launch the groups of a direction in the same order.
+ *
+ * With `LaunchOrder::PerDirection`, each direction needs a stream of its own. With
+ * `LaunchOrder::Global`, the groups of all directions go out on one stream, ordered by the point
+ * in logical time at which their data is complete: the start of the prediction of the sending
+ * cluster that completes it, counted in steps of the smallest cluster since the synchronization
+ * point. Ties go by the clusters of the direction. Every process thus launches its groups in the
+ * same order, and every step waits only for groups that come before the ones its own data goes
+ * out with.
  */
 class ExchangeScheduler {
   public:
   using Ticket = std::size_t;
 
-  explicit ExchangeScheduler(std::size_t clusterCount);
+  ExchangeScheduler(std::size_t clusterCount, LaunchOrder order);
   virtual ~ExchangeScheduler() = default;
 
   ExchangeScheduler(const ExchangeScheduler&) = delete;
@@ -50,6 +68,12 @@ class ExchangeScheduler {
   void add(ScheduledTransport& transport);
 
   /**
+   * Announces the exchanges of the transport up to the next synchronization point. With
+   * `LaunchOrder::Global`, nothing goes out until all transports have announced them.
+   */
+  void startInterval(const ScheduledTransport& transport, const ExchangeInterval& interval);
+
+  /**
    * Marks the next send of the transport as ready; returns the index of its exchange.
    */
   std::size_t readySend(const ScheduledTransport& transport);
@@ -61,6 +85,8 @@ class ExchangeScheduler {
 
   [[nodiscard]] bool sendCompleted(const ScheduledTransport& transport, std::size_t exchange);
   [[nodiscard]] bool receiveCompleted(const ScheduledTransport& transport, std::size_t exchange);
+
+  [[nodiscard]] LaunchOrder launchOrder() const { return order_; }
 
   protected:
   /**
@@ -89,14 +115,29 @@ class ExchangeScheduler {
     std::size_t readySends{0};
     std::size_t readyReceives{0};
     std::vector<Ticket> groups;
+
+    // the sending cluster of the current interval
+    long sendRate{1};
+    long sendSteps{0};
+    long exchangePeriod{1};
   };
 
   Direction& direction(std::size_t from, std::size_t to);
+  [[nodiscard]] static bool ready(const Direction& direction);
   void launchReady(std::size_t from, std::size_t to);
+  void launchInOrder();
+  void orderInterval();
   bool groupCompleted(Direction& direction, std::size_t exchange);
 
   std::size_t clusterCount_;
+  LaunchOrder order_;
   std::vector<Direction> directions_;
+  std::size_t transports_{0};
+
+  // for LaunchOrder::Global: the directions of the groups of the current interval, in order
+  std::size_t announced_{0};
+  std::vector<std::pair<std::size_t, std::size_t>> sequence_;
+  std::size_t launched_{0};
 };
 
 /**
@@ -110,6 +151,7 @@ class ScheduledTransport : public HaloTransport {
                      std::size_t cluster,
                      std::size_t otherCluster);
 
+  void startInterval(const ExchangeInterval& interval) override;
   void startSend() override;
   bool testSend() override;
   void startReceive() override;

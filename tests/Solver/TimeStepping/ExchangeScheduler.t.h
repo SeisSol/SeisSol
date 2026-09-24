@@ -155,21 +155,38 @@ std::vector<RendezvousNetwork::Operation> operations(bool sends,
 }
 
 /**
- * The exchange scheduler of one process on the simulated network: one communicator and one stream
- * per direction between two time clusters.
+ * How the simulated scheduler of a process launches its groups.
+ */
+enum class Launching {
+  /// one communicator and one stream per direction
+  PerDirection,
+  /// one communicator and one stream, in the global order
+  Global,
+  /// one communicator and one stream, but each direction whenever it is ready
+  SingleStreamPerDirection
+};
+
+/**
+ * The exchange scheduler of one process on the simulated network.
  */
 class SimulatedScheduler : public ExchangeScheduler {
   public:
-  SimulatedScheduler(RendezvousNetwork& network, int process, std::size_t clusterCount)
-      : ExchangeScheduler(clusterCount), network_(network), process_(process),
-        clusterCount_(clusterCount) {}
+  SimulatedScheduler(RendezvousNetwork& network,
+                     int process,
+                     std::size_t clusterCount,
+                     Launching launching)
+      : ExchangeScheduler(clusterCount,
+                          launching == Launching::Global ? LaunchOrder::Global
+                                                         : LaunchOrder::PerDirection),
+        network_(network), process_(process), clusterCount_(clusterCount),
+        single_(launching != Launching::PerDirection) {}
 
   protected:
   Ticket launch(std::size_t from,
                 std::size_t to,
                 const ScheduledTransport* sender,
                 const ScheduledTransport* receiver) override {
-    const auto communicator = from * clusterCount_ + to;
+    const auto communicator = single_ ? 0 : from * clusterCount_ + to;
     std::vector<RendezvousNetwork::Operation> group;
     if (sender != nullptr) {
       for (const auto& region : sender->regions().copy) {
@@ -190,6 +207,7 @@ class SimulatedScheduler : public ExchangeScheduler {
   RendezvousNetwork& network_;
   int process_;
   std::size_t clusterCount_;
+  bool single_;
 };
 
 /**
@@ -257,6 +275,7 @@ struct Adjacency {
 enum class Transport { Scheduled, Immediate };
 
 bool simulate(Transport transport,
+              Launching launching,
               int processes,
               std::size_t clusterCount,
               const std::vector<Adjacency>& adjacencies,
@@ -265,7 +284,8 @@ bool simulate(Transport transport,
   RendezvousNetwork network;
   std::vector<std::unique_ptr<SimulatedScheduler>> schedulers;
   for (int process = 0; process < processes; ++process) {
-    schedulers.push_back(std::make_unique<SimulatedScheduler>(network, process, clusterCount));
+    schedulers.push_back(
+        std::make_unique<SimulatedScheduler>(network, process, clusterCount, launching));
   }
   const auto makeTransport = [&](int process,
                                  std::size_t cluster,
@@ -336,9 +356,14 @@ bool simulate(Transport transport,
   }
 
   for (const auto syncTime : syncTimes) {
-    for (auto* actor : actors) {
-      actor->setSyncTime(static_cast<double>(syncTime));
-      actor->reset();
+    // the copy layers first: the ghost clusters announce their exchanges from them
+    for (auto& [key, copy] : copies) {
+      copy->setSyncTime(static_cast<double>(syncTime));
+      copy->reset();
+    }
+    for (auto& ghost : ghosts) {
+      ghost->setSyncTime(static_cast<double>(syncTime));
+      ghost->reset();
     }
     std::size_t idleRounds = 0;
     bool first = true;
@@ -389,23 +414,53 @@ std::vector<Adjacency>
 TEST_CASE("Blocking point-to-point transports do not get stuck" * doctest::test_suite("solver")) {
   // synchronization points on and between the steps of the larger clusters
   const std::vector<long> syncTimes{6, 13, 16, 29};
+  for (const auto launching : {Launching::PerDirection, Launching::Global}) {
+    std::mt19937 random(1234);
+    for (int trial = 0; trial < 200; ++trial) {
+      std::uniform_int_distribution<int> processCount(2, 5);
+      std::uniform_int_distribution<std::size_t> clusterCount(1, 3);
+      const auto processes = processCount(random);
+      const auto clusters = clusterCount(random);
+      const auto adjacencies = randomAdjacencies(processes, clusters, random);
+      CAPTURE(launching == Launching::Global);
+      CAPTURE(trial);
+      CHECK(simulate(
+          Transport::Scheduled, launching, processes, clusters, adjacencies, syncTimes, random));
+    }
+  }
+}
+
+TEST_CASE("One stream without the global order gets stuck" * doctest::test_suite("solver")) {
+  const std::vector<long> syncTimes{6, 13, 16, 29};
   std::mt19937 random(1234);
+  int stuck = 0;
   for (int trial = 0; trial < 200; ++trial) {
     std::uniform_int_distribution<int> processCount(2, 5);
     std::uniform_int_distribution<std::size_t> clusterCount(1, 3);
     const auto processes = processCount(random);
     const auto clusters = clusterCount(random);
     const auto adjacencies = randomAdjacencies(processes, clusters, random);
-    CAPTURE(trial);
-    CHECK(simulate(Transport::Scheduled, processes, clusters, adjacencies, syncTimes, random));
+    if (!simulate(Transport::Scheduled,
+                  Launching::SingleStreamPerDirection,
+                  processes,
+                  clusters,
+                  adjacencies,
+                  syncTimes,
+                  random)) {
+      ++stuck;
+    }
   }
+  MESSAGE("stuck in " << stuck << " of 200 layouts");
+  CHECK(stuck > 0);
 }
 
 TEST_CASE("Launching receives right away gets stuck" * doctest::test_suite("solver")) {
   // two processes exchanging within one time cluster: both queue their receive first
   std::mt19937 random(1);
-  CHECK_FALSE(simulate(Transport::Immediate, 2, 1, {{0, 1, 0, 0}}, {8}, random));
-  CHECK(simulate(Transport::Scheduled, 2, 1, {{0, 1, 0, 0}}, {8}, random));
+  CHECK_FALSE(
+      simulate(Transport::Immediate, Launching::PerDirection, 2, 1, {{0, 1, 0, 0}}, {8}, random));
+  CHECK(simulate(Transport::Scheduled, Launching::PerDirection, 2, 1, {{0, 1, 0, 0}}, {8}, random));
+  CHECK(simulate(Transport::Scheduled, Launching::Global, 2, 1, {{0, 1, 0, 0}}, {8}, random));
 }
 
 } // namespace seissol::unit_test

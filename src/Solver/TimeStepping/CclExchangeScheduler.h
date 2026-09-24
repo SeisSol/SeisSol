@@ -18,9 +18,10 @@
 namespace seissol::time_stepping {
 
 /**
- * Exchanges the halo data with NCCL, RCCL or oneCCL, depending on the device backend. Each
- * direction between two time clusters that exchange data has a communicator and a stream of its
- * own.
+ * Exchanges the halo data with NCCL, RCCL or oneCCL, depending on the device backend. With
+ * `LaunchOrder::Global`, all exchanges of a process go through one communicator and one stream;
+ * with `LaunchOrder::PerDirection`, each direction between two time clusters that exchange data
+ * has a communicator and a stream of its own.
  *
  * Only available in device builds with CCL support.
  */
@@ -29,7 +30,7 @@ class CclExchangeScheduler : public ExchangeScheduler {
   /**
    * Sets up the communicators; collective over all processes.
    */
-  explicit CclExchangeScheduler(std::size_t clusterCount);
+  CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order);
   ~CclExchangeScheduler() override;
 
   CclExchangeScheduler(const CclExchangeScheduler&) = delete;
@@ -46,6 +47,7 @@ class CclExchangeScheduler : public ExchangeScheduler {
   bool completed(Ticket ticket) override;
 
   private:
+  /// the communicator and stream of a direction
   [[nodiscard]] std::size_t index(std::size_t from, std::size_t to) const;
 
   std::size_t clusterCount_;

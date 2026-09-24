@@ -139,7 +139,8 @@ As a (subpar) alternative, you can also try using ``SEISSOL_USM_MPI=1`` and ``di
 
 The value ``ccl`` exchanges the data with NCCL, RCCL or oneCCL instead of MPI, depending on the device backend.
 It requires building with ``-DCCL=ON`` and is considered experimental.
-Each direction of exchange between two time clusters then gets a communicator and a GPU stream of its own.
+All exchanges of a process then go through one communicator and one GPU stream, in an order that is the same on all processes.
+With ``SEISSOL_CCL_PER_DIRECTION=1``, each direction of exchange between two time clusters gets a communicator and a GPU stream of its own instead.
 
 .. figure:: figures/gpu-comm-layer-data-flow.png
    :alt: Data Flow Diagram

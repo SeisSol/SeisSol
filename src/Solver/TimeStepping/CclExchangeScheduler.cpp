@@ -80,15 +80,21 @@ CCL(DataType_t) datatype(RealType type) {
 
 } // namespace
 
-CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount)
-    : ExchangeScheduler(clusterCount), clusterCount_(clusterCount),
-      communicators_(clusterCount * clusterCount, nullptr),
-      streams_(clusterCount * clusterCount, nullptr) {
+CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
+    : ExchangeScheduler(clusterCount, order), clusterCount_(clusterCount) {
+  const auto slots = order == LaunchOrder::Global ? 1 : clusterCount * clusterCount;
+  communicators_.resize(slots, nullptr);
+  streams_.resize(slots, nullptr);
+
   // only neighboring time clusters exchange data; each ordered pair of them is one direction
   std::vector<std::pair<std::size_t, std::size_t>> directions;
-  for (std::size_t from = 0; from < clusterCount; ++from) {
-    for (std::size_t to = from == 0 ? 0 : from - 1; to < std::min(from + 2, clusterCount); ++to) {
-      directions.emplace_back(from, to);
+  if (order == LaunchOrder::Global) {
+    directions.emplace_back(0, 0);
+  } else {
+    for (std::size_t from = 0; from < clusterCount; ++from) {
+      for (std::size_t to = from == 0 ? 0 : from - 1; to < std::min(from + 2, clusterCount); ++to) {
+        directions.emplace_back(from, to);
+      }
     }
   }
 
@@ -141,7 +147,7 @@ CclExchangeScheduler::~CclExchangeScheduler() {
 }
 
 std::size_t CclExchangeScheduler::index(std::size_t from, std::size_t to) const {
-  return from * clusterCount_ + to;
+  return launchOrder() == LaunchOrder::Global ? 0 : from * clusterCount_ + to;
 }
 
 void CclExchangeScheduler::added([[maybe_unused]] const ScheduledTransport& transport) {
@@ -229,8 +235,8 @@ bool CclExchangeScheduler::completed(Ticket ticket) {
 
 namespace seissol::time_stepping {
 
-CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount)
-    : ExchangeScheduler(clusterCount), clusterCount_(clusterCount) {
+CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
+    : ExchangeScheduler(clusterCount, order), clusterCount_(clusterCount) {
   logError() << "This build of SeisSol does not support exchanging the halo data with CCL.";
 }
 

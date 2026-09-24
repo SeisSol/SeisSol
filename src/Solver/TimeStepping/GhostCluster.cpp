@@ -210,6 +210,14 @@ void GhostCluster::reset() {
   // all transfers of the previous interval have completed when this cluster synchronized
   assert(!receiving_ && !sending_ && !receiveDeferred_ && !sendDeferred_);
   AbstractTimeCluster::reset();
+
+  // the copy layer has been reset before and published its steps until the synchronization point
+  const auto& copy = neighbors_.front();
+  transport_->startInterval({copy.ct.timeStepRate,
+                             copy.progress->stepsUntilSync.load(std::memory_order_relaxed),
+                             ct_.timeStepRate,
+                             ct_.stepsUntilSync,
+                             exchangePeriod()});
 }
 
 std::string GhostCluster::description() const {

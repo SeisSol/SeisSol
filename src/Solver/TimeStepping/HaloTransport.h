@@ -17,6 +17,19 @@
 namespace seissol::time_stepping {
 
 /**
+ * The exchanges of a transport up to the next synchronization point. Each direction is described
+ * by its sending cluster: its time step rate, and its number of steps (of the smallest cluster) up
+ * to the synchronization point. Both directions exchange once per exchange period.
+ */
+struct ExchangeInterval {
+  long sendRate{1};
+  long sendSteps{0};
+  long receiveRate{1};
+  long receiveSteps{0};
+  long exchangePeriod{1};
+};
+
+/**
  * Moves the halo data between the copy layer of one time cluster and the ghost layer of one remote
  * time cluster: the copy regions go out, the ghost regions come in.
  *
@@ -57,6 +70,11 @@ class HaloTransport {
   virtual bool testReceive() = 0;
 
   /**
+   * Announces the exchanges up to the next synchronization point, before the first of them.
+   */
+  virtual void startInterval(const ExchangeInterval& /*interval*/) {}
+
+  /**
    * Releases everything that needs MPI; called before MPI is finalized.
    */
   virtual void finalize() {}
@@ -71,9 +89,14 @@ class HaloTransportFactory {
   public:
   /**
    * Persistent MPI transports set up their requests once and restart them for each transfer. The
-   * CCL transports set up their communicators here, collectively over all processes.
+   * CCL transports set up their communicators here, collectively over all processes: one for all
+   * exchanges in an order that is the same on all processes, or with `perDirection`, one for each
+   * direction between two time clusters.
    */
-  HaloTransportFactory(Mpi::DataTransferMode mode, bool persistent, std::size_t clusterCount);
+  HaloTransportFactory(Mpi::DataTransferMode mode,
+                       bool persistent,
+                       bool perDirection,
+                       std::size_t clusterCount);
   ~HaloTransportFactory();
 
   HaloTransportFactory(const HaloTransportFactory&) = delete;

@@ -25,10 +25,12 @@ namespace seissol::time_stepping {
 
 HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
                                            bool persistent,
+                                           bool perDirection,
                                            std::size_t clusterCount)
     : mode_(mode), persistent_(persistent) {
   if (mode_ == Mpi::DataTransferMode::DirectCcl) {
-    scheduler_ = std::make_unique<CclExchangeScheduler>(clusterCount);
+    scheduler_ = std::make_unique<CclExchangeScheduler>(
+        clusterCount, perDirection ? LaunchOrder::PerDirection : LaunchOrder::Global);
   }
 }
 
