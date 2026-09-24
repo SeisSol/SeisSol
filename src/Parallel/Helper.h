@@ -40,6 +40,14 @@ bool useCommThread(const T& mpiBasic, utils::Env& env) {
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
 /**
+ * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
+ * they are ready.
+ */
+inline bool useTimeSteppingPlan(utils::Env& env) {
+  return env.get<bool>("TIMESTEPPING_PLAN", false);
+}
+
+/**
  * Whether each layer gets scratchpads of its own, instead of all layers of a storage sharing one
  * set. Needed as soon as several layers are updated concurrently; costs the sum instead of the
  * maximum of the scratchpad demands.

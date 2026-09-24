@@ -60,6 +60,15 @@ class TimeManager {
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
   std::unique_ptr<AbstractCommunicationManager> communicationManager_;
 
+  //! take the steps along the time stepping plan
+  bool followPlan_{false};
+
+  /**
+   * Takes all steps of the cell and face clusters up to the synchronization point in the order of
+   * the time stepping plan.
+   */
+  void followPlan();
+
   //! Stopwatch
   LoopStatistics loopStatistics_;
   ActorStateStatisticsManager actorStateStatisticsManager_;

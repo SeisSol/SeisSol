@@ -30,6 +30,7 @@
 #include "Solver/TimeStepping/GhostCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 #include "Solver/TimeStepping/HaloTransport.h"
+#include "Solver/TimeStepping/TimeSteppingPlan.h"
 
 #include <algorithm>
 #include <array>
@@ -278,6 +279,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Create ghost time clusters for MPI
+  followPlan_ = useTimeSteppingPlan(seissolInstance_.env());
+  if (followPlan_) {
+    logInfo() << "The clusters take their steps along the time stepping plan.";
+  }
+
   haloTransports_ = std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
                                                            usePersistentMpi(seissolInstance_.env()),
                                                            clusterLayout.globalClusterCount);
@@ -411,6 +417,11 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     assert(cluster->getState() == ActorState::Corrected);
   }
 
+  if (followPlan_) {
+    followPlan();
+  }
+
+  // Also completes the synchronization after following the plan.
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     communicationManager_->progression();
@@ -457,6 +468,32 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 #endif
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
+  }
+}
+
+void TimeManager::followPlan() {
+  std::vector<PlannedCluster> planned;
+  planned.reserve(clusters_.size());
+  for (auto* cluster : clusters_) {
+    planned.push_back({cluster->getTimeStepRate(),
+                       cluster->getStepsUntilSync(),
+                       cluster->dataReadiness(),
+                       cluster->getPriority()});
+  }
+
+  for (const auto& step : planTimeSteps(planned)) {
+    auto* cluster = clusters_[step.cluster];
+    // along the plan, a cluster can only have to wait for the halo exchange
+    auto action = cluster->getNextLegalAction();
+    while (action == ActorAction::Nothing) {
+      communicationManager_->progression();
+      action = cluster->getNextLegalAction();
+    }
+    if (action != step.action) {
+      logError() << "The cluster" << cluster->identifier() << "is not ready for step" << step.step
+                 << "of the time stepping plan.";
+    }
+    cluster->act();
   }
 }
 
