@@ -40,6 +40,14 @@ bool useCommThread(const T& mpiBasic, utils::Env& env) {
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
 /**
+ * Whether the clusters on the device only enqueue their work and wait for each other on the device,
+ * instead of waiting for the completion of each of their steps. Implies scratchpads per layer.
+ */
+inline bool useConcurrentClusters(utils::Env& env) {
+  return env.get<bool>("CONCURRENT_CLUSTERS", false);
+}
+
+/**
  * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
  * they are ready.
  */

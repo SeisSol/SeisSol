@@ -26,6 +26,10 @@
 #include <utility>
 #include <utils/logger.h>
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 namespace seissol::time_stepping {
 void GhostCluster::sendCopyLayer(long target) {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -98,6 +102,7 @@ ActResult GhostCluster::act() {
   } else {
     // the progress of the copy layer starts the sends and receives
     refreshNeighbors();
+    startDeferred();
 
     if (receiving_ && testForGhostLayerReceives()) {
       receiving_ = false;
@@ -109,8 +114,8 @@ ActResult GhostCluster::act() {
     }
 
     const auto finalSteps = this->finalSteps();
-    if (!receiving_ && !sending_ && ct_.predictionsSinceLastSync >= finalSteps &&
-        ct_.stepsSinceLastSync >= finalSteps) {
+    if (!receiving_ && !sending_ && !receiveDeferred_ && !sendDeferred_ &&
+        ct_.predictionsSinceLastSync >= finalSteps && ct_.stepsSinceLastSync >= finalSteps) {
       state_ = ActorState::Synced;
     }
   }
@@ -120,6 +125,24 @@ ActResult GhostCluster::act() {
                           ct_.stepsSinceLastSync != sentBefore;
   trackProgress(result.isStateChanged);
   return result;
+}
+
+void GhostCluster::startDeferred() {
+  const auto completed = [](void* event) {
+#ifdef ACL_DEVICE
+    return event == nullptr || device::DeviceInstance::getInstance().api->isEventCompleted(event);
+#else
+    return true;
+#endif
+  };
+  if (sendDeferred_ && completed(deferredSendEvent_)) {
+    sendDeferred_ = false;
+    sendCopyLayer(deferredSendTarget_);
+  }
+  if (receiveDeferred_ && completed(deferredReceiveEvent_)) {
+    receiveDeferred_ = false;
+    receiveGhostLayer(deferredReceiveTarget_);
+  }
 }
 
 void GhostCluster::start() { receiveGhostLayer(std::min(exchangePeriod(), finalSteps())); }
@@ -132,7 +155,15 @@ void GhostCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
       neighbor.progress->stepsUntilSync.load(std::memory_order_relaxed) <= predictions;
   if (copyAtSync || predictions >= ct_.nextCorrectionSteps()) {
     const auto rate = ct_.timeStepRate;
-    sendCopyLayer(std::min((predictions + rate - 1) / rate * rate, finalSteps()));
+    const auto target = std::min((predictions + rate - 1) / rate * rate, finalSteps());
+    if (concurrent()) {
+      assert(!sendDeferred_);
+      sendDeferred_ = true;
+      deferredSendTarget_ = target;
+      deferredSendEvent_ = neighbor.progress->event.load(std::memory_order_relaxed);
+    } else {
+      sendCopyLayer(target);
+    }
   }
 }
 
@@ -151,7 +182,15 @@ void GhostCluster::handleNeighborCorrection(const NeighborCluster& neighbor) {
   // start() posts the first one of the next interval.
   const auto finalSteps = this->finalSteps();
   if (ct_.predictionsSinceLastSync < finalSteps) {
-    receiveGhostLayer(std::min(ct_.predictionsSinceLastSync + exchangePeriod(), finalSteps));
+    const auto target = std::min(ct_.predictionsSinceLastSync + exchangePeriod(), finalSteps);
+    if (concurrent()) {
+      assert(!receiveDeferred_);
+      receiveDeferred_ = true;
+      deferredReceiveTarget_ = target;
+      deferredReceiveEvent_ = neighbor.progress->event.load(std::memory_order_relaxed);
+    } else {
+      receiveGhostLayer(target);
+    }
   }
 }
 
@@ -169,7 +208,7 @@ GhostCluster::GhostCluster(double maxTimeStepSize,
 
 void GhostCluster::reset() {
   // all transfers of the previous interval have completed when this cluster synchronized
-  assert(!receiving_ && !sending_);
+  assert(!receiving_ && !sending_ && !receiveDeferred_ && !sendDeferred_);
   AbstractTimeCluster::reset();
 }
 

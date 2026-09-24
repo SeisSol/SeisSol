@@ -70,7 +70,9 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     break;
   case ActorAction::Correct:
     assert(state_ == ActorState::Predicted);
+    waitForNeighbors();
     correct();
+    publishEvent();
     ct_.correctionTime += timeStepSize();
     ++numberOfTimeSteps_;
     ct_.stepsSinceLastSync += ct_.timeStepRate;
@@ -80,7 +82,9 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     break;
   case ActorAction::Predict:
     assert(state_ == ActorState::Corrected);
+    waitForNeighbors();
     predict();
+    publishEvent();
     ct_.predictionsSinceLastSync += ct_.timeStepRate;
     ct_.predictionsSinceStart += ct_.timeStepRate;
     ct_.predictionTime += timeStepSize();
@@ -126,6 +130,24 @@ void AbstractTimeCluster::trackProgress(bool progressed) {
   } else {
     timeOfLastStageChange_ = currentTime;
     alreadyPrintedTimeOut_ = false;
+  }
+}
+
+void AbstractTimeCluster::waitForNeighbors() {
+  if (concurrent_) {
+    // everything a neighbor did before this action has been enqueued before it
+    for (const auto& neighbor : neighbors_) {
+      if (auto* event = neighbor.progress->event.load(std::memory_order_relaxed);
+          event != nullptr) {
+        waitForEvent(event);
+      }
+    }
+  }
+}
+
+void AbstractTimeCluster::publishEvent() {
+  if (concurrent_) {
+    progress_.event.store(recordActionEvent(), std::memory_order_relaxed);
   }
 }
 

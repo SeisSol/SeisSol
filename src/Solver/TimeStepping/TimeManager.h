@@ -63,6 +63,9 @@ class TimeManager {
   //! take the steps along the time stepping plan
   bool followPlan_{false};
 
+  //! the clusters only enqueue their device work
+  bool concurrent_{false};
+
   /**
    * Takes all steps of the cell and face clusters up to the synchronization point in the order of
    * the time stepping plan.

@@ -46,6 +46,28 @@ class AbstractTimeCluster {
    */
   void trackProgress(bool progressed);
 
+  /**
+   * With concurrent clusters, makes the next action wait for the latest actions of the neighbors.
+   */
+  void waitForNeighbors();
+
+  /**
+   * With concurrent clusters, publishes the event of the action just enqueued.
+   */
+  void publishEvent();
+
+  /**
+   * Returns an event that completes with the device work enqueued so far; null if there is none.
+   */
+  virtual void* recordActionEvent() { return nullptr; }
+
+  /**
+   * Makes the work enqueued from now on wait for the event.
+   */
+  virtual void waitForEvent(void* /*event*/) {}
+
+  [[nodiscard]] bool concurrent() const { return concurrent_; }
+
   ActorState state_ = ActorState::Synced;
   ClusterTimes ct_;
   std::vector<NeighborCluster> neighbors_;
@@ -88,6 +110,9 @@ class AbstractTimeCluster {
   bool hasDifferentExecutorNeighbor();
 
   long timeStepRate_;
+
+  //! only enqueue the device work of an action, instead of waiting for it
+  bool concurrent_{false};
   //! number of time steps
   long numberOfTimeSteps_{0};
   Executor executor_;
@@ -109,6 +134,12 @@ class AbstractTimeCluster {
   ///* Can be used e.g. to always update copy clusters before interior ones.
   [[nodiscard]] virtual ActorPriority getPriority() const;
   virtual void setPriority(ActorPriority priority);
+
+  /**
+   * With concurrent clusters, an action only enqueues its device work: it first makes it wait for
+   * the device work of the latest action of each neighbor, and publishes an event for its own.
+   */
+  void setConcurrent(bool concurrent) { concurrent_ = concurrent; }
 
   /**
    * Connects two clusters that wait for each other.

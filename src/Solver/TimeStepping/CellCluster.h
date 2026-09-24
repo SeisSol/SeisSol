@@ -224,6 +224,11 @@ class CellCluster : public AbstractTimeCluster {
 
   void finalize() override;
 
+  protected:
+  void* recordActionEvent() override;
+  void waitForEvent(void* event) override;
+
+  public:
   [[nodiscard]] std::size_t layerId() const;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;

@@ -527,7 +527,9 @@ void CellCluster::predict() {
     clusterData_->varSynchronizeTo<LTS::Buffers>(other, streamRuntime_.stream());
   }
 
-  streamRuntime_.wait();
+  if (!concurrent()) {
+    streamRuntime_.wait();
+  }
 }
 
 void CellCluster::correct() {
@@ -555,7 +557,22 @@ void CellCluster::correct() {
     }
   }
 
-  streamRuntime_.wait();
+  if (!concurrent()) {
+    streamRuntime_.wait();
+  }
+}
+
+void* CellCluster::recordActionEvent() { return streamRuntime_.eventRecord(); }
+
+void CellCluster::waitForEvent(SEISSOL_GPU_PARAM void* event) {
+#ifdef ACL_DEVICE
+  if (executor_ == Executor::Host) {
+    // the host kernels run right away, so the host has to wait
+    device_.api->syncEventWithHost(event);
+  } else {
+    streamRuntime_.eventSync(event);
+  }
+#endif
 }
 
 void CellCluster::incrementPerformanceMetrics(ComputePart part) {

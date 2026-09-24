@@ -15,6 +15,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Kernels/Common.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -366,6 +367,17 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   auto* ghostClusterPointer = communicationManager_->getGhostClusters();
 
+  concurrent_ = isDeviceOn() && useConcurrentClusters(seissolInstance_.env());
+  if (concurrent_) {
+    logInfo() << "The clusters run concurrently on the device.";
+    for (auto* cluster : clusters_) {
+      cluster->setConcurrent(true);
+    }
+    for (auto& cluster : *ghostClusterPointer) {
+      cluster->setConcurrent(true);
+    }
+  }
+
   std::vector<AbstractTimeCluster*> allClusters(clusters_.size() + ghostClusterPointer->size());
   for (std::size_t i = 0; i < clusters_.size(); ++i) {
     allClusters[i] = clusters_[i];
@@ -464,6 +476,10 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     finished &= communicationManager_->checkIfFinished();
   }
 #ifdef ACL_DEVICE
+  if (concurrent_) {
+    // the clusters have only enqueued their work
+    device.api->syncDevice();
+  }
   device.api->popLastProfilingMark();
 #endif
   for (auto& cluster : clusters_) {

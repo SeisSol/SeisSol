@@ -366,7 +366,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   if constexpr (isDeviceOn()) {
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
-    drStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env())
+    drStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env()) ||
+                                          useConcurrentClusters(seissolInstance.env())
                                       ? initializer::ScratchpadSharing::PerLayer
                                       : initializer::ScratchpadSharing::Shared);
   }

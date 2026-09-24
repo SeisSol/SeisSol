@@ -29,6 +29,9 @@ struct ActorProgress {
   std::atomic<long> stepsUntilSync{0};
   std::atomic<double> predictionTime{0.0};
   std::atomic<double> correctionTime{0.0};
+
+  /// Completes with the device work of the latest action; null without concurrent clusters.
+  std::atomic<void*> event{nullptr};
 };
 
 enum class ActorState { Corrected, Predicted, Synced };

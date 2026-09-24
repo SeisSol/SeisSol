@@ -69,6 +69,12 @@ class GhostCluster : public AbstractTimeCluster {
   bool testForCopyLayerSends();
   bool testForGhostLayerReceives();
 
+  /**
+   * With concurrent clusters, starts the sends and receives whose copy layer work has completed on
+   * the device.
+   */
+  void startDeferred();
+
   /// Moves the receive progress (and the prediction time) forward to `target`.
   void advanceReceived(long target);
 
@@ -94,6 +100,15 @@ class GhostCluster : public AbstractTimeCluster {
   bool sending_{false};
   long receiveTarget_{0};
   long sendTarget_{0};
+
+  // with concurrent clusters, a send or receive waits for the device work of the copy layer action
+  // that started it: the send for the data to be written, the receive for the ghost data to be read
+  bool sendDeferred_{false};
+  bool receiveDeferred_{false};
+  long deferredSendTarget_{0};
+  long deferredReceiveTarget_{0};
+  void* deferredSendEvent_{nullptr};
+  void* deferredReceiveEvent_{nullptr};
 };
 
 } // namespace seissol::time_stepping

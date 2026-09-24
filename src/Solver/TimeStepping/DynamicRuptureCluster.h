@@ -76,6 +76,8 @@ class DynamicRuptureCluster : public FaceCluster {
 
   protected:
   void interact(const StepParams& params) override;
+  void* recordActionEvent() override;
+  void waitForEvent(void* event) override;
 
   private:
   void computeDynamicRupture(const StepParams& params);

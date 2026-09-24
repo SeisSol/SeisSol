@@ -284,7 +284,22 @@ void DynamicRuptureCluster::interact(const StepParams& params) {
 
   seissolInstance_.flopCounter().incrementMetric(perfHandle_, estimate_);
 
-  streamRuntime_.wait();
+  if (!concurrent()) {
+    streamRuntime_.wait();
+  }
+}
+
+void* DynamicRuptureCluster::recordActionEvent() { return streamRuntime_.eventRecord(); }
+
+void DynamicRuptureCluster::waitForEvent(SEISSOL_GPU_PARAM void* event) {
+#ifdef ACL_DEVICE
+  if (executor_ == Executor::Host) {
+    // the host kernels run right away, so the host has to wait
+    device_.api->syncEventWithHost(event);
+  } else {
+    streamRuntime_.eventSync(event);
+  }
+#endif
 }
 
 ActResult DynamicRuptureCluster::act() {
