@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #include "CellCluster.h"
+#include "DynamicRuptureCluster.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -40,13 +41,17 @@ class TimeManager {
   //! time stepping
   std::optional<initializer::ClusterLayout> clusterLayout_;
 
-  //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<CellCluster>> clusters_;
-  std::vector<CellCluster*> highPrioClusters_;
-  std::vector<CellCluster*> lowPrioClusters_;
+  //! the clusters of the local (copy & interior) cells
+  std::vector<std::unique_ptr<CellCluster>> cellClusters_;
 
-  //! one dynamic rupture scheduler per pair of interior/copy cluster
-  std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers_;
+  //! the clusters of the local (copy & interior) dynamic rupture faces
+  std::vector<std::unique_ptr<DynamicRuptureCluster>> faceClusters_;
+
+  //! all cell and face clusters, i.e. all clusters under control of this time manager that do
+  //! local work; ordered by rate
+  std::vector<AbstractTimeCluster*> clusters_;
+  std::vector<AbstractTimeCluster*> highPrioClusters_;
+  std::vector<AbstractTimeCluster*> lowPrioClusters_;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
   std::unique_ptr<AbstractCommunicationManager> communicationManager_;

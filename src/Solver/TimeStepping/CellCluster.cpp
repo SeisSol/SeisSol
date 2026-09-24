@@ -15,8 +15,6 @@
 #include "Common/Constants.h"
 #include "Common/Executor.h"
 #include "Common/Marker.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -24,7 +22,6 @@
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Kernels/DynamicRupture.h"
 #include "Kernels/Interface.h"
 #include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
 #include "Kernels/Plasticity.h"
@@ -33,7 +30,6 @@
 #include "Kernels/Receiver.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
@@ -42,7 +38,6 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
-#include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
@@ -75,14 +70,8 @@ CellCluster::CellCluster(unsigned int clusterId,
                          double maxTimeStepSize,
                          long timeStepRate,
                          bool printProgress,
-                         DynamicRuptureScheduler* dynamicRuptureScheduler,
                          CompoundGlobalData globalData,
                          LTS::Layer* clusterData,
-                         DynamicRupture::Layer* dynRupInteriorData,
-                         DynamicRupture::Layer* dynRupCopyData,
-                         seissol::dr::friction_law::FrictionSolver* frictionSolverTemplate,
-                         seissol::dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
-                         dr::output::OutputManager* faultOutputManager,
                          seissol::SeisSol& seissolInstance,
                          LoopStatistics* loopStatistics,
                          ActorStateStatistics* actorStateStatistics)
@@ -92,13 +81,6 @@ CellCluster::CellCluster(unsigned int clusterId,
       settings_(settings), seissolInstance_(seissolInstance), streamRuntime_(4),
       globalDataOnHost_(globalData.onHost), globalDataOnDevice_(globalData.onDevice),
       clusterData_(clusterData),
-      // global data
-      dynRupInteriorData_(dynRupInteriorData), dynRupCopyData_(dynRupCopyData),
-      frictionSolver_(frictionSolverTemplate->clone()),
-      frictionSolverDevice_(frictionSolverTemplateDevice->clone()),
-      frictionSolverCopy_(frictionSolverTemplate->clone()),
-      frictionSolverCopyDevice_(frictionSolverTemplateDevice->clone()),
-      faultOutputManager_(faultOutputManager),
       sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics_(loopStatistics), actorStateStatistics_(actorStateStatistics),
@@ -107,8 +89,7 @@ CellCluster::CellCluster(unsigned int clusterId,
                                 isDeviceOn() ? seissol::memory::Memkind::DeviceGlobalMemory
                                              : seissol::memory::Memkind::Standard),
       layerType_(layerType), printProgress_(printProgress), clusterId_(clusterId),
-      globalClusterId_(globalClusterId), profilingId_(profilingId),
-      dynamicRuptureScheduler_(dynamicRuptureScheduler) {
+      globalClusterId_(globalClusterId), profilingId_(profilingId) {
   // assert all pointers are valid
   assert(clusterData_ != nullptr);
   assert(globalDataOnHost_ != nullptr);
@@ -125,29 +106,12 @@ CellCluster::CellCluster(unsigned int clusterId,
   localKernel_.setInitConds(&seissolInstance_.memoryManager().initialConditions());
   localKernel_.setGravitationalAcceleration(seissolInstance_.gravitationSetup().acceleration);
   neighborKernel_.setGlobalData(globalData);
-  dynamicRuptureKernel_.setGlobalData(globalData);
-
-  frictionSolver_->allocateAuxiliaryMemory(globalDataOnHost_);
-  frictionSolverCopy_->allocateAuxiliaryMemory(globalDataOnHost_);
-  if constexpr (seissol::isDeviceOn()) {
-    frictionSolverDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
-    frictionSolverCopyDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
-  }
-
-  frictionSolver_->setupLayer(*dynRupInteriorData, streamRuntime_);
-  frictionSolverCopy_->setupLayer(*dynRupCopyData, streamRuntime_);
-  if constexpr (seissol::isDeviceOn()) {
-    frictionSolverDevice_->setupLayer(*dynRupInteriorData, streamRuntime_);
-    frictionSolverCopyDevice_->setupLayer(*dynRupCopyData, streamRuntime_);
-  }
-  streamRuntime_.wait();
 
   computeFlops();
 
   regionComputeLocalIntegration_ = loopStatistics_->getRegion("computeLocalIntegration");
   regionComputeNeighboringIntegration_ =
       loopStatistics_->getRegion("computeNeighboringIntegration");
-  regionComputeDynamicRupture_ = loopStatistics_->getRegion("computeDynamicRupture");
   regionComputePointSources_ = loopStatistics_->getRegion("computePointSources");
 
   conditionalCounterHost_[0] = 0;
@@ -159,10 +123,6 @@ CellCluster::CellCluster(unsigned int clusterId,
       seissolInstance.flopCounter().addMetric("neighbor", "WP");
   perfHandle_[static_cast<std::size_t>(ComputePart::DRNeighbor)] =
       seissolInstance.flopCounter().addMetric("neighbor-dr", "DR");
-  perfHandle_[static_cast<std::size_t>(ComputePart::DRFrictionLawInterior)] =
-      seissolInstance.flopCounter().addMetric("dr-frictionlaw-interior", "DR");
-  perfHandle_[static_cast<std::size_t>(ComputePart::DRFrictionLawCopy)] =
-      seissolInstance.flopCounter().addMetric("dr-frictionlaw-copy", "DR");
   perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)] =
       seissolInstance.flopCounter().addMetric("plasticity-check", "PL");
   perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityYield)] =
@@ -214,147 +174,6 @@ void CellCluster::computeSources(const StepParams& params) {
 #ifdef ACL_DEVICE
   device_.api->popLastProfilingMark();
 #endif
-}
-
-void CellCluster::computeDynamicRupture(DynamicRupture::Layer& layerData,
-                                        const StepParams& params) {
-  if (layerData.size() == 0) {
-    return;
-  }
-  SCOREP_USER_REGION_DEFINE(myRegionHandle)
-  SCOREP_USER_REGION_BEGIN(
-      myRegionHandle, "computeDynamicRuptureSpaceTimeInterpolation", SCOREP_USER_REGION_TYPE_COMMON)
-
-  loopStatistics_->begin(regionComputeDynamicRupture_);
-
-  const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
-  auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>();
-  auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>();
-
-  const auto timestep = params.timeStepSize;
-
-  const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timestep);
-
-  const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
-  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
-
-#pragma omp parallel
-  {
-    LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
-  }
-
-#pragma omp parallel for schedule(static)
-  for (std::size_t face = 0; face < layerData.size(); ++face) {
-    const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
-    dynamicRuptureKernel_.spaceTimeInterpolation(faceInformation[face],
-                                                 &godunovData[face],
-                                                 timeDerivativePlus[face],
-                                                 timeDerivativeMinus[face],
-                                                 qInterpolatedPlus[face],
-                                                 qInterpolatedMinus[face],
-                                                 timeDerivativePlus[prefetchFace],
-                                                 timeDerivativeMinus[prefetchFace],
-                                                 pointsCollocate.data());
-  }
-  SCOREP_USER_REGION_END(myRegionHandle)
-#pragma omp parallel
-  {
-    LIKWID_MARKER_STOP("computeDynamicRuptureSpaceTimeInterpolation");
-    LIKWID_MARKER_START("computeDynamicRuptureFrictionLaw");
-  }
-
-  SCOREP_USER_REGION_BEGIN(
-      myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON)
-  auto& solver = &layerData == dynRupInteriorData_ ? frictionSolver_ : frictionSolverCopy_;
-  solver->evaluate(params.time, frictionTime, timeWeights.data(), streamRuntime_);
-  SCOREP_USER_REGION_END(myRegionHandle)
-#pragma omp parallel
-  {
-    LIKWID_MARKER_STOP("computeDynamicRuptureFrictionLaw");
-  }
-
-  loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
-}
-
-void CellCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::Layer& layerData,
-                                              SEISSOL_GPU_PARAM const StepParams& params) {
-#ifdef ACL_DEVICE
-
-  using namespace seissol::recording;
-
-  SCOREP_USER_REGION("computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION)
-
-  loopStatistics_->begin(regionComputeDynamicRupture_);
-
-  if (layerData.size() > 0) {
-    // compute space time interpolation part
-
-    const auto timestep = params.timeStepSize;
-
-    const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
-    device_.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
-    auto computeGraphKey = initializer::GraphKey(graphType, timestep);
-    auto& table = layerData.getConditionalTable<inner_keys::Dr>();
-
-    const auto [timePoints, timeWeights] =
-        seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timestep);
-
-    const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
-    const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
-
-    streamRuntime_.runGraph(computeGraphKey,
-                            layerData,
-                            [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
-                              dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
-                                  table, pointsCollocate.data(), streamRuntime_);
-                            });
-    device_.api->popLastProfilingMark();
-
-    auto& solver =
-        &layerData == dynRupInteriorData_ ? frictionSolverDevice_ : frictionSolverCopyDevice_;
-
-    device_.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    if (solver->allocationPlace() == initializer::AllocationPlace::Host) {
-      layerData.varSynchronizeTo<DynamicRupture::QInterpolatedPlus>(
-          initializer::AllocationPlace::Host, streamRuntime_.stream());
-      layerData.varSynchronizeTo<DynamicRupture::QInterpolatedMinus>(
-          initializer::AllocationPlace::Host, streamRuntime_.stream());
-      streamRuntime_.wait();
-      solver->evaluate(params.time, frictionTime, timeWeights.data(), streamRuntime_);
-      layerData.varSynchronizeTo<DynamicRupture::FluxSolverMinus>(
-          initializer::AllocationPlace::Device, streamRuntime_.stream());
-      layerData.varSynchronizeTo<DynamicRupture::FluxSolverPlus>(
-          initializer::AllocationPlace::Device, streamRuntime_.stream());
-      layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(
-          initializer::AllocationPlace::Device, streamRuntime_.stream());
-      layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(
-          initializer::AllocationPlace::Device, streamRuntime_.stream());
-    } else {
-      solver->evaluate(params.time, frictionTime, timeWeights.data(), streamRuntime_);
-    }
-
-    device_.api->popLastProfilingMark();
-  }
-  loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
-#else
-  logError() << "The GPU kernels are disabled in this version of SeisSol.";
-#endif
-}
-
-PerformanceEstimate CellCluster::computeDynamicRuptureFlops(DynamicRupture::Layer& layerData) {
-  const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-
-  PerformanceEstimate estimate{};
-
-  for (std::size_t face = 0; face < layerData.size(); ++face) {
-    estimate += dynamicRuptureKernel_.metrics(faceInformation[face]);
-  }
-
-  return estimate;
 }
 
 void CellCluster::computeLocalIntegration(const StepParams& params) {
@@ -663,10 +482,6 @@ void CellCluster::computeNeighborIntegrationFlops() {
 void CellCluster::computeFlops() {
   computeLocalIntegrationFlops();
   computeNeighborIntegrationFlops();
-  estimate_[static_cast<int>(ComputePart::DRFrictionLawInterior)] =
-      computeDynamicRuptureFlops(*dynRupInteriorData_);
-  estimate_[static_cast<int>(ComputePart::DRFrictionLawCopy)] =
-      computeDynamicRuptureFlops(*dynRupCopyData_);
 
   const auto [check, yield] = seissol::kernels::Plasticity::metrics();
   estimate_[static_cast<int>(ComputePart::PlasticityCheck)] = check;
@@ -715,69 +530,9 @@ void CellCluster::predict() {
   streamRuntime_.wait();
 }
 
-void CellCluster::handleDynamicRupture(DynamicRupture::Layer& layerData, const StepParams& params) {
-  if (layerData.size() == 0) {
-    return;
-  }
-
-  if (executor_ == Executor::Device) {
-    computeDynamicRuptureDevice(layerData, params);
-  } else {
-    computeDynamicRupture(layerData, params);
-  }
-
-  double time = params.time;
-
-  // repeat the current solution for some times---to match the existing output scheme.
-  // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
-
-  const double meshDt = ct_.getTimeStepSize();
-  // the friction law has just evaluated this step up to its end, and that is the state written out
-  const double stateTime = params.time + params.timeStepSize;
-
-  do {
-    const auto oldTime = time;
-    time += dynamicRuptureScheduler_->getOutputTimestep();
-    const auto trueTime = std::min(time, syncTime_);
-    const auto trueDt = trueTime - oldTime;
-    faultOutputManager_->writePickpointOutput(
-        layerData.id(), stateTime, trueTime, trueDt, meshDt, 0, streamRuntime_);
-
-    // write until we've completed the current copy interval, or if we've hit a sync point
-  } while (time * (1 + 1e-8) < params.time + ct_.maxTimeStepSize && time < syncTime_);
-
-  // TODO(David): restrict to copy/interior of same cluster type
-  if (hasDifferentExecutorNeighbor()) {
-    auto other = executor_ == Executor::Device ? seissol::initializer::AllocationPlace::Host
-                                               : seissol::initializer::AllocationPlace::Device;
-    layerData.varSynchronizeTo<DynamicRupture::FluxSolverMinus>(other, streamRuntime_.stream());
-    layerData.varSynchronizeTo<DynamicRupture::FluxSolverPlus>(other, streamRuntime_.stream());
-    layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime_.stream());
-    layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(other, streamRuntime_.stream());
-  }
-}
-
 void CellCluster::correct() {
   assert(state_ == ActorState::Predicted);
   const auto params = stepParams();
-
-  // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
-  // Otherwise, this is an interior layer actor, and we need only the FL_Int.
-  // We need to avoid computing it twice.
-  if (dynamicRuptureScheduler_->mayComputeInterior(ct_.stepsSinceStart)) {
-    handleDynamicRupture(*dynRupInteriorData_, params);
-
-    incrementPerformanceMetrics(ComputePart::DRFrictionLawInterior);
-
-    dynamicRuptureScheduler_->setLastCorrectionStepsInterior(ct_.stepsSinceStart);
-  }
-  if (layerType_ == HaloType::Copy) {
-    handleDynamicRupture(*dynRupCopyData_, params);
-
-    incrementPerformanceMetrics(ComputePart::DRFrictionLawCopy);
-
-    dynamicRuptureScheduler_->setLastCorrectionStepsCopy((ct_.stepsSinceStart));
-  }
 
   if (executor_ == Executor::Device) {
     computeNeighboringIntegrationDevice(params);
@@ -955,12 +710,6 @@ void CellCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
     if ((place == initializer::AllocationPlace::Host && executor_ == Executor::Device) ||
         (place == initializer::AllocationPlace::Device && executor_ == Executor::Host)) {
       clusterData_->synchronizeTo(place, stream);
-      if (layerType_ == HaloType::Interior) {
-        dynRupInteriorData_->synchronizeTo(place, stream);
-      }
-      if (layerType_ == HaloType::Copy) {
-        dynRupCopyData_->synchronizeTo(place, stream);
-      }
     }
   }
 }

@@ -13,15 +13,11 @@
 
 #include "AbstractTimeCluster.h"
 #include "Common/Executor.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
@@ -68,8 +64,6 @@ class CellCluster : public AbstractTimeCluster {
   //! neighbor kernel
   kernels::Neighbor neighborKernel_;
 
-  kernels::DynamicRupture dynamicRuptureKernel_;
-
   seissol::parallel::runtime::StreamRuntime streamRuntime_;
 
   /*
@@ -86,13 +80,6 @@ class CellCluster : public AbstractTimeCluster {
    * element data
    */
   LTS::Layer* clusterData_;
-  DynamicRupture::Layer* dynRupInteriorData_;
-  DynamicRupture::Layer* dynRupCopyData_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopy_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopyDevice_;
-  dr::output::OutputManager* faultOutputManager_;
 
   seissol::kernels::PointSourceClusterPair sourceCluster_;
 
@@ -100,8 +87,6 @@ class CellCluster : public AbstractTimeCluster {
     Local = 0,
     Neighbor,
     DRNeighbor,
-    DRFrictionLawInterior,
-    DRFrictionLawCopy,
     PlasticityCheck,
     PlasticityYield,
     NumComputeParts
@@ -116,7 +101,6 @@ class CellCluster : public AbstractTimeCluster {
   ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeLocalIntegration_;
   unsigned regionComputeNeighboringIntegration_;
-  unsigned regionComputeDynamicRupture_;
   unsigned regionComputePointSources_;
 
   kernels::ReceiverCluster* receiverCluster_{nullptr};
@@ -135,13 +119,6 @@ class CellCluster : public AbstractTimeCluster {
    * Computes the source terms if applicable.
    **/
   void computeSources(const StepParams& params);
-
-  /**
-   * Computes dynamic rupture.
-   **/
-  void computeDynamicRupture(DynamicRupture::Layer& layerData, const StepParams& params);
-
-  void handleDynamicRupture(DynamicRupture::Layer& layerData, const StepParams& params);
 
   /**
    * Computes all cell local integration.
@@ -170,7 +147,6 @@ class CellCluster : public AbstractTimeCluster {
   void computeNeighboringIntegration(const StepParams& params);
 
   void computeLocalIntegrationDevice(const StepParams& params);
-  void computeDynamicRuptureDevice(DynamicRupture::Layer& layerData, const StepParams& params);
   void computeNeighboringIntegrationDevice(const StepParams& params);
 
   void computeLocalIntegrationFlops();
@@ -182,8 +158,6 @@ class CellCluster : public AbstractTimeCluster {
                                                    const CellLocalInformation* cellInformation);
 
   void computeNeighborIntegrationFlops();
-
-  PerformanceEstimate computeDynamicRuptureFlops(DynamicRupture::Layer& layerData);
 
   void computeFlops();
 
@@ -201,8 +175,6 @@ class CellCluster : public AbstractTimeCluster {
 
   //! id used to identify this cluster (including layer type) when profiling
   unsigned int profilingId_;
-
-  DynamicRuptureScheduler* dynamicRuptureScheduler_;
 
   void incrementPerformanceMetrics(ComputePart part);
 
@@ -231,14 +203,8 @@ class CellCluster : public AbstractTimeCluster {
               double maxTimeStepSize,
               long timeStepRate,
               bool printProgress,
-              DynamicRuptureScheduler* dynamicRuptureScheduler,
               CompoundGlobalData globalData,
               LTS::Layer* clusterData,
-              DynamicRupture::Layer* dynRupInteriorData,
-              DynamicRupture::Layer* dynRupCopyData,
-              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplate,
-              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
-              dr::output::OutputManager* faultOutputManager,
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,
               ActorStateStatistics* actorStateStatistics);
@@ -254,10 +220,6 @@ class CellCluster : public AbstractTimeCluster {
 
   void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
     this->receiverCluster_ = receiverCluster;
-  }
-
-  void setFaultOutputManager(dr::output::OutputManager* outputManager) {
-    faultOutputManager_ = outputManager;
   }
 
   void finalize() override;

@@ -1,0 +1,50 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_FACECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_FACECLUSTER_H_
+
+#include "Common/Executor.h"
+#include "Solver/TimeStepping/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/ActorState.h"
+#include "Solver/TimeStepping/StepParams.h"
+
+namespace seissol::time_stepping {
+
+/**
+ * A cluster that works on faces between cells. The face work of a step needs the predictions of
+ * the adjacent cells for that step, and the adjacent cells need its result for their correction.
+ *
+ * In terms of the actor model, the face work is the correction of the face cluster, while its
+ * prediction does nothing. Since the face cluster declares its data ready only after its
+ * correction, the adjacent cells wait for the face work before they correct.
+ */
+class FaceCluster : public AbstractTimeCluster {
+  public:
+  ~FaceCluster() override = default;
+
+  protected:
+  FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
+
+  /**
+   * Does the face work of the step described by `params`.
+   */
+  virtual void interact(const StepParams& params) = 0;
+
+  [[nodiscard]] DataReadiness dataReadiness() const final;
+
+  void start() override {}
+  void predict() final {}
+  void correct() final;
+
+  void handleAdvancedPredictionTimeMessage(const NeighborCluster& /*neighborCluster*/) override {}
+  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*neighborCluster*/) override {}
+};
+
+} // namespace seissol::time_stepping
+
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_FACECLUSTER_H_
