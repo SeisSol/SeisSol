@@ -24,7 +24,7 @@ the tag not at all. Post-processing that read ``fault-tag`` and got what it
 expected was reading an identifier; one that grouped by it was grouping by face.
 
 The on-fault and off-fault receiver files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)
 
 ``receiverFormat = 'hdf5'`` writes a different file. It used to be one wide
