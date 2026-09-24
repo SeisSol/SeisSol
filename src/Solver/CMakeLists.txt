@@ -14,6 +14,7 @@ add_library(seissol-solver OBJECT
     TimeStepping/CellCluster.cpp
     TimeStepping/CommunicationManager.cpp
     TimeStepping/DynamicRuptureCluster.cpp
+    TimeStepping/ExchangeScheduler.cpp
     TimeStepping/FaceCluster.cpp
     TimeStepping/GhostCluster.cpp
     TimeStepping/HaloTransport.cpp
