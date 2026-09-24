@@ -11,6 +11,7 @@ from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.input import parseJSONMatrixFile
+from yateto.memory import CSCMemoryLayout
 
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInterface):
@@ -31,6 +32,13 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
     # on the mechanisms in the case of viscoelastic attenuation
     trans_inv_spp_T = aderdg.transformation_inv_spp().transpose()
     TinvT = Tensor("TinvT", trans_inv_spp_T.shape, spp=trans_inv_spp_T)
+    # The face rotation is block diagonal -- one block per quantity group -- so
+    # most of TinvT is structurally zero, and it is stored once per fault face.
+    # Storing only the pattern shrinks that and lets the two projections below
+    # skip the empty blocks. The old GPU interface (gemmforge/chainforge) reads
+    # its operands as dense, so it keeps the dense layout.
+    if not (isOldGpuInterface and "gpu" in targets):
+        TinvT.setMemoryLayout(CSCMemoryLayout)
     flux_solver_spp = aderdg.flux_solver_spp()
     fluxSolver = Tensor("fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp)
 
@@ -79,8 +87,6 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
     )
     resampleKernel = resampledQ["i"] <= db.resample[aderdg.t("ij")] * originalQ["j"]
     generator.add("resampleParameter", resampleKernel)
-
-    generator.add("transposeTinv", TinvT["ij"] <= aderdg.Tinv["ji"])
 
     fluxScale = Scalar("fluxScaleDR")
     generator.add(

@@ -532,11 +532,17 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       }
 
-      /// Transpose matTinv
-      dynamicRupture::kernel::transposeTinv ttKrnl;
-      ttKrnl.Tinv = matTinvData;
-      ttKrnl.TinvT = godunovData[ltsFace].dataTinvT;
-      ttKrnl.execute();
+      /// Transpose matTinv.
+      // Through the view rather than through a kernel, because TinvT is stored
+      // in whichever layout the projections read it from -- packed to its
+      // sparsity pattern where the build can take a packed operand -- and a
+      // packed destination is not something the generated copy can write.
+      // forall visits the entries the view actually stores, so the same line
+      // fills a dense and a packed TinvT, and the entries a packed one leaves
+      // out are the ones the rotation has no value for anyway.
+      auto tinvT = init::TinvT::view::create(godunovData[ltsFace].dataTinvT);
+      tinvT.forall(
+          [&matTinv](const auto* entry, auto& value) { value = matTinv(entry[1], entry[0]); });
 
       double plusSurfaceArea = 0;
       double plusVolume = 0;
