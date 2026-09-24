@@ -147,8 +147,8 @@ void CellCluster::writeReceivers(const StepParams& params) {
   SCOREP_USER_REGION("writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   if (receiverCluster_ != nullptr) {
-    receiverTime_ = receiverCluster_->calcReceivers(
-        receiverTime_, params.time, params.timeStepSize, executor_, streamRuntime_);
+    receiverCluster_->sample(
+        receiverSampling_, params.time, params.timeStepSize, executor_, streamRuntime_);
   }
 }
 
@@ -506,12 +506,44 @@ void CellCluster::handleNeighborPrediction(const NeighborCluster& /*...*/) {
 void CellCluster::handleNeighborCorrection(const NeighborCluster& /*...*/) {
   // Doesn't do anything
 }
+StepWork CellCluster::prepare(ActorAction action) {
+  const auto params = stepParams();
+  StepWork work;
+  work.hostWork = executor_ == Executor::Host || hasDifferentExecutorNeighbor();
+
+  if (action == ActorAction::Predict) {
+    // without a device, the clock is up to date on the host; it has to agree with the time
+    assert(isDeviceOn() || *clock_.host() == params.time);
+
+    if (clusterData_->size() > 0) {
+      if (receiverCluster_ != nullptr) {
+        receiverSampling_ =
+            receiverCluster_->planSampling(receiverTime_, params.time, params.timeStepSize);
+        receiverTime_ = receiverSampling_.nextTime;
+        work.outputs = receiverSampling_.due;
+      }
+      incrementPerformanceMetrics(ComputePart::Local);
+    }
+  }
+
+  if (action == ActorAction::Correct) {
+    incrementPerformanceMetrics(ComputePart::Neighbor);
+    incrementPerformanceMetrics(ComputePart::DRNeighbor);
+
+    if (printProgress_) {
+      const auto nextCorrectionSteps = ct_.nextCorrectionSteps();
+      if (((nextCorrectionSteps / timeStepRate_) % 100) == 0) {
+        logInfo() << "Max cluster / LTS cycle updates since sync: " << nextCorrectionSteps
+                  << " at time " << ct_.nextCorrectionTime(syncTime_);
+      }
+    }
+  }
+  return work;
+}
+
 void CellCluster::predict() {
   assert(state_ == ActorState::Corrected);
   const auto params = stepParams();
-
-  // without a device, the clock is up to date on the host; it has to agree with the time
-  assert(isDeviceOn() || *clock_.host() == params.time);
 
   if (clusterData_->size() == 0) {
     return;
@@ -526,8 +558,6 @@ void CellCluster::predict() {
   }
 
   computeSources(params);
-
-  incrementPerformanceMetrics(ComputePart::Local);
 
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor_ == Executor::Device ? seissol::initializer::AllocationPlace::Host
@@ -548,21 +578,6 @@ void CellCluster::correct() {
     computeNeighboringIntegrationDevice(params);
   } else {
     computeNeighboringIntegration(params);
-  }
-
-  incrementPerformanceMetrics(ComputePart::Neighbor);
-  incrementPerformanceMetrics(ComputePart::DRNeighbor);
-
-  if (printProgress_) {
-
-    const auto nextCorrectionSteps = ct_.nextCorrectionSteps();
-    if (((nextCorrectionSteps / timeStepRate_) % 100) == 0) {
-      const auto nextCorrectionTime = ct_.nextCorrectionTime(syncTime_);
-      streamRuntime_.enqueueHost([nextCorrectionSteps, nextCorrectionTime]() {
-        logInfo() << "Max cluster / LTS cycle updates since sync: " << nextCorrectionSteps
-                  << " at time " << nextCorrectionTime;
-      });
-    }
   }
 
   // the time of the cluster advances by the same step after the correction

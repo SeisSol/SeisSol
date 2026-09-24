@@ -73,6 +73,13 @@ class AbstractTimeCluster {
    */
   virtual void timeSet(double /*time*/) {}
 
+  /**
+   * The host part of an action: decides and keeps the books on the host, before predict() or
+   * correct() enqueue the device part of the action. It must not depend on the results of any
+   * device work.
+   */
+  virtual StepWork prepare(ActorAction /*action*/) { return {}; }
+
   ActorState state_ = ActorState::Synced;
   ClusterTimes ct_;
   std::vector<NeighborCluster> neighbors_;
@@ -118,6 +125,9 @@ class AbstractTimeCluster {
 
   //! only enqueue the device work of an action, instead of waiting for it
   bool concurrent_{false};
+
+  //! what the host part of the latest action has decided
+  StepWork stepWork_{};
   //! number of time steps
   long numberOfTimeSteps_{0};
   Executor executor_;
@@ -168,6 +178,11 @@ class AbstractTimeCluster {
   virtual void finishPhase();
 
   [[nodiscard]] long getTimeStepRate() const;
+
+  /**
+   * What the host part of the latest action has decided.
+   */
+  [[nodiscard]] const StepWork& lastStepWork() const { return stepWork_; }
 
   /**
    * The number of steps of the smallest time cluster until the synchronization point; set by

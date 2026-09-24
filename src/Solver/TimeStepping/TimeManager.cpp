@@ -40,6 +40,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <memory>
 #include <mpi.h>
 #include <string>
@@ -499,6 +500,15 @@ void TimeManager::followPlan() {
                        cluster->getPriority()});
   }
 
+  long largestRate = 1;
+  long lastTick = 0;
+  for (const auto& cluster : planned) {
+    largestRate = std::max(largestRate, cluster.timeStepRate);
+    lastTick = std::max(lastTick, cluster.stepsUntilSync);
+  }
+  // per super-timestep: whether it takes output samples, and whether it has any irregular step
+  std::map<long, std::pair<bool, bool>> superStepWork;
+
   for (const auto& step : planTimeSteps(planned)) {
     auto* cluster = clusters_[step.cluster];
     // along the plan, a cluster can only have to wait for the halo exchange
@@ -512,6 +522,23 @@ void TimeManager::followPlan() {
                  << "of the time stepping plan.";
     }
     cluster->act();
+
+    // the super-timestep the action falls into, by the first tick it covers
+    const auto rate = planned[step.cluster].timeStepRate;
+    const auto superStep = step.step * rate / largestRate;
+    auto& [outputs, irregular] = superStepWork[superStep];
+    outputs = outputs || cluster->lastStepWork().outputs;
+    irregular = irregular || cluster->lastStepWork().irregular();
+  }
+
+  for (const auto& [superStep, work] : superStepWork) {
+    ++superSteps_;
+    if ((superStep + 1) * largestRate > lastTick) {
+      ++shortenedSuperSteps_;
+    } else {
+      outputFreeSuperSteps_ += work.first ? 0 : 1;
+      regularSuperSteps_ += work.second ? 0 : 1;
+    }
   }
 }
 
@@ -570,6 +597,22 @@ void TimeManager::freeDynamicResources() {
                 Mpi::mpi.comm());
   logInfo() << "Halo exchange:" << messages[0] << "messages sent," << messages[1]
             << "received (summed over all ranks)";
+
+  if (followPlan_) {
+    std::array<std::size_t, 4> superSteps{
+        superSteps_, shortenedSuperSteps_, outputFreeSuperSteps_, regularSuperSteps_};
+    MPI_Allreduce(MPI_IN_PLACE,
+                  superSteps.data(),
+                  superSteps.size(),
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_SUM,
+                  Mpi::mpi.comm());
+    logInfo() << "Super-timesteps:" << superSteps[0]
+              << "; ending at a synchronization point:" << superSteps[1]
+              << "; full ones without output samples:" << superSteps[2]
+              << "; full ones without output samples or host work:" << superSteps[3]
+              << "(summed over all ranks)";
+  }
   if (messages[0] != messages[1]) {
     logWarning() << "The halo exchange sent and received a different number of messages.";
   }

@@ -239,31 +239,54 @@ PerformanceEstimate DynamicRuptureCluster::computeFlops() {
   return estimate;
 }
 
-void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
+void DynamicRuptureCluster::planPickpointOutput(const StepParams& params) {
   // repeat the current solution for some times---to match the existing output scheme.
   // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
-
+  pickpointTimes_.clear();
   double time = params.time;
-  const double meshDt = ct_.getTimeStepSize();
-  // the friction law has just evaluated this step up to its end, and that is the state written out
-  const double stateTime = params.time + params.timeStepSize;
-
   do {
     const auto oldTime = time;
     time += outputTimestep_;
     const auto trueTime = std::min(time, syncTime_);
     const auto trueDt = trueTime - oldTime;
-    faultOutputManager_->writePickpointOutput(
-        layerData_->id(), stateTime, trueTime, trueDt, meshDt, 0, streamRuntime_);
+    if (faultOutputManager_->beginPickpointStep(layerData_->id(), trueTime, trueDt)) {
+      pickpointTimes_.push_back(trueTime);
+    }
 
     // write until we've completed the current copy interval, or if we've hit a sync point
   } while (time * (1 + 1e-8) < params.time + ct_.maxTimeStepSize && time < syncTime_);
 }
 
-void DynamicRuptureCluster::interact(const StepParams& params) {
-  // without a device, the clock is up to date on the host; it has to agree with the time
-  assert(isDeviceOn() || *clock_.host() == params.time);
+void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
+  const double meshDt = ct_.getTimeStepSize();
+  // the friction law has just evaluated this step up to its end, and that is the state written out
+  const double stateTime = params.time + params.timeStepSize;
+  for (const auto time : pickpointTimes_) {
+    faultOutputManager_->recordPickpointOutput(
+        layerData_->id(), stateTime, time, meshDt, 0, streamRuntime_);
+  }
+}
 
+StepWork DynamicRuptureCluster::prepare(ActorAction action) {
+  StepWork work;
+  work.hostWork = executor_ == Executor::Host || hasDifferentExecutorNeighbor() ||
+                  frictionSolverDevice_->allocationPlace() == initializer::AllocationPlace::Host;
+  if (action == ActorAction::Correct) {
+    const auto params = stepParams();
+
+    // without a device, the clock is up to date on the host; it has to agree with the time
+    assert(isDeviceOn() || *clock_.host() == params.time);
+
+    if (layerData_->size() > 0) {
+      planPickpointOutput(params);
+      work.outputs = !pickpointTimes_.empty();
+      seissolInstance_.flopCounter().incrementMetric(perfHandle_, estimate_);
+    }
+  }
+  return work;
+}
+
+void DynamicRuptureCluster::interact(const StepParams& params) {
   if (layerData_->size() == 0) {
     clock_.advance(params.timeStepSize, streamRuntime_);
     return;
@@ -286,8 +309,6 @@ void DynamicRuptureCluster::interact(const StepParams& params) {
     layerData_->varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime_.stream());
     layerData_->varSynchronizeTo<DynamicRupture::ImposedStatePlus>(other, streamRuntime_.stream());
   }
-
-  seissolInstance_.flopCounter().incrementMetric(perfHandle_, estimate_);
 
   // the time of the cluster advances by the same step after the interaction
   clock_.advance(params.timeStepSize, streamRuntime_);

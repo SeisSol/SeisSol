@@ -93,12 +93,35 @@ class ReceiverCluster {
                    const seissol::geometry::MeshReader& mesh,
                    const LTS::Backmap& backmap);
 
-  //! Returns new receiver time
-  double calcReceivers(double time,
-                       double expansionPoint,
-                       double timeStepWidth,
-                       Executor executor,
-                       parallel::runtime::StreamRuntime& runtime);
+  /**
+   * The receiver samples of one time step.
+   */
+  struct Sampling {
+    /// whether samples fall into the step
+    bool due{false};
+    /// the first sample time
+    double time{0};
+    /// the next sample time after the step
+    double nextTime{0};
+    /// the number of sample times up to the end of the step
+    std::size_t steps{0};
+  };
+
+  /**
+   * Determines which samples fall into the step that starts at `expansionPoint`, given the next
+   * sample time `time`; only on the host, without touching any data.
+   */
+  [[nodiscard]] Sampling
+      planSampling(double time, double expansionPoint, double timeStepWidth) const;
+
+  /**
+   * Takes the samples of a step as planned.
+   */
+  void sample(const Sampling& sampling,
+              double expansionPoint,
+              double timeStepWidth,
+              Executor executor,
+              parallel::runtime::StreamRuntime& runtime);
 
   std::vector<Receiver>::iterator begin() { return receivers_.begin(); }
 

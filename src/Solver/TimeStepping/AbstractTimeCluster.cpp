@@ -70,6 +70,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     break;
   case ActorAction::Correct:
     assert(state_ == ActorState::Predicted);
+    stepWork_ = prepare(ActorAction::Correct);
     waitForNeighbors();
     correct();
     publishEvent();
@@ -82,6 +83,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     break;
   case ActorAction::Predict:
     assert(state_ == ActorState::Corrected);
+    stepWork_ = prepare(ActorAction::Predict);
     waitForNeighbors();
     predict();
     publishEvent();

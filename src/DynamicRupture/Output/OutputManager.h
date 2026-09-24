@@ -43,13 +43,23 @@ class OutputManager {
   void init();
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
-  void writePickpointOutput(std::size_t layerId,
-                            double stateTime,
-                            double time,
-                            double dt,
-                            double meshDt,
-                            double meshInDt,
-                            parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Counts an output step of the layer; returns whether it records its fault receivers in it. Only
+   * on the host, without touching any data.
+   */
+  bool beginPickpointStep(std::size_t layerId, double time, double dt);
+
+  /**
+   * Records the fault receivers of the layer, for an output step that
+   * `beginPickpointStep()` has found due.
+   */
+  void recordPickpointOutput(std::size_t layerId,
+                             double stateTime,
+                             double time,
+                             double meshDt,
+                             double meshInDt,
+                             parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
   void updateElementwiseOutput(double time);
 

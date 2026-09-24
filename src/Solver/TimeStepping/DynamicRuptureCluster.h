@@ -26,6 +26,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -80,11 +81,17 @@ class DynamicRuptureCluster : public FaceCluster {
   void* recordActionEvent() override;
   void waitForEvent(void* event) override;
   void timeSet(double time) override;
+  StepWork prepare(ActorAction action) override;
 
   private:
   void computeDynamicRupture(const StepParams& params);
   void computeDynamicRuptureDevice(const StepParams& params);
+  /// decides in which output steps of the current step the fault receivers record
+  void planPickpointOutput(const StepParams& params);
   void writePickpointOutput(const StepParams& params);
+
+  //! the output times of the current step at which the fault receivers record
+  std::vector<double> pickpointTimes_;
   PerformanceEstimate computeFlops();
 
   seissol::SeisSol& seissolInstance_;

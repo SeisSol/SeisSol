@@ -16,6 +16,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Kernels/Receiver.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/LTS.h"
@@ -169,6 +170,9 @@ class CellCluster : public AbstractTimeCluster {
   //! time of the next receiver output
   double receiverTime_;
 
+  //! the receiver samples of the current step, as planned by prepare()
+  kernels::ReceiverCluster::Sampling receiverSampling_{};
+
   //! print status
   bool printProgress_;
   //! cluster id on this rank
@@ -232,6 +236,7 @@ class CellCluster : public AbstractTimeCluster {
   void* recordActionEvent() override;
   void waitForEvent(void* event) override;
   void timeSet(double time) override;
+  StepWork prepare(ActorAction action) override;
 
   public:
   [[nodiscard]] std::size_t layerId() const;

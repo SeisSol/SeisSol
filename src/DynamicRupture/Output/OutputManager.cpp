@@ -516,47 +516,50 @@ bool OutputManager::isAtPickpoint(std::size_t layerId, double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(std::size_t layerId,
-                                         double stateTime,
-                                         double time,
-                                         double dt,
-                                         double meshDt,
-                                         double meshInDt,
-                                         parallel::runtime::StreamRuntime& runtime) {
-  const auto& seissolParameters = seissolInstance_.parameters();
-  if (this->ppOutputBuilder_) {
-    if (this->isAtPickpoint(layerId, time, dt)) {
-      const auto findResult = ppOutputData_.find(layerId);
-      if (findResult != ppOutputData_.end()) {
-        const auto& outputData = findResult->second;
-
-        if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
-          // our calculation was off (maybe due to many intermediate sync points), so resize
-
-          outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
-          const auto newCacheLevel = outputData->maxCacheLevel;
-          outputData->cachedTime.resize(newCacheLevel);
-          misc::forEach(outputData->vars,
-                        [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
-        }
-
-        impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
-                               seissolParameters.drParameters.slipRateOutputType,
-                               outputData,
-                               runtime,
-                               stateTime,
-                               time,
-                               meshDt,
-                               meshInDt);
-      }
-    }
-    ++iterationSteps_[layerId];
+bool OutputManager::beginPickpointStep(std::size_t layerId, double time, double dt) {
+  if (!this->ppOutputBuilder_) {
+    return false;
   }
+  const bool due =
+      this->isAtPickpoint(layerId, time, dt) && ppOutputData_.find(layerId) != ppOutputData_.end();
+  ++iterationSteps_[layerId];
+  return due;
+}
+
+void OutputManager::recordPickpointOutput(std::size_t layerId,
+                                          double stateTime,
+                                          double time,
+                                          double meshDt,
+                                          double meshInDt,
+                                          parallel::runtime::StreamRuntime& runtime) {
+  const auto& seissolParameters = seissolInstance_.parameters();
+  const auto& outputData = ppOutputData_.at(layerId);
+
+  if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
+    // our calculation was off (maybe due to many intermediate sync points), so resize
+
+    outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
+    const auto newCacheLevel = outputData->maxCacheLevel;
+    outputData->cachedTime.resize(newCacheLevel);
+    misc::forEach(outputData->vars,
+                  [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
+  }
+
+  impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
+                         seissolParameters.drParameters.slipRateOutputType,
+                         outputData,
+                         runtime,
+                         stateTime,
+                         time,
+                         meshDt,
+                         meshInDt);
 }
 
 void OutputManager::writePickpointOutput(double time, double dt) {
   for (const auto& [id, _] : ppOutputData_) {
-    writePickpointOutput(id, time, time, dt, 0, 1, runtime_);
+    if (beginPickpointStep(id, time, dt)) {
+      recordPickpointOutput(id, time, time, 0, 1, runtime_);
+    }
   }
 }
 

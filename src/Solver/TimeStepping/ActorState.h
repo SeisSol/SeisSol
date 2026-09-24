@@ -98,6 +98,20 @@ struct ActResult {
 
 enum class ActorPriority { Low, High };
 
+/**
+ * What the host part of an action has decided about its device part.
+ */
+struct StepWork {
+  /// the device part takes output samples in addition to the regular work of the step
+  bool outputs{false};
+
+  /// the cluster computes on the host, or exchanges data with clusters that do
+  bool hostWork{false};
+
+  /// such a step cannot be replayed from a recording of regular steps
+  [[nodiscard]] bool irregular() const { return outputs || hostWork; }
+};
+
 } // namespace seissol::time_stepping
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
