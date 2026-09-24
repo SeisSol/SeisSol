@@ -295,9 +295,6 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
         localKernel_.computeBatchedIntegral(
             dataTable, materialTable, indicesTable, timeStepWidth, streamRuntime);
 
-        localKernel_.evaluateBatchedTimeDependentBc(
-            dataTable, indicesTable, *clusterData_, params.time, timeStepWidth, streamRuntime);
-
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {
@@ -344,6 +341,11 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
           }
         }
       });
+
+  // depends on the current time, and therefore cannot be replayed from the graph above; it neither
+  // reads nor writes what the graph computes after the local integral
+  localKernel_.evaluateBatchedTimeDependentBc(
+      dataTable, indicesTable, *clusterData_, params.time, timeStepWidth, streamRuntime_);
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
   device_.api->popLastProfilingMark();
