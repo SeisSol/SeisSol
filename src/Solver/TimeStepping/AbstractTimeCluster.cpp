@@ -110,9 +110,14 @@ ActResult AbstractTimeCluster::act() {
   auto nextAction = getNextLegalAction();
   unsafePerformAction(nextAction);
 
-  const auto currentTime = std::chrono::steady_clock::now();
   result.isStateChanged = stateBefore != state_;
-  if (!result.isStateChanged) {
+  trackProgress(result.isStateChanged);
+  return result;
+}
+
+void AbstractTimeCluster::trackProgress(bool progressed) {
+  const auto currentTime = std::chrono::steady_clock::now();
+  if (!progressed) {
     const auto timeSinceLastUpdate = currentTime - timeOfLastStageChange_;
     if (timeSinceLastUpdate > timeout && !alreadyPrintedTimeOut_) {
       alreadyPrintedTimeOut_ = true;
@@ -122,7 +127,6 @@ ActResult AbstractTimeCluster::act() {
     timeOfLastStageChange_ = currentTime;
     alreadyPrintedTimeOut_ = false;
   }
-  return result;
 }
 
 void AbstractTimeCluster::publishProgress() {

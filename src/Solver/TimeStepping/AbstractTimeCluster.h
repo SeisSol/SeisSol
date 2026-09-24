@@ -29,6 +29,7 @@ class AbstractTimeCluster {
   //! the progress this cluster shows to the clusters waiting for it
   ActorProgress progress_;
 
+  protected:
   /**
    * Makes the current times of this cluster visible to the clusters waiting for it.
    */
@@ -40,7 +41,11 @@ class AbstractTimeCluster {
    */
   void refreshNeighbors();
 
-  protected:
+  /**
+   * Records whether an action has made progress; reports when there has been none for too long.
+   */
+  void trackProgress(bool progressed);
+
   ActorState state_ = ActorState::Synced;
   ClusterTimes ct_;
   std::vector<NeighborCluster> neighbors_;

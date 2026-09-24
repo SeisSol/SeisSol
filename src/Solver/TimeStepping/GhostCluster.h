@@ -12,6 +12,7 @@
 #include "Solver/TimeStepping/HaloCommunication.h"
 #include "Solver/TimeStepping/HaloTransport.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -23,6 +24,13 @@ namespace seissol::time_stepping {
  * Stands in for one remote time cluster next to the copy layer of a local one: it follows the
  * progress of the copy layer, decides when the halo data is exchanged, and lets the transport move
  * it.
+ *
+ * Receiving and sending progress independently of each other. The progress of the receives is
+ * published as the predictions of this cluster: the ghost data is in place up to there, and the
+ * copy layer may correct up to there. The progress of the sends is published as its corrections:
+ * the copy data is out up to there, and the copy layer may predict beyond. Both advance in steps
+ * of the exchange period, the larger one of the two time step rates, and end with the last step
+ * of this cluster before the synchronization point.
  */
 class GhostCluster : public AbstractTimeCluster {
   public:
@@ -47,21 +55,31 @@ class GhostCluster : public AbstractTimeCluster {
 
   protected:
   void start() override;
-  void predict() override;
-  void correct() override;
-  bool mayPredict() override;
-  bool mayCorrect() override;
-  bool maySync() override;
+  void predict() override {}
+  void correct() override {}
   void handleNeighborPrediction(const NeighborCluster& neighbor) override;
   void handleNeighborCorrection(const NeighborCluster& neighbor) override;
 
   [[nodiscard]] bool timeoutFail() const override;
+  void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   private:
-  void sendCopyLayer();
-  void receiveGhostLayer();
+  void sendCopyLayer(long target);
+  void receiveGhostLayer(long target);
   bool testForCopyLayerSends();
   bool testForGhostLayerReceives();
+
+  /// Moves the receive progress (and the prediction time) forward to `target`.
+  void advanceReceived(long target);
+
+  /// Moves the send progress (and the correction time) forward to `target`.
+  void advanceSent(long target);
+
+  /// The progress at the synchronization point: the end of the last step before it.
+  [[nodiscard]] long finalSteps() const;
+
+  /// The number of steps between two exchanges.
+  [[nodiscard]] long exchangePeriod() const;
 
   std::unique_ptr<HaloTransport> transport_;
   std::size_t copyRegionCount_;
@@ -72,7 +90,10 @@ class GhostCluster : public AbstractTimeCluster {
   std::string displayName_;
   std::string otherDisplayName_;
 
-  double lastSendTime_ = -1.0;
+  bool receiving_{false};
+  bool sending_{false};
+  long receiveTarget_{0};
+  long sendTarget_{0};
 };
 
 } // namespace seissol::time_stepping

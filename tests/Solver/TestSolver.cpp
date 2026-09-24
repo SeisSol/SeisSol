@@ -11,4 +11,5 @@
 #include "Estimator.t.h"
 #include "TimeStepping/AbstractTimeCluster.t.h"
 #include "TimeStepping/ActorState.t.h"
+#include "TimeStepping/GhostCluster.t.h"
 #include "TimeStepping/StepParams.t.h"
