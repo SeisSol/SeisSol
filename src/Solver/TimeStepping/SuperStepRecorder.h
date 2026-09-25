@@ -24,10 +24,11 @@ namespace seissol::time_stepping {
  * Records the device work of whole super-timesteps (steps of the largest cluster) into graphs, and
  * replays them.
  *
- * The clusters enqueue their work on streams of their own. A recording starts on a stream of the
- * recorder, forks the streams of all clusters from it, and joins them back at its end. A replay
- * waits for the latest work of all clusters before the super-timestep, launches the graph on the
- * stream of the recorder, and makes all clusters wait for it. Meanwhile, the clusters only run the
+ * The clusters enqueue their work on streams of their own; further streams (e.g. of the halo
+ * exchange) can take part as well. A recording starts on a stream of the recorder, forks all
+ * streams from it, and joins them back at its end. A replay waits for the latest work of all
+ * clusters and streams before the super-timestep, launches the graph on the stream of the
+ * recorder, and makes all clusters and streams wait for it. Meanwhile, the clusters only run the
  * host parts of their actions.
  *
  * Only available on devices that can record graphs.
@@ -52,22 +53,33 @@ class SuperStepRecorder {
   /**
    * Starts recording the work the clusters enqueue from now on.
    */
-  void beginRecording(const std::vector<AbstractTimeCluster*>& clusters);
+  void beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
+                      const std::vector<void*>& streams);
 
   /**
    * Ends the recording, and keeps it for the key. It still needs to be replayed once to run.
    */
-  void endRecording(const Key& key, const std::vector<AbstractTimeCluster*>& clusters);
+  void endRecording(const Key& key,
+                    const std::vector<AbstractTimeCluster*>& clusters,
+                    const std::vector<void*>& streams);
 
   /**
    * Notes the latest work of the clusters, before they run the host parts of a super-timestep.
    */
-  void beginReplay(const std::vector<AbstractTimeCluster*>& clusters);
+  void beginReplay(const std::vector<AbstractTimeCluster*>& clusters,
+                   const std::vector<void*>& streams);
 
   /**
    * Replays the recording for the key after the work noted last.
    */
-  void replay(const Key& key, const std::vector<AbstractTimeCluster*>& clusters);
+  void replay(const Key& key,
+              const std::vector<AbstractTimeCluster*>& clusters,
+              const std::vector<void*>& streams);
+
+  /**
+   * The event that completes with the latest replay.
+   */
+  [[nodiscard]] void* lastEvent() const;
 
   /**
    * Releases the device resources; needs to happen before the device is finalized.
@@ -81,6 +93,7 @@ class SuperStepRecorder {
   void* stream_{nullptr};
   std::vector<void*> events_;
   std::size_t eventIndex_{0};
+  void* lastEvent_{nullptr};
   std::vector<void*> waitFor_;
   device::DeviceGraphHandle recording_;
   std::map<Key, device::DeviceGraphHandle> graphs_;

@@ -12,6 +12,9 @@
 #include "Solver/TimeStepping/HaloTransport.h"
 
 #include <cstddef>
+#include <deque>
+#include <limits>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -74,14 +77,66 @@ class ExchangeScheduler {
   void startInterval(const ScheduledTransport& transport, const ExchangeInterval& interval);
 
   /**
-   * Marks the next send of the transport as ready; returns the index of its exchange.
+   * Marks the next send of the transport as ready, once the work behind the event has completed
+   * on the device; returns the index of its exchange.
    */
-  std::size_t readySend(const ScheduledTransport& transport);
+  std::size_t readySend(const ScheduledTransport& transport, void* after = nullptr);
 
   /**
-   * Marks the next receive of the transport as ready; returns the index of its exchange.
+   * Marks the next receive of the transport as ready, once the work behind the event has
+   * completed on the device; returns the index of its exchange.
    */
-  std::size_t readyReceive(const ScheduledTransport& transport);
+  std::size_t readyReceive(const ScheduledTransport& transport, void* after = nullptr);
+
+  /**
+   * Orders the groups on the device: a group starts after the events its operations were made
+   * ready with, and counts as done for the host as soon as it has been launched; the work that
+   * depends on it waits for latestEvent(). Only with `LaunchOrder::Global`, for clusters that wait
+   * for each other on the device.
+   */
+  void setStreamOrdered(bool streamOrdered);
+  [[nodiscard]] bool streamOrdered() const { return streamOrdered_; }
+
+  /**
+   * Without launching, the groups only count as launched; their operations come from elsewhere,
+   * e.g. a recording.
+   */
+  void setLaunching(bool launching) { launching_ = launching; }
+
+  /**
+   * Launches only the groups whose data is complete before the given point in logical time of the
+   * current interval (with `LaunchOrder::Global`); the others wait until the horizon moves on.
+   * Launches everything once it is back at its default.
+   */
+  void setHorizon(long time);
+
+  /**
+   * Whether all groups whose data is complete before the given point in logical time of the
+   * current interval have been launched (with `LaunchOrder::Global`).
+   */
+  [[nodiscard]] bool launchedBefore(long time) const;
+
+  /**
+   * The event that completes with all groups launched so far, when ordered on the device; null if
+   * there is none.
+   */
+  [[nodiscard]] virtual void* latestEvent() const { return nullptr; }
+
+  /**
+   * Makes the given event stand for all groups launched so far, e.g. once they have run as part of
+   * a replayed recording.
+   */
+  virtual void setLatestEvent(void* /*event*/) {}
+
+  /**
+   * The streams the groups run on.
+   */
+  [[nodiscard]] virtual std::vector<void*> streams() const { return {}; }
+
+  /**
+   * Releases what the groups launched so far needed; only once the device has completed them.
+   */
+  virtual void releaseEvents() {}
 
   [[nodiscard]] bool sendCompleted(const ScheduledTransport& transport, std::size_t exchange);
   [[nodiscard]] bool receiveCompleted(const ScheduledTransport& transport, std::size_t exchange);
@@ -101,7 +156,8 @@ class ExchangeScheduler {
   virtual Ticket launch(std::size_t from,
                         std::size_t to,
                         const ScheduledTransport* sender,
-                        const ScheduledTransport* receiver) = 0;
+                        const ScheduledTransport* receiver,
+                        const std::vector<void*>& after) = 0;
 
   /**
    * Whether the group behind the ticket has completed.
@@ -116,6 +172,10 @@ class ExchangeScheduler {
     std::size_t readyReceives{0};
     std::vector<Ticket> groups;
 
+    // the events each ready operation waits for, in the order of the exchanges
+    std::deque<void*> sendsAfter;
+    std::deque<void*> receivesAfter;
+
     // the sending cluster of the current interval
     long sendRate{1};
     long sendSteps{0};
@@ -125,6 +185,7 @@ class ExchangeScheduler {
   Direction& direction(std::size_t from, std::size_t to);
   [[nodiscard]] static bool ready(const Direction& direction);
   void launchReady(std::size_t from, std::size_t to);
+  void launchNext(std::size_t from, std::size_t to);
   void launchInOrder();
   void orderInterval();
   bool groupCompleted(Direction& direction, std::size_t exchange);
@@ -134,10 +195,14 @@ class ExchangeScheduler {
   std::vector<Direction> directions_;
   std::size_t transports_{0};
 
-  // for LaunchOrder::Global: the directions of the groups of the current interval, in order
+  // for LaunchOrder::Global: the groups of the current interval (time, from, to), in order
   std::size_t announced_{0};
-  std::vector<std::pair<std::size_t, std::size_t>> sequence_;
+  std::vector<std::tuple<long, std::size_t, std::size_t>> sequence_;
   std::size_t launched_{0};
+
+  bool streamOrdered_{false};
+  bool launching_{true};
+  long horizon_{std::numeric_limits<long>::max()};
 };
 
 /**
@@ -152,6 +217,10 @@ class ScheduledTransport : public HaloTransport {
                      std::size_t otherCluster);
 
   void startInterval(const ExchangeInterval& interval) override;
+  [[nodiscard]] bool streamOrdered() const override { return scheduler_.streamOrdered(); }
+  [[nodiscard]] void* latestEvent() const override { return scheduler_.latestEvent(); }
+  void startSendAfter(void* event) override;
+  void startReceiveAfter(void* event) override;
   void startSend() override;
   bool testSend() override;
   void startReceive() override;

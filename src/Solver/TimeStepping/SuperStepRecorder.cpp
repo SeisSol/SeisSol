@@ -25,7 +25,7 @@ namespace {
 device::DeviceInstance& deviceInstance() { return device::DeviceInstance::getInstance(); }
 
 // enough to never re-record an event that someone may still have to wait for
-constexpr std::size_t EventCount = 4;
+constexpr std::size_t EventCount = 16;
 } // namespace
 
 SuperStepRecorder::SuperStepRecorder() {
@@ -59,43 +59,65 @@ void* SuperStepRecorder::nextEvent() {
 
 bool SuperStepRecorder::has(const Key& key) const { return graphs_.find(key) != graphs_.end(); }
 
-void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& clusters) {
-  beginReplay(clusters);
+void* SuperStepRecorder::lastEvent() const { return lastEvent_; }
 
-  std::vector<void*> streams{stream_};
-  recording_ = deviceInstance().api->streamBeginCapture(streams);
+void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
+                                       const std::vector<void*>& streams) {
+  beginReplay(clusters, streams);
 
-  // fork the streams of all clusters; inside the recording, they may only wait for each other
+  std::vector<void*> recorded{stream_};
+  recording_ = deviceInstance().api->streamBeginCapture(recorded);
+
+  // fork all streams; inside the recording, they may only wait for each other
   auto* fork = nextEvent();
   deviceInstance().api->recordEventOnStream(fork, stream_);
   for (auto* cluster : clusters) {
     cluster->joinEvent(fork);
     cluster->publishEvent(fork);
   }
+  for (auto* stream : streams) {
+    deviceInstance().api->syncStreamWithEvent(stream, fork);
+  }
   parallel::runtime::recordingOuterGraph() = true;
 }
 
 void SuperStepRecorder::endRecording(const Key& key,
-                                     const std::vector<AbstractTimeCluster*>& clusters) {
+                                     const std::vector<AbstractTimeCluster*>& clusters,
+                                     const std::vector<void*>& streams) {
   parallel::runtime::recordingOuterGraph() = false;
 
-  // join the streams of all clusters back
+  // join all streams back
   for (auto* cluster : clusters) {
     auto* join = cluster->markEvent();
+    if (join != nullptr) {
+      deviceInstance().api->syncStreamWithEvent(stream_, join);
+    }
+  }
+  for (auto* stream : streams) {
+    auto* join = nextEvent();
+    deviceInstance().api->recordEventOnStream(join, stream);
     deviceInstance().api->syncStreamWithEvent(stream_, join);
   }
   deviceInstance().api->streamEndCapture(recording_);
   graphs_[key] = recording_;
 }
 
-void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& clusters) {
+void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& clusters,
+                                    const std::vector<void*>& streams) {
   waitFor_.clear();
   for (auto* cluster : clusters) {
     waitFor_.push_back(cluster->latestEvent());
   }
+  for (auto* stream : streams) {
+    auto* latest = nextEvent();
+    deviceInstance().api->recordEventOnStream(latest, stream);
+    waitFor_.push_back(latest);
+  }
 }
 
-void SuperStepRecorder::replay(const Key& key, const std::vector<AbstractTimeCluster*>& clusters) {
+void SuperStepRecorder::replay(const Key& key,
+                               const std::vector<AbstractTimeCluster*>& clusters,
+                               const std::vector<void*>& streams) {
   for (auto* event : waitFor_) {
     if (event != nullptr) {
       deviceInstance().api->syncStreamWithEvent(stream_, event);
@@ -103,12 +125,16 @@ void SuperStepRecorder::replay(const Key& key, const std::vector<AbstractTimeClu
   }
   deviceInstance().api->launchGraph(graphs_.at(key), stream_);
 
-  // everything the clusters enqueue from now on comes after the replayed work
+  // everything enqueued from now on comes after the replayed work
   auto* done = nextEvent();
   deviceInstance().api->recordEventOnStream(done, stream_);
+  lastEvent_ = done;
   for (auto* cluster : clusters) {
     cluster->joinEvent(done);
     cluster->publishEvent(done);
+  }
+  for (auto* stream : streams) {
+    deviceInstance().api->syncStreamWithEvent(stream, done);
   }
 }
 
@@ -124,15 +150,21 @@ bool SuperStepRecorder::available() { return false; }
 
 bool SuperStepRecorder::has(const Key& /*key*/) const { return false; }
 
-void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& /*clusters*/) {}
+void* SuperStepRecorder::lastEvent() const { return nullptr; }
+
+void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& /*clusters*/,
+                                       const std::vector<void*>& /*streams*/) {}
 
 void SuperStepRecorder::endRecording(const Key& /*key*/,
-                                     const std::vector<AbstractTimeCluster*>& /*clusters*/) {}
+                                     const std::vector<AbstractTimeCluster*>& /*clusters*/,
+                                     const std::vector<void*>& /*streams*/) {}
 
-void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& /*clusters*/) {}
+void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& /*clusters*/,
+                                    const std::vector<void*>& /*streams*/) {}
 
 void SuperStepRecorder::replay(const Key& /*key*/,
-                               const std::vector<AbstractTimeCluster*>& /*clusters*/) {}
+                               const std::vector<AbstractTimeCluster*>& /*clusters*/,
+                               const std::vector<void*>& /*streams*/) {}
 
 #endif
 

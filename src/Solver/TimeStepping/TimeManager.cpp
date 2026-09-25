@@ -28,6 +28,7 @@
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/ActorState.h"
 #include "Solver/TimeStepping/CellCluster.h"
+#include "Solver/TimeStepping/ExchangeScheduler.h"
 #include "Solver/TimeStepping/GhostCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 #include "Solver/TimeStepping/HaloTransport.h"
@@ -363,7 +364,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-  if (seissol::useCommThread(Mpi::mpi, seissolInstance_.env())) {
+  commThread_ = seissol::useCommThread(Mpi::mpi, seissolInstance_.env());
+  if (commThread_) {
     communicationManager_ = std::make_unique<ThreadedCommunicationManager>(
         std::move(ghostClusters), &seissolInstance_.pinning());
   } else {
@@ -381,6 +383,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     for (auto& cluster : *ghostClusterPointer) {
       cluster->setConcurrent(true);
     }
+    auto* scheduler = haloTransports_->scheduler();
+    if (scheduler != nullptr && scheduler->launchOrder() == LaunchOrder::Global) {
+      scheduler->setStreamOrdered(true);
+      logInfo() << "The halo exchange is ordered on the device.";
+    }
   }
 
   if (useSuperStepGraphs(seissolInstance_.env())) {
@@ -394,8 +401,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     if (!followPlan_ || !concurrent_) {
       logWarning() << "Recording super-timesteps needs a device, SEISSOL_TIMESTEPPING_PLAN=1 and"
                    << "SEISSOL_CONCURRENT_CLUSTERS=1.";
-    } else if (!ghostClusterPointer->empty()) {
-      logWarning() << "Recording super-timesteps is only available without halo exchange.";
+    } else if (!ghostClusterPointer->empty() &&
+               (haloTransports_->scheduler() == nullptr ||
+                !haloTransports_->scheduler()->streamOrdered() || commThread_)) {
+      logWarning() << "Recording super-timesteps with halo exchange needs the transfer mode ccl"
+                   << "in its global order, and no communication thread.";
     } else if (!SuperStepRecorder::available()) {
       logWarning() << "This device cannot record super-timesteps.";
     } else {
@@ -511,11 +521,30 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   if (concurrent_) {
     // the clusters have only enqueued their work
     device.api->syncDevice();
+    if (haloTransports_->scheduler() != nullptr) {
+      haloTransports_->scheduler()->releaseEvents();
+    }
   }
   device.api->popLastProfilingMark();
 #endif
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
+  }
+}
+
+void TimeManager::completeExchanges(long end) {
+  auto* scheduler = haloTransports_->scheduler();
+  if (scheduler == nullptr) {
+    return;
+  }
+  // the ghost clusters start the remaining exchanges whose data is complete within the
+  // super-timestep
+  std::size_t attempts = 0;
+  while (!scheduler->launchedBefore(end)) {
+    communicationManager_->progression();
+    if (++attempts > 100000000) {
+      logError() << "The halo exchanges of a super-timestep did not all start.";
+    }
   }
 }
 
@@ -563,6 +592,16 @@ void TimeManager::followPlan() {
   }
   const auto plan = planTimeSteps(planned);
 
+  // what a recording of a super-timestep comprises besides the cell and face clusters
+  auto* scheduler = haloTransports_->scheduler();
+  std::vector<AbstractTimeCluster*> ghosts;
+  for (auto& ghost : *communicationManager_->getGhostClusters()) {
+    ghosts.push_back(ghost.get());
+  }
+  std::vector<AbstractTimeCluster*> participants(clusters_.begin(), clusters_.end());
+  participants.insert(participants.end(), ghosts.begin(), ghosts.end());
+  const auto streams = scheduler != nullptr ? scheduler->streams() : std::vector<void*>{};
+
   // the super-timestep an action falls into, by the first tick it covers; along the plan, the
   // actions of a super-timestep come one after another
   const auto superStepOf = [&](const PlannedAction& step) {
@@ -591,30 +630,56 @@ void TimeManager::followPlan() {
       hostWork = hostWork || clusters_[cluster]->hostWork();
       key.push_back(clusters_[cluster]->nextTimeStepSize());
     }
+    for (auto* ghost : ghosts) {
+      key.push_back(ghost->nextTimeStepSize());
+    }
     const bool full = (superStep + 1) * largestRate <= lastTick;
     const bool replayable =
         replay_ && (superStep + 1) * largestRate <= fullUntil && !outputsAhead && !hostWork;
 
     StepWork work;
+    const auto superStepEnd = (superStep + 1) * largestRate;
+    if (replay_ && scheduler != nullptr) {
+      // each super-timestep launches exactly the exchanges whose data it completes, so that
+      // recordings and replays comprise the same ones
+      scheduler->setHorizon(superStepEnd);
+    }
     if (replayable && recorder_->has(key)) {
-      recorder_->beginReplay(clusters_);
+      recorder_->beginReplay(participants, streams);
       for (auto* cluster : clusters_) {
         cluster->setDeviceWork(false);
       }
+      if (scheduler != nullptr) {
+        scheduler->setLaunching(false);
+      }
       work = takeSteps(plan, begin, end);
+      completeExchanges(superStepEnd);
+      if (scheduler != nullptr) {
+        scheduler->setLaunching(true);
+      }
       for (auto* cluster : clusters_) {
         cluster->setDeviceWork(true);
       }
-      recorder_->replay(key, clusters_);
+      recorder_->replay(key, participants, streams);
+      if (scheduler != nullptr) {
+        scheduler->setLatestEvent(recorder_->lastEvent());
+      }
       ++replayedSuperSteps_;
     } else if (replayable && seenSuperSteps_.count(key) > 0) {
-      recorder_->beginRecording(clusters_);
+      recorder_->beginRecording(participants, streams);
       work = takeSteps(plan, begin, end);
-      recorder_->endRecording(key, clusters_);
-      recorder_->replay(key, clusters_);
+      completeExchanges(superStepEnd);
+      recorder_->endRecording(key, participants, streams);
+      recorder_->replay(key, participants, streams);
+      if (scheduler != nullptr) {
+        scheduler->setLatestEvent(recorder_->lastEvent());
+      }
       ++recordedSuperSteps_;
     } else {
       work = takeSteps(plan, begin, end);
+      if (replay_) {
+        completeExchanges(superStepEnd);
+      }
       if (replayable) {
         seenSuperSteps_.insert(key);
       }

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <iterator>
 #include <tuple>
 #include <utility>
 #include <utils/logger.h>
@@ -85,6 +86,7 @@ void ExchangeScheduler::orderInterval() {
     std::size_t to;
   };
   std::vector<Group> groups;
+  // (the ticks are counted in steps of the smallest cluster since the synchronization point)
   for (std::size_t from = 0; from < clusterCount_; ++from) {
     for (std::size_t to = 0; to < clusterCount_; ++to) {
       const auto& current = direction(from, to);
@@ -108,22 +110,47 @@ void ExchangeScheduler::orderInterval() {
 
   sequence_.clear();
   for (const auto& group : groups) {
-    sequence_.emplace_back(group.from, group.to);
+    sequence_.emplace_back(group.time, group.from, group.to);
   }
   launched_ = 0;
 }
 
-std::size_t ExchangeScheduler::readySend(const ScheduledTransport& transport) {
+void ExchangeScheduler::setStreamOrdered(bool streamOrdered) {
+  assert(!streamOrdered || order_ == LaunchOrder::Global);
+  streamOrdered_ = streamOrdered;
+}
+
+void ExchangeScheduler::setHorizon(long time) {
+  horizon_ = time;
+  if (order_ == LaunchOrder::Global) {
+    launchInOrder();
+  }
+}
+
+bool ExchangeScheduler::launchedBefore(long time) const {
+  if (order_ != LaunchOrder::Global || announced_ != 0) {
+    return true;
+  }
+  // the groups are ordered by time
+  const auto first = std::find_if(sequence_.begin(), sequence_.end(), [&](const auto& group) {
+    return std::get<0>(group) >= time;
+  });
+  return launched_ >= static_cast<std::size_t>(std::distance(sequence_.begin(), first));
+}
+
+std::size_t ExchangeScheduler::readySend(const ScheduledTransport& transport, void* after) {
   auto& outgoing = direction(transport.cluster(), transport.otherCluster());
   assert(outgoing.sender == &transport);
+  outgoing.sendsAfter.push_back(after);
   const auto exchange = outgoing.readySends++;
   launchReady(transport.cluster(), transport.otherCluster());
   return exchange;
 }
 
-std::size_t ExchangeScheduler::readyReceive(const ScheduledTransport& transport) {
+std::size_t ExchangeScheduler::readyReceive(const ScheduledTransport& transport, void* after) {
   auto& incoming = direction(transport.otherCluster(), transport.cluster());
   assert(incoming.receiver == &transport);
+  incoming.receivesAfter.push_back(after);
   const auto exchange = incoming.readyReceives++;
   launchReady(transport.otherCluster(), transport.cluster());
   return exchange;
@@ -139,27 +166,48 @@ void ExchangeScheduler::launchReady(std::size_t from, std::size_t to) {
     launchInOrder();
     return;
   }
+  while (ready(direction(from, to))) {
+    launchNext(from, to);
+  }
+}
+
+void ExchangeScheduler::launchNext(std::size_t from, std::size_t to) {
   auto& current = direction(from, to);
-  while (ready(current)) {
-    current.groups.push_back(launch(from, to, current.sender, current.receiver));
+  std::vector<void*> after;
+  for (auto* queue : {&current.sendsAfter, &current.receivesAfter}) {
+    if (!queue->empty()) {
+      if (queue->front() != nullptr) {
+        after.push_back(queue->front());
+      }
+      queue->pop_front();
+    }
+  }
+  if (launching_) {
+    current.groups.push_back(launch(from, to, current.sender, current.receiver, after));
+  } else {
+    // the operations come from elsewhere; the group only counts as launched
+    current.groups.push_back(0);
   }
 }
 
 void ExchangeScheduler::launchInOrder() {
   // nothing goes out while the interval is still being announced
   while (announced_ == 0 && launched_ < sequence_.size()) {
-    const auto [from, to] = sequence_[launched_];
-    auto& current = direction(from, to);
-    if (!ready(current)) {
+    const auto& group = sequence_[launched_];
+    const auto from = std::get<1>(group);
+    const auto to = std::get<2>(group);
+    if (std::get<0>(group) >= horizon_ || !ready(direction(from, to))) {
       break;
     }
-    current.groups.push_back(launch(from, to, current.sender, current.receiver));
+    launchNext(from, to);
     ++launched_;
   }
 }
 
 bool ExchangeScheduler::groupCompleted(Direction& direction, std::size_t exchange) {
-  return exchange < direction.groups.size() && completed(direction.groups[exchange]);
+  // ordered on the device, the work that depends on a group waits for it there
+  return exchange < direction.groups.size() &&
+         (streamOrdered_ || !launching_ || completed(direction.groups[exchange]));
 }
 
 bool ExchangeScheduler::sendCompleted(const ScheduledTransport& transport, std::size_t exchange) {
@@ -183,6 +231,18 @@ ScheduledTransport::ScheduledTransport(ExchangeScheduler& scheduler,
 
 void ScheduledTransport::startInterval(const ExchangeInterval& interval) {
   scheduler_.startInterval(*this, interval);
+}
+
+void ScheduledTransport::startSendAfter(void* event) {
+  assert(!sending_);
+  sending_ = true;
+  sendExchange_ = scheduler_.readySend(*this, event);
+}
+
+void ScheduledTransport::startReceiveAfter(void* event) {
+  assert(!receiving_);
+  receiving_ = true;
+  receiveExchange_ = scheduler_.readyReceive(*this, event);
 }
 
 void ScheduledTransport::startSend() {

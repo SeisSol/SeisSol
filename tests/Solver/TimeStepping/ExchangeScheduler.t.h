@@ -185,7 +185,8 @@ class SimulatedScheduler : public ExchangeScheduler {
   Ticket launch(std::size_t from,
                 std::size_t to,
                 const ScheduledTransport* sender,
-                const ScheduledTransport* receiver) override {
+                const ScheduledTransport* receiver,
+                const std::vector<void*>& /*after*/) override {
     const auto communicator = single_ ? 0 : from * clusterCount_ + to;
     std::vector<RendezvousNetwork::Operation> group;
     if (sender != nullptr) {

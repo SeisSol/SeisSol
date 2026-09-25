@@ -38,12 +38,18 @@ class CclExchangeScheduler : public ExchangeScheduler {
   CclExchangeScheduler& operator=(const CclExchangeScheduler&) = delete;
   CclExchangeScheduler& operator=(CclExchangeScheduler&&) = delete;
 
+  [[nodiscard]] void* latestEvent() const override { return latestEvent_; }
+  void setLatestEvent(void* event) override { latestEvent_ = event; }
+  [[nodiscard]] std::vector<void*> streams() const override;
+  void releaseEvents() override;
+
   protected:
   void added(const ScheduledTransport& transport) override;
   Ticket launch(std::size_t from,
                 std::size_t to,
                 const ScheduledTransport* sender,
-                const ScheduledTransport* receiver) override;
+                const ScheduledTransport* receiver,
+                const std::vector<void*>& after) override;
   bool completed(Ticket ticket) override;
 
   private:
@@ -55,6 +61,11 @@ class CclExchangeScheduler : public ExchangeScheduler {
   std::vector<void*> streams_;
   std::map<Ticket, void*> pendingEvents_;
   Ticket nextTicket_{0};
+
+  // ordered on the device: the events of the groups launched since the last release, and the one of
+  // the latest group
+  std::vector<void*> launchedEvents_;
+  void* latestEvent_{nullptr};
   std::vector<std::pair<void*, void*>> registrations_;
 };
 

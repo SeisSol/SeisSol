@@ -86,6 +86,14 @@ class TimeManager {
   //! the regular super-timesteps that have run once without a recording
   std::set<SuperStepRecorder::Key> seenSuperSteps_;
 
+  //! the ghost clusters act on a thread of their own
+  bool commThread_{false};
+
+  /**
+   * Makes the ghost clusters start all exchanges whose data is complete before `end`.
+   */
+  void completeExchanges(long end);
+
   /**
    * Takes the steps [begin, end) of the plan, and returns what their host parts have decided.
    */

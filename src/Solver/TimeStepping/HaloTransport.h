@@ -70,6 +70,31 @@ class HaloTransport {
   virtual bool testReceive() = 0;
 
   /**
+   * Whether the transport orders its operations on the device: they start after the events they
+   * were started with, and the work that depends on them waits for latestEvent(). testSend() and
+   * testReceive() then report whether they have been launched, not whether they have completed.
+   */
+  [[nodiscard]] virtual bool streamOrdered() const { return false; }
+
+  /**
+   * For stream-ordered transports: an event that completes with all operations launched so far;
+   * null if there is none.
+   */
+  [[nodiscard]] virtual void* latestEvent() const { return nullptr; }
+
+  /**
+   * Starts sending once the work behind the event has completed on the device (for stream-ordered
+   * transports; the others start right away).
+   */
+  virtual void startSendAfter(void* /*event*/) { startSend(); }
+
+  /**
+   * Starts receiving once the work behind the event has completed on the device (for
+   * stream-ordered transports; the others start right away).
+   */
+  virtual void startReceiveAfter(void* /*event*/) { startReceive(); }
+
+  /**
    * Announces the exchanges up to the next synchronization point, before the first of them.
    */
   virtual void startInterval(const ExchangeInterval& /*interval*/) {}
@@ -111,6 +136,11 @@ class HaloTransportFactory {
   std::unique_ptr<HaloTransport> create(const solver::RemoteClusterPair& regions,
                                         std::size_t cluster,
                                         std::size_t otherCluster);
+
+  /**
+   * The scheduler of the CCL transports; null for the others.
+   */
+  [[nodiscard]] ExchangeScheduler* scheduler() { return scheduler_.get(); }
 
   private:
   Mpi::DataTransferMode mode_;

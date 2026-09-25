@@ -31,21 +31,21 @@
 #endif
 
 namespace seissol::time_stepping {
-void GhostCluster::sendCopyLayer(long target) {
+void GhostCluster::sendCopyLayer(long target, void* after) {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(!sending_);
-  transport_->startSend();
   sending_ = true;
   sendTarget_ = target;
+  transport_->startSendAfter(after);
   sentMessages_ += copyRegionCount_;
 }
 
-void GhostCluster::receiveGhostLayer(long target) {
+void GhostCluster::receiveGhostLayer(long target, void* after) {
   SCOREP_USER_REGION("receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(!receiving_);
-  transport_->startReceive();
   receiving_ = true;
   receiveTarget_ = target;
+  transport_->startReceiveAfter(after);
   receivedMessages_ += ghostRegionCount_;
 }
 
@@ -75,6 +75,7 @@ void GhostCluster::advanceReceived(long target) {
     ct_.predictionsSinceLastSync += ct_.timeStepRate;
     ct_.predictionsSinceStart += ct_.timeStepRate;
   }
+  publishTransportEvent();
   publishProgress();
 }
 
@@ -85,7 +86,15 @@ void GhostCluster::advanceSent(long target) {
     ct_.stepsSinceStart += ct_.timeStepRate;
     ++numberOfTimeSteps_;
   }
+  publishTransportEvent();
   publishProgress();
+}
+
+void GhostCluster::publishTransportEvent() {
+  if (transport_->streamOrdered()) {
+    // the copy layer waits for the exchanges on the device
+    publishEvent(transport_->latestEvent());
+  }
 }
 
 ActResult GhostCluster::act() {
@@ -145,7 +154,10 @@ void GhostCluster::startDeferred() {
   }
 }
 
-void GhostCluster::start() { receiveGhostLayer(std::min(exchangePeriod(), finalSteps())); }
+void GhostCluster::start() {
+  receiveGhostLayer(std::min(exchangePeriod(), finalSteps()),
+                    neighbors_.front().progress->event.load(std::memory_order_relaxed));
+}
 
 void GhostCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
   // The copy layer has new data for the remote cluster once it has predicted at least up to the end
@@ -156,7 +168,10 @@ void GhostCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
   if (copyAtSync || predictions >= ct_.nextCorrectionSteps()) {
     const auto rate = ct_.timeStepRate;
     const auto target = std::min((predictions + rate - 1) / rate * rate, finalSteps());
-    if (concurrent()) {
+    if (transport_->streamOrdered()) {
+      // the send waits on the device until the copy layer has written the data
+      sendCopyLayer(target, neighbor.progress->event.load(std::memory_order_relaxed));
+    } else if (concurrent()) {
       assert(!sendDeferred_);
       sendDeferred_ = true;
       deferredSendTarget_ = target;
@@ -183,7 +198,10 @@ void GhostCluster::handleNeighborCorrection(const NeighborCluster& neighbor) {
   const auto finalSteps = this->finalSteps();
   if (ct_.predictionsSinceLastSync < finalSteps) {
     const auto target = std::min(ct_.predictionsSinceLastSync + exchangePeriod(), finalSteps);
-    if (concurrent()) {
+    if (transport_->streamOrdered()) {
+      // the receive waits on the device until the copy layer has read the last ghost data
+      receiveGhostLayer(target, neighbor.progress->event.load(std::memory_order_relaxed));
+    } else if (concurrent()) {
       assert(!receiveDeferred_);
       receiveDeferred_ = true;
       deferredReceiveTarget_ = target;

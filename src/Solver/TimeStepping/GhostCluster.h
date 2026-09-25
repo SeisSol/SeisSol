@@ -53,6 +53,12 @@ class GhostCluster : public AbstractTimeCluster {
   /// Number of messages received so far, one per ghost region and exchange.
   [[nodiscard]] std::size_t receivedMessages() const;
 
+  /// The progress the latest receive completes; in steps of the smallest cluster.
+  [[nodiscard]] long receiveTarget() const { return receiveTarget_; }
+
+  /// The progress the latest send completes; in steps of the smallest cluster.
+  [[nodiscard]] long sendTarget() const { return sendTarget_; }
+
   protected:
   void start() override;
   void predict() override {}
@@ -64,8 +70,11 @@ class GhostCluster : public AbstractTimeCluster {
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   private:
-  void sendCopyLayer(long target);
-  void receiveGhostLayer(long target);
+  void sendCopyLayer(long target, void* after = nullptr);
+  void receiveGhostLayer(long target, void* after = nullptr);
+
+  /// ordered on the device: publishes the event of the latest exchange for the copy layer
+  void publishTransportEvent();
   bool testForCopyLayerSends();
   bool testForGhostLayerReceives();
 

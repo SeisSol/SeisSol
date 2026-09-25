@@ -134,6 +134,9 @@ CclExchangeScheduler::~CclExchangeScheduler() {
   for (const auto& [ticket, event] : pendingEvents_) {
     device().api->destroyEvent(event);
   }
+  for (auto* event : launchedEvents_) {
+    device().api->destroyEvent(event);
+  }
   for (auto* communicator : communicators_) {
     if (communicator != nullptr) {
       check(CCL(CommDestroy)(static_cast<CCL(Comm_t)>(communicator)), "CommDestroy");
@@ -175,12 +178,16 @@ void CclExchangeScheduler::added([[maybe_unused]] const ScheduledTransport& tran
 ExchangeScheduler::Ticket CclExchangeScheduler::launch(std::size_t from,
                                                        std::size_t to,
                                                        const ScheduledTransport* sender,
-                                                       const ScheduledTransport* receiver) {
+                                                       const ScheduledTransport* receiver,
+                                                       const std::vector<void*>& after) {
   auto* communicator = static_cast<CCL(Comm_t)>(communicators_[index(from, to)]);
   auto* stream = streams_[index(from, to)];
   if (communicator == nullptr) {
     logError() << "There is no CCL communicator for the halo exchange from cluster" << from
                << "to cluster" << to;
+  }
+  for (auto* event : after) {
+    device().api->syncStreamWithEvent(stream, event);
   }
 
   check(CCL(GroupStart)(), "GroupStart");
@@ -211,8 +218,39 @@ ExchangeScheduler::Ticket CclExchangeScheduler::launch(std::size_t from,
   auto* event = device().api->createEvent();
   device().api->recordEventOnStream(event, stream);
   const auto ticket = nextTicket_++;
-  pendingEvents_[ticket] = event;
+  if (streamOrdered()) {
+    // the dependent work waits for the event on the device; it stays until the device has completed
+    launchedEvents_.push_back(event);
+    latestEvent_ = event;
+  } else {
+    pendingEvents_[ticket] = event;
+  }
   return ticket;
+}
+
+std::vector<void*> CclExchangeScheduler::streams() const {
+  std::vector<void*> result;
+  for (auto* stream : streams_) {
+    if (stream != nullptr) {
+      result.push_back(stream);
+    }
+  }
+  return result;
+}
+
+void CclExchangeScheduler::releaseEvents() {
+  bool ownsLatest = false;
+  for (auto* event : launchedEvents_) {
+    if (event != latestEvent_) {
+      device().api->destroyEvent(event);
+    } else {
+      ownsLatest = true;
+    }
+  }
+  launchedEvents_.clear();
+  if (ownsLatest) {
+    launchedEvents_.push_back(latestEvent_);
+  }
 }
 
 bool CclExchangeScheduler::completed(Ticket ticket) {
@@ -247,9 +285,14 @@ void CclExchangeScheduler::added(const ScheduledTransport& /*transport*/) {}
 ExchangeScheduler::Ticket CclExchangeScheduler::launch(std::size_t /*from*/,
                                                        std::size_t /*to*/,
                                                        const ScheduledTransport* /*sender*/,
-                                                       const ScheduledTransport* /*receiver*/) {
+                                                       const ScheduledTransport* /*receiver*/,
+                                                       const std::vector<void*>& /*after*/) {
   return 0;
 }
+
+std::vector<void*> CclExchangeScheduler::streams() const { return {}; }
+
+void CclExchangeScheduler::releaseEvents() {}
 
 bool CclExchangeScheduler::completed(Ticket /*ticket*/) { return true; }
 
