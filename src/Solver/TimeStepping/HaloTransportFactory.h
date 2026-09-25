@@ -9,8 +9,8 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALOTRANSPORTFACTORY_H_
 
 #include "Parallel/MPI.h"
-#include "Solver/TimeStepping/HaloCommunication.h"
-#include "Solver/TimeStepping/HaloTransport.h"
+#include "Solver/TimeStepping/Halo/HaloCommunication.h"
+#include "Solver/TimeStepping/Halo/HaloTransport.h"
 
 #include <cstddef>
 #include <memory>

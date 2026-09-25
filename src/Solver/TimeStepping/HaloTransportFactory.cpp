@@ -8,20 +8,20 @@
 #include "HaloTransportFactory.h"
 
 #include "Parallel/MPI.h"
-#include "Solver/TimeStepping/CclExchangeScheduler.h"
-#include "Solver/TimeStepping/ExchangeScheduler.h"
-#include "Solver/TimeStepping/HaloCommunication.h"
-#include "Solver/TimeStepping/HaloTransport.h"
-#include "Solver/TimeStepping/MpiHaloTransport.h"
-#include "Solver/TimeStepping/ShmemExchangeScheduler.h"
-#include "Solver/TimeStepping/StreamMpiExchangeScheduler.h"
+#include "Solver/TimeStepping/Halo/HaloCommunication.h"
+#include "Solver/TimeStepping/Halo/HaloTransport.h"
+#include "Solver/TimeStepping/Halo/Mpi/MpiHaloTransport.h"
+#include "Solver/TimeStepping/Halo/Stream/CclExchangeScheduler.h"
+#include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
+#include "Solver/TimeStepping/Halo/Stream/ShmemExchangeScheduler.h"
+#include "Solver/TimeStepping/Halo/Stream/StreamMpiExchangeScheduler.h"
 
 #include <cstddef>
 #include <memory>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "Solver/TimeStepping/StagedMpiHaloTransport.h"
+#include "Solver/TimeStepping/Halo/Mpi/StagedMpiHaloTransport.h"
 #endif
 
 namespace seissol::time_stepping {

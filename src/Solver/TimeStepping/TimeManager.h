@@ -9,8 +9,6 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
-#include "CellCluster.h"
-#include "DynamicRuptureCluster.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -18,10 +16,12 @@
 #include "Monitoring/Stopwatch.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "Solver/TimeStepping/GhostCluster.h"
+#include "Solver/TimeStepping/Compute/CellCluster.h"
+#include "Solver/TimeStepping/Compute/DynamicRuptureCluster.h"
+#include "Solver/TimeStepping/Halo/GhostCluster.h"
 #include "Solver/TimeStepping/HaloTransportFactory.h"
-#include "Solver/TimeStepping/SuperStepRecorder.h"
-#include "Solver/TimeStepping/TimeSteppingPlan.h"
+#include "Solver/TimeStepping/Plan/SuperStepRecorder.h"
+#include "Solver/TimeStepping/Plan/TimeSteppingPlan.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <cassert>

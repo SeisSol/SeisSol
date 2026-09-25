@@ -9,26 +9,26 @@ add_library(seissol-solver OBJECT
     Estimator.cpp
     FreeSurfaceIntegrator.cpp
     Simulator.cpp
-    TimeStepping/AbstractTimeCluster.cpp
-    TimeStepping/ActorState.cpp
-    TimeStepping/CclExchangeScheduler.cpp
-    TimeStepping/CellCluster.cpp
-    TimeStepping/ClusterClock.cpp
-    TimeStepping/CommunicationManager.cpp
-    TimeStepping/DynamicRuptureCluster.cpp
-    TimeStepping/ExchangeScheduler.cpp
-    TimeStepping/FaceCluster.cpp
-    TimeStepping/GhostCluster.cpp
+    TimeStepping/Actor/AbstractTimeCluster.cpp
+    TimeStepping/Actor/ActorState.cpp
+    TimeStepping/Actor/StepParams.cpp
+    TimeStepping/Compute/CellCluster.cpp
+    TimeStepping/Compute/ClusterClock.cpp
+    TimeStepping/Compute/DynamicRuptureCluster.cpp
+    TimeStepping/Compute/FaceCluster.cpp
+    TimeStepping/Halo/CommunicationManager.cpp
+    TimeStepping/Halo/GhostCluster.cpp
+    TimeStepping/Halo/Mpi/MpiHaloTransport.cpp
+    TimeStepping/Halo/Mpi/StagedMpiHaloTransport.cpp
+    TimeStepping/Halo/Stream/CclExchangeScheduler.cpp
+    TimeStepping/Halo/Stream/ExchangeScheduler.cpp
+    TimeStepping/Halo/Stream/ShmemExchangeScheduler.cpp
+    TimeStepping/Halo/Stream/StreamExchangeScheduler.cpp
+    TimeStepping/Halo/Stream/StreamMpiExchangeScheduler.cpp
     TimeStepping/HaloTransportFactory.cpp
-    TimeStepping/MpiHaloTransport.cpp
-    TimeStepping/StagedMpiHaloTransport.cpp
-    TimeStepping/ShmemExchangeScheduler.cpp
-    TimeStepping/StepParams.cpp
-    TimeStepping/StreamExchangeScheduler.cpp
-    TimeStepping/StreamMpiExchangeScheduler.cpp
-    TimeStepping/SuperStepRecorder.cpp
+    TimeStepping/Plan/SuperStepRecorder.cpp
+    TimeStepping/Plan/TimeSteppingPlan.cpp
     TimeStepping/TimeManager.cpp
-    TimeStepping/TimeSteppingPlan.cpp
 )
 
 target_link_libraries(seissol-solver PUBLIC seissol-common-properties)

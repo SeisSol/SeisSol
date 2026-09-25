@@ -10,7 +10,6 @@
 #include "TimeManager.h"
 
 #include "Common/Iterator.h"
-#include "CommunicationManager.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
@@ -25,15 +24,16 @@
 #include "ResultWriter/ReceiverWriter.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
-#include "Solver/TimeStepping/AbstractTimeCluster.h"
-#include "Solver/TimeStepping/ActorState.h"
-#include "Solver/TimeStepping/CellCluster.h"
-#include "Solver/TimeStepping/ExchangeScheduler.h"
-#include "Solver/TimeStepping/GhostCluster.h"
-#include "Solver/TimeStepping/HaloCommunication.h"
+#include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/Actor/ActorState.h"
+#include "Solver/TimeStepping/Compute/CellCluster.h"
+#include "Solver/TimeStepping/Halo/CommunicationManager.h"
+#include "Solver/TimeStepping/Halo/GhostCluster.h"
+#include "Solver/TimeStepping/Halo/HaloCommunication.h"
+#include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
 #include "Solver/TimeStepping/HaloTransportFactory.h"
-#include "Solver/TimeStepping/SuperStepRecorder.h"
-#include "Solver/TimeStepping/TimeSteppingPlan.h"
+#include "Solver/TimeStepping/Plan/SuperStepRecorder.h"
+#include "Solver/TimeStepping/Plan/TimeSteppingPlan.h"
 
 #include <algorithm>
 #include <array>

@@ -15,9 +15,9 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Modules/Module.h"
-#include "Solver/TimeStepping/AbstractTimeCluster.h"
-#include "Solver/TimeStepping/CellCluster.h"
-#include "Solver/TimeStepping/GhostCluster.h"
+#include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/Compute/CellCluster.h"
+#include "Solver/TimeStepping/Halo/GhostCluster.h"
 
 #include <vector>
 

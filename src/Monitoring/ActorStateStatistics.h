@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_MONITORING_ACTORSTATESTATISTICS_H_
 
 #include "LoopStatistics.h"
-#include "Solver/TimeStepping/ActorState.h"
+#include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <list>
 #include <optional>
