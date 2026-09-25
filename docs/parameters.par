@@ -107,6 +107,8 @@ printtimeinterval = 1       ! Timestep output frequency. Each ((timestep % print
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 PPFileName = 'tpv33_faultreceivers.dat'
 outputinterval = 1.0 ! Write-out interval for the on-fault receivers.
+format = 'csv' ! 'csv' (default) writes one text file per receiver, 'hdf5' one table for all of them
+samplechunk = 0 ! (hdf5 only) as receiversamplechunk in the output section
 /
 
 &SourceType
@@ -162,6 +164,14 @@ OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that desc
 
 wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
 
+wavefieldcomputerotation = 0 ! compute rotation for the volume output
+wavefieldcomputestrain = 0 ! compute strain for the volume output
+
+wavefieldprojection = 'pointwise' ! how the solution is transferred onto the output points:
+! 'pointwise' evaluates it there, 'l2' projects onto the output space (conservative per subcell)
+
+wavefieldtimeseries = 'snapshot' ! overrides outputtimeseries for the wavefield output
+
 ! off-fault receivers
 ReceiverOutput = 1                   ! Enable/disable off-fault receiver output
 ReceiverFormat = 'csv'               ! Format of receiver output: 'csv' (default) or 'hdf5'
@@ -172,6 +182,11 @@ pickdt = 0.005                       ! Pickpoint Sampling
 ReceiverOutputInterval = 10.0
 ReceiverComputeRotation = 0          ! Compute Rotation of the velocity field at the receivers
 ReceiverComputeStrainRate = 0            ! Compute strain rate at the receivers
+receiversamplechunk = 0              ! (hdf5 only) how far a storage chunk reaches along the
+! sample axis; 0 lets the writer decide. The chunking is fixed when the file is created, while
+! the number of samples a write carries varies as soon as pickdt does not divide
+! ReceiverOutputInterval, so which value pays off depends on how the file is read afterwards.
+
 
 ! Free surface output
 SurfaceOutput = 1
@@ -180,6 +195,10 @@ SurfaceOutputInterval = 2.0
 
 surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
 
+surfaceprojection = 'l2' ! as wavefieldprojection, for the free-surface output
+
+surfacetimeseries = 'snapshot' ! overrides outputtimeseries for the free-surface output
+
 !Checkpointing
 Checkpoint = 1                       ! enable/disable checkpointing
 checkPointInterval = 6
@@ -187,6 +206,13 @@ checkPointInterval = 6
 xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with
 ! HDF5 support.
+
+outputtimeseries = 'snapshot' ! how the steps of a mesh output are distributed over files:
+! 'snapshot' writes one self-contained file per step, 'incremental' keeps the geometry in a file
+! of its own that the snapshots link to, and 'monolith' writes a single VTKHDF time series for the
+! whole run. Only VTKHDF can do more than 'snapshot', so this needs a vtkorder on the output in
+! question. Can be set per output with wavefieldtimeseries, surfacetimeseries, and timeseries in
+! the elementwise section.
 
 EnergyOutput = 1 ! Computation of energy, written in csv file
 EnergyTerminalOutput = 1 ! Write energy to standard output

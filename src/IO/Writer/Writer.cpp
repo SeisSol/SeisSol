@@ -9,6 +9,7 @@
 
 #include "IO/Writer/File/BinaryWriter.h"
 #include "IO/Writer/File/Hdf5Writer.h"
+#include "IO/Writer/File/RunFiles.h"
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "Instructions/Instruction.h"
@@ -23,7 +24,8 @@
 
 namespace seissol::io::writer {
 
-WriteInstance::WriteInstance(MPI_Comm comm) : hdf5_(comm), binary_(comm) {}
+WriteInstance::WriteInstance(MPI_Comm comm, file::RunFiles* runFiles)
+    : hdf5_(comm, runFiles), binary_(comm, runFiles) {}
 
 void WriteInstance::write(const async::ExecInfo& info,
                           const std::shared_ptr<instructions::WriteInstruction>& instruction) {
@@ -32,6 +34,10 @@ void WriteInstance::write(const async::ExecInfo& info,
   }
   if (dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()) != nullptr) {
     hdf5_.writeAttribute(info, *dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()));
+  }
+  if (dynamic_cast<instructions::Hdf5LinkExternalWrite*>(instruction.get()) != nullptr) {
+    hdf5_.writeLinkExternal(info,
+                            *dynamic_cast<instructions::Hdf5LinkExternalWrite*>(instruction.get()));
   }
   if (dynamic_cast<instructions::BinaryWrite*>(instruction.get()) != nullptr) {
     binary_.write(info, *dynamic_cast<instructions::BinaryWrite*>(instruction.get()));
@@ -69,8 +75,9 @@ std::string Writer::serialize() {
   return sstr.str();
 }
 
-WriteInstance Writer::beginWrite(const async::ExecInfo& info, MPI_Comm comm) {
-  WriteInstance instance(comm);
+WriteInstance
+    Writer::beginWrite(const async::ExecInfo& info, MPI_Comm comm, file::RunFiles* runFiles) {
+  WriteInstance instance(comm, runFiles);
   for (const auto& instruction : instructions_) {
     instance.write(info, instruction);
   }

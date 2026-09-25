@@ -6,6 +6,8 @@
 
   SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+.. _env_vars:
+
 Environment variables
 =====================
 
@@ -45,11 +47,28 @@ GPU-specific environment variables are listed on its :ref:`own page <gpu-env>`.
 Output
 ------
 
-The wave field and fault output use the
-`XdmfWriter <https://github.com/TUM-I5/XdmfWriter>`__. Tuning variables
-for the `XdmfWriter <https://github.com/TUM-I5/XdmfWriter>`__ are listed
-in the corresponding
-`wiki <https://github.com/TUM-I5/XdmfWriter/wiki>`__.
+* ``SEISSOL_IO_VERTEXFILTER``: whether the coinciding points of an order 0
+  output (that is, one written without ``wavefieldvtkorder``, ``surfacevtkorder``
+  or ``vtkorder``) are merged into one. On by default; the merging happens
+  within a rank, so points on a partition boundary stay duplicated. Also
+  accepted under its previous name ``SEISSOL_VERTEXFILTER``.
+
+Two further variables are, for historic reasons, named ``XDMFWRITER``; they are
+also accepted with a ``SEISSOL_IO_`` prefix, which is the name to use:
+
+* ``XDMFWRITER_ALIGNMENT``: how far the bulk data of an output is aligned in the
+  file. A bulk write straddling a stripe boundary makes more than one storage
+  target take part in a single write, which serializes them; what the right
+  value is depends on the file system, so there is no default.
+* ``XDMFWRITER_BLOCK_SIZE``: block size for the output (both posix and Hdf5)
+
+The MPI-IO hints the output passes through are read the same way, under the
+names ROMIO understands and with an ``MPIO_`` in front, so
+``SEISSOL_IO_MPIO_ROMIO_DS_WRITE`` sets ``romio_ds_write``. Recognized are
+``ind_rd_buffer_size``, ``ind_wr_buffer_size``, ``romio_ds_read``,
+``romio_ds_write``, ``cb_buffer_size``, ``cb_nodes``, ``romio_cb_read``,
+``romio_cb_write``, ``striping_factor`` and ``striping_unit``. Which of them
+help is again a property of the file system.
 
 .. _asynchronous-output:
 

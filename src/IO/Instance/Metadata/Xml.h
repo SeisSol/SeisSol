@@ -12,11 +12,29 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Instruction.h"
 
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
 
 namespace seissol::io::instance::metadata {
+
+/**
+ * @brief A double as text that reads back as the same double, e.g. an output time.
+ *
+ * Fifteen significant digits where they suffice, which keeps 0.1 as "0.1", and seventeen where
+ * they do not.
+ */
+inline std::string formatExact(double value) {
+  std::ostringstream shortForm;
+  shortForm << std::setprecision(15) << value;
+  if (std::stod(shortForm.str()) == value) {
+    return shortForm.str();
+  }
+  std::ostringstream longForm;
+  longForm << std::setprecision(17) << value;
+  return longForm.str();
+}
 
 class XmlInstructor {
   public:
@@ -78,8 +96,8 @@ inline std::string XmlAttribute::getImmediate<std::string>() const {
   const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
 
-  // exclude null terminator
-  return std::string(dataConv, dataConv + this->data_->getLocalSize() - 1);
+  // createString stores the text without a null terminator
+  return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 
 inline XmlAttribute XmlAttribute::create(const std::string& name, const std::string& value) {
@@ -160,8 +178,8 @@ inline std::string XmlData::getImmediate<std::string>() const {
   const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
 
-  // exclude null terminator
-  return std::string(dataConv, dataConv + this->data_->getLocalSize() - 1);
+  // createString stores the text without a null terminator
+  return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 
 class XmlFile {

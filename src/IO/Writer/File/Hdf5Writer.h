@@ -7,6 +7,7 @@
 
 #ifndef SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_H_
 #define SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_H_
+#include "IO/Writer/File/RunFiles.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 
@@ -23,7 +24,13 @@ namespace seissol::io::writer::file {
 class Hdf5File {
   public:
   explicit Hdf5File(MPI_Comm comm);
-  void openFile(const std::string& name);
+  /**
+   * @brief Opens @p name, or creates it if it does not exist yet.
+   *
+   * With @p fresh , the file is created in any case, replacing what is there; with @p backUp as
+   * well, what is there is kept under a backup name first.
+   */
+  void openFile(const std::string& name, bool fresh = false, bool backUp = false);
   void openGroup(const std::string& name);
   void openDataset(const std::string& name);
   void writeAttribute(const async::ExecInfo& info,
@@ -34,6 +41,9 @@ class Hdf5File {
                  const std::shared_ptr<DataSource>& source,
                  const std::shared_ptr<datatype::Datatype>& targetType,
                  int compress);
+  void writeLinkExternal(const std::string& name,
+                         const std::string& targetFile,
+                         const std::string& targetPath);
   void closeDataset();
   void closeGroup();
   void closeFile();
@@ -46,17 +56,30 @@ class Hdf5File {
 
 class Hdf5Writer {
   public:
-  explicit Hdf5Writer(MPI_Comm comm);
+  /**
+   * @brief A writer for one write plan.
+   *
+   * @p runFiles is what the run has written so far, and is updated by the writes of this plan.
+   * Without it, every file that exists is opened and appended to.
+   */
+  explicit Hdf5Writer(MPI_Comm comm, RunFiles* runFiles = nullptr);
 
   void writeAttribute(const async::ExecInfo& info, const instructions::Hdf5AttributeWrite& write);
 
   void writeData(const async::ExecInfo& info, const instructions::Hdf5DataWrite& write);
 
+  void writeLinkExternal(const async::ExecInfo& info,
+                         const instructions::Hdf5LinkExternalWrite& write);
+
   void finalize();
 
   private:
+  //! The file @p name , opened on first use in this plan.
+  Hdf5File file(const std::string& name);
+
   std::unordered_map<std::string, Hdf5File> openFiles_;
   MPI_Comm comm_{MPI_COMM_NULL};
+  RunFiles* runFiles_{nullptr};
 };
 } // namespace seissol::io::writer::file
 

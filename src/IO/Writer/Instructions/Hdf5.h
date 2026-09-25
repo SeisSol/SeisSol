@@ -17,6 +17,7 @@
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::io::writer::instructions {
+
 class Hdf5Location {
   public:
   explicit Hdf5Location(const std::string& longstring);
@@ -30,6 +31,7 @@ class Hdf5Location {
   [[nodiscard]] std::string file() const;
   [[nodiscard]] std::vector<std::string> groups() const;
   [[nodiscard]] std::optional<std::string> dataset() const;
+  [[nodiscard]] std::string infilePath() const;
 
   [[nodiscard]] std::optional<Hdf5Location> commonLocation(const Hdf5Location& other) const;
 
@@ -66,6 +68,13 @@ struct Hdf5DataWrite : public WriteInstruction {
   std::shared_ptr<datatype::Datatype> targetType;
   int compress;
 
+  /**
+   * @brief Writes @p dataSource to a dataset.
+   *
+   * Whether the dataset is written once or extended by every write follows from the shape of the
+   * source: a dimension marked as appended makes the dataset unlimited there, and every write
+   * lands behind what is already in it.
+   */
   Hdf5DataWrite(const Hdf5Location& location,
                 const std::string& name,
                 std::shared_ptr<writer::DataSource> dataSource,
@@ -75,6 +84,23 @@ struct Hdf5DataWrite : public WriteInstruction {
   YAML::Node serialize() override;
 
   explicit Hdf5DataWrite(YAML::Node node);
+
+  std::vector<std::shared_ptr<DataSource>> dataSources() override;
+};
+
+struct Hdf5LinkExternalWrite : public WriteInstruction {
+  ~Hdf5LinkExternalWrite() override = default;
+  Hdf5Location location;
+  std::string name;
+  Hdf5Location remote;
+
+  YAML::Node serialize() override;
+
+  Hdf5LinkExternalWrite(const Hdf5Location& location,
+                        const std::string& name,
+                        const Hdf5Location& remote);
+
+  explicit Hdf5LinkExternalWrite(YAML::Node node);
 
   std::vector<std::shared_ptr<DataSource>> dataSources() override;
 };

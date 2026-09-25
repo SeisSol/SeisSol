@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
         ConfigString + ") was built with the following properties:\n" + ConfigDescriptor);
     args.addAdditionalOption("parameterfile", "The parameter file", false);
     args.addOption(
-        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
+        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
     switch (args.parse(argc, argv)) {
     case utils::Args::Help: {
       [[fallthrough]];

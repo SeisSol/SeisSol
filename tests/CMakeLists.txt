@@ -171,6 +171,10 @@ seissol_add_mpi_test_module(mpi 4
     Parallel/TestParallelMPI.cpp
 )
 
+seissol_add_mpi_test_module(iompi 4
+    IO/TestIOMPI.cpp
+)
+
 # =============================================================================
 # Handle TESTING_GENERATED kernel sources
 # =============================================================================

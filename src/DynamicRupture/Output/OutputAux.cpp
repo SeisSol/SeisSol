@@ -23,8 +23,8 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <cstddef>
-#include <cstdint>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -94,15 +94,32 @@ ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle) {
   const auto p0 = triangle.point(0);
   const auto p1 = triangle.point(1);
   const auto p2 = triangle.point(2);
-  for (int axis = 0; axis < 3; ++axis) {
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
     avgPoint.coords[axis] = (p0.coords[axis] + p1.coords[axis] + p2.coords[axis]) / 3.0;
+  }
+  return avgPoint;
+}
+
+ExtVrtxCoords getTrianglePointByCoords(const ExtTriangle& triangle,
+                                       const std::array<double, 2>& point) {
+  ExtVrtxCoords avgPoint{};
+  const auto p0 = triangle.point(0);
+  const auto p1 = triangle.point(1);
+  const auto p2 = triangle.point(2);
+
+  // barycentric coordinates
+  const auto w0 = 1 - point[0] - point[1];
+  const auto w1 = point[0];
+  const auto w2 = point[1];
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
+    avgPoint.coords[axis] = w0 * p0.coords[axis] + w1 * p1.coords[axis] + w2 * p2.coords[axis];
   }
   return avgPoint;
 }
 
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
   ExtVrtxCoords midPoint{};
-  for (int axis = 0; axis < 3; ++axis) {
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
     midPoint.coords[axis] = 0.5 * (p1.coords[axis] + p2.coords[axis]);
   }
   return midPoint;
@@ -247,43 +264,6 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
   return basisFunctions;
 }
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (std::uint32_t vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
-      const auto& triangle = receiverPoints[pointIndex].globalTriangle;
-      const auto& point = triangle.point(vertexIndex);
-
-      const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      for (std::uint32_t coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
-        vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
-      }
-    }
-  }
-  return vertices;
-}
-
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<unsigned int> cells(3 * receiverPoints.size());
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (int vertexIndex{0}; vertexIndex < 3; ++vertexIndex) {
-      const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      cells[globalVertexIndex] = globalVertexIndex;
-    }
-  }
-  return cells;
-}
-std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<unsigned int> faultTags(receiverPoints.size());
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
-  }
-  return faultTags;
-}
-
 real computeTriangleArea(ExtTriangle& triangle) {
   const auto p0 = triangle.point(0).getAsEigen3LibVector();
   const auto p1 = triangle.point(1).getAsEigen3LibVector();
@@ -293,5 +273,25 @@ real computeTriangleArea(ExtTriangle& triangle) {
   const auto vector2 = p2 - p0;
   const auto normal = vector1.cross(vector2);
   return 0.5 * normal.norm();
+}
+
+std::size_t
+    firstReceiverOfCell(std::size_t cell, std::size_t pointsPerCell, std::size_t simulationCount) {
+  return cell * pointsPerCell * simulationCount;
+}
+
+int faultTagOfCell(const ReceiverPoints& receiverPoints,
+                   std::size_t cell,
+                   std::size_t pointsPerCell,
+                   std::size_t simulationCount) {
+  return receiverPoints[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].faultTag;
+}
+
+std::size_t globalFaceIdOfCell(const ReceiverPoints& receiverPoints,
+                               std::size_t cell,
+                               std::size_t pointsPerCell,
+                               std::size_t simulationCount) {
+  return receiverPoints[firstReceiverOfCell(cell, pointsPerCell, simulationCount)]
+      .globalFaultFaceId();
 }
 } // namespace seissol::dr

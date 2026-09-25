@@ -13,6 +13,105 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The fault tag of the elementwise fault output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+The ``fault-tag`` cell field of the elementwise fault output carried the
+identifier of the face rather than the tag the mesh gave it, which is what the
+``global-id`` field beside it holds, so the files had the identifier twice and
+the tag not at all. Post-processing that read ``fault-tag`` and got what it
+expected was reading an identifier; one that grouped by it was grouping by face.
+
+The on-fault and off-fault receiver files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+``receiverFormat = 'hdf5'`` writes a different file. It used to be one wide
+table with a column count taken from the widest receiver, described by the
+attributes ``DimNames`` and ``VariableNames``; it is now a dataset per quantity
+set, with the quantities as the members of a compound and the receivers
+described by columns beside it. :ref:`off_fault_receivers` has the layout.
+Post-processing of ``-receivers.h5`` has to follow.
+
+The text output, which is the default, is unchanged, and so is the file name and
+the write interval. The on-fault receivers gained the same HDF5 layout as an
+option under ``format = 'hdf5'`` in the ``Pickpoint`` section, but keep writing
+text unless it is asked for.
+
+The tables beside the output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+The column names of ``-clustering.csv``, ``-threadPinning.csv``,
+``-miniSeissol.csv``, ``-energy.csv`` and ``-analysis.csv`` are now quoted, like
+every other piece of text in those files -- in the energy output, the name of
+each quantity as well. Numbers are written in the shortest form that reads back
+as the same value, e.g. ``0.25`` rather than ``2.50000000000000000e-01``. What
+the columns are and what they hold is unchanged. A reader using a CSV parser
+needs no change; one comparing the lines literally does.
+
+Output of a restarted run
+~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+A run restarted from a checkpoint writes its output into new files and continues
+the numbering of the outputs. Files of the same name that exist already, e.g.
+the time series of the run before the restart, are kept under a backup name
+carrying the time of the restart. A single file holding the whole run therefore
+has to be assembled from the backup and the new file. See :ref:`Checkpointing`.
+
+Output file names
+~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+Every mesh output is now named after what it holds, so three file names changed.
+Post-processing that opens them by name has to follow.
+
+* The wavefield written through Xdmf was ``<prefix>.xdmf``; it is now
+  ``<prefix>-wavefield.xdmf``, next to the ``<prefix>-wavefield.vtkhdf`` that the
+  high-order output already used. The bare prefix carried no indication of what
+  was in the file.
+* The high-order free-surface output was ``<prefix>-free-surface.vtkhdf``; it is
+  now ``<prefix>-surface.vtkhdf``, which is what the Xdmf free-surface output has
+  always been called.
+* The high-order elementwise fault output was ``<prefix>-fault-elementwise.vtkhdf``;
+  it is now ``<prefix>-fault.vtkhdf``, matching the Xdmf fault output. The output
+  it is distinguished from -- the on-fault receivers -- is written by a different
+  module under a different name, so the qualifier distinguished nothing.
+
+Refined wavefield output
+~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+Two things changed about the volume output at the same time, and both affect a comparison against
+files written by an older version.
+
+First, a refined wavefield output used to sample the subcells in a different vertex labeling than
+the one the output mesh was built with, so the value written for a subcell was the solution at the
+center of one of its siblings. With ``refinement = 1``, three of the four subcells of every element
+carried a neighbor's value; with ``refinement = 2`` and ``3``, the inner subcells were sampled at
+a point that is not the center of any subcell at all. ``refinement = 0`` was unaffected, because
+the center of the whole element does not move under that relabeling. This is now corrected, so
+output written with ``refinement > 0`` differs from what older versions produced.
+
+Second, how the solution reaches the output points is now a parameter rather than a property of
+the writer. It is ``wavefieldprojection`` for the wavefield and ``surfaceprojection`` for the free
+surface (see :ref:`wave_field_output` and :ref:`free_surface_output`). The defaults reproduce what
+each output did before -- ``pointwise`` for the wavefield, ``l2`` for the free surface -- so no
+parameter file needs to change; the option exists to make the two comparable when that is wanted.
+Free-surface displacement in checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+A checkpoint identified the faces of the free surface by the cell number local to
+the rank that wrote it, which names different cells on different ranks. On a
+restart, faces could therefore receive the displacement of another face; with
+the partitioning unchanged this affected a few faces at the rank boundaries,
+with a different one most of them. The faces are now identified by the global
+cell id, and a restart reproduces the displacement exactly. Checkpoints written
+before cannot restore it correctly.
+
 Dynamic rupture checkpoints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
