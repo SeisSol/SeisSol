@@ -31,7 +31,7 @@
 #include "Solver/TimeStepping/ExchangeScheduler.h"
 #include "Solver/TimeStepping/GhostCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
-#include "Solver/TimeStepping/HaloTransport.h"
+#include "Solver/TimeStepping/HaloTransportFactory.h"
 #include "Solver/TimeStepping/SuperStepRecorder.h"
 #include "Solver/TimeStepping/TimeSteppingPlan.h"
 

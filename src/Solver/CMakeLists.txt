@@ -19,7 +19,7 @@ add_library(seissol-solver OBJECT
     TimeStepping/ExchangeScheduler.cpp
     TimeStepping/FaceCluster.cpp
     TimeStepping/GhostCluster.cpp
-    TimeStepping/HaloTransport.cpp
+    TimeStepping/HaloTransportFactory.cpp
     TimeStepping/MpiHaloTransport.cpp
     TimeStepping/StagedMpiHaloTransport.cpp
     TimeStepping/ShmemExchangeScheduler.cpp

@@ -19,7 +19,7 @@
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/TimeStepping/GhostCluster.h"
-#include "Solver/TimeStepping/HaloTransport.h"
+#include "Solver/TimeStepping/HaloTransportFactory.h"
 #include "Solver/TimeStepping/SuperStepRecorder.h"
 #include "Solver/TimeStepping/TimeSteppingPlan.h"
 #include "SourceTerm/Typedefs.h"

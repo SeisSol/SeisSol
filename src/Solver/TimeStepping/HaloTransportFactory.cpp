@@ -5,12 +5,13 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "HaloTransport.h"
+#include "HaloTransportFactory.h"
 
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/CclExchangeScheduler.h"
 #include "Solver/TimeStepping/ExchangeScheduler.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
+#include "Solver/TimeStepping/HaloTransport.h"
 #include "Solver/TimeStepping/MpiHaloTransport.h"
 #include "Solver/TimeStepping/ShmemExchangeScheduler.h"
 #include "Solver/TimeStepping/StreamMpiExchangeScheduler.h"
