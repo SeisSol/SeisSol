@@ -137,10 +137,10 @@ That is especially useful, since some MPI implementations are not GPU-aware and 
 communication on device buffers.
 As a (subpar) alternative, you can also try using ``SEISSOL_USM_MPI=1`` and ``direct`` to utilize unified/managed memory.
 
-The value ``ccl`` exchanges the data with NCCL, RCCL or oneCCL instead of MPI, depending on the device backend.
-It requires building with ``-DCCL=ON`` and is considered experimental.
-All exchanges of a process then go through one communicator and one GPU stream, in an order that is the same on all processes.
-With ``SEISSOL_CCL_PER_DIRECTION=1``, each direction of exchange between two time clusters gets a communicator and a GPU stream of its own instead.
+Three further values run the exchange on GPU streams: ``ccl`` (NCCL, RCCL or oneCCL),
+``stream-mpi`` (MPI operations enqueued on a stream) and ``shmem`` (NVSHMEM, ROCSHMEM or Intel SHMEM).
+They need to be enabled at build time and are considered experimental;
+see :ref:`gpu-time-stepping` for their requirements, and for the other ways of running the time stepping on GPUs.
 
 .. figure:: figures/gpu-comm-layer-data-flow.png
    :alt: Data Flow Diagram
