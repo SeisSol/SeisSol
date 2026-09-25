@@ -503,7 +503,7 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                           const seissol::geometry::MeshReader& mesh,
                           LTS::Storage& ltsStorage,
                           LTS::Backmap& backmap,
-                          time_stepping::TimeManager& timeManager) {
+                          solver::TimeManager& timeManager) {
   const auto memkind =
       useUSM() ? seissol::memory::Memkind::DeviceUnifiedMemory : seissol::memory::Memkind::Standard;
   auto sourceClusters = std::vector<seissol::kernels::PointSourceClusterPair>();

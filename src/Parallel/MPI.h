@@ -251,7 +251,13 @@ class Mpi : public MpiBasic {
 
   void setDataTransferModeFromEnv();
 
-  enum class DataTransferMode { Direct, CopyInCopyOutHost };
+  enum class DataTransferMode {
+    Direct,
+    CopyInCopyOutHost,
+    DirectCcl,
+    DirectStreamMpi,
+    DirectShmem
+  };
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode_; }
 
   /** The only instance of the class */

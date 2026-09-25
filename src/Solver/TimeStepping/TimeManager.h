@@ -16,18 +16,23 @@
 #include "Monitoring/Stopwatch.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "Solver/TimeStepping/GhostTimeClusterFactory.h"
+#include "Solver/TimeStepping/Compute/CellCluster.h"
+#include "Solver/TimeStepping/Compute/DynamicRuptureCluster.h"
+#include "Solver/TimeStepping/Halo/GhostCluster.h"
+#include "Solver/TimeStepping/HaloTransportFactory.h"
+#include "Solver/TimeStepping/Plan/SuperStepRecorder.h"
+#include "Solver/TimeStepping/Plan/TimeSteppingPlan.h"
 #include "SourceTerm/Typedefs.h"
-#include "TimeCluster.h"
 
 #include <cassert>
 #include <list>
 #include <memory>
 #include <queue>
+#include <set>
 #include <utils/logger.h>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 class AbstractCommunicationManager;
 
 /**
@@ -40,16 +45,68 @@ class TimeManager {
   //! time stepping
   std::optional<initializer::ClusterLayout> clusterLayout_;
 
-  //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<TimeCluster>> clusters_;
-  std::vector<TimeCluster*> highPrioClusters_;
-  std::vector<TimeCluster*> lowPrioClusters_;
+  //! the clusters of the local (copy & interior) cells
+  std::vector<std::unique_ptr<CellCluster>> cellClusters_;
 
-  //! one dynamic rupture scheduler per pair of interior/copy cluster
-  std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers_;
+  //! the clusters of the local (copy & interior) dynamic rupture faces
+  std::vector<std::unique_ptr<DynamicRuptureCluster>> faceClusters_;
+
+  //! all cell and face clusters, i.e. all clusters under control of this time manager that do
+  //! local work; ordered by rate
+  std::vector<AbstractTimeCluster*> clusters_;
+  std::vector<AbstractTimeCluster*> highPrioClusters_;
+  std::vector<AbstractTimeCluster*> lowPrioClusters_;
+
+  //! what the halo transports share; outlives them
+  std::unique_ptr<HaloTransportFactory> haloTransports_;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
   std::unique_ptr<AbstractCommunicationManager> communicationManager_;
+
+  //! take the steps along the time stepping plan
+  bool followPlan_{false};
+
+  //! along the plan: all super-timesteps (steps of the largest cluster), those that end early at a
+  //! synchronization point, the full ones without output samples, and the full ones in which no
+  //! cluster takes an irregular step
+  std::size_t superSteps_{0};
+  std::size_t shortenedSuperSteps_{0};
+  std::size_t outputFreeSuperSteps_{0};
+  std::size_t regularSuperSteps_{0};
+  std::size_t recordedSuperSteps_{0};
+  std::size_t replayedSuperSteps_{0};
+  std::size_t mispredictedSuperSteps_{0};
+
+  //! the outputs decide about their samples when the work of a step runs
+  bool runTimeOutputs_{false};
+
+  //! record regular super-timesteps into graphs and replay them
+  bool replay_{false};
+  std::unique_ptr<SuperStepRecorder> recorder_;
+  //! the regular super-timesteps that have run once without a recording
+  std::set<SuperStepRecorder::Key> seenSuperSteps_;
+
+  //! the ghost clusters act on a thread of their own
+  bool commThread_{false};
+
+  /**
+   * Makes the ghost clusters start all exchanges whose data is complete before `end`.
+   */
+  void completeExchanges(long end);
+
+  /**
+   * Takes the steps [begin, end) of the plan, and returns what their host parts have decided.
+   */
+  StepWork takeSteps(const std::vector<PlannedAction>& plan, std::size_t begin, std::size_t end);
+
+  //! the clusters only enqueue their device work
+  bool concurrent_{false};
+
+  /**
+   * Takes all steps of the cell and face clusters up to the synchronization point in the order of
+   * the time stepping plan.
+   */
+  void followPlan();
 
   //! Stopwatch
   LoopStatistics loopStatistics_;
@@ -78,7 +135,7 @@ class TimeManager {
    * @param i_meshToClusters mapping from the mesh to the clusters.
    **/
   void addClusters(const initializer::ClusterLayout& clusterLayout,
-                   const solver::HaloCommunication& haloStructure,
+                   const HaloCommunication& haloStructure,
                    initializer::MemoryManager& memoryManager,
                    const SimulationSettings& settings);
 
@@ -125,6 +182,6 @@ class TimeManager {
   const initializer::ClusterLayout& getClusterLayout() { return clusterLayout_.value(); }
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_

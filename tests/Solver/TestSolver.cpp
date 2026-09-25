@@ -9,5 +9,12 @@
 #include <doctest/trompeloeil.hpp>
 
 #include "Estimator.t.h"
-#include "TimeStepping/AbstractTimeCluster.t.h"
-#include "TimeStepping/ActorState.t.h"
+#include "TimeStepping/Actor/AbstractTimeCluster.t.h"
+#include "TimeStepping/Actor/ActorState.t.h"
+#include "TimeStepping/Actor/ConcurrentClusters.t.h"
+#include "TimeStepping/Actor/StepParams.t.h"
+#include "TimeStepping/Compute/ClusterClock.t.h"
+#include "TimeStepping/Halo/GhostCluster.t.h"
+#include "TimeStepping/Halo/Stream/ExchangeScheduler.t.h"
+#include "TimeStepping/Halo/Stream/StreamOrderedExchange.t.h"
+#include "TimeStepping/Plan/TimeSteppingPlan.t.h"

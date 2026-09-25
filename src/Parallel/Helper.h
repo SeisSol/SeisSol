@@ -39,6 +39,45 @@ bool useCommThread(const T& mpiBasic, utils::Env& env) {
 
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
+/**
+ * Whether the transfer modes that run on device streams (ccl, stream-mpi) use a stream per
+ * direction between two time clusters, instead of one for all exchanges in a global order.
+ */
+inline bool useExchangePerDirection(utils::Env& env) {
+  return env.get<bool>("EXCHANGE_PER_DIRECTION", env.get<bool>("CCL_PER_DIRECTION", false));
+}
+
+/**
+ * Whether the clusters on the device only enqueue their work and wait for each other on the device,
+ * instead of waiting for the completion of each of their steps. Implies scratchpads per layer.
+ */
+inline bool useConcurrentClusters(utils::Env& env) {
+  return env.get<bool>("CONCURRENT_CLUSTERS", false);
+}
+
+/**
+ * Whether the device work of regular super-timesteps gets recorded into graphs and replayed.
+ * Requires the time stepping plan and concurrent clusters.
+ */
+inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTEP_GRAPHS", false); }
+
+/**
+ * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
+ * they are ready.
+ */
+inline bool useTimeSteppingPlan(utils::Env& env) {
+  return env.get<bool>("TIMESTEPPING_PLAN", false);
+}
+
+/**
+ * Whether each layer gets scratchpads of its own, instead of all layers of a storage sharing one
+ * set. Needed as soon as several layers are updated concurrently; costs the sum instead of the
+ * maximum of the scratchpad demands.
+ */
+inline bool useScratchpadPerLayer(utils::Env& env) {
+  return env.get<bool>("SCRATCHPAD_PER_LAYER", false);
+}
+
 inline void printPersistentMpiInfo(utils::Env& env) {
   if (usePersistentMpi(env)) {
     logInfo() << "Using persistent MPI routines.";

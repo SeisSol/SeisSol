@@ -27,8 +27,17 @@ namespace seissol::kernels {
 class PointSourceCluster {
   public:
   virtual ~PointSourceCluster() = default;
+  /**
+   * Adds the sources integrated over the step from `from` on. With a clock set, the device reads
+   * the start of the step from it instead.
+   */
   virtual void addTimeIntegratedPointSources(
-      double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+      double from, double timeStepSize, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
+  /**
+   * Makes the device read the start of each step from the given clock.
+   */
+  virtual void setClock(const double* /*deviceClock*/) {}
   [[nodiscard]] virtual std::size_t size() const = 0;
 };
 
@@ -175,10 +184,15 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
   }
 }
 
+/**
+ * Adds the point sources integrated from `from` to `from + timeStepSize`; if `clock` is not null,
+ * `from` is read from it on the device.
+ */
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        sourceterm::PointSources& sources,
                        double from,
-                       double to,
+                       double timeStepSize,
+                       const double* clock,
                        seissol::parallel::runtime::StreamRuntime& runtime);
 
 } // namespace seissol::kernels

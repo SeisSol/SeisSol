@@ -85,7 +85,7 @@ class SeisSol {
 
   initializer::MemoryManager& memoryManager() { return *memoryManager_; }
 
-  time_stepping::TimeManager& timeManager() { return timeManager_; }
+  solver::TimeManager& timeManager() { return timeManager_; }
 
   Simulator& simulator() { return simulator_; }
 
@@ -235,7 +235,7 @@ class SeisSol {
   std::unique_ptr<initializer::MemoryManager> memoryManager_{nullptr};
 
   //! Time Manager
-  time_stepping::TimeManager timeManager_;
+  solver::TimeManager timeManager_;
 
   //! Simulator
   Simulator simulator_;

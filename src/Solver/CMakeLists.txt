@@ -9,13 +9,25 @@ add_library(seissol-solver OBJECT
     Estimator.cpp
     FreeSurfaceIntegrator.cpp
     Simulator.cpp
-    TimeStepping/AbstractGhostTimeCluster.cpp
-    TimeStepping/AbstractTimeCluster.cpp
-    TimeStepping/ActorState.cpp
-    TimeStepping/CommunicationManager.cpp
-    TimeStepping/DirectGhostTimeCluster.cpp
-    TimeStepping/GhostTimeClusterWithCopy.cpp
-    TimeStepping/TimeCluster.cpp
+    TimeStepping/Actor/AbstractTimeCluster.cpp
+    TimeStepping/Actor/ActorState.cpp
+    TimeStepping/Actor/StepParams.cpp
+    TimeStepping/Compute/CellCluster.cpp
+    TimeStepping/Compute/ClusterClock.cpp
+    TimeStepping/Compute/DynamicRuptureCluster.cpp
+    TimeStepping/Compute/FaceCluster.cpp
+    TimeStepping/Halo/CommunicationManager.cpp
+    TimeStepping/Halo/GhostCluster.cpp
+    TimeStepping/Halo/Mpi/MpiHaloTransport.cpp
+    TimeStepping/Halo/Mpi/StagedMpiHaloTransport.cpp
+    TimeStepping/Halo/Stream/CclExchangeScheduler.cpp
+    TimeStepping/Halo/Stream/ExchangeScheduler.cpp
+    TimeStepping/Halo/Stream/ShmemExchangeScheduler.cpp
+    TimeStepping/Halo/Stream/StreamExchangeScheduler.cpp
+    TimeStepping/Halo/Stream/StreamMpiExchangeScheduler.cpp
+    TimeStepping/HaloTransportFactory.cpp
+    TimeStepping/Plan/SuperStepRecorder.cpp
+    TimeStepping/Plan/TimeSteppingPlan.cpp
     TimeStepping/TimeManager.cpp
 )
 

@@ -17,6 +17,7 @@
 #include "Parallel/Runtime/Stream.h"
 
 #include <memory>
+#include <unordered_map>
 
 namespace seissol {
 class SeisSol;
@@ -42,13 +43,64 @@ class OutputManager {
   void init();
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
-  void writePickpointOutput(std::size_t layerId,
-                            double stateTime,
-                            double time,
-                            double dt,
-                            double meshDt,
-                            double meshInDt,
-                            parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Counts an output step of the layer; returns whether it records its fault receivers in it. Only
+   * on the host, without touching any data.
+   */
+  bool beginPickpointStep(std::size_t layerId, double time, double dt);
+
+  /**
+   * Whether the layer has fault receivers.
+   */
+  [[nodiscard]] bool hasPickpoints(std::size_t layerId) const;
+
+  /**
+   * Prepares the output step counters, so that the steps of different layers can be counted from
+   * different threads.
+   */
+  void prepareRunTimeOutput();
+
+  /**
+   * For fault receivers whose output steps get decided when the work of a step runs: waits until
+   * the fault receivers of the last step have been recorded, takes the start of the step (from the
+   * clock on the device, as `hostTime` on the host), and copies the data of the output points to
+   * the host. Returns the runtime to enqueue the decision on.
+   */
+  parallel::runtime::StreamRuntime& gatherPickpointData(std::size_t layerId,
+                                                        const double* deviceClock,
+                                                        double* stepStart,
+                                                        double hostTime,
+                                                        parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Records the fault receivers of the layer right away, from data gathered before.
+   */
+  void evaluatePickpointOutput(
+      std::size_t layerId, double stateTime, double time, double meshDt, double meshInDt);
+
+  /**
+   * The number of output steps the layer has counted so far.
+   */
+  [[nodiscard]] std::size_t pickpointIteration(std::size_t layerId) const;
+
+  /**
+   * Whether the layer would record its fault receivers in the given output step; without counting
+   * it.
+   */
+  [[nodiscard]] bool
+      pickpointDue(std::size_t layerId, std::size_t iteration, double time, double dt) const;
+
+  /**
+   * Records the fault receivers of the layer, for an output step that
+   * `beginPickpointStep()` has found due.
+   */
+  void recordPickpointOutput(std::size_t layerId,
+                             double stateTime,
+                             double time,
+                             double meshDt,
+                             double meshInDt,
+                             parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
   void updateElementwiseOutput(double time);
 
@@ -56,7 +108,15 @@ class OutputManager {
   seissol::SeisSol& seissolInstance_;
 
   protected:
-  bool isAtPickpoint(double time, double dt);
+  /**
+   * Whether a layer records its fault receivers in its output step with the given number: in its
+   * first step, in every `printTimeInterval`-th step after it, and close to the end of the
+   * simulation.
+   */
+  [[nodiscard]] bool isOutputIteration(std::size_t iterationStep, double time, double dt) const;
+
+  /// makes room in the cache for one more output step
+  static void ensureCacheLevel(ReceiverOutputData& outputData);
   void initElementwiseOutput();
   void initPickpointOutput();
 
@@ -82,7 +142,8 @@ class OutputManager {
   ::seissol::initializer::StorageBackmap<1> faceToLtsMap_;
   seissol::geometry::MeshReader* meshReader_{nullptr};
 
-  size_t iterationStep_{0};
+  //! the number of steps each layer has taken so far
+  std::unordered_map<std::size_t, std::size_t> iterationSteps_;
   static constexpr double TimeMargin{1.005};
   std::string backupTimeStamp_;
 

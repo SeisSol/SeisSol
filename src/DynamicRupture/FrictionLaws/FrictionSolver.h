@@ -44,6 +44,12 @@ class FrictionSolver {
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
+   * Makes the device read the time at the start of each step from the given clock, instead of
+   * the time passed to evaluate().
+   */
+  virtual void setClock(const double* /*deviceClock*/) {}
+
+  /**
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */

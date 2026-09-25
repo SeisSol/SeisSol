@@ -21,7 +21,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
-#include "Solver/TimeStepping/HaloCommunication.h"
+#include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
 #include <array>
 #include <cassert>
