@@ -11,6 +11,7 @@
 
 #include "AsyncCellIDs.h"
 #include "Common/Constants.h"
+#include "Equations/Datastructures.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Geometry/Refinement/TriangleRefiner.h"
@@ -121,6 +122,7 @@ void seissol::writer::FreeSurfaceWriter::init(
     const char* outputPrefix,
     double interval,
     xdmfwriter::BackendType backend,
+    const seissol::initializer::parameters::FreeSurfaceOutputParameters& parameters,
     const std::string& backupTimeStamp) {
   if (!enabled_) {
     return;
@@ -149,6 +151,27 @@ void seissol::writer::FreeSurfaceWriter::init(
   assert(bufferId == FreeSurfaceWriterExecutor::OutputPrefix);
   NDBG_UNUSED(bufferId);
 
+  std::array<bool, model::MaterialT::NumQuantities> active{};
+  std::size_t counter = 0;
+  for (auto& velocity : freeSurfaceIntegrator_->quantities) {
+    if (velocity != nullptr) {
+      active[counter] = true;
+      ++count_;
+    }
+    ++counter;
+  }
+  for (auto& _ : freeSurfaceIntegrator_->displacements) {
+    ++count_;
+  }
+
+  unsigned int countId = addSyncBuffer(&count_, sizeof(std::size_t), true);
+  assert(countId == FreeSurfaceWriterExecutor::Count);
+  NDBG_UNUSED(countId);
+
+  unsigned int activeId = addSyncBuffer(&active, sizeof(active), true);
+  assert(activeId == FreeSurfaceWriterExecutor::Mask);
+  NDBG_UNUSED(activeId);
+
   // Create mesh buffers
   bufferId =
       addSyncBuffer(cellIds.cells(), static_cast<unsigned long>(nCells * 3) * sizeof(unsigned));
@@ -165,8 +188,10 @@ void seissol::writer::FreeSurfaceWriter::init(
   assert(bufferId == FreeSurfaceWriterExecutor::GlobalIds);
   NDBG_UNUSED(bufferId);
 
-  for (auto& velocity : freeSurfaceIntegrator_->velocities) {
-    addBuffer(velocity, nCells * sizeof(real));
+  for (auto& velocity : freeSurfaceIntegrator_->quantities) {
+    if (velocity != nullptr) {
+      addBuffer(velocity, nCells * sizeof(real));
+    }
   }
   for (auto& displacement : freeSurfaceIntegrator_->displacements) {
     addBuffer(displacement, nCells * sizeof(real));
@@ -176,6 +201,9 @@ void seissol::writer::FreeSurfaceWriter::init(
   // Send all buffers for initialization
   //
   sendBuffer(FreeSurfaceWriterExecutor::OutputPrefix);
+
+  sendBuffer(FreeSurfaceWriterExecutor::Count);
+  sendBuffer(FreeSurfaceWriterExecutor::Mask);
 
   sendBuffer(FreeSurfaceWriterExecutor::Cells);
   sendBuffer(FreeSurfaceWriterExecutor::Vertices);
@@ -221,7 +249,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
   FreeSurfaceParam param;
   param.time = time;
 
-  for (unsigned i = 0; i < 2 * seissol::solver::FreeSurfaceIntegrator::NumComponents; ++i) {
+  for (unsigned i = 0; i < count_; ++i) {
     sendBuffer(FreeSurfaceWriterExecutor::Variables0 + i);
   }
 

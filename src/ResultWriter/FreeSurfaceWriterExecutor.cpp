@@ -8,6 +8,7 @@
 
 #include "FreeSurfaceWriterExecutor.h"
 
+#include "Equations/Datastructures.h"
 #include "Kernels/Precision.h"
 #include "Parallel/MPI.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -42,10 +43,19 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
     std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
     outputName += "-surface";
 
-    numVariables_ = 2 * seissol::solver::FreeSurfaceIntegrator::NumComponents;
+    numVariables_ = *static_cast<const std::size_t*>(info.buffer(Count));
     std::vector<const char*> variables;
     variables.reserve(numVariables_);
-    for (unsigned int i = 0; i < numVariables_; i++) {
+
+    const auto active =
+        *static_cast<const std::array<bool, model::MaterialT::NumQuantities>*>(info.buffer(Mask));
+
+    for (unsigned int i = 0; i < model::MaterialT::NumQuantities; i++) {
+      if (active[i]) {
+        variables.push_back(model::MaterialT::Quantities[i].c_str());
+      }
+    }
+    for (std::size_t i = 0; i < 3; ++i) {
       variables.push_back(Labels[i]);
     }
 
@@ -71,5 +81,4 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
   }
 }
 
-const char* const seissol::writer::FreeSurfaceWriterExecutor::Labels[] = {
-    "v1", "v2", "v3", "u1", "u2", "u3"};
+const char* const seissol::writer::FreeSurfaceWriterExecutor::Labels[] = {"u1", "u2", "u3"};

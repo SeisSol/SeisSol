@@ -325,6 +325,9 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
   }
 
   internal::initBoundaryStorage(mm.boundaryStorage(), mm.ltsStorage());
+
+  seissolInstance.freeSurfaceIntegrator().enabledQuantities =
+      outputParams.freeSurfaceParameters.outputMask;
   internal::initSurfaceStorage(
       mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator(), refinement);
 }
