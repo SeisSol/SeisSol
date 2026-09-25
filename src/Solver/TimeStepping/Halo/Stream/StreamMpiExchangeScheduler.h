@@ -14,7 +14,7 @@
 #include <memory>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * Exchanges the halo data with MPI operations that run in the order of a device stream: with MPICH
@@ -51,6 +51,6 @@ class StreamMpiExchangeScheduler : public StreamExchangeScheduler {
   std::vector<std::unique_ptr<Slot>> slots_;
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_STREAMMPIEXCHANGESCHEDULER_H_

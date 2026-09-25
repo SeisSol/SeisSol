@@ -17,7 +17,7 @@
 #include <mpi.h>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * Sends and receives the halo regions with MPI through pinned host buffers: the copy regions are
@@ -26,7 +26,7 @@ namespace seissol::time_stepping {
  */
 class StagedMpiHaloTransport : public HaloTransport {
   public:
-  StagedMpiHaloTransport(const solver::RemoteClusterPair& regions, bool persistent);
+  StagedMpiHaloTransport(const RemoteClusterPair& regions, bool persistent);
   ~StagedMpiHaloTransport() override;
 
   StagedMpiHaloTransport(const StagedMpiHaloTransport&) = delete;
@@ -43,7 +43,7 @@ class StagedMpiHaloTransport : public HaloTransport {
   private:
   enum class ReceiveState { RequiresMpiTesting, RequiresCopyTesting, Ready };
 
-  solver::RemoteClusterPair regions_;
+  RemoteClusterPair regions_;
   bool persistent_;
   std::vector<MPI_Request> sendRequests_;
   std::vector<MPI_Request> recvRequests_;
@@ -57,6 +57,6 @@ class StagedMpiHaloTransport : public HaloTransport {
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_MPI_STAGEDMPIHALOTRANSPORT_H_

@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 AbstractCommunicationManager::AbstractCommunicationManager(
     AbstractCommunicationManager::GhostClustersT ghostClusters)
@@ -73,4 +73,4 @@ void ThreadedCommunicationManager::reset(double newSyncTime) {
   helper_.start();
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

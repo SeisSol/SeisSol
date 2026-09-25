@@ -19,7 +19,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 double AbstractTimeCluster::timeStepSize() const { return ct_.timeStepSize(syncTime_); }
 
 StepParams AbstractTimeCluster::stepParams() const {
@@ -318,4 +318,4 @@ void AbstractTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLast
 
 bool AbstractTimeCluster::timeoutFail() const { return false; }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

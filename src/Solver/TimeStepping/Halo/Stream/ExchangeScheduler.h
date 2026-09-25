@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 class ScheduledTransport;
 
@@ -220,7 +220,7 @@ class ExchangeScheduler {
 class ScheduledTransport : public HaloTransport {
   public:
   ScheduledTransport(ExchangeScheduler& scheduler,
-                     const solver::RemoteClusterPair& regions,
+                     const RemoteClusterPair& regions,
                      std::size_t cluster,
                      std::size_t otherCluster);
 
@@ -234,13 +234,13 @@ class ScheduledTransport : public HaloTransport {
   void startReceive() override;
   bool testReceive() override;
 
-  [[nodiscard]] const solver::RemoteClusterPair& regions() const { return regions_; }
+  [[nodiscard]] const RemoteClusterPair& regions() const { return regions_; }
   [[nodiscard]] std::size_t cluster() const { return cluster_; }
   [[nodiscard]] std::size_t otherCluster() const { return otherCluster_; }
 
   private:
   ExchangeScheduler& scheduler_;
-  solver::RemoteClusterPair regions_;
+  RemoteClusterPair regions_;
   std::size_t cluster_;
   std::size_t otherCluster_;
   bool sending_{false};
@@ -249,6 +249,6 @@ class ScheduledTransport : public HaloTransport {
   std::size_t receiveExchange_{0};
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_EXCHANGESCHEDULER_H_

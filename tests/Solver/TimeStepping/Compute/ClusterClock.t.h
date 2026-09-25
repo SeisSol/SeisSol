@@ -15,7 +15,7 @@ namespace seissol::unit_test {
 TEST_CASE("The cluster clock adds up the steps like the cluster time" *
           doctest::test_suite("solver")) {
   parallel::runtime::StreamRuntime runtime;
-  time_stepping::ClusterClock clock;
+  solver::ClusterClock clock;
   CHECK(*clock.host() == 0);
 
   clock.set(0.25, runtime);

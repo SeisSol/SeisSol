@@ -37,7 +37,7 @@
 #include <sycl/sycl.hpp>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 namespace {
 
@@ -152,12 +152,12 @@ void quietOnStream(void* stream) { ishmemx_quiet_on_queue(queue(stream)); }
 
 device::DeviceInstance& deviceInstance() { return device::DeviceInstance::getInstance(); }
 
-std::size_t bytesOf(const solver::RemoteCluster& region) {
+std::size_t bytesOf(const RemoteCluster& region) {
   return region.size * sizeOfRealType(region.datatype);
 }
 
 // the peers of the regions, each once, in the order of the regions
-std::vector<int> peersOf(const std::vector<solver::RemoteCluster>& regions) {
+std::vector<int> peersOf(const std::vector<RemoteCluster>& regions) {
   std::vector<int> peers;
   for (const auto& region : regions) {
     if (std::find(peers.begin(), peers.end(), region.rank) == peers.end()) {
@@ -305,11 +305,11 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
   }
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #else
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount)
     : StreamExchangeScheduler(clusterCount, LaunchOrder::Global) {
@@ -335,6 +335,6 @@ std::size_t ShmemExchangeScheduler::signalIndex(std::size_t /*from*/,
   return 0;
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif

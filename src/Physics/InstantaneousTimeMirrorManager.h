@@ -43,7 +43,7 @@ class InstantaneousTimeMirrorManager : public Module {
   LTS::Storage* ltsStorage_{nullptr};
   const initializer::ClusterLayout* clusterLayout_{nullptr};
 
-  std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters_;
+  std::vector<seissol::solver::AbstractTimeCluster*> clusters_;
 
   public:
   explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance);
@@ -62,7 +62,7 @@ class InstantaneousTimeMirrorManager : public Module {
             LTS::Storage& ltsStorage,
             const initializer::ClusterLayout* clusterLayout);
 
-  void setClusterVector(const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters);
+  void setClusterVector(const std::vector<seissol::solver::AbstractTimeCluster*>& clusters);
 
   void syncPoint(double currentTime) override;
 

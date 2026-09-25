@@ -16,7 +16,7 @@
 #include <mpi.h>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * Tests the requests of the given regions, and removes the completed ones from the list. Returns
@@ -29,7 +29,7 @@ bool testRequests(MPI_Request* requests, std::list<std::size_t>& regions);
  */
 class MpiHaloTransport : public HaloTransport {
   public:
-  MpiHaloTransport(const solver::RemoteClusterPair& regions, bool persistent);
+  MpiHaloTransport(const RemoteClusterPair& regions, bool persistent);
   ~MpiHaloTransport() override = default;
 
   MpiHaloTransport(const MpiHaloTransport&) = delete;
@@ -44,7 +44,7 @@ class MpiHaloTransport : public HaloTransport {
   void finalize() override;
 
   private:
-  solver::RemoteClusterPair regions_;
+  RemoteClusterPair regions_;
   bool persistent_;
   std::vector<MPI_Request> sendRequests_;
   std::vector<MPI_Request> recvRequests_;
@@ -52,6 +52,6 @@ class MpiHaloTransport : public HaloTransport {
   std::list<std::size_t> receiveQueue_;
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_MPI_MPIHALOTRANSPORT_H_

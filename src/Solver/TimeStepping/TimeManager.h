@@ -32,7 +32,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 class AbstractCommunicationManager;
 
 /**
@@ -135,7 +135,7 @@ class TimeManager {
    * @param i_meshToClusters mapping from the mesh to the clusters.
    **/
   void addClusters(const initializer::ClusterLayout& clusterLayout,
-                   const solver::HaloCommunication& haloStructure,
+                   const HaloCommunication& haloStructure,
                    initializer::MemoryManager& memoryManager,
                    const SimulationSettings& settings);
 
@@ -182,6 +182,6 @@ class TimeManager {
   const initializer::ClusterLayout& getClusterLayout() { return clusterLayout_.value(); }
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_

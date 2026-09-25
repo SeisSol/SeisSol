@@ -18,10 +18,9 @@
 #include <list>
 #include <mpi.h>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
-StagedMpiHaloTransport::StagedMpiHaloTransport(const solver::RemoteClusterPair& regions,
-                                               bool persistent)
+StagedMpiHaloTransport::StagedMpiHaloTransport(const RemoteClusterPair& regions, bool persistent)
     : regions_(regions), persistent_(persistent), sendRequests_(regions.copy.size()),
       recvRequests_(regions.ghost.size()), hostCopyRegions_(regions.copy.size()),
       hostGhostRegions_(regions.ghost.size()), copyStreams_(regions.copy.size()),
@@ -170,6 +169,6 @@ void StagedMpiHaloTransport::finalize() {
   }
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // ACL_DEVICE

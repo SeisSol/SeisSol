@@ -18,7 +18,7 @@
 #include <memory>
 #include <string>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * Stands in for one remote time cluster next to the copy layer of a local one: it follows the
@@ -38,7 +38,7 @@ class GhostCluster : public AbstractTimeCluster {
                std::uint64_t timeStepRate,
                const std::string& displayName,
                const std::string& otherDisplayName,
-               const solver::RemoteClusterPair& regions,
+               const RemoteClusterPair& regions,
                std::unique_ptr<HaloTransport> transport);
 
   void reset() override;
@@ -120,6 +120,6 @@ class GhostCluster : public AbstractTimeCluster {
   void* deferredReceiveEvent_{nullptr};
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_GHOSTCLUSTER_H_

@@ -10,7 +10,7 @@
 
 #include "Parallel/Runtime/Stream.h"
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * The time at the start of the current step of a cluster, kept where the work on its stream reads
@@ -66,6 +66,6 @@ class ClusterClock {
   double** clockTable_{nullptr};
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_CLUSTERCLOCK_H_

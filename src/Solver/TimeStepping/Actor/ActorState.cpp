@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <string>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 std::string actorStateToString(ActorState state) {
   switch (state) {
@@ -53,4 +53,4 @@ NeighborCluster::NeighborCluster(double maxTimeStepSize,
   ct.timeStepRate = timeStepRate;
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

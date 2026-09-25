@@ -55,7 +55,7 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
     : seissolInstance_(seissolInstance), actorStateStatisticsManager_(loopStatistics_) {
@@ -80,7 +80,7 @@ namespace {
  * only cost synchronization.
  */
 void reportClusterDependencies(initializer::MemoryManager& memoryManager,
-                               const solver::HaloCommunication& haloStructure) {
+                               const HaloCommunication& haloStructure) {
   const auto& colorMap = memoryManager.ltsStorage().getColorMap();
 
   std::size_t connections = 0;
@@ -134,7 +134,7 @@ void reportClusterDependencies(initializer::MemoryManager& memoryManager,
 } // namespace
 
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
-                              const solver::HaloCommunication& haloStructure,
+                              const HaloCommunication& haloStructure,
                               initializer::MemoryManager& memoryManager,
                               const SimulationSettings& settings) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
@@ -816,4 +816,4 @@ void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #endif
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

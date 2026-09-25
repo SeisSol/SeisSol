@@ -13,7 +13,7 @@
 #include <cassert>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 StepContext computeStepContext(const ClusterTimes& times,
                                const std::vector<NeighborCluster>& neighbors) {
@@ -55,4 +55,4 @@ StepParams
   return params;
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

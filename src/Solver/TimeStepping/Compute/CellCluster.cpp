@@ -60,7 +60,7 @@
 #include <Device/AbstractAPI.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 CellCluster::CellCluster(unsigned int clusterId,
                          unsigned int globalClusterId,
@@ -815,4 +815,4 @@ std::string CellCluster::description() const {
   return "compute-" + haloStr;
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

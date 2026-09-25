@@ -14,7 +14,7 @@
 #include <list>
 #include <mpi.h>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 bool testRequests(MPI_Request* requests, std::list<std::size_t>& regions) {
   for (auto region = regions.begin(); region != regions.end();) {
@@ -30,7 +30,7 @@ bool testRequests(MPI_Request* requests, std::list<std::size_t>& regions) {
   return regions.empty();
 }
 
-MpiHaloTransport::MpiHaloTransport(const solver::RemoteClusterPair& regions, bool persistent)
+MpiHaloTransport::MpiHaloTransport(const RemoteClusterPair& regions, bool persistent)
     : regions_(regions), persistent_(persistent), sendRequests_(regions.copy.size()),
       recvRequests_(regions.ghost.size()) {
   if (persistent_) {
@@ -106,4 +106,4 @@ void MpiHaloTransport::finalize() {
   }
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

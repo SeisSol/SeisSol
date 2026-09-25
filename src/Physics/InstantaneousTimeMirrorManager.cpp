@@ -198,7 +198,7 @@ void InstantaneousTimeMirrorManager::scaleClusterTimes(double scalingFactor) {
 }
 
 void InstantaneousTimeMirrorManager::setClusterVector(
-    const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters) {
+    const std::vector<seissol::solver::AbstractTimeCluster*>& clusters) {
   this->clusters_ = clusters;
 }
 

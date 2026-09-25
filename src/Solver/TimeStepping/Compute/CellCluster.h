@@ -42,7 +42,7 @@ namespace seissol::kernels {
 class ReceiverCluster;
 } // namespace seissol::kernels
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * The cells of one layer, i.e. of one time cluster and halo type. They all advance with the time
@@ -265,6 +265,6 @@ class CellCluster : public AbstractTimeCluster {
   [[nodiscard]] std::string description() const override;
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_CELLCLUSTER_H_

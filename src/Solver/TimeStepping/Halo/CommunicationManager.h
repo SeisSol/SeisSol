@@ -17,7 +17,7 @@
 #include <thread>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 class AbstractCommunicationManager {
   public:
   using GhostClustersT = std::vector<std::unique_ptr<GhostCluster>>;
@@ -53,6 +53,6 @@ class ThreadedCommunicationManager : public AbstractCommunicationManager {
   seissol::parallel::HelperThread helper_;
 };
 
-} // end namespace seissol::time_stepping
+} // end namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_COMMUNICATIONMANAGER_H_

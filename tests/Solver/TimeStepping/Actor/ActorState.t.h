@@ -14,7 +14,7 @@
 #include <variant>
 
 namespace seissol::unit_test {
-using namespace seissol::time_stepping;
+using namespace seissol::solver;
 
 // ---------------------------------------------------------------------------
 // actorStateToString

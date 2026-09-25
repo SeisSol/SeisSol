@@ -16,7 +16,7 @@
 #include <tuple>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * Exchanges the halo data with one-sided puts of NVSHMEM, ROCSHMEM or Intel SHMEM, depending on the
@@ -79,6 +79,6 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   std::uint64_t* arrived_{nullptr};
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_SHMEMEXCHANGESCHEDULER_H_

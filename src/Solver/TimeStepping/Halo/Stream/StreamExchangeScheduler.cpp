@@ -18,7 +18,7 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 std::size_t StreamExchangeScheduler::slot(std::size_t from, std::size_t to) const {
   return launchOrder() == LaunchOrder::Global ? 0 : from * clusterCount_ + to;
@@ -172,4 +172,4 @@ void StreamExchangeScheduler::releaseEvents() {}
 
 #endif
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

@@ -14,7 +14,7 @@
 #include <map>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * An exchange scheduler whose library enqueues the operations of a group on a device stream (CCL,
@@ -88,6 +88,6 @@ class StreamExchangeScheduler : public ExchangeScheduler {
   void* latestEvent_{nullptr};
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_STREAMEXCHANGESCHEDULER_H_

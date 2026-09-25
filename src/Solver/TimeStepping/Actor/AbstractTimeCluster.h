@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 class AbstractTimeCluster {
   private:
@@ -270,6 +270,6 @@ class AbstractTimeCluster {
   std::vector<NeighborCluster>* getNeighborClusters();
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ABSTRACTTIMECLUSTER_H_

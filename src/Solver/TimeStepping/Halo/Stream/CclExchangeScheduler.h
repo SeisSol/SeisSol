@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * Exchanges the halo data with NCCL, RCCL or oneCCL, depending on the device backend: one
@@ -49,6 +49,6 @@ class CclExchangeScheduler : public StreamExchangeScheduler {
   std::vector<std::pair<void*, void*>> registrations_;
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_CCLEXCHANGESCHEDULER_H_

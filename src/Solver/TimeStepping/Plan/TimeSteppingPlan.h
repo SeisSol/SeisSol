@@ -13,7 +13,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * What the plan needs to know about a cluster.
@@ -49,6 +49,6 @@ struct PlannedAction {
  */
 std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clusters);
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_TIMESTEPPINGPLAN_H_

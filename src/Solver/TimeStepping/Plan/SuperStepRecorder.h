@@ -18,7 +18,7 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * Records the device work of whole super-timesteps (steps of the largest cluster) into graphs, and
@@ -100,6 +100,6 @@ class SuperStepRecorder {
 #endif
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_

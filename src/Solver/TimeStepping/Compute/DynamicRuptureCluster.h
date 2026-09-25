@@ -36,7 +36,7 @@ namespace seissol {
 class SeisSol;
 } // namespace seissol
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * The dynamic rupture faces of one layer: the space-time interpolation of the adjacent cells, the
@@ -141,6 +141,6 @@ class DynamicRuptureCluster : public FaceCluster {
   unsigned int profilingId_;
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_DYNAMICRUPTURECLUSTER_H_

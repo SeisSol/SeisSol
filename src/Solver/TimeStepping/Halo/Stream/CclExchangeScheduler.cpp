@@ -53,7 +53,7 @@ using StreamT = void*;
 #define CCLM(name) ONECCL_##name
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 namespace {
 
@@ -122,7 +122,7 @@ void CclExchangeScheduler::added([[maybe_unused]] const ScheduledTransport& tran
   // the copy regions go out in the direction towards the other cluster, the ghost regions come in
   // from it
   const auto registerRegions =
-      [&](const std::vector<solver::RemoteCluster>& regions, std::size_t from, std::size_t to) {
+      [&](const std::vector<RemoteCluster>& regions, std::size_t from, std::size_t to) {
         auto* communicator = communicators_[slot(from, to)];
         for (const auto& region : regions) {
           void* handle = nullptr;
@@ -174,11 +174,11 @@ void CclExchangeScheduler::enqueueGroup(std::size_t slot,
   check(CCL(GroupEnd)(), "GroupEnd");
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #else
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
     : StreamExchangeScheduler(clusterCount, order) {
@@ -196,6 +196,6 @@ void CclExchangeScheduler::enqueueGroup(std::size_t /*slot*/,
                                         const ScheduledTransport* /*sender*/,
                                         const ScheduledTransport* /*receiver*/) {}
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif

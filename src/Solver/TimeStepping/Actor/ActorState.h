@@ -14,7 +14,7 @@
 #include <limits>
 #include <string>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * The progress of a cluster since the last synchronization point, as seen by the other clusters.
@@ -112,6 +112,6 @@ struct StepWork {
   [[nodiscard]] bool irregular() const { return outputs || hostWork; }
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ACTORSTATE_H_

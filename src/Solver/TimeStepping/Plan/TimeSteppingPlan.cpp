@@ -14,7 +14,7 @@
 #include <tuple>
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 namespace {
 
@@ -64,4 +64,4 @@ std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clus
   return plan;
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

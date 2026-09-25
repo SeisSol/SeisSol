@@ -24,7 +24,7 @@
 #include <vector>
 
 namespace seissol::unit_test {
-using namespace seissol::time_stepping;
+using namespace seissol::solver;
 
 namespace {
 

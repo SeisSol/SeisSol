@@ -30,7 +30,7 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 void GhostCluster::sendCopyLayer(long target, void* after) {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(!sending_);
@@ -216,7 +216,7 @@ GhostCluster::GhostCluster(double maxTimeStepSize,
                            std::uint64_t timeStepRate,
                            const std::string& displayName,
                            const std::string& otherDisplayName,
-                           const solver::RemoteClusterPair& regions,
+                           const RemoteClusterPair& regions,
                            std::unique_ptr<HaloTransport> transport)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
@@ -261,4 +261,4 @@ std::size_t GhostCluster::sentMessages() const { return sentMessages_; }
 
 std::size_t GhostCluster::receivedMessages() const { return receivedMessages_; }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

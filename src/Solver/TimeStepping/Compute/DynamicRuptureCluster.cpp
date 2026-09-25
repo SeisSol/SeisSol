@@ -46,7 +46,7 @@
 #include <Device/AbstractAPI.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 DynamicRuptureCluster::DynamicRuptureCluster(
     double maxTimeStepSize,
@@ -437,4 +437,4 @@ std::string DynamicRuptureCluster::description() const {
   return "dr-" + haloStr;
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

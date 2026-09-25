@@ -10,7 +10,7 @@
 
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * The exchanges of a transport up to the next synchronization point. Each direction is described
@@ -101,6 +101,6 @@ class HaloTransport {
   virtual void finalize() {}
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_HALOTRANSPORT_H_

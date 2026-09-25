@@ -28,7 +28,7 @@
 #error "Stream-aware MPI needs STREAM_MPI_MPICH or STREAM_MPI_CRAY."
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 namespace {
 
@@ -178,11 +178,11 @@ void StreamMpiExchangeScheduler::enqueueGroup(std::size_t slot,
 #endif
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #else
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 struct StreamMpiExchangeScheduler::Slot {};
 
@@ -201,6 +201,6 @@ void StreamMpiExchangeScheduler::enqueueGroup(std::size_t /*slot*/,
                                               const ScheduledTransport* /*sender*/,
                                               const ScheduledTransport* /*receiver*/) {}
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif

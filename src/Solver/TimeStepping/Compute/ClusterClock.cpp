@@ -13,7 +13,7 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 #ifdef ACL_DEVICE
 
@@ -83,4 +83,4 @@ void ClusterClock::advance(double timeStepSize, parallel::runtime::StreamRuntime
 
 #endif
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

@@ -24,7 +24,7 @@
 #include "Solver/TimeStepping/Halo/Mpi/StagedMpiHaloTransport.h"
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
                                            bool persistent,
@@ -46,8 +46,9 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
 
 HaloTransportFactory::~HaloTransportFactory() = default;
 
-std::unique_ptr<HaloTransport> HaloTransportFactory::create(
-    const solver::RemoteClusterPair& regions, std::size_t cluster, std::size_t otherCluster) {
+std::unique_ptr<HaloTransport> HaloTransportFactory::create(const RemoteClusterPair& regions,
+                                                            std::size_t cluster,
+                                                            std::size_t otherCluster) {
   switch (mode_) {
   case Mpi::DataTransferMode::Direct:
     return std::make_unique<MpiHaloTransport>(regions, persistent_);
@@ -65,4 +66,4 @@ std::unique_ptr<HaloTransport> HaloTransportFactory::create(
   }
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

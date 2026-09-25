@@ -15,7 +15,7 @@
 #include <cstddef>
 #include <memory>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 class ExchangeScheduler;
 
@@ -45,9 +45,8 @@ class HaloTransportFactory {
    * Creates the transport between the copy layer of `cluster` and the ghost layer of
    * `otherCluster`. The transports need to be destroyed before the factory.
    */
-  std::unique_ptr<HaloTransport> create(const solver::RemoteClusterPair& regions,
-                                        std::size_t cluster,
-                                        std::size_t otherCluster);
+  std::unique_ptr<HaloTransport>
+      create(const RemoteClusterPair& regions, std::size_t cluster, std::size_t otherCluster);
 
   /**
    * The scheduler of the CCL transports; null for the others.
@@ -60,6 +59,6 @@ class HaloTransportFactory {
   std::unique_ptr<ExchangeScheduler> scheduler_;
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALOTRANSPORTFACTORY_H_

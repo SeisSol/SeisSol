@@ -13,7 +13,7 @@
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * A cluster that works on faces between cells. The face work of a step needs the predictions of
@@ -45,6 +45,6 @@ class FaceCluster : public AbstractTimeCluster {
   void handleNeighborCorrection(const NeighborCluster& /*neighborCluster*/) override {}
 };
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_FACECLUSTER_H_

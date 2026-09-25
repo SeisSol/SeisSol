@@ -17,7 +17,7 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 #ifdef ACL_DEVICE
 
@@ -168,4 +168,4 @@ void SuperStepRecorder::replay(const Key& /*key*/,
 
 #endif
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

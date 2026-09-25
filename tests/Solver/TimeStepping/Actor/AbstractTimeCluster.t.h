@@ -13,9 +13,9 @@
 #include <utility>
 #include <vector>
 namespace seissol::unit_test {
-using namespace time_stepping;
+using namespace solver;
 
-class MockTimeCluster : public time_stepping::AbstractTimeCluster {
+class MockTimeCluster : public solver::AbstractTimeCluster {
   public:
   MockTimeCluster(double maxTimeStepSize, long timeStepRate)
       : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host) {}
@@ -203,7 +203,7 @@ struct ActionRecord {
 /**
  * A cluster that logs its predictions and corrections.
  */
-class LoggingCluster : public time_stepping::AbstractTimeCluster {
+class LoggingCluster : public solver::AbstractTimeCluster {
   public:
   LoggingCluster(std::string name,
                  double maxTimeStepSize,

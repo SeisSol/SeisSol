@@ -12,7 +12,7 @@
 
 #include <vector>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 /**
  * The part of a cluster's neighborhood that its step parameters depend on.
@@ -80,6 +80,6 @@ StepContext computeStepContext(const ClusterTimes& times,
 StepParams
     computeStepParams(const ClusterTimes& times, double syncTime, const StepContext& context);
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_STEPPARAMS_H_

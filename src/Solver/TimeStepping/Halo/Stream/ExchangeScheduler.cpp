@@ -17,7 +17,7 @@
 #include <utility>
 #include <utils/logger.h>
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 namespace {
 
@@ -25,7 +25,7 @@ namespace {
  * Orders the regions by tag, and by peer within a tag; both sides of an exchange thus issue the
  * operations towards the same peer in the same order.
  */
-void sortRegions(std::vector<solver::RemoteCluster>& regions) {
+void sortRegions(std::vector<RemoteCluster>& regions) {
   std::sort(regions.begin(), regions.end(), [](const auto& a, const auto& b) {
     return a.tag < b.tag || (a.tag == b.tag && a.rank < b.rank);
   });
@@ -221,7 +221,7 @@ bool ExchangeScheduler::receiveCompleted(const ScheduledTransport& transport,
 }
 
 ScheduledTransport::ScheduledTransport(ExchangeScheduler& scheduler,
-                                       const solver::RemoteClusterPair& regions,
+                                       const RemoteClusterPair& regions,
                                        std::size_t cluster,
                                        std::size_t otherCluster)
     : scheduler_(scheduler), regions_(regions), cluster_(cluster), otherCluster_(otherCluster) {
@@ -272,4 +272,4 @@ bool ScheduledTransport::testReceive() {
   return !receiving_;
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver
