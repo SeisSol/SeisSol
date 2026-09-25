@@ -118,10 +118,10 @@ void Neighbor::computeBatchedNeighborsIntegral(
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     runtime.envMany(
-        (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
-          if (i < (*FaceRelations::Count)) {
+        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace), [&](void* stream, size_t i) {
+          if (i < (*FaceRelations::PerFace)) {
             // regular and periodic
-            const auto faceRelation = i;
+            const auto faceRelation = i + (*FaceRelations::PerFace) * face;
 
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
@@ -152,7 +152,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
               device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           } else {
-            const auto faceRelation = i - (*FaceRelations::Count);
+            const auto faceRelation =
+                (i - (*FaceRelations::PerFace)) * (*DrFaceRelations::PerFace) + face;
 
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);

@@ -12,6 +12,8 @@
 #include <utility>
 
 #ifdef ACL_DEVICE
+#include "Parallel/AcceleratorDevice.h"
+
 #include <Device/device.h>
 #endif
 
@@ -41,7 +43,7 @@ void HelperThread::start() {
     thread_ = std::thread([this]() {
 #ifdef ACL_DEVICE
       device::DeviceInstance& device = device::DeviceInstance::getInstance();
-      device.api->setDevice(0);
+      device.api->setDevice(seissol::AcceleratorDevice::getInstance().getDeviceId());
 #endif // ACL_DEVICE
       // Pin this thread to the last core
       // We compute the mask outside the thread because otherwise
