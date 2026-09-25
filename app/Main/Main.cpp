@@ -58,19 +58,19 @@ namespace {
 
 void initShmem(MPI_Comm comm) {
 #ifdef USE_NVSHMEM
-  nvshmem_init_attr_t attr{};
+  nvshmemx_init_attr_t attr{};
   attr.comm = comm;
-  nvshmem_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, attr);
+  nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
 #endif
 #ifdef USE_ROCSHMEM
   rocshmem_init_attr_t attr{};
   attr.comm = comm;
-  rocshmem_init_attr(ROCSHMEM_INIT_WITH_MPI_COMM, attr);
+  rocshmem_init_attr(ROCSHMEM_INIT_WITH_MPI_COMM, &attr);
 #endif
 #ifdef USE_ISHMEM
-  ishmem_init_attr_t attr{};
+  ishmemx_init_attr_t attr{};
   attr.comm = comm;
-  ishmem_init_attr(ISHMEMX_INIT_WITH_MPI_COMM, attr);
+  ishmemx_init_attr(ISHMEMX_INIT_WITH_MPI_COMM, &attr);
 #endif
 }
 

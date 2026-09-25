@@ -27,6 +27,8 @@
 
 #ifdef USE_SHMEM
 
+#include "Parallel/MPI.h"
+
 #ifdef USE_NVSHMEM
 #include <nvshmem.h>
 #include <nvshmemx.h>
@@ -158,7 +160,7 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
 #endif
   } else if (memkind == Memkind::Shmem) {
 #ifdef USE_SHMEM
-    ptrBuffer = mallocShmem(size);
+    ptrBuffer = mallocShmem(size, alignment);
 #endif
   } else {
     logError() << "unknown memkind type used ("

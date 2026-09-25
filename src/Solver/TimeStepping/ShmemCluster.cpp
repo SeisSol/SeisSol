@@ -50,11 +50,23 @@ void putOnStream(void* remote,
   StreamT nativeStream = static_cast<StreamT>(stream);
 #ifdef USE_NVSHMEM
   if (datatype == RealType::F64) {
-    nvhsmemx_double_put_signal_nbi_on_stream(
-        remote, local, size, signal, 1, NVSHMEM_SIGNAL_ADD, rank, nativeStream);
+    nvshmemx_double_put_signal_nbi_on_stream(reinterpret_cast<double*>(remote),
+                                             reinterpret_cast<const double*>(local),
+                                             size,
+                                             signal,
+                                             1,
+                                             NVSHMEM_SIGNAL_ADD,
+                                             rank,
+                                             nativeStream);
   } else if (datatype == RealType::F32) {
-    nvhsmemx_float_put_signal_nbi_on_stream(
-        remote, local, size, signal, 1, NVSHMEM_SIGNAL_ADD, rank, nativeStream);
+    nvshmemx_float_put_signal_nbi_on_stream(reinterpret_cast<float*>(remote),
+                                            reinterpret_cast<const float*>(local),
+                                            size,
+                                            signal,
+                                            1,
+                                            NVSHMEM_SIGNAL_ADD,
+                                            rank,
+                                            nativeStream);
   }
 #endif
 #ifdef USE_ROCSHMEM
@@ -70,11 +82,23 @@ void putOnStream(void* remote,
 #endif
 #ifdef USE_ISHMEM
   if (datatype == RealType::F64) {
-    ishmemx_double_put_signal_nbi_on_queue(
-        remote, local, size, signal, 1, ISHMEM_SIGNAL_ADD, rank, nativeStream);
+    ishmemx_double_put_signal_nbi_on_queue(reinterpret_cast<double*>(remote),
+                                           reinterpret_cast<const double*>(local),
+                                           size,
+                                           signal,
+                                           1,
+                                           ISHMEM_SIGNAL_ADD,
+                                           rank,
+                                           nativeStream);
   } else if (datatype == RealType::F32) {
-    ishmemx_float_put_signal_nbi_on_queue(
-        remote, local, size, signal, 1, ISHMEM_SIGNAL_ADD, rank, nativeStream);
+    ishmemx_float_put_signal_nbi_on_queue(reinterpret_cast<float*>(remote),
+                                          reinterpret_cast<const float*>(local),
+                                          size,
+                                          signal,
+                                          1,
+                                          ISHMEM_SIGNAL_ADD,
+                                          rank,
+                                          nativeStream);
   }
 #endif
 }
