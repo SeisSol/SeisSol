@@ -858,6 +858,14 @@ def _command_snapshot(args):
         record(args.result, result)
         print("skipped: the case did not report")
         return SKIP_RETURN_CODE
+    if args.only_configurations and args.configuration not in args.only_configurations:
+        # references are kept for a small set of configurations, so that one
+        # build refreshes all of them after a deliberate change of the numerics
+        result["status"] = "skipped"
+        result["reason"] = [f"{args.configuration} keeps no snapshot references"]
+        record(args.result, result)
+        print(f"skipped: {args.configuration} keeps no snapshot references")
+        return SKIP_RETURN_CODE
     case = json.loads(case_path.read_text(encoding="utf-8"))
     if case["status"] != "run":
         result["status"] = "skipped"
@@ -1142,6 +1150,13 @@ def main(argv=None):
     snapshot.add_argument("--capabilities", required=True)
     snapshot.add_argument("--environment", required=True)
     snapshot.add_argument("--source-dir", help="for recording the commit")
+    snapshot.add_argument("--configuration", default="", help="what this build is")
+    snapshot.add_argument(
+        "--only-configurations",
+        nargs="*",
+        default=[],
+        help="build configurations that keep references; empty means all of them",
+    )
     snapshot.add_argument("--tolerance-double", type=float, default=0.0)
     snapshot.add_argument("--tolerance-single", type=float, default=0.0)
     snapshot.add_argument(

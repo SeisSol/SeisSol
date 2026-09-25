@@ -23,6 +23,13 @@ set(SEISSOL_MINITEST_MPIEXEC_FLAGS "" CACHE STRING
 machine with fewer cores than the rank counts the cases ask for")
 set(SEISSOL_SNAPSHOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/references" CACHE PATH
     "Where the snapshot references live; may point to a separate repository")
+# References are kept for few configurations, so that a deliberate change of
+# the numerics can be accepted from a single build. Elastic carries by far the
+# most cases, since rupture and plasticity need it. A build outside this list
+# reports its snapshots as skipped, which the coverage test lists, so the gap
+# stays visible; a case marked SNAPSHOT_EVERYWHERE is kept in every build.
+set(SEISSOL_SNAPSHOT_CONFIGURATIONS "elastic-m0-o6-double-s1" CACHE STRING
+    "Build configurations that keep snapshot references")
 # The tolerances are a property of the environment a build runs in, relative
 # to the one the references were computed in, not of the cases: identical
 # environments reproduce the references bit for bit. Zero is therefore the
@@ -59,6 +66,10 @@ if (DEVICE_BACKEND)
 else()
   set(SEISSOL_CAP_DEVICE "none")
 endif()
+
+set(SEISSOL_BUILD_CONFIGURATION
+    "${EQUATIONS}-m${NUMBER_OF_MECHANISMS}-o${ORDER}-${PRECISION}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+message(STATUS "Verification: build configuration ${SEISSOL_BUILD_CONFIGURATION}")
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Capabilities.json.in
@@ -156,6 +167,7 @@ set_tests_properties(verification.faultreceivers PROPERTIES
 #                      [MATERIAL file] [RANKS n] [THREADS n] [STEPS n]
 #                      [TIMESTEP dt] [THRESHOLDS file] [EXPECT_ZERO]
 #                      [EXPECT_FAILURE regex] [NO_SNAPSHOT] [SNAPSHOT_KEY key]
+#                      [SNAPSHOT_EVERYWHERE]
 #                      [REQUIRE key=value ...] [SET Section.Key=Value ...]
 #                      [FILES name ...] [ACTIVITY column:threshold ...]
 #                      [LABELS label ...])
@@ -174,7 +186,7 @@ set_tests_properties(verification.faultreceivers PROPERTIES
 
 function(seissol_add_minitest)
   cmake_parse_arguments(MT
-      "EXPECT_ZERO;NO_SNAPSHOT"
+      "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
       "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE;SNAPSHOT_KEY"
       "REQUIRE;SET;FILES;ACTIVITY;LABELS"
       ${ARGN})
@@ -287,6 +299,10 @@ function(seissol_add_minitest)
   if (NOT MT_SNAPSHOT_KEY)
     set(MT_SNAPSHOT_KEY "{equations}-m{mechanisms}-o{order}-{precision}-s{fused}")
   endif()
+  set(snapshot_scope "")
+  if (NOT MT_SNAPSHOT_EVERYWHERE)
+    set(snapshot_scope --only-configurations ${SEISSOL_SNAPSHOT_CONFIGURATIONS})
+  endif()
   if (NOT MT_NO_SNAPSHOT AND NOT MT_EXPECT_ZERO AND NOT MT_EXPECT_FAILURE
       AND MT_RANKS EQUAL 1 AND MT_THREADS EQUAL 1)
     add_test(NAME verification.snapshot.${MT_NAME}
@@ -300,6 +316,8 @@ function(seissol_add_minitest)
                      --capabilities ${CMAKE_CURRENT_BINARY_DIR}/capabilities.json
                      --environment ${CMAKE_CURRENT_BINARY_DIR}/environment.json
                      --source-dir ${PROJECT_SOURCE_DIR}
+                     --configuration ${SEISSOL_BUILD_CONFIGURATION}
+                     ${snapshot_scope}
                      --tolerance-double ${SEISSOL_SNAPSHOT_TOLERANCE_DOUBLE}
                      --tolerance-single ${SEISSOL_SNAPSHOT_TOLERANCE_SINGLE}
                      --result ${CMAKE_CURRENT_BINARY_DIR}/results/snapshot-${MT_NAME}.json)
@@ -544,7 +562,7 @@ seissol_add_comparison(
 
 function(seissol_add_rupture)
   cmake_parse_arguments(RUP
-      "EXPECT_ZERO;NO_SNAPSHOT"
+      "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
       "NAME;FL;FAULT;MESH;RANKS;EXPECT_FAILURE"
       "SET;LABELS"
       ${ARGN})
