@@ -51,6 +51,18 @@ class OutputManager {
   bool beginPickpointStep(std::size_t layerId, double time, double dt);
 
   /**
+   * The number of output steps the layer has counted so far.
+   */
+  [[nodiscard]] std::size_t pickpointIteration(std::size_t layerId) const;
+
+  /**
+   * Whether the layer would record its fault receivers in the given output step; without counting
+   * it.
+   */
+  [[nodiscard]] bool
+      pickpointDue(std::size_t layerId, std::size_t iteration, double time, double dt) const;
+
+  /**
    * Records the fault receivers of the layer, for an output step that
    * `beginPickpointStep()` has found due.
    */
@@ -68,10 +80,11 @@ class OutputManager {
 
   protected:
   /**
-   * Whether the layer records its fault receivers in its current step: in its first step, in every
-   * `printTimeInterval`-th step after it, and close to the end of the simulation.
+   * Whether a layer records its fault receivers in its output step with the given number: in its
+   * first step, in every `printTimeInterval`-th step after it, and close to the end of the
+   * simulation.
    */
-  bool isAtPickpoint(std::size_t layerId, double time, double dt);
+  [[nodiscard]] bool isOutputIteration(std::size_t iterationStep, double time, double dt) const;
   void initElementwiseOutput();
   void initPickpointOutput();
 

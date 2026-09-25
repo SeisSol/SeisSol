@@ -31,6 +31,7 @@
 #include "Solver/TimeStepping/GhostCluster.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 #include "Solver/TimeStepping/HaloTransport.h"
+#include "Solver/TimeStepping/SuperStepRecorder.h"
 #include "Solver/TimeStepping/TimeSteppingPlan.h"
 
 #include <algorithm>
@@ -43,6 +44,7 @@
 #include <map>
 #include <memory>
 #include <mpi.h>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -381,6 +383,21 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
+  if (useSuperStepGraphs(seissolInstance_.env())) {
+    if (!followPlan_ || !concurrent_) {
+      logWarning() << "Recording super-timesteps needs a device, SEISSOL_TIMESTEPPING_PLAN=1 and"
+                   << "SEISSOL_CONCURRENT_CLUSTERS=1.";
+    } else if (!ghostClusterPointer->empty()) {
+      logWarning() << "Recording super-timesteps is only available without halo exchange.";
+    } else if (!SuperStepRecorder::available()) {
+      logWarning() << "This device cannot record super-timesteps.";
+    } else {
+      replay_ = true;
+      recorder_ = std::make_unique<SuperStepRecorder>();
+      logInfo() << "Regular super-timesteps get recorded and replayed.";
+    }
+  }
+
   std::vector<AbstractTimeCluster*> allClusters(clusters_.size() + ghostClusterPointer->size());
   for (std::size_t i = 0; i < clusters_.size(); ++i) {
     allClusters[i] = clusters_[i];
@@ -490,26 +507,12 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   }
 }
 
-void TimeManager::followPlan() {
-  std::vector<PlannedCluster> planned;
-  planned.reserve(clusters_.size());
-  for (auto* cluster : clusters_) {
-    planned.push_back({cluster->getTimeStepRate(),
-                       cluster->getStepsUntilSync(),
-                       cluster->dataReadiness(),
-                       cluster->getPriority()});
-  }
-
-  long largestRate = 1;
-  long lastTick = 0;
-  for (const auto& cluster : planned) {
-    largestRate = std::max(largestRate, cluster.timeStepRate);
-    lastTick = std::max(lastTick, cluster.stepsUntilSync);
-  }
-  // per super-timestep: whether it takes output samples, and whether it has any irregular step
-  std::map<long, std::pair<bool, bool>> superStepWork;
-
-  for (const auto& step : planTimeSteps(planned)) {
+StepWork TimeManager::takeSteps(const std::vector<PlannedAction>& plan,
+                                std::size_t begin,
+                                std::size_t end) {
+  StepWork work;
+  for (auto index = begin; index < end; ++index) {
+    const auto& step = plan[index];
     auto* cluster = clusters_[step.cluster];
     // along the plan, a cluster can only have to wait for the halo exchange
     auto action = cluster->getNextLegalAction();
@@ -522,23 +525,102 @@ void TimeManager::followPlan() {
                  << "of the time stepping plan.";
     }
     cluster->act();
+    work.outputs = work.outputs || cluster->lastStepWork().outputs;
+    work.hostWork = work.hostWork || cluster->lastStepWork().hostWork;
+  }
+  return work;
+}
 
-    // the super-timestep the action falls into, by the first tick it covers
-    const auto rate = planned[step.cluster].timeStepRate;
-    const auto superStep = step.step * rate / largestRate;
-    auto& [outputs, irregular] = superStepWork[superStep];
-    outputs = outputs || cluster->lastStepWork().outputs;
-    irregular = irregular || cluster->lastStepWork().irregular();
+void TimeManager::followPlan() {
+  std::vector<PlannedCluster> planned;
+  planned.reserve(clusters_.size());
+  for (auto* cluster : clusters_) {
+    planned.push_back({cluster->getTimeStepRate(),
+                       cluster->getStepsUntilSync(),
+                       cluster->dataReadiness(),
+                       cluster->getPriority()});
   }
 
-  for (const auto& [superStep, work] : superStepWork) {
+  long largestRate = 1;
+  long lastTick = 0;
+  long fullUntil = std::numeric_limits<long>::max();
+  for (const auto& cluster : planned) {
+    largestRate = std::max(largestRate, cluster.timeStepRate);
+    lastTick = std::max(lastTick, cluster.stepsUntilSync);
+    fullUntil = std::min(fullUntil, cluster.stepsUntilSync);
+  }
+  const auto plan = planTimeSteps(planned);
+
+  // the super-timestep an action falls into, by the first tick it covers; along the plan, the
+  // actions of a super-timestep come one after another
+  const auto superStepOf = [&](const PlannedAction& step) {
+    return step.step * planned[step.cluster].timeStepRate / largestRate;
+  };
+
+  std::size_t begin = 0;
+  while (begin < plan.size()) {
+    const auto superStep = superStepOf(plan[begin]);
+    std::vector<long> steps(clusters_.size(), 0);
+    auto end = begin;
+    while (end < plan.size() && superStepOf(plan[end]) == superStep) {
+      if (plan[end].action == ActorAction::Predict) {
+        ++steps[plan[end].cluster];
+      }
+      ++end;
+    }
+    assert(end == plan.size() || superStepOf(plan[end]) > superStep);
+
+    // decide on the super-timestep before any of its host parts has run
+    bool outputsAhead = false;
+    bool hostWork = false;
+    SuperStepRecorder::Key key;
+    for (std::size_t cluster = 0; cluster < clusters_.size(); ++cluster) {
+      outputsAhead = outputsAhead || clusters_[cluster]->outputsAhead(steps[cluster]);
+      hostWork = hostWork || clusters_[cluster]->hostWork();
+      key.push_back(clusters_[cluster]->nextTimeStepSize());
+    }
+    const bool full = (superStep + 1) * largestRate <= lastTick;
+    const bool replayable =
+        replay_ && (superStep + 1) * largestRate <= fullUntil && !outputsAhead && !hostWork;
+
+    StepWork work;
+    if (replayable && recorder_->has(key)) {
+      recorder_->beginReplay(clusters_);
+      for (auto* cluster : clusters_) {
+        cluster->setDeviceWork(false);
+      }
+      work = takeSteps(plan, begin, end);
+      for (auto* cluster : clusters_) {
+        cluster->setDeviceWork(true);
+      }
+      recorder_->replay(key, clusters_);
+      ++replayedSuperSteps_;
+    } else if (replayable && seenSuperSteps_.count(key) > 0) {
+      recorder_->beginRecording(clusters_);
+      work = takeSteps(plan, begin, end);
+      recorder_->endRecording(key, clusters_);
+      recorder_->replay(key, clusters_);
+      ++recordedSuperSteps_;
+    } else {
+      work = takeSteps(plan, begin, end);
+      if (replayable) {
+        seenSuperSteps_.insert(key);
+      }
+    }
+
+    // the decision in advance has to match what the host parts have decided
+    if (work.outputs != outputsAhead) {
+      ++mispredictedSuperSteps_;
+    }
+
     ++superSteps_;
-    if ((superStep + 1) * largestRate > lastTick) {
+    if (!full) {
       ++shortenedSuperSteps_;
     } else {
-      outputFreeSuperSteps_ += work.first ? 0 : 1;
-      regularSuperSteps_ += work.second ? 0 : 1;
+      outputFreeSuperSteps_ += work.outputs ? 0 : 1;
+      regularSuperSteps_ += work.irregular() ? 0 : 1;
     }
+    begin = end;
   }
 }
 
@@ -599,8 +681,13 @@ void TimeManager::freeDynamicResources() {
             << "received (summed over all ranks)";
 
   if (followPlan_) {
-    std::array<std::size_t, 4> superSteps{
-        superSteps_, shortenedSuperSteps_, outputFreeSuperSteps_, regularSuperSteps_};
+    std::array<std::size_t, 7> superSteps{superSteps_,
+                                          shortenedSuperSteps_,
+                                          outputFreeSuperSteps_,
+                                          regularSuperSteps_,
+                                          recordedSuperSteps_,
+                                          replayedSuperSteps_,
+                                          mispredictedSuperSteps_};
     MPI_Allreduce(MPI_IN_PLACE,
                   superSteps.data(),
                   superSteps.size(),
@@ -611,7 +698,12 @@ void TimeManager::freeDynamicResources() {
               << "; ending at a synchronization point:" << superSteps[1]
               << "; full ones without output samples:" << superSteps[2]
               << "; full ones without output samples or host work:" << superSteps[3]
+              << "; recorded:" << superSteps[4] << "; replayed:" << superSteps[5]
               << "(summed over all ranks)";
+    if (superSteps[6] > 0) {
+      logError() << "For" << superSteps[6]
+                 << "super-timesteps, the output samples were not decided correctly in advance.";
+    }
   }
   if (messages[0] != messages[1]) {
     logWarning() << "The halo exchange sent and received a different number of messages.";
@@ -619,6 +711,9 @@ void TimeManager::freeDynamicResources() {
 
   communicationManager_.reset(nullptr);
   haloTransports_.reset(nullptr);
+  if (recorder_ != nullptr) {
+    recorder_->dispose();
+  }
 }
 
 void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {

@@ -66,6 +66,16 @@ class ManagedEvent {
   void* eventPtr_{nullptr};
 };
 
+/**
+ * Whether the calling thread records a graph that spans several stream runtimes (e.g. a whole
+ * super-timestep). The graphs of single actions then run their work directly, so that it becomes
+ * part of it.
+ */
+inline bool& recordingOuterGraph() {
+  static thread_local bool recording = false;
+  return recording;
+}
+
 class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
@@ -161,6 +171,11 @@ class StreamRuntime {
 
   template <typename F>
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
+    if (recordingOuterGraph()) {
+      // the work becomes part of the graph being recorded
+      std::invoke(std::forward<F>(handler), *this);
+      return;
+    }
     if (!computeGraphHandle.isInitialized()) {
       computeGraphHandle = device().api->streamBeginCapture(allStreams_);
 

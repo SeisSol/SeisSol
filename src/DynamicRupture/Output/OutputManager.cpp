@@ -503,25 +503,36 @@ void OutputManager::initFaceToLtsMap() {
   impl_->setFaceToLtsMap(&faceToLtsMap_);
 }
 
-bool OutputManager::isAtPickpoint(std::size_t layerId, double time, double dt) {
+std::size_t OutputManager::pickpointIteration(std::size_t layerId) const {
+  const auto found = iterationSteps_.find(layerId);
+  return found == iterationSteps_.end() ? 0 : found->second;
+}
+
+bool OutputManager::pickpointDue(std::size_t layerId,
+                                 std::size_t iteration,
+                                 double time,
+                                 double dt) const {
+  return this->ppOutputBuilder_ && ppOutputData_.find(layerId) != ppOutputData_.end() &&
+         isOutputIteration(iteration, time, dt);
+}
+
+bool OutputManager::isOutputIteration(std::size_t iterationStep, double time, double dt) const {
   const auto& seissolParameters = seissolInstance_.parameters();
-  const auto iterationStep = iterationSteps_[layerId];
   const bool isFirstStep = iterationStep == 0;
   const double abortTime = seissolParameters.timeStepping.endTime;
   const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
 
   const int printTimeInterval = seissolParameters.output.pickpointParameters.printTimeInterval;
-  const bool isOutputIteration = iterationStep % printTimeInterval == 0;
+  const bool isIntervalStep = iterationStep % printTimeInterval == 0;
 
-  return (isFirstStep || isOutputIteration || isCloseToTimeOut);
+  return (isFirstStep || isIntervalStep || isCloseToTimeOut);
 }
 
 bool OutputManager::beginPickpointStep(std::size_t layerId, double time, double dt) {
   if (!this->ppOutputBuilder_) {
     return false;
   }
-  const bool due =
-      this->isAtPickpoint(layerId, time, dt) && ppOutputData_.find(layerId) != ppOutputData_.end();
+  const bool due = pickpointDue(layerId, pickpointIteration(layerId), time, dt);
   ++iterationSteps_[layerId];
   return due;
 }

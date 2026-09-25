@@ -267,10 +267,38 @@ void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
   }
 }
 
+bool DynamicRuptureCluster::hostWork() const {
+  return executor_ == Executor::Host || hasDifferentExecutorNeighbor() ||
+         frictionSolverDevice_->allocationPlace() == initializer::AllocationPlace::Host;
+}
+
+bool DynamicRuptureCluster::outputsAhead(long steps) const {
+  if (layerData_->size() == 0) {
+    return false;
+  }
+  // the same output steps the host parts of the next steps count
+  auto iteration = faultOutputManager_->pickpointIteration(layerData_->id());
+  double stepTime = ct_.correctionTime;
+  for (long step = 0; step < steps; ++step) {
+    double time = stepTime;
+    do {
+      const auto oldTime = time;
+      time += outputTimestep_;
+      const auto trueTime = std::min(time, syncTime_);
+      const auto trueDt = trueTime - oldTime;
+      if (faultOutputManager_->pickpointDue(layerData_->id(), iteration, trueTime, trueDt)) {
+        return true;
+      }
+      ++iteration;
+    } while (time * (1 + 1e-8) < stepTime + ct_.maxTimeStepSize && time < syncTime_);
+    stepTime += std::min(syncTime_ - stepTime, ct_.maxTimeStepSize);
+  }
+  return false;
+}
+
 StepWork DynamicRuptureCluster::prepare(ActorAction action) {
   StepWork work;
-  work.hostWork = executor_ == Executor::Host || hasDifferentExecutorNeighbor() ||
-                  frictionSolverDevice_->allocationPlace() == initializer::AllocationPlace::Host;
+  work.hostWork = hostWork();
   if (action == ActorAction::Correct) {
     const auto params = stepParams();
 

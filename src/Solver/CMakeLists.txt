@@ -23,6 +23,7 @@ add_library(seissol-solver OBJECT
     TimeStepping/MpiHaloTransport.cpp
     TimeStepping/StagedMpiHaloTransport.cpp
     TimeStepping/StepParams.cpp
+    TimeStepping/SuperStepRecorder.cpp
     TimeStepping/TimeManager.cpp
     TimeStepping/TimeSteppingPlan.cpp
 )

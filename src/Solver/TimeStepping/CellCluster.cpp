@@ -506,10 +506,33 @@ void CellCluster::handleNeighborPrediction(const NeighborCluster& /*...*/) {
 void CellCluster::handleNeighborCorrection(const NeighborCluster& /*...*/) {
   // Doesn't do anything
 }
+bool CellCluster::hostWork() const {
+  return executor_ == Executor::Host || hasDifferentExecutorNeighbor();
+}
+
+bool CellCluster::outputsAhead(long steps) const {
+  if (clusterData_->size() == 0 || receiverCluster_ == nullptr) {
+    return false;
+  }
+  // the times and receiver times the host parts of the next steps start with
+  double time = ct_.correctionTime;
+  double receiverTime = receiverTime_;
+  for (long step = 0; step < steps; ++step) {
+    const double timeStepSize = std::min(syncTime_ - time, ct_.maxTimeStepSize);
+    const auto sampling = receiverCluster_->planSampling(receiverTime, time, timeStepSize);
+    if (sampling.due) {
+      return true;
+    }
+    receiverTime = sampling.nextTime;
+    time += timeStepSize;
+  }
+  return false;
+}
+
 StepWork CellCluster::prepare(ActorAction action) {
   const auto params = stepParams();
   StepWork work;
-  work.hostWork = executor_ == Executor::Host || hasDifferentExecutorNeighbor();
+  work.hostWork = hostWork();
 
   if (action == ActorAction::Predict) {
     // without a device, the clock is up to date on the host; it has to agree with the time

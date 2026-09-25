@@ -119,7 +119,7 @@ class AbstractTimeCluster {
 
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate);
 
-  bool hasDifferentExecutorNeighbor();
+  [[nodiscard]] bool hasDifferentExecutorNeighbor() const;
 
   long timeStepRate_;
 
@@ -128,6 +128,9 @@ class AbstractTimeCluster {
 
   //! what the host part of the latest action has decided
   StepWork stepWork_{};
+
+  //! enqueue the device work of the actions
+  bool deviceWork_{true};
   //! number of time steps
   long numberOfTimeSteps_{0};
   Executor executor_;
@@ -183,6 +186,50 @@ class AbstractTimeCluster {
    * What the host part of the latest action has decided.
    */
   [[nodiscard]] const StepWork& lastStepWork() const { return stepWork_; }
+
+  /**
+   * Whether output samples fall into the next `steps` steps of this cluster; without any side
+   * effect, and with the same decisions the host parts of these steps take.
+   */
+  [[nodiscard]] virtual bool outputsAhead(long /*steps*/) const { return false; }
+
+  /**
+   * Whether this cluster computes on the host, or exchanges data with clusters that do.
+   */
+  [[nodiscard]] virtual bool hostWork() const { return false; }
+
+  /**
+   * Without device work, an action only runs its host part and keeps the books; its device work
+   * then has to come from elsewhere, e.g. a recording.
+   */
+  void setDeviceWork(bool deviceWork) { deviceWork_ = deviceWork; }
+
+  /**
+   * Makes the work enqueued from now on wait for the event.
+   */
+  void joinEvent(void* event) { waitForEvent(event); }
+
+  /**
+   * Returns an event that completes with the work enqueued so far; null if there is none.
+   */
+  void* markEvent() { return recordActionEvent(); }
+
+  /**
+   * The event that completes with the work of the latest action; null if there is none.
+   */
+  [[nodiscard]] void* latestEvent() const {
+    return progress_.event.load(std::memory_order_relaxed);
+  }
+
+  /**
+   * The size of the next step of this cluster.
+   */
+  [[nodiscard]] double nextTimeStepSize() const { return ct_.timeStepSize(syncTime_); }
+
+  /**
+   * Publishes the given event as the one that completes with the work of the latest action.
+   */
+  void publishEvent(void* event) { progress_.event.store(event, std::memory_order_relaxed); }
 
   /**
    * The number of steps of the smallest time cluster until the synchronization point; set by

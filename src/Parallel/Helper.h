@@ -56,6 +56,12 @@ inline bool useConcurrentClusters(utils::Env& env) {
 }
 
 /**
+ * Whether the device work of regular super-timesteps gets recorded into graphs and replayed.
+ * Requires the time stepping plan and concurrent clusters.
+ */
+inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTEP_GRAPHS", false); }
+
+/**
  * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
  * they are ready.
  */

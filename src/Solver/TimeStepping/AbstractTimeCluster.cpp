@@ -71,9 +71,11 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
   case ActorAction::Correct:
     assert(state_ == ActorState::Predicted);
     stepWork_ = prepare(ActorAction::Correct);
-    waitForNeighbors();
-    correct();
-    publishEvent();
+    if (deviceWork_) {
+      waitForNeighbors();
+      correct();
+      publishEvent();
+    }
     ct_.correctionTime += timeStepSize();
     ++numberOfTimeSteps_;
     ct_.stepsSinceLastSync += ct_.timeStepRate;
@@ -84,9 +86,11 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
   case ActorAction::Predict:
     assert(state_ == ActorState::Corrected);
     stepWork_ = prepare(ActorAction::Predict);
-    waitForNeighbors();
-    predict();
-    publishEvent();
+    if (deviceWork_) {
+      waitForNeighbors();
+      predict();
+      publishEvent();
+    }
     ct_.predictionsSinceLastSync += ct_.timeStepRate;
     ct_.predictionsSinceStart += ct_.timeStepRate;
     ct_.predictionTime += timeStepSize();
@@ -284,7 +288,7 @@ void AbstractTimeCluster::setClusterTimes(double newTimeStepSize) {
 
 std::vector<NeighborCluster>* AbstractTimeCluster::getNeighborClusters() { return &neighbors_; }
 
-bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
+bool AbstractTimeCluster::hasDifferentExecutorNeighbor() const {
   return std::any_of(neighbors_.begin(), neighbors_.end(), [&](auto& neighbor) {
     return neighbor.executor != executor_;
   });

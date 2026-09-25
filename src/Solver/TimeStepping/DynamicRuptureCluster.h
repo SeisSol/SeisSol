@@ -83,6 +83,11 @@ class DynamicRuptureCluster : public FaceCluster {
   void timeSet(double time) override;
   StepWork prepare(ActorAction action) override;
 
+  public:
+  [[nodiscard]] bool outputsAhead(long steps) const override;
+  [[nodiscard]] bool hostWork() const override;
+
+  protected:
   private:
   void computeDynamicRupture(const StepParams& params);
   void computeDynamicRuptureDevice(const StepParams& params);

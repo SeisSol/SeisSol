@@ -239,6 +239,11 @@ class CellCluster : public AbstractTimeCluster {
   StepWork prepare(ActorAction action) override;
 
   public:
+  [[nodiscard]] bool outputsAhead(long steps) const override;
+  [[nodiscard]] bool hostWork() const override;
+
+  protected:
+  public:
   [[nodiscard]] std::size_t layerId() const;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;

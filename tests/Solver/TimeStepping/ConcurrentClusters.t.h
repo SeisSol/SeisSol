@@ -20,6 +20,7 @@
 #include <memory>
 #include <random>
 #include <set>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -293,7 +294,70 @@ std::size_t runConcurrently(ConcurrentLayout& layout,
   return device.violations;
 }
 
+class CountingCluster : public AbstractTimeCluster {
+  public:
+  explicit CountingCluster(long timeStepRate)
+      : AbstractTimeCluster(static_cast<double>(timeStepRate), timeStepRate, Executor::Host) {}
+
+  std::size_t prepared{0};
+  std::size_t enqueued{0};
+
+  protected:
+  StepWork prepare(ActorAction /*action*/) override {
+    ++prepared;
+    return {};
+  }
+  void start() override {}
+  void predict() override { ++enqueued; }
+  void correct() override { ++enqueued; }
+  void handleNeighborPrediction(const NeighborCluster& /*neighbor*/) override {}
+  void handleNeighborCorrection(const NeighborCluster& /*neighbor*/) override {}
+  void printTimeoutMessage(std::chrono::seconds /*timeSinceLastUpdate*/) override {}
+};
+
 } // namespace
+
+TEST_CASE("Without device work, the clusters only keep the books" * doctest::test_suite("solver")) {
+  CountingCluster small(1);
+  CountingCluster large(2);
+  small.connect(large);
+  std::vector<CountingCluster*> clusters{&small, &large};
+
+  for (const auto [syncTime, deviceWork] :
+       std::vector<std::pair<long, bool>>{{5, false}, {9, true}}) {
+    for (auto* cluster : clusters) {
+      cluster->setSyncTime(static_cast<double>(syncTime));
+      cluster->reset();
+      cluster->setDeviceWork(deviceWork);
+      cluster->prepared = 0;
+      cluster->enqueued = 0;
+    }
+    std::vector<PlannedCluster> planned;
+    for (auto* cluster : clusters) {
+      REQUIRE(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
+      cluster->act();
+      planned.push_back({cluster->getTimeStepRate(),
+                         cluster->getStepsUntilSync(),
+                         cluster->dataReadiness(),
+                         cluster->getPriority()});
+    }
+    for (const auto& step : planTimeSteps(planned)) {
+      auto& cluster = *clusters[step.cluster];
+      REQUIRE(cluster.getNextLegalAction() == step.action);
+      cluster.act();
+    }
+    for (auto* cluster : clusters) {
+      REQUIRE(cluster->getNextLegalAction() == ActorAction::Sync);
+      cluster->act();
+      CHECK(cluster->synced());
+      // two actions per step, each with its host part; the device part only with device work
+      const auto steps = (cluster->getStepsUntilSync() + cluster->getTimeStepRate() - 1) /
+                         cluster->getTimeStepRate();
+      CHECK(cluster->prepared == static_cast<std::size_t>(2 * steps));
+      CHECK(cluster->enqueued == (deviceWork ? cluster->prepared : 0));
+    }
+  }
+}
 
 TEST_CASE("Concurrent clusters wait for their neighbors on the device" *
           doctest::test_suite("solver")) {

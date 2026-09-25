@@ -20,12 +20,15 @@
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/TimeStepping/GhostCluster.h"
 #include "Solver/TimeStepping/HaloTransport.h"
+#include "Solver/TimeStepping/SuperStepRecorder.h"
+#include "Solver/TimeStepping/TimeSteppingPlan.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <cassert>
 #include <list>
 #include <memory>
 #include <queue>
+#include <set>
 #include <utils/logger.h>
 #include <vector>
 
@@ -70,6 +73,20 @@ class TimeManager {
   std::size_t shortenedSuperSteps_{0};
   std::size_t outputFreeSuperSteps_{0};
   std::size_t regularSuperSteps_{0};
+  std::size_t recordedSuperSteps_{0};
+  std::size_t replayedSuperSteps_{0};
+  std::size_t mispredictedSuperSteps_{0};
+
+  //! record regular super-timesteps into graphs and replay them
+  bool replay_{false};
+  std::unique_ptr<SuperStepRecorder> recorder_;
+  //! the regular super-timesteps that have run once without a recording
+  std::set<SuperStepRecorder::Key> seenSuperSteps_;
+
+  /**
+   * Takes the steps [begin, end) of the plan, and returns what their host parts have decided.
+   */
+  StepWork takeSteps(const std::vector<PlannedAction>& plan, std::size_t begin, std::size_t end);
 
   //! the clusters only enqueue their device work
   bool concurrent_{false};
