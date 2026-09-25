@@ -7,7 +7,6 @@
 
 #include "SuperStepRecorder.h"
 
-#include "Common/Typedefs.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 
@@ -50,9 +49,7 @@ void SuperStepRecorder::dispose() {
   }
 }
 
-bool SuperStepRecorder::available() {
-  return Backend != DeviceBackend::Hip && deviceInstance().api->isCapableOfGraphCapturing();
-}
+bool SuperStepRecorder::available() { return deviceInstance().api->isCapableOfGraphCapturing(); }
 
 void* SuperStepRecorder::nextEvent() {
   auto* event = events_[eventIndex_];

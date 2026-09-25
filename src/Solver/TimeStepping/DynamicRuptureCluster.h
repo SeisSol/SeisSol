@@ -86,6 +86,7 @@ class DynamicRuptureCluster : public FaceCluster {
   public:
   [[nodiscard]] bool outputsAhead(long steps) const override;
   [[nodiscard]] bool hostWork() const override;
+  void setRunTimeOutputs(bool runTimeOutputs) override;
 
   protected:
   private:
@@ -94,6 +95,15 @@ class DynamicRuptureCluster : public FaceCluster {
   /// decides in which output steps of the current step the fault receivers record
   void planPickpointOutput(const StepParams& params);
   void writePickpointOutput(const StepParams& params);
+
+  /// decides about the output steps of the step that starts at `stepTime`, and records them
+  void recordPickpointsNow(double stepTime);
+
+  //! the fault receivers decide about their output steps when the work of a step runs
+  bool runTimeOutputs_{false};
+  //! the start of the step the fault receivers record in, for decisions at run time
+  double pickpointStepStartHost_{0};
+  double* pickpointStepStart_{&pickpointStepStartHost_};
 
   //! the output times of the current step at which the fault receivers record
   std::vector<double> pickpointTimes_;

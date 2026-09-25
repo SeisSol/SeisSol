@@ -257,7 +257,44 @@ void DynamicRuptureCluster::planPickpointOutput(const StepParams& params) {
   } while (time * (1 + 1e-8) < params.time + ct_.maxTimeStepSize && time < syncTime_);
 }
 
+void DynamicRuptureCluster::setRunTimeOutputs(bool runTimeOutputs) {
+  runTimeOutputs_ = runTimeOutputs;
+#ifdef ACL_DEVICE
+  if (runTimeOutputs_ && pickpointStepStart_ == &pickpointStepStartHost_) {
+    pickpointStepStart_ = static_cast<double*>(device_.api->allocPinnedMem(sizeof(double)));
+  }
+#endif
+}
+
+void DynamicRuptureCluster::recordPickpointsNow(double stepTime) {
+  // the same output steps as planPickpointOutput() and writePickpointOutput(), for the step that
+  // starts at stepTime
+  const auto layerId = layerData_->id();
+  const double meshDt = ct_.getTimeStepSize();
+  const double stateTime = stepTime + std::min(syncTime_ - stepTime, ct_.maxTimeStepSize);
+  double time = stepTime;
+  do {
+    const auto oldTime = time;
+    time += outputTimestep_;
+    const auto trueTime = std::min(time, syncTime_);
+    const auto trueDt = trueTime - oldTime;
+    if (faultOutputManager_->beginPickpointStep(layerId, trueTime, trueDt)) {
+      faultOutputManager_->evaluatePickpointOutput(layerId, stateTime, trueTime, meshDt, 0);
+    }
+  } while (time * (1 + 1e-8) < stepTime + ct_.maxTimeStepSize && time < syncTime_);
+}
+
 void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
+  if (runTimeOutputs_) {
+    const auto layerId = layerData_->id();
+    if (faultOutputManager_->hasPickpoints(layerId)) {
+      auto& callRuntime = faultOutputManager_->gatherPickpointData(
+          layerId, clock_.device(), pickpointStepStart_, params.time, streamRuntime_);
+      callRuntime.enqueueHost([this]() { recordPickpointsNow(*pickpointStepStart_); });
+    }
+    return;
+  }
+
   const double meshDt = ct_.getTimeStepSize();
   // the friction law has just evaluated this step up to its end, and that is the state written out
   const double stateTime = params.time + params.timeStepSize;
@@ -273,7 +310,7 @@ bool DynamicRuptureCluster::hostWork() const {
 }
 
 bool DynamicRuptureCluster::outputsAhead(long steps) const {
-  if (layerData_->size() == 0) {
+  if (layerData_->size() == 0 || runTimeOutputs_) {
     return false;
   }
   // the same output steps the host parts of the next steps count
@@ -306,8 +343,10 @@ StepWork DynamicRuptureCluster::prepare(ActorAction action) {
     assert(isDeviceOn() || *clock_.host() == params.time);
 
     if (layerData_->size() > 0) {
-      planPickpointOutput(params);
-      work.outputs = !pickpointTimes_.empty();
+      if (!runTimeOutputs_) {
+        planPickpointOutput(params);
+        work.outputs = !pickpointTimes_.empty();
+      }
       seissolInstance_.flopCounter().incrementMetric(perfHandle_, estimate_);
     }
   }
@@ -367,6 +406,12 @@ ActResult DynamicRuptureCluster::act() {
 }
 
 void DynamicRuptureCluster::finalize() {
+#ifdef ACL_DEVICE
+  if (pickpointStepStart_ != &pickpointStepStartHost_) {
+    device_.api->freePinnedMem(pickpointStepStart_);
+    pickpointStepStart_ = &pickpointStepStartHost_;
+  }
+#endif
   clock_.dispose();
   streamRuntime_.dispose();
 }

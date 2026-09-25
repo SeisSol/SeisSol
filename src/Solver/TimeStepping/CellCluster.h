@@ -173,6 +173,9 @@ class CellCluster : public AbstractTimeCluster {
   //! the receiver samples of the current step, as planned by prepare()
   kernels::ReceiverCluster::Sampling receiverSampling_{};
 
+  //! the outputs decide about their samples when the work of a step runs
+  bool runTimeOutputs_{false};
+
   //! print status
   bool printProgress_;
   //! cluster id on this rank
@@ -228,9 +231,14 @@ class CellCluster : public AbstractTimeCluster {
 
   void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
     this->receiverCluster_ = receiverCluster;
+    if (receiverCluster_ != nullptr) {
+      receiverCluster_->setNextSampleTime(receiverTime_);
+    }
   }
 
   void finalize() override;
+
+  void setRunTimeOutputs(bool runTimeOutputs) override;
 
   protected:
   void* recordActionEvent() override;

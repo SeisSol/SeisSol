@@ -147,8 +147,13 @@ void CellCluster::writeReceivers(const StepParams& params) {
   SCOREP_USER_REGION("writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   if (receiverCluster_ != nullptr) {
-    receiverCluster_->sample(
-        receiverSampling_, params.time, params.timeStepSize, executor_, streamRuntime_);
+    if (runTimeOutputs_) {
+      receiverCluster_->sampleAtRunTime(
+          clock_.device(), params.time, params.timeStepSize, executor_, streamRuntime_);
+    } else {
+      receiverCluster_->sample(
+          receiverSampling_, params.time, params.timeStepSize, executor_, streamRuntime_);
+    }
   }
 }
 
@@ -511,7 +516,7 @@ bool CellCluster::hostWork() const {
 }
 
 bool CellCluster::outputsAhead(long steps) const {
-  if (clusterData_->size() == 0 || receiverCluster_ == nullptr) {
+  if (clusterData_->size() == 0 || receiverCluster_ == nullptr || runTimeOutputs_) {
     return false;
   }
   // the times and receiver times the host parts of the next steps start with
@@ -539,7 +544,7 @@ StepWork CellCluster::prepare(ActorAction action) {
     assert(isDeviceOn() || *clock_.host() == params.time);
 
     if (clusterData_->size() > 0) {
-      if (receiverCluster_ != nullptr) {
+      if (receiverCluster_ != nullptr && !runTimeOutputs_) {
         receiverSampling_ =
             receiverCluster_->planSampling(receiverTime_, params.time, params.timeStepSize);
         receiverTime_ = receiverSampling_.nextTime;
@@ -641,7 +646,12 @@ HaloType CellCluster::getLayerType() const { return layerType_; }
 void CellCluster::setTime(double time) {
   AbstractTimeCluster::setTime(time);
   this->receiverTime_ = time;
+  if (receiverCluster_ != nullptr) {
+    receiverCluster_->setNextSampleTime(time);
+  }
 }
+
+void CellCluster::setRunTimeOutputs(bool runTimeOutputs) { runTimeOutputs_ = runTimeOutputs; }
 
 void CellCluster::finalize() {
   sourceCluster_.host.reset(nullptr);

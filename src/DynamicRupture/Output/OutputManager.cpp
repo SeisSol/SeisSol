@@ -7,6 +7,10 @@
 
 #include "DynamicRupture/Output/OutputManager.h"
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
@@ -537,6 +541,65 @@ bool OutputManager::beginPickpointStep(std::size_t layerId, double time, double 
   return due;
 }
 
+void OutputManager::ensureCacheLevel(ReceiverOutputData& outputData) {
+  if (outputData.currentCacheLevel >= outputData.maxCacheLevel) {
+    // our calculation was off (maybe due to many intermediate sync points), so resize
+
+    outputData.maxCacheLevel = outputData.currentCacheLevel + 1;
+    const auto newCacheLevel = outputData.maxCacheLevel;
+    outputData.cachedTime.resize(newCacheLevel);
+    misc::forEach(outputData.vars,
+                  [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
+  }
+}
+
+bool OutputManager::hasPickpoints(std::size_t layerId) const {
+  return this->ppOutputBuilder_ && ppOutputData_.find(layerId) != ppOutputData_.end();
+}
+
+void OutputManager::prepareRunTimeOutput() {
+  for (const auto& [layerId, _] : ppOutputData_) {
+    iterationSteps_.try_emplace(layerId, 0);
+  }
+}
+
+parallel::runtime::StreamRuntime&
+    OutputManager::gatherPickpointData(std::size_t layerId,
+                                       [[maybe_unused]] const double* deviceClock,
+                                       double* stepStart,
+                                       double hostTime,
+                                       parallel::runtime::StreamRuntime& runtime) {
+  const auto& outputData = ppOutputData_.at(layerId);
+#ifdef ACL_DEVICE
+  if (outputData->extraRuntime.has_value()) {
+    runtime.eventSync(outputData->extraRuntime->eventRecord());
+  }
+  device::DeviceInstance::getInstance().api->copyFromAsync(
+      stepStart, deviceClock, sizeof(double), runtime.stream());
+  ReceiverOutput::gatherFaultOutput(outputData, runtime);
+  if (outputData->extraRuntime.has_value()) {
+    outputData->extraRuntime->eventSync(runtime.eventRecord());
+  }
+#else
+  *stepStart = hostTime;
+#endif
+  return outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+}
+
+void OutputManager::evaluatePickpointOutput(
+    std::size_t layerId, double stateTime, double time, double meshDt, double meshInDt) {
+  const auto& seissolParameters = seissolInstance_.parameters();
+  const auto& outputData = ppOutputData_.at(layerId);
+  ensureCacheLevel(*outputData);
+  impl_->evaluateFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
+                             seissolParameters.drParameters.slipRateOutputType,
+                             outputData,
+                             stateTime,
+                             time,
+                             meshDt,
+                             meshInDt);
+}
+
 void OutputManager::recordPickpointOutput(std::size_t layerId,
                                           double stateTime,
                                           double time,
@@ -545,16 +608,7 @@ void OutputManager::recordPickpointOutput(std::size_t layerId,
                                           parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance_.parameters();
   const auto& outputData = ppOutputData_.at(layerId);
-
-  if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
-    // our calculation was off (maybe due to many intermediate sync points), so resize
-
-    outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
-    const auto newCacheLevel = outputData->maxCacheLevel;
-    outputData->cachedTime.resize(newCacheLevel);
-    misc::forEach(outputData->vars,
-                  [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
-  }
+  ensureCacheLevel(*outputData);
 
   impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                          seissolParameters.drParameters.slipRateOutputType,

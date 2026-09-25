@@ -123,6 +123,24 @@ class ReceiverCluster {
               Executor executor,
               parallel::runtime::StreamRuntime& runtime);
 
+  /**
+   * Takes the samples of the step that starts at the time on the clock, and decides about them
+   * only when the enqueued work runs; the next sample time is then kept here. Replaying the
+   * enqueued work (e.g. from a graph) thus takes the samples of the step it runs in. On the device,
+   * the receiver data gets copied to the host in every step; on the host, the step starts at
+   * `hostTime`.
+   */
+  void sampleAtRunTime(const double* deviceClock,
+                       double hostTime,
+                       double timeStepWidth,
+                       Executor executor,
+                       parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Sets the next sample time for sampleAtRunTime().
+   */
+  void setNextSampleTime(double time) { nextSampleTime_ = time; }
+
   std::vector<Receiver>::iterator begin() { return receivers_.begin(); }
 
   std::vector<Receiver>::iterator end() { return receivers_.end(); }
@@ -143,6 +161,14 @@ class ReceiverCluster {
   PerformanceEstimate estimate_{};
   std::size_t perfHandle_{};
   double samplingInterval_;
+
+  void sampleReceiver(
+      std::size_t i, double time, double expansionPoint, double timeStepWidth, Executor executor);
+
+  // for sampleAtRunTime(): the next sample time, and the start of the step the samples are taken in
+  double nextSampleTime_{0};
+  double stepStartHost_{0};
+  double* stepStart_{&stepStartHost_};
   double syncPointInterval_;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities_;
   seissol::SeisSol& seissolInstance_;

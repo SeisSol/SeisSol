@@ -117,7 +117,8 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueHost(F&& handler) {
-    if (Backend != DeviceBackend::Hip) {
+    // while recording a graph, the host function has to become part of it
+    if (Backend != DeviceBackend::Hip || recordingOuterGraph()) {
       device().api->streamHostFunction(streamPtr_->get(), std::forward<F>(handler));
     } else {
       // if the stream host function call isn't implemented or slow, we'll need to synchronize

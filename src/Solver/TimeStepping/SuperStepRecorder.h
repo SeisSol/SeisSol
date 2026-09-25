@@ -30,7 +30,7 @@ namespace seissol::time_stepping {
  * stream of the recorder, and makes all clusters wait for it. Meanwhile, the clusters only run the
  * host parts of their actions.
  *
- * Only available on devices that can record graphs with host functions that run asynchronously.
+ * Only available on devices that can record graphs.
  */
 class SuperStepRecorder {
   public:

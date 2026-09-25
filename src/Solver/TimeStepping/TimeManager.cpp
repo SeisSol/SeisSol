@@ -384,6 +384,13 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   if (useSuperStepGraphs(seissolInstance_.env())) {
+    // the outputs must not stand in the way of a recording
+    runTimeOutputs_ = true;
+    for (auto* cluster : clusters_) {
+      cluster->setRunTimeOutputs(true);
+    }
+    logInfo() << "The outputs decide about their samples when the work of a step runs.";
+
     if (!followPlan_ || !concurrent_) {
       logWarning() << "Recording super-timesteps needs a device, SEISSOL_TIMESTEPPING_PLAN=1 and"
                    << "SEISSOL_CONCURRENT_CLUSTERS=1.";
@@ -425,6 +432,11 @@ seissol::dr::output::OutputManager* TimeManager::faultOutputManager() {
 
 void TimeManager::advanceInTime(const double& synchronizationTime) {
   SCOREP_USER_REGION("advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION)
+
+  if (runTimeOutputs_ && faultOutputManager_ != nullptr) {
+    // the fault receivers of different layers count their output steps on different threads
+    faultOutputManager_->prepareRunTimeOutput();
+  }
 
   for (auto& cluster : clusters_) {
     cluster->setSyncTime(synchronizationTime);

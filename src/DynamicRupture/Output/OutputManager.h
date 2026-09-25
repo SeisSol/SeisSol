@@ -51,6 +51,35 @@ class OutputManager {
   bool beginPickpointStep(std::size_t layerId, double time, double dt);
 
   /**
+   * Whether the layer has fault receivers.
+   */
+  [[nodiscard]] bool hasPickpoints(std::size_t layerId) const;
+
+  /**
+   * Prepares the output step counters, so that the steps of different layers can be counted from
+   * different threads.
+   */
+  void prepareRunTimeOutput();
+
+  /**
+   * For fault receivers whose output steps get decided when the work of a step runs: waits until
+   * the fault receivers of the last step have been recorded, takes the start of the step (from the
+   * clock on the device, as `hostTime` on the host), and copies the data of the output points to
+   * the host. Returns the runtime to enqueue the decision on.
+   */
+  parallel::runtime::StreamRuntime& gatherPickpointData(std::size_t layerId,
+                                                        const double* deviceClock,
+                                                        double* stepStart,
+                                                        double hostTime,
+                                                        parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Records the fault receivers of the layer right away, from data gathered before.
+   */
+  void evaluatePickpointOutput(
+      std::size_t layerId, double stateTime, double time, double meshDt, double meshInDt);
+
+  /**
    * The number of output steps the layer has counted so far.
    */
   [[nodiscard]] std::size_t pickpointIteration(std::size_t layerId) const;
@@ -85,6 +114,9 @@ class OutputManager {
    * simulation.
    */
   [[nodiscard]] bool isOutputIteration(std::size_t iterationStep, double time, double dt) const;
+
+  /// makes room in the cache for one more output step
+  static void ensureCacheLevel(ReceiverOutputData& outputData);
   void initElementwiseOutput();
   void initPickpointOutput();
 

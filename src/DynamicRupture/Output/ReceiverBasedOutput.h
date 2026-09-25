@@ -52,8 +52,37 @@ class ReceiverOutput {
                        double dt = 1.0,
                        double indt = 0.0);
 
+  /**
+   * Copies the data of the output points from the device to the host, in the order of the stream.
+   */
+  static void gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Evaluates the output points right away, on the host, from data gathered before; for work that
+   * already runs in the order of the stream.
+   */
+  void evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                           seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                           const std::shared_ptr<ReceiverOutputData>& outputData,
+                           double stateTime,
+                           double time,
+                           double dt,
+                           double indt);
+
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
+  private:
+  std::function<void(std::size_t)>
+      faultOutputHandler(seissol::initializer::parameters::OutputType outputType,
+                         seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                         const std::shared_ptr<ReceiverOutputData>& outputData,
+                         std::size_t level,
+                         double stateTime,
+                         double dt,
+                         double indt);
+
+  public:
   protected:
   LTS::Storage* wpStorage_{nullptr};
   LTS::Backmap* wpBackmap_{nullptr};

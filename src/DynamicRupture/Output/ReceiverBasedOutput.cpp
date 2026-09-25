@@ -44,6 +44,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -78,19 +79,24 @@ void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
   assert(derivatives != nullptr);
 }
 
-void ReceiverOutput::calcFaultOutput(
+void ReceiverOutput::gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                       parallel::runtime::StreamRuntime& runtime) {
+  if constexpr (isDeviceOn()) {
+    outputData->deviceDataCollector->gatherToHost(runtime.stream());
+    for (auto& [_, dataCollector] : outputData->deviceVariables) {
+      dataCollector->gatherToHost(runtime.stream());
+    }
+  }
+}
+
+std::function<void(std::size_t)> ReceiverOutput::faultOutputHandler(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
-    parallel::runtime::StreamRuntime& runtime,
+    std::size_t level,
     double stateTime,
-    double time,
     double dt,
     double indt) {
-
-  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
-                           ? outputData->currentCacheLevel
-                           : 0;
   const auto& faultInfos = meshReader_->getFault();
 
   // the friction solve advances in the sub intervals of the time quadrature; the stored friction
@@ -104,33 +110,16 @@ void ReceiverOutput::calcFaultOutput(
     coeff = -coeff;
   }
 
-  auto& callRuntime =
-      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-
-  if constexpr (isDeviceOn()) {
-    if (outputData->extraRuntime.has_value()) {
-      runtime.eventSync(outputData->extraRuntime->eventRecord());
-    }
-    outputData->deviceDataCollector->gatherToHost(runtime.stream());
-    for (auto& [_, dataCollector] : outputData->deviceVariables) {
-      dataCollector->gatherToHost(runtime.stream());
-    }
-    if (outputData->extraRuntime.has_value()) {
-      outputData->extraRuntime->eventSync(runtime.eventRecord());
-    }
-  }
-
-  const auto points = outputData->receiverPoints.size();
-  const auto handler = [this,
-                        outputData,
-                        &faultInfos,
-                        outputType,
-                        slipRateOutputType,
-                        level,
-                        timeCoeffs,
-                        integrateCoeffs,
-                        stateTime,
-                        frictionTime](std::size_t i) {
+  return [this,
+          outputData,
+          &faultInfos,
+          outputType,
+          slipRateOutputType,
+          level,
+          timeCoeffs,
+          integrateCoeffs,
+          stateTime,
+          frictionTime](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -396,8 +385,64 @@ void ReceiverOutput::calcFaultOutput(
     }
     this->outputSpecifics(outputData, local, level, i);
   };
+}
 
-  callRuntime.enqueueLoop(points, handler);
+void ReceiverOutput::calcFaultOutput(
+    seissol::initializer::parameters::OutputType outputType,
+    seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+    const std::shared_ptr<ReceiverOutputData>& outputData,
+    parallel::runtime::StreamRuntime& runtime,
+    double stateTime,
+    double time,
+    double dt,
+    double indt) {
+
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
+
+  auto& callRuntime =
+      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+
+  if constexpr (isDeviceOn()) {
+    if (outputData->extraRuntime.has_value()) {
+      runtime.eventSync(outputData->extraRuntime->eventRecord());
+    }
+    gatherFaultOutput(outputData, runtime);
+    if (outputData->extraRuntime.has_value()) {
+      outputData->extraRuntime->eventSync(runtime.eventRecord());
+    }
+  }
+
+  const auto points = outputData->receiverPoints.size();
+  callRuntime.enqueueLoop(
+      points,
+      faultOutputHandler(outputType, slipRateOutputType, outputData, level, stateTime, dt, indt));
+
+  if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
+    outputData->cachedTime[outputData->currentCacheLevel] = time;
+    outputData->currentCacheLevel += 1;
+  }
+}
+
+void ReceiverOutput::evaluateFaultOutput(
+    seissol::initializer::parameters::OutputType outputType,
+    seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+    const std::shared_ptr<ReceiverOutputData>& outputData,
+    double stateTime,
+    double time,
+    double dt,
+    double indt) {
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
+  const auto handler =
+      faultOutputHandler(outputType, slipRateOutputType, outputData, level, stateTime, dt, indt);
+  const auto points = outputData->receiverPoints.size();
+#pragma omp parallel for schedule(static)
+  for (std::size_t i = 0; i < points; ++i) {
+    handler(i);
+  }
 
   if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;

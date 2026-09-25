@@ -77,6 +77,9 @@ class TimeManager {
   std::size_t replayedSuperSteps_{0};
   std::size_t mispredictedSuperSteps_{0};
 
+  //! the outputs decide about their samples when the work of a step runs
+  bool runTimeOutputs_{false};
+
   //! record regular super-timesteps into graphs and replay them
   bool replay_{false};
   std::unique_ptr<SuperStepRecorder> recorder_;

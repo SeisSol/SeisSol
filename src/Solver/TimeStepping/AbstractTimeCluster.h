@@ -199,6 +199,12 @@ class AbstractTimeCluster {
   [[nodiscard]] virtual bool hostWork() const { return false; }
 
   /**
+   * Lets the outputs decide about their samples when the work of a step runs, instead of in the
+   * host part of the step; they then do not make a step irregular.
+   */
+  virtual void setRunTimeOutputs(bool /*runTimeOutputs*/) {}
+
+  /**
    * Without device work, an action only runs its host part and keeps the books; its device work
    * then has to come from elsewhere, e.g. a recording.
    */
