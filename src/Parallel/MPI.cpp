@@ -97,9 +97,13 @@ void seissol::Mpi::setDataTransferModeFromEnv() {
       preferredDataTransferMode_ = DataTransferMode::CopyInCopyOutHost;
     } else if (option == "ccl") {
       preferredDataTransferMode_ = DataTransferMode::DirectCcl;
+    } else if (option == "stream-mpi") {
+      preferredDataTransferMode_ = DataTransferMode::DirectStreamMpi;
+    } else if (option == "shmem") {
+      preferredDataTransferMode_ = DataTransferMode::DirectShmem;
     } else {
       logWarning() << "Ignoring `SEISSOL_TRANSFER_MODE`."
-                   << "Expected values: direct, host, ccl.";
+                   << "Expected values: direct, host, ccl, stream-mpi, shmem.";
       option = "direct";
     }
 #ifndef ACL_DEVICE
@@ -113,6 +117,20 @@ void seissol::Mpi::setDataTransferModeFromEnv() {
 #ifndef USE_CCL
     if (preferredDataTransferMode_ == DataTransferMode::DirectCcl) {
       logWarning() << "This build of SeisSol does not support the `ccl` transfer mode.";
+      option = "direct";
+      preferredDataTransferMode_ = DataTransferMode::Direct;
+    }
+#endif
+#ifndef USE_STREAM_MPI
+    if (preferredDataTransferMode_ == DataTransferMode::DirectStreamMpi) {
+      logWarning() << "This build of SeisSol does not support the `stream-mpi` transfer mode.";
+      option = "direct";
+      preferredDataTransferMode_ = DataTransferMode::Direct;
+    }
+#endif
+#ifndef USE_SHMEM
+    if (preferredDataTransferMode_ == DataTransferMode::DirectShmem) {
+      logWarning() << "This build of SeisSol does not support the `shmem` transfer mode.";
       option = "direct";
       preferredDataTransferMode_ = DataTransferMode::Direct;
     }

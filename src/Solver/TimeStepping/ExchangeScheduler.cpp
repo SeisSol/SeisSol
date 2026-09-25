@@ -183,7 +183,8 @@ void ExchangeScheduler::launchNext(std::size_t from, std::size_t to) {
     }
   }
   if (launching_) {
-    current.groups.push_back(launch(from, to, current.sender, current.receiver, after));
+    const auto exchange = current.groups.size();
+    current.groups.push_back(launch(from, to, exchange, current.sender, current.receiver, after));
   } else {
     // the operations come from elsewhere; the group only counts as launched
     current.groups.push_back(0);

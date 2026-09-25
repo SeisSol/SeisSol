@@ -292,7 +292,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   haloTransports_ =
       std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
                                              usePersistentMpi(seissolInstance_.env()),
-                                             useCclPerDirection(seissolInstance_.env()),
+                                             useExchangePerDirection(seissolInstance_.env()),
                                              clusterLayout.globalClusterCount);
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
@@ -363,6 +363,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
+
+  // the library of the halo exchange knows all transports now; collective over all processes
+  if (haloTransports_->scheduler() != nullptr) {
+    haloTransports_->scheduler()->prepare();
+  }
 
   commThread_ = seissol::useCommThread(Mpi::mpi, seissolInstance_.env());
   if (commThread_) {

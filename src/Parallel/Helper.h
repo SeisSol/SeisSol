@@ -40,11 +40,11 @@ bool useCommThread(const T& mpiBasic, utils::Env& env) {
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
 /**
- * Whether the CCL transfer mode uses a communicator and a stream per direction between two time
- * clusters, instead of one for all exchanges in a global order.
+ * Whether the transfer modes that run on device streams (ccl, stream-mpi) use a stream per
+ * direction between two time clusters, instead of one for all exchanges in a global order.
  */
-inline bool useCclPerDirection(utils::Env& env) {
-  return env.get<bool>("CCL_PER_DIRECTION", false);
+inline bool useExchangePerDirection(utils::Env& env) {
+  return env.get<bool>("EXCHANGE_PER_DIRECTION", env.get<bool>("CCL_PER_DIRECTION", false));
 }
 
 /**

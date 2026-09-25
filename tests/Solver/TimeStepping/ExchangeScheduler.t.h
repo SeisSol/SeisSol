@@ -184,6 +184,7 @@ class SimulatedScheduler : public ExchangeScheduler {
   protected:
   Ticket launch(std::size_t from,
                 std::size_t to,
+                std::size_t /*exchange*/,
                 const ScheduledTransport* sender,
                 const ScheduledTransport* receiver,
                 const std::vector<void*>& /*after*/) override {

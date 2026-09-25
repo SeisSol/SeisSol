@@ -12,6 +12,8 @@
 #include "Solver/TimeStepping/ExchangeScheduler.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 #include "Solver/TimeStepping/MpiHaloTransport.h"
+#include "Solver/TimeStepping/ShmemExchangeScheduler.h"
+#include "Solver/TimeStepping/StreamMpiExchangeScheduler.h"
 
 #include <cstddef>
 #include <memory>
@@ -28,9 +30,16 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
                                            bool perDirection,
                                            std::size_t clusterCount)
     : mode_(mode), persistent_(persistent) {
+  const auto order = perDirection ? LaunchOrder::PerDirection : LaunchOrder::Global;
   if (mode_ == Mpi::DataTransferMode::DirectCcl) {
-    scheduler_ = std::make_unique<CclExchangeScheduler>(
-        clusterCount, perDirection ? LaunchOrder::PerDirection : LaunchOrder::Global);
+    scheduler_ = std::make_unique<CclExchangeScheduler>(clusterCount, order);
+  } else if (mode_ == Mpi::DataTransferMode::DirectStreamMpi) {
+    scheduler_ = std::make_unique<StreamMpiExchangeScheduler>(clusterCount, order);
+  } else if (mode_ == Mpi::DataTransferMode::DirectShmem) {
+    if (perDirection) {
+      logWarning() << "The shmem transfer mode exchanges in the global order only.";
+    }
+    scheduler_ = std::make_unique<ShmemExchangeScheduler>(clusterCount);
   }
 }
 
@@ -46,6 +55,8 @@ std::unique_ptr<HaloTransport> HaloTransportFactory::create(
     return std::make_unique<StagedMpiHaloTransport>(regions, persistent_);
 #endif
   case Mpi::DataTransferMode::DirectCcl:
+  case Mpi::DataTransferMode::DirectStreamMpi:
+  case Mpi::DataTransferMode::DirectShmem:
     return std::make_unique<ScheduledTransport>(*scheduler_, regions, cluster, otherCluster);
   default:
     logError() << "The requested data transfer mode is not available in this build.";

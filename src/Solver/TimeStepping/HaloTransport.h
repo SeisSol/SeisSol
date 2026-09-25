@@ -114,9 +114,9 @@ class HaloTransportFactory {
   public:
   /**
    * Persistent MPI transports set up their requests once and restart them for each transfer. The
-   * CCL transports set up their communicators here, collectively over all processes: one for all
-   * exchanges in an order that is the same on all processes, or with `perDirection`, one for each
-   * direction between two time clusters.
+   * transports on device streams (CCL, stream-aware MPI, SHMEM) set up their library here,
+   * collectively over all processes: for all exchanges in an order that is the same on all
+   * processes, or with `perDirection`, for each direction between two time clusters.
    */
   HaloTransportFactory(Mpi::DataTransferMode mode,
                        bool persistent,

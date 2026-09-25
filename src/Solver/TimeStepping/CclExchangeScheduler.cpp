@@ -57,8 +57,6 @@ namespace seissol::time_stepping {
 
 namespace {
 
-device::DeviceInstance& device() { return device::DeviceInstance::getInstance(); }
-
 void check(CCL(Result_t) result, const char* call) {
   if (result != CCL(Success)) {
     logError() << "The CCL call" << call << "failed with the error code"
@@ -81,24 +79,11 @@ CCL(DataType_t) datatype(RealType type) {
 } // namespace
 
 CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : ExchangeScheduler(clusterCount, order), clusterCount_(clusterCount) {
-  const auto slots = order == LaunchOrder::Global ? 1 : clusterCount * clusterCount;
-  communicators_.resize(slots, nullptr);
-  streams_.resize(slots, nullptr);
+    : StreamExchangeScheduler(clusterCount, order),
+      communicators_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr) {
+  const auto slots = usedSlots();
 
-  // only neighboring time clusters exchange data; each ordered pair of them is one direction
-  std::vector<std::pair<std::size_t, std::size_t>> directions;
-  if (order == LaunchOrder::Global) {
-    directions.emplace_back(0, 0);
-  } else {
-    for (std::size_t from = 0; from < clusterCount; ++from) {
-      for (std::size_t to = from == 0 ? 0 : from - 1; to < std::min(from + 2, clusterCount); ++to) {
-        directions.emplace_back(from, to);
-      }
-    }
-  }
-
-  std::vector<CCL(UniqueId)> ids(directions.size());
+  std::vector<CCL(UniqueId)> ids(slots.size());
   if (Mpi::mpi.rank() == 0) {
     for (auto& id : ids) {
       check(CCL(GetUniqueId)(&id), "GetUniqueId");
@@ -110,47 +95,26 @@ CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder
             0,
             Mpi::mpi.comm());
 
-  for (std::size_t i = 0; i < directions.size(); ++i) {
-    const auto [from, to] = directions[i];
+  for (std::size_t i = 0; i < slots.size(); ++i) {
     CCL(Comm_t) communicator = CCLM(COMM_NULL);
     check(CCL(CommInitRank)(&communicator, Mpi::mpi.size(), ids[i], Mpi::mpi.rank()),
           "CommInitRank");
-    communicators_[index(from, to)] = static_cast<void*>(communicator);
-    streams_[index(from, to)] = device().api->createStream();
+    communicators_[slots[i]] = static_cast<void*>(communicator);
   }
 }
 
 CclExchangeScheduler::~CclExchangeScheduler() {
-  for (auto* stream : streams_) {
-    if (stream != nullptr) {
-      device().api->syncStreamWithHost(stream);
-    }
-  }
+  synchronize();
 #ifdef USE_CCL_REGISTER
   for (const auto& [communicator, handle] : registrations_) {
     check(CCL(CommDeregister)(static_cast<CCL(Comm_t)>(communicator), handle), "CommDeregister");
   }
 #endif
-  for (const auto& [ticket, event] : pendingEvents_) {
-    device().api->destroyEvent(event);
-  }
-  for (auto* event : launchedEvents_) {
-    device().api->destroyEvent(event);
-  }
   for (auto* communicator : communicators_) {
     if (communicator != nullptr) {
       check(CCL(CommDestroy)(static_cast<CCL(Comm_t)>(communicator)), "CommDestroy");
     }
   }
-  for (auto* stream : streams_) {
-    if (stream != nullptr) {
-      device().api->destroyGenericStream(stream);
-    }
-  }
-}
-
-std::size_t CclExchangeScheduler::index(std::size_t from, std::size_t to) const {
-  return launchOrder() == LaunchOrder::Global ? 0 : from * clusterCount_ + to;
 }
 
 void CclExchangeScheduler::added([[maybe_unused]] const ScheduledTransport& transport) {
@@ -159,7 +123,7 @@ void CclExchangeScheduler::added([[maybe_unused]] const ScheduledTransport& tran
   // from it
   const auto registerRegions =
       [&](const std::vector<solver::RemoteCluster>& regions, std::size_t from, std::size_t to) {
-        auto* communicator = communicators_[index(from, to)];
+        auto* communicator = communicators_[slot(from, to)];
         for (const auto& region : regions) {
           void* handle = nullptr;
           check(CCL(CommRegister)(static_cast<CCL(Comm_t)>(communicator),
@@ -175,20 +139,14 @@ void CclExchangeScheduler::added([[maybe_unused]] const ScheduledTransport& tran
 #endif
 }
 
-ExchangeScheduler::Ticket CclExchangeScheduler::launch(std::size_t from,
-                                                       std::size_t to,
-                                                       const ScheduledTransport* sender,
-                                                       const ScheduledTransport* receiver,
-                                                       const std::vector<void*>& after) {
-  auto* communicator = static_cast<CCL(Comm_t)>(communicators_[index(from, to)]);
-  auto* stream = streams_[index(from, to)];
-  if (communicator == nullptr) {
-    logError() << "There is no CCL communicator for the halo exchange from cluster" << from
-               << "to cluster" << to;
-  }
-  for (auto* event : after) {
-    device().api->syncStreamWithEvent(stream, event);
-  }
+void CclExchangeScheduler::enqueueGroup(std::size_t slot,
+                                        std::size_t /*from*/,
+                                        std::size_t /*to*/,
+                                        std::size_t /*exchange*/,
+                                        const ScheduledTransport* sender,
+                                        const ScheduledTransport* receiver) {
+  auto* communicator = static_cast<CCL(Comm_t)>(communicators_[slot]);
+  auto* nativeStream = static_cast<StreamT>(stream(slot));
 
   check(CCL(GroupStart)(), "GroupStart");
   if (sender != nullptr) {
@@ -198,7 +156,7 @@ ExchangeScheduler::Ticket CclExchangeScheduler::launch(std::size_t from,
                       datatype(region.datatype),
                       region.rank,
                       communicator,
-                      static_cast<StreamT>(stream)),
+                      nativeStream),
             "Send");
     }
   }
@@ -209,62 +167,11 @@ ExchangeScheduler::Ticket CclExchangeScheduler::launch(std::size_t from,
                       datatype(region.datatype),
                       region.rank,
                       communicator,
-                      static_cast<StreamT>(stream)),
+                      nativeStream),
             "Recv");
     }
   }
   check(CCL(GroupEnd)(), "GroupEnd");
-
-  auto* event = device().api->createEvent();
-  device().api->recordEventOnStream(event, stream);
-  const auto ticket = nextTicket_++;
-  if (streamOrdered()) {
-    // the dependent work waits for the event on the device; it stays until the device has completed
-    launchedEvents_.push_back(event);
-    latestEvent_ = event;
-  } else {
-    pendingEvents_[ticket] = event;
-  }
-  return ticket;
-}
-
-std::vector<void*> CclExchangeScheduler::streams() const {
-  std::vector<void*> result;
-  for (auto* stream : streams_) {
-    if (stream != nullptr) {
-      result.push_back(stream);
-    }
-  }
-  return result;
-}
-
-void CclExchangeScheduler::releaseEvents() {
-  bool ownsLatest = false;
-  for (auto* event : launchedEvents_) {
-    if (event != latestEvent_) {
-      device().api->destroyEvent(event);
-    } else {
-      ownsLatest = true;
-    }
-  }
-  launchedEvents_.clear();
-  if (ownsLatest) {
-    launchedEvents_.push_back(latestEvent_);
-  }
-}
-
-bool CclExchangeScheduler::completed(Ticket ticket) {
-  const auto pending = pendingEvents_.find(ticket);
-  if (pending == pendingEvents_.end()) {
-    // tickets are handed out in increasing order; only completed ones are forgotten
-    return ticket < nextTicket_;
-  }
-  if (device().api->isEventCompleted(pending->second)) {
-    device().api->destroyEvent(pending->second);
-    pendingEvents_.erase(pending);
-    return true;
-  }
-  return false;
 }
 
 } // namespace seissol::time_stepping
@@ -274,7 +181,7 @@ bool CclExchangeScheduler::completed(Ticket ticket) {
 namespace seissol::time_stepping {
 
 CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : ExchangeScheduler(clusterCount, order), clusterCount_(clusterCount) {
+    : StreamExchangeScheduler(clusterCount, order) {
   logError() << "This build of SeisSol does not support exchanging the halo data with CCL.";
 }
 
@@ -282,23 +189,12 @@ CclExchangeScheduler::~CclExchangeScheduler() = default;
 
 void CclExchangeScheduler::added(const ScheduledTransport& /*transport*/) {}
 
-ExchangeScheduler::Ticket CclExchangeScheduler::launch(std::size_t /*from*/,
-                                                       std::size_t /*to*/,
-                                                       const ScheduledTransport* /*sender*/,
-                                                       const ScheduledTransport* /*receiver*/,
-                                                       const std::vector<void*>& /*after*/) {
-  return 0;
-}
-
-std::vector<void*> CclExchangeScheduler::streams() const { return {}; }
-
-void CclExchangeScheduler::releaseEvents() {}
-
-bool CclExchangeScheduler::completed(Ticket /*ticket*/) { return true; }
-
-std::size_t CclExchangeScheduler::index(std::size_t from, std::size_t to) const {
-  return from * clusterCount_ + to;
-}
+void CclExchangeScheduler::enqueueGroup(std::size_t /*slot*/,
+                                        std::size_t /*from*/,
+                                        std::size_t /*to*/,
+                                        std::size_t /*exchange*/,
+                                        const ScheduledTransport* /*sender*/,
+                                        const ScheduledTransport* /*receiver*/) {}
 
 } // namespace seissol::time_stepping
 

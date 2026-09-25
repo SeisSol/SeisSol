@@ -123,6 +123,12 @@ class ExchangeScheduler {
   [[nodiscard]] virtual void* latestEvent() const { return nullptr; }
 
   /**
+   * Sets up what needs all transports; collective over all processes, after all transports have
+   * been added.
+   */
+  virtual void prepare() {}
+
+  /**
    * Makes the given event stand for all groups launched so far, e.g. once they have run as part of
    * a replayed recording.
    */
@@ -150,11 +156,13 @@ class ExchangeScheduler {
   virtual void added(const ScheduledTransport& /*transport*/) {}
 
   /**
-   * Launches one group of operations from cluster `from` to cluster `to`: the sends of `sender`
-   * and the receives of `receiver`, either of which may be null.
+   * Launches the group of operations of the given exchange (counted per direction) from cluster
+   * `from` to cluster `to`: the sends of `sender` and the receives of `receiver`, either of which
+   * may be null, once the work behind the events `after` has completed.
    */
   virtual Ticket launch(std::size_t from,
                         std::size_t to,
+                        std::size_t exchange,
                         const ScheduledTransport* sender,
                         const ScheduledTransport* receiver,
                         const std::vector<void*>& after) = 0;
