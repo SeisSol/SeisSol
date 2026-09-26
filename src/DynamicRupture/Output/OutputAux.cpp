@@ -161,7 +161,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
   return std::make_pair(nearestPoint, shortestDistance);
 }
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
+void assignNearestGaussianPoints(Receivers& geoPoints) {
   auto quadratureData = generateTriangleQuadrature();
   const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
@@ -280,18 +280,17 @@ std::size_t
   return cell * pointsPerCell * simulationCount;
 }
 
-int faultTagOfCell(const ReceiverPoints& receiverPoints,
+int faultTagOfCell(const Receivers& receivers,
                    std::size_t cell,
                    std::size_t pointsPerCell,
                    std::size_t simulationCount) {
-  return receiverPoints[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].faultTag;
+  return receivers[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].faultTag;
 }
 
-std::size_t globalFaceIdOfCell(const ReceiverPoints& receiverPoints,
+std::size_t globalFaceIdOfCell(const Receivers& receivers,
                                std::size_t cell,
                                std::size_t pointsPerCell,
                                std::size_t simulationCount) {
-  return receiverPoints[firstReceiverOfCell(cell, pointsPerCell, simulationCount)]
-      .globalFaultFaceId();
+  return receivers[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].globalFaultFaceId();
 }
 } // namespace seissol::dr

@@ -27,15 +27,19 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
     outputData_ = std::move(elementwiseOutputData);
     initReceiverLocations();
-    assignNearestGaussianPoints(outputData_->receiverPoints);
+    assignNearestGaussianPoints(outputData_->receivers);
     assignNearestInternalGaussianPoints();
     assignFusedIndices();
     assignFaultTags();
     initTimeCaching();
+    // initTopology establishes the face/point hierarchy all following steps index into, and fixes
+    // the receiver numbering; everything below has to run after it
+    initTopology();
     initOutputVariables(elementwiseParams_.outputMask);
+    initBasisFunctions();
+    initDeviceCollectors(true);
     initFaultDirections();
     initRotationMatrices();
-    initBasisFunctions(true);
     initJacobian2dMatrices();
     outputData_->isActive = true;
   }
@@ -98,7 +102,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     }
 
     // retrieve all receivers from a fault face refiner
-    outputData_->receiverPoints = faultRefiner->moveAllReceiverPoints();
+    outputData_->receivers = faultRefiner->moveAllReceivers();
     faultRefiner.reset(nullptr);
   }
 
