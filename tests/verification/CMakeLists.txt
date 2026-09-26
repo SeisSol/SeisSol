@@ -648,13 +648,16 @@ seissol_add_rupture(NAME rupture-rs-fvw FL 103 FAULT fault-rs-fvw.yaml
 seissol_add_rupture(NAME rupture-rs-fvw-tp FL 103 FAULT fault-rs-fvw-tp.yaml
                     SET ${SEISSOL_RS_FVW} ${SEISSOL_TP})
 
-foreach (law yoffe:33 gaussian:34 delta:35)
+foreach (law yoffe:33 gaussian:34)
   string(REPLACE ":" ";" law ${law})
   list(GET law 0 name)
   list(GET law 1 number)
   seissol_add_rupture(NAME rupture-imposed-${name} FL ${number} FAULT fault-imposed.yaml
                       SET "DynamicRupture.SlipRateOutputType=0")
 endforeach()
+# the delta pulse gets its onset off the step boundaries; see its fault file
+seissol_add_rupture(NAME rupture-imposed-delta FL 35 FAULT fault-imposed-delta.yaml
+                    SET "DynamicRupture.SlipRateOutputType=0")
 
 # disabled on purpose in SeisSol; it has to be refused at initialization
 seissol_add_rupture(NAME rupture-rs-aging-nucleation FL 101 FAULT fault-rs.yaml

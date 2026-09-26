@@ -5,10 +5,11 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-# Imposed slip rates. One file serves all three source time functions, as in
-# the Northridge cases of precomputed-seissol: these laws read their own
-# parameters and ignore the rest, and they need no initial stress. The times
-# are powers of two, like the step, so that onset and rise fall on steps.
+# Imposed slip rates. One file serves the Yoffe and the Gaussian source time
+# function, as in the Northridge cases of precomputed-seissol: these laws read
+# their own parameters and ignore the rest, and they need no initial stress.
+# The times are powers of two, like the step, so that onset and rise fall on
+# steps. The delta pulse has fault-imposed-delta.yaml, for that reason.
 !ConstantMap
 map:
   strike_slip:       1.0
