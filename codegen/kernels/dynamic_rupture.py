@@ -96,7 +96,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
     fluxScale = Scalar("fluxScaleDR")
     generator.add(
         "rotateFluxMatrix",
-        fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
+        fluxSolver["qp"] <= fluxScale * aderdg.starMatrixSetup(0)["qk"] * aderdg.T["pk"],
     )
 
     num3DBasisFunctions = aderdg.num3DBasisFunctions()
