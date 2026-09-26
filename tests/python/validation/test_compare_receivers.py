@@ -234,6 +234,48 @@ class TestCompareReceiverColumns:
         errors = cr.compare_receiver_columns(df, df, label="test")
         assert "Time" not in errors
 
+    def test_component_is_relative_to_its_tensor(self):
+        # a shear stress that stays at zero, as in water, holds rounding noise only;
+        # it is judged against the stress, not against its own noise
+        t = np.linspace(0, 1, 100)
+        ref = pd.DataFrame(
+            {"Time": t, "s_xx": np.ones_like(t), "s_xy": np.full_like(t, 1e-9)}
+        )
+        sim = ref.copy()
+        sim["s_xy"] = -1e-9
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["s_xy"] == pytest.approx(2e-9, rel=1e-6)
+        assert errors["s_xx"] == pytest.approx(0.0, abs=1e-12)
+
+    def test_components_of_fused_simulations_stay_apart(self):
+        t = np.linspace(0, 1, 100)
+        ref = pd.DataFrame(
+            {
+                "Time": t,
+                "v10": np.ones_like(t),
+                "v20": np.full_like(t, 1e-9),
+                "v11": np.full_like(t, 1e-3),
+                "v21": np.full_like(t, 1e-3),
+            }
+        )
+        sim = ref.copy()
+        sim["v21"] = 2e-3
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        # v21 is relative to simulation 1 only, not to the large v10 of simulation 0
+        assert errors["v21"] == pytest.approx(1.0, rel=1e-6)
+
+    def test_component_group(self):
+        assert cr.component_group("v1") == "velocity"
+        assert cr.component_group("v13") == "velocity3"
+        assert cr.component_group("v131") == "velocity31"
+        assert cr.component_group("s_xz0") == "stress0"
+        assert cr.component_group("SRd-4") == "slip rate-4"
+        assert cr.component_group("Ts0") == "initial traction"
+        assert cr.component_group("Ts0-2") == "initial traction-2"
+        assert cr.component_group("v2_f1") == "fluid velocity1"
+        assert cr.component_group("Mud") == "Mud"
+        assert cr.component_group("RT-3") == "RT-3"
+
 
 # ============================================================================
 # find_all_receivers — glob/regex-based file discovery
