@@ -82,13 +82,12 @@ void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& stora
 
 void initSurfaceStorage(SurfaceLTS::Storage& surfaceStorage,
                         LTS::Storage& storage,
-                        solver::FreeSurfaceIntegrator& freeSurfaceIntegrator,
-                        int refinement) {
+                        solver::FreeSurfaceIntegrator& freeSurfaceIntegrator) {
   surfaceStorage.setName("surface");
   SurfaceLTS::addTo(surfaceStorage);
 
   // TODO: move freeSurfaceIntegrator initialization here, once separated from the IO (cf. #1180).
-  freeSurfaceIntegrator.initialize(refinement, storage, surfaceStorage);
+  freeSurfaceIntegrator.initialize(storage, surfaceStorage);
 }
 
 } // namespace seissol::initializer::internal

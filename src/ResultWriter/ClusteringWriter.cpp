@@ -8,13 +8,12 @@
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
+#include "IO/Instance/Point/Csv.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 
 #include <cstddef>
-#include <fstream>
-#include <ios>
 #include <string>
 #include <type_traits>
 #include <utils/logger.h>
@@ -74,12 +73,15 @@ void ClusteringWriter::write() const {
                 << sizeSummary.min << ";" << sizeSummary.max << "])";
     }
 
-    auto filepath = path(outputPrefix_);
-    filepath += path("-clustering.csv");
-
-    auto fileStream = std::ofstream(filepath, std::ios::out);
-
-    fileStream << "profilingId,localId,layerType,size,dynamicRuptureSize,rank,localRank\n";
+    seissol::io::instance::point::Csv table("clustering");
+    table.addColumn<int>("profilingId");
+    table.addColumn<int>("localId");
+    // "Interior" or "Copy", so the widest of the two
+    table.addTextColumn("layerType", 8);
+    table.addColumn<std::size_t>("size");
+    table.addColumn<std::size_t>("dynamicRuptureSize");
+    table.addColumn<int>("rank");
+    table.addColumn<int>("localRank");
 
     for (int rank = 0; rank < mpi.size(); ++rank) {
       const auto localRank = localRanks[rank];
@@ -94,14 +96,19 @@ void ClusteringWriter::write() const {
         if (layerType != HaloType::Interior && layerType != HaloType::Copy) {
           logError() << "Encountered illegal layer type in ClusteringWriter.";
         }
-        const auto* layerTypeStr = layerType == HaloType::Interior ? "Interior" : "Copy";
-        fileStream << curProfilingIds[i] << "," << curLocalClusterIds[i] << "," << layerTypeStr
-                   << "," << curSizes[i] << "," << curDynamicRuptureSizes[i] << "," << rank << ","
-                   << localRank << "\n";
+        table.addCell<int>(curProfilingIds[i]);
+        table.addCell<int>(curLocalClusterIds[i]);
+        table.addText(layerType == HaloType::Interior ? "Interior" : "Copy");
+        table.addCell<std::size_t>(curSizes[i]);
+        table.addCell<std::size_t>(curDynamicRuptureSizes[i]);
+        table.addCell<int>(rank);
+        table.addCell<int>(localRank);
       }
     }
 
-    fileStream.close();
+    auto filepath = path(outputPrefix_);
+    filepath += path("-clustering.csv");
+    table.writeFile(filepath.string());
   }
 }
 

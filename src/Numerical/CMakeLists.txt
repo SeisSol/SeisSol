@@ -9,6 +9,7 @@ add_library(seissol-numerical OBJECT
     Functions.cpp
     ODEInt.cpp
     ODEVector.cpp
+    Projection.cpp
     Statistics.cpp
     Transformation.cpp
 )

@@ -23,7 +23,7 @@ struct Cell {
   static constexpr std::size_t Dim = 3;
 };
 
-constexpr auto zeroLengthArrayHandler(std::size_t x) -> std::size_t { return x == 0 ? 1 : x; }
+constexpr auto zeroGuard(std::size_t x) -> std::size_t { return x == 0 ? 1 : x; }
 } // namespace seissol
 
 #endif // SEISSOL_SRC_COMMON_CONSTANTS_H_

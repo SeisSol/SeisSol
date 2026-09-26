@@ -15,7 +15,7 @@
 #include <stddef.h>
 
 namespace seissol::kernels::device::aux::plasticity {
-constexpr static int NumStressComponents = model::MaterialT::TractionQuantities;
+constexpr static int NumStressComponents = model::MaterialT::TractionComponents;
 
 void plasticityNonlinear(real** __restrict nodalStressTensors,
                          real** __restrict pstrainPtr,
