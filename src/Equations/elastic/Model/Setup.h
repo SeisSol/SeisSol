@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -29,7 +30,7 @@ struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMate
   /// stresses. The latter is a coefficient of its own because it vanishes for
   /// acoustic material while the first 1/rho does not, which keeps the
   /// acoustic case inside the coefficients instead of inside the structure.
-  static constexpr std::size_t NumCoefficients = 5;
+  static constexpr std::size_t NumCoefficients = generated::ElasticNumCoefficients;
 
   static std::array<double, NumCoefficients> getCoefficients(const ElasticMaterial& material) {
     const auto rhoInv = 1.0 / material.rho;
@@ -40,16 +41,7 @@ struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMate
             testIfAcoustic(material.mu) ? 0.0 : rhoInv};
   }
 
-  static constexpr std::array<CoefficientEntry, 24> CoefficientEntries{{
-      {0, 0, 6, 0, -1.0}, {1, 0, 6, 1, -1.0}, {1, 0, 6, 2, -1.0}, {2, 0, 7, 3, -1.0},
-      {2, 0, 8, 5, -1.0}, {3, 0, 0, 6, -1.0}, {4, 0, 3, 7, -1.0}, {4, 0, 5, 8, -1.0},
-
-      {1, 1, 7, 0, -1.0}, {0, 1, 7, 1, -1.0}, {1, 1, 7, 2, -1.0}, {2, 1, 6, 3, -1.0},
-      {2, 1, 8, 4, -1.0}, {3, 1, 1, 7, -1.0}, {4, 1, 3, 6, -1.0}, {4, 1, 4, 8, -1.0},
-
-      {1, 2, 8, 0, -1.0}, {1, 2, 8, 1, -1.0}, {0, 2, 8, 2, -1.0}, {2, 2, 7, 4, -1.0},
-      {2, 2, 6, 5, -1.0}, {3, 2, 2, 8, -1.0}, {4, 2, 5, 6, -1.0}, {4, 2, 4, 7, -1.0},
-  }};
+  static constexpr auto CoefficientEntries = generated::ElasticCoefficientEntries;
 
   template <typename T>
   static void

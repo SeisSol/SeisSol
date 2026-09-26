@@ -12,6 +12,7 @@
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_SETUP_H_
 
 #include "Equations/acoustic/Model/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -27,20 +28,13 @@ using Matrix44 = Eigen::Matrix<double, 4, 4>;
 template <>
 struct MaterialSetup<AcousticMaterial> : public MaterialSetupDefaults<AcousticMaterial> {
   /// lambda and 1/rho.
-  static constexpr std::size_t NumCoefficients = 2;
+  static constexpr std::size_t NumCoefficients = generated::AcousticNumCoefficients;
 
   static std::array<double, NumCoefficients> getCoefficients(const AcousticMaterial& material) {
     return {material.lambda, 1.0 / material.rho};
   }
 
-  static constexpr std::array<CoefficientEntry, 6> CoefficientEntries{{
-      {0, 0, 1, 0, -1.0},
-      {1, 0, 0, 1, -1.0},
-      {0, 1, 2, 0, -1.0},
-      {1, 1, 0, 2, -1.0},
-      {0, 2, 3, 0, -1.0},
-      {1, 2, 0, 3, -1.0},
-  }};
+  static constexpr auto CoefficientEntries = generated::AcousticCoefficientEntries;
 
   template <typename T>
   static void

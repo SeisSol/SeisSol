@@ -17,6 +17,7 @@ import re
 import sys
 
 import kernels.arch
+import kernels.coefficients
 import kernels.dynamic_rupture
 import kernels.general
 import kernels.memlayout
@@ -391,6 +392,10 @@ def main():
         routine_cache.generate(cmdLineArgs.outputDir, "seissol")
 
         # for now
+        kernels.coefficients.generate(
+            os.path.join(cmdLineArgs.outputDir, "coefficients.h")
+        )
+
         forward_files("init.h")
         forward_files("kernel.h")
         forward_files("pool.h")

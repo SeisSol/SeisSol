@@ -14,7 +14,8 @@ set(GENERATED_FILES_FOR_SEISSOL "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/subro
                                 "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/gpulike_subroutine.cpp"
                                 "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/tensor.h"
                                 "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/init.h"
-                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/kernel.h")
+                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/kernel.h"
+                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/coefficients.h")
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/)
 

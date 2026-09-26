@@ -11,6 +11,7 @@
 #include "Equations/elastic/Model/Setup.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -34,7 +35,7 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
   /// therefore nine scalars, all of them derived. Deriving them once is
   /// cheaper than carrying the primitives: there are ten of those, and the
   /// derivation divides.
-  static constexpr std::size_t NumCoefficients = 9;
+  static constexpr std::size_t NumCoefficients = generated::PoroElasticNumCoefficients;
 
   static std::array<double, NumCoefficients> getCoefficients(const PoroElasticMaterial& material) {
     const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
@@ -49,64 +50,7 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
             params.beta2 / params.rho2};
   }
 
-  static constexpr std::array<CoefficientEntry, 54> CoefficientEntries{{
-      {5, 0, 0, 6, -1.0},
-      {6, 0, 0, 10, -1.0},
-      {5, 0, 3, 7, -1.0},
-      {6, 0, 3, 11, -1.0},
-      {5, 0, 5, 8, -1.0},
-      {6, 0, 5, 12, -1.0},
-      {0, 0, 6, 0, -1.0},
-      {1, 0, 6, 1, -1.0},
-      {1, 0, 6, 2, -1.0},
-      {3, 0, 6, 9, 1.0},
-      {2, 0, 7, 3, -1.0},
-      {2, 0, 8, 5, -1.0},
-      {7, 0, 9, 6, -1.0},
-      {8, 0, 9, 10, -1.0},
-      {3, 0, 10, 0, -1.0},
-      {3, 0, 10, 1, -1.0},
-      {3, 0, 10, 2, -1.0},
-      {4, 0, 10, 9, 1.0},
-
-      {5, 1, 1, 7, -1.0},
-      {6, 1, 1, 11, -1.0},
-      {5, 1, 3, 6, -1.0},
-      {6, 1, 3, 10, -1.0},
-      {5, 1, 4, 8, -1.0},
-      {6, 1, 4, 12, -1.0},
-      {2, 1, 6, 3, -1.0},
-      {1, 1, 7, 0, -1.0},
-      {0, 1, 7, 1, -1.0},
-      {1, 1, 7, 2, -1.0},
-      {3, 1, 7, 9, 1.0},
-      {2, 1, 8, 4, -1.0},
-      {7, 1, 9, 7, -1.0},
-      {8, 1, 9, 11, -1.0},
-      {3, 1, 11, 0, -1.0},
-      {3, 1, 11, 1, -1.0},
-      {3, 1, 11, 2, -1.0},
-      {4, 1, 11, 9, 1.0},
-
-      {5, 2, 2, 8, -1.0},
-      {6, 2, 2, 12, -1.0},
-      {5, 2, 4, 7, -1.0},
-      {6, 2, 4, 11, -1.0},
-      {5, 2, 5, 6, -1.0},
-      {6, 2, 5, 10, -1.0},
-      {2, 2, 6, 5, -1.0},
-      {2, 2, 7, 4, -1.0},
-      {1, 2, 8, 0, -1.0},
-      {1, 2, 8, 1, -1.0},
-      {0, 2, 8, 2, -1.0},
-      {3, 2, 8, 9, 1.0},
-      {7, 2, 9, 8, -1.0},
-      {8, 2, 9, 12, -1.0},
-      {3, 2, 12, 0, -1.0},
-      {3, 2, 12, 1, -1.0},
-      {3, 2, 12, 2, -1.0},
-      {4, 2, 12, 9, 1.0},
-  }};
+  static constexpr auto CoefficientEntries = generated::PoroElasticCoefficientEntries;
 
   template <typename T>
   static void setToZero(T& AT) {

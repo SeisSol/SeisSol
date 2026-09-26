@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_
 
 #include "Equations/viscoelastic/Model/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -47,40 +48,17 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
 
   /// The coupling block one mechanism contributes, with its columns relative
   /// to that mechanism's block. The weight is the solver's to supply.
-  static constexpr std::array<AnelasticCoefficientEntry, 9> AnelasticEntries{{
-      {0, 6, 0, -1.0},
-      {0, 7, 3, -0.5},
-      {0, 8, 5, -0.5},
-      {1, 7, 1, -1.0},
-      {1, 6, 3, -0.5},
-      {1, 8, 4, -0.5},
-      {2, 8, 2, -1.0},
-      {2, 7, 4, -0.5},
-      {2, 6, 5, -0.5},
-  }};
+  static constexpr auto AnelasticEntries = generated::ViscoElasticAnelasticEntries;
 
   /// The three theta values of one relaxation mechanism.
-  static constexpr std::size_t NumSourceCoefficients = 3;
+  static constexpr std::size_t NumSourceCoefficients = generated::ViscoElasticNumSourceCoefficients;
 
   static std::array<double, NumSourceCoefficients> getSourceCoefficients(const MaterialT& material,
                                                                          std::size_t mech) {
     return {material.theta[mech][0], material.theta[mech][1], material.theta[mech][2]};
   }
 
-  static constexpr std::array<SourceCoefficientEntry, 12> SourceEntries{{
-      {0, 0, 0, 1.0},
-      {1, 1, 0, 1.0},
-      {1, 2, 0, 1.0},
-      {1, 0, 1, 1.0},
-      {0, 1, 1, 1.0},
-      {1, 2, 1, 1.0},
-      {1, 0, 2, 1.0},
-      {1, 1, 2, 1.0},
-      {0, 2, 2, 1.0},
-      {2, 3, 3, 1.0},
-      {2, 4, 4, 1.0},
-      {2, 5, 5, 1.0},
-  }};
+  static constexpr auto SourceEntries = generated::ViscoElasticSourceEntries;
 
   /// The flux of the base material alone. How the anelastic blocks are added
   /// on top -- once per mechanism weighted by its relaxation frequency, or

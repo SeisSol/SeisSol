@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_SETUP_H_
 
 #include "Equations/viscoacoustic/Model/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -50,23 +51,17 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
 
   /// The coupling block one mechanism contributes, with its column relative
   /// to that mechanism's block. The weight is the solver's to supply.
-  static constexpr std::array<AnelasticCoefficientEntry, 3> AnelasticEntries{{
-      {0, 1, 0, -1.0},
-      {1, 2, 0, -1.0},
-      {2, 3, 0, -1.0},
-  }};
+  static constexpr auto AnelasticEntries = generated::ViscoAcousticAnelasticEntries;
 
   /// The single theta value of one relaxation mechanism.
-  static constexpr std::size_t NumSourceCoefficients = 1;
+  static constexpr std::size_t NumSourceCoefficients = generated::ViscoAcousticNumSourceCoefficients;
 
   static std::array<double, NumSourceCoefficients> getSourceCoefficients(const MaterialT& material,
                                                                          std::size_t mech) {
     return {material.theta[mech][0]};
   }
 
-  static constexpr std::array<SourceCoefficientEntry, 1> SourceEntries{{
-      {0, 0, 0, 1.0},
-  }};
+  static constexpr auto SourceEntries = generated::ViscoAcousticSourceEntries;
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
