@@ -84,6 +84,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const bool useCellHomogenizedMaterial =
       reader->readWithDefault("usecellhomogenizedmaterial", true);
 
+  const bool materialNodal = reader->readWithDefault("materialnodal", false);
+
   const double gravitationalAcceleration =
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
@@ -123,6 +125,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          plasticityPointwise,
                          plasticityDisabledGroups,
                          useCellHomogenizedMaterial,
+                         materialNodal,
                          freqCentral,
                          freqRatio,
                          gravitationalAcceleration,

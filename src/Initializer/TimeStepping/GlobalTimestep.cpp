@@ -19,6 +19,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <limits>
+#include <memory>
 #include <mpi.h>
 #include <vector>
 
@@ -55,9 +58,16 @@ GlobalTimestep
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::MaterialT;
 
-  const auto queryGen = seissol::initializer::getBestQueryGenerator(
-      seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
-  std::vector<Material> materials(cellToVertex.size);
+  const auto queryGen = [&]() -> std::shared_ptr<seissol::initializer::QueryGenerator> {
+    if (seissolParams.model.materialNodal) {
+      return std::make_shared<seissol::initializer::NodalPointGenerator>(cellToVertex);
+    }
+    return seissol::initializer::getBestQueryGenerator(
+        seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
+  }();
+  const std::size_t pointsPerCell = queryGen->outputPerCell();
+
+  std::vector<Material> materials(cellToVertex.size * pointsPerCell);
   seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(seissolParams.model.materialFileName, *queryGen);
@@ -66,9 +76,16 @@ GlobalTimestep
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
 
   for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
-    const double pWaveVel = materials[cell].getMaxWaveSpeed();
+    // the wave speed bounds the cell from above, the material timestep from below
+    double pWaveVel = 0.0;
+    double materialMaxTimestep = std::numeric_limits<double>::max();
+    for (std::size_t point = 0; point < pointsPerCell; ++point) {
+      const auto& material = materials[cell * pointsPerCell + point];
+      pWaveVel = std::max(pWaveVel, material.getMaxWaveSpeed());
+      materialMaxTimestep = std::min(materialMaxTimestep, material.maximumTimestep());
+    }
+
     const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
-    const auto materialMaxTimestep = materials[cell].maximumTimestep();
     const auto cellMaxTimestep =
         std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
     timestep.cellTimeStepWidths[cell] =

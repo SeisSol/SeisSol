@@ -34,6 +34,9 @@ struct ModelParameters {
   bool plasticityPointwise{true};
   std::unordered_set<int> plasticityDisabledGroups;
   bool useCellHomogenizedMaterial{true};
+  // sample the material at the nodal points of the volume basis, in addition to
+  // the single material obtained per cell
+  bool materialNodal{false};
   double freqCentral{};
   double freqRatio{1.0};
   double gravitationalAcceleration{};
