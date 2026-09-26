@@ -5,8 +5,8 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-# The isotropic solid of material-elastic.yaml, written as a full stiffness
-# tensor. An anisotropic build thus solves the same problem as an elastic
+# The isotropic solids of material-elastic.yaml, written as full stiffness
+# tensors. An anisotropic build thus solves the same problem as an elastic
 # one, which makes their results comparable across builds.
 !Any
 components:
@@ -36,3 +36,29 @@ components:
         c55: 3.24e+10
         c56: 0
         c66: 3.24e+10
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho: 2700.0
+        c11: 4.86e+10
+        c12: 1.62e+10
+        c13: 1.62e+10
+        c14: 0
+        c15: 0
+        c16: 0
+        c22: 4.86e+10
+        c23: 1.62e+10
+        c24: 0
+        c25: 0
+        c26: 0
+        c33: 4.86e+10
+        c34: 0
+        c35: 0
+        c36: 0
+        c44: 1.62e+10
+        c45: 0
+        c46: 0
+        c55: 1.62e+10
+        c56: 0
+        c66: 1.62e+10

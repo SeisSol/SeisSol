@@ -7,7 +7,10 @@
 
 # The mini meshes put every cell in group 1, matching the gmsh convention that
 # PUMgen carries over, so a group filter here behaves as it does for a real
-# mesh instead of taking a shortcut the real cases do not have.
+# mesh instead of taking a shortcut the real cases do not have. mat48 puts the
+# half beyond its split plane in group 2, which has half the moduli: impedance
+# and wave speeds change across the interface, while the slower material leaves
+# the time step to group 1.
 !Any
 components:
   - !GroupFilter
@@ -17,3 +20,10 @@ components:
         rho:    2700.0
         mu:     3.24e10
         lambda: 3.24e10
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        mu:     1.62e10
+        lambda: 1.62e10
