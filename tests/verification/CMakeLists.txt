@@ -587,8 +587,8 @@ function(seissol_add_rupture)
       NAME ${RUP_NAME}
       MESH ${RUP_MESH}
       PARAMETERS rupture.par
-      # the rupture method changes the result of every case with a fault
-      SNAPSHOT_KEY "{equations}-m{mechanisms}-o{order}-{precision}-s{fused}-{rupture-method}"
+      # the quadrature rule on the fault changes the result of every case with one
+      SNAPSHOT_KEY "{equations}-m{mechanisms}-o{order}-{precision}-s{fused}-{dr-quad-rule}"
       FILES ${RUP_FAULT} faultreceiver.dat
       STEPS 64
       REQUIRE equations=elastic
