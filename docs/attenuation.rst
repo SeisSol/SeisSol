@@ -54,7 +54,7 @@ In ccmake, use:
 
 .. code::
 
-    EQUATIONS                        viscoelastic2
+    EQUATIONS                        viscoelastic
     NUMBER_OF_MECHANISMS             3
 
 Note that the equations='viscoelastic' is operational but deprecated.
@@ -69,7 +69,7 @@ equal to the desired Q, but are oscillating around those values. The
 variation of :math:`V_p`, :math:`V_s`, :math:`Q_p` and :math:`Q_s` with frequency can be visualized using
 `ViscoelasticModComp.m <https://github.com/SeisSol/SeisSol/blob/master/preprocessing/science/ViscoelasticModComp.m>`__.
 
-Parametrisation
+Parametrization
 ---------------
 
 Add Inside the parameter file of SeisSol, in the '&equations' section

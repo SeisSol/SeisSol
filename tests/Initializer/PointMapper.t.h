@@ -45,4 +45,45 @@ TEST_CASE("Point mapper" * doctest::test_suite("initializer")) {
   CHECK(meshId == expectedMeshId);
 }
 
+TEST_CASE("Point mapper: a point on a shared face goes to the cell with the smaller global id" *
+          doctest::test_suite("initializer")) {
+  // two cells meeting in the face z = 0, both positively oriented
+  const std::array<std::array<double, 3>, 5> coordinates{
+      {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}, {0.0, 0.0, -1.0}}};
+  std::vector<Vertex> vertices(coordinates.size());
+  for (std::size_t i = 0; i < coordinates.size(); ++i) {
+    std::copy(coordinates[i].begin(), coordinates[i].end(), vertices[i].coords);
+  }
+  const std::array<std::array<std::size_t, 4>, 2> cells{{{0, 1, 2, 3}, {0, 2, 1, 4}}};
+
+  const std::array<Eigen::Vector3d, 2> points{Eigen::Vector3d(0.2, 0.2, 0.0),
+                                              Eigen::Vector3d(0.1, 0.1, 0.1)};
+
+  // the same two cells, in either order and with either of them holding the smaller global id
+  for (const bool swapped : {false, true}) {
+    for (const bool upperFirst : {false, true}) {
+      std::vector<Element> elements(2);
+      for (std::size_t local = 0; local < 2; ++local) {
+        const auto cell = upperFirst ? local : 1 - local;
+        std::copy(cells[cell].begin(), cells[cell].end(), elements[local].vertices);
+        elements[local].localId = static_cast<LocalElemId>(local);
+        elements[local].globalId = (cell == 0) == swapped ? 3 : 7;
+      }
+      const seissol::MockReader mockReader(vertices, elements);
+
+      std::array<std::size_t, 2> meshId{std::numeric_limits<std::size_t>::max(),
+                                        std::numeric_limits<std::size_t>::max()};
+      const auto contained =
+          seissol::initializer::findUniqueMeshIds(points.data(), mockReader, 2, meshId.data());
+
+      REQUIRE(contained == std::vector<bool>{true, true});
+      // on the shared face, both cells hold the point, and the smaller global id decides
+      CHECK(elements[meshId[0]].globalId == 3);
+      // inside the upper cell, only that one holds it
+      const auto upper = upperFirst ? 0U : 1U;
+      CHECK(meshId[1] == upper);
+    }
+  }
+}
+
 } // namespace seissol::unit_test

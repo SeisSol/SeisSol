@@ -11,7 +11,9 @@ namespace seissol {
 
 enum class DRQuadRuleType { Stroud, Dunavant, WitherdenVincent };
 
-enum class ViscoImplementation { None, QuantityExtension, AnelasticTensor };
+/// The scheme that advances a cell in time. Which one a material may use is
+/// decided at configure time, not here.
+enum class SolverType { LinearCK, LinearCKAnelastic, STP };
 
 enum class BuildType { Cpu, Gpu };
 

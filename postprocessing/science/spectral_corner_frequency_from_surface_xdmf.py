@@ -197,7 +197,7 @@ def fc_Qzero_gridsearch(amplitude_tr, freq_tr, misfit="SSM", n=2, fc_end=0., q_d
     amplitude_tensor = np.empty((freq_tr.shape[0],1,1))
     amplitude_tensor[:,0,0] = amplitude_tr
 
-    # Initialise tensor of possible Q_zero values depending on amplitude_tr[0] or take mean amplitude below corner frequency
+    # Initialize tensor of possible Q_zero values depending on amplitude_tr[0] or take mean amplitude below corner frequency
     if q_dim != 0:
         q_zero = np.array([[np.geomspace(0.1*amplitude_tr[0], 10*amplitude_tr[0], num=q_dim)]])
     else:

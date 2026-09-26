@@ -88,7 +88,7 @@ struct ExtTriangle {
   std::array<ExtVrtxCoords, 3> points_{};
 };
 
-struct ReceiverPoint {
+struct Receiver {
   // physical coords of a receiver
   ExtVrtxCoords global;
 
@@ -144,7 +144,7 @@ struct ReceiverPoint {
     return elementGlobalIndex * Cell::NumFaces + localFaceSideId;
   }
 };
-using ReceiverPoints = std::vector<ReceiverPoint>;
+using Receivers = std::vector<Receiver>;
 
 struct FaultDirections {
   std::array<double, 3> faceNormal{};

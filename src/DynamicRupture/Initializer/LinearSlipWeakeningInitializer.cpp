@@ -74,15 +74,25 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(DynamicRupture::S
         layer.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
     const real(*mu)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Mu>();
     const real(*cohesion)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Cohesion>();
-    const auto* initialStressInFaultCS =
-        layer.var<LTSLinearSlipWeakening::InitialStressInFaultCS>();
+    // the stress the fault starts out under, which is every source that is in effect at the
+    // beginning of the simulation and not only the initial state
+    const auto sourceCount = stressSourceCount(*drParameters_);
+    const auto* stressSources = layer.var<LTSLinearSlipWeakening::StressSourceInFaultCS>();
+    const auto* stressSourceOnset = layer.var<LTSLinearSlipWeakening::StressSourceOnset>();
+    const auto* stressSourceRiseTime = layer.var<LTSLinearSlipWeakening::StressSourceRiseTime>();
 
+    using namespace dr::misc::quantity_indices;
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+        const auto initialStress = stressAtTime(&stressSources[ltsFace * sourceCount],
+                                                &stressSourceRiseTime[ltsFace * sourceCount],
+                                                &stressSourceOnset[ltsFace * sourceCount],
+                                                sourceCount,
+                                                pointIndex,
+                                                static_cast<real>(0.0));
         regularizedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -
-            mu[ltsFace][pointIndex] *
-                std::min(static_cast<real>(0.0), initialStressInFaultCS[ltsFace][0][pointIndex]);
+            mu[ltsFace][pointIndex] * std::min(static_cast<real>(0.0), initialStress[XX]);
       }
     }
   }

@@ -78,7 +78,7 @@ void Neighbor::computeNeighborsIntegral(
     LTS::Ref& data,
     const std::array<real*, Cell::NumFaces>& timeIntegrated,
     const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
   const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
@@ -86,7 +86,7 @@ void Neighbor::computeNeighborsIntegral(
     case FaceType::Regular: {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
-      assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
+      assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Vectorsize == 0);
       assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
              data.get<LTS::CellInformation>().faceRelations[face][1] == 0);
       kernel::neighboringFlux nfKrnl = nfKrnlPrototype_;
@@ -99,7 +99,7 @@ void Neighbor::computeNeighborsIntegral(
     }
     case FaceType::DynamicRupture: {
       // No neighboring cell contribution, interior bc.
-      assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Alignment == 0);
+      assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Vectorsize == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;

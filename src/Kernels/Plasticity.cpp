@@ -52,9 +52,9 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                           real degreesOfFreedom[tensor::Q::size()],
                                           real* pstrain) {
 
-  assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Vectorsize == 0);
 
   alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
 

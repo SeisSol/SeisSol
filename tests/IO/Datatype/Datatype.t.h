@@ -72,6 +72,23 @@ TEST_CASE("F64Datatype" * doctest::test_suite("io")) {
   }
 }
 
+TEST_CASE("Floating-point text reads back exactly" * doctest::test_suite("io")) {
+  // short where a short form is exact, and never short at the cost of the value
+  const F64Datatype f64;
+  double tenth = 0.1;
+  CHECK(f64.toStringRaw(&tenth) == "0.1");
+  for (double value : {1.0 / 3.0, 2.718281828459045, 1e-300, 123456789.123456789}) {
+    CHECK(std::stod(f64.toStringRaw(&value)) == value);
+  }
+
+  const F32Datatype f32;
+  float tenthF = 0.1F;
+  CHECK(f32.toStringRaw(&tenthF) == "0.1");
+  for (float value : {1.0F / 3.0F, 3.14159265F, 1e-30F}) {
+    CHECK(std::stof(f32.toStringRaw(&value)) == value);
+  }
+}
+
 TEST_CASE("F80Datatype" * doctest::test_suite("io")) {
   const F80Datatype dt;
 

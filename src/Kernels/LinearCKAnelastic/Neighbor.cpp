@@ -36,21 +36,21 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
     assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(neighbor))) %
-               Alignment ==
+               Vectorsize ==
            0);
     assert((reinterpret_cast<uintptr_t>(
                global.onHost->localChangeOfBasisMatricesTransposed(neighbor))) %
-               Alignment ==
+               Vectorsize ==
            0);
     assert((reinterpret_cast<uintptr_t>(
                global.onHost->neighborChangeOfBasisMatricesTransposed(neighbor))) %
-               Alignment ==
+               Vectorsize ==
            0);
   }
 
   for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
     for (std::size_t h = 0; h < dr::misc::NumFaceRelations; ++h) {
-      assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
+      assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Vectorsize ==
              0);
     }
   }
@@ -78,7 +78,7 @@ void Neighbor::computeNeighborsIntegral(
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
     // alignment of the time integrated dofs (only for linear interior)
     if (data.get<LTS::CellInformation>().faceTypes[neighbor] == FaceType::Regular) {
-      assert((reinterpret_cast<uintptr_t>(timeIntegrated[neighbor])) % Alignment == 0);
+      assert((reinterpret_cast<uintptr_t>(timeIntegrated[neighbor])) % Vectorsize == 0);
     }
   }
 #endif
@@ -86,7 +86,7 @@ void Neighbor::computeNeighborsIntegral(
   const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
   // alignment of the degrees of freedom
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
 
   alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
 
@@ -105,7 +105,7 @@ void Neighbor::computeNeighborsIntegral(
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
       nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][0], face);
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
-      assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
+      assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Vectorsize == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
