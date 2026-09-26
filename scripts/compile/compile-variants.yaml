@@ -73,6 +73,11 @@ presets:
       host_arch: hsw
       testing:
         enabled: true
+      # The snapshot references in tests/verification/references come from
+      # another environment, which CI deviates from by rounding: 5e-13 between
+      # gcc and clang where they were measured.
+      defines:
+        SEISSOL_SNAPSHOT_TOLERANCE_DOUBLE: "1e-9"
     matrix:
       order: [6]
       precision: [single, double]
