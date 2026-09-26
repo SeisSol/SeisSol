@@ -39,14 +39,21 @@
 #
 
 import numpy
+import re
+
+# the lines of the header of a fault receiver giving the stress the fault starts out
+# under, and the quantity each of them is the initial value of
+INITIAL_STRESS = {'P_0': 'P_n', 'T_s': 'T_s', 'T_d': 'T_d'}
 
 class Waveform:
-  def __init__(self, names, data, coordinates):
+  def __init__(self, names, data, coordinates, simulation = None):
     data = numpy.array(data)
 
     self.waveforms = dict()
     self.norm = dict()
     self.show = dict()
+    # which of the fused simulations this is, or None for a run of a single one
+    self.simulation = simulation
 
     for i in range(0, len(names)):
       if names[i] == 'Time':
@@ -80,3 +87,55 @@ class Waveform:
     dt = self.time[1] - self.time[0]
     for name, wf in self.waveforms.items():
       self.waveforms[name] = numpy.cumsum(wf) * dt
+
+def splitSimulations(names, data):
+  """Splits the columns of a receiver by simulation.
+
+  Returns a dict from the simulation, counted from zero, to its names and columns,
+  the time first; a run of a single simulation is the one entry None. A fused run
+  writes a row per sample and simulation, which a column SimulationIndex names.
+  Before, it wrote a column per quantity and simulation, with the simulation in
+  the name: counted from zero and appended in the volume (v10, v11, ...), counted
+  from one after a dash on the fault (SRs-1, SRs-2, ...).
+  """
+  data = numpy.asarray(data, dtype=float)
+  if 'SimulationIndex' in names:
+    column = names.index('SimulationIndex')
+    kept = [i for i in range(len(names)) if i != column]
+    simulations = data[:, column].astype(int)
+    return { int(simulation): ([names[i] for i in kept], data[simulations == simulation][:, kept])
+             for simulation in numpy.unique(simulations) }
+
+  quantities = names[1:]
+  dashed = [re.fullmatch(r'(.+)-(\d+)', name) for name in quantities]
+  if quantities and all(dashed):
+    columns = dict()
+    for i, match in enumerate(dashed):
+      columns.setdefault(int(match.group(2)) - 1, []).append((match.group(1), i + 1))
+    return { simulation: (['Time'] + [name for name, _ in entries],
+                          data[:, [0] + [i for _, i in entries]])
+             for simulation, entries in sorted(columns.items()) }
+
+  # in the volume, a block of columns per simulation, all of them ending in its index
+  for count in range(2, len(quantities) + 1):
+    if len(quantities) % count != 0:
+      continue
+    width = len(quantities) // count
+    blocks = [quantities[k * width:(k + 1) * width] for k in range(count)]
+    if not all(name.endswith(str(k)) for k, block in enumerate(blocks) for name in block):
+      continue
+    bases = [[name[:len(name) - len(str(k))] for name in block] for k, block in enumerate(blocks)]
+    if all(base == bases[0] for base in bases):
+      return { k: (['Time'] + bases[0], data[:, [0] + list(range(1 + k * width, 1 + (k + 1) * width))])
+               for k in range(count) }
+
+  return { None: (names, data) }
+
+def addInitialStress(names, data, stresses):
+  """Adds the stress a fault starts out under to the tractions, which hold its change.
+
+  stresses maps the name of a header line (P_0, T_s, T_d) to its value.
+  """
+  for header, quantity in INITIAL_STRESS.items():
+    if quantity in names and header in stresses:
+      data[:, names.index(quantity)] += stresses[header]

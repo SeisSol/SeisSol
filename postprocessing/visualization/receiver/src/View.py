@@ -211,6 +211,7 @@ class View(QWidget):
           if not wf.show[name]:
              continue
           p = subplots[name]
+          label = str(nWf) if wf.simulation is None else '{} (sim. {})'.format(nWf, wf.simulation)
           if self.spectrum.isChecked():
             n = len(waveform)
             dt = wf.time[1]-wf.time[0] # assume equally spaced samples
@@ -218,13 +219,13 @@ class View(QWidget):
             W = dt * scipy.fftpack.fft(waveform)
             maxFreqIndices = numpy.argwhere(f > self.maxFreq.value())
             L = maxFreqIndices[0,0] if numpy.size(maxFreqIndices) > 0 else n/2
-            p.loglog(f[1:L], numpy.absolute(W[1:L]), label=str(nWf))
+            p.loglog(f[1:L], numpy.absolute(W[1:L]), label=label)
             p.set_xlabel('f [Hz]')
           elif self.diff.isChecked():
             p.plot(wf.time, waveform, label='{}-0'.format(nWf+1))
             p.set_xlabel('t (s)')
           else:
-            p.plot(wf.time, waveform, label=str(nWf))
+            p.plot(wf.time, waveform, label=label)
             p.set_xlabel('t (s)')
           p.set_ylabel(name)
           #print L2 difference
