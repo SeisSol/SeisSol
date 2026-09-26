@@ -12,12 +12,18 @@
 #include "Common/Offset.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
+#include "Equations/Setup.h"
 #include "Kernels/Precision.h"
 
 #include <cstddef>
 #include <yateto.h>
 
 namespace seissol::kernels {
+
+static_assert(!FactoredStar || StarCoefficientCount ==
+                                   model::SolverSetup<typename model::MaterialT::Solver,
+                                                      model::MaterialT>::NumCoefficients,
+              "the generated coefficient count and the solver's declaration disagree");
 
 /// Hands a kernel the operator of a cell, in whichever of the two shapes the
 /// cell carries it.

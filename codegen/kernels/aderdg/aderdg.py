@@ -283,6 +283,7 @@ class ADERDGBase(ABC):
         count, entries = coefficients.composed(
             self.name(), kwargs.get("solver"), mechanisms, elastic, perMechanism
         )
+        self._solverCoefficientCount = count
         # a solver that keeps the mechanism index in a dimension of its own
         # carries a narrower star than the quantity count suggests, so take the
         # extents from the star itself
@@ -300,6 +301,10 @@ class ADERDGBase(ABC):
             Tensor(f"starAssembled({dim})", starSpp.shape, spp=starSpp, temporary=True)
             for dim in range(3)
         ]
+
+    def solverCoefficientCount(self):
+        """How many scalars the operator this solver applies is linear in."""
+        return getattr(self, "_solverCoefficientCount", 0)
 
     def starAssembly(self):
         """The statements that put the star matrices together, or none where a

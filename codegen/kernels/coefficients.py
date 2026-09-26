@@ -337,8 +337,13 @@ def _table(kind: str, name: str, rows: List[str]) -> List[str]:
             + ["}};\n\n"])
 
 
-def generate(path: str) -> None:
-    """Write the declarations of every material into a C++ header."""
+def generate(path: str, solver_count: int = None) -> None:
+    """Write the declarations of every material into a C++ header.
+
+    With a count for the configured build, the header also states how many
+    coefficients its operator has, so that a cell can be sized without
+    instantiating the solver's declaration.
+    """
     lines = [
         "// SPDX-FileCopyrightText: 2026 SeisSol Group\n",
         "//\n",
@@ -352,7 +357,7 @@ def generate(path: str) -> None:
         "#include <array>\n",
         "#include <cstddef>\n",
         "\n",
-        "namespace seissol::model::generated {\n",
+        "namespace seissol::generated {\n",
         "\n",
     ]
 
@@ -364,13 +369,13 @@ def generate(path: str) -> None:
             lines.append(f"inline constexpr std::size_t {name}NumCoefficients = "
                          f"{len(decomposition.coefficients)};\n")
             lines += _table(
-                "CoefficientEntry",
+                "model::CoefficientEntry",
                 f"{name}CoefficientEntries",
                 [f"{{{e.coefficient}, {e.dim}, {e.row}, {e.column}, {_format(e.factor)}}}"
                  for e in decomposition.entries],
             )
         lines += _table(
-            "AnelasticCoefficientEntry",
+            "model::AnelasticCoefficientEntry",
             f"{name}AnelasticEntries",
             [f"{{{e.dim}, {e.row}, {e.column_offset}, {_format(e.factor)}}}"
              for e in decomposition.anelastic],
@@ -381,14 +386,22 @@ def generate(path: str) -> None:
             lines.append(f"inline constexpr std::size_t {name}NumSourceCoefficients = "
                          f"{len(decomposition.source_coefficients)};\n")
             lines += _table(
-                "SourceCoefficientEntry",
+                "model::SourceCoefficientEntry",
                 f"{name}SourceEntries",
                 [f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
                  for e in decomposition.source],
             )
 
+    if solver_count is not None:
+        lines += [
+            "// the operator the configured solver applies, material and any\n",
+            "// relaxation blocks together\n",
+            f"inline constexpr std::size_t SolverNumCoefficients = {solver_count};\n",
+            "\n",
+        ]
+
     lines += [
-        "} // namespace seissol::model::generated\n",
+        "} // namespace seissol::generated\n",
         "\n",
         "#endif // SEISSOL_GENERATEDCODE_COEFFICIENTS_H_\n",
     ]

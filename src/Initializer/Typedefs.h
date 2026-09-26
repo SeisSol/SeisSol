@@ -18,7 +18,7 @@
 #include "Common/Constants.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
-#include "Model/Common.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
@@ -60,11 +60,12 @@ constexpr bool FactoredStar =
     // the space-time predictor scales the star matrices by the timestep
     // before handing them over, which a cell that does not carry them cannot
     // do; the scalar path through the kernel is what that solver would need
-    Config::Solver != SolverType::STP &&
-    model::SolverSetup<typename model::MaterialT::Solver, model::MaterialT>::NumCoefficients > 0;
+    Config::Solver != SolverType::STP && generated::SolverNumCoefficients > 0;
 
-constexpr std::size_t StarCoefficientCount =
-    model::SolverSetup<typename model::MaterialT::Solver, model::MaterialT>::NumCoefficients;
+/// How many scalars the operator of a cell is linear in. The generator states
+/// it, since this is needed where a solver's declaration cannot be
+/// instantiated; StarOperands.h checks the two against each other.
+constexpr std::size_t StarCoefficientCount = generated::SolverNumCoefficients;
 
 // data for the cell local integration
 struct alignas(Alignment) LocalIntegrationData {

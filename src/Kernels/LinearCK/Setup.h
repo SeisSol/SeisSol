@@ -37,8 +37,10 @@ struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
     for (std::size_t i = 0; i < base.size(); ++i) {
       coefficients[i] = base[i];
     }
-    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      coefficients[base.size() + mech] = material.omega[mech];
+    if constexpr (MaterialT::Mechanisms > 0) {
+      for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+        coefficients[base.size() + mech] = material.omega[mech];
+      }
     }
     return coefficients;
   }

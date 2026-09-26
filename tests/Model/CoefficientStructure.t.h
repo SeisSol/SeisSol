@@ -151,6 +151,7 @@ seissol::model::ViscoElasticMaterial<Mechanisms> viscoelastic(std::mt19937& rng)
   return material;
 }
 
+#ifdef SEISSOL_KERNELS_STP
 inline seissol::model::PoroElasticMaterial poroelastic(std::mt19937& rng) {
   std::uniform_real_distribution<double> unit(0.1, 0.9);
   seissol::model::PoroElasticMaterial material{};
@@ -166,6 +167,7 @@ inline seissol::model::PoroElasticMaterial poroelastic(std::mt19937& rng) {
   material.viscosity = 1e-3;
   return material;
 }
+#endif
 
 } // namespace coefficients
 
@@ -204,6 +206,8 @@ TEST_CASE("Coefficient decomposition") {
     // stress block, so a slot legitimately takes one entry per direction
   }
 
+#ifdef SEISSOL_KERNELS_STP
+  // the poroelastic declaration only exists where its solver is built
   SUBCASE("poroelastic") {
     for (std::size_t sample = 0; sample < 32; ++sample) {
       coefficients::checkDeclaration<seissol::model::PoroElasticMaterial, 13>(
@@ -214,6 +218,7 @@ TEST_CASE("Coefficient decomposition") {
     // catches an anisotropic one
     coefficients::checkUnique<seissol::model::PoroElasticMaterial, 13>();
   }
+#endif
 
   SUBCASE("solver operator including the relaxation blocks") {
     constexpr std::size_t Mechanisms = 3;

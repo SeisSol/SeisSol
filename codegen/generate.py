@@ -209,6 +209,7 @@ def main():
             custom_routine_generators["gpu"] = tensorforge.get_routine_generator(yateto)
 
     subfolders = []
+    solverCoefficientCount = 0
 
     routine_cache = GlobalRoutineCache()
 
@@ -266,6 +267,9 @@ def main():
         generator = Generator(arch)
 
         # Equation-specific kernels
+        nonlocal solverCoefficientCount
+        solverCoefficientCount = adg.solverCoefficientCount()
+
         adg.addInit(generator)
         adg.addLocal(generator, targets)
         adg.addNeighbor(generator, targets)
@@ -396,7 +400,8 @@ def main():
 
         # for now
         kernels.coefficients.generate(
-            os.path.join(cmdLineArgs.outputDir, "coefficients.h")
+            os.path.join(cmdLineArgs.outputDir, "coefficients.h"),
+            solver_count=solverCoefficientCount,
         )
 
         forward_files("init.h")
