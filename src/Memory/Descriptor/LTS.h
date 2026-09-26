@@ -107,6 +107,12 @@ struct LTS {
   struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
   struct MaterialData : public initializer::Variable<model::MaterialT> {};
+  /// How many points the material is sampled at inside a cell. The same set
+  /// the plastic strain lives on, so that a quantity reading both needs no
+  /// interpolation between them.
+  static constexpr std::size_t MaterialNodes = tensor::vNodes::Shape[0];
+  struct NodalMaterialData
+      : public initializer::Variable<std::array<model::MaterialT, MaterialNodes>> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
@@ -166,6 +172,7 @@ struct LTS {
                                                         NeighboringIntegration,
                                                         Material,
                                                         MaterialData,
+                                                        NodalMaterialData,
                                                         Plasticity,
                                                         DRMapping,
                                                         BoundaryMapping,
@@ -212,6 +219,12 @@ struct LTS {
     } else {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
+    LayerMask materialNodalMask;
+    if (settings.materialNodal) {
+      materialNodalMask = LayerMask(Ghost);
+    } else {
+      materialNodalMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    }
     LayerMask integralMask;
     if (settings.integrate) {
       integralMask = LayerMask(Ghost);
@@ -249,6 +262,7 @@ struct LTS {
     storage.add<NeighboringIntegration>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<NodalMaterialData>(materialNodalMask, Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Plasticity>(
         plasticityMask, Alignment, allocationModeWP(AllocationPreset::Plasticity), true);

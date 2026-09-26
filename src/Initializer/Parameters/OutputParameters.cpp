@@ -320,6 +320,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
       convertStringToArray<bool, seissol::model::PlasticityData::Quantities.size()>(
           plasticityMaskString, false);
 
+  const auto material = reader->readWithDefault("materialoutput", false);
+
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
   const std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask =
@@ -352,6 +354,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                    outputMask,
                                    plasticityMask,
                                    integrationMask,
+                                   material,
                                    groups,
                                    computeRotation,
                                    computeStrain,

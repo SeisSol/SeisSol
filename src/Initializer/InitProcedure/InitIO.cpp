@@ -45,6 +45,7 @@
 #include <optional>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -310,8 +311,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
 
+    // the plastic strain and, where the material is sampled at the nodes, the
+    // material parameters both live on the nodal set
+    const bool needsNodalProjection =
+        seissolParams.model.plasticity ||
+        (seissolParams.output.waveFieldParameters.material && seissolParams.model.materialNodal);
     std::shared_ptr<projection::Table<3, 3>> projNodal;
-    if (seissolParams.model.plasticity) {
+    if (needsNodalProjection) {
       projNodal = makeVolumeTable(projection::Source::Nodal, {});
     }
 
@@ -537,6 +543,65 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
                   target[i] -= itarget[i];
                 }
+              });
+        }
+      }
+
+      if (seissolParams.output.waveFieldParameters.material) {
+        // a stable order across runs and builds, which the hash map the
+        // material binds its parameters with does not give
+        std::vector<std::pair<std::string, double model::MaterialT::*>> parameters(
+            model::MaterialT::ParameterMap.begin(), model::MaterialT::ParameterMap.end());
+        std::sort(parameters.begin(), parameters.end(), [](const auto& a, const auto& b) {
+          return a.first < b.first;
+        });
+
+        static_assert(tensor::qn::Shape[0] == multisim::NumSimulations &&
+                          tensor::qn::Shape[1] == LTS::MaterialNodes,
+                      "the nodal projection reads the simulation index fastest, one sample "
+                      "per material node");
+
+        const bool nodal = seissolParams.model.materialNodal;
+        for (const auto& [parameterName, member] : parameters) {
+          writer.addGeometryOutput<real>(
+              namewrap(parameterName, sim),
+              {},
+              false,
+              [=, &ltsStorage, &backmap](real* target, std::size_t index, std::size_t subcell) {
+                const auto position = backmap.get(cellIndices[index]);
+                constexpr std::size_t MaxVtk3dPoints = tensor::vtk3d::Shape
+                    [(sizeof(tensor::vtk3d::Shape) / sizeof(tensor::vtk3d::Shape[0])) - 1][1];
+
+                if (!nodal) {
+                  // the cell carries one value, so every output point of it
+                  // takes that value
+                  const auto& material = ltsStorage.lookup<LTS::MaterialData>(position);
+                  const auto value = static_cast<real>(material.*member);
+                  std::fill_n(target, tensor::vtk3d::Shape[order][1], value);
+                  return;
+                }
+
+                const auto& sampled = ltsStorage.lookup<LTS::NodalMaterialData>(position);
+                alignas(Alignment) std::array<real, tensor::qn::size()> nodalValues{};
+                for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+                  // the material is one field, so every fused simulation sees
+                  // the same sample at a point
+                  for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+                    nodalValues[s + multisim::NumSimulations * node] =
+                        static_cast<real>(sampled[node].*member);
+                  }
+                }
+
+                kernel::projectNodalToVtkVolume vtkproj{};
+                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+                alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
+                simselect[sim] = 1;
+                vtkproj.simselect = simselect.data();
+                vtkproj.qn = nodalValues.data();
+                vtkproj.xv(order) = alignedTarget.data();
+                vtkproj.collnv(ConvergenceOrder, order) = (*projNodal)(subcell, ConvergenceOrder);
+                vtkproj.execute(order);
+                std::copy_n(alignedTarget.data(), dataBase.size(), target);
               });
         }
       }

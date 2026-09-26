@@ -173,6 +173,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       }
     } else {
       auto* materialArray = layer.var<LTS::Material>();
+      auto* nodalMaterialArray =
+          nodalMaterialsDB.empty() ? nullptr : layer.var<LTS::NodalMaterialData>();
       auto* plasticityArray =
           seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
       auto* energyDataArray = layer.var<LTS::EnergyData>();
@@ -191,6 +193,14 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
+
+        if (nodalMaterialArray != nullptr) {
+          const auto* sampled =
+              &nodalMaterialsDB[static_cast<std::size_t>(meshId) * LTS::MaterialNodes];
+          for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+            initAssign(nodalMaterialArray[cell][node], sampled[node]);
+          }
+        }
 
         energyDataArray[cell] = model::EnergyCompute<MaterialT>::initEnergyData(materialData);
 
@@ -218,14 +228,14 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             const auto pointsPerCell = plasticityPointwise ? model::PlasticityData::PointCount : 1;
             localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
           }
-          constexpr auto NodeCount = model::PlasticityData::PointCount;
-          std::array<double, NodeCount> muBar{};
-          if (nodalMaterialsDB.empty()) {
+          static_assert(model::PlasticityData::PointCount == LTS::MaterialNodes,
+                        "the plastic strain and the material sample the same points");
+          std::array<double, LTS::MaterialNodes> muBar{};
+          if (nodalMaterialArray == nullptr) {
             muBar.fill(material.local->getMuBar());
           } else {
-            const auto* nodal = &nodalMaterialsDB[static_cast<std::size_t>(meshId) * NodeCount];
-            for (std::size_t node = 0; node < NodeCount; ++node) {
-              muBar[node] = nodal[node].getMuBar();
+            for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+              muBar[node] = nodalMaterialArray[cell][node].getMuBar();
             }
           }
 
