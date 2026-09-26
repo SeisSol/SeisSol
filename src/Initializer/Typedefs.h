@@ -15,7 +15,10 @@
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
 #include "DynamicRupture/Misc.h"
+#include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
+#include "Model/Common.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
@@ -48,10 +51,25 @@ struct CompoundGlobalData {
   GlobalData* onDevice{nullptr};
 };
 
+/// Whether a cell carries the coefficients its operator is linear in together
+/// with the rows of its Jacobian, instead of the star matrices the two fold
+/// into. The build decides, and a solver that does not declare the
+/// decomposition keeps the matrices whatever the build asks for.
+constexpr bool FactoredStar =
+    Config::FactoredStar &&
+    model::SolverSetup<typename model::MaterialT::Solver, model::MaterialT>::NumCoefficients > 0;
+
+constexpr std::size_t StarCoefficientCount =
+    model::SolverSetup<typename model::MaterialT::Solver, model::MaterialT>::NumCoefficients;
+
 // data for the cell local integration
 struct alignas(Alignment) LocalIntegrationData {
-  // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)]{};
+  // star matrices, where the cell carries them assembled
+  real starMatrices[3][zeroGuard(FactoredStar ? 0 : seissol::tensor::star::size(0))]{};
+
+  // the rows of the Jacobian and the material coefficients, where it does not
+  real referenceGradients[3][zeroGuard(FactoredStar ? 3 : 0)]{};
+  real materialCoefficients[zeroGuard(FactoredStar ? StarCoefficientCount : 0)]{};
 
   // flux solver for element local contribution
   real nApNm1[4][seissol::tensor::AplusT::size()]{};

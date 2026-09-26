@@ -14,7 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/quantities.h"
 #include "Geometry/MeshTools.h"
-#include "Initializer/Typedefs.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 #include "Numerical/Eigenvalues.h"

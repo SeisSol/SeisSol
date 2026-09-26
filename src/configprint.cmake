@@ -51,6 +51,12 @@ endif()
 
 capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
 
+if (FACTORED_STAR)
+  set(PARAMETER_FACTORED_STAR "true")
+else()
+  set(PARAMETER_FACTORED_STAR "false")
+endif()
+
 if (PRECISION STREQUAL "single")
   set(PARAMETER_REALTYPE "F32")
 else()
