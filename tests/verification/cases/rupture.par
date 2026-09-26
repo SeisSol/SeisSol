@@ -40,6 +40,7 @@ ClusteredLTS = 1                               ! GTS; LTS makes rank counts inco
 &Output
 OutputFile = 'output/mini'
 wavefieldoutput = 0
+iOutputMask = 1 1 1 1 1 1 1 1 1                ! required even without wavefield output
 SurfaceOutput = 0
 ReceiverOutput = 1
 pickdt = 6.103515625e-05                       ! set by the runner
