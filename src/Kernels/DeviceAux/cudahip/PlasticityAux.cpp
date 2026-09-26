@@ -115,7 +115,8 @@ __global__ void
   // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
   __syncthreads();
   if (isAdjusted) {
-    const real factor = plasticity[blockIdx.x].mufactor / (tV * oneMinusIntegratingFactor);
+    const real factor =
+        plasticity[blockIdx.x].mufactor[linearidx()] / (tV * oneMinusIntegratingFactor);
 
     real* __restrict eta = pstrainPtr[blockIdx.x] + tensor::QStressNodal::size();
     real* __restrict localPstrain = pstrainPtr[blockIdx.x];

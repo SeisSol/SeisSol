@@ -109,6 +109,16 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   const auto queryGen = getBestQueryGenerator(ctv);
   auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
+  // a second sample set, at the nodal points of the volume basis. The
+  // homogenized material a cell carries is an effective medium and not the
+  // mean of these, so the two are asked for separately rather than derived
+  // from one another.
+  std::vector<MaterialT> nodalMaterialsDB;
+  if (seissolParams.model.materialNodal) {
+    nodalMaterialsDB = queryDB<MaterialT>(std::make_shared<NodalPointGenerator>(ctv),
+                                          seissolParams.model.materialFileName);
+  }
+
   // plasticity (if needed)
 
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
@@ -129,6 +139,11 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
     cellMat.initialize(seissolParams.model);
+  }
+
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < nodalMaterialsDB.size(); ++i) {
+    nodalMaterialsDB[i].initialize(seissolParams.model);
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
@@ -203,9 +218,19 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             const auto pointsPerCell = plasticityPointwise ? model::PlasticityData::PointCount : 1;
             localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
           }
-          initAssign(
-              plasticity,
-              seissol::model::PlasticityData(localPlasticity, material.local, plasticityPointwise));
+          constexpr auto NodeCount = model::PlasticityData::PointCount;
+          std::array<double, NodeCount> muBar{};
+          if (nodalMaterialsDB.empty()) {
+            muBar.fill(material.local->getMuBar());
+          } else {
+            const auto* nodal = &nodalMaterialsDB[static_cast<std::size_t>(meshId) * NodeCount];
+            for (std::size_t node = 0; node < NodeCount; ++node) {
+              muBar[node] = nodal[node].getMuBar();
+            }
+          }
+
+          initAssign(plasticity,
+                     seissol::model::PlasticityData(localPlasticity, muBar, plasticityPointwise));
         }
       }
     }

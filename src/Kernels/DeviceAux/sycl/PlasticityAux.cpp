@@ -103,7 +103,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
       item.barrier();
       if (isAdjusted[0]) {
-        const real factor = plasticity[wid].mufactor / (tV * oneMinusIntegratingFactor);
+        const real factor = plasticity[wid].mufactor[tid] / (tV * oneMinusIntegratingFactor);
 
         real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal::size();
         real* __restrict localPstrain = pstrainPtr[wid];

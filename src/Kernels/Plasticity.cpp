@@ -132,8 +132,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   }
 
   if (adjust != 0) {
-    const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
-
     // calculate plastic strain
     constexpr std::size_t NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
                                      init::QStressNodal::Start[multisim::BasisFunctionDimension];
@@ -161,6 +159,10 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     for (std::size_t i = 0; i < NumNodes; ++i) {
       for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
         const auto qp = s + multisim::NumSimulations * i;
+
+        // kept as a division rather than a hoisted reciprocal, so that a material
+        // constant over the cell reproduces the former scalar path bit for bit
+        const real factor = plasticityData->mufactor[qp] / (tV * oneMinusIntegratingFactor);
 
         real dudtPstrainSqAcc = 0;
 

@@ -30,11 +30,13 @@ struct PlasticityData {
   alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()]{};
   alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()]{};
 
-  // depends only on the material (i.e. only relevant for #1297 or multi-fused-material)
-  real mufactor{};
+  // the one quantity here that comes from the material rather than from the
+  // plasticity parameters, and so the one that varies within a cell once the
+  // material does
+  alignas(Alignment) real mufactor[tensor::meanStress::size()]{};
 
   PlasticityData(const std::array<const Plasticity*, seissol::multisim::NumSimulations>& plasticity,
-                 const Material* material,
+                 const std::array<double, PointCount>& muBar,
                  bool pointwise) {
     auto initialLoadingV = init::initialLoading::view::create(initialLoading);
     initialLoadingV.setZero();
@@ -69,8 +71,14 @@ struct PlasticityData {
       }
     }
 
-    const auto mubar = material->getMuBar();
-    mufactor = 1.0 / (2.0 * mubar);
+    auto mufactorV = init::meanStress::view::create(mufactor);
+    mufactorV.setZero();
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+      auto mufactorVS = multisim::simtensor(mufactorV, s);
+      for (std::size_t i = 0; i < PointCount; ++i) {
+        mufactorVS(i) = 1.0 / (2.0 * muBar[i]);
+      }
+    }
   }
 
   static constexpr std::size_t NumQuantities = 7;
