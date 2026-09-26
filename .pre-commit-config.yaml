@@ -12,6 +12,9 @@ repos:
     rev: v6.0.0
     hooks:
     -   id: check-merge-conflict
+        # without this the hook passes while a merge is in progress, which is exactly
+        # when the markers are around to be committed
+        args: ["--assume-in-merge"]
         name: '[GENERIC] merge conflict check'
     -   id: check-symlinks
         name: '[GENERIC] symlink check'

@@ -26,7 +26,7 @@ Schema (version 1)::
       "passed":     true,             # error <= epsilon everywhere
       "max_error":  1.23e-04,         # worst error over all quantities
       "quantities": {                 # per-quantity achieved error
-        "elastic_energy": 1.23e-04,
+        "elastic_strain_energy": 1.23e-04,
         "seismic_moment": 4.56e-06
       }
     }

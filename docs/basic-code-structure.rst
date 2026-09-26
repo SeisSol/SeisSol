@@ -104,5 +104,5 @@ Folder        Description
 ============= =============
 science       Various scripts processing simulation output.
 validation    Cube mesh validation.
-visualisation Receiver viewer; scripts.
+visualization Receiver viewer; scripts.
 ============= =============

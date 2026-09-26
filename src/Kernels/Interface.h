@@ -19,8 +19,7 @@ struct Iane;
 
 namespace seissol::kernels {
 struct LocalTmp {
-  alignas(Alignment) real
-      timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane>())]{};
+  alignas(Alignment) real timeIntegratedAne[zeroGuard(kernels::size<tensor::Iane>())]{};
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   alignas(Alignment)
       std::array<real,

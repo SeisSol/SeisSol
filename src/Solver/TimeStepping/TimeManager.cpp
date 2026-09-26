@@ -17,6 +17,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ClusteringWriter.h"

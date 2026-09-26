@@ -13,7 +13,7 @@ assembles at build time.
 
 Unlike test_aderdg_math.py (which bypasses __init__ to test pure logic),
 these exercise the full constructor path, including:
- - XML matrix file parsing (matrices_{N}.xml, star.xml, ...)
+ - XML matrix file parsing (aderdg-{N}.xml, equation-elastic.xml, ...)
  - JSON matrix file parsing (plasticity-ip-matrices-{order}.json, ...)
  - memoryLayoutFromFile + CSC memory layouts
  - The full nodal/gravitational matrix suite
@@ -87,7 +87,7 @@ class TestElasticConstruction:
             matricesDir=str(MATRICES_DIR),
             memLayout=_default_memLayout(),
         )
-        assert adg.numberOfQuantities() == 9
+        assert adg.numQuantities() == 9
 
     def test_Q_tensor_shape_matches_basis_count_and_nq(self):
         from kernels.equations.elastic import ElasticADERDG
@@ -98,10 +98,10 @@ class TestElasticConstruction:
             matricesDir=str(MATRICES_DIR),
             memLayout=_default_memLayout(),
         )
-        # Q holds DG coefficients: (numberOf3DBasisFunctions, numberOfQuantities)
+        # Q holds DG coefficients: (num3DBasisFunctions, numQuantities)
         assert adg.Q.shape() == (
-            adg.numberOf3DBasisFunctions(),
-            adg.numberOfQuantities(),
+            adg.num3DBasisFunctions(),
+            adg.numQuantities(),
         )
 
     def test_I_tensor_matches_Q(self):
@@ -190,7 +190,7 @@ class TestOtherEquationsConstruction:
             matricesDir=str(MATRICES_DIR),
             memLayout=_default_memLayout(),
         )
-        assert adg.numberOfQuantities() == 4
+        assert adg.numQuantities() == 4
 
     def test_anisotropic_constructs(self):
         from kernels.equations.anisotropic import AnisotropicADERDG
@@ -202,7 +202,7 @@ class TestOtherEquationsConstruction:
             memLayout=_default_memLayout(),
         )
         # Anisotropic has the same 9 quantities as elastic
-        assert adg.numberOfQuantities() == 9
+        assert adg.numQuantities() == 9
 
     def test_poroelastic_constructs(self):
         from kernels.equations.poroelastic import PoroelasticADERDG
@@ -212,9 +212,9 @@ class TestOtherEquationsConstruction:
             multipleSimulations=1,
             matricesDir=str(MATRICES_DIR),
             memLayout=_default_memLayout(),
-            numberOfMechanisms=0,
+            numMechanisms=0,
         )
-        assert adg.numberOfQuantities() == 13
+        assert adg.numQuantities() == 13
 
 
 class TestViscoelasticConstruction:
@@ -222,7 +222,7 @@ class TestViscoelasticConstruction:
     dependent block structure the most."""
 
     @pytest.mark.parametrize("mechanisms", [1, 3, 5])
-    def test_numberOfQuantities_matches_formula(self, mechanisms):
+    def test_numQuantities_matches_formula(self, mechanisms):
         from kernels.equations.viscoelastic import ViscoelasticADERDG
 
         adg = ViscoelasticADERDG(
@@ -230,14 +230,14 @@ class TestViscoelasticConstruction:
             multipleSimulations=1,
             matricesDir=str(MATRICES_DIR),
             memLayout=_default_memLayout(),
-            numberOfMechanisms=mechanisms,
+            numMechanisms=mechanisms,
         )
-        assert adg.numberOfQuantities() == 9 + 6 * mechanisms
+        assert adg.numQuantities() == 9 + 6 * mechanisms
 
     @pytest.mark.parametrize("mechanisms", [1, 3, 5])
     def test_star_matrix_shape_scales_with_mechanisms(self, mechanisms):
         """After the mechanism-expansion logic, star matrices must be
-        square of size numberOfQuantities × numberOfQuantities.
+        square of size numQuantities × numQuantities.
         """
         from kernels.equations.viscoelastic import ViscoelasticADERDG
 
@@ -246,9 +246,9 @@ class TestViscoelasticConstruction:
             multipleSimulations=1,
             matricesDir=str(MATRICES_DIR),
             memLayout=_default_memLayout(),
-            numberOfMechanisms=mechanisms,
+            numMechanisms=mechanisms,
         )
-        nq = adg.numberOfQuantities()
+        nq = adg.numQuantities()
         for dim in range(3):
             assert adg.starMatrix(dim).shape() == (nq, nq)
 
@@ -268,15 +268,14 @@ class TestMatrixFileInventory:
     2..8).
     """
 
-    # (order -> expected numberOf3DBasisFunctions)
+    # (order -> expected num3DBasisFunctions)
     BASIS_FOR_ORDER = {2: 4, 3: 10, 4: 20, 5: 35, 6: 56, 7: 84, 8: 120}
 
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
     def test_matrices_N_xml_exists_for_each_order(self, order):
-        """matrices_{numberOf3DBasisFunctions}.xml is required for every
+        """matrices_{num3DBasisFunctions}.xml is required for every
         supported order."""
-        n = self.BASIS_FOR_ORDER[order]
-        f = MATRICES_DIR / f"matrices_{n}.xml"
+        f = MATRICES_DIR / f"aderdg-{order}.xml"
         assert f.exists(), f"Missing matrix file for order={order}: {f}"
 
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
@@ -293,13 +292,13 @@ class TestMatrixFileInventory:
 
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
     def test_mass_matrix_per_order_exists(self, order):
-        f = MATRICES_DIR / f"mass_{order}.json"
+        f = MATRICES_DIR / f"mass-{order}.json"
         assert f.exists(), f"Missing mass matrix file for order={order}"
 
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
     def test_stp_matrix_exists_for_poroelastic(self, order):
         """Space-Time-Predictor matrices — required for poroelastic &
-        viscoelastic2 at every order.
+        viscoelastic (split) at every order.
         """
         f = MATRICES_DIR / f"stp_{order}.json"
         assert f.exists(), f"Missing stp_{order}.json"
@@ -317,11 +316,12 @@ class TestMatrixFileInventory:
     def test_equation_specific_matrices_exist(self):
         """star matrices for each equation that needs one."""
         for fname in [
-            "star.xml",  # elastic
-            "star_acoustic.xml",  # acoustic
-            "star_anisotropic.xml",  # anisotropic
-            "matrices_viscoelastic.xml",
-            "matrices_poroelastic.xml",
+            "equation-elastic.json",
+            "equation-acoustic.json",
+            "equation-anisotropic.json",
+            "equation-viscoacoustic.json",
+            "equation-viscoelastic.json",
+            "equation-poroelastic.json",
         ]:
             f = MATRICES_DIR / fname
             assert f.exists(), f"Missing equation matrix file: {f}"

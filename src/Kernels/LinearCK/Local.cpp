@@ -123,8 +123,8 @@ struct ApplyAnalyticalSolution {
 
 void Local::computeIntegral(
     real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
 
   const auto& materialData = data.get<LTS::Material>();
   const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();

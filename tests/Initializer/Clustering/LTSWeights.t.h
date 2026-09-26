@@ -374,7 +374,7 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
         continue;
       }
       if (element.neighborRanks[f] != rank) {
-        continue; // ghost neighbour, not resolvable from the local element list
+        continue; // ghost neighbor, not resolvable from the local element list
       }
       const auto neighbor = static_cast<std::size_t>(element.neighbors[f]);
       if (neighbor >= elements.size()) {

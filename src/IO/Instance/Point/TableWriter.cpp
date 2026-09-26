@@ -12,13 +12,28 @@
 #include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::io::instance::point {
 
-TableWriter::TableWriter() = default;
+TableWriter::TableWriter(std::string name) : name_(std::move(name)) {}
+
+const std::string& TableWriter::name() const { return name_; }
 
 void TableWriter::addQuantity(const TableQuantity& quantity) { quantities_.push_back(quantity); }
+
+void TableWriter::addTextColumn(const std::string& name, std::size_t maxLength) {
+  addQuantity(TableQuantity{name, std::make_shared<datatype::StringDatatype>(maxLength)});
+}
+
+void TableWriter::addText(const std::string& value) {
+  const auto length = quantities_.at(inrowPos_).datatype->size();
+  std::vector<char> field(length, '\0');
+  std::copy_n(value.begin(), std::min(length, value.size()), field.begin());
+  addCellRaw(field.data(), length);
+}
 
 void TableWriter::addCellRaw(const void* data, std::size_t size) {
   const auto position = rowstorage_.size();

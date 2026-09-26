@@ -46,7 +46,7 @@ class TestPivotIfNecessary:
         df = pd.DataFrame(
             {
                 "time": [0.0, 0.1, 0.2],
-                "elastic_energy": [1.0, 2.0, 3.0],
+                "elastic_strain_energy": [1.0, 2.0, 3.0],
                 "elastic_kinetic_energy": [0.5, 0.6, 0.7],
             }
         )
@@ -57,12 +57,12 @@ class TestPivotIfNecessary:
         df = pd.DataFrame(
             {
                 "time": [0, 0, 1, 1],
-                "variable": ["elastic_energy", "elastic_kinetic_energy"] * 2,
+                "variable": ["elastic_strain_energy", "elastic_kinetic_energy"] * 2,
                 "measurement": [1.0, 0.5, 2.0, 0.6],
             }
         )
         result = ce.pivot_if_necessary(df)
-        assert "elastic_energy" in result.columns
+        assert "elastic_strain_energy" in result.columns
         assert "elastic_kinetic_energy" in result.columns
         assert len(result) == 2
 
@@ -71,7 +71,7 @@ class TestPivotIfNecessary:
             {
                 "time": [0, 0, 0, 0, 1, 1, 1, 1],
                 "simulation_index": [0, 0, 1, 1, 0, 0, 1, 1],
-                "variable": ["elastic_energy", "elastic_kinetic_energy"] * 4,
+                "variable": ["elastic_strain_energy", "elastic_kinetic_energy"] * 4,
                 "measurement": [1.0, 0.5, 1.1, 0.55, 2.0, 0.6, 2.1, 0.65],
             }
         )
@@ -103,7 +103,7 @@ class TestGetNumberOfFusedSims:
             {
                 "time": [0, 0, 1, 1],
                 "simulation_index": [0, 1, 0, 1],
-                "elastic_energy": [1.0, 1.1, 2.0, 2.1],
+                "elastic_strain_energy": [1.0, 1.1, 2.0, 2.1],
             }
         )
         assert ce.get_number_of_fused_sims(df) == 2
@@ -113,7 +113,7 @@ class TestGetNumberOfFusedSims:
             {
                 "time": [0, 0, 0, 0],
                 "simulation_index": [0, 1, 2, 3],
-                "elastic_energy": [1.0, 2.0, 3.0, 4.0],
+                "elastic_strain_energy": [1.0, 2.0, 3.0, 4.0],
             }
         )
         assert ce.get_number_of_fused_sims(df) == 4
@@ -121,16 +121,16 @@ class TestGetNumberOfFusedSims:
     def test_pure_digit_suffix_columns_detected(self):
         df = pd.DataFrame(
             {
-                "elastic_energy0": [1.0],
-                "elastic_energy1": [1.1],
-                "elastic_energy2": [1.2],
+                "elastic_strain_energy0": [1.0],
+                "elastic_strain_energy1": [1.1],
+                "elastic_strain_energy2": [1.2],
             }
         )
         assert ce.get_number_of_fused_sims(df) == 3
 
     def test_nonfused_new_format_returns_neg1(self):
         # Non-digit last chars cause the int() call to raise -> -1
-        df = pd.DataFrame({"time": [0, 1], "elastic_energy": [1.0, 2.0]})
+        df = pd.DataFrame({"time": [0, 1], "elastic_strain_energy": [1.0, 2.0]})
         assert ce.get_number_of_fused_sims(df) == -1
 
 
@@ -142,30 +142,30 @@ class TestGetNumberOfFusedSims:
 class TestGetSubSimulation:
 
     def test_nonfused_returns_full_dataframe(self):
-        df = pd.DataFrame({"time": [0, 1, 2], "elastic_energy": [1.0, 2.0, 3.0]})
+        df = pd.DataFrame({"time": [0, 1, 2], "elastic_strain_energy": [1.0, 2.0, 3.0]})
         result = ce.get_sub_simulation(df, fused_index=0)
         assert len(result) == 3
-        assert "elastic_energy" in result.columns
+        assert "elastic_strain_energy" in result.columns
 
     def test_fused_selects_only_that_index(self):
         df = pd.DataFrame(
             {
                 "time": [0, 0, 1, 1],
                 "simulation_index": [0, 1, 0, 1],
-                "elastic_energy": [1.0, 1.1, 2.0, 2.1],
+                "elastic_strain_energy": [1.0, 1.1, 2.0, 2.1],
             }
         )
         sim0 = ce.get_sub_simulation(df, fused_index=0)
         sim1 = ce.get_sub_simulation(df, fused_index=1)
-        assert list(sim0["elastic_energy"]) == [1.0, 2.0]
-        assert list(sim1["elastic_energy"]) == [1.1, 2.1]
+        assert list(sim0["elastic_strain_energy"]) == [1.0, 2.0]
+        assert list(sim1["elastic_strain_energy"]) == [1.1, 2.1]
 
     def test_fused_nonexistent_index_returns_empty(self):
         df = pd.DataFrame(
             {
                 "time": [0, 0],
                 "simulation_index": [0, 1],
-                "elastic_energy": [1.0, 1.1],
+                "elastic_strain_energy": [1.0, 1.1],
             }
         )
         result = ce.get_sub_simulation(df, fused_index=99)
@@ -192,40 +192,40 @@ class TestPerformCheck:
     def test_identical_frames_pass(self):
         df = pd.DataFrame(
             {
-                "elastic_energy": [1.0, 1.1, 1.2],
+                "elastic_strain_energy": [1.0, 1.1, 1.2],
                 "total_frictional_work": [0.0, 0.5, 1.0],
             }
         )
         assert self.exceeded(df, df, 0.01) is False
 
     def test_large_difference_fails(self):
-        ref = pd.DataFrame({"elastic_energy": [1.0, 1.1, 1.2]})
-        sim = pd.DataFrame({"elastic_energy": [1.0, 1.5, 1.8]})
+        ref = pd.DataFrame({"elastic_strain_energy": [1.0, 1.1, 1.2]})
+        sim = pd.DataFrame({"elastic_strain_energy": [1.0, 1.5, 1.8]})
         assert self.exceeded(sim, ref, 0.05) is True
 
     def test_exact_threshold_comparison(self):
-        ref = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
-        sim_high = pd.DataFrame({"elastic_energy": [1.0, 1.051, 1.051]})
-        sim_low = pd.DataFrame({"elastic_energy": [1.0, 1.049, 1.049]})
+        ref = pd.DataFrame({"elastic_strain_energy": [1.0, 1.0, 1.0]})
+        sim_high = pd.DataFrame({"elastic_strain_energy": [1.0, 1.051, 1.051]})
+        sim_low = pd.DataFrame({"elastic_strain_energy": [1.0, 1.049, 1.049]})
         assert self.exceeded(sim_high, ref, 0.05) is True
         assert self.exceeded(sim_low, ref, 0.05) is False
 
     def test_first_row_excluded(self):
         # A huge difference in row 0 should not fail (iloc[1:] drops it)
-        ref = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
-        sim = pd.DataFrame({"elastic_energy": [999.0, 1.0, 1.0]})
+        ref = pd.DataFrame({"elastic_strain_energy": [1.0, 1.0, 1.0]})
+        sim = pd.DataFrame({"elastic_strain_energy": [999.0, 1.0, 1.0]})
         assert self.exceeded(sim, ref, 0.01) is False
 
     def test_multiple_quantities_any_failure_is_failure(self):
         ref = pd.DataFrame(
             {
-                "elastic_energy": [1.0, 1.0, 1.0],
+                "elastic_strain_energy": [1.0, 1.0, 1.0],
                 "total_frictional_work": [1.0, 1.0, 1.0],
             }
         )
         sim = pd.DataFrame(
             {
-                "elastic_energy": [1.0, 1.0, 1.0],
+                "elastic_strain_energy": [1.0, 1.0, 1.0],
                 "total_frictional_work": [1.0, 2.0, 2.0],
             }
         )
@@ -233,21 +233,21 @@ class TestPerformCheck:
 
     def test_relative_difference_is_handed_back(self):
         """The caller builds the machine-readable summary from this."""
-        ref = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
-        sim = pd.DataFrame({"elastic_energy": [1.0, 1.5, 1.25]})
+        ref = pd.DataFrame({"elastic_strain_energy": [1.0, 1.0, 1.0]})
+        sim = pd.DataFrame({"elastic_strain_energy": [1.0, 1.5, 1.25]})
         _, rel_diff = ce.perform_check(sim, ref, epsilon=0.05)
         # t=0 is dropped, so two rows remain
         assert list(rel_diff.index) == [1, 2]
-        assert rel_diff["elastic_energy"].tolist() == pytest.approx([0.5, 0.25])
+        assert rel_diff["elastic_strain_energy"].tolist() == pytest.approx([0.5, 0.25])
 
     def test_relative_difference_is_returned_even_when_passing(self):
-        ref = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
+        ref = pd.DataFrame({"elastic_strain_energy": [1.0, 1.0, 1.0]})
         exceeded, rel_diff = ce.perform_check(ref, ref, epsilon=0.01)
         assert exceeded is False
-        assert rel_diff["elastic_energy"].tolist() == pytest.approx([0.0, 0.0])
+        assert rel_diff["elastic_strain_energy"].tolist() == pytest.approx([0.0, 0.0])
 
     def test_prints_content_for_debugging(self, capsys):
-        df = pd.DataFrame({"elastic_energy": [1.0, 1.0, 1.0]})
+        df = pd.DataFrame({"elastic_strain_energy": [1.0, 1.0, 1.0]})
         ce.perform_check(df, df, epsilon=0.01)
         out = capsys.readouterr().out
         assert "Energies" in out
@@ -258,7 +258,7 @@ class TestDocumentedFormerBugs:
 
     def test_bug2_get_number_of_fused_sims_fails_on_mixed_columns(self):
         """BUG: The old fused CSV format had columns like
-            ['time', 'elastic_energy0', 'elastic_energy1', ...]
+            ['time', 'elastic_strain_energy0', 'elastic_strain_energy1', ...]
         The function iterates ALL columns including 'time' and does
         int(c[-1]). int('e') raises, the except swallows it, returns -1 —
         i.e. it silently reports "not fused" even when it IS fused.
@@ -272,8 +272,8 @@ class TestDocumentedFormerBugs:
         old_fused_format = pd.DataFrame(
             {
                 "time": [0.0, 0.1, 0.2],
-                "elastic_energy0": [1.0, 1.1, 1.2],
-                "elastic_energy1": [2.0, 2.1, 2.2],
+                "elastic_strain_energy0": [1.0, 1.1, 1.2],
+                "elastic_strain_energy1": [2.0, 2.1, 2.2],
             }
         )
         result = ce.get_number_of_fused_sims(old_fused_format)

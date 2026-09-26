@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <limits>
 #include <string>
 #include <unordered_set>
@@ -21,6 +22,45 @@
 #include <vector>
 
 namespace seissol::initializer::parameters {
+
+namespace {
+ProjectionMethod readProjectionMethod(ParameterReader* reader,
+                                      const std::string& field,
+                                      const std::string& defaultValue) {
+  return reader->readWithDefaultStringEnum<ProjectionMethod>(
+      field,
+      defaultValue,
+      {
+          {"pointwise", ProjectionMethod::Pointwise},
+          {"l2", ProjectionMethod::L2},
+      });
+}
+
+TimeSeriesMode readTimeSeriesMode(ParameterReader* reader,
+                                  const std::string& field,
+                                  const std::string& defaultValue) {
+  return reader->readWithDefaultStringEnum<TimeSeriesMode>(
+      field,
+      defaultValue,
+      {
+          {"snapshot", TimeSeriesMode::Snapshot},
+          {"incremental", TimeSeriesMode::Incremental},
+          {"monolith", TimeSeriesMode::Monolith},
+      });
+}
+
+std::string timeSeriesName(TimeSeriesMode mode) {
+  switch (mode) {
+  case TimeSeriesMode::Incremental:
+    return "incremental";
+  case TimeSeriesMode::Monolith:
+    return "monolith";
+  case TimeSeriesMode::Snapshot:
+    return "snapshot";
+  }
+  return "snapshot";
+}
+} // namespace
 
 void warnIntervalAndDisable(bool& enabled,
                             double interval,
@@ -55,7 +95,8 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   return CheckpointParameters{enabled, interval};
 }
 
-ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader) {
+ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader,
+                                                     const std::string& defaultTimeSeries) {
   auto* reader = baseReader->readSubNode("elementwise");
 
   const auto printTimeIntervalSec = reader->readWithDefault("printtimeinterval_sec", 1.0);
@@ -71,8 +112,10 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
 
   const auto vtkorder = reader->readWithDefault("vtkorder", -1);
 
+  const auto timeSeries = readTimeSeriesMode(reader, "timeseries", defaultTimeSeries);
+
   return ElementwiseFaultParameters{
-      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder};
+      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder, timeSeries};
 }
 
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
@@ -102,7 +145,8 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
                                 terminatorMomentRateThreshold};
 }
 
-FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader) {
+FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
+                                                      const std::string& defaultTimeSeries) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("surfaceoutput", false);
@@ -111,9 +155,26 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0U);
 
+  // Every level splits each output triangle into four, and the whole refined surface is held in
+  // memory while the output is assembled. There is no level at which that stops working, so this
+  // states the price rather than refusing to pay it.
+  constexpr unsigned RefinementWarningDepth = 3;
+  if (refinement > RefinementWarningDepth) {
+    logWarning() << "surfaceoutputrefinement =" << refinement << "puts" << (1U << (2 * refinement))
+                 << "output cells on every surface face. Memory and output size grow by a factor "
+                    "of four with every level.";
+  }
+
   const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
 
-  return FreeSurfaceOutputParameters{enabled, refinement, interval, vtkorder};
+  // The free-surface output has always been an average over each output subcell (cf. the former
+  // FreeSurfaceIntegrator::computeSubTriangleAverages), i.e. an L2 projection.
+  const auto projection = readProjectionMethod(reader, "surfaceprojection", "l2");
+
+  const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
+
+  return FreeSurfaceOutputParameters{
+      enabled, refinement, interval, vtkorder, projection, timeSeries};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
@@ -130,12 +191,26 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   const auto pickpointFileName = reader->readPath("ppfilename");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+  const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
+      "format",
+      "csv",
+      {
+          {"csv", ReceiverOutputFormat::Csv},
+          {"hdf5", ReceiverOutputFormat::Hdf5},
+      });
+  const auto samplechunk = reader->readWithDefault("samplechunk", static_cast<std::size_t>(0));
   const auto aggregate = reader->readWithDefault("aggregateperrank", false);
 
   reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
-  return PickpointParameters{
-      printTimeInterval, interval, outputMask, pickpointFileName, aggregate, collectiveio};
+  return PickpointParameters{printTimeInterval,
+                             interval,
+                             outputMask,
+                             pickpointFileName,
+                             aggregate,
+                             collectiveio,
+                             format,
+                             samplechunk};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
@@ -161,6 +236,8 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   warnIntervalAndDisable(enabled, samplingInterval, "receiveroutput", "pickdt");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+  const auto samplechunk =
+      reader->readWithDefault("receiversamplechunk", static_cast<std::size_t>(0));
 
   if (enabled && !fileName.has_value()) {
     logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
@@ -174,10 +251,12 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
                                   interval,
                                   samplingInterval,
                                   fileName.value_or(""),
-                                  collectiveio};
+                                  collectiveio,
+                                  samplechunk};
 }
 
-WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
+WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
+                                                  const std::string& defaultTimeSeries) {
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = false;
@@ -241,6 +320,15 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto vtkorder = reader->readWithDefault("wavefieldvtkorder", -1);
 
+  const auto computeRotation = reader->readWithDefault("wavefieldcomputerotation", false);
+  const auto computeStrain = reader->readWithDefault("wavefieldcomputestrain", false);
+
+  // The wavefield output has always been a point evaluation at the output points (cf. the former
+  // refinement::VariableSubsampler), unlike the free-surface output.
+  const auto projection = readProjectionMethod(reader, "wavefieldprojection", "pointwise");
+
+  const auto timeSeries = readTimeSeriesMode(reader, "wavefieldtimeseries", defaultTimeSeries);
+
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
   }
@@ -253,37 +341,49 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
                                    outputMask,
                                    plasticityMask,
                                    integrationMask,
-                                   groups};
+                                   groups,
+                                   computeRotation,
+                                   computeStrain,
+                                   projection,
+                                   timeSeries};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
+  const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
+
+  // Each output has a field of its own that falls back to this one. Passing the fallback on as a
+  // string keeps that one reader helper in charge of validating every one of them; going through
+  // the enum and back also settles the spelling of what the user wrote.
+  const auto defaultTimeSeries =
+      timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot"));
   const auto loopStatisticsNetcdfOutput =
       reader->readWithDefault("loopstatisticsnetcdfoutput", false);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
-  const auto xdmfWriterBackend = reader->readWithDefaultStringEnum<xdmfwriter::BackendType>(
-      "xdmfwriterbackend",
-      "posix",
-      {
-          {"posix", xdmfwriter::BackendType::POSIX},
+  const auto xdmfWriterBackend =
+      reader->readWithDefaultStringEnum<XdmfBackend>("xdmfwriterbackend",
+                                                     "posix",
+                                                     {
+                                                         {"posix", XdmfBackend::Posix},
 #ifdef USE_HDF
-          {"hdf5", xdmfwriter::BackendType::H5},
+                                                         {"hdf5", XdmfBackend::Hdf5},
 #endif
-      });
+                                                     });
   const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);
-  const auto elementwiseParameters = readElementwiseParameters(baseReader);
+  const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
   const auto energyParameters = readEnergyParameters(baseReader);
-  const auto freeSurfaceParameters = readFreeSurfaceParameters(baseReader);
+  const auto freeSurfaceParameters = readFreeSurfaceParameters(baseReader, defaultTimeSeries);
   const auto pickpointParameters = readPickpointParameters(baseReader);
   const auto receiverParameters = readReceiverParameters(baseReader);
-  const auto waveFieldParameters = readWaveFieldParameters(baseReader);
+  const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries);
 
-  reader->warnDeprecated({"rotation",
+  reader->warnDeprecated({"projection",
+                          "rotation",
                           "interval",
                           "nrecordpoints",
                           "printintervalcriterion",
@@ -294,6 +394,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   return OutputParameters(loopStatisticsNetcdfOutput,
                           format,
                           xdmfWriterBackend,
+                          hdfcompress,
                           prefix,
                           checkpointParameters,
                           elementwiseParameters,

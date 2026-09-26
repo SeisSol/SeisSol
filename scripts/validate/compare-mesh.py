@@ -29,15 +29,6 @@ if __name__ == "__main__":
         help="Label stored in the JSON summary (e.g. volume/fault/surface).",
     )
     parser.add_argument(
-        "--geom-epsilon",
-        type=float,
-        default=1e-10,
-        help="Tolerance for the geometry-equality check between output and "
-        "reference. Geometry is currently always written in double, so the "
-        "strict default is correct; the knob exists for future cases where "
-        "output and reference geometry might differ.",
-    )
-    parser.add_argument(
         "--report-json",
         type=str,
         default=None,
@@ -63,5 +54,4 @@ if __name__ == "__main__":
         args.epsilon,
         report_json=args.report_json,
         category=args.category,
-        geom_epsilon=args.geom_epsilon,
     )

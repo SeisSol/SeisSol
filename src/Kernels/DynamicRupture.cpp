@@ -68,10 +68,10 @@ void DynamicRupture::spaceTimeInterpolation(
 #ifndef NDEBUG
   assert(timeDerivativePlus != nullptr);
   assert(timeDerivativeMinus != nullptr);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Vectorsize == 0);
   static_assert(tensor::Q::size() == tensor::I::size(),
                 "The tensors Q and I need to match in size");
 #endif

@@ -80,7 +80,8 @@ presets:
         - { type: acoustic }
         - { type: elastic }
         - { type: poroelastic }
-        - { type: viscoelastic2, mechanisms: 3 }
+        - { type: viscoelastic, mechanisms: 3 }
+        - { type: viscoacoustic, mechanisms: 3 }
         - { type: anisotropic }
         - { type: elastic, multisim: 8 }
 
@@ -99,7 +100,8 @@ presets:
         - { type: acoustic, order: 6 }
         - { type: elastic, order: 6 }
         - { type: poroelastic, order: 6 }
-        - { type: viscoelastic2, order: 6, mechanisms: 3 }
+        - { type: viscoelastic, order: 6, mechanisms: 3 }
+        - { type: viscoacoustic, order: 6, mechanisms: 3 }
         - { type: anisotropic, order: 6 }
         - { type: elastic, order: 3, multisim: 32 }
 
@@ -111,7 +113,7 @@ presets:
       precision: [single, double]
       equation:
         - { type: elastic }
-        - { type: viscoelastic2, mechanisms: 3 }
+        - { type: viscoelastic, mechanisms: 3 }
         - { type: elastic, multisim: 8 }
       exclude:
         - { order: 6, equations: elastic, precision: single, multisim: 8 }
@@ -136,7 +138,7 @@ presets:
       precision: [double]
       equation:
         - { type: elastic }
-        - { type: viscoelastic2, mechanisms: 3 }
+        - { type: viscoelastic, mechanisms: 3 }
 
   # Example of exclude + a per-leg toolchain override via include.
   matrix-demo:

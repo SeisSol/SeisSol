@@ -679,7 +679,7 @@ def _domain_warnings(variants: list[Variant]) -> None:
     for v in variants:
         eq = str(v.spec.get("equations"))
         mech = int(v.spec.get("mechanisms", 0) or 0)
-        if eq in ("viscoelastic", "viscoelastic2") and mech <= 0:
+        if eq in ("viscoelastic", "viscoelastic2", "viscoacoustic") and mech <= 0:
             warn(
                 f"variant {v.slug!r}: {eq} usually needs NUMBER_OF_MECHANISMS > 0 "
                 "(set 'mechanisms')."

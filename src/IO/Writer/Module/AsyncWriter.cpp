@@ -7,10 +7,13 @@
 
 #include "AsyncWriter.h"
 
+#include "IO/Writer/File/RunFiles.h"
 #include "IO/Writer/Writer.h"
 
 #include <async/ExecInfo.h>
+#include <condition_variable>
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
 #include <mutex>
 #include <string>
@@ -18,6 +21,9 @@
 
 namespace seissol::io::writer::module {
 std::mutex AsyncWriter::globalLock = std::mutex();
+std::condition_variable AsyncWriter::turn = std::condition_variable();
+std::uint64_t AsyncWriter::nextTicket = 1;
+file::RunFiles AsyncWriter::runFiles = file::RunFiles();
 
 AsyncWriter::AsyncWriter() = default;
 
@@ -31,7 +37,7 @@ void AsyncWriter::setComm(MPI_Comm comm) {
 void AsyncWriter::execInit(const async::ExecInfo& info, const AsyncWriterInit& params) {
   // (do nothing here)
 }
-void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& /*params*/) {
+void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& params) {
   const void* data = info.buffer(PlanId);
   const size_t size = info.bufferSize(PlanId);
   const char* strData = reinterpret_cast<const char*>(data);
@@ -45,13 +51,21 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& /*par
   {
     // for the Hdf5 implementations, we'll need to serialize writes
     // (TODO: make one AsyncWriter only in total)
-    const std::scoped_lock lock(globalLock);
+    std::unique_lock lock(globalLock);
+    if (params.ticket != 0) {
+      turn.wait(lock, [&]() { return nextTicket == params.ticket; });
+    }
     writer_ = Writer(std::string(strData, strData + size));
-    instance_ = std::optional(writer_.beginWrite(info, comm_));
+    runFiles.resumed = params.resumed;
+    instance_ = std::optional(writer_.beginWrite(info, comm_, &runFiles));
     // for now write synchronously
     instance_.value().close();
     instance_.reset();
+    if (params.ticket != 0) {
+      ++nextTicket;
+    }
   }
+  turn.notify_all();
 }
 void AsyncWriter::execWait(const async::ExecInfo& info) {
   // TODO: async finalize

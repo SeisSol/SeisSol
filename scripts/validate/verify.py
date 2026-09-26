@@ -553,11 +553,21 @@ def _expect(path: Path, what: str) -> Optional[str]:
 
 
 def compare_mesh(
-    case: CaseSpec, suffix: str, category: str, epsilon: float
+    case: CaseSpec,
+    suffix: str,
+    category: str,
+    epsilon: float,
+    legacy_suffix: Optional[str] = None,
 ) -> CompareResult:
-    """Volume/fault/surface XDMF comparison via compare-mesh.py."""
+    """Volume/fault/surface XDMF comparison via compare-mesh.py.
+
+    ``legacy_suffix`` names the file of a reference recorded before the output was
+    renamed; it is used where the reference has no file under the current name.
+    """
     out_xdmf = case.workdir / f"{case.prefix}{suffix}.xdmf"
     ref_xdmf = case.reference_dir / f"{case.prefix}{suffix}.xdmf"
+    if legacy_suffix is not None and not ref_xdmf.is_file():
+        ref_xdmf = case.reference_dir / f"{case.prefix}{legacy_suffix}.xdmf"
     for path, what in [(out_xdmf, "output"), (ref_xdmf, "reference")]:
         msg = _expect(path, what)
         if msg:
@@ -689,7 +699,11 @@ def verify_case(
         _apply_xfail(cr, case, tpv_data, category, labels)
         results.append(cr)
 
-    run("volume", lambda e: compare_mesh(case, "", "volume", e))
+    # the wavefield output is named after what it holds; older references predate that
+    run(
+        "volume",
+        lambda e: compare_mesh(case, "-wavefield", "volume", e, legacy_suffix=""),
+    )
     run("fault", lambda e: compare_mesh(case, "-fault", "fault", e))
     run("surface", lambda e: compare_mesh(case, "-surface", "surface", e))
     run("energy", lambda e: compare_energies(case, e))
@@ -739,13 +753,15 @@ def generate_data_skeleton(case: CaseSpec, target: Path) -> None:
     data: dict = {}
 
     # Volume / fault / surface: one XDMF file each; quantities are its data fields.
+    # The volume output was <prefix>.xdmf before it was named after the wavefield.
     for category, suffix in (
+        ("volume", "-wavefield"),
         ("volume", ""),
         ("fault", "-fault"),
         ("surface", "-surface"),
     ):
         xdmf = target / f"{p}{suffix}.xdmf"
-        if xdmf.is_file():
+        if xdmf.is_file() and category not in data:
             quants = _list_quantities(COMPARE_MESH, [str(xdmf)], cwd=case.case_dir)
             data[category] = _skeleton_category(quants)
 

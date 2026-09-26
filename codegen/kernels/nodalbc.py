@@ -20,13 +20,13 @@ def addKernels(
     targets,
 ):
     easi_ident_map = np.stack(
-        [np.eye(aderdg.numberOfQuantities())] * aderdg.numberOf2DBasisFunctions(),
+        [np.eye(aderdg.numQuantities())] * aderdg.num2DBasisFunctions(),
         axis=2,
     )
     assert easi_ident_map.shape == (
-        aderdg.numberOfQuantities(),
-        aderdg.numberOfQuantities(),
-        aderdg.numberOf2DBasisFunctions(),
+        aderdg.numQuantities(),
+        aderdg.numQuantities(),
+        aderdg.num2DBasisFunctions(),
     )
 
     easi_ident_map = Tensor(
@@ -38,16 +38,16 @@ def addKernels(
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (aderdg.numberOfQuantities(), aderdg.numberOf2DBasisFunctions()),
+        (aderdg.numQuantities(), aderdg.num2DBasisFunctions()),
         alignStride=True,
     )
 
     easi_boundary_map = Tensor(
         "easiBoundaryMap",
         (
-            aderdg.numberOfQuantities(),
-            aderdg.numberOfQuantities(),
-            aderdg.numberOf2DBasisFunctions(),
+            aderdg.numQuantities(),
+            aderdg.numQuantities(),
+            aderdg.num2DBasisFunctions(),
         ),
         alignStride=False,
     )
@@ -101,13 +101,17 @@ def addKernels(
         )
 
     # To be used as Tinv in flux solver - this way we can save two rotations
-    # for the Dirichlet boundary, as ghost cell dofs are already rotated
-    identity_rotation = np.double(aderdg.transformation_spp())
-    quantities = aderdg.numberOfQuantities()
+    # for the Dirichlet boundary, as ghost cell dofs are already rotated.
+    # It stands in for Tinv, so it has to be shaped like Tinv: the two need not
+    # agree, and where they do not, the flux solver would read this with the
+    # wrong stride.
+    inv_spp = aderdg.transformation_inv_spp()
+    identity_rotation = np.double(inv_spp)
+    quantities = min(aderdg.numQuantities(), inv_spp.shape[0])
     identity_rotation[0:quantities, 0:quantities] = np.eye(quantities)
     identity_rotation = Tensor(
         "identityT",
-        aderdg.transformation_spp().shape,
+        inv_spp.shape,
         identity_rotation,
     )
     include_tensors.add(identity_rotation)
@@ -117,7 +121,7 @@ def addKernels(
         aderdg.INodal.optName(),
         aderdg.INodal.optSize(),
         aderdg.INodal.optPos(),
-        (aderdg.numberOf2DBasisFunctions(), aderdg.numberOfQuantities()),
+        (aderdg.num2DBasisFunctions(), aderdg.numQuantities()),
         alignStride=True,
     )
 

@@ -128,8 +128,10 @@ def main():
         parser.error("energy_ref is required unless --list-quantities is given")
 
     relevant_quantities = [
-        "elastic_energy",
+        "elastic_strain_energy",
         "elastic_kinetic_energy",
+        "poroelastic_strain_energy",
+        "poroelastic_kinetic_energy",
         "total_frictional_work",
         "static_frictional_work",
         "seismic_moment",
@@ -149,6 +151,15 @@ def main():
         set(energy.columns) & set(energy_ref.columns) & set(relevant_quantities)
     )
     relevant_quantities = list(sorted(relevant_quantities))
+
+    if not relevant_quantities:
+        print(
+            "No energy quantity is present in both files; there is nothing to compare.\n"
+            f"  {args.energy}: {sorted(energy.columns)}\n"
+            f"  {args.energy_ref}: {sorted(energy_ref.columns)}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     failed = False
     quantities: dict[str, float] = {}  # column -> worst error seen across sub-sims
