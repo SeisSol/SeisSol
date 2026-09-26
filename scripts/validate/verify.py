@@ -779,9 +779,12 @@ def generate_data_skeleton(case: CaseSpec, target: Path) -> None:
         )
         data["energy"] = _skeleton_category(quants)
 
-    # Receivers: any receiver or faultreceiver .dat files.
-    has_receivers = any(target.glob(f"{p}-receiver-*.dat")) or any(
-        target.glob(f"{p}-faultreceiver-*.dat")
+    # Receivers: any receiver or faultreceiver .dat files, or their HDF5 files.
+    has_receivers = (
+        any(target.glob(f"{p}-receiver-*.dat"))
+        or any(target.glob(f"{p}-faultreceiver-*.dat"))
+        or (target / f"{p}-receivers.h5").is_file()
+        or (target / f"{p}-faultreceivers.h5").is_file()
     )
     if has_receivers:
         quants = _list_quantities(

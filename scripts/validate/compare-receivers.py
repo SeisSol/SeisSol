@@ -9,6 +9,7 @@
 
 import argparse
 import glob
+import os
 import re
 import sys
 
@@ -68,6 +69,45 @@ def normalize_variable_names(variables: list[str]) -> list[str]:
     return result
 
 
+def simulation_suffix(simulation: int, file_type: str) -> str:
+    """The suffix a wide text file gives the quantities of a fused simulation.
+
+    Before a simulation took rows of its own, the text files of a fused run named
+    the quantities after it: counted from zero and appended in the volume receivers
+    (v10, v11, ...), counted from one and after a dash on the fault (SRs-1, ...).
+    """
+    return f"-{simulation + 1}" if file_type == "faultreceiver" else str(simulation)
+
+
+def join_simulations(
+    parts: list[tuple[int, pd.DataFrame]], file_type: str
+) -> pd.DataFrame:
+    """Put the simulations of one receiver side by side, a row per sample.
+
+    Each part holds the samples of one simulation, with the time and the quantities
+    under their plain names. A single simulation is the receiver as it is; fused ones
+    get their quantities named as a wide text file names them (see simulation_suffix),
+    which is the layout the references were recorded in.
+    """
+    parts = sorted(parts, key=lambda part: part[0])
+    if len(parts) == 1 and parts[0][0] == 0:
+        return parts[0][1].reset_index(drop=True)
+    time = parts[0][1]["Time"].to_numpy()
+    columns = [pd.DataFrame({"Time": time})]
+    for simulation, frame in parts:
+        assert np.array_equal(frame["Time"].to_numpy(), time), (
+            f"the samples of simulation {simulation} are not taken at the times of "
+            f"simulation {parts[0][0]}"
+        )
+        suffix = simulation_suffix(simulation, file_type)
+        columns.append(
+            frame.drop(columns="Time")
+            .rename(columns=lambda name: name + suffix)
+            .reset_index(drop=True)
+        )
+    return pd.concat(columns, axis=1)
+
+
 def read_receiver(filename: str) -> pd.DataFrame:
     """
     Read the receiver using the receiver filename and return a pandas DataFrame
@@ -90,17 +130,115 @@ def read_receiver(filename: str) -> pd.DataFrame:
             first_row += 1
 
         assert first_row < len(lines), f"Empty file: {filename}"
-
-        # since dr-cpp merge, fault receiver files start writing at Time=0
-        # (before they were writing at Time=dt)
-        # We then skip the first timestep written if Time = 0
-        t0 = float(lines[first_row].split()[0])
-        is_fault_receiver = "faultreceiver" in filename
-        if t0 == 0 and is_fault_receiver:
-            first_row += 1
     receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep=r"\s+")
-    receiver.columns = normalize_variable_names(variables)
+    receiver.columns = variables
+    name = os.path.basename(filename)
+    file_type = "faultreceiver" if "faultreceiver" in name else "receiver"
+    if "SimulationIndex" in variables:
+        # a fused run writes a row per simulation, which that column names
+        simulations = receiver["SimulationIndex"].to_numpy().astype(np.int64)
+        receiver = join_simulations(
+            [
+                (
+                    int(simulation),
+                    receiver[simulations == simulation].drop(columns="SimulationIndex"),
+                )
+                for simulation in np.unique(simulations)
+            ],
+            file_type,
+        )
+    # since dr-cpp merge, fault receiver files start writing at Time=0
+    # (before they were writing at Time=dt)
+    # We then skip the first timestep written if Time = 0
+    if (
+        file_type == "faultreceiver"
+        and len(receiver) > 0
+        and receiver["Time"].iloc[0] == 0
+    ):
+        receiver = receiver.iloc[1:].reset_index(drop=True)
+    receiver.columns = normalize_variable_names(list(receiver.columns))
     return receiver
+
+
+# the HDF5 receiver files, one per kind, and the group everything sits under
+_HDF5_NAMES = {"receiver": "receivers", "faultreceiver": "faultreceivers"}
+
+
+def hdf5_receiver_file(directory: str, prefix: str, file_type: str) -> str | None:
+    """The HDF5 file holding all receivers of one kind, if the run wrote one."""
+    path = os.path.join(directory, f"{prefix}-{_HDF5_NAMES[file_type]}.h5")
+    return path if os.path.isfile(path) else None
+
+
+def read_hdf5_receivers(filename: str, file_type: str) -> dict[int, pd.DataFrame]:
+    """Read every receiver of an HDF5 receiver file, by the number of its text file.
+
+    A row of the table is one receiver of one simulation, and the receivers come in
+    the layout of the wide text files, so that either format can be compared against
+    the other (see join_simulations). A table of off-fault receivers written before
+    they took a row per simulation has no SimulationIndex; its rows carry all
+    simulations already, under the names of the text files. The samples a receiver
+    did not take, which a table under local time stepping pads with NaN, are dropped,
+    and so is the one at t = 0 of an on-fault receiver, as read_receiver does.
+    """
+    import h5py
+
+    with h5py.File(filename, "r") as handle:
+        group = handle[_HDF5_NAMES[file_type]]
+        index = group["Index"][:]
+        numbers = group["PointId" if file_type == "receiver" else "ReceiverId"][:] + 1
+        if "SimulationIndex" in group:
+            simulations = group["SimulationIndex"][:]
+        else:
+            simulations = np.zeros(len(numbers), dtype=np.int64)
+
+        tables = {}
+        parts: dict[int, dict[int, pd.DataFrame]] = {}
+        for row, (table, column) in enumerate(index):
+            if table not in tables:
+                tables[table] = group[f"group{table}"][:]
+            samples = tables[table][:, column]
+            frame = pd.DataFrame(
+                {name: samples[name].astype(np.float64) for name in samples.dtype.names}
+            )
+            frame = frame[np.isfinite(frame["Time"].to_numpy())]
+            # a receiver more than one rank holds is taken once, as of its text files
+            parts.setdefault(int(numbers[row]), {}).setdefault(
+                int(simulations[row]), frame
+            )
+
+    receivers = {}
+    for number, receiver_parts in parts.items():
+        receiver = join_simulations(list(receiver_parts.items()), file_type)
+        if (
+            file_type == "faultreceiver"
+            and len(receiver) > 0
+            and receiver["Time"].iloc[0] == 0
+        ):
+            receiver = receiver.iloc[1:].reset_index(drop=True)
+        receivers[number] = receiver
+    return receivers
+
+
+def load_receivers(
+    directory: str, prefix: str, file_type: str = "receiver"
+) -> dict[int, pd.DataFrame]:
+    """Every receiver of one kind in a directory, by number, from either format.
+
+    An HDF5 receiver file is read if the run wrote one, and the text files otherwise;
+    of the text files of one receiver, which a receiver in a copy layer may have
+    several of, the first is taken.
+    """
+    hdf5 = hdf5_receiver_file(directory, prefix, file_type)
+    if hdf5 is not None:
+        return read_hdf5_receivers(hdf5, file_type)
+    receivers = {}
+    for number in find_all_receivers(directory, prefix, file_type):
+        files = sorted(glob.glob(f"{directory}/{prefix}-{file_type}-{number:05d}*.dat"))
+        receiver = read_receiver(files[0])
+        # the t=0 row of a fault receiver may have been dropped; count rows from zero
+        receivers[int(number)] = receiver.reset_index(drop=True)
+    return receivers
 
 
 # receiver columns that are components of one vector or tensor
@@ -170,31 +308,21 @@ def compare_receiver_columns(
 
 
 def receiver_diff(
-    args: argparse.Namespace, index: int, file_type: str = "receiver"
+    sim_receiver: pd.DataFrame,
+    ref_receiver: pd.DataFrame,
+    index: int,
+    file_type: str = "receiver",
 ) -> dict[str, float]:
     """
     Checks if the receivers have same time axis, and returns the relative L2 errors
     """
-    sim_files = glob.glob(f"{args.output}/{args.prefix}-{file_type}-{index:05d}*.dat")
-    ref_files = glob.glob(
-        f"{args.output_ref}/{args.prefix}-{file_type}-{index:05d}*.dat"
+    assert len(sim_receiver) == len(ref_receiver), (
+        f"Record count mismatch at {file_type} {index}: "
+        f"{len(sim_receiver)} vs {len(ref_receiver)} samples"
     )
-
-    # allow copy layer receivers
-    assert len(sim_files) >= 1
-    assert len(ref_files) == 1
-
-    sim_receiver = read_receiver(sim_files[0])
-    ref_receiver = read_receiver(ref_files[0])
-
-    # Fault receivers may have the t=0 row dropped; reset to ensure a clean 0-based
-    # integer index before comparing. Non-fault receivers are never row-dropped so
-    # their index is already clean.
-    sim_receiver.reset_index(drop=True, inplace=True)
-    ref_receiver.reset_index(drop=True, inplace=True)
-
     max_time_diff = np.max(
-        np.abs(sim_receiver["Time"].values - ref_receiver["Time"].values)
+        np.abs(sim_receiver["Time"].values - ref_receiver["Time"].values),
+        initial=0.0,
     )
     assert (
         max_time_diff < 1e-6
@@ -284,15 +412,10 @@ def main():
 
         names = []
         for file_type in ("receiver", "faultreceiver"):
-            ids = find_all_receivers(args.output, args.prefix, file_type)
-            if len(ids) == 0:
+            receivers = load_receivers(args.output, args.prefix, file_type)
+            if not receivers:
                 continue
-            files = glob.glob(
-                f"{args.output}/{args.prefix}-{file_type}-{ids[0]:05d}*.dat"
-            )
-            if not files:
-                continue
-            for col in read_receiver(files[0]).columns:
+            for col in receivers[min(receivers)].columns:
                 if col != "Time":
                     names.append(f"{file_type}:{col}")
         print(json.dumps(sorted(names)))
@@ -305,14 +428,14 @@ def main():
     quantities: dict[str, float] = {}
     for file_type in ("receiver", "faultreceiver"):
         label = f"{file_type}s"
-        sim_ids = find_all_receivers(args.output, args.prefix, file_type)
-        ref_ids = find_all_receivers(args.output_ref, args.prefix, file_type)
-        ids = np.intersect1d(sim_ids, ref_ids)
-        assert len(ids) == len(
-            ref_ids
-        ), f"some {label} IDs are missing: {ids} vs {ref_ids}"
+        # either side may be text files or an HDF5 file; both read into the same layout
+        sim = load_receivers(args.output, args.prefix, file_type)
+        ref = load_receivers(args.output_ref, args.prefix, file_type)
+        missing = sorted(set(ref) - set(sim))
+        assert not missing, f"some {label} IDs are missing: {missing}"
         errors = {
-            index: receiver_diff(args, index, file_type=file_type) for index in ref_ids
+            index: receiver_diff(sim[index], ref[index], index, file_type=file_type)
+            for index in sorted(ref)
         }
         exceeded, per_column_max = report_errors(label, errors, args.epsilon)
         ANY_FAILURE |= exceeded
