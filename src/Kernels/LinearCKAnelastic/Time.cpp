@@ -20,9 +20,10 @@
 #include <stdint.h>
 #include <yateto.h>
 
+#include "Kernels/StarOperands.h"
+
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
-#include "Kernels/StarOperands.h"
 #endif
 
 #ifndef NDEBUG
