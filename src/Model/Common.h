@@ -325,6 +325,11 @@ struct MaterialSetupDefaults {
   /// available.
   static constexpr std::size_t NumCoefficients = 0;
 
+  /// Number of scalar coefficients one relaxation mechanism's source entries
+  /// are linear in. Zero where the material has no source term, or does not
+  /// declare its decomposition.
+  static constexpr std::size_t NumSourceCoefficients = 0;
+
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
                                      const MaterialT& material) {

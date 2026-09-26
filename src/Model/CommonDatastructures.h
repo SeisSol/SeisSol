@@ -35,6 +35,17 @@ struct CoefficientEntry {
   std::size_t column;
   double factor;
 };
+
+/// The same for a source term, which has no direction. One relaxation
+/// mechanism contributes the whole table, so the mechanism is not an index
+/// here either: a caller walks the table once per mechanism with that
+/// mechanism's coefficients.
+struct SourceCoefficientEntry {
+  std::size_t coefficient;
+  std::size_t row;
+  std::size_t column;
+  double factor;
+};
 enum class MaterialType {
   Solid,
   Acoustic,

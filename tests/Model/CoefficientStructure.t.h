@@ -106,6 +106,51 @@ inline seissol::model::AnisotropicMaterial anisotropic(std::mt19937& rng) {
   return material;
 }
 
+/// A source term's entries, as the declared decomposition builds them.
+template <typename MaterialT, std::size_t N>
+Eigen::Matrix<double, N, N> assembledSource(const MaterialT& material, std::size_t mech) {
+  using Setup = seissol::model::MaterialSetup<MaterialT>;
+  const auto coefficients = Setup::getSourceCoefficients(material, mech);
+  Eigen::Matrix<double, N, N> matrix = Eigen::Matrix<double, N, N>::Zero();
+  for (const auto& entry : Setup::SourceEntries) {
+    matrix(entry.row, entry.column) += entry.factor * coefficients.at(entry.coefficient);
+  }
+  return matrix;
+}
+
+template <typename MaterialT, std::size_t N>
+void checkSourceDeclaration(const MaterialT& material, std::size_t mech) {
+  Eigen::Matrix<double, N, N> reference = Eigen::Matrix<double, N, N>::Zero();
+  seissol::model::MaterialSetup<MaterialT>::forEachSourceEntry(
+      material, mech, [&reference](std::size_t row, std::size_t column, double value) {
+        reference(row, column) += value;
+      });
+
+  const auto candidate = assembledSource<MaterialT, N>(material, mech);
+  const double scale = std::max(1.0, reference.cwiseAbs().maxCoeff());
+  for (std::size_t row = 0; row < N; ++row) {
+    for (std::size_t column = 0; column < N; ++column) {
+      REQUIRE(candidate(row, column) ==
+              doctest::Approx(reference(row, column)).epsilon(1e-13).scale(scale));
+    }
+  }
+}
+
+template <std::size_t Mechanisms>
+seissol::model::ViscoElasticMaterial<Mechanisms> viscoelastic(std::mt19937& rng) {
+  std::uniform_real_distribution<double> value(-1e11, -1e9);
+  seissol::model::ViscoElasticMaterial<Mechanisms> material{};
+  material.rho = 2500.0;
+  material.mu = 3e10;
+  material.lambda = 2e10;
+  for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
+    for (std::size_t component = 0; component < 3; ++component) {
+      material.theta[mech][component] = value(rng);
+    }
+  }
+  return material;
+}
+
 } // namespace coefficients
 
 TEST_CASE("Coefficient decomposition") {
@@ -141,6 +186,19 @@ TEST_CASE("Coefficient decomposition") {
     }
     // no uniqueness check here: the three directional matrices share their
     // stress block, so a slot legitimately takes one entry per direction
+  }
+
+  SUBCASE("viscoelastic source") {
+    constexpr std::size_t Mechanisms = 3;
+    for (std::size_t sample = 0; sample < 16; ++sample) {
+      const auto material = coefficients::viscoelastic<Mechanisms>(rng);
+      // the flux is the base material's, so its decomposition has to be too
+      coefficients::checkDeclaration<seissol::model::ViscoElasticMaterial<Mechanisms>, 9>(material);
+      for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
+        coefficients::checkSourceDeclaration<seissol::model::ViscoElasticMaterial<Mechanisms>, 6>(
+            material, mech);
+      }
+    }
   }
 }
 

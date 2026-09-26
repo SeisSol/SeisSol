@@ -16,6 +16,9 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
+
 #include <yateto.h>
 
 namespace seissol::model {
@@ -35,6 +38,28 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
   /// The flux of the base material alone. How the anelastic blocks are added
   /// on top -- once per mechanism weighted by its relaxation frequency, or
   /// once with the frequency held elsewhere -- is the solver's decision.
+  /// The flux is the base material's, and so is its decomposition.
+  static constexpr std::size_t NumCoefficients =
+      MaterialSetup<AcousticMaterial>::NumCoefficients;
+  static constexpr auto CoefficientEntries = MaterialSetup<AcousticMaterial>::CoefficientEntries;
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    return MaterialSetup<AcousticMaterial>::getCoefficients(
+        dynamic_cast<const AcousticMaterial&>(material));
+  }
+
+  /// The single theta value of one relaxation mechanism.
+  static constexpr std::size_t NumSourceCoefficients = 1;
+
+  static std::array<double, NumSourceCoefficients> getSourceCoefficients(const MaterialT& material,
+                                                                         std::size_t mech) {
+    return {material.theta[mech][0]};
+  }
+
+  static constexpr std::array<SourceCoefficientEntry, 1> SourceEntries{{
+      {0, 0, 0, 1.0},
+  }};
+
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
     MaterialSetup<AcousticMaterial>::getTransposedCoefficientMatrix(

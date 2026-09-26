@@ -16,6 +16,9 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
+
 #include <yateto.h>
 
 namespace seissol::model {
@@ -31,6 +34,39 @@ template <std::size_t N>
 struct MaterialSetup<ViscoElasticMaterial<N>>
     : public MaterialSetupDefaults<ViscoElasticMaterial<N>> {
   using MaterialT = ViscoElasticMaterial<N>;
+
+  /// The flux is the base material's, and so is its decomposition.
+  static constexpr std::size_t NumCoefficients =
+      MaterialSetup<ElasticMaterial>::NumCoefficients;
+  static constexpr auto CoefficientEntries = MaterialSetup<ElasticMaterial>::CoefficientEntries;
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    return MaterialSetup<ElasticMaterial>::getCoefficients(
+        dynamic_cast<const ElasticMaterial&>(material));
+  }
+
+  /// The three theta values of one relaxation mechanism.
+  static constexpr std::size_t NumSourceCoefficients = 3;
+
+  static std::array<double, NumSourceCoefficients> getSourceCoefficients(const MaterialT& material,
+                                                                         std::size_t mech) {
+    return {material.theta[mech][0], material.theta[mech][1], material.theta[mech][2]};
+  }
+
+  static constexpr std::array<SourceCoefficientEntry, 12> SourceEntries{{
+      {0, 0, 0, 1.0},
+      {1, 1, 0, 1.0},
+      {1, 2, 0, 1.0},
+      {1, 0, 1, 1.0},
+      {0, 1, 1, 1.0},
+      {1, 2, 1, 1.0},
+      {1, 0, 2, 1.0},
+      {1, 1, 2, 1.0},
+      {0, 2, 2, 1.0},
+      {2, 3, 3, 1.0},
+      {2, 4, 4, 1.0},
+      {2, 5, 5, 1.0},
+  }};
 
   /// The flux of the base material alone. How the anelastic blocks are added
   /// on top -- once per mechanism weighted by its relaxation frequency, or
