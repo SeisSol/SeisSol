@@ -37,7 +37,7 @@ class GravitationalFreeSurfaceBc {
 
   public:
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
-      : gravitationalAcceleration_(gravitationalAcceleration) {};
+      : gravitationalAcceleration_(gravitationalAcceleration){};
 
   static PerformanceEstimate metrics(int8_t face, [[maybe_unused]] FaceType faceType);
 
@@ -74,9 +74,11 @@ class GravitationalFreeSurfaceBc {
       assert(boundaryMapping.dataTinv != nullptr);
       assert(boundaryMapping.dataT != nullptr);
       auto tinv = init::Tinv::view::create(boundaryMapping.dataTinv);
-      auto t = init::Tinv::view::create(boundaryMapping.dataT);
+      auto t = init::T::view::create(boundaryMapping.dataT);
       auto projectKernel = std::forward<MappingKrnl>(projectKernelPrototype);
-      projectKernel.Tinv = tinv.data();
+      // the kernel reads the rotation in the layout it was generated for, so it
+      // takes the stored values rather than anything the view hands out
+      projectKernel.Tinv = boundaryMapping.dataTinv;
 
       // Prepare projection of displacement/velocity to face-nodal basis.
       alignas(Alignment)

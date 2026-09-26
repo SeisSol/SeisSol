@@ -258,7 +258,28 @@ class ADERDGBase(ABC):
         out so that an equation can reshape its matrices in between."""
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs
+        self._configureRotationLayout(kwargs)
         self._configureStarAssembly(kwargs)
+
+    def _configureRotationLayout(self, kwargs):
+        """Stores the face rotation by its pattern rather than as a full square.
+
+        The rotation is block diagonal -- one block per quantity group, and no
+        group mixes with another -- so a dense square carries a majority of
+        structural zeros. The pattern is already declared; only the layout was
+        dense. Both matrices sit in the boundary face data and both feed the
+        nodal boundary projections every timestep, so the empty blocks cost
+        memory and operations there.
+
+        The old GPU interface (gemmforge/chainforge) reads its operands as
+        dense, so a GPU build served by it keeps the dense layout -- the same
+        reservation the dynamic rupture rotation makes."""
+        if kwargs.get("old_gpu_interface", True) and "gpu" in (
+            kwargs.get("targets") or []
+        ):
+            return
+        self.T.setMemoryLayout(CSCMemoryLayout)
+        self.Tinv.setMemoryLayout(CSCMemoryLayout)
 
     def _configureStarAssembly(self, kwargs):
         """Sets up the tensors a cell carries where it holds the coefficients
@@ -319,13 +340,13 @@ class ADERDGBase(ABC):
         and the conical-product set is larger than everything else in the
         kernel together.
         """
-        self.nodalMaterial = self.factoredStar and bool(kwargs.get("material_nodal", False))
+        self.nodalMaterial = self.factoredStar and bool(
+            kwargs.get("material_nodal", False)
+        )
         if not self.nodalMaterial:
             return
 
-        points = material.tensors(
-            self._matricesDir, self, kwargs["material_points"]
-        )
+        points = material.tensors(self._matricesDir, self, kwargs["material_points"])
         self.materialEval = points["materialEval"]
         self.materialProject = points["materialProject"]
         npoints = self.materialEval.shape()[0]
@@ -342,15 +363,23 @@ class ADERDGBase(ABC):
                 idx = (entry.dim, entry.row, entry.column)
                 values[idx] = repr(float(values.get(idx, 0.0)) + entry.factor)
             self.coefficientStructure.append(
-                Tensor(f"coefficientStructure({a})", shape, spp=values,
-                       addressing=AddressingMode.IMMEDIATE)
+                Tensor(
+                    f"coefficientStructure({a})",
+                    shape,
+                    spp=values,
+                    addressing=AddressingMode.IMMEDIATE,
+                )
             )
 
         # the Jacobian rows are a per-cell constant, so the fold happens once
         # and is reused by every step of the chain
         self.structureFolded = [
-            [Tensor(f"structureFolded({dim},{a})", tuple(starSpp.shape), temporary=True)
-             for a in range(count)]
+            [
+                Tensor(
+                    f"structureFolded({dim},{a})", tuple(starSpp.shape), temporary=True
+                )
+                for a in range(count)
+            ]
             for dim in range(3)
         ]
         self.nodalCoefficients = [
@@ -358,8 +387,9 @@ class ADERDGBase(ABC):
         ]
         quantities = starSpp.shape[0]
         self.nodalValues = Tensor("nodalValues", (npoints, quantities), temporary=True)
-        self.nodalProduct = Tensor("nodalProduct", (npoints, starSpp.shape[1]),
-                                   temporary=True)
+        self.nodalProduct = Tensor(
+            "nodalProduct", (npoints, starSpp.shape[1]), temporary=True
+        )
 
     def solverCoefficientCount(self):
         """How many scalars the operator this solver applies is linear in."""
@@ -406,7 +436,9 @@ class ADERDGBase(ABC):
                     <= (term if first else self.nodalProduct["np"] + term)
                 )
                 first = False
-        statements.append(target["kp"] <= self.materialProject["kn"] * self.nodalProduct["np"])
+        statements.append(
+            target["kp"] <= self.materialProject["kn"] * self.nodalProduct["np"]
+        )
         return statements
 
     def starAssembly(self):
@@ -537,7 +569,10 @@ class ADERDGBase(ABC):
             self.AplusT["ij"]
             <= fluxScale
             * self.Tinv["ki"]
-            * (self.QgodLocal["kq"] * self.starMatrixSetup(0)["ql"] + self.QcorrLocal["kl"])
+            * (
+                self.QgodLocal["kq"] * self.starMatrixSetup(0)["ql"]
+                + self.QcorrLocal["kl"]
+            )
             * self.T["jl"]
         )
         generator.add("computeFluxSolverLocal", computeFluxSolverLocal)

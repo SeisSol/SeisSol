@@ -66,15 +66,11 @@ def main():
     cmdLineParser.add_argument(
         "--material_points", type=str, choices=list(kernels.material.SETS), default=None
     )
-    cmdLineParser.add_argument(
-        "--material_nodal", action="store_true", default=False
-    )
+    cmdLineParser.add_argument("--material_nodal", action="store_true", default=False)
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
-    cmdLineParser.add_argument(
-        "--factored_star", action="store_true", default=False
-    )
+    cmdLineParser.add_argument("--factored_star", action="store_true", default=False)
     cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
     cmdLineParser.add_argument(
         "--disable_premultiply_flux",
@@ -263,7 +259,11 @@ def main():
 
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
-        # der aufgeloeste Punktsatz, nicht der rohe Kommandozeilenwert
+        # which targets are being built, and whether the old GPU interface
+        # serves them -- the memory layouts depend on it
+        cmdArgsDict["targets"] = targets
+        cmdArgsDict["old_gpu_interface"] = isOldGpuInterface
+        # the resolved point set, not the raw command line value
         cmdArgsDict["material_points"] = materialPoints
 
         equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"

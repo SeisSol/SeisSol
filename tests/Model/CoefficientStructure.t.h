@@ -527,6 +527,113 @@ TEST_CASE("Star assembly from coefficients") {
   }
 }
 
+TEST_CASE("Face rotation structure") {
+  // The face rotation is stored by its pattern, and its inverse is a function of
+  // the forward matrix rather than an independent one. Both are properties of
+  // how the rotation is built, so they are checked here: a flux that wants the
+  // rotation per face node can rely on them and keep one matrix instead of two.
+  using Material = seissol::model::MaterialT;
+  constexpr std::size_t N = Material::NumQuantities;
+
+  // A face takes an arbitrary orthonormal frame -- the normal is a face normal
+  // and the first tangent one of its edges -- so nothing may lean on a
+  // particular choice of tangents.
+  std::mt19937 rng(20260927);
+  std::normal_distribution<double> gauss(0.0, 1.0);
+
+  for (std::size_t sample = 0; sample < 64; ++sample) {
+    Eigen::Matrix3d gaussian;
+    for (unsigned row = 0; row < 3; ++row) {
+      for (unsigned column = 0; column < 3; ++column) {
+        gaussian(row, column) = gauss(rng);
+      }
+    }
+    Eigen::Matrix3d frame = Eigen::HouseholderQR<Eigen::Matrix3d>(gaussian).householderQ();
+    if (frame.determinant() < 0.0) {
+      frame.col(2) *= -1.0;
+    }
+    const VrtxCoords normal{frame(0, 0), frame(1, 0), frame(2, 0)};
+    const VrtxCoords tangent1{frame(0, 1), frame(1, 1), frame(2, 1)};
+    const VrtxCoords tangent2{frame(0, 2), frame(1, 2), frame(2, 2)};
+
+    alignas(Alignment) std::array<double, seissol::tensor::T::size()> forwardData{};
+    alignas(Alignment) std::array<double, seissol::tensor::Tinv::size()> inverseData{};
+    auto forwardView = seissol::init::T::view::create(forwardData.data());
+    auto inverseView = seissol::init::Tinv::view::create(inverseData.data());
+    seissol::model::getFaceRotationMatrix<Material>(
+        normal, tangent1, tangent2, forwardView, inverseView);
+
+    const auto densify = [](auto& view, std::size_t rows, std::size_t columns) {
+      Eigen::MatrixXd matrix = Eigen::MatrixXd::Zero(rows, columns);
+      for (std::size_t row = 0; row < rows; ++row) {
+        for (std::size_t column = 0; column < columns; ++column) {
+          if (view.isInRange(row, column)) {
+            matrix(row, column) = view(row, column);
+          }
+        }
+      }
+      return matrix;
+    };
+    const Eigen::MatrixXd forward =
+        densify(forwardView, forwardView.shape(0), forwardView.shape(1));
+    const Eigen::MatrixXd inverse =
+        densify(inverseView, inverseView.shape(0), inverseView.shape(1));
+
+    // One dense block per quantity group, and nothing outside them -- not
+    // merely numerically zero, but absent from the storage.
+    std::size_t offset = 0;
+    for (const auto& group : Material::RotationGroups) {
+      const std::size_t extent = group.extent();
+      for (std::size_t row = 0; row < forwardView.shape(0); ++row) {
+        for (std::size_t column = offset; column < offset + extent; ++column) {
+          const bool inBlock = row >= offset && row < offset + extent;
+          REQUIRE(forwardView.isInRange(row, column) == inBlock);
+        }
+      }
+      offset += extent;
+    }
+
+    // The inverse undoes the forward rotation on the quantities it spans. Where
+    // the two span different sets -- a solver that rotates one anelastic block
+    // forwards and none back -- that is the leading square of the forward one.
+    const auto inverted = static_cast<std::size_t>(inverseView.shape(0));
+    const Eigen::MatrixXd product = inverse * forward.topLeftCorner(inverted, inverted);
+    for (std::size_t row = 0; row < inverted; ++row) {
+      for (std::size_t column = 0; column < inverted; ++column) {
+        const double expected = (row == column) ? 1.0 : 0.0;
+        REQUIRE(std::abs(product(row, column) - expected) < 1e-12);
+      }
+    }
+
+    // Per group, the inverse follows from the forward matrix alone: a rotated
+    // vector is orthogonal, so its inverse is its transpose, and a symmetric
+    // second-order tensor in Voigt form differs from the transpose by the
+    // weights of its shear components.
+    offset = 0;
+    for (const auto& group : Material::InverseRotationGroups) {
+      const std::size_t extent = group.extent();
+      const Eigen::MatrixXd block = forward.block(offset, offset, extent, extent);
+      const Eigen::MatrixXd inverseBlock = inverse.block(offset, offset, extent, extent);
+      Eigen::VectorXd weights = Eigen::VectorXd::Ones(extent);
+      if (group.kind == seissol::model::QuantityKind::SymTensor2) {
+        for (std::size_t component = 3; component < extent; ++component) {
+          weights(component) = 0.5;
+        }
+      }
+      const Eigen::MatrixXd derived =
+          weights.asDiagonal() * block.transpose() * weights.cwiseInverse().asDiagonal();
+      for (std::size_t row = 0; row < extent; ++row) {
+        for (std::size_t column = 0; column < extent; ++column) {
+          // the two are built from the same products of the same frame, so the
+          // agreement is exact rather than merely close
+          REQUIRE(derived(row, column) == inverseBlock(row, column));
+        }
+      }
+      offset += extent;
+    }
+  }
+}
+
 } // namespace seissol::unit_test
 
 #endif // SEISSOL_TESTS_MODEL_COEFFICIENTSTRUCTURE_T_H_
