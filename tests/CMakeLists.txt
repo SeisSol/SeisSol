@@ -105,8 +105,9 @@ endfunction()
 #   seissol_add_mpi_test_module(<n> <ranks> <source1> [<source2> ...])
 #
 # Like seissol_add_test_module, but both discovery and execution run under
-# mpirun -n <ranks>.  doctest_discover_tests tolerates the duplicate stdout
-# from multiple ranks during --list-test-cases.
+# mpirun -n <ranks>.  Only rank 0 lists the tests (see TestMain.cpp), so that
+# each is registered once rather than once per rank, and a test takes a core
+# per rank, so that CTest starts no more of them at a time than there are cores.
 #
 function(seissol_add_mpi_test_module NAME RANKS)
     set(TARGET_NAME "seissol-test-${NAME}")
@@ -124,6 +125,7 @@ function(seissol_add_mpi_test_module NAME RANKS)
         doctest_discover_tests(${TARGET_NAME}
             ADD_LABELS 1
             TEST_PREFIX "${NAME}/"
+            PROPERTIES PROCESSORS ${RANKS}
         )
     endif()
 
