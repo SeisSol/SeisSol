@@ -115,8 +115,9 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // from one another.
   std::vector<MaterialT> nodalMaterialsDB;
   if (seissolParams.model.materialNodal) {
-    nodalMaterialsDB = queryDB<MaterialT>(std::make_shared<NodalPointGenerator>(ctv),
-                                          seissolParams.model.materialFileName);
+    nodalMaterialsDB = queryDB<MaterialT>(
+        std::make_shared<NodalPointGenerator>(ctv, NodalPointGenerator::materialPoints()),
+        seissolParams.model.materialFileName);
   }
 
   // plasticity (if needed)
@@ -228,13 +229,15 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             const auto pointsPerCell = plasticityPointwise ? model::PlasticityData::PointCount : 1;
             localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
           }
-          static_assert(model::PlasticityData::PointCount == LTS::MaterialNodes,
-                        "the plastic strain and the material sample the same points");
-          std::array<double, LTS::MaterialNodes> muBar{};
-          if (nodalMaterialArray == nullptr) {
+          constexpr auto NodeCount = model::PlasticityData::PointCount;
+          std::array<double, NodeCount> muBar{};
+          if (nodalMaterialArray == nullptr || !LTS::MaterialSharesPlasticityPoints) {
+            // where the two sample sets differ, reading a nodal shear modulus
+            // would need an interpolation between them; the cell's own value
+            // stands in until that exists
             muBar.fill(material.local->getMuBar());
           } else {
-            for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+            for (std::size_t node = 0; node < NodeCount; ++node) {
               muBar[node] = nodalMaterialArray[cell][node].getMuBar();
             }
           }

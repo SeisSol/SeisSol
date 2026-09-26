@@ -111,13 +111,32 @@ class ElementAverageGenerator : public QueryGenerator {
 // disabled, it falls back to a single sample at the element barycenter
 class NodalPointGenerator : public QueryGenerator {
   public:
+  //! The points, in the coordinates of the reference tetrahedron. The
+  //! generated tensors are stored compressed, so the coordinates come through
+  //! an accessor that knows the layout rather than as a raw array.
+  struct PointSet {
+    std::function<std::array<double, Cell::Dim>(std::size_t)> point;
+    std::size_t count{0};
+  };
+
+  //! The set the plastic strain lives on (@c vNodes ).
+  static PointSet plasticityPoints();
+  //! The set the material is sampled at (@c materialNodes ). The two coincide
+  //! unless the build asked for different ones.
+  static PointSet materialPoints();
+
   explicit NodalPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
-      : cellToVertex_(cellToVertex), pointwise_(pointwise) {}
+      : NodalPointGenerator(cellToVertex, plasticityPoints(), pointwise) {}
+  NodalPointGenerator(const CellToVertexArray& cellToVertex,
+                      const PointSet& points,
+                      bool pointwise = true)
+      : cellToVertex_(cellToVertex), points_(points), pointwise_(pointwise) {}
   [[nodiscard]] easi::Query generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
   CellToVertexArray cellToVertex_;
+  PointSet points_;
   bool pointwise_{true};
 };
 
@@ -181,7 +200,7 @@ class EasiBoundary {
   public:
   explicit EasiBoundary(const std::string& fileName);
 
-  EasiBoundary() : model_(nullptr) {};
+  EasiBoundary() : model_(nullptr){};
   EasiBoundary(const EasiBoundary&) = delete;
   EasiBoundary& operator=(const EasiBoundary&) = delete;
   EasiBoundary(EasiBoundary&& other) noexcept;

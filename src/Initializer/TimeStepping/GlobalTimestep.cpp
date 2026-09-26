@@ -61,7 +61,10 @@ GlobalTimestep
 
   const auto queryGen = [&]() -> std::shared_ptr<seissol::initializer::QueryGenerator> {
     if (seissolParams.model.materialNodal) {
-      return std::make_shared<seissol::initializer::NodalPointGenerator>(cellToVertex);
+      // the same points the material is sampled at, so that the timestep sees
+      // exactly the wave speeds the operator will carry
+      return std::make_shared<seissol::initializer::NodalPointGenerator>(
+          cellToVertex, seissol::initializer::NodalPointGenerator::materialPoints());
     }
     return seissol::initializer::getBestQueryGenerator(
         seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
@@ -102,10 +105,10 @@ GlobalTimestep
         computeCellTimestep(vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep);
 
     localMaxContrast = std::max(localMaxContrast, pWaveVel / pWaveVelMean);
-    localMinMeanTimestep = std::min(
-        localMinMeanTimestep,
-        computeCellTimestep(
-            vertices, pWaveVelMean, seissolParams.timeStepping.cfl, cellMaxTimestep));
+    localMinMeanTimestep =
+        std::min(localMinMeanTimestep,
+                 computeCellTimestep(
+                     vertices, pWaveVelMean, seissolParams.timeStepping.cfl, cellMaxTimestep));
   }
 
   const auto minmaxCellPosition =

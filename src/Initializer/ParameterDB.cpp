@@ -287,10 +287,33 @@ easi::Query ElementAverageGenerator::generate() const {
   return query;
 }
 
-std::size_t NodalPointGenerator::outputPerCell() const {
-  constexpr auto NodalPoints = tensor::vNodes::Shape[0];
-  return pointwise_ ? NodalPoints : 1;
+namespace {
+//! Reads a point set out of a generated tensor, whatever layout it is stored in.
+template <typename InitT>
+NodalPointGenerator::PointSet pointsOf() {
+  const auto nodes = InitT::view::create(const_cast<double*>(InitT::Values));
+  return {[nodes](std::size_t i) {
+            std::array<double, Cell::Dim> point{};
+            for (std::size_t j = 0; j < Cell::Dim; ++j) {
+              if (nodes.isInRange(i, j)) {
+                point[j] = nodes(i, j);
+              }
+            }
+            return point;
+          },
+          InitT::Stop[0] - InitT::Start[0]};
 }
+} // namespace
+
+NodalPointGenerator::PointSet NodalPointGenerator::plasticityPoints() {
+  return pointsOf<init::vNodes>();
+}
+
+NodalPointGenerator::PointSet NodalPointGenerator::materialPoints() {
+  return pointsOf<init::materialNodes>();
+}
+
+std::size_t NodalPointGenerator::outputPerCell() const { return pointwise_ ? points_.count : 1; }
 
 easi::Query NodalPointGenerator::generate() const {
 
@@ -298,8 +321,6 @@ easi::Query NodalPointGenerator::generate() const {
 
   // Generate query using nodal points for each element
   easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
-
-  const auto nodes = init::vNodes::view::create(init::vNodes::Values);
 
 // Transform nodal points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
@@ -312,11 +333,7 @@ easi::Query NodalPointGenerator::generate() const {
       std::array<double, Cell::Dim> point{};
 
       if (pointwise_) {
-        for (std::size_t j = 0; j < Cell::Dim; ++j) {
-          if (nodes.isInRange(i, j)) {
-            point[j] = nodes(i, j);
-          }
-        }
+        point = points_.point(i);
       } else {
         point = {1 / 4., 1 / 4., 1 / 4.};
       }

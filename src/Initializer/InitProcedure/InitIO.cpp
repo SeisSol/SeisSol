@@ -556,11 +556,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           return a.first < b.first;
         });
 
-        static_assert(tensor::qn::Shape[0] == multisim::NumSimulations &&
-                          tensor::qn::Shape[1] == LTS::MaterialNodes,
-                      "the nodal projection reads the simulation index fastest, one sample "
-                      "per material node");
-
         const bool nodal = seissolParams.model.materialNodal;
         for (const auto& [parameterName, member] : parameters) {
           writer.addGeometryOutput<real>(
@@ -569,8 +564,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               false,
               [=, &ltsStorage, &backmap](real* target, std::size_t index, std::size_t subcell) {
                 const auto position = backmap.get(cellIndices[index]);
-                constexpr std::size_t MaxVtk3dPoints = tensor::vtk3d::Shape
-                    [(sizeof(tensor::vtk3d::Shape) / sizeof(tensor::vtk3d::Shape[0])) - 1][1];
 
                 if (!nodal) {
                   // the cell carries one value, so every output point of it
@@ -581,27 +574,28 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   return;
                 }
 
+                // through the modal basis rather than straight off the samples:
+                // that is the shape the operator carries the material in, and
+                // it does not care which point set the samples came from
                 const auto& sampled = ltsStorage.lookup<LTS::NodalMaterialData>(position);
-                alignas(Alignment) std::array<real, tensor::qn::size()> nodalValues{};
+                alignas(Alignment) std::array<real, tensor::materialSamples::size()> values{};
                 for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
                   // the material is one field, so every fused simulation sees
                   // the same sample at a point
                   for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-                    nodalValues[s + multisim::NumSimulations * node] =
+                    values[s + multisim::NumSimulations * node] =
                         static_cast<real>(sampled[node].*member);
                   }
                 }
 
-                kernel::projectNodalToVtkVolume vtkproj{};
-                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
-                alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-                simselect[sim] = 1;
-                vtkproj.simselect = simselect.data();
-                vtkproj.qn = nodalValues.data();
-                vtkproj.xv(order) = alignedTarget.data();
-                vtkproj.collnv(ConvergenceOrder, order) = (*projNodal)(subcell, ConvergenceOrder);
-                vtkproj.execute(order);
-                std::copy_n(alignedTarget.data(), dataBase.size(), target);
+                alignas(Alignment) std::array<real, tensor::modalVar::size()> modal{};
+                kernel::projectMaterialToModal toModal{};
+                toModal.bindGlobals(*globalData);
+                toModal.materialSamples = values.data();
+                toModal.modalVar = modal.data();
+                toModal.execute();
+
+                projectVolume(target, modal.data(), (*proj)(subcell, ConvergenceOrder));
               });
         }
       }

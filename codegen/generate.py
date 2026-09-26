@@ -20,6 +20,7 @@ import kernels.arch
 import kernels.coefficients
 import kernels.dynamic_rupture
 import kernels.general
+import kernels.material
 import kernels.memlayout
 import kernels.nodalbc
 import kernels.plasticity
@@ -62,6 +63,12 @@ def main():
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)
     cmdLineParser.add_argument("--PlasticityMethod")
+    cmdLineParser.add_argument(
+        "--material_points", type=str, choices=list(kernels.material.SETS), default=None
+    )
+    cmdLineParser.add_argument(
+        "--material_nodal", action="store_true", default=False
+    )
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
@@ -114,6 +121,10 @@ def main():
         return deriveArchitecture(host, device), host, device
 
     arch, host_arch, device_arch = deriveWith(cmdLineArgs.vectorsize)
+
+    # ohne eigene Angabe folgt das Material dem Satz der Plastizitaet, sodass
+    # beide dieselben Punkte sehen und nichts dazwischen interpoliert werden muss
+    materialPoints = cmdLineArgs.material_points or cmdLineArgs.PlasticityMethod
 
     # The simulation index is the leading dimension of every fused tensor, and a
     # leading dimension is padded to the vector size. Padded simulation lanes
@@ -308,6 +319,13 @@ def main():
         )
         kernels.plasticity.includeTensors(
             cmdLineArgs.matricesDir, adg, cmdLineArgs.PlasticityMethod, include_tensors
+        )
+
+        kernels.material.addKernels(
+            generator, adg, cmdLineArgs.matricesDir, materialPoints
+        )
+        kernels.material.includeTensors(
+            cmdLineArgs.matricesDir, adg, materialPoints, include_tensors
         )
 
         kernels.nodalbc.addKernels(

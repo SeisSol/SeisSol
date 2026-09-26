@@ -110,6 +110,10 @@ set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 
+set(MATERIAL_POINTS "" CACHE STRING "Point set the material is sampled at inside a cell: nb (one point per basis function, its face traces are the two-dimensional nodal set) or ip (conical-product quadrature, integrates products far beyond nb but has no point on a face). Empty follows PLASTICITY_METHOD.")
+set(MATERIAL_POINTS_OPTIONS "" nb ip)
+set_property(CACHE MATERIAL_POINTS PROPERTY STRINGS ${MATERIAL_POINTS_OPTIONS})
+
 set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
 set(DR_QUAD_RULE_OPTIONS stroud dunavant)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
@@ -209,6 +213,7 @@ endif()
 message(STATUS "Solver: ${SOLVER}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
+check_parameter("MATERIAL_POINTS" "${MATERIAL_POINTS}" "${MATERIAL_POINTS_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 

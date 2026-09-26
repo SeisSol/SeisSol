@@ -107,10 +107,13 @@ struct LTS {
   struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
   struct MaterialData : public initializer::Variable<model::MaterialT> {};
-  /// How many points the material is sampled at inside a cell. The same set
-  /// the plastic strain lives on, so that a quantity reading both needs no
+  /// How many points the material is sampled at inside a cell. Which set that
+  /// is, the build decides; it follows the plastic strain unless asked
+  /// otherwise.
+  static constexpr std::size_t MaterialNodes = tensor::materialNodes::Shape[0];
+  /// Whether the two sets coincide, so that a quantity reading both needs no
   /// interpolation between them.
-  static constexpr std::size_t MaterialNodes = tensor::vNodes::Shape[0];
+  static constexpr bool MaterialSharesPlasticityPoints = MaterialNodes == tensor::vNodes::Shape[0];
   struct NodalMaterialData
       : public initializer::Variable<std::array<model::MaterialT, MaterialNodes>> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
