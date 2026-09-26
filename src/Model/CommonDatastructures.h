@@ -14,11 +14,24 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
 
 namespace seissol::model {
+
+/// Where a scalar coefficient of the operator gets its value, which is what
+/// decides whether a cell has to carry it.
+enum class CoefficientOrigin : std::uint8_t {
+  /// Read off the material. It varies from cell to cell, and within a cell
+  /// wherever the material is sampled at the nodal points.
+  Material,
+  /// One number for the whole domain, fixed once the run is set up. The
+  /// relaxation frequencies are the case: they follow the frequency band and
+  /// nothing else, so no material parameter moves them.
+  Global,
+};
 
 /// One entry of a transposed coefficient matrix, written as a scalar
 /// coefficient of the material times a constant factor. A material that

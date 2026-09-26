@@ -12,8 +12,8 @@
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/Common.h"
 
-#include <complex>
 #include <array>
+#include <complex>
 #include <cstddef>
 #include <yateto.h>
 
@@ -34,6 +34,20 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
   /// frequencies are held in w rather than in the flux.
   static constexpr std::size_t NumCoefficients =
       MaterialSetup<MaterialT>::NumCoefficients + (MaterialT::Mechanisms > 0 ? 1 : 0);
+
+  /// The material's are fields; the trailing unit weight is not a field at
+  /// all, so a cell does not have to carry it.
+  static constexpr std::array<CoefficientOrigin, NumCoefficients> CoefficientOrigins = [] {
+    std::array<CoefficientOrigin, NumCoefficients> origins{};
+    const auto base = materialCoefficientOrigins<MaterialT>();
+    for (std::size_t i = 0; i < base.size(); ++i) {
+      origins[i] = base[i];
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      origins[base.size()] = CoefficientOrigin::Global;
+    }
+    return origins;
+  }();
 
   static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
     std::array<double, NumCoefficients> coefficients{};

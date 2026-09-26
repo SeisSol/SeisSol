@@ -12,9 +12,12 @@
 // the build, so these tests run in every build. Only the assembly into the
 // generated star layout needs a build whose quantities match.
 
+#include <doctest.h>
+
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
 #include "GeneratedCode/init.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
 
@@ -23,7 +26,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <doctest.h>
 #include <random>
 #include <type_traits>
 
@@ -96,11 +98,10 @@ inline seissol::model::AnisotropicMaterial anisotropic(std::mt19937& rng) {
   seissol::model::AnisotropicMaterial material{};
   material.rho = 2500.0;
   for (auto* component :
-       {&material.c11, &material.c12, &material.c13, &material.c14, &material.c15,
-        &material.c16, &material.c22, &material.c23, &material.c24, &material.c25,
-        &material.c26, &material.c33, &material.c34, &material.c35, &material.c36,
-        &material.c44, &material.c45, &material.c46, &material.c55, &material.c56,
-        &material.c66}) {
+       {&material.c11, &material.c12, &material.c13, &material.c14, &material.c15, &material.c16,
+        &material.c22, &material.c23, &material.c24, &material.c25, &material.c26, &material.c33,
+        &material.c34, &material.c35, &material.c36, &material.c44, &material.c45, &material.c46,
+        &material.c55, &material.c56, &material.c66}) {
     *component = modulus(rng);
   }
   return material;
@@ -233,8 +234,10 @@ TEST_CASE("Coefficient decomposition") {
 
       for (unsigned dim = 0; dim < 3; ++dim) {
         Eigen::Matrix<double, N, N> reference = Eigen::Matrix<double, N, N>::Zero();
-        seissol::model::SolverSetup<typename Material::Solver, Material>::
-            getTransposedCoefficientMatrix(material, dim, reference);
+        seissol::model::SolverSetup<typename Material::Solver,
+                                    Material>::getTransposedCoefficientMatrix(material,
+                                                                              dim,
+                                                                              reference);
 
         using Setup = seissol::model::SolverSetup<typename Material::Solver, Material>;
         const auto solverCoefficients = Setup::getCoefficients(material);
@@ -274,6 +277,67 @@ TEST_CASE("Coefficient decomposition") {
   }
 }
 
+/// The declaration says a coefficient is either a field or one number for the
+/// whole run. That is a claim about the model, and this holds it: a coefficient
+/// marked Global must not move when the material does, and one marked Material
+/// has to be reachable from the material at all.
+TEST_CASE("Coefficient origins") {
+  auto rng = std::mt19937(20260926);
+
+  const auto parameters = [] {
+    seissol::initializer::parameters::ModelParameters p{};
+    p.freqCentral = 1.0;
+    p.freqRatio = 100.0;
+    return p;
+  }();
+
+  const auto check = [&](auto prototype) {
+    using Material = decltype(prototype);
+    using Setup = seissol::model::SolverSetup<typename Material::Solver, Material>;
+    constexpr auto Origins = Setup::CoefficientOrigins;
+
+    auto base = prototype;
+    base.initialize(parameters);
+    const auto reference = Setup::getCoefficients(base);
+    REQUIRE(Origins.size() == reference.size());
+
+    // how far a coefficient moves over the whole sweep, so that a Material one
+    // can be shown to depend on the material at all
+    std::array<double, Setup::NumCoefficients> movement{};
+
+    for (const auto& [name, member] : Material::ParameterMap) {
+      auto perturbed = prototype;
+      // a factor rather than an offset, so every parameter is probed on its
+      // own scale
+      perturbed.*member *= 1.5;
+      perturbed.initialize(parameters);
+      const auto moved = Setup::getCoefficients(perturbed);
+
+      for (std::size_t i = 0; i < reference.size(); ++i) {
+        const double scale = std::max(std::abs(reference[i]), std::abs(moved[i]));
+        const double relative = scale > 0.0 ? std::abs(moved[i] - reference[i]) / scale : 0.0;
+        movement[i] = std::max(movement[i], relative);
+
+        if (Origins[i] == seissol::model::CoefficientOrigin::Global) {
+          INFO("coefficient " << i << " is declared Global but " << name << " moves it");
+          REQUIRE(relative <= 1e-14);
+        }
+      }
+    }
+
+    for (std::size_t i = 0; i < reference.size(); ++i) {
+      if (Origins[i] == seissol::model::CoefficientOrigin::Material) {
+        INFO("coefficient " << i << " is declared Material but no parameter reaches it");
+        REQUIRE(movement[i] > 0.0);
+      }
+    }
+  };
+
+  SUBCASE("elastic") { check(coefficients::elastic(2700.0, 3.24e10, 3.24e10)); }
+  SUBCASE("acoustic") { check(coefficients::acoustic(1000.0, 2.25e9)); }
+  SUBCASE("viscoelastic") { check(coefficients::viscoelastic<3>(rng)); }
+}
+
 TEST_CASE("Star assembly from coefficients") {
   if constexpr (std::is_same_v<seissol::model::MaterialT, seissol::model::ElasticMaterial>) {
     std::mt19937 rng(20260927);
@@ -281,8 +345,8 @@ TEST_CASE("Star assembly from coefficients") {
     std::normal_distribution<double> gauss(0.0, 1.0);
 
     for (std::size_t sample = 0; sample < 64; ++sample) {
-      const auto material = coefficients::elastic(
-          positive(rng) * 1000.0, positive(rng) * 1e10, positive(rng) * 1e10);
+      const auto material =
+          coefficients::elastic(positive(rng) * 1000.0, positive(rng) * 1e10, positive(rng) * 1e10);
       const double gradient[3] = {gauss(rng), gauss(rng), gauss(rng)};
 
       // what CellLocalMatrices builds today: the three directional matrices,
@@ -290,8 +354,8 @@ TEST_CASE("Star assembly from coefficients") {
       std::array<std::array<double, seissol::tensor::star::size(0)>, 3> directional{};
       for (unsigned dim = 0; dim < 3; ++dim) {
         auto view = seissol::init::star::view<0>::create(directional.at(dim).data());
-        seissol::model::MaterialSetup<seissol::model::ElasticMaterial>::
-            getTransposedCoefficientMatrix(material, dim, view);
+        seissol::model::MaterialSetup<
+            seissol::model::ElasticMaterial>::getTransposedCoefficientMatrix(material, dim, view);
       }
 
       std::array<double, seissol::tensor::star::size(0)> assembledData{};

@@ -159,11 +159,13 @@ void assembleStarMatrix(const Tcoefficient* coefficients,
   static_assert(Setup::NumCoefficients > 0,
                 "the material does not declare its coefficient decomposition");
   starMatrix.setZero();
-  Setup::forEachCoefficientEntry(
-      [&](std::size_t coefficient, std::size_t dim, std::size_t row, std::size_t column,
-          double factor) {
-        starMatrix(row, column) += gradient[dim] * factor * coefficients[coefficient];
-      });
+  Setup::forEachCoefficientEntry([&](std::size_t coefficient,
+                                     std::size_t dim,
+                                     std::size_t row,
+                                     std::size_t column,
+                                     double factor) {
+    starMatrix(row, column) += gradient[dim] * factor * coefficients[coefficient];
+  });
 }
 
 /// The coefficients of the operator a cell applies, as its solver composes
@@ -338,6 +340,10 @@ struct MaterialSetupDefaults {
   /// declare its decomposition.
   static constexpr std::array<CoefficientEntry, 0> CoefficientEntries{};
 
+  /// Where each coefficient gets its value. A material reads all of its own
+  /// off itself, so they are all fields; only a solver adds anything else.
+  static constexpr std::array<CoefficientOrigin, 0> CoefficientOrigins{};
+
   /// The coupling block one relaxation mechanism contributes. Empty where the
   /// material has no relaxation.
   static constexpr std::array<AnelasticCoefficientEntry, 0> AnelasticEntries{};
@@ -358,6 +364,20 @@ struct MaterialSetupDefaults {
                                                    T& /*sourceMatrix*/) {}
 };
 
+/// A material reads every one of its coefficients off itself, so all of them
+/// are fields. Stated once here rather than in each material's declaration,
+/// which would repeat the same run of Material as many times as the material
+/// has coefficients.
+template <typename MaterialT>
+constexpr std::array<CoefficientOrigin, MaterialSetup<MaterialT>::NumCoefficients>
+    materialCoefficientOrigins() {
+  std::array<CoefficientOrigin, MaterialSetup<MaterialT>::NumCoefficients> origins{};
+  for (auto& origin : origins) {
+    origin = CoefficientOrigin::Material;
+  }
+  return origins;
+}
+
 /**
  * What a solver setup looks like when the solver needs nothing beyond the
  * material's own operators: the plane wave operator follows from the
@@ -370,6 +390,7 @@ struct SolverSetupDefaults {
   /// to it, and so is its decomposition.
   static constexpr std::size_t NumCoefficients = MaterialSetup<MaterialT>::NumCoefficients;
   static constexpr auto CoefficientEntries = MaterialSetup<MaterialT>::CoefficientEntries;
+  static constexpr auto CoefficientOrigins = materialCoefficientOrigins<MaterialT>();
 
   static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
     return MaterialSetup<MaterialT>::getCoefficients(material);

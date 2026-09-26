@@ -280,10 +280,11 @@ class ADERDGBase(ABC):
         elastic = total_extent(self.primaryGroups())
         perMechanism = total_extent(self.mechanismGroups()) if mechanisms > 0 else 0
 
-        count, entries = coefficients.composed(
+        count, entries, origins = coefficients.composed(
             self.name(), kwargs.get("solver"), mechanisms, elastic, perMechanism
         )
         self._solverCoefficientCount = count
+        self._solverCoefficientOrigins = origins
         # a solver that keeps the mechanism index in a dimension of its own
         # carries a narrower star than the quantity count suggests, so take the
         # extents from the star itself
@@ -305,6 +306,10 @@ class ADERDGBase(ABC):
     def solverCoefficientCount(self):
         """How many scalars the operator this solver applies is linear in."""
         return getattr(self, "_solverCoefficientCount", 0)
+
+    def solverCoefficientOrigins(self):
+        """Where each of those scalars comes from -- the material, or the run."""
+        return getattr(self, "_solverCoefficientOrigins", [])
 
     def starAssembly(self):
         """The statements that put the star matrices together, or none where a

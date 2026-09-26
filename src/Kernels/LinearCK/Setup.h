@@ -31,6 +31,21 @@ struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
   static constexpr std::size_t NumCoefficients =
       MaterialSetup<MaterialT>::NumCoefficients + MaterialT::Mechanisms;
 
+  /// The material's are fields; the relaxation frequencies are not. No
+  /// material parameter moves them -- they follow the frequency band alone --
+  /// so a cell does not have to carry them.
+  static constexpr std::array<CoefficientOrigin, NumCoefficients> CoefficientOrigins = [] {
+    std::array<CoefficientOrigin, NumCoefficients> origins{};
+    const auto base = materialCoefficientOrigins<MaterialT>();
+    for (std::size_t i = 0; i < base.size(); ++i) {
+      origins[i] = base[i];
+    }
+    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+      origins[base.size() + mech] = CoefficientOrigin::Global;
+    }
+    return origins;
+  }();
+
   static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
     std::array<double, NumCoefficients> coefficients{};
     const auto base = MaterialSetup<MaterialT>::getCoefficients(material);

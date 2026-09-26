@@ -272,6 +272,16 @@ BY_EQUATION = {
 BASE_OF = {"viscoelastic": ELASTIC, "viscoacoustic": ACOUSTIC}
 
 
+#: A coefficient read off the material. It varies from cell to cell, and
+#: within a cell wherever the material is sampled at the nodal points.
+MATERIAL = "Material"
+#: A coefficient that is one number for the whole domain, fixed once the run is
+#: set up -- the relaxation frequencies, which follow only the frequency band.
+#: It is not a build constant, so it cannot be written into the kernel, but it
+#: does not belong in every cell either.
+GLOBAL = "Global"
+
+
 def composed(equation: str,
              solver: str,
              mechanisms: int,
@@ -289,21 +299,26 @@ def composed(equation: str,
     base = BASE_OF.get(equation, decomposition)
     count = len(base.coefficients)
     entries = list(base.entries)
+    # every coefficient a material declares is read off that material, so it is
+    # a field; the weights a solver adds for its relaxation blocks are not
+    origins = [MATERIAL] * count
 
     if mechanisms > 0 and decomposition.anelastic:
         if solver == "linearckanelastic":
             blocks, weights = 1, [count]
             count += 1
+            origins.append(GLOBAL)
         else:
             blocks, weights = mechanisms, [count + m for m in range(mechanisms)]
             count += mechanisms
+            origins += [GLOBAL] * mechanisms
         for block in range(blocks):
             column = elastic_quantities + block * per_mechanism
             for entry in decomposition.anelastic:
                 entries.append(Entry(weights[block], entry.dim, entry.row,
                                      column + entry.column_offset, entry.factor))
 
-    return count, entries
+    return count, entries, origins
 
 
 def structure_values(coefficient_count: int,
@@ -337,7 +352,8 @@ def _table(kind: str, name: str, rows: List[str]) -> List[str]:
             + ["}};\n\n"])
 
 
-def generate(path: str, solver_count: int = None) -> None:
+def generate(path: str, solver_count: int = None,
+             solver_origins: List[str] = None) -> None:
     """Write the declarations of every material into a C++ header.
 
     With a count for the configured build, the header also states how many
@@ -399,6 +415,19 @@ def generate(path: str, solver_count: int = None) -> None:
             f"inline constexpr std::size_t SolverNumCoefficients = {solver_count};\n",
             "\n",
         ]
+    if solver_count is not None:
+        lines += [
+            "// where each of them comes from, which decides whether a cell has\n",
+            "// to carry it. Empty where the build does not factor the star, and\n",
+            "// so carries no coefficients at all.\n",
+        ]
+        rows = [f"model::CoefficientOrigin::{origin}" for origin in (solver_origins or [])]
+        if rows:
+            lines += _table("model::CoefficientOrigin", "SolverCoefficientOrigins", rows)
+        else:
+            # the name has to exist even then: it is looked up unconditionally
+            lines.append("inline constexpr std::array<model::CoefficientOrigin, 0> "
+                         "SolverCoefficientOrigins{};\n\n")
 
     lines += [
         "} // namespace seissol::generated\n",

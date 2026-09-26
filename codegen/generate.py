@@ -210,6 +210,7 @@ def main():
 
     subfolders = []
     solverCoefficientCount = 0
+    solverCoefficientOrigins = []
 
     routine_cache = GlobalRoutineCache()
 
@@ -267,8 +268,9 @@ def main():
         generator = Generator(arch)
 
         # Equation-specific kernels
-        nonlocal solverCoefficientCount
+        nonlocal solverCoefficientCount, solverCoefficientOrigins
         solverCoefficientCount = adg.solverCoefficientCount()
+        solverCoefficientOrigins = adg.solverCoefficientOrigins()
 
         adg.addInit(generator)
         adg.addLocal(generator, targets)
@@ -402,6 +404,7 @@ def main():
         kernels.coefficients.generate(
             os.path.join(cmdLineArgs.outputDir, "coefficients.h"),
             solver_count=solverCoefficientCount,
+            solver_origins=solverCoefficientOrigins,
         )
 
         forward_files("init.h")
