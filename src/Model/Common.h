@@ -147,6 +147,24 @@ void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tma
       material, dim, matM);
 }
 
+/// Builds the star matrix of one reference direction from the material's
+/// scalar coefficients and the corresponding row of the Jacobian, so that a
+/// cell can carry the two apart and put them together where the operator is
+/// applied.
+template <typename Tmaterial, typename Tmatrix>
+void assembleStarMatrix(
+    const std::array<double, MaterialSetup<Tmaterial>::NumCoefficients>& coefficients,
+    const double gradient[3],
+    Tmatrix& starMatrix) {
+  static_assert(MaterialSetup<Tmaterial>::NumCoefficients > 0,
+                "the material does not declare its coefficient decomposition");
+  starMatrix.setZero();
+  for (const auto& entry : MaterialSetup<Tmaterial>::CoefficientEntries) {
+    starMatrix(entry.row, entry.column) +=
+        gradient[entry.dim] * entry.factor * coefficients[entry.coefficient];
+  }
+}
+
 template <typename Tmaterial, typename T>
 void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
   SolverSetup<typename Tmaterial::Solver, Tmaterial>::getTransposedSourceCoefficientTensor(material,

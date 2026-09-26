@@ -7,9 +7,12 @@
 
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/elastic/Model/Setup.h"
+#include "GeneratedCode/init.h"
+#include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <doctest.h>
@@ -42,6 +45,42 @@ Eigen::Matrix<double, 9, 9> assembled(const seissol::model::ElasticMaterial& mat
   return matrix;
 }
 
+/// The packed star matrix as CellLocalMatrices builds it today: the three
+/// directional matrices, each scaled by its row of the Jacobian.
+std::array<double, seissol::tensor::star::size(0)>
+    referenceStar(const seissol::model::ElasticMaterial& material, const double gradient[3]) {
+  std::array<double, seissol::tensor::star::size(0)> matA{};
+  std::array<double, seissol::tensor::star::size(0)> matB{};
+  std::array<double, seissol::tensor::star::size(0)> matC{};
+  auto viewA = seissol::init::star::view<0>::create(matA.data());
+  auto viewB = seissol::init::star::view<0>::create(matB.data());
+  auto viewC = seissol::init::star::view<0>::create(matC.data());
+  Setup::getTransposedCoefficientMatrix(material, 0, viewA);
+  Setup::getTransposedCoefficientMatrix(material, 1, viewB);
+  Setup::getTransposedCoefficientMatrix(material, 2, viewC);
+
+  std::array<double, seissol::tensor::star::size(0)> result{};
+  for (std::size_t idx = 0; idx < result.size(); ++idx) {
+    result[idx] = gradient[0] * matA[idx] + gradient[1] * matB[idx] + gradient[2] * matC[idx];
+  }
+  return result;
+}
+
+void compareAssembly(const seissol::model::ElasticMaterial& material, const double gradient[3]) {
+  const auto reference = referenceStar(material, gradient);
+
+  std::array<double, seissol::tensor::star::size(0)> assembledData{};
+  auto view = seissol::init::star::view<0>::create(assembledData.data());
+  seissol::model::assembleStarMatrix<seissol::model::ElasticMaterial>(
+      Setup::getCoefficients(material), gradient, view);
+
+  const double scale = std::max(1.0, *std::max_element(reference.begin(), reference.end()));
+  for (std::size_t idx = 0; idx < reference.size(); ++idx) {
+    REQUIRE(assembledData[idx] ==
+            doctest::Approx(reference[idx]).epsilon(1e-13).scale(scale));
+  }
+}
+
 void compareFor(const seissol::model::ElasticMaterial& material) {
   for (unsigned dim = 0; dim < 3; ++dim) {
     Eigen::Matrix<double, 9, 9> reference = Eigen::Matrix<double, 9, 9>::Zero();
@@ -72,6 +111,17 @@ TEST_CASE("Elastic coefficient decomposition") {
   SUBCASE("acoustic") {
     for (std::size_t sample = 0; sample < 16; ++sample) {
       compareFor(makeMaterial(positive(rng) * 1000.0, 0.0, positive(rng) * 1e10));
+    }
+  }
+
+  SUBCASE("assembly against the folded matrices") {
+    std::normal_distribution<double> gauss(0.0, 1.0);
+    for (std::size_t sample = 0; sample < 64; ++sample) {
+      const double gradient[3] = {gauss(rng), gauss(rng), gauss(rng)};
+      compareAssembly(
+          makeMaterial(positive(rng) * 1000.0, positive(rng) * 1e10, positive(rng) * 1e10),
+          gradient);
+      compareAssembly(makeMaterial(positive(rng) * 1000.0, 0.0, positive(rng) * 1e10), gradient);
     }
   }
 
