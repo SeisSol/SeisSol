@@ -288,6 +288,11 @@ def read_analysis(path):
     The file holds one row per quantity and norm. SeisSol writes it through its
     CSV table, which quotes text, so the norm comes in quotes, and writes every
     number in its shortest exact form.
+
+    A quantity the wave does not excite, e.g. a stress component off the plane
+    of a plane wave along an axis, has no relative error: SeisSol divides by the
+    zero norm of its analytical solution and writes inf or nan. Its relative
+    norms are left out; its deviation from zero stays in the absolute ones.
     """
     norms = {}
     with path.open(encoding="utf-8", newline="") as stream:
@@ -298,6 +303,14 @@ def read_analysis(path):
             continue
         variable, norm, value = fields
         norms.setdefault(norm, {})[variable] = float(value)
+    for norm in [name for name in norms if name.endswith("_rel")]:
+        absolute = norms.get(norm.removesuffix("_rel"), {})
+        norms[norm] = {
+            variable: value
+            for variable, value in norms[norm].items()
+            if math.isfinite(value)
+            or not math.isfinite(absolute.get(variable, math.nan))
+        }
     return norms
 
 
@@ -309,7 +322,7 @@ def check_analysis(work, prefix, thresholds_file, key, record):
             "no analysis output; the initial condition has no analytical solution"
         ], {}
     norms = read_analysis(path)
-    observed = {norm: max(values.values()) for norm, values in norms.items()}
+    observed = {norm: max(values.values()) for norm, values in norms.items() if values}
 
     table = json.loads(Path(thresholds_file).read_text(encoding="utf-8"))
     wanted = table.get("entries", {}).get(key)
