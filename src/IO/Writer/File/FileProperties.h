@@ -18,9 +18,6 @@
 
 namespace seissol::io::writer::file {
 
-//! The metadata of one file is gathered into blocks of this size before it is written.
-constexpr std::size_t MetaBlockSize = std::size_t{1024} * 1024;
-
 /**
  * @brief The value of an output tuning knob, from the environment.
  *
@@ -44,6 +41,20 @@ inline std::optional<std::string> outputEnv(const std::string& name) {
  */
 inline std::size_t outputAlignment() {
   const auto value = outputEnv("ALIGNMENT");
+  return value.has_value() ? utils::StringUtils::parse<std::size_t>(value.value()) : 0;
+}
+
+/**
+ * @brief How large the blocks are that the metadata of a file is gathered into, or zero for the
+ * default of HDF5.
+ *
+ * Large blocks keep the many small metadata writes of a file together instead of scattering them
+ * between the datasets, which a parallel file system rewards. But a file holds at least one such
+ * block in full, used or not: a megabyte, as the previous writer set, is most of a file of a few
+ * receivers. So HDF5 keeps its own, small default unless a size is given.
+ */
+inline std::size_t outputMetaBlockSize() {
+  const auto value = outputEnv("META_BLOCK_SIZE");
   return value.has_value() ? utils::StringUtils::parse<std::size_t>(value.value()) : 0;
 }
 

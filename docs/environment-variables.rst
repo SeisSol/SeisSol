@@ -52,6 +52,12 @@ Output
   or ``vtkorder``) are merged into one. On by default; the merging happens
   within a rank, so points on a partition boundary stay duplicated. Also
   accepted under its previous name ``SEISSOL_VERTEXFILTER``.
+* ``SEISSOL_IO_META_BLOCK_SIZE``: the size, in bytes, of the blocks the metadata
+  of an HDF5 output file is gathered into. Unset, HDF5 keeps its own small
+  default. A large value, e.g. ``1048576`` as the previous writer had, keeps the
+  many small metadata writes of a file together on a parallel file system, but
+  every file then holds at least one such block in full, used or not -- most of
+  a file of a few receivers.
 
 Two further variables are, for historic reasons, named ``XDMFWRITER``; they are
 also accepted with a ``SEISSOL_IO_`` prefix, which is the name to use:
