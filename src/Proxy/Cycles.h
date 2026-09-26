@@ -11,8 +11,7 @@
 #include <cstdint>
 #include <string_view>
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__)
-#include <x86intrin.h>
+#if defined(__x86_64__) || defined(__i386__)
 #define SEISSOL_PROXY_CYCLES_TSC
 #elif defined(__aarch64__)
 #define SEISSOL_PROXY_CYCLES_CNTVCT
@@ -25,7 +24,7 @@ namespace seissol::proxy {
 enum class CycleSource : std::uint8_t {
   /// No counter on this platform; tick counts are reported as zero.
   None,
-  /// x86 time-stamp counter, read through __rdtsc().
+  /// x86 time-stamp counter, read with the RDTSC instruction.
   Tsc,
   /// AArch64 virtual counter CNTVCT_EL0, readable from EL0 on Linux.
   Cntvct,
@@ -63,7 +62,13 @@ constexpr auto cyclesAvailable() -> bool { return cycleSource() != CycleSource::
 /// makes an elapsed count of zero the signal that no measurement happened.
 inline auto readCycles() -> std::uint64_t {
 #if defined(SEISSOL_PROXY_CYCLES_TSC)
-  return static_cast<std::uint64_t>(__rdtsc());
+  // RDTSC directly instead of the __rdtsc() intrinsic: NVHPC does not declare
+  // the intrinsic in its x86intrin.h, and __builtin_ia32_rdtsc() compiles there
+  // but does not link
+  std::uint32_t low = 0;
+  std::uint32_t high = 0;
+  asm volatile("rdtsc" : "=a"(low), "=d"(high));
+  return (static_cast<std::uint64_t>(high) << 32U) | low;
 #elif defined(SEISSOL_PROXY_CYCLES_CNTVCT)
   std::uint64_t value = 0;
   asm volatile("mrs %0, cntvct_el0" : "=r"(value));
