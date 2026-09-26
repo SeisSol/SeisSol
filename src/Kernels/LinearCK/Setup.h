@@ -12,6 +12,7 @@
 #include "Kernels/LinearCK/Solver.h"
 #include "Model/Common.h"
 
+#include <array>
 #include <cstddef>
 
 namespace seissol::model {
@@ -25,6 +26,42 @@ namespace seissol::model {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::linearck::Solver, MaterialT> {
+  /// The material's coefficients, then one relaxation frequency per
+  /// mechanism, because each block carries its own weight here.
+  static constexpr std::size_t NumCoefficients =
+      MaterialSetup<MaterialT>::NumCoefficients + MaterialT::Mechanisms;
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    std::array<double, NumCoefficients> coefficients{};
+    const auto base = MaterialSetup<MaterialT>::getCoefficients(material);
+    for (std::size_t i = 0; i < base.size(); ++i) {
+      coefficients[i] = base[i];
+    }
+    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+      coefficients[base.size() + mech] = material.omega[mech];
+    }
+    return coefficients;
+  }
+
+  template <typename F>
+  static void forEachCoefficientEntry(const F& write) {
+    for (const auto& entry : MaterialSetup<MaterialT>::CoefficientEntries) {
+      write(entry.coefficient, entry.dim, entry.row, entry.column, entry.factor);
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+        const auto col = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
+        for (const auto& entry : MaterialSetup<MaterialT>::AnelasticEntries) {
+          write(MaterialSetup<MaterialT>::NumCoefficients + mech,
+                entry.dim,
+                entry.row,
+                col + entry.columnOffset,
+                entry.factor);
+        }
+      }
+    }
+  }
+
   /// One anelastic block per mechanism, each weighted by its own relaxation
   /// frequency, because the memory variables share the quantity axis.
   template <typename T>

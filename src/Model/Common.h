@@ -153,16 +153,19 @@ void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tma
 /// applied.
 template <typename Tmaterial, typename Tmatrix>
 void assembleStarMatrix(
-    const std::array<double, MaterialSetup<Tmaterial>::NumCoefficients>& coefficients,
+    const std::array<double, SolverSetup<typename Tmaterial::Solver, Tmaterial>::NumCoefficients>&
+        coefficients,
     const double gradient[3],
     Tmatrix& starMatrix) {
-  static_assert(MaterialSetup<Tmaterial>::NumCoefficients > 0,
+  using Setup = SolverSetup<typename Tmaterial::Solver, Tmaterial>;
+  static_assert(Setup::NumCoefficients > 0,
                 "the material does not declare its coefficient decomposition");
   starMatrix.setZero();
-  for (const auto& entry : MaterialSetup<Tmaterial>::CoefficientEntries) {
-    starMatrix(entry.row, entry.column) +=
-        gradient[entry.dim] * entry.factor * coefficients[entry.coefficient];
-  }
+  Setup::forEachCoefficientEntry(
+      [&](std::size_t coefficient, std::size_t dim, std::size_t row, std::size_t column,
+          double factor) {
+        starMatrix(row, column) += gradient[dim] * factor * coefficients[coefficient];
+      });
 }
 
 template <typename Tmaterial, typename T>
@@ -328,6 +331,15 @@ struct MaterialSetupDefaults {
   /// Number of scalar coefficients one relaxation mechanism's source entries
   /// are linear in. Zero where the material has no source term, or does not
   /// declare its decomposition.
+  static constexpr std::array<CoefficientEntry, 0> CoefficientEntries{};
+
+  /// The coupling block one relaxation mechanism contributes. Empty where the
+  /// material has no relaxation.
+  static constexpr std::array<AnelasticCoefficientEntry, 0> AnelasticEntries{};
+
+  /// Number of scalar coefficients one relaxation mechanism's source entries
+  /// are linear in. Zero where the material has no source term, or does not
+  /// declare its decomposition.
   static constexpr std::size_t NumSourceCoefficients = 0;
 
   static MaterialT
@@ -349,6 +361,25 @@ struct MaterialSetupDefaults {
  */
 template <typename SolverT, typename MaterialT>
 struct SolverSetupDefaults {
+  /// The operator a solver applies is the material's unless the solver adds
+  /// to it, and so is its decomposition.
+  static constexpr std::size_t NumCoefficients = MaterialSetup<MaterialT>::NumCoefficients;
+  static constexpr auto CoefficientEntries = MaterialSetup<MaterialT>::CoefficientEntries;
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    return MaterialSetup<MaterialT>::getCoefficients(material);
+  }
+
+  /// Walks the entries of the operator this solver applies. A callback rather
+  /// than a table, because a solver that adds relaxation blocks composes its
+  /// entries from the material's and repeats a block per mechanism.
+  template <typename F>
+  static void forEachCoefficientEntry(const F& write) {
+    for (const auto& entry : MaterialSetup<MaterialT>::CoefficientEntries) {
+      write(entry.coefficient, entry.dim, entry.row, entry.column, entry.factor);
+    }
+  }
+
   static void getPlaneWaveOperator(
       const MaterialT& material,
       const double n[3],

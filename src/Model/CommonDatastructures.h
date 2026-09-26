@@ -40,6 +40,17 @@ struct CoefficientEntry {
 /// mechanism contributes the whole table, so the mechanism is not an index
 /// here either: a caller walks the table once per mechanism with that
 /// mechanism's coefficients.
+/// One entry of a relaxation mechanism's coupling block, with the column
+/// given relative to that mechanism's block. It carries no coefficient index:
+/// the whole block is weighted by one scalar, and which one that is -- the
+/// relaxation frequency, or nothing at all -- is the solver's decision.
+struct AnelasticCoefficientEntry {
+  std::size_t dim;
+  std::size_t row;
+  std::size_t columnOffset;
+  double factor;
+};
+
 struct SourceCoefficientEntry {
   std::size_t coefficient;
   std::size_t row;

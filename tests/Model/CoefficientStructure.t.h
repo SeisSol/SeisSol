@@ -188,6 +188,46 @@ TEST_CASE("Coefficient decomposition") {
     // stress block, so a slot legitimately takes one entry per direction
   }
 
+  SUBCASE("solver operator including the relaxation blocks") {
+    constexpr std::size_t Mechanisms = 3;
+    using Material = seissol::model::ViscoElasticMaterial<Mechanisms>;
+    constexpr std::size_t N = Material::NumQuantities;
+
+    for (std::size_t sample = 0; sample < 16; ++sample) {
+      auto material = coefficients::viscoelastic<Mechanisms>(rng);
+      for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
+        material.omega[mech] = positive(rng);
+      }
+
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        Eigen::Matrix<double, N, N> reference = Eigen::Matrix<double, N, N>::Zero();
+        seissol::model::SolverSetup<typename Material::Solver, Material>::
+            getTransposedCoefficientMatrix(material, dim, reference);
+
+        using Setup = seissol::model::SolverSetup<typename Material::Solver, Material>;
+        const auto solverCoefficients = Setup::getCoefficients(material);
+        Eigen::Matrix<double, N, N> candidate = Eigen::Matrix<double, N, N>::Zero();
+        Setup::forEachCoefficientEntry([&](std::size_t coefficient,
+                                           std::size_t entryDim,
+                                           std::size_t row,
+                                           std::size_t column,
+                                           double factor) {
+          if (entryDim == dim) {
+            candidate(row, column) += factor * solverCoefficients.at(coefficient);
+          }
+        });
+
+        const double scale = std::max(1.0, reference.cwiseAbs().maxCoeff());
+        for (std::size_t row = 0; row < N; ++row) {
+          for (std::size_t column = 0; column < N; ++column) {
+            REQUIRE(candidate(row, column) ==
+                    doctest::Approx(reference(row, column)).epsilon(1e-13).scale(scale));
+          }
+        }
+      }
+    }
+  }
+
   SUBCASE("viscoelastic source") {
     constexpr std::size_t Mechanisms = 3;
     for (std::size_t sample = 0; sample < 16; ++sample) {

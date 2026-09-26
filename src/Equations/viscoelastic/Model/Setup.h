@@ -45,6 +45,20 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
         dynamic_cast<const ElasticMaterial&>(material));
   }
 
+  /// The coupling block one mechanism contributes, with its columns relative
+  /// to that mechanism's block. The weight is the solver's to supply.
+  static constexpr std::array<AnelasticCoefficientEntry, 9> AnelasticEntries{{
+      {0, 6, 0, -1.0},
+      {0, 7, 3, -0.5},
+      {0, 8, 5, -0.5},
+      {1, 7, 1, -1.0},
+      {1, 6, 3, -0.5},
+      {1, 8, 4, -0.5},
+      {2, 8, 2, -1.0},
+      {2, 7, 4, -0.5},
+      {2, 6, 5, -0.5},
+  }};
+
   /// The three theta values of one relaxation mechanism.
   static constexpr std::size_t NumSourceCoefficients = 3;
 

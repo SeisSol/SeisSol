@@ -13,6 +13,7 @@
 #include "Model/Common.h"
 
 #include <complex>
+#include <array>
 #include <cstddef>
 #include <yateto.h>
 
@@ -28,6 +29,40 @@ namespace seissol::model {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::linearckanelastic::Solver, MaterialT> {
+  /// The material's coefficients, plus a trailing one that is always one: the
+  /// single coupling block enters with unit weight, since the relaxation
+  /// frequencies are held in w rather than in the flux.
+  static constexpr std::size_t NumCoefficients =
+      MaterialSetup<MaterialT>::NumCoefficients + (MaterialT::Mechanisms > 0 ? 1 : 0);
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    std::array<double, NumCoefficients> coefficients{};
+    const auto base = MaterialSetup<MaterialT>::getCoefficients(material);
+    for (std::size_t i = 0; i < base.size(); ++i) {
+      coefficients[i] = base[i];
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      coefficients[base.size()] = 1.0;
+    }
+    return coefficients;
+  }
+
+  template <typename F>
+  static void forEachCoefficientEntry(const F& write) {
+    for (const auto& entry : MaterialSetup<MaterialT>::CoefficientEntries) {
+      write(entry.coefficient, entry.dim, entry.row, entry.column, entry.factor);
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      for (const auto& entry : MaterialSetup<MaterialT>::AnelasticEntries) {
+        write(MaterialSetup<MaterialT>::NumCoefficients,
+              entry.dim,
+              entry.row,
+              MaterialT::NumElasticQuantities + entry.columnOffset,
+              entry.factor);
+      }
+    }
+  }
+
   /// A single anelastic block with unit weight: the relaxation frequencies
   /// are held in w, not folded into the flux. A material without relaxation
   /// (e.g. when the impedance of another material is computed) has none.
