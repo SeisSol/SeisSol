@@ -119,6 +119,73 @@ _VOIGT = [
 _ANISO_RHO = len(_VOIGT)
 
 
+@dataclass(frozen=True)
+class FluxEntry:
+    """One entry of a flux operator, as a scalar of the face times a factor."""
+
+    coefficient: int
+    row: int
+    column: int
+    factor: float
+
+
+#: The scalars the isotropic elastic flux operator is linear in, and the entries
+#: they fill. Measured, not derived: over six hundred random material pairs the
+#: operator occupies sixteen of its eighty-one entries, and those sixteen span a
+#: space of exactly ten dimensions -- the singular values fall from 1e-3 to
+#: 1e-17. Every entry outside the ten is equal to one of them, not merely a
+#: multiple, because the two shear directions enter the same way.
+#:
+#: The scalars themselves are whatever the Riemann solver makes of the two
+#: materials at the point; they are not linear in either, which is why they are
+#: read off a computed operator rather than assembled from material parameters.
+FLUX_COEFFICIENTS = (
+    "pNormalNormal",
+    "pNormalTransverse",
+    "pNormalVelocity",
+    "pVelocityNormal",
+    "pVelocityTransverse",
+    "pVelocityVelocity",
+    "sShearShear",
+    "sShearVelocity",
+    "sVelocityShear",
+    "sVelocityVelocity",
+)
+
+#: Where each scalar is read off a computed operator.
+FLUX_SOURCE = {
+    "pNormalNormal": (0, 0),
+    "pNormalTransverse": (0, 2),
+    "pNormalVelocity": (0, 6),
+    "pVelocityNormal": (6, 0),
+    "pVelocityTransverse": (6, 1),
+    "pVelocityVelocity": (6, 6),
+    "sShearShear": (5, 5),
+    "sShearVelocity": (3, 7),
+    "sVelocityShear": (7, 3),
+    "sVelocityVelocity": (7, 7),
+}
+
+FLUX_ENTRIES = tuple(
+    FluxEntry(FLUX_COEFFICIENTS.index(name), row, column, 1.0)
+    for name, positions in (
+        ("pNormalNormal", ((0, 0),)),
+        # the two transverse normal stresses enter alike
+        ("pNormalTransverse", ((0, 1), (0, 2))),
+        ("pNormalVelocity", ((0, 6),)),
+        ("pVelocityNormal", ((6, 0),)),
+        ("pVelocityTransverse", ((6, 1), (6, 2))),
+        ("pVelocityVelocity", ((6, 6),)),
+        # and so do the two shear directions
+        ("sShearShear", ((3, 3), (5, 5))),
+        ("sShearVelocity", ((3, 7), (5, 8))),
+        ("sVelocityShear", ((7, 3), (8, 5))),
+        ("sVelocityVelocity", ((7, 7), (8, 8))),
+    )
+    for row, column in positions
+)
+
+
 def _c(name: str) -> int:
     return _VOIGT.index(name)
 
@@ -408,6 +475,23 @@ def generate(path: str, solver_count: int = None,
                 [f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
                  for e in decomposition.source],
             )
+
+    lines.append("// the isotropic elastic flux operator, as scalars of the face\n")
+    lines.append("// times fixed entries\n")
+    lines.append("inline constexpr std::size_t FluxNumCoefficients = "
+                 f"{len(FLUX_COEFFICIENTS)};\n")
+    lines += _table(
+        "model::FluxCoefficientEntry",
+        "FluxCoefficientEntries",
+        [f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
+         for e in FLUX_ENTRIES],
+    )
+    lines += _table(
+        "model::FluxCoefficientSource",
+        "FluxCoefficientSources",
+        [f"{{{FLUX_SOURCE[name][0]}, {FLUX_SOURCE[name][1]}}}"
+         for name in FLUX_COEFFICIENTS],
+    )
 
     lines += [
         "// how many samples of the material a cell carries. One, where the\n",

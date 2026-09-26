@@ -16,6 +16,7 @@
 
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Model/Common.h"
@@ -336,6 +337,94 @@ TEST_CASE("Coefficient origins") {
   SUBCASE("elastic") { check(coefficients::elastic(2700.0, 3.24e10, 3.24e10)); }
   SUBCASE("acoustic") { check(coefficients::acoustic(1000.0, 2.25e9)); }
   SUBCASE("viscoelastic") { check(coefficients::viscoelastic<3>(rng)); }
+}
+
+/// The flux operator is not linear in either material -- the Riemann solver is
+/// not -- but it occupies few entries and spans few dimensions, so it decomposes
+/// the same way the star does: scalars read off a computed operator, times fixed
+/// entries. This holds that, including where one side is acoustic and where
+/// there is no other side at all.
+TEST_CASE("Flux decomposition") {
+  using Material = seissol::model::ElasticMaterial;
+  constexpr std::size_t N = Material::NumQuantities;
+  using Matrix = Eigen::Matrix<double, N, N>;
+
+  auto rng = std::mt19937(20260926);
+  auto positive = std::uniform_real_distribution<double>(0.4, 2.5);
+  const auto draw = [&](bool acoustic) {
+    Material material{};
+    material.rho = positive(rng);
+    material.lambda = positive(rng);
+    material.mu = acoustic ? 0.0 : positive(rng);
+    return material;
+  };
+
+  const auto fluxOperator = [](const Material& local,
+                               const Material& neighbor,
+                               bool plus,
+                               seissol::FaceType faceType) {
+    alignas(Alignment) std::array<double, seissol::tensor::QgodLocal::size()> localData{};
+    alignas(Alignment) std::array<double, seissol::tensor::QgodNeighbor::size()> neighborData{};
+    auto godLocal = seissol::init::QgodLocal::view::create(localData.data());
+    auto godNeighbor = seissol::init::QgodNeighbor::view::create(neighborData.data());
+    seissol::model::getTransposedGodunovState(local, neighbor, faceType, godLocal, godNeighbor);
+
+    Matrix coefficientMatrix = Matrix::Zero();
+    seissol::model::getTransposedCoefficientMatrix(plus ? local : neighbor, 0, coefficientMatrix);
+    Matrix godunov = Matrix::Zero();
+    auto& view = plus ? godLocal : godNeighbor;
+    for (std::size_t row = 0; row < N; ++row) {
+      for (std::size_t column = 0; column < N; ++column) {
+        if (view.isInRange(row, column)) {
+          godunov(row, column) = view(row, column);
+        }
+      }
+    }
+    return Matrix(godunov * coefficientMatrix);
+  };
+
+  const auto check = [&](bool acousticLocal, bool acousticNeighbor, seissol::FaceType faceType) {
+    for (std::size_t sample = 0; sample < 64; ++sample) {
+      const auto local = draw(acousticLocal);
+      // a face without another cell behind it is handed the cell's own
+      // material, the way the initialization does it
+      const auto neighbor = faceType == seissol::FaceType::Regular ? draw(acousticNeighbor) : local;
+      // a face without another cell behind it has its neighbor operator
+      // poisoned with a signalling NaN on purpose, so there is nothing to
+      // decompose there
+      const bool hasNeighbor = faceType == seissol::FaceType::Regular;
+      for (const bool plus :
+           hasNeighbor ? std::vector<bool>{true, false} : std::vector<bool>{true}) {
+        const Matrix reference = fluxOperator(local, neighbor, plus, faceType);
+
+        std::array<double, seissol::generated::FluxNumCoefficients> coefficients{};
+        for (std::size_t a = 0; a < coefficients.size(); ++a) {
+          const auto& source = seissol::generated::FluxCoefficientSources[a];
+          coefficients[a] = reference(source.row, source.column);
+        }
+
+        Matrix candidate = Matrix::Zero();
+        for (const auto& entry : seissol::generated::FluxCoefficientEntries) {
+          candidate(entry.row, entry.column) += entry.factor * coefficients[entry.coefficient];
+        }
+
+        const double scale = std::max(1.0, reference.cwiseAbs().maxCoeff());
+        for (std::size_t row = 0; row < N; ++row) {
+          for (std::size_t column = 0; column < N; ++column) {
+            REQUIRE(candidate(row, column) ==
+                    doctest::Approx(reference(row, column)).epsilon(1e-14).scale(scale));
+          }
+        }
+      }
+    }
+  };
+
+  SUBCASE("elastic against elastic") { check(false, false, seissol::FaceType::Regular); }
+  SUBCASE("acoustic against elastic") { check(true, false, seissol::FaceType::Regular); }
+  SUBCASE("elastic against acoustic") { check(false, true, seissol::FaceType::Regular); }
+  SUBCASE("acoustic against acoustic") { check(true, true, seissol::FaceType::Regular); }
+  SUBCASE("free surface") { check(false, false, seissol::FaceType::FreeSurface); }
+  SUBCASE("free surface, acoustic") { check(true, true, seissol::FaceType::FreeSurface); }
 }
 
 TEST_CASE("Star assembly from coefficients") {

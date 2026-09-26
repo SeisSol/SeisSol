@@ -21,6 +21,27 @@
 
 namespace seissol::model {
 
+/// One entry of a flux operator, as a scalar of the face times a constant
+/// factor. A face that carries these gives
+///
+///     AplusT(row, column) = sum_a coefficients[a] * factor
+///
+/// over the entries carrying that row and column.
+struct FluxCoefficientEntry {
+  std::size_t coefficient;
+  std::size_t row;
+  std::size_t column;
+  double factor;
+};
+
+/// Where a flux scalar is read off a computed operator. The scalars are not
+/// linear in either material -- the Riemann solver is not -- so they are taken
+/// from the operator rather than assembled from material parameters.
+struct FluxCoefficientSource {
+  std::size_t row;
+  std::size_t column;
+};
+
 /// Where a scalar coefficient of the operator gets its value, which is what
 /// decides whether a cell has to carry it.
 enum class CoefficientOrigin : std::uint8_t {
