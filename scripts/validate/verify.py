@@ -165,6 +165,12 @@ class CaseSpec:
     skip: list = dataclasses.field(default_factory=list)
 
     @property
+    def variant(self) -> str:
+        """The label that per-variant thresholds are keyed by: the key after its
+        first ``/`` (``single`` for ``tpv5/single``), the whole key without one."""
+        return self.key.split("/", 1)[-1]
+
+    @property
     def is_derived(self) -> bool:
         """True when the compare target is another case's output."""
         return bool(self.reference) and self.reference != self.key
@@ -680,7 +686,7 @@ def verify_case(
     """
     labels = labels or set()
     results: list[CompareResult] = []
-    v = case.key
+    v = case.variant
 
     def run(category: str, compare_fn) -> None:
         if not _enabled(tpv_data, category):
@@ -931,7 +937,7 @@ def list_cases(selected: list[CaseSpec], epsilon_override: Optional[float]) -> N
             print(f"    {_dim('(no categories enabled / no tpv-data.json)')}")
             continue
         for cat in enabled:
-            eps = _epsilon(tpv, cat, epsilon_override, case.key)
+            eps = _epsilon(tpv, cat, epsilon_override, case.variant)
             qmap = tpv.get(cat, {}).get("quantities", {})
             extra = f"   (+{len(qmap)} per-quantity)" if qmap else ""
             print(f"    {cat:<9} \u03b5={eps:g}{extra}")
