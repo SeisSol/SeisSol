@@ -127,11 +127,19 @@ def main():
     if args.energy_ref is None:
         parser.error("energy_ref is required unless --list-quantities is given")
 
+    # the energies and the fault quantities; the dissipation rates are left out, as
+    # instantaneous rates they are too erratic for a relative comparison
     relevant_quantities = [
+        "gravitational_potential_energy",
+        "acoustic_potential_energy",
+        "acoustic_kinetic_energy",
         "elastic_strain_energy",
         "elastic_kinetic_energy",
+        "anelastic_strain_energy",
+        "anelastic_potential_energy",
         "poroelastic_strain_energy",
         "poroelastic_kinetic_energy",
+        "plastic_moment",
         "total_frictional_work",
         "static_frictional_work",
         "seismic_moment",
