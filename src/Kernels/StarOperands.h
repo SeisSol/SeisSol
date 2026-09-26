@@ -56,8 +56,15 @@ static_assert(internal::originsAgree(),
 /// cell carries it.
 template <typename KernelT, typename LocalIntegrationT>
 void bindStarOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) {
-  if constexpr (FactoredStar) {
-    krnl.materialCoefficients = localIntegration.materialCoefficients;
+  if constexpr (NodalMaterial) {
+    for (std::size_t a = 0; a < StarCoefficientCount; ++a) {
+      krnl.nodalCoefficients(a) = localIntegration.materialCoefficients[a];
+    }
+    for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+      krnl.referenceGradients(dim) = localIntegration.referenceGradients[dim];
+    }
+  } else if constexpr (FactoredStar) {
+    krnl.materialCoefficients = localIntegration.materialCoefficients[0];
     for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
       krnl.referenceGradients(dim) = localIntegration.referenceGradients[dim];
     }
@@ -72,7 +79,20 @@ void bindStarOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) 
 /// than pointers.
 template <typename KernelT>
 void bindStarOperandsBatched(KernelT& krnl, const real** localIntegrationPtrs) {
-  if constexpr (FactoredStar) {
+  if constexpr (NodalMaterial) {
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, materialCoefficients);
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, referenceGradients);
+    for (std::size_t a = 0; a < StarCoefficientCount; ++a) {
+      krnl.nodalCoefficients(a) = localIntegrationPtrs;
+      krnl.extraOffset_nodalCoefficients(a) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, materialCoefficients, a);
+    }
+    for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+      krnl.referenceGradients(dim) = localIntegrationPtrs;
+      krnl.extraOffset_referenceGradients(dim) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, referenceGradients, dim);
+    }
+  } else if constexpr (FactoredStar) {
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, materialCoefficients);
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, referenceGradients);
     krnl.materialCoefficients = localIntegrationPtrs;

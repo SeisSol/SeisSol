@@ -146,9 +146,20 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               localIntegration[cell].referenceGradients[dim][component] = gradients[dim][component];
             }
           }
-          const auto coefficients = seissol::model::getStarCoefficients(materialLocal);
-          for (std::size_t i = 0; i < coefficients.size(); ++i) {
-            localIntegration[cell].materialCoefficients[i] = coefficients[i];
+          if constexpr (NodalMaterial) {
+            // one operator per sample point, so one coefficient per point
+            const auto& sampled = layer.var<LTS::NodalMaterialData>()[cell];
+            for (std::size_t point = 0; point < MaterialSampleCount; ++point) {
+              const auto coefficients = seissol::model::getStarCoefficients(sampled[point]);
+              for (std::size_t i = 0; i < coefficients.size(); ++i) {
+                localIntegration[cell].materialCoefficients[i][point] = coefficients[i];
+              }
+            }
+          } else {
+            const auto coefficients = seissol::model::getStarCoefficients(materialLocal);
+            for (std::size_t i = 0; i < coefficients.size(); ++i) {
+              localIntegration[cell].materialCoefficients[i][0] = coefficients[i];
+            }
           }
         } else {
           seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);

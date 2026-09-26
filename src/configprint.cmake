@@ -57,6 +57,12 @@ else()
   set(PARAMETER_FACTORED_STAR "false")
 endif()
 
+if (MATERIAL_NODAL)
+  set(PARAMETER_MATERIAL_NODAL "true")
+else()
+  set(PARAMETER_MATERIAL_NODAL "false")
+endif()
+
 if (PRECISION STREQUAL "single")
   set(PARAMETER_REALTYPE "F32")
 else()

@@ -222,6 +222,7 @@ def main():
     subfolders = []
     solverCoefficientCount = 0
     solverCoefficientOrigins = []
+    materialSampleCount = 1
 
     routine_cache = GlobalRoutineCache()
 
@@ -281,9 +282,13 @@ def main():
         generator = Generator(arch)
 
         # Equation-specific kernels
-        nonlocal solverCoefficientCount, solverCoefficientOrigins
+        nonlocal solverCoefficientCount, solverCoefficientOrigins, materialSampleCount
         solverCoefficientCount = adg.solverCoefficientCount()
         solverCoefficientOrigins = adg.solverCoefficientOrigins()
+        if cmdLineArgs.material_nodal:
+            materialSampleCount = kernels.material.pointCount(
+                cmdLineArgs.matricesDir, adg, materialPoints
+            )
 
         adg.addInit(generator)
         adg.addLocal(generator, targets)
@@ -425,6 +430,7 @@ def main():
             os.path.join(cmdLineArgs.outputDir, "coefficients.h"),
             solver_count=solverCoefficientCount,
             solver_origins=solverCoefficientOrigins,
+            material_samples=materialSampleCount,
         )
 
         forward_files("init.h")

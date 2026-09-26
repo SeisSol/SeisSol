@@ -353,7 +353,8 @@ def _table(kind: str, name: str, rows: List[str]) -> List[str]:
 
 
 def generate(path: str, solver_count: int = None,
-             solver_origins: List[str] = None) -> None:
+             solver_origins: List[str] = None,
+             material_samples: int = 1) -> None:
     """Write the declarations of every material into a C++ header.
 
     With a count for the configured build, the header also states how many
@@ -407,6 +408,13 @@ def generate(path: str, solver_count: int = None,
                 [f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
                  for e in decomposition.source],
             )
+
+    lines += [
+        "// how many samples of the material a cell carries. One, where the\n",
+        "// material does not vary inside a cell.\n",
+        f"inline constexpr std::size_t MaterialSampleCount = {material_samples};\n",
+        "\n",
+    ]
 
     if solver_count is not None:
         lines += [

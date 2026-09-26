@@ -342,19 +342,19 @@ class ADERDGBase(ABC):
                 idx = (entry.dim, entry.row, entry.column)
                 values[idx] = repr(float(values.get(idx, 0.0)) + entry.factor)
             self.coefficientStructure.append(
-                Tensor(f"coefficientStructure{a}", shape, spp=values,
+                Tensor(f"coefficientStructure({a})", shape, spp=values,
                        addressing=AddressingMode.IMMEDIATE)
             )
 
         # the Jacobian rows are a per-cell constant, so the fold happens once
         # and is reused by every step of the chain
         self.structureFolded = [
-            [Tensor(f"structureFolded{dim}_{a}", tuple(starSpp.shape), temporary=True)
+            [Tensor(f"structureFolded({dim},{a})", tuple(starSpp.shape), temporary=True)
              for a in range(count)]
             for dim in range(3)
         ]
-        self.materialCoefficients = [
-            Tensor(f"materialCoefficients{a}", (npoints,)) for a in range(count)
+        self.nodalCoefficients = [
+            Tensor(f"nodalCoefficients({a})", (npoints,)) for a in range(count)
         ]
         quantities = starSpp.shape[0]
         self.nodalValues = Tensor("nodalValues", (npoints, quantities), temporary=True)
@@ -395,7 +395,7 @@ class ADERDGBase(ABC):
                 self.nodalValues["nq"]
                 <= self.materialEval["nk"] * operators[dim][self.t("kl")] * source["lq"]
             )
-            for a, coefficient in enumerate(self.materialCoefficients):
+            for a, coefficient in enumerate(self.nodalCoefficients):
                 term = (
                     coefficient["n"]
                     * self.nodalValues["nq"]

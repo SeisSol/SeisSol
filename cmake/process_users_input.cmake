@@ -56,6 +56,7 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 option(FACTORED_STAR "Store the material coefficients and the Jacobian rows of a cell instead of its assembled star matrices" ON)
+option(MATERIAL_NODAL "Let the material vary inside a cell: sample it at MATERIAL_POINTS and form the operator there, instead of one operator per cell" OFF)
 
 set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined architecture vector length")
 set(OVERRIDE_ALIGNMENT 0 CACHE STRING "If not 0, it overrides the pre-defined architecture alignment")

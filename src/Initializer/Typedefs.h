@@ -14,9 +14,9 @@
 #include "Alignment.h"
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
-#include "DynamicRupture/Misc.h"
 #include "Common/Constants.h"
 #include "Config.h"
+#include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/pool.h"
@@ -67,6 +67,15 @@ constexpr bool FactoredStar =
 /// instantiated; StarOperands.h checks the two against each other.
 constexpr std::size_t StarCoefficientCount = generated::SolverNumCoefficients;
 
+/// Whether the material varies inside a cell, so that a cell carries one
+/// coefficient per sample point rather than one for itself. It needs the
+/// factored star, since the coefficients are what varies.
+constexpr bool NodalMaterial = Config::MaterialNodal && FactoredStar;
+
+/// How many samples of the material a cell carries. One, where it does not
+/// vary inside the cell.
+constexpr std::size_t MaterialSampleCount = generated::MaterialSampleCount;
+
 // data for the cell local integration
 struct alignas(Alignment) LocalIntegrationData {
   // star matrices, where the cell carries them assembled
@@ -74,7 +83,11 @@ struct alignas(Alignment) LocalIntegrationData {
 
   // the rows of the Jacobian and the material coefficients, where it does not
   real referenceGradients[3][zeroGuard(FactoredStar ? 3 : 0)]{};
-  real materialCoefficients[zeroGuard(FactoredStar ? StarCoefficientCount : 0)]{};
+  // one per coefficient, and where the material varies inside the cell one per
+  // sample point of it. The sample index is the slower one, so that a
+  // coefficient's samples lie together the way the kernel reads them.
+  real materialCoefficients[zeroGuard(FactoredStar ? StarCoefficientCount : 0)]
+                           [zeroGuard(FactoredStar ? MaterialSampleCount : 0)]{};
 
   // flux solver for element local contribution
   real nApNm1[4][seissol::tensor::AplusT::size()]{};
