@@ -19,7 +19,11 @@ jobs:
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
     runs-on: ubuntu-26.04
-    container: ${{ matrix.setup.container }}
+    # Docker gives a container 64 MB of /dev/shm, which is less than Intel MPI takes for a job of
+    # four ranks; Open MPI falls back to a file elsewhere, Intel MPI fails
+    container:
+      image: ${{ matrix.setup.container }}
+      options: --shm-size=2g
     strategy:
       fail-fast: false
       matrix:
@@ -109,7 +113,10 @@ jobs:
   seissol-run-test:
     name: seissol-run-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}><r${{matrix.parallel.ranks}}×t${{matrix.parallel.threads}}>
     runs-on: self-hosted #ubuntu-26.04
-    container: ${{ matrix.setup.container }}
+    # the shared memory MPI needs, as for the build job
+    container:
+      image: ${{ matrix.setup.container }}
+      options: --shm-size=2g
     needs: seissol-build-test
     if: ${{ github.repository == 'SeisSol/SeisSol' }} #  && github.ref_name == 'master'
     strategy:
