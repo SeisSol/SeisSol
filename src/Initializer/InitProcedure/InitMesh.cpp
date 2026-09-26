@@ -11,6 +11,7 @@
 #include "Initializer/Clustering/Clustering.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Monitoring/Instrumentation.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>

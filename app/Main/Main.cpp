@@ -86,11 +86,10 @@ int main(int argc, char* argv[]) {
       LIKWID_MARKER_REGISTER("SeisSol");
       LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
       LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
-      LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
       LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
-      LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureFinalizeImposedState");
       LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
-      LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureTimeStepLoop");
     }
 
 #pragma omp parallel
@@ -131,7 +130,7 @@ int main(int argc, char* argv[]) {
         ConfigString + ") was built with the following properties:\n" + ConfigDescriptor);
     args.addAdditionalOption("parameterfile", "The parameter file", false);
     args.addOption(
-        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
+        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
     switch (args.parse(argc, argv)) {
     case utils::Args::Help: {
       [[fallthrough]];

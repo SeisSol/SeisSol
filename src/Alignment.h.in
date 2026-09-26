@@ -12,12 +12,11 @@
 // DO NOT EDIT!
 
 #include "Common/Typedefs.h"
+#include "GeneratedCode/alignment.h" // IWYU pragma: export
+
 #include <cstddef>
 
 namespace seissol {
-constexpr std::size_t Alignment = @ALIGNMENT@;
-constexpr std::size_t Vectorsize = @VECTORSIZE@;
-
 constexpr std::size_t PagesizeHeap = 2097152;
 constexpr std::size_t PagesizeStack = 4096;
 

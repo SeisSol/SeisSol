@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 
 #include "Geometry/MeshReader.h"
+#include "IO/Instance/Point/Hdf5Table.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
@@ -31,13 +32,12 @@ class SeisSol;
 } // namespace seissol
 
 namespace seissol::writer {
-class ParallelHdf5ReceiverWriter;
 
 Eigen::Vector3d parseReceiverLine(const std::string& line);
 std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileName);
 
 /**
- * \brief Writes out receiver data in a single parallel HDF5 file.
+ * \brief Writes out receiver data, either as one file per receiver or as a single HDF5 table.
  */
 class ReceiverWriter : public seissol::Module {
   private:
@@ -86,10 +86,21 @@ class ReceiverWriter : public seissol::Module {
   void shutdown() override;
 
   private:
-  static std::string hdf5FileName(const std::string& prefix);
   [[nodiscard]] std::string fileName(std::size_t pointId) const;
   [[nodiscard]] std::vector<std::string> variableNames() const;
   void writeHeader(std::size_t pointId, const Eigen::Vector3d& point, std::size_t globalId);
+
+  //! @brief A receiver together with the number of columns one of its samples takes.
+  struct OrderedReceiver {
+    kernels::Receiver* receiver{nullptr};
+    std::size_t columns{0};
+  };
+
+  //! @brief The receivers this rank holds, ordered the way their rows are written.
+  [[nodiscard]] std::vector<OrderedReceiver> orderedReceivers();
+
+  //! @brief Moves the samples collected since the last write into the table.
+  void collectSamples();
 
   // -- Members --
   seissol::initializer::parameters::ReceiverOutputFormat format_{
@@ -104,17 +115,11 @@ class ReceiverWriter : public seissol::Module {
 
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> receiverClusters_;
 
-  /// Parallel HDF5 writer for receiver data
-  std::unique_ptr<ParallelHdf5ReceiverWriter> hdf5Writer_;
+  /// One HDF5 table per quantity set, for the receivers this rank holds
+  std::unique_ptr<io::instance::point::Hdf5Table> table_;
 
-  /// Current time offset for HDF5 writes
-  std::size_t nextTimeOffset_{0};
-
-  /// Total number of receivers across all ranks
-  std::size_t totalReceivers_{0};
-
-  /// This rank's offset in the receiver dimension
-  std::size_t localReceiverOffset_{0};
+  /// How far a storage chunk of the table reaches along the sample axis
+  std::size_t sampleChunk_{0};
 
   /// Stopwatch for timing receiver I/O only
   Stopwatch stopwatch_;

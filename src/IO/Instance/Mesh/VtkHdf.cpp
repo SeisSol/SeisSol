@@ -7,35 +7,44 @@
 
 #include "VtkHdf.h"
 
+#include "Common/Filesystem.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
+#include "IO/Instance/Geometry/Typedefs.h"
+#include "IO/Instance/Metadata/Pvd.h"
 #include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Dimension.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
+#include "Parallel/MPI.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol::io::instance::mesh {
 VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::size_t localElementCount,
-                           std::size_t dimension,
-                           std::size_t targetDegree)
+                           geometry::Shape shape,
+                           std::size_t targetDegree,
+                           bool temporal,
+                           std::int32_t compress,
+                           bool constFile,
+                           std::optional<VertexMap> vertexMap)
     : name_(name), localElementCount_(localElementCount), globalElementCount_(localElementCount),
-      pointsPerElement_(dimension == 2
-                            ? ((targetDegree + 1) * (targetDegree + 2)) / 2
-                            : ((targetDegree + 1) * (targetDegree + 2) * (targetDegree + 3)) / 6),
-      type_(dimension == 2 ? 69 : 71), targetDegree_(targetDegree) {
-  // 69: Lagrange triangle
-  // 71: Lagrange tetrahedron
-
+      pointsPerElement_(
+          geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)),
+      type_(geometry::vtkType(shape)), targetDegree_(targetDegree), constFile_(constFile),
+      temporal_(temporal), compress_(compress) {
   MPI_Exscan(&localElementCount,
              &elementOffset_,
              1,
@@ -48,96 +57,251 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                 datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
                 MPI_SUM,
                 seissol::Mpi::mpi.comm());
-  pointOffset_ = elementOffset_ * pointsPerElement_;
-  localPointCount_ = localElementCount * pointsPerElement_;
-  globalPointCount_ = globalElementCount_ * pointsPerElement_;
+  // not a member initializer: elementOffset_ is only known once MPI_Exscan has written it
+  // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
+  connectivityOffset_ = elementOffset_ * pointsPerElement_;
+  localPointCount_ =
+      vertexMap.has_value() ? vertexMap->localPointCount : localElementCount * pointsPerElement_;
+  if (vertexMap.has_value()) {
+    // shared points, so how many this rank has is no longer a multiple of the cell count.
+    // MPI_Exscan leaves the result untouched on rank 0, so it has to start at zero.
+    pointOffset_ = 0;
+    globalPointCount_ = localPointCount_;
+    MPI_Exscan(&localPointCount_,
+               &pointOffset_,
+               1,
+               datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
+               MPI_SUM,
+               seissol::Mpi::mpi.comm());
+    MPI_Allreduce(&localPointCount_,
+                  &globalPointCount_,
+                  1,
+                  datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
+                  MPI_SUM,
+                  seissol::Mpi::mpi.comm());
+    pointSourceCount_ = localPointCount_;
+    pointsPerSource_ = 1;
+  } else {
+    pointOffset_ = connectivityOffset_;
+    globalPointCount_ = globalElementCount_ * pointsPerElement_;
+    pointSourceCount_ = localElementCount_;
+    pointsPerSource_ = pointsPerElement_;
+  }
 
-  instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
-    return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
-        "Type",
-        writer::WriteInline::create("UnstructuredGrid",
-                                    std::make_shared<datatype::StringDatatype>(16)));
-  });
-  instructions_.emplace_back([=](const std::string& filename, double /*time*/) {
-    return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
-        "Version",
-        writer::WriteInline::createArray<int64_t>({2}, {1, 0}));
-  });
+  const auto version = temporal ? std::vector<int64_t>{2, 0} : std::vector<int64_t>{1, 0};
+
+  addData("Type",
+          {},
+          temporal,
+          writer::WriteInline::create("UnstructuredGrid",
+                                      std::make_shared<datatype::StringDatatype>(16)),
+          true);
+  addData("Version",
+          {},
+          temporal,
+          writer::WriteInline::createArray<int64_t>({version.size()}, version),
+          true);
 
   // to capture by value
-  auto selfGlobalElementCount = globalElementCount_;
-  auto selfLocalElementCount = localElementCount;
-  auto selfGlobalPointCount = globalPointCount_;
-  auto selfLocalPointCount = localPointCount_;
-  auto selfPointOffset = pointOffset_;
-  auto selfPointsPerElement = pointsPerElement_;
-  auto selfType = type_;
+  const auto selfGlobalElementCount = globalElementCount_;
+  const auto selfLocalElementCount = localElementCount_;
+  const auto selfGlobalPointCount = globalPointCount_;
+  const auto selfLocalPointCount = localPointCount_;
+  const auto selfPointOffset = pointOffset_;
+  const auto selfConnectivityOffset = connectivityOffset_;
+  const auto selfPointsPerElement = pointsPerElement_;
+  const auto selfType = type_;
 
-  // TODO: move the following arrays into a "common" HDF5 file
-  // also, auto-generate them using a managed buffer
-  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
-    return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
-        "NumberOfCells",
-        writer::WriteInline::createArray<int64_t>({1},
-                                                  {static_cast<int64_t>(selfGlobalElementCount)}),
-        datatype::inferDatatype<int64_t>());
-  });
-  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
-    return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
-        "NumberOfConnectivityIds",
-        writer::WriteInline::createArray<int64_t>({1},
-                                                  {static_cast<int64_t>(selfGlobalPointCount)}),
-        datatype::inferDatatype<int64_t>());
-  });
-  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
-    return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
-        "NumberOfPoints",
-        writer::WriteInline::createArray<int64_t>({1},
-                                                  {static_cast<int64_t>(selfGlobalPointCount)}),
-        datatype::inferDatatype<int64_t>());
-  });
+  // TODO: auto-generate using a managed buffer maybe?
+
+  addData("NumberOfCells",
+          {},
+          temporal,
+          writer::WriteInline::createArray<int64_t>(
+              {1}, {static_cast<int64_t>(selfGlobalElementCount)}));
+  // one entry per corner of every cell, which stays the same when the points are shared
+  addData("NumberOfConnectivityIds",
+          {},
+          temporal,
+          writer::WriteInline::createArray<int64_t>(
+              {1}, {static_cast<int64_t>(selfGlobalElementCount * selfPointsPerElement)}));
+  addData(
+      "NumberOfPoints",
+      {},
+      temporal,
+      writer::WriteInline::createArray<int64_t>({1}, {static_cast<int64_t>(selfGlobalPointCount)}));
 
   const bool isLastRank = Mpi::mpi.size() == Mpi::mpi.rank() + 1;
-  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
+  addData("Offsets",
+          {},
+          true,
+          writer::GeneratedBuffer::createElementwise<int64_t>(
+              selfLocalElementCount + (isLastRank ? 1 : 0),
+              1,
+              std::vector<std::size_t>(),
+              [=](int64_t* target, std::size_t index) {
+                target[0] = index * selfPointsPerElement + selfConnectivityOffset;
+              }));
+  addData("Types",
+          {},
+          true,
+          writer::GeneratedBuffer::createElementwise<uint8_t>(
+              selfLocalElementCount,
+              1,
+              std::vector<std::size_t>(),
+              [=](uint8_t* target, std::size_t /*index*/) { target[0] = selfType; }));
+  addData(
+      "Connectivity",
+      {},
+      true,
+      vertexMap.has_value()
+          ? writer::GeneratedBuffer::createElementwise<int64_t>(
+                selfLocalElementCount,
+                selfPointsPerElement,
+                std::vector<std::size_t>(),
+                [=, map = std::move(vertexMap->connectivity)](int64_t* target, std::size_t index) {
+                  for (std::size_t corner = 0; corner < selfPointsPerElement; ++corner) {
+                    target[corner] = static_cast<int64_t>(
+                        map[index * selfPointsPerElement + corner] + selfPointOffset);
+                  }
+                })
+          : writer::GeneratedBuffer::createElementwise<int64_t>(
+                selfLocalPointCount,
+                1,
+                std::vector<std::size_t>(),
+                [=](int64_t* target, std::size_t index) {
+                  target[0] = static_cast<int64_t>(index + selfPointOffset);
+                }));
+
+  if (temporal) {
+    // https://docs.vtk.org/en/latest/vtk_file_formats/vtkhdf_file_format/vtkhdf_specifications.html
+    // The mesh itself is written once and every step reads it again, so all of the geometry
+    // offsets stay at zero ("Offset value can be repeated for static data"); only the attribute
+    // data grows.
+    instructions_.emplace_back([](const std::string& filename, std::size_t step, double /*time*/) {
+      return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+          writer::instructions::Hdf5Location(filename, {GroupName, StepsName}),
+          "NSteps",
+          writer::WriteInline::createArray<int64_t>({}, {static_cast<int64_t>(step) + 1}));
+    });
+
+    instructions_.emplace_back(
+        [](const std::string& filename, std::size_t /*counter*/, double time) {
+          const auto data =
+              writer::WriteInline::createShaped<double>({writer::Dimension::appended(1)}, {time});
+          return std::make_shared<writer::instructions::Hdf5DataWrite>(
+              writer::instructions::Hdf5Location(filename, {GroupName, StepsName}),
+              "Values",
+              data,
+              data->datatype());
+        });
+
+    // NumberOfPoints and friends hold one entry for the single part the mesh was written as, not
+    // one per step, so the part count has to be given explicitly rather than inferred.
+    instructions_.emplace_back(
+        [](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+          const auto data =
+              writer::WriteInline::createShaped<int64_t>({writer::Dimension::appended(1)}, {1});
+          return std::make_shared<writer::instructions::Hdf5DataWrite>(
+              writer::instructions::Hdf5Location(filename, {GroupName, StepsName}),
+              "NumberOfParts",
+              data,
+              data->datatype());
+        });
+
+    addStepOffset("PartOffsets", {}, 0);
+    addStepOffset("PointOffsets", {}, 0);
+    // CellOffsets and ConnectivityIdOffsets are (NSteps, NTopologies), and an unstructured grid
+    // has one topology
+    addStepOffset("CellOffsets", {}, 0);
+    addStepOffset("ConnectivityIdOffsets", {}, 0);
+
+    // the two field data entries makeWriter always adds; both are single scalars
+    addStepOffset("Time", FieldDataName + "Offsets", 1);
+    addStepOffset("Index", FieldDataName + "Offsets", 1);
+    addStepFieldDataSize("Time", 1, 1);
+    addStepFieldDataSize("Index", 1, 1);
+  }
+}
+
+void VtkHdfWriter::addStepOffset(const std::string& name,
+                                 const std::optional<std::string>& group,
+                                 std::size_t perStep) {
+  std::vector<std::string> groups{GroupName, StepsName};
+  if (group.has_value()) {
+    groups.emplace_back(group.value());
+  }
+  // one entry per step, and CellOffsets and ConnectivityIdOffsets carry one per topology on top
+  // of that, of which an unstructured grid has one
+  std::vector<writer::Dimension> dimensions{writer::Dimension::appended(1)};
+  if (name == "CellOffsets" || name == "ConnectivityIdOffsets") {
+    dimensions.push_back(writer::Dimension::replicated(1));
+  }
+
+  instructions_.emplace_back([=](const std::string& filename, std::size_t step, double /*time*/) {
+    const auto data = writer::WriteInline::createShaped<uint64_t>(
+        dimensions, {static_cast<uint64_t>(step * perStep)});
     return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
-        "Offsets",
-        writer::GeneratedBuffer::createElementwise<int64_t>(
-            selfLocalElementCount + (isLastRank ? 1 : 0),
-            1,
-            std::vector<std::size_t>(),
-            [=](int64_t* target, std::size_t index) {
-              target[0] = index * selfPointsPerElement + selfPointOffset;
-            }),
-        datatype::inferDatatype<int64_t>());
+        writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype());
   });
-  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
-    return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
-        "Types",
-        writer::GeneratedBuffer::createElementwise<uint8_t>(
-            selfLocalElementCount,
-            1,
-            std::vector<std::size_t>(),
-            [=](uint8_t* target, std::size_t /*index*/) { target[0] = selfType; }),
-        datatype::inferDatatype<uint8_t>());
-  });
-  instructionsConst_.emplace_back([=](const std::string& filename, double /*time*/) {
-    return std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName}),
-        "Connectivity",
-        writer::GeneratedBuffer::createElementwise<int64_t>(
-            selfLocalPointCount,
-            1,
-            std::vector<std::size_t>(),
-            [=](int64_t* target, std::size_t index) { target[0] = index + selfPointOffset; }),
-        datatype::inferDatatype<int64_t>());
-  });
+}
+
+void VtkHdfWriter::addData(const std::string& name,
+                           const std::optional<std::string>& group,
+                           bool isConst,
+                           const std::shared_ptr<writer::DataSource>& data,
+                           bool attribute) {
+  auto& instrarray = isConst && (constFile_ || temporal_) ? instructionsConst_ : instructions_;
+
+  std::vector<std::string> groups{GroupName};
+  if (group.has_value()) {
+    groups.emplace_back(group.value());
+  }
+
+  const auto compress = this->compress_;
+
+  if (attribute) {
+    instrarray.emplace_back(
+        [=](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+          return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+              writer::instructions::Hdf5Location(filename, groups), name, data);
+        });
+  } else {
+    instrarray.emplace_back(
+        [=](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+          return std::make_shared<writer::instructions::Hdf5DataWrite>(
+              writer::instructions::Hdf5Location(filename, groups),
+              name,
+              data,
+              data->datatype(),
+              compress);
+        });
+
+    if (isConst && constFile_ && !temporal_) {
+      instructionsConstLink_.emplace_back(
+          [=](const std::string& filename, const std::string& filenameConst) {
+            return std::make_shared<writer::instructions::Hdf5LinkExternalWrite>(
+                writer::instructions::Hdf5Location(filename, groups),
+                name,
+                writer::instructions::Hdf5Location(filenameConst, groups, name));
+          });
+    }
+  }
+}
+
+void VtkHdfWriter::addStepFieldDataSize(const std::string& name,
+                                        std::size_t components,
+                                        std::size_t tuples) {
+  const std::vector<std::string> groups{GroupName, StepsName, FieldDataName + "Sizes"};
+  instructions_.emplace_back(
+      [=](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+        // (NSteps, 2), the appended dimension supplying the leading one
+        const auto data = writer::WriteInline::createShaped<int64_t>(
+            {writer::Dimension::appended(1), writer::Dimension::replicated(2)},
+            {static_cast<int64_t>(components), static_cast<int64_t>(tuples)});
+        return std::make_shared<writer::instructions::Hdf5DataWrite>(
+            writer::instructions::Hdf5Location(filename, groups), name, data, data->datatype());
+      });
 }
 
 void VtkHdfWriter::addHook(const std::function<void(std::size_t, double)>& hook) {
@@ -146,30 +310,78 @@ void VtkHdfWriter::addHook(const std::function<void(std::size_t, double)>& hook)
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWriter::makeWriter() {
   logInfo() << "Adding VTK writer" << name_ << "of order" << targetDegree_;
-  auto self = *this;
-  return [self](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
-    for (const auto& hook : self.hooks_) {
-      hook(counter, time);
-    }
-    const auto filename = prefix + "-" + self.name_ + "-" + std::to_string(counter) + ".vtkhdf";
-    auto writer = writer::Writer();
-    for (const auto& instruction : self.instructionsConst_) {
-      writer.addInstruction(instruction(filename, time));
-    }
-    for (const auto& instruction : self.instructions_) {
-      writer.addInstruction(instruction(filename, time));
-    }
-    writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
-        "Time",
-        writer::WriteInline::createArray<double>({1}, {time}),
-        datatype::inferDatatype<decltype(time)>()));
-    writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
-        writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
-        "Index",
-        writer::WriteInline::createArray<std::size_t>({1}, {counter}),
-        datatype::inferDatatype<decltype(counter)>()));
-    return writer;
-  };
+  const auto self = *this;
+  return
+      [self, pvu = std::vector<metadata::PvuEntry>(), constCounter = std::optional<std::size_t>()](
+          const std::string& prefix, std::size_t counter, double time) mutable -> writer::Writer {
+        // The unchanging data is written once per run, not once per counter: a run resuming from a
+        // checkpoint starts at whatever counter the schedule gives it and would otherwise link to a
+        // file nobody wrote. Its name carries that counter, so the const file of one run cannot
+        // collide with the one of a previous run -- rewriting it in place would fail, since none of
+        // its datasets are appendable.
+        const auto fullWrite = !constCounter.has_value();
+        if (fullWrite) {
+          constCounter = counter;
+        }
+        // The same goes for the files themselves: a time series of a resumed run is a file of its
+        // own, so its steps count from the first one of the run.
+        const auto step = counter - constCounter.value();
+        for (const auto& hook : self.hooks_) {
+          hook(counter, time);
+        }
+
+        // the .pvd and the links between the files name them relative to the directory they are
+        // in, which is the one of the file that refers to them
+        const auto inDirectory = [](const std::string& path) {
+          return seissol::filesystem::path(path).filename().string();
+        };
+        // a time series is one file holding every step; a snapshot is one file per step
+        const auto suffix = self.temporal_ ? std::string() : "-" + std::to_string(counter);
+        const auto filename = prefix + "-" + self.name_ + suffix + ".vtkhdf";
+        const auto filenameFile = inDirectory(filename);
+        const auto constSuffix = "-const-" + std::to_string(constCounter.value()) + ".vtkhdf";
+        const auto filenameConst = prefix + "-" + self.name_ + constSuffix;
+        const auto filenameConstFile = inDirectory(filenameConst);
+        const auto filenamePvu = prefix + "-" + self.name_ + ".pvd";
+        if (!self.temporal_) {
+          pvu.emplace_back(metadata::PvuEntry{filenameFile, time});
+        }
+        auto writer = writer::Writer();
+
+        if (fullWrite) {
+          // with a const file the unchanging data lives next to the snapshots; in a time series it
+          // goes into the one file, once
+          const auto& constTarget = self.constFile_ ? filenameConst : filename;
+          for (const auto& instruction : self.instructionsConst_) {
+            writer.addInstruction(instruction(constTarget, counter, time));
+          }
+        }
+        for (const auto& instruction : self.instructionsConstLink_) {
+          writer.addInstruction(instruction(filename, filenameConstFile));
+        }
+        for (const auto& instruction : self.instructions_) {
+          writer.addInstruction(instruction(filename, step, time));
+        }
+        writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
+            writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+            "Time",
+            self.temporal_ ? writer::WriteInline::createShaped<double>(
+                                 {writer::Dimension::appended(1)}, {time})
+                           : writer::WriteInline::createArray<double>({1}, {time}),
+            datatype::inferDatatype<decltype(time)>()));
+        writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
+            writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
+            "Index",
+            self.temporal_ ? writer::WriteInline::createShaped<std::size_t>(
+                                 {writer::Dimension::appended(1)}, {counter})
+                           : writer::WriteInline::createArray<std::size_t>({1}, {counter}),
+            datatype::inferDatatype<decltype(counter)>()));
+        // A time series carries its own step list, and every step would enter the collection under
+        // the same file name, so there is nothing for a pvd to say.
+        if (!self.temporal_) {
+          writer.addInstructions(metadata::makePvu(pvu).instructions(filenamePvu));
+        }
+        return writer;
+      };
 }
 } // namespace seissol::io::instance::mesh

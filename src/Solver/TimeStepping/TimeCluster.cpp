@@ -740,6 +740,8 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
   // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
 
   const double meshDt = ct_.getTimeStepSize();
+  // the friction law has just evaluated this step up to its end, and that is the state written out
+  const double stateTime = ct_.correctionTime + timeStepSize();
 
   do {
     const auto oldTime = time;
@@ -747,7 +749,7 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
     const auto trueTime = std::min(time, syncTime_);
     const auto trueDt = trueTime - oldTime;
     faultOutputManager_->writePickpointOutput(
-        layerData.id(), trueTime, trueDt, meshDt, 0, streamRuntime_);
+        layerData.id(), stateTime, trueTime, trueDt, meshDt, 0, streamRuntime_);
 
     // write until we've completed the current copy interval, or if we've hit a sync point
   } while (time * (1 + 1e-8) < ct_.correctionTime + ct_.maxTimeStepSize && time < syncTime_);

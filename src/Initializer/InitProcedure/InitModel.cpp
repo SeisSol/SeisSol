@@ -11,6 +11,7 @@
 #include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
+#include "Equations/Energy.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
 #include "Initializer/InitProcedure/Internal/Recording.h"
@@ -31,6 +32,7 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/Plasticity.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
@@ -158,6 +160,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       auto* materialArray = layer.var<LTS::Material>();
       auto* plasticityArray =
           seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
+      auto* energyDataArray = layer.var<LTS::EnergyData>();
 
 #pragma omp parallel for schedule(static)
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -173,6 +176,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
+
+        energyDataArray[cell] = model::EnergyCompute<MaterialT>::initEnergyData(materialData);
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {
@@ -313,16 +318,9 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
   auto& mm = seissolInstance.memoryManager();
 
-  int refinement = 0;
-  const auto& outputParams = seissolInstance.parameters().output;
-  if (outputParams.freeSurfaceParameters.enabled &&
-      outputParams.freeSurfaceParameters.vtkorder < 0) {
-    refinement = outputParams.freeSurfaceParameters.refinement;
-  }
-
   internal::initBoundaryStorage(mm.boundaryStorage(), mm.ltsStorage());
   internal::initSurfaceStorage(
-      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator(), refinement);
+      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator());
 }
 
 } // namespace

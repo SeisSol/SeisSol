@@ -75,9 +75,9 @@ class TestBasisFunctionCounts:
             (8, 36),
         ],
     )
-    def test_numberOf2DBasisFunctions(self, elastic, order, expected):
+    def test_num2DBasisFunctions(self, elastic, order, expected):
         adg = elastic(order)
-        assert adg.numberOf2DBasisFunctions() == expected
+        assert adg.num2DBasisFunctions() == expected
 
     @pytest.mark.parametrize(
         "order,expected",
@@ -92,44 +92,44 @@ class TestBasisFunctionCounts:
             (8, 120),
         ],
     )
-    def test_numberOf3DBasisFunctions(self, elastic, order, expected):
+    def test_num3DBasisFunctions(self, elastic, order, expected):
         adg = elastic(order)
-        assert adg.numberOf3DBasisFunctions() == expected
+        assert adg.num3DBasisFunctions() == expected
 
     @pytest.mark.parametrize("order", [1, 2, 3, 4, 5, 6, 7, 8])
-    def test_numberOf3DQuadraturePoints_is_cubic(self, elastic, order):
+    def test_num3DQuadraturePoints_is_cubic(self, elastic, order):
         adg = elastic(order)
-        assert adg.numberOf3DQuadraturePoints() == (order + 1) ** 3
+        assert adg.num3DQuadraturePoints() == (order + 1) ** 3
 
     @pytest.mark.parametrize("order", [1, 3, 5, 7])
     def test_2d_count_matches_pascal_identity(self, elastic, order):
         """T_n = C(n+1, 2) — another way to state the formula."""
         adg = elastic(order)
-        assert adg.numberOf2DBasisFunctions() == comb(order + 1, 2)
+        assert adg.num2DBasisFunctions() == comb(order + 1, 2)
 
     @pytest.mark.parametrize("order", [1, 3, 5, 7])
     def test_3d_count_matches_pascal_identity(self, elastic, order):
         """Te_n = C(n+2, 3)."""
         adg = elastic(order)
-        assert adg.numberOf3DBasisFunctions() == comb(order + 2, 3)
+        assert adg.num3DBasisFunctions() == comb(order + 2, 3)
 
     def test_counts_are_monotonically_increasing(self, elastic):
         for order in range(1, 8):
             assert (
-                elastic(order + 1).numberOf2DBasisFunctions()
-                > elastic(order).numberOf2DBasisFunctions()
+                elastic(order + 1).num2DBasisFunctions()
+                > elastic(order).num2DBasisFunctions()
             )
             assert (
-                elastic(order + 1).numberOf3DBasisFunctions()
-                > elastic(order).numberOf3DBasisFunctions()
+                elastic(order + 1).num3DBasisFunctions()
+                > elastic(order).num3DBasisFunctions()
             )
 
     def test_counts_are_integers(self, elastic):
         # Integer division // must not yield floats
         for order in [2, 3, 4, 5, 6]:
             adg = elastic(order)
-            assert isinstance(adg.numberOf2DBasisFunctions(), int)
-            assert isinstance(adg.numberOf3DBasisFunctions(), int)
+            assert isinstance(adg.num2DBasisFunctions(), int)
+            assert isinstance(adg.num3DBasisFunctions(), int)
 
 
 # =============================================================================
@@ -203,8 +203,8 @@ class TestAcousticDofIndices:
 
         return _mk(AcousticADERDG, order=4)
 
-    def test_numberOfQuantities(self, adg):
-        assert adg.numberOfQuantities() == 4
+    def test_numQuantities(self, adg):
+        assert adg.numQuantities() == 4
 
     def test_extractVelocities(self, adg):
         v = adg.extractVelocities()
@@ -245,8 +245,8 @@ class TestPoroelasticDofIndices:
 
         return _mk(PoroelasticADERDG, order=4)
 
-    def test_numberOfQuantities(self, adg):
-        assert adg.numberOfQuantities() == 13
+    def test_numQuantities(self, adg):
+        assert adg.numQuantities() == 13
 
     def test_extractVelocities_has_4_components(self, adg):
         v = adg.extractVelocities()
@@ -271,7 +271,12 @@ class TestPoroelasticDofIndices:
 
 
 class TestLinearADERDGSpp:
-    """Base class sparsity patterns — fully dense for elastic/acoustic."""
+    """Base class sparsity patterns.
+
+    The Godunov state and the flux solver are dense for elastic; the rotation
+    is not, and the two are different things. They used to be one function,
+    which is how a material ended up rotating with the Godunov pattern.
+    """
 
     @pytest.fixture
     def adg(self):
@@ -293,41 +298,53 @@ class TestLinearADERDGSpp:
         spp = adg.transformation_spp()
         assert spp.shape[0] == spp.shape[1]
 
-    def test_transformation_inv_spp_matches_godunov(self, adg):
-        """Elastic base implementation: transformation_inv_spp == godunov_spp."""
-        np.testing.assert_array_equal(adg.transformation_inv_spp(), adg.godunov_spp())
+    def test_transformation_is_block_diagonal_not_dense(self, adg):
+        """The quantity groups do not mix under a rotation, so the pattern is
+        one dense block per group -- stress and velocity for elastic. Reading
+        it off the Godunov state instead, as used to happen, makes it dense."""
+        for spp in (adg.transformation_spp(), adg.transformation_inv_spp()):
+            assert spp.shape == (9, 9)
+            assert np.all(spp[0:6, 0:6])
+            assert np.all(spp[6:9, 6:9])
+            assert not np.any(spp[0:6, 6:9])
+            assert not np.any(spp[6:9, 0:6])
+
+    def test_transformation_and_godunov_are_independent(self, adg):
+        """Guards the decoupling: the rotation must not follow the Godunov
+        state, which is dense."""
+        assert not np.array_equal(adg.transformation_inv_spp(), adg.godunov_spp())
 
 
 class TestViscoelasticSpp:
     """Viscoelastic has BLOCK-structured sparsity patterns that depend on
-    numberOfMechanisms. Miscounting blocks here breaks multi-mechanism
+    numMechanisms. Miscounting blocks here breaks multi-mechanism
     simulations silently.
     """
 
     @pytest.fixture
     def adg(self):
-        # viscoelastic needs numberOfElasticQuantities attribute set
+        # viscoelastic needs numElasticQuantities attribute set
         from kernels.equations.viscoelastic import ViscoelasticADERDG
 
         return _mk(
             ViscoelasticADERDG,
             order=4,
-            numberOfMechanisms=3,
-            numberOfElasticQuantities=9,
+            numMechanisms=3,
+            numElasticQuantities=9,
         )
 
-    def test_numberOfQuantities_scales_with_mechanisms(self):
-        """n_q = 9 + 6 * numberOfMechanisms — off-by-one here breaks memory."""
+    def test_numQuantities_scales_with_mechanisms(self):
+        """n_q = 9 + 6 * numMechanisms — off-by-one here breaks memory."""
         from kernels.equations.viscoelastic import ViscoelasticADERDG
 
         for m in [0, 1, 3, 5, 10]:
             adg = _mk(
                 ViscoelasticADERDG,
                 order=4,
-                numberOfMechanisms=m,
-                numberOfElasticQuantities=9,
+                numMechanisms=m,
+                numElasticQuantities=9,
             )
-            assert adg.numberOfQuantities() == 9 + 6 * m
+            assert adg.numQuantities() == 9 + 6 * m
 
     def test_godunov_spp_block_structure(self, adg):
         """First 9 rows are true, rest are false — coupling is only via

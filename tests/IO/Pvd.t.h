@@ -38,6 +38,19 @@ static std::string
 }
 
 // ---------------------------------------------------------------------------
+// Times in the metadata
+// ---------------------------------------------------------------------------
+
+TEST_CASE("formatExact keeps a time as it is" * doctest::test_suite("io")) {
+  CHECK(formatExact(0.1) == "0.1");
+  CHECK(formatExact(2.0) == "2");
+  // an output interval far below a microsecond must not collapse to zero
+  for (const double value : {1e-7, 2.5e-9, 1.0 / 3.0, 12345.678901234567}) {
+    CHECK(std::stod(formatExact(value)) == value);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // XmlAttribute
 // ---------------------------------------------------------------------------
 

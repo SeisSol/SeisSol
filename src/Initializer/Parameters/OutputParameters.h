@@ -12,7 +12,6 @@
 #include "Initializer/InputAux.h"
 #include "Model/Plasticity.h"
 #include "ParameterReader.h"
-#include "xdmfwriter/backends/Backend.h"
 
 #include <list>
 #include <string>
@@ -28,6 +27,34 @@ enum class OutputFormat : int { None = 10, Xdmf = 6 };
 
 enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
 
+enum class XdmfBackend : int { Posix, Hdf5 };
+
+/**
+ * How volumetric/surface data is transferred onto the output points: either by evaluating the
+ * solution there, or by an L2 projection onto the output (Lagrange) space. The latter is
+ * conservative on each output subcell, the former is cheaper and reproduces the solution exactly
+ * at the sampled points.
+ *
+ * The default differs per output, so that each keeps the behavior it had before the output
+ * modules were unified: the wavefield output sampled the solution at the subcell barycenters,
+ * while the free-surface output averaged over each subcell.
+ */
+enum class ProjectionMethod : int { Pointwise, L2 };
+
+/**
+ * @brief How the steps of a mesh output are distributed over files.
+ *
+ * `Snapshot` writes one file per step, each complete in itself. `Incremental` keeps the geometry
+ * -- which does not move -- in a file of its own and lets every snapshot link to it, which is the
+ * cheaper choice whenever the mesh is large against the fields written on it. `Monolith` puts
+ * every step into a single file as a VTKHDF time series, so a run leaves one file behind instead
+ * of one per output step.
+ *
+ * Only the VTKHDF format can do more than `Snapshot`; an Xdmf output (that is, one written
+ * without a `vtkorder`) references its unchanging parts from every step anyway.
+ */
+enum class TimeSeriesMode : int { Snapshot, Incremental, Monolith };
+
 struct CheckpointParameters {
   bool enabled{false};
   double interval{0};
@@ -39,6 +66,7 @@ struct ElementwiseFaultParameters {
   FaultRefinement refinementStrategy{FaultRefinement::Quad};
   int refinement{2};
   int vtkorder{-1};
+  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
 };
 
 struct EnergyOutputParameters {
@@ -56,7 +84,11 @@ struct FreeSurfaceOutputParameters {
   unsigned refinement{0};
   double interval{0};
   int vtkorder{-1};
+  ProjectionMethod projection{ProjectionMethod::L2};
+  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
 };
+
+enum class ReceiverOutputFormat { Csv, Hdf5 };
 
 struct PickpointParameters {
   int printTimeInterval{1};
@@ -65,9 +97,10 @@ struct PickpointParameters {
   std::optional<std::string> pickpointFileName;
   bool aggregate{false};
   bool collectiveio{false};
+  ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
+  //! @brief As ReceiverOutputParameters::samplechunk, for the on-fault receivers.
+  std::size_t samplechunk{0};
 };
-
-enum class ReceiverOutputFormat { Csv, Hdf5 };
 
 struct ReceiverOutputParameters {
   bool enabled{false};
@@ -78,6 +111,14 @@ struct ReceiverOutputParameters {
   double samplingInterval{0};
   std::string fileName;
   bool collectiveio{false};
+  /**
+   * @brief How far a storage chunk of the HDF5 receiver output reaches along the sample axis.
+   *
+   * Zero lets the writer decide. The chunking is settled when the file is created, while the
+   * number of samples a write carries varies as soon as the sampling interval does not divide
+   * the write interval, so which value pays off is a property of how the file is read afterwards.
+   */
+  std::size_t samplechunk{0};
 };
 
 struct OutputInterval {
@@ -117,12 +158,17 @@ struct WaveFieldOutputParameters {
   std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask{};
   std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask{};
   std::unordered_set<int> groups;
+  bool computeRotation{false};
+  bool computeStrain{false};
+  ProjectionMethod projection{ProjectionMethod::Pointwise};
+  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
 };
 
 struct OutputParameters {
   bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
-  xdmfwriter::BackendType xdmfWriterBackend{};
+  XdmfBackend xdmfWriterBackend{};
+  uint32_t hdfcompress{0};
   std::string prefix;
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;
@@ -135,7 +181,8 @@ struct OutputParameters {
   OutputParameters() = default;
   OutputParameters(bool loopStatisticsNetcdfOutput,
                    OutputFormat format,
-                   xdmfwriter::BackendType xdmfWriterBackend,
+                   XdmfBackend xdmfWriterBackend,
+                   uint32_t hdfcompress,
                    const std::string& prefix,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
@@ -145,7 +192,7 @@ struct OutputParameters {
                    const ReceiverOutputParameters& receiverParameters,
                    const WaveFieldOutputParameters& waveFieldParameters)
       : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
-        xdmfWriterBackend(xdmfWriterBackend), prefix(prefix),
+        xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress), prefix(prefix),
         checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
         energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
         pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),
@@ -157,12 +204,15 @@ void warnIntervalAndDisable(bool& enabled,
                             const std::string& valName,
                             const std::string& intName);
 CheckpointParameters readCheckpointParameters(ParameterReader* baseReader);
-ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader);
+ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader,
+                                                     const std::string& defaultTimeSeries);
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader);
-FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader);
+FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
+                                                      const std::string& defaultTimeSeries);
 PickpointParameters readPickpointParameters(ParameterReader* baseReader);
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
-WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader);
+WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
+                                                  const std::string& defaultTimeSeries);
 OutputParameters readOutputParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 

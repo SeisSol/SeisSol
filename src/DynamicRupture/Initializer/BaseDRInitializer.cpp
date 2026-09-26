@@ -149,7 +149,7 @@ void rotateStressToFaultCS(DynamicRupture::Layer& layer,
   cartesianToFaultCSRotationKernel.stressRotationMatrix = cartesianToFaultCSMatrixValues.data();
 
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    constexpr auto NumStressComponents = model::MaterialT::TractionQuantities;
+    constexpr auto NumStressComponents = model::MaterialT::TractionComponents;
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
     const Fault& fault = mesh.getFault().at(meshFace);
@@ -182,6 +182,7 @@ void rotateStressToFaultCS(DynamicRupture::Layer& layer,
 void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
+  bool sourcesDescribed = false;
   for (auto& layer : drStorage.leaves(Ghost)) {
     // parameters to be read from fault parameters yaml file
     std::unordered_map<std::string, real*> parameterToStorageMap;
@@ -247,6 +248,27 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
           addStressesToStorageMap(nucleationStresses[i], i + 1);
     }
 
+    // a nucleation may carry its onset per point; where it does not, the parameter file's is the
+    // onset of all of its points
+    const auto sourceCount = stressSourceCount(*drParameters_);
+    const auto initialSource = drParameters_->nucleationCount;
+    auto* stressSourceOnset = layer.var<DynamicRupture::StressSourceOnset>();
+    auto* stressSourceRiseTime = layer.var<DynamicRupture::StressSourceRiseTime>();
+    std::vector<bool> onsetFromFault(drParameters_->nucleationCount);
+    std::vector<bool> riseTimeFromFault(drParameters_->nucleationCount);
+    for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+      const auto onset = onsetIdentifier(i + 1);
+      onsetFromFault[i] = this->faultProvides(onset);
+      if (onsetFromFault[i]) {
+        parameterToStorageMap.insert({onset, reinterpret_cast<real*>(&stressSourceOnset[i])});
+      }
+      const auto riseTime = riseTimeIdentifier(i + 1);
+      riseTimeFromFault[i] = this->faultProvides(riseTime);
+      if (riseTimeFromFault[i]) {
+        parameterToStorageMap.insert({riseTime, reinterpret_cast<real*>(&stressSourceRiseTime[i])});
+      }
+    }
+
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, layer);
 
@@ -265,31 +287,84 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       rotateTractionToCartesianStress(layer, initialStress, seissolInstance_.meshReader());
     }
 
-    auto* initialStressInFaultCS = layer.var<DynamicRupture::InitialStressInFaultCS>();
-    rotateStressToFaultCS(
-        layer, initialStressInFaultCS, 0, 1, initialStress, seissolInstance_.meshReader());
+    // the initial state is the last stress source of the face, the one without a rise time
+    auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>();
+    rotateStressToFaultCS(layer,
+                          stressInFaultCS,
+                          initialSource,
+                          sourceCount,
+                          initialStress,
+                          seissolInstance_.meshReader());
     // rotate nucleation stress to fault coordinate system
     for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
       if (nucleationStressParameterizedByTraction[i]) {
         rotateTractionToCartesianStress(
             layer, nucleationStresses[i], seissolInstance_.meshReader());
       }
-      auto* nucleationStressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
       rotateStressToFaultCS(layer,
-                            nucleationStressInFaultCS,
+                            stressInFaultCS,
                             i,
-                            drParameters_->nucleationCount,
+                            sourceCount,
                             nucleationStresses[i],
                             seissolInstance_.meshReader());
     }
 
-    auto* initialPressure = layer.var<DynamicRupture::InitialPressure>();
+    std::vector<bool> riseTimeNegative(drParameters_->nucleationCount);
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+          if (!onsetFromFault[i]) {
+            stressSourceOnset[ltsFace * sourceCount + i][pointIndex] =
+                static_cast<real>(drParameters_->s0[i]);
+          }
+          if (!riseTimeFromFault[i]) {
+            stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] =
+                static_cast<real>(drParameters_->t0[i]);
+          }
+          riseTimeNegative[i] = riseTimeNegative[i] ||
+                                stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] < 0;
+        }
+      }
+      // the initial state is in effect from the start, without a rise time
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+        stressSourceOnset[ltsFace * sourceCount + initialSource][pointIndex] = 0;
+        stressSourceRiseTime[ltsFace * sourceCount + initialSource][pointIndex] = 0;
+      }
+    }
+
+    for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+      if (sourcesDescribed) {
+        break;
+      }
+      logInfo() << "Nucleation" << (i + 1) << "is parameterized by"
+                << (nucleationStressParameterizedByTraction[i] ? "traction," : "stress,")
+                << "takes its onset"
+                << (onsetFromFault[i] ? "from " + onsetIdentifier(i + 1)
+                                      : "to be " + std::to_string(drParameters_->s0[i]) + " s")
+                << "and its rise time"
+                << (riseTimeFromFault[i] ? "from " + riseTimeIdentifier(i + 1)
+                                         : "to be " + std::to_string(drParameters_->t0[i]) + " s")
+                << ".";
+      if (riseTimeNegative[i]) {
+        logWarning() << "Nucleation" << (i + 1)
+                     << "has a negative rise time; where it does, it is applied in full at its"
+                     << "onset.";
+      }
+    }
+    if (!sourcesDescribed) {
+      logInfo() << "The initial state is parameterized by"
+                << (initialStressParameterizedByTraction ? "traction" : "stress")
+                << "and is in effect from the start.";
+      sourcesDescribed = true;
+    }
+
+    auto* pressure = layer.var<DynamicRupture::StressSourcePressure>();
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
+        pressure[ltsFace * sourceCount + initialSource][pointIndex] =
+            initialStress.p[ltsFace][pointIndex];
         for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
-          auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
-          nucleationPressure[ltsFace * drParameters_->nucleationCount + i][pointIndex] =
+          pressure[ltsFace * sourceCount + i][pointIndex] =
               nucleationStresses[i].p[ltsFace][pointIndex];
         }
       }
@@ -368,6 +443,16 @@ void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
 bool BaseDRInitializer::faultProvides(const std::string& parameter) {
   // TODO: Use C++20 contains
   return faultParameterNames_.count(parameter) > 0;
+}
+
+std::string BaseDRInitializer::onsetIdentifier(int readNucleation) {
+  const std::string index = readNucleation > 1 ? std::to_string(readNucleation) : "";
+  return "nuc" + index + "_onset";
+}
+
+std::string BaseDRInitializer::riseTimeIdentifier(int readNucleation) {
+  const std::string index = readNucleation > 1 ? std::to_string(readNucleation) : "";
+  return "nuc" + index + "_rise_time";
 }
 
 std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>

@@ -15,22 +15,12 @@
 
 // Gather all datastructure Headers here
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "Equations/acoustic/Model/IntegrationData.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Equations/elastic/Model/IntegrationData.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
-#include "Equations/viscoelastic2/Model/Datastructures.h"
-#ifdef USE_POROELASTIC
-#include "Equations/poroelastic/Model/IntegrationData.h"
-#endif
-#ifdef USE_VISCOELASTIC
-#include "Equations/viscoelastic/Model/IntegrationData.h"
-#endif
-#ifdef USE_VISCOELASTIC2
-#include "Equations/viscoelastic2/Model/IntegrationData.h"
-#endif
+#include "Equations/viscoacoustic/Model/Datastructures.h"
+#include "Equations/viscoelastic/Model/Datastructures.h"
 
 // IWYU pragma: end_exports
 
@@ -50,7 +40,12 @@ struct MaterialTypeSelector<MaterialType::Anisotropic> {
 
 template <>
 struct MaterialTypeSelector<MaterialType::Viscoelastic> {
-  using Type = ViscoElasticMaterial;
+  using Type = ViscoElasticMaterial<Config::RelaxationMechanisms>;
+};
+
+template <>
+struct MaterialTypeSelector<MaterialType::Viscoacoustic> {
+  using Type = ViscoAcousticMaterial<Config::RelaxationMechanisms>;
 };
 
 template <>

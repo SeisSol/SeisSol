@@ -232,7 +232,7 @@ The `modules.yaml` is discovered with `spack config edit modules`.
               convergence_order=5: o5
               convergence_order=6: o6
               equations=elastic: elas
-              equations=viscoelastic2: visco
+              equations=viscoelastic: visco
               dr_quad_rule=stroud: stroud
               dr_quad_rule=dunavant: dunav
               precision=single: single

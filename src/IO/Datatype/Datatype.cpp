@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iomanip>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -113,6 +114,27 @@ std::string toStringRawPrimitive(const void* data, int precision) {
   return sstr.str();
 }
 
+/**
+ * @brief A floating-point value as the shortest of the usual widths that reads back as the same
+ * value: digits10 significant digits where they suffice, which keeps 0.1 as "0.1", and
+ * max_digits10 otherwise.
+ */
+template <typename T>
+std::string toStringRawExact(const void* data) {
+  const auto value = *reinterpret_cast<const T*>(data);
+  std::ostringstream shortForm;
+  shortForm << std::setprecision(std::numeric_limits<T>::digits10) << value;
+  std::istringstream readBack(shortForm.str());
+  T parsed{};
+  readBack >> parsed;
+  if (!readBack.fail() && parsed == value) {
+    return shortForm.str();
+  }
+  std::ostringstream longForm;
+  longForm << std::setprecision(std::numeric_limits<T>::max_digits10) << value;
+  return longForm.str();
+}
+
 template <typename T>
 std::optional<std::vector<uint8_t>> fromStringRawPrimitive(const std::string& str) {
   std::istringstream sstr(str);
@@ -195,7 +217,9 @@ StringDatatype::StringDatatype(YAML::Node node) : sizeP_(node["size"].as<size_t>
 
 std::string StringDatatype::toStringRaw(const void* data) const {
   const auto* dataPtr = reinterpret_cast<const uint8_t*>(data);
-  return std::string(dataPtr, dataPtr + sizeP_);
+  // a text shorter than the field is padded with zeros, which are not part of it
+  const auto* end = std::find(dataPtr, dataPtr + sizeP_, 0);
+  return std::string(dataPtr, end);
 }
 std::optional<std::vector<uint8_t>> StringDatatype::fromStringRaw(const std::string& str) const {
   return std::make_optional(std::vector<uint8_t>(str.begin(), str.end()));
@@ -210,7 +234,7 @@ YAML::Node F32Datatype::serialize() const {
 }
 
 std::string F32Datatype::toStringRaw(const void* data) const {
-  return toStringRawPrimitive<float>(data, 8);
+  return toStringRawExact<float>(data);
 }
 std::optional<std::vector<uint8_t>> F32Datatype::fromStringRaw(const std::string& str) const {
   return fromStringRawPrimitive<float>(str);
@@ -225,7 +249,7 @@ YAML::Node F64Datatype::serialize() const {
 }
 
 std::string F64Datatype::toStringRaw(const void* data) const {
-  return toStringRawPrimitive<double>(data, 16);
+  return toStringRawExact<double>(data);
 }
 std::optional<std::vector<uint8_t>> F64Datatype::fromStringRaw(const std::string& str) const {
   return fromStringRawPrimitive<double>(str);
@@ -240,7 +264,7 @@ YAML::Node F80Datatype::serialize() const {
 }
 
 std::string F80Datatype::toStringRaw(const void* data) const {
-  return toStringRawPrimitive<long double>(data, 20);
+  return toStringRawExact<long double>(data);
 }
 std::optional<std::vector<uint8_t>> F80Datatype::fromStringRaw(const std::string& str) const {
   return fromStringRawPrimitive<long double>(str);
@@ -267,10 +291,70 @@ YAML::Node IntegerDatatype::serialize() const {
 
 std::string IntegerDatatype::toStringRaw(const void* data) const {
   // for now
+  if (sizeP_ == 1) {
+    if (signP_) {
+      return toStringRawPrimitive<int8_t>(data, 0);
+    } else {
+      return toStringRawPrimitive<uint8_t>(data, 0);
+    }
+  }
+  if (sizeP_ == 2) {
+    if (signP_) {
+      return toStringRawPrimitive<int16_t>(data, 0);
+    } else {
+      return toStringRawPrimitive<uint16_t>(data, 0);
+    }
+  }
+  if (sizeP_ == 4) {
+    if (signP_) {
+      return toStringRawPrimitive<int32_t>(data, 0);
+    } else {
+      return toStringRawPrimitive<uint32_t>(data, 0);
+    }
+  }
+  if (sizeP_ == 8) {
+    if (signP_) {
+      return toStringRawPrimitive<int64_t>(data, 0);
+    } else {
+      return toStringRawPrimitive<uint64_t>(data, 0);
+    }
+  }
+
+  // error
   return toStringRawPrimitive<long long>(data, 0);
 }
 std::optional<std::vector<uint8_t>> IntegerDatatype::fromStringRaw(const std::string& str) const {
   // for now
+  if (sizeP_ == 1) {
+    if (signP_) {
+      return fromStringRawPrimitive<int8_t>(str);
+    } else {
+      return fromStringRawPrimitive<uint8_t>(str);
+    }
+  }
+  if (sizeP_ == 2) {
+    if (signP_) {
+      return fromStringRawPrimitive<int16_t>(str);
+    } else {
+      return fromStringRawPrimitive<uint16_t>(str);
+    }
+  }
+  if (sizeP_ == 4) {
+    if (signP_) {
+      return fromStringRawPrimitive<int32_t>(str);
+    } else {
+      return fromStringRawPrimitive<uint32_t>(str);
+    }
+  }
+  if (sizeP_ == 8) {
+    if (signP_) {
+      return fromStringRawPrimitive<int64_t>(str);
+    } else {
+      return fromStringRawPrimitive<uint64_t>(str);
+    }
+  }
+
+  // error
   return fromStringRawPrimitive<long long>(str);
 }
 

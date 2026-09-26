@@ -20,6 +20,7 @@
 #include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
+#include "Kernels/Data.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
@@ -55,8 +56,8 @@ struct alignas(Alignment) LocalIntegrationData {
   // flux solver for element local contribution
   real nApNm1[4][seissol::tensor::AplusT::size()]{};
 
-  // equation-specific data
-  seissol::model::MaterialT::LocalSpecificData specific;
+  // solver-specific data
+  seissol::model::MaterialT::Solver::LocalData specific;
 };
 
 // data for the neighboring boundary integration
@@ -64,8 +65,8 @@ struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::tensor::AminusT::size()]{};
 
-  // equation-specific data
-  seissol::model::MaterialT::NeighborSpecificData specific;
+  // solver-specific data
+  seissol::model::MaterialT::Solver::NeighborData specific;
 };
 
 // material constants per cell

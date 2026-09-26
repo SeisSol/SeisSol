@@ -9,8 +9,13 @@
 
 #include "Alignment.h"
 #include "Common/Constants.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Equations/Datastructures.h" // IWYU pragma: keep
+#include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -24,7 +29,9 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Numerical/BasisFunction.h"
+#include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -34,6 +41,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -75,6 +83,7 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
     parallel::runtime::StreamRuntime& runtime,
+    double stateTime,
     double time,
     double dt,
     double indt) {
@@ -83,6 +92,11 @@ void ReceiverOutput::calcFaultOutput(
                            ? outputData->currentCacheLevel
                            : 0;
   const auto& faultInfos = meshReader_->getFault();
+
+  // the friction solve advances in the sub intervals of the time quadrature; the stored friction
+  // state belongs to the last of them
+  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(
+      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, dt).first);
 
   const auto timeCoeffs = kernels::timeBasis().point(indt, dt);
   auto integrateCoeffs = kernels::timeBasis().integrate(0, indt, dt);
@@ -115,7 +129,8 @@ void ReceiverOutput::calcFaultOutput(
                         level,
                         timeCoeffs,
                         integrateCoeffs,
-                        time](std::size_t i) {
+                        stateTime,
+                        frictionTime](std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -134,7 +149,8 @@ void ReceiverOutput::calcFaultOutput(
     local.fusedIndex = outputData->receiverPoints[i].simIndex;
     local.state = outputData.get();
 
-    local.time = time;
+    local.time = stateTime;
+    local.deltaT = frictionTime.deltaT.back();
     local.printWarning = &this->printRSFWarning_;
 
     local.nearestGpIndex = outputData->receiverPoints[i].nearestGpIndex;
@@ -177,14 +193,24 @@ void ReceiverOutput::calcFaultOutput(
       timeKernel_.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
     }
 
-    const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
-
     local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
-    local.iniTraction1 = initStresses[QuantityIndices::XY][local.gpIndex];
-    local.iniTraction2 = initStresses[QuantityIndices::XZ][local.gpIndex];
-    local.iniNormalTraction = initStresses[QuantityIndices::XX][local.gpIndex];
+    // the whole tensor, since the total traction output rotates it
+    const auto sourceCount = stressSourceCount(*drParameters_);
+    const auto* stressSources = local.layer->var<DynamicRupture::StressSourceInFaultCS>();
+    const auto* stressSourceOnset = local.layer->var<DynamicRupture::StressSourceOnset>();
+    const auto* stressSourceRiseTime = local.layer->var<DynamicRupture::StressSourceRiseTime>();
+    const auto initialStress = stressAtTime(&stressSources[local.ltsId * sourceCount],
+                                            &stressSourceRiseTime[local.ltsId * sourceCount],
+                                            &stressSourceOnset[local.ltsId * sourceCount],
+                                            sourceCount,
+                                            static_cast<std::uint32_t>(local.gpIndex),
+                                            static_cast<real>(local.time));
+
+    local.iniTraction1 = initialStress[QuantityIndices::XY];
+    local.iniTraction2 = initialStress[QuantityIndices::XZ];
+    local.iniNormalTraction = initialStress[QuantityIndices::XX];
     local.fluidPressure = this->computeFluidPressure(local);
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
@@ -223,7 +249,8 @@ void ReceiverOutput::calcFaultOutput(
 
     this->computeLocalStresses(local);
     const real strength = this->computeLocalStrength(local);
-    seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength);
+    const real strengthSlope = this->computeLocalStrengthSlope(local);
+    seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength, strengthSlope);
 
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
     alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -259,7 +286,8 @@ void ReceiverOutput::calcFaultOutput(
 
     switch (slipRateOutputType) {
     case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
-      this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
+      this->computeSlipRate(
+          local, rotatedUpdatedStress, rotatedStress, tangent1, tangent2, strike, dip);
       break;
     }
     case seissol::initializer::parameters::SlipRateOutputType::VelocityDifference: {
@@ -312,7 +340,7 @@ void ReceiverOutput::calcFaultOutput(
       std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
       for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
-        unrotatedInitStress[stressVar] = initStresses[stressVar][local.gpIndex];
+        unrotatedInitStress[stressVar] = initialStress[stressVar];
       }
       alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
@@ -378,74 +406,221 @@ void ReceiverOutput::calcFaultOutput(
 }
 
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
-  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-  const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
-  const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
-
   auto diff = [&local](int i) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 
-  local.faceAlignedStress12 =
-      local.faceAlignedValuesPlus[QuantityIndices::XY] +
-      ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
-          shearDivisor;
+  // named positively: the matrices below are only filled for the materials that go through the
+  // general branch of initializeDynamicRuptureMatrices, and reading them for anything else would
+  // reconstruct the Godunov state from zeros
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic ||
+                model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    // Anisotropy couples the fault-normal and the two tangential directions, poroelasticity adds
+    // the fluid pressure as a fourth interface variable. In both cases the Godunov state has to be
+    // reconstructed with the full matrix -- exactly as
+    // common::precomputeStressFromQInterpolated does it for the solver:
+    //
+    //   T*   = eta * (Y+ T+ + Y- T- + (v- - v+))
+    //   v*_+ = v+ + Y+ (T* - T+)
+    const auto& impedanceMatrices =
+        ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
-  local.faceAlignedStress13 =
-      local.faceAlignedValuesPlus[QuantityIndices::XZ] +
-      ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
-          shearDivisor;
+    constexpr std::size_t Count =
+        model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
+    constexpr auto StressIndices = []() {
+      if constexpr (Count == 4) {
+        return std::array<int, 4>{
+            QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ, QuantityIndices::FP};
+      } else {
+        return std::array<int, 3>{QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ};
+      }
+    }();
+    constexpr auto VelocityIndices = []() {
+      if constexpr (Count == 4) {
+        return std::array<int, 4>{
+            QuantityIndices::U, QuantityIndices::V, QuantityIndices::W, QuantityIndices::FU};
+      } else {
+        return std::array<int, 3>{QuantityIndices::U, QuantityIndices::V, QuantityIndices::W};
+      }
+    }();
 
-  local.transientNormalTraction =
-      local.faceAlignedValuesPlus[QuantityIndices::XX] +
-      ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
-          normalDivisor;
+    // Y+ T+ and Y- T-; the matrices are dense and column major, so [col * Count + row]
+    std::array<real, Count> admittedPlus{};
+    std::array<real, Count> admittedMinus{};
+    for (std::size_t k = 0; k < Count; ++k) {
+      for (std::size_t j = 0; j < Count; ++j) {
+        admittedPlus[j] += impedanceMatrices.impedance[k * Count + j] *
+                           local.faceAlignedValuesPlus[StressIndices[k]];
+        admittedMinus[j] += impedanceMatrices.impedanceNeig[k * Count + j] *
+                            local.faceAlignedValuesMinus[StressIndices[k]];
+      }
+    }
 
-  local.faultNormalVelocity =
-      local.faceAlignedValuesPlus[QuantityIndices::U] +
-      (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
-          impAndEta.invZp;
+    std::array<real, Count> traction{};
+    for (std::size_t k = 0; k < Count; ++k) {
+      const real rhs = diff(VelocityIndices[k]) + admittedPlus[k] + admittedMinus[k];
+      for (std::size_t j = 0; j < Count; ++j) {
+        traction[j] += impedanceMatrices.eta[k * Count + j] * rhs;
+      }
+    }
 
-  real missingSigmaValues =
-      (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
-  missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
-                                                  local.waveSpeedsPlus->pWaveVelocity,
-                                              2));
+    local.transientNormalTraction = traction[0];
+    local.faceAlignedStress12 = traction[1];
+    local.faceAlignedStress13 = traction[2];
 
-  local.faceAlignedStress22 = local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
-  local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + missingSigmaValues;
-  local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
+    std::array<real, Count> tractionDiff{};
+    for (std::size_t k = 0; k < Count; ++k) {
+      tractionDiff[k] = traction[k] - local.faceAlignedValuesPlus[StressIndices[k]];
+    }
+
+    real normalVelocity = local.faceAlignedValuesPlus[QuantityIndices::U];
+    std::array<real, 3> lateralStress{};
+    for (std::size_t k = 0; k < Count; ++k) {
+      normalVelocity += impedanceMatrices.impedance[k * Count + 0] * tractionDiff[k];
+      for (std::size_t j = 0; j < 3; ++j) {
+        lateralStress[j] += impedanceMatrices.lateralStress[k * 3 + j] * tractionDiff[k];
+      }
+    }
+    local.faultNormalVelocity = normalVelocity;
+
+    // the stress components which are not part of the fault-normal Riemann problem
+    local.faceAlignedStress22 = local.faceAlignedValuesPlus[QuantityIndices::YY] + lateralStress[0];
+    local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + lateralStress[1];
+    local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ] + lateralStress[2];
+  } else {
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
+    const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
+
+    local.faceAlignedStress12 =
+        local.faceAlignedValuesPlus[QuantityIndices::XY] +
+        ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
+            shearDivisor;
+
+    local.faceAlignedStress13 =
+        local.faceAlignedValuesPlus[QuantityIndices::XZ] +
+        ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
+            shearDivisor;
+
+    local.transientNormalTraction =
+        local.faceAlignedValuesPlus[QuantityIndices::XX] +
+        ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
+            normalDivisor;
+
+    local.faultNormalVelocity =
+        local.faceAlignedValuesPlus[QuantityIndices::U] +
+        (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
+            impAndEta.invZp;
+
+    real missingSigmaValues =
+        (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
+    missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
+                                                    local.waveSpeedsPlus->pWaveVelocity,
+                                                2));
+
+    local.faceAlignedStress22 =
+        local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
+    local.faceAlignedStress33 =
+        local.faceAlignedValuesPlus[QuantityIndices::ZZ] + missingSigmaValues;
+    local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
+  }
 }
 
-void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {
+void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real strengthSlope) {
   const auto component1 = local.iniTraction1 + local.faceAlignedStress12;
   const auto component2 = local.iniTraction2 + local.faceAlignedStress13;
   const auto tracEla = misc::magnitude(component1, component2);
 
-  if (tracEla > std::abs(strength)) {
-    local.updatedTraction1 =
-        ((local.iniTraction1 + local.faceAlignedStress12) / tracEla) * strength;
-    local.updatedTraction2 =
-        ((local.iniTraction2 + local.faceAlignedStress13) / tracEla) * strength;
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    // the very solve the friction laws run, so the reconstruction cannot drift away from it: with
+    // an anisotropic impedance the slip is not parallel to the trial traction, and the strength
+    // follows the fault-normal traction, which follows the slip rate
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    const auto& impedanceMatrices =
+        ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
-    // update stress change
-    local.updatedTraction1 -= local.iniTraction1;
-    local.updatedTraction2 -= local.iniTraction2;
+    const auto solution = friction_law::common::solveSlipRate(
+        impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
+
+    local.slipRateTangent1 = solution.slipRate * solution.direction1;
+    local.slipRateTangent2 = solution.slipRate * solution.direction2;
+
+    const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta(
+        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
+    const auto normalUpdate = friction_law::common::matmulEtaNormal(
+        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
+
+    local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
+    local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
+    local.transientNormalTraction -= normalUpdate;
+
+    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
+    // state through the first row of Y+. The friction solve moves that traction, and with an
+    // anisotropic admittance the two shear components move the fault-normal velocity as well.
+    constexpr std::size_t Count = tensor::Zplus::Shape[0];
+    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
+                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
+                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
   } else {
-    local.updatedTraction1 = local.faceAlignedStress12;
-    local.updatedTraction2 = local.faceAlignedStress13;
+    if (tracEla > std::abs(strength)) {
+      local.updatedTraction1 =
+          ((local.iniTraction1 + local.faceAlignedStress12) / tracEla) * strength;
+      local.updatedTraction2 =
+          ((local.iniTraction2 + local.faceAlignedStress13) / tracEla) * strength;
+
+      // update stress change
+      local.updatedTraction1 -= local.iniTraction1;
+      local.updatedTraction2 -= local.iniTraction2;
+    } else {
+      local.updatedTraction1 = local.faceAlignedStress12;
+      local.updatedTraction2 = local.faceAlignedStress13;
+    }
   }
 }
 
-void ReceiverOutput::computeSlipRate(LocalInfo& local,
-                                     const std::array<real, 6>& rotatedUpdatedStress,
-                                     const std::array<real, 6>& rotatedStress) {
+void ReceiverOutput::projectOntoStrikeAndDip(LocalInfo& local,
+                                             real alongTangent1,
+                                             real alongTangent2,
+                                             const std::array<double, 3>& tangent1,
+                                             const std::array<double, 3>& tangent2,
+                                             const std::array<double, 3>& strike,
+                                             const std::array<double, 3>& dip) {
+  local.slipRateStrike = static_cast<real>(0.0);
+  local.slipRateDip = static_cast<real>(0.0);
 
-  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-  local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
-                                               rotatedStress[QuantityIndices::XY]);
-  local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
-                                            rotatedStress[QuantityIndices::XZ]);
+  for (size_t i = 0; i < 3; ++i) {
+    const real component = alongTangent1 * tangent1[i] + alongTangent2 * tangent2[i];
+    local.slipRateStrike += component * strike[i];
+    local.slipRateDip += component * dip[i];
+  }
+}
+
+void ReceiverOutput::computeSlipRate(
+    LocalInfo& local,
+    [[maybe_unused]] const std::array<real, 6>& rotatedUpdatedStress,
+    [[maybe_unused]] const std::array<real, 6>& rotatedStress,
+    [[maybe_unused]] const std::array<double, 3>& tangent1,
+    [[maybe_unused]] const std::array<double, 3>& tangent2,
+    [[maybe_unused]] const std::array<double, 3>& strike,
+    [[maybe_unused]] const std::array<double, 3>& dip) {
+
+  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    // updateLocalTractions resolves the slip direction along with the magnitude, so all that is
+    // left is the rotation onto strike and dip. Recovering the slip rate from the traction
+    // difference instead would have to invert the full eta, fault-normal row included, since the
+    // shear slip also changes the normal traction.
+    projectOntoStrikeAndDip(
+        local, local.slipRateTangent1, local.slipRateTangent2, tangent1, tangent2, strike, dip);
+  } else {
+    // the shear block of eta is a multiple of the identity for every material with an isotropic
+    // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
+    // a scalar is exact and the order of scaling and rotation does not matter
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
+                                                 rotatedStress[QuantityIndices::XY]);
+    local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
+                                              rotatedStress[QuantityIndices::XZ]);
+  }
 }
 
 void ReceiverOutput::computeSlipRate(LocalInfo& local,
@@ -475,7 +650,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
 
   bool needsUpdate{true};
   for (size_t point = 0; point < misc::NumBoundaryGaussPoints; ++point) {
-    if (ruptureTime[point] == 0.0) {
+    if (ruptureTime[point * multisim::NumSimulations + local.fusedIndex] == 0.0) {
       needsUpdate = false;
     }
   }
@@ -500,7 +675,8 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
-        projectedRT[d] += weights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
+        projectedRT[d] += weights(jBndGP) *
+                          rt[jBndGP * multisim::NumSimulations + local.fusedIndex] * phiAtPoint[d];
       }
     }
     const auto m2inv = seissol::init::M2inv::view::create(seissol::init::M2inv::Values);
@@ -531,7 +707,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
 }
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
-  return {drStorage_->info<DynamicRupture::InitialStressInFaultCS>().index,
+  return {drStorage_->info<DynamicRupture::StressSourceInFaultCS>().index,
           drStorage_->info<DynamicRupture::Mu>().index,
           drStorage_->info<DynamicRupture::RuptureTime>().index,
           drStorage_->info<DynamicRupture::AccumulatedSlipMagnitude>().index,

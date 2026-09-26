@@ -55,7 +55,8 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: ALIGNMENT, VECTORSIZE, WITH_GPU, DEVICE_VENDOR
+#
+#       derived input: WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
 
@@ -255,8 +256,14 @@ endif()
 
 if (ADDRESS_SANITIZER_DEBUG)
   target_link_libraries(seissol-common-properties INTERFACE debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
+          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
   )
+
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
+    target_link_libraries(seissol-common-properties INTERFACE debug
+            -static-libasan
+    )
+  endif()
 endif()
 
 find_package(Eigen3 REQUIRED)
@@ -339,7 +346,7 @@ target_include_directories(seissol-common-properties INTERFACE
 
 # for the same reason, do the same for all other submodules (for now)
 
-# not explicitly listed: PUML, utils, fty, xdmfwriter
+# not explicitly listed: PUML, utils, fty
 target_include_directories(seissol-common-properties SYSTEM INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
@@ -361,12 +368,7 @@ if (NOT NEW_BINARY_NAMING)
     set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_${CUSTOM_BINARY_SUFFIX}")
   endif()
 else()
-  set(NAME_SUFFIX "")
-  if (EQUATIONS STREQUAL "viscoelastic2")
-    set(NAME_SUFFIX "viscoelastic")
-  else()
-    set(NAME_SUFFIX "${EQUATIONS}")
-  endif()
+  set(NAME_SUFFIX "${EQUATIONS}")
   if (NUMBER_OF_MECHANISMS GREATER 0)
     set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
   endif()

@@ -11,6 +11,7 @@ from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
+from yateto.memory import CSCMemoryLayout
 
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInterface):
@@ -24,17 +25,24 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         alignStride=aderdg.alignStride,
         transpose=aderdg.transpose,
     )
-    numberOfPoints = aderdg.t(db.resample.shape())[0]
+    numPoints = aderdg.t(db.resample.shape())[0]
 
     # Determine matrices
     # Note: This does only work because the flux does not depend
     # on the mechanisms in the case of viscoelastic attenuation
     trans_inv_spp_T = aderdg.transformation_inv_spp().transpose()
     TinvT = Tensor("TinvT", trans_inv_spp_T.shape, spp=trans_inv_spp_T)
+    # The face rotation is block diagonal -- one block per quantity group -- so
+    # most of TinvT is structurally zero, and it is stored once per fault face.
+    # Storing only the pattern shrinks that and lets the two projections below
+    # skip the empty blocks. The old GPU interface (gemmforge/chainforge) reads
+    # its operands as dense, so it keeps the dense layout.
+    if not (isOldGpuInterface and "gpu" in targets):
+        TinvT.setMemoryLayout(CSCMemoryLayout)
     flux_solver_spp = aderdg.flux_solver_spp()
     fluxSolver = Tensor("fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp)
 
-    gShape = (numberOfPoints, aderdg.numberOfQuantities())
+    gShape = (numPoints, aderdg.numQuantities())
     QInterpolated = OptionalDimTensor(
         "QInterpolated",
         aderdg.Q.optName(),
@@ -66,7 +74,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints,),
+        (numPoints,),
         alignStride=True,
     )
     resampledQ = OptionalDimTensor(
@@ -74,13 +82,11 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints,),
+        (numPoints,),
         alignStride=True,
     )
     resampleKernel = resampledQ["i"] <= db.resample[aderdg.t("ij")] * originalQ["j"]
     generator.add("resampleParameter", resampleKernel)
-
-    generator.add("transposeTinv", TinvT["ij"] <= aderdg.Tinv["ji"])
 
     fluxScale = Scalar("fluxScaleDR")
     generator.add(
@@ -88,15 +94,15 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
     )
 
-    numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
-    numberOfQuantities = aderdg.numberOfQuantities()
-    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (numberOf3DBasisFunctions,))
+    num3DBasisFunctions = aderdg.num3DBasisFunctions()
+    numQuantities = aderdg.numQuantities()
+    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (num3DBasisFunctions,))
     QAtPoint = OptionalDimTensor(
         "QAtPoint",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfQuantities,),
+        (numQuantities,),
     )
 
     generator.add(
@@ -214,7 +220,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, 3),
+        (numPoints, 3),
         alignStride=True,
     )
 
@@ -223,7 +229,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, 3),
+        (numPoints, 3),
         alignStride=True,
     )
     staticFrictionalWork = OptionalDimTensor(
@@ -291,7 +297,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, N),
+        (numPoints, N),
         alignStride=True,
     )
 

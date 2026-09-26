@@ -7,11 +7,14 @@
 
 #include <doctest.h>
 
+#include "Common/Constants.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <vector>
 
 namespace seissol::unit_test {
 using namespace seissol::dr;
@@ -187,28 +190,77 @@ TEST_CASE("getElementVertexId ranges" * doctest::test_suite("dynamicrupture")) {
   }
 }
 
-TEST_CASE("convertMaskFromBoolToInt" * doctest::test_suite("dynamicrupture")) {
-  SUBCASE("Mixed") {
-    const std::array<bool, 5> mask = {true, false, true, true, false};
-    auto intMask = convertMaskFromBoolToInt<5>(mask);
-    CHECK(intMask[0] == 1);
-    CHECK(intMask[1] == 0);
-    CHECK(intMask[2] == 1);
-    CHECK(intMask[3] == 1);
-    CHECK(intMask[4] == 0);
-  }
-  SUBCASE("All true") {
-    const std::array<bool, 3> mask = {true, true, true};
-    auto intMask = convertMaskFromBoolToInt<3>(mask);
-    for (int i = 0; i < 3; ++i) {
-      CHECK(intMask[i] == 1);
+//! A fault output of @p cellCount cells, emitted the way the refiner emits it: the receivers of a
+//! cell lie consecutively, point-major and simulation-minor.
+inline ReceiverPoints makeFaultOutput(std::size_t cellCount,
+                                      std::size_t pointsPerCell,
+                                      std::size_t simulationCount,
+                                      const std::vector<int>& tags,
+                                      const std::vector<std::size_t>& elements,
+                                      const std::vector<int>& sides) {
+  ReceiverPoints points(cellCount * pointsPerCell * simulationCount);
+  for (std::size_t cell = 0; cell < cellCount; ++cell) {
+    for (std::size_t point = 0; point < pointsPerCell; ++point) {
+      for (std::size_t sim = 0; sim < simulationCount; ++sim) {
+        auto& receiver = points[(cell * pointsPerCell + point) * simulationCount + sim];
+        receiver.faultTag = tags[cell];
+        receiver.elementGlobalIndex = elements[cell];
+        receiver.localFaceSideId = sides[cell];
+        receiver.simIndex = static_cast<int>(sim);
+      }
     }
   }
-  SUBCASE("All false") {
-    const std::array<bool, 3> mask = {false, false, false};
-    auto intMask = convertMaskFromBoolToInt<3>(mask);
-    for (int i = 0; i < 3; ++i) {
-      CHECK(intMask[i] == 0);
+  return points;
+}
+
+TEST_CASE("fault output cell properties" * doctest::test_suite("dynamicrupture")) {
+  // Two faces of the same element. The tags repeat across faces and are chosen so that no tag
+  // coincides with a face identifier: a cell property read from the wrong field cannot pass.
+  const std::vector<int> tags{101, 101};
+  const std::vector<std::size_t> elements{7, 7};
+  const std::vector<int> sides{2, 3};
+
+  SUBCASE("Order zero, one simulation") {
+    const auto points = makeFaultOutput(2, 1, 1, tags, elements, sides);
+
+    CHECK(faultTagOfCell(points, 0, 1, 1) == 101);
+    CHECK(faultTagOfCell(points, 1, 1, 1) == 101);
+
+    CHECK(globalFaceIdOfCell(points, 0, 1, 1) == 7 * Cell::NumFaces + 2);
+    CHECK(globalFaceIdOfCell(points, 1, 1, 1) == 7 * Cell::NumFaces + 3);
+  }
+
+  SUBCASE("Higher order") {
+    const std::size_t pointsPerCell = 3;
+    const auto points = makeFaultOutput(2, pointsPerCell, 1, tags, elements, sides);
+
+    CHECK(firstReceiverOfCell(1, pointsPerCell, 1) == pointsPerCell);
+    CHECK(faultTagOfCell(points, 1, pointsPerCell, 1) == 101);
+    CHECK(globalFaceIdOfCell(points, 1, pointsPerCell, 1) == 7 * Cell::NumFaces + 3);
+  }
+
+  SUBCASE("Fused simulations") {
+    const std::size_t pointsPerCell = 3;
+    const std::size_t simulationCount = 4;
+    const auto points = makeFaultOutput(2, pointsPerCell, simulationCount, tags, elements, sides);
+
+    CHECK(firstReceiverOfCell(1, pointsPerCell, simulationCount) ==
+          pointsPerCell * simulationCount);
+    CHECK(faultTagOfCell(points, 1, pointsPerCell, simulationCount) == 101);
+    CHECK(globalFaceIdOfCell(points, 1, pointsPerCell, simulationCount) == 7 * Cell::NumFaces + 3);
+  }
+
+  SUBCASE("The tag is not the face identifier") {
+    const auto points = makeFaultOutput(2, 1, 1, tags, elements, sides);
+
+    // Two cells that share a tag but not a face: a field that told them apart would not be the
+    // tag, and one that did not would not be the identifier.
+    CHECK(faultTagOfCell(points, 0, 1, 1) == faultTagOfCell(points, 1, 1, 1));
+    CHECK(globalFaceIdOfCell(points, 0, 1, 1) != globalFaceIdOfCell(points, 1, 1, 1));
+
+    for (std::size_t cell = 0; cell < 2; ++cell) {
+      CHECK(static_cast<std::size_t>(faultTagOfCell(points, cell, 1, 1)) !=
+            globalFaceIdOfCell(points, cell, 1, 1));
     }
   }
 }

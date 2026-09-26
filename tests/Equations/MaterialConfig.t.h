@@ -58,7 +58,7 @@ TEST_CASE("Config check" * doctest::test_suite("equations")) {
   }
   if (seissol::Config::MaterialType == MaterialType::Anisotropic) {
     CHECK(MaterialT::NumQuantities == 9);
-    CHECK(MaterialT::SupportsDR == false);
+    CHECK(MaterialT::SupportsDR == true);
     CHECK(MaterialT::Parameters == 22);
     CHECK(MaterialT::Mechanisms == 0);
   }
@@ -72,6 +72,12 @@ TEST_CASE("Config check" * doctest::test_suite("equations")) {
     CHECK(MaterialT::NumQuantities == 13);
     CHECK(MaterialT::SupportsDR == true);
     CHECK(MaterialT::Mechanisms == 0);
+  }
+  if (seissol::Config::MaterialType == MaterialType::Viscoacoustic) {
+    CHECK(MaterialT::NumQuantities == 4 + 1 * MaterialT::Mechanisms);
+    CHECK(MaterialT::Mechanisms > 0);
+    CHECK(MaterialT::SupportsDR == false);
+    CHECK(MaterialT::Mechanisms == seissol::Config::RelaxationMechanisms);
   }
 }
 

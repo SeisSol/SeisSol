@@ -397,6 +397,6 @@ CheckOptions:
     # Eigen needs to ignore Eigen/Core and Eigen/Eigenvalues, until we make Eigen3 5.0.0 mandatory
     # also, ignore internal GCC headers (bits/)
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*|Eigen/Core|Eigen/Eigenvalues|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*|yateto/.*|bits/.*|external/.*'
+    value:           'Eigen/src/.*|Eigen/Core|Eigen/Eigenvalues|yaml-cpp/.*|H5.*|hdf5\.h|yateto/.*|bits/.*|external/.*'
   - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
     value:           True
