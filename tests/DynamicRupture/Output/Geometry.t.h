@@ -143,12 +143,17 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
         2.4874032376060777E-002};
 
     auto data = generateTriangleQuadrature();
-    double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+    [[maybe_unused]] double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
 
-    constexpr double Epsilon = 1e-6;
-    for (unsigned i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
-      CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
-      CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
+    // the Fortran points are those of the rule for order six; another order uses another rule,
+    // which they say nothing about (and which may have more points than they do)
+    constexpr auto FortranPoints = sizeof(chiFortran) / sizeof(chiFortran[0]);
+    if constexpr (seissol::dr::TriangleQuadratureData::Size == FortranPoints) {
+      constexpr double Epsilon = 1e-6;
+      for (unsigned i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
+        CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
+        CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
+      }
     }
   }
 
