@@ -13,12 +13,6 @@
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
-#include "DynamicRupture/Output/ImposedSlipRates.h"
-#include "DynamicRupture/Output/LinearSlipWeakening.h"
-#include "DynamicRupture/Output/LinearSlipWeakeningBimaterial.h"
-#include "DynamicRupture/Output/NoFault.h"
-#include "DynamicRupture/Output/RateAndState.h"
-#include "DynamicRupture/Output/RateAndStateThermalPressurization.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
@@ -84,8 +78,7 @@ void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
   assert(derivatives != nullptr);
 }
 
-template <typename Derived>
-void ReceiverOutputImpl<Derived>::calcFaultOutput(
+void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
@@ -237,7 +230,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
         local.internalGpIndexFused = outputData->receivers[i].internalGpIndexFused;
 
         local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
-        local.stateVariable = derived().computeStateVariable(local);
+        local.stateVariable = this->computeStateVariable(local);
 
         // the whole tensor, since the total traction output rotates it
         const auto initialStress = stressAtTime(&stressSources[local.ltsId * sourceCount],
@@ -250,7 +243,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
         local.iniTraction1 = initialStress[QuantityIndices::XY];
         local.iniTraction2 = initialStress[QuantityIndices::XZ];
         local.iniNormalTraction = initialStress[QuantityIndices::XX];
-        local.fluidPressure = derived().computeFluidPressure(local);
+        local.fluidPressure = this->computeFluidPressure(local);
 
         for (size_t j = 0; j < tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension];
              ++j) {
@@ -260,12 +253,12 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
               faceAlignedValuesMinus[j * seissol::multisim::NumSimulations + local.fusedIndex];
         }
 
-        derived().handleNonConvergence(local);
+        this->handleNonConvergence(local);
 
         this->computeLocalStresses(local);
-        const real strength = derived().computeLocalStrength(local);
-        const real strengthSlope = derived().computeLocalStrengthSlope(local);
-        ReceiverOutput::updateLocalTractions(local, strength, strengthSlope);
+        const real strength = this->computeLocalStrength(local);
+        const real strengthSlope = this->computeLocalStrengthSlope(local);
+        seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength, strengthSlope);
 
         std::array<real, 6> updatedStress{};
         updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
@@ -295,17 +288,18 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
         switch (slipRateOutputType) {
         case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
-          ReceiverOutput::computeSlipRate(
+          this->computeSlipRate(
               local, rotatedUpdatedStress, rotatedStress, tangent1, tangent2, strike, dip);
           break;
         }
         case seissol::initializer::parameters::SlipRateOutputType::VelocityDifference: {
-          ReceiverOutput::computeSlipRate(local, tangent1, tangent2, strike, dip);
+          seissol::dr::output::ReceiverOutput::computeSlipRate(
+              local, tangent1, tangent2, strike, dip);
           break;
         }
         }
 
-        derived().adjustRotatedUpdatedStress(rotatedUpdatedStress, rotatedStress);
+        adjustRotatedUpdatedStress(rotatedUpdatedStress, rotatedStress);
 
         auto& slipRate = std::get<VariableID::SlipRate>(outputData->vars);
         if (slipRate.isActive) {
@@ -404,7 +398,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
           slipVectors(DirectionID::Dip, level, i) =
               sin1t * slip1[local.gpIndex] + cos1t * slip2[local.gpIndex];
         }
-        derived().outputSpecifics(outputData, local, level, i);
+        this->outputSpecifics(outputData, local, level, i);
       }
     }
   };
@@ -717,13 +711,6 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
 
   return ruptureVelocity;
 }
-
-template class ReceiverOutputImpl<NoFault>;
-template class ReceiverOutputImpl<ImposedSlipRates>;
-template class ReceiverOutputImpl<LinearSlipWeakening>;
-template class ReceiverOutputImpl<LinearSlipWeakeningBimaterial>;
-template class ReceiverOutputImpl<RateAndState>;
-template class ReceiverOutputImpl<RateAndStateThermalPressurization>;
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
   return {drStorage_->info<DynamicRupture::StressSourceInFaultCS>().index,

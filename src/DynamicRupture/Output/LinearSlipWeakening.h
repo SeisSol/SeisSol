@@ -11,9 +11,9 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {
-class LinearSlipWeakening : public ReceiverOutputImpl<LinearSlipWeakening> {
-  public:
-  real computeLocalStrength(LocalInfo& local) {
+class LinearSlipWeakening : public ReceiverOutput {
+  protected:
+  real computeLocalStrength(LocalInfo& local) override {
     const auto* const cohesions = local.layer->var<LTSLinearSlipWeakening::Cohesion>();
     const auto cohesion = cohesions[local.ltsId][local.gpIndex];
 
@@ -24,7 +24,7 @@ class LinearSlipWeakening : public ReceiverOutputImpl<LinearSlipWeakening> {
            cohesion;
   }
 
-  real computeLocalStrengthSlope(LocalInfo& local) {
+  real computeLocalStrengthSlope(LocalInfo& local) override {
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return effectiveNormalStress < 0 ? local.frictionCoefficient : static_cast<real>(0.0);

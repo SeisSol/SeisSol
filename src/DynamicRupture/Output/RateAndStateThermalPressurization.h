@@ -13,18 +13,19 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
-class RateAndStateThermalPressurization
-    : public RateAndStateBase<RateAndStateThermalPressurization> {
+class RateAndStateThermalPressurization : public RateAndState {
   public:
-  real computeFluidPressure(LocalInfo& local) {
+  using RateAndState::RateAndState;
+
+  protected:
+  real computeFluidPressure(LocalInfo& local) override {
     const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
     return pressure[local.gpIndex];
   }
-
   void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& outputData,
                        const LocalInfo& local,
                        size_t cacheLevel,
-                       size_t receiverIdx) {
+                       size_t receiverIdx) override {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
     if (tpVariables.isActive) {
       const auto* const temperature = getCellData<LTSThermalPressurization::Temperature>(local);
@@ -35,8 +36,9 @@ class RateAndStateThermalPressurization
     }
   }
 
+  public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
-    auto baseVector = RateAndStateBase::getOutputVariables();
+    auto baseVector = RateAndState::getOutputVariables();
     baseVector.push_back(drStorage_->info<LTSThermalPressurization::Temperature>().index);
     baseVector.push_back(drStorage_->info<LTSThermalPressurization::Pressure>().index);
     return baseVector;

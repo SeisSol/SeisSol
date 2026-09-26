@@ -21,14 +21,6 @@
 #include <vector>
 
 namespace seissol::dr::output {
-/**
-  Type-erased interface of the on-fault receiver output, plus everything which is shared by all
-  friction laws.
-
-  Only the entry points which the OutputManager calls through a `unique_ptr<ReceiverOutput>` are
-  virtual. The per-point customisation points live in ReceiverOutputImpl below and are resolved
-  statically, so that they can be turned into templates over the cell configuration later on.
- */
 class ReceiverOutput {
   public:
   virtual ~ReceiverOutput() = default;
@@ -44,7 +36,6 @@ class ReceiverOutput {
   void setDrParameters(const seissol::initializer::parameters::DRParameters* userDrParameters) {
     drParameters_ = userDrParameters;
   }
-
   /**
    * @param stateTime the time the stored friction state belongs to, which is the end of the dynamic
    *                  rupture time step that computed it; the stress sources are evaluated there,
@@ -52,15 +43,14 @@ class ReceiverOutput {
    *                  here are consistent with the state they are rebuilt from
    * @param time the time the output is recorded under
    */
-  virtual void
-      calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
-                      seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                      const std::shared_ptr<ReceiverOutputData>& outputData,
-                      parallel::runtime::StreamRuntime& runtime,
-                      double stateTime,
-                      double time = 0.0,
-                      double dt = 1.0,
-                      double indt = 0.0) = 0;
+  void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                       const std::shared_ptr<ReceiverOutputData>& outputData,
+                       parallel::runtime::StreamRuntime& runtime,
+                       double stateTime,
+                       double time = 0.0,
+                       double dt = 1.0,
+                       double indt = 0.0);
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
@@ -154,15 +144,24 @@ class ReceiverOutput {
   void getDofs(const real*(&derivatives), std::size_t meshId);
   void getNeighborDofs(const real*(&derivatives), std::size_t meshId, std::size_t side);
   void computeLocalStresses(LocalInfo& local);
+  virtual real computeLocalStrength(LocalInfo& local) = 0;
+  /**
+    d(strength) / d(-sigma_eff), the counterpart of the friction laws' strengthSlope. Only read for
+    materials whose impedance couples shear slip to the fault-normal traction; zero means that the
+    strength does not follow the normal stress.
+   */
+  virtual real computeLocalStrengthSlope(LocalInfo& /*local*/) { return 0.0; }
+  virtual real computeFluidPressure(LocalInfo& /*local*/) { return 0.0; }
+  virtual real computeStateVariable(LocalInfo& /*local*/) { return 0.0; }
   static void updateLocalTractions(LocalInfo& local, real strength, real strengthSlope);
   real computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
-  void computeSlipRate(LocalInfo& local,
-                       const std::array<real, 6>& rotatedUpdatedStress,
-                       const std::array<real, 6>& rotatedStress,
-                       const std::array<double, 3>& tangent1,
-                       const std::array<double, 3>& tangent2,
-                       const std::array<double, 3>& strike,
-                       const std::array<double, 3>& dip);
+  virtual void computeSlipRate(LocalInfo& local,
+                               const std::array<real, 6>& /*rotatedUpdatedStress*/,
+                               const std::array<real, 6>& /*rotatedStress*/,
+                               const std::array<double, 3>& /*tangent1*/,
+                               const std::array<double, 3>& /*tangent2*/,
+                               const std::array<double, 3>& /*strike*/,
+                               const std::array<double, 3>& /*dip*/);
   static void computeSlipRate(LocalInfo& local,
                               const std::array<double, 3>& tangent1,
                               const std::array<double, 3>& tangent2,
@@ -177,52 +176,13 @@ class ReceiverOutput {
                                       const std::array<double, 3>& tangent2,
                                       const std::array<double, 3>& strike,
                                       const std::array<double, 3>& dip);
-};
-
-/**
-  Implements the output loop for one friction law, calling back into `Derived` for the parts which
-  differ between them.
-
-  The customisation points are ordinary member functions, not virtual ones: a derived class simply
-  declares the ones it needs and thereby shadows the default below. Two consequences: the hooks
-  have to be public in the derived class, since a base cannot reach a protected member of its own
-  derived class; and there is no `override` to catch a misspelled hook, so the name has to match
-  exactly.
-
-  computeLocalStrength has no default on purpose -- a friction law which does not provide it fails
-  to compile, the same way the pure virtual did.
- */
-template <typename Derived>
-class ReceiverOutputImpl : public ReceiverOutput {
-  public:
-  void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
-                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                       const std::shared_ptr<ReceiverOutputData>& outputData,
-                       parallel::runtime::StreamRuntime& runtime,
-                       double stateTime,
-                       double time = 0.0,
-                       double dt = 1.0,
-                       double indt = 0.0) override;
-
-  protected:
-  /**
-    d(strength) / d(-sigma_eff), the counterpart of the friction laws' strengthSlope. Only read for
-    materials whose impedance couples shear slip to the fault-normal traction; zero means that the
-    strength does not follow the normal stress.
-   */
-  real computeLocalStrengthSlope(LocalInfo& /*local*/) { return 0.0; }
-  real computeFluidPressure(LocalInfo& /*local*/) { return 0.0; }
-  real computeStateVariable(LocalInfo& /*local*/) { return 0.0; }
-  void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& /*data*/,
-                       const LocalInfo& /*local*/,
-                       size_t /*cacheLevel*/,
-                       size_t /*receiverIdx*/) {}
-  void adjustRotatedUpdatedStress(std::array<real, 6>& /*rotatedUpdatedStress*/,
-                                  const std::array<real, 6>& /*rotatedStress*/) {}
-  void handleNonConvergence(LocalInfo& /*local*/) {}
-
-  private:
-  Derived& derived() { return static_cast<Derived&>(*this); }
+  virtual void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
+                               const LocalInfo& local,
+                               size_t outputSpecifics,
+                               size_t receiverIdx) {}
+  virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
+                                          const std::array<real, 6>& rotatedStress) {}
+  virtual void handleNonConvergence(LocalInfo& local) {}
 };
 } // namespace seissol::dr::output
 

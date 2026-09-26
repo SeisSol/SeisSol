@@ -15,15 +15,15 @@
 #include <cmath>
 
 namespace seissol::dr::output {
-class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeakeningBimaterial> {
-  public:
-  real computeLocalStrength(LocalInfo& local) {
+class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
+  protected:
+  real computeLocalStrength(LocalInfo& local) override {
     const auto* const regularizedStrengths =
         getCellData<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(local);
     return regularizedStrengths[local.gpIndex];
   }
 
-  real computeLocalStrengthSlope(LocalInfo& local) {
+  real computeLocalStrengthSlope(LocalInfo& local) override {
     // The Prakash-Clifton regularization low-passes the strength, so only the fraction
     // -expm1(-(V + vStar) dt / prakashLength) of a normal stress change arrives instantaneously --
     // evaluated with the slip rate and the sub time step of the friction solve that produced the
@@ -42,8 +42,9 @@ class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeaken
     return local.frictionCoefficient * -std::expm1(expval);
   }
 
+  public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
-    auto baseVector = ReceiverOutput::getOutputVariables();
+    auto baseVector = LinearSlipWeakening::getOutputVariables();
     baseVector.push_back(
         drStorage_->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
     return baseVector;
