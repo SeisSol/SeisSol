@@ -57,6 +57,10 @@ struct CompoundGlobalData {
 /// decomposition keeps the matrices whatever the build asks for.
 constexpr bool FactoredStar =
     Config::FactoredStar &&
+    // the space-time predictor scales the star matrices by the timestep
+    // before handing them over, which a cell that does not carry them cannot
+    // do; the scalar path through the kernel is what that solver would need
+    Config::Solver != SolverType::STP &&
     model::SolverSetup<typename model::MaterialT::Solver, model::MaterialT>::NumCoefficients > 0;
 
 constexpr std::size_t StarCoefficientCount =

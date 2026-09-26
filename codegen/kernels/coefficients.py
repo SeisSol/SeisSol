@@ -259,8 +259,56 @@ VISCOACOUSTIC = Decomposition(
 ALL = [ELASTIC, ACOUSTIC, ANISOTROPIC, POROELASTIC, VISCOELASTIC, VISCOACOUSTIC]
 
 
-def structure_values(decomposition: Decomposition,
-                     quantities: int) -> Tuple[Tuple[int, ...], dict]:
+BY_EQUATION = {
+    "elastic": ELASTIC,
+    "acoustic": ACOUSTIC,
+    "anisotropic": ANISOTROPIC,
+    "poroelastic": POROELASTIC,
+    "viscoelastic": VISCOELASTIC,
+    "viscoacoustic": VISCOACOUSTIC,
+}
+
+#: Which material a viscous one takes its flux, and so its decomposition, from.
+BASE_OF = {"viscoelastic": ELASTIC, "viscoacoustic": ACOUSTIC}
+
+
+def composed(equation: str,
+             solver: str,
+             mechanisms: int,
+             elastic_quantities: int,
+             per_mechanism: int) -> Tuple[int, List[Entry]]:
+    """The decomposition of the operator a solver applies, coefficients first.
+
+    Mirrors what SolverSetup does on the C++ side: the material's own entries,
+    then the coupling block of every relaxation mechanism at its own columns.
+    Which scalar weights a block is the solver's decision -- one relaxation
+    frequency per block, or a single block of unit weight where the solver
+    holds the frequencies elsewhere.
+    """
+    decomposition = BY_EQUATION[equation]
+    base = BASE_OF.get(equation, decomposition)
+    count = len(base.coefficients)
+    entries = list(base.entries)
+
+    if mechanisms > 0 and decomposition.anelastic:
+        if solver == "linearckanelastic":
+            blocks, weights = 1, [count]
+            count += 1
+        else:
+            blocks, weights = mechanisms, [count + m for m in range(mechanisms)]
+            count += mechanisms
+        for block in range(blocks):
+            column = elastic_quantities + block * per_mechanism
+            for entry in decomposition.anelastic:
+                entries.append(Entry(weights[block], entry.dim, entry.row,
+                                     column + entry.column_offset, entry.factor))
+
+    return count, entries
+
+
+def structure_values(coefficient_count: int,
+                     entries: List[Entry],
+                     star_shape: Tuple[int, int]) -> Tuple[Tuple[int, ...], dict]:
     """The decomposition as a tensor the generator can write into a kernel.
 
     Shape is (coefficients, 3, quantities, quantities); the values are the
@@ -269,10 +317,10 @@ def structure_values(decomposition: Decomposition,
     into one product per entry: a factor of one is not a multiplication, and
     the zeros never become operations at all.
     """
-    shape = (len(decomposition.coefficients), 3, quantities, quantities)
+    shape = (coefficient_count, 3) + tuple(star_shape)
     values = {
         (entry.coefficient, entry.dim, entry.row, entry.column): entry.factor
-        for entry in decomposition.entries
+        for entry in entries
     }
     return shape, values
 

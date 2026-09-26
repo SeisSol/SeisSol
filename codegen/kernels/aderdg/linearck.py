@@ -77,7 +77,9 @@ class LinearCK(ADERDGBase):
             if self.sourceMatrix():
                 volumeSum += self.I["kq"] * self.sourceMatrix()["qp"]
             volume = self.Q["kp"] <= volumeSum
-            generator.add(f"{name_prefix}volume", volume, target=target)
+            generator.add(
+                f"{name_prefix}volume", self.starAssembly() + [volume], target=target
+            )
 
             localFluxNodal = (
                 lambda i: self.Q["kp"]
@@ -228,7 +230,9 @@ class LinearCK(ADERDGBase):
             derivatives = [dQ0True]
 
             # for now, interleave Taylor expansion and derivative computation
-            derivativeExpr = [self.I["kp"] <= power * dQ0True["kp"]]
+            derivativeExpr = self.starAssembly() + [
+                self.I["kp"] <= power * dQ0True["kp"]
+            ]
             derivativeTaylorExpansion = power * dQ0["kp"]
 
             if target == "gpu":

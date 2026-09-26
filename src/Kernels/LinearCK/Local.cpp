@@ -20,6 +20,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Kernels/StarOperands.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
@@ -121,21 +122,7 @@ void Local::computeIntegral(
   kernel::volume volKrnl = volumeKernelPrototype_;
   volKrnl.Q = data.get<LTS::Dofs>();
   volKrnl.I = timeIntegratedDoFs;
-  // where a cell carries its coefficients, the star matrices it applies are put
-  // together here and live no longer than the call
-  alignas(Alignment) real starBuffer[3][tensor::star::size(0)]{};
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    if constexpr (FactoredStar) {
-      auto starView = init::star::view<0>::create(starBuffer[i]);
-      model::assembleStarMatrix<model::MaterialT>(
-          data.get<LTS::LocalIntegration>().materialCoefficients,
-          data.get<LTS::LocalIntegration>().referenceGradients[i],
-          starView);
-      volKrnl.star(i) = starBuffer[i];
-    } else {
-      volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
-    }
-  }
+  kernels::bindStarOperands(volKrnl, data.get<LTS::LocalIntegration>());
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
@@ -286,14 +273,7 @@ void Local::computeBatchedIntegral(
     const auto** localIntegrationPtrs = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
 
-    static_assert(!FactoredStar,
-                  "the device path reads the star matrices out of the cell; assembling them from "
-                  "the coefficients needs the generated kernel to do it");
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = localIntegrationPtrs;
-      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    kernels::bindStarOperandsBatched(volKrnl, localIntegrationPtrs);
 
     constexpr auto SourceMatrixOffset =
         offsetof(LocalIntegrationData, specific) +

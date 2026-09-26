@@ -65,6 +65,9 @@ def main():
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
+    cmdLineParser.add_argument(
+        "--factored_star", action="store_true", default=False
+    )
     cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
     cmdLineParser.add_argument(
         "--disable_premultiply_flux",

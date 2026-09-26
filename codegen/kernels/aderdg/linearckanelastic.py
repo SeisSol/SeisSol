@@ -120,9 +120,6 @@ class LinearCKAnelastic(ADERDGBase):
     def extendedQTensor(self):
         return self.Qext
 
-    def starMatrix(self, dim):
-        return self.db.star[dim]
-
     def name(self):
         return "linearckanelastic"
 
@@ -262,10 +259,14 @@ class LinearCKAnelastic(ADERDGBase):
                 volumeSum += (
                     self.db.kDivM[i][self.t("kl")]
                     * self.I["lq"]
-                    * self.db.star[i]["qp"]
+                    * self.starMatrix(i)["qp"]
                 )
             volumeExt = self.Qext["kp"] <= volumeSum
-            generator.add(f"{name_prefix}volumeExt", volumeExt, target=target)
+            generator.add(
+                f"{name_prefix}volumeExt",
+                self.starAssembly() + [volumeExt],
+                target=target,
+            )
 
             plusFluxMatrixAccessor = (
                 lambda i: self.db.rDivM[i][self.t("km")] * self.db.fMrT[i][self.t("ml")]
@@ -445,7 +446,7 @@ class LinearCKAnelastic(ADERDGBase):
                     derivativeSum += (
                         self.db.kDivMT[j][self.t("kl")]
                         * dQ[kthDer - 1]["lq"]
-                        * self.db.star[j]["qp"]
+                        * self.starMatrix(j)["qp"]
                     )
                 return derivativeSum
 
@@ -458,12 +459,12 @@ class LinearCKAnelastic(ADERDGBase):
             # and odd indices share the same buffer)
 
             if target == "gpu":
-                derivativeExpr = [
+                derivativeExpr = self.starAssembly() + [
                     dQ[0]["kp"] <= self.Q["kp"],
                     self.I["kp"] <= powers[0] * self.Q["kp"],  # == dQ[0]
                 ]
             else:
-                derivativeExpr = [
+                derivativeExpr = self.starAssembly() + [
                     self.I["kp"] <= powers[0] * dQ[0]["kp"],
                 ]
 

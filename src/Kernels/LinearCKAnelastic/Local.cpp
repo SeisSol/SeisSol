@@ -11,6 +11,7 @@
 
 #include "Common/Marker.h"
 #include "Kernels/Common.h"
+#include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
 
 #include <cassert>
@@ -50,9 +51,7 @@ void Local::computeIntegral(
   kernel::volumeExt volKrnl = volumeKernelPrototype_;
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDoFs;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
-  }
+  kernels::bindStarOperands(volKrnl, data.get<LTS::LocalIntegration>());
 
   kernel::localFluxExt lfKrnl = localFluxKernelPrototype_;
   lfKrnl.Qext = Qext;
@@ -142,12 +141,10 @@ void Local::computeBatchedIntegral(
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    kernels::bindStarOperandsBatched(
+        volKrnl,
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
 

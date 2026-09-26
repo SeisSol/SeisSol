@@ -46,9 +46,6 @@ class STP(LinearCK):
     def numExtendedQuantities(self):
         return self.numQuantities()
 
-    def starMatrix(self, dim):
-        return self.db.star[dim]
-
     def sourceMatrix(self):
         return None
 

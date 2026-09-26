@@ -22,6 +22,7 @@
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Kernels/StarOperands.h"
 #endif
 
 #ifndef NDEBUG
@@ -89,9 +90,7 @@ void Spacetime::computeAder(const real* coeffs,
   krnl.I = timeIntegrated;
   krnl.Iane = tmp.timeIntegratedAne;
 
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
-  }
+  kernels::bindStarOperands(krnl, data.get<LTS::LocalIntegration>());
   krnl.w = data.get<LTS::LocalIntegration>().specific.w;
   krnl.W = data.get<LTS::LocalIntegration>().specific.W;
   krnl.E = data.get<LTS::LocalIntegration>().specific.E;
@@ -223,12 +222,10 @@ void Spacetime::computeBatchedAder(
     }
     krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      krnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    kernels::bindStarOperandsBatched(
+        krnl,
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
 
     krnl.W = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());

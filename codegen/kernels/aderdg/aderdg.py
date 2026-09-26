@@ -9,6 +9,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+from kernels import coefficients
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
@@ -21,6 +22,7 @@ from kernels.quantities import (
     well_formed,
 )
 from yateto import Scalar, Tensor, simpleParameterSpace
+from yateto.type import AddressingMode
 from yateto.input import (
     memoryLayoutFromFile,
     parseJSONMatrixFile,
@@ -256,6 +258,61 @@ class ADERDGBase(ABC):
         out so that an equation can reshape its matrices in between."""
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs
+        self._configureStarAssembly(kwargs)
+
+    def _configureStarAssembly(self, kwargs):
+        """Sets up the tensors a cell carries where it holds the coefficients
+        of its operator rather than the matrices they fold into.
+
+        The structure the two fold into is a signed permutation, so it is
+        stated as an immediate operand: the generator writes it into the
+        kernel, where a factor of one is not a multiplication and the zeros
+        never become operations."""
+        # the space-time predictor scales the star matrices by the timestep
+        # outside the kernel, which a cell that does not carry them cannot do
+        self.factoredStar = bool(kwargs.get("factored_star", False)) and kwargs.get(
+            "solver"
+        ) not in ("stp",)
+        if not self.factoredStar:
+            return
+
+        mechanisms = getattr(self, "numMechanisms", 0)
+        elastic = total_extent(self.primaryGroups())
+        perMechanism = total_extent(self.mechanismGroups()) if mechanisms > 0 else 0
+
+        count, entries = coefficients.composed(
+            self.name(), kwargs.get("solver"), mechanisms, elastic, perMechanism
+        )
+        # a solver that keeps the mechanism index in a dimension of its own
+        # carries a narrower star than the quantity count suggests, so take the
+        # extents from the star itself
+        starSpp = self.db.star[0].spp()
+        shape, values = coefficients.structure_values(count, entries, starSpp.shape)
+
+        self.starStructure = Tensor(
+            "starStructure", shape, spp=values, addressing=AddressingMode.IMMEDIATE
+        )
+        self.materialCoefficients = Tensor("materialCoefficients", (count,))
+        self.referenceGradients = [
+            Tensor(f"referenceGradients({dim})", (3,)) for dim in range(3)
+        ]
+        self.starAssembled = [
+            Tensor(f"starAssembled({dim})", starSpp.shape, spp=starSpp, temporary=True)
+            for dim in range(3)
+        ]
+
+    def starAssembly(self):
+        """The statements that put the star matrices together, or none where a
+        cell carries them assembled already."""
+        if not self.factoredStar:
+            return []
+        return [
+            self.starAssembled[dim]["qp"]
+            <= self.referenceGradients[dim]["j"]
+            * self.materialCoefficients["a"]
+            * self.starStructure["ajqp"]
+            for dim in range(3)
+        ]
 
     def configure(self, matricesDir, memLayout, kwargs, extra=()):
         """Reads this equation's matrix file, plus any the solver needs, and
@@ -268,6 +325,15 @@ class ADERDGBase(ABC):
         return clones
 
     def starMatrix(self, dim):
+        """The star matrix a time-stepping kernel applies."""
+        return self.starAssembled[dim] if self.factoredStar else self.db.star[dim]
+
+    def starMatrixSetup(self, dim):
+        """The star matrix an initialization kernel is handed.
+
+        Always the assembled one: these run once on the host, where the cell's
+        coefficients are at hand and putting the matrix together costs nothing
+        worth generating a kernel for."""
         return self.db.star[dim]
 
     def stiffSourceRows(self):
@@ -360,7 +426,7 @@ class ADERDGBase(ABC):
             self.AplusT["ij"]
             <= fluxScale
             * self.Tinv["ki"]
-            * (self.QgodLocal["kq"] * self.starMatrix(0)["ql"] + self.QcorrLocal["kl"])
+            * (self.QgodLocal["kq"] * self.starMatrixSetup(0)["ql"] + self.QcorrLocal["kl"])
             * self.T["jl"]
         )
         generator.add("computeFluxSolverLocal", computeFluxSolverLocal)
@@ -370,7 +436,7 @@ class ADERDGBase(ABC):
             <= fluxScale
             * self.Tinv["ki"]
             * (
-                self.QgodNeighbor["kq"] * self.starMatrix(0)["ql"]
+                self.QgodNeighbor["kq"] * self.starMatrixSetup(0)["ql"]
                 + self.QcorrNeighbor["kl"]
             )
             * self.T["jl"]
