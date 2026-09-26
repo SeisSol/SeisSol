@@ -71,6 +71,8 @@ Planar wave (``Planarwave``)
 
 A planar wave for convergence tests.
 The inital values are computed such that a planar wave in a unit cube is imposed.
+Its wave vector :math:`k` is :math:`(\pi, \pi, \pi)`, unless ``kVec`` in the ``IniCondition`` section sets another one, as described for the travelling wave below.
+Along every axis with :math:`k_i \neq 0`, the mesh has to span a whole number of wavelengths :math:`2\pi / |k_i|`.
 For elastic, anisotropic and viscoelastic materials, we impose a P and an S wave travelling in opposite directions.
 For poroelastic materials, we impose a slow P and an S wave travelling in one direction and a fast P wave travelling in opposite direction.
 This scenario needs periodic boundary conditions to make sense.

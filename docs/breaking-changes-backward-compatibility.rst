@@ -13,6 +13,16 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The wave vector of the planar wave
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the verification cases on mini meshes)
+
+``cICType = 'Planarwave'`` takes its wave vector from ``kVec`` in the
+``IniCondition`` section, which only the travelling wave used to read. A
+parameter file that sets ``kVec`` for a planar wave therefore imposes a
+different wave than before. Without ``kVec``, the wave vector is
+:math:`(\pi, \pi, \pi)`, as it always was.
+
 The fault tag of the elementwise fault output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)

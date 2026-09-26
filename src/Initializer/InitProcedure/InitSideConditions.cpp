@@ -77,9 +77,15 @@ std::vector<std::unique_ptr<physics::InitialField>>
     initialConditionDescription = "Planar wave";
     const auto materialData = memoryManager.ltsStorage().lookup<LTS::Material>(pos);
 
+    // kVec is optional here: without it, the wave keeps its default wave vector
+    const auto& kVec = initConditionParams.kVec;
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
-      initConditions.emplace_back(new physics::Planarwave(materialData, phase));
+      if (kVec.isZero(0.0)) {
+        initConditions.emplace_back(new physics::Planarwave(materialData, phase));
+      } else {
+        initConditions.emplace_back(new physics::Planarwave(materialData, phase, kVec));
+      }
     }
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
