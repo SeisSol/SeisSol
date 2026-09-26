@@ -83,7 +83,8 @@ presets:
         - { type: viscoelastic, mechanisms: 3 }
         - { type: viscoacoustic, mechanisms: 3 }
         - { type: anisotropic }
-        - { type: elastic, multisim: 8 }
+        # the fused cases of precomputed-seissol run at order three
+        - { type: elastic, order: 3, multisim: 8 }
 
   # Mirrors build-seissol-gpu.yml. The build hosts have no device, so the test
   # code is compiled but not run; that still catches device-side compile errors.
