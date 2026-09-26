@@ -378,7 +378,7 @@ endfunction()
 # Stage 0: does it run at all, and did it compute anything.
 # ---------------------------------------------------------------------------
 
-set(SEISSOL_WAVE_MATERIALS "equations=elastic|anisotropic|viscoelastic2|poroelastic|acoustic")
+set(SEISSOL_WAVE_MATERIALS "equations=elastic|anisotropic|viscoelastic|poroelastic|acoustic")
 
 foreach (mesh box48 skew48)
   seissol_add_minitest(
@@ -511,8 +511,7 @@ seissol_add_minitest(
 
 # ---------------------------------------------------------------------------
 # Stage 1: hold runs against each other. The receiver output carries about
-# sixteen digits, so it can support a claim of identity; the analysis CSV is
-# printed at the default stream precision and cannot.
+# sixteen digits, so it can support a claim of identity.
 # ---------------------------------------------------------------------------
 
 seissol_add_comparison(

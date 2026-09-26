@@ -26,6 +26,7 @@ into the answer to "was every declared case executed by some build".
 """
 
 import argparse
+import csv
 import hashlib
 import json
 import math
@@ -284,15 +285,15 @@ def check_outputs(work, prefix, require_finite, activity, expect_zero=False):
 def read_analysis(path):
     """Read ``<prefix>-analysis.csv``, which SeisSol writes at the end of a run.
 
-    The file holds one row per quantity and norm. Note that the values are
-    printed with the default stream precision, so roughly six significant
-    digits: enough to judge a convergence threshold, not enough to compare two
-    runs against each other. Use the receiver output for that.
+    The file holds one row per quantity and norm. SeisSol writes it through its
+    CSV table, which quotes text, so the norm comes in quotes, and writes every
+    number in its shortest exact form.
     """
     norms = {}
-    rows = path.read_text(encoding="utf-8").splitlines()
+    with path.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
     for row in rows[1:]:
-        fields = [field.strip() for field in row.split(",")]
+        fields = [field.strip() for field in row]
         if len(fields) != 3:
             continue
         variable, norm, value = fields
