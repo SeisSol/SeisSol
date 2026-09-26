@@ -107,9 +107,11 @@ class ElementAverageGenerator : public QueryGenerator {
   std::array<std::array<double, 3>, NumQuadpoints> quadraturePoints_{};
 };
 
-class PlasticityPointGenerator : public QueryGenerator {
+// samples at the nodal points of the volume basis (vNodes); with pointwise
+// disabled, it falls back to a single sample at the element barycenter
+class NodalPointGenerator : public QueryGenerator {
   public:
-  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
+  explicit NodalPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
       : cellToVertex_(cellToVertex), pointwise_(pointwise) {}
   [[nodiscard]] easi::Query generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;

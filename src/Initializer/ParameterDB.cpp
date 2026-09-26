@@ -287,21 +287,21 @@ easi::Query ElementAverageGenerator::generate() const {
   return query;
 }
 
-std::size_t PlasticityPointGenerator::outputPerCell() const {
-  constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
-  return pointwise_ ? PlasticityPoints : 1;
+std::size_t NodalPointGenerator::outputPerCell() const {
+  constexpr auto NodalPoints = tensor::vNodes::Shape[0];
+  return pointwise_ ? NodalPoints : 1;
 }
 
-easi::Query PlasticityPointGenerator::generate() const {
+easi::Query NodalPointGenerator::generate() const {
 
   const auto pointsPerCell = outputPerCell();
 
-  // Generate query using quadrature points for each element
+  // Generate query using nodal points for each element
   easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
 
   const auto nodes = init::vNodes::view::create(init::vNodes::Values);
 
-// Transform quadrature points to global coordinates for all elements
+// Transform nodal points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
 

@@ -120,7 +120,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     // plasticity information is only needed on all interior+copy cells.
     for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
       plasticityDB[i] =
-          queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv, plasticityPointwise),
+          queryDB<Plasticity>(std::make_shared<NodalPointGenerator>(ctv, plasticityPointwise),
                               seissolParams.model.plasticityFileNames[i]);
     }
   }
