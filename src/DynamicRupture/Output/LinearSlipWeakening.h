@@ -23,6 +23,12 @@ class LinearSlipWeakening : public ReceiverOutputImpl<LinearSlipWeakening> {
                std::min(effectiveNormalStress, static_cast<real>(0.0)) -
            cohesion;
   }
+
+  real computeLocalStrengthSlope(LocalInfo& local) {
+    const auto effectiveNormalStress =
+        local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
+    return effectiveNormalStress < 0 ? local.frictionCoefficient : static_cast<real>(0.0);
+  }
 };
 } // namespace seissol::dr::output
 

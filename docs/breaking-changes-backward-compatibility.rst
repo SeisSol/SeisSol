@@ -13,6 +13,123 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The fault tag of the elementwise fault output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+The ``fault-tag`` cell field of the elementwise fault output carried the
+identifier of the face rather than the tag the mesh gave it, which is what the
+``global-id`` field beside it holds, so the files had the identifier twice and
+the tag not at all. Post-processing that read ``fault-tag`` and got what it
+expected was reading an identifier; one that grouped by it was grouping by face.
+
+The on-fault and off-fault receiver files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+``receiverFormat = 'hdf5'`` writes a different file. It used to be one wide
+table with a column count taken from the widest receiver, described by the
+attributes ``DimNames`` and ``VariableNames``; it is now a dataset per quantity
+set, with the quantities as the members of a compound and the receivers
+described by columns beside it. :ref:`off_fault_receivers` has the layout.
+Post-processing of ``-receivers.h5`` has to follow.
+
+The text output, which is the default, is unchanged, and so is the file name and
+the write interval. The on-fault receivers gained the same HDF5 layout as an
+option under ``format = 'hdf5'`` in the ``Pickpoint`` section, but keep writing
+text unless it is asked for.
+
+The tables beside the output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+The column names of ``-clustering.csv``, ``-threadPinning.csv``,
+``-miniSeissol.csv``, ``-energy.csv`` and ``-analysis.csv`` are now quoted, like
+every other piece of text in those files -- in the energy output, the name of
+each quantity as well. Numbers are written in the shortest form that reads back
+as the same value, e.g. ``0.25`` rather than ``2.50000000000000000e-01``. What
+the columns are and what they hold is unchanged. A reader using a CSV parser
+needs no change; one comparing the lines literally does.
+
+Output of a restarted run
+~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+A run restarted from a checkpoint writes its output into new files and continues
+the numbering of the outputs. Files of the same name that exist already, e.g.
+the time series of the run before the restart, are kept under a backup name
+carrying the time of the restart. A single file holding the whole run therefore
+has to be assembled from the backup and the new file. See :ref:`Checkpointing`.
+
+Output file names
+~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+Every mesh output is now named after what it holds, so three file names changed.
+Post-processing that opens them by name has to follow.
+
+* The wavefield written through Xdmf was ``<prefix>.xdmf``; it is now
+  ``<prefix>-wavefield.xdmf``, next to the ``<prefix>-wavefield.vtkhdf`` that the
+  high-order output already used. The bare prefix carried no indication of what
+  was in the file.
+* The high-order free-surface output was ``<prefix>-free-surface.vtkhdf``; it is
+  now ``<prefix>-surface.vtkhdf``, which is what the Xdmf free-surface output has
+  always been called.
+* The high-order elementwise fault output was ``<prefix>-fault-elementwise.vtkhdf``;
+  it is now ``<prefix>-fault.vtkhdf``, matching the Xdmf fault output. The output
+  it is distinguished from -- the on-fault receivers -- is written by a different
+  module under a different name, so the qualifier distinguished nothing.
+
+Refined wavefield output
+~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+Two things changed about the volume output at the same time, and both affect a comparison against
+files written by an older version.
+
+First, a refined wavefield output used to sample the subcells in a different vertex labeling than
+the one the output mesh was built with, so the value written for a subcell was the solution at the
+center of one of its siblings. With ``refinement = 1``, three of the four subcells of every element
+carried a neighbor's value; with ``refinement = 2`` and ``3``, the inner subcells were sampled at
+a point that is not the center of any subcell at all. ``refinement = 0`` was unaffected, because
+the center of the whole element does not move under that relabeling. This is now corrected, so
+output written with ``refinement > 0`` differs from what older versions produced.
+
+Second, how the solution reaches the output points is now a parameter rather than a property of
+the writer. It is ``wavefieldprojection`` for the wavefield and ``surfaceprojection`` for the free
+surface (see :ref:`wave_field_output` and :ref:`free_surface_output`). The defaults reproduce what
+each output did before -- ``pointwise`` for the wavefield, ``l2`` for the free surface -- so no
+parameter file needs to change; the option exists to make the two comparable when that is wanted.
+Free-surface displacement in checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the unification of the output modules)
+
+A checkpoint identified the faces of the free surface by the cell number local to
+the rank that wrote it, which names different cells on different ranks. On a
+restart, faces could therefore receive the displacement of another face; with
+the partitioning unchanged this affected a few faces at the rank boundaries,
+with a different one most of them. The faces are now identified by the global
+cell id, and a restart reproduces the displacement exactly. Checkpoints written
+before cannot restore it correctly.
+
+Dynamic rupture checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(after 1.3.2, `#1642 <https://github.com/SeisSol/SeisSol/pull/1642>`_, September 2026)
+
+The stress a fault point is under is now a function of the simulation time and of the fault parameters, rather than a quantity that the time step adds the nucleation to.
+The two checkpoint records that carried it, ``initialStressInFaultCS`` and ``initialPressure``, no longer exist, and checkpoints written before this change cannot be restored.
+Restarting in the middle of a nucleation episode is exact from here on, since nothing about the episode is carried through the checkpoint.
+
+Nucleation accuracy
+~~~~~~~~~~~~~~~~~~~
+
+(after 1.3.2, `#1642 <https://github.com/SeisSol/SeisSol/pull/1642>`_, September 2026)
+
+Instead of accumulating over each time step, the nucleations now get evaluated at the exact time value.
+Furthermore, the accuracy of the nucleation source time function was improved.
+As a result, fast (i.e. taking only little timesteps) nucleations may now behave slightly differently to before.
+
 Energy Output
 ~~~~~~~~~~~~~
 (since 0.9.0, `#531 <https://github.com/SeisSol/SeisSol/pull/531>`_, April 2022)
@@ -119,6 +236,62 @@ The strain rate output was named just "strain" output for the off-fault receiver
 The corresponding option was likewise called :code:`ReceiverComputeStrain`,
 not :code:`ReceiverComputeStrainRate`.
 
+Poroelastic Time Basis
+~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased, `#1374 <https://github.com/SeisSol/SeisSol/pull/1374>`_, August 2025)
+
+Poroelasticity is solved with a space-time predictor, whose coefficients are expressed in a Legendre
+basis in time, while all other materials use a monomial (Taylor) basis.
+
+Up to this fix, two areas were evaluated
+with the same (monomial) basis on all cases, affecting LTS and the fault stress output.
+
+Poroelastic results may therefore differ from earlier versions.
+
+Poroelastic Dynamic Rupture Impedance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+The shear impedance of a poroelastic fault is now :math:`Z_s = \sqrt{\mu \rho_1}`, with the
+statically condensed density :math:`\rho_1 = \bar\rho - \rho_f^2 / m` that the Biot system
+propagates shear waves with, instead of the density of the solid grains. The scalar impedances used
+by the friction update, the slip accumulation and the fault receiver output now come from the same
+matrix as the Riemann solver, and the wave impedance itself is computed in closed form rather than
+from an eigendecomposition.
+
+Results of poroelastic dynamic rupture simulations change accordingly; how much depends on the
+porosity and the tortuosity. For the material values of the poroelastic test cases the impedance
+drops by 5 to 15 percent.
+
+Frictional Energy of a Bimaterial Fault
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+The interface traction the frictional energy is integrated with is :math:`\tau^* = b^+ \tau^+ +
+b^- \tau^-`, with :math:`b^\pm = \eta Y^\pm`. The energy computation paired :math:`b^+` with the
+traction of the *minus* side and vice versa, which disagreed with both the Riemann solver and the
+:code:`computeTractionInterpolated` kernel the fault output uses.
+
+The two coefficients are equal for a fault with the same material on both sides, so only
+bimaterial faults are affected. The frictional energy in the energy output changes there; the
+simulation itself does not.
+
+Anisotropic Eigenbasis
+~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+One entry of the eigenbasis an anisotropic material is transformed with carried :math:`c_{46}`
+where the derivation asks for :math:`c_{56}`, i.e. the coupling of :math:`\sigma_{xy}` to
+:math:`u_z` instead of the intended one.
+
+The matrix enters the boundary conditions, so anisotropic simulations with a free surface or an
+absorbing boundary change. Materials for which both coefficients vanish -- isotropy, VTI with the
+symmetry axis along a coordinate axis -- are unaffected.
+
 Potency and Seismic Moment Quadrature
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -128,3 +301,31 @@ The potency and the seismic moment were computed by averaging the value over all
 Now, to make the integration more exact, they are instead weighed by the quadrature rule
 the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
 may slightly change compared to before.
+
+Names of the Energy Output Columns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Four columns of the energy output CSV file were named after a quantity that, in the literature,
+denotes a sum of which they are only one part. They now carry the name of what they actually contain
+(see :ref:`energy_output`); the values themselves are unchanged.
+
++--------------------------+------------------------------------+
+| old                      | new                                |
++==========================+====================================+
+| ``elastic_energy``       | ``elastic_strain_energy``          |
++--------------------------+------------------------------------+
+| ``acoustic_energy``      | ``acoustic_potential_energy``      |
++--------------------------+------------------------------------+
+| ``viscoelastic_energy``  | ``anelastic_strain_energy``        |
++--------------------------+------------------------------------+
+| ``gravitational_energy`` | ``gravitational_potential_energy`` |
++--------------------------+------------------------------------+
+
+For a poroelastic material, the two columns that used to be called ``elastic_energy`` and
+``elastic_kinetic_energy`` are now ``poroelastic_strain_energy`` and
+``poroelastic_kinetic_energy``: both hold a two-phase expression that differs from the
+single-phase one.
+
+The terminal output changed accordingly: the group headings now read
+``Acoustic mechanical energy``, ``Elastic mechanical energy`` and
+``Gravitational potential energy``, and the share printed as ``kinematic`` is now ``kinetic``.

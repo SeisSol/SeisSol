@@ -31,11 +31,19 @@ You may explicitly compile and install multiple of these configurations at the s
 - ``EQUATIONS``: the equation system to compile for
 
     * ``elastic``: isotropic elastic
-    * ``viscoelastic``: obsolete, use ``viscoelastic2`` instead
-    * ``viscoelastic2``: isotropic viscoelastic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``).
+    * ``acoustic``: acoustic
+    * ``viscoelastic``: isotropic viscoelastic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``). ``viscoelastic2`` is accepted as an alias.
+    * ``viscoacoustic``: viscoacoustic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``).
     * ``anisotropic``: anisotropic elastic; essentially uses the same kernels as the ``elastic`` mode, but with more general matrices
     * ``poroelastic``: isotropic poroelastic
-- ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic simulations. For all other equations, this parameter is required to be 0.
+
+- ``SOLVER``: the scheme which advances a cell in time. The default, ``auto``, picks the first one the equation system supports.
+
+    * ``linearck``: the Cauchy-Kovalevskaya procedure for linear equations. The only choice for ``elastic``, ``acoustic`` and ``anisotropic``. For ``viscoelastic`` and ``viscoacoustic``, it carries the memory variables as additional quantities; this replaces ``VISCO_MODE=extend``.
+    * ``linearckanelastic``: the Cauchy-Kovalevskaya procedure with the memory variables kept separately, which is faster. The default for ``viscoelastic`` and ``viscoacoustic``; this replaces ``VISCO_MODE=split``.
+    * ``stp``: the space-time predictor, which treats stiff source terms implicitly. The only choice for ``poroelastic``.
+
+- ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic and viscoacoustic simulations. For all other equations, this parameter is required to be 0.
 - ``ORDER``: the expected convergence order. It corresponds to the polynomial degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.
 - ``PRECISION``:
 

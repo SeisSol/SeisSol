@@ -67,7 +67,7 @@ class GravitationalFreeSurfaceBc {
           << "The Free Surface Gravity BC kernel does not work with multiple simulations yet.";
     } else {
       constexpr int PIdx = 0;
-      constexpr int UIdx = model::MaterialT::TractionQuantities;
+      constexpr int UIdx = model::MaterialT::VelocityOffset;
 
       // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
       assert(boundaryMapping.nodes != nullptr);

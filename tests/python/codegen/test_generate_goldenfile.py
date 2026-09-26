@@ -22,6 +22,7 @@ Design notes:
 """
 
 import importlib.util  # noqa: F401
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -37,7 +38,13 @@ GENERATE = CODEGEN_DIR / "generate.py"
 def _invoke_generate(
     outdir, equation="elastic", order=3, precision="d", multi_sims=1, mechanisms=0
 ):
-    """Run generate.py with the given config. Returns CompletedProcess."""
+    """Run generate.py with the given config. Returns CompletedProcess.
+
+    The hash seed is pinned because the generator iterates over sets in a few
+    places, which permutes the order temporaries are declared in. Without it
+    two runs of the same input differ, and no diff of the generated code means
+    anything.
+    """
     return subprocess.run(
         [
             sys.executable,
@@ -54,7 +61,7 @@ def _invoke_generate(
             str(order),
             "--precision",
             precision,
-            "--numberOfMechanisms",
+            "--numMechanisms",
             str(mechanisms),
             "--memLayout",
             "auto",
@@ -69,6 +76,7 @@ def _invoke_generate(
             "--device_backend",
             "none",
         ],
+        env={**os.environ, "PYTHONHASHSEED": "0"},
         cwd=str(CODEGEN_DIR),
         capture_output=True,
         text=True,
@@ -216,7 +224,7 @@ class TestGeneratedContent:
 
 class TestAcousticSmoke:
     """Acoustic has fewer quantities (4 vs 9) — a separate pass verifies
-    no equation-specific path is ELBOW-DEPENDENT on numberOfQuantities=9."""
+    no equation-specific path is ELBOW-DEPENDENT on numQuantities=9."""
 
     def test_acoustic_generates(self, tmp_path):
         result = _invoke_generate(tmp_path, equation="acoustic", order=3)
@@ -235,7 +243,7 @@ class TestAcousticSmoke:
 
 class TestPoroelasticSmoke:
     """Poroelastic has more quantities (13 vs 9) — a separate pass verifies
-    no equation-specific path is ELBOW-DEPENDENT on numberOfQuantities=13."""
+    no equation-specific path is ELBOW-DEPENDENT on numQuantities=13."""
 
     def test_acoustic_generates(self, tmp_path):
         result = _invoke_generate(tmp_path, equation="poroelastic", order=3)
@@ -319,7 +327,7 @@ class TestGenerateErrorPaths:
                 "3",
                 "--precision",
                 "d",
-                "--numberOfMechanisms",
+                "--numMechanisms",
                 "0",
                 "--memLayout",
                 "auto",
@@ -343,3 +351,37 @@ class TestGenerateErrorPaths:
         # Error message from generate.py explicitly
         combined = result.stdout + result.stderr
         assert "Unknown GEMM tool" in combined or "fakegemm" in combined
+
+
+class TestReproducibility:
+    """The generated code has to be a function of the inputs alone.
+
+    Every refactor of the generator in this tree has leaned on the same check:
+    generate before, generate after, diff. That is only evidence if two runs of
+    the *same* input agree -- and they do not by default, because the generator
+    iterates over sets and the declaration order of temporaries follows the
+    hash seed.
+    """
+
+    @staticmethod
+    def _snapshot(root):
+        return {
+            path.relative_to(root).as_posix(): path.read_bytes()
+            for path in sorted(root.rglob("*"))
+            if path.is_file()
+        }
+
+    def test_two_runs_of_the_same_input_agree(self, tmp_path):
+        first, second = tmp_path / "first", tmp_path / "second"
+        for outdir in (first, second):
+            outdir.mkdir()
+            result = _invoke_generate(outdir)
+            assert result.returncode == 0, result.stderr
+
+        left, right = self._snapshot(first), self._snapshot(second)
+        assert sorted(left) == sorted(right), "the two runs produced different files"
+        differing = [name for name in left if left[name] != right[name]]
+        assert not differing, (
+            f"generated code is not reproducible; {len(differing)} file(s) differ, "
+            f"e.g. {differing[:3]}"
+        )

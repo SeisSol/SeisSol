@@ -12,12 +12,14 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/LtsSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 
 #include <algorithm>
 #include <array>
@@ -29,6 +31,7 @@ struct Iane;
 struct Qext;
 struct dQext;
 struct dQane;
+struct Zinv;
 } // namespace seissol::tensor
 
 namespace seissol::initializer::internal {
@@ -46,7 +49,8 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     auto* faceNeighbors = layer.var<LTS::FaceNeighborsDevice>();
 
     std::size_t derivativesCounter{0};
-    std::size_t integratedDofsCounter{0};
+    std::size_t integratedDofsCounterLocal{0};
+    std::size_t integratedDofsCounterNeighbor{0};
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
     std::size_t numPlasticCells = 0;
@@ -55,14 +59,20 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     std::array<std::size_t, 4> dirichletPerFace{};
 
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      const bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
+      const bool needsScratchMemForDerivatives =
+          !cellInformation[cell].ltsSetup.hasBuffer(BufferType::Derivatives);
+      const bool needsScratchMemForStepIntegral =
+          !cellInformation[cell].ltsSetup.hasBuffer(BufferType::StepIntegrals);
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
       }
-      ++integratedDofsCounter;
+      if (needsScratchMemForStepIntegral) {
+        ++integratedDofsCounterLocal;
+      }
 
       // include data provided by ghost layers
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+
         const real* neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
@@ -73,9 +83,9 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
             if (cellInformation[cell].faceTypes[face] == FaceType::Regular) {
 
               const bool isNeighbProvidesDerivatives =
-                  cellInformation[cell].ltsSetup.neighborHasDerivatives(face);
+                  cellInformation[cell].ltsSetup.neighborBuffer(face) == BufferType::Derivatives;
               if (isNeighbProvidesDerivatives) {
-                ++integratedDofsCounter;
+                ++integratedDofsCounterNeighbor;
               }
               registry.insert(neighborBuffer);
             }
@@ -103,6 +113,10 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
         }
       }
     }
+
+    const auto integratedDofsCounter =
+        std::max(integratedDofsCounterLocal, integratedDofsCounterNeighbor);
+
     const auto freeSurfaceCount =
         *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
     const auto dirichletCountPre =
@@ -112,13 +126,13 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
     layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter *
-                                                   kernels::Solver::BuffersSize * sizeof(real));
+                                                   kernels::Solver::IntegralsSize * sizeof(real));
     layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * TotalDerivativesSize *
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    NodalDisplacementsSize * sizeof(real));
 
-    if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+    if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
       layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * kernels::size<tensor::Iane>() *
                                                sizeof(real));
       layer.setEntrySize<LTS::DerivativesExtScratch>(
@@ -153,10 +167,10 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(sizeof(real) * freeSurfaceCount *
                                                      NodalDisplacementsSize);
 
-#ifdef USE_POROELASTIC
-    layer.setEntrySize<LTS::ZinvExtra>(layer.size() * yateto::computeFamilySize<tensor::Zinv>() *
-                                       sizeof(real));
-#endif
+    if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
+      layer.setEntrySize<LTS::ZinvExtra>(layer.size() * kernels::familySize<tensor::Zinv>() *
+                                         sizeof(real));
+    }
   }
 }
 

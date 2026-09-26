@@ -11,6 +11,7 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol::dr::output {
 /**
@@ -30,6 +31,12 @@ class RateAndStateBase : public ReceiverOutputImpl<Derived> {
            std::min(effectiveNormalStress, static_cast<real>(0.0));
   }
 
+  real computeLocalStrengthSlope(LocalInfo& local) {
+    const auto effectiveNormalStress =
+        local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
+    return effectiveNormalStress < 0 ? local.frictionCoefficient : static_cast<real>(0.0);
+  }
+
   real computeStateVariable(LocalInfo& local) {
     return this->template getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
   }
@@ -40,10 +47,11 @@ class RateAndStateBase : public ReceiverOutputImpl<Derived> {
     std::vector<std::size_t> failuresInner;
     std::vector<std::size_t> failuresOuter;
     for (std::size_t i = 0; i < misc::NumBoundaryGaussPoints; ++i) {
-      if (!inner[i]) {
+      const auto index = i * multisim::NumSimulations + local.fusedIndex;
+      if (!inner[index]) {
         failuresInner.push_back(i);
       }
-      if (!outer[i]) {
+      if (!outer[index]) {
         failuresOuter.push_back(i);
       }
     }

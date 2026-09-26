@@ -133,9 +133,24 @@ void ReceiverBasedOutputBuilder::initTopology() {
     // same coordinates -- fused simulations, or a point given twice in the parameter file. The
     // lookup is scoped to the face, since the node points of two adjacent faces may coincide
     // bit-for-bit (a corner of the reference face maps to a mesh vertex exactly).
+    //
+    // A point takes at most one receiver per simulation, though. A second receiver of the same
+    // simulation at the same position is a separate output which merely coincides with the first
+    // one -- a point given twice in the parameter file, or a corner which two sub-triangles of the
+    // refined elementwise output share. It starts a point of its own, so that the elementwise
+    // receivers keep the cell-major order which the elementwise writer indexes them by.
     const std::array<double, 3> coords{
         receiver.global.coords[0], receiver.global.coords[1], receiver.global.coords[2]};
-    if (faceBucket.pointIds.find(coords) == faceBucket.pointIds.end()) {
+    const auto existing = faceBucket.pointIds.find(coords);
+    bool joinsExisting = existing != faceBucket.pointIds.end();
+    if (joinsExisting) {
+      for (const auto other : faceBucket.points[existing->second].receiverIds) {
+        if (outputData_->receivers[other].simIndex == receiver.simIndex) {
+          joinsExisting = false;
+        }
+      }
+    }
+    if (!joinsExisting) {
       faceBucket.pointIds[coords] = faceBucket.points.size();
       auto& bucket = faceBucket.points.emplace_back();
       bucket.nearestGpIndex = static_cast<std::size_t>(receiver.nearestGpIndex);
