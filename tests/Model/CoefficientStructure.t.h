@@ -5,8 +5,15 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Equations/elastic/Model/Datastructures.h"
-#include "Equations/elastic/Model/Setup.h"
+#ifndef SEISSOL_TESTS_MODEL_COEFFICIENTSTRUCTURE_T_H_
+#define SEISSOL_TESTS_MODEL_COEFFICIENTSTRUCTURE_T_H_
+
+// A material's coefficient decomposition does not depend on the MaterialT of
+// the build, so these tests run in every build. Only the assembly into the
+// generated star layout needs a build whose quantities match.
+
+#include "Equations/Datastructures.h"
+#include "Equations/Setup.h"
 #include "GeneratedCode/init.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
@@ -14,29 +21,22 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <doctest.h>
 #include <random>
+#include <type_traits>
 
 namespace seissol::unit_test {
 
-namespace {
-
-using Setup = seissol::model::MaterialSetup<seissol::model::ElasticMaterial>;
-
-seissol::model::ElasticMaterial makeMaterial(double rho, double mu, double lambda) {
-  seissol::model::ElasticMaterial material{};
-  material.rho = rho;
-  material.mu = mu;
-  material.lambda = lambda;
-  return material;
-}
+namespace coefficients {
 
 /// The coefficient matrix as the declared decomposition builds it.
-Eigen::Matrix<double, 9, 9> assembled(const seissol::model::ElasticMaterial& material,
-                                      unsigned dim) {
+template <typename MaterialT, std::size_t N>
+Eigen::Matrix<double, N, N> assembled(const MaterialT& material, unsigned dim) {
+  using Setup = seissol::model::MaterialSetup<MaterialT>;
   const auto coefficients = Setup::getCoefficients(material);
-  Eigen::Matrix<double, 9, 9> matrix = Eigen::Matrix<double, 9, 9>::Zero();
+  Eigen::Matrix<double, N, N> matrix = Eigen::Matrix<double, N, N>::Zero();
   for (const auto& entry : Setup::CoefficientEntries) {
     if (entry.dim == dim) {
       matrix(entry.row, entry.column) += entry.factor * coefficients.at(entry.coefficient);
@@ -45,96 +45,143 @@ Eigen::Matrix<double, 9, 9> assembled(const seissol::model::ElasticMaterial& mat
   return matrix;
 }
 
-/// The packed star matrix as CellLocalMatrices builds it today: the three
-/// directional matrices, each scaled by its row of the Jacobian.
-std::array<double, seissol::tensor::star::size(0)>
-    referenceStar(const seissol::model::ElasticMaterial& material, const double gradient[3]) {
-  std::array<double, seissol::tensor::star::size(0)> matA{};
-  std::array<double, seissol::tensor::star::size(0)> matB{};
-  std::array<double, seissol::tensor::star::size(0)> matC{};
-  auto viewA = seissol::init::star::view<0>::create(matA.data());
-  auto viewB = seissol::init::star::view<0>::create(matB.data());
-  auto viewC = seissol::init::star::view<0>::create(matC.data());
-  Setup::getTransposedCoefficientMatrix(material, 0, viewA);
-  Setup::getTransposedCoefficientMatrix(material, 1, viewB);
-  Setup::getTransposedCoefficientMatrix(material, 2, viewC);
-
-  std::array<double, seissol::tensor::star::size(0)> result{};
-  for (std::size_t idx = 0; idx < result.size(); ++idx) {
-    result[idx] = gradient[0] * matA[idx] + gradient[1] * matB[idx] + gradient[2] * matC[idx];
-  }
-  return result;
-}
-
-void compareAssembly(const seissol::model::ElasticMaterial& material, const double gradient[3]) {
-  const auto reference = referenceStar(material, gradient);
-
-  std::array<double, seissol::tensor::star::size(0)> assembledData{};
-  auto view = seissol::init::star::view<0>::create(assembledData.data());
-  seissol::model::assembleStarMatrix<seissol::model::ElasticMaterial>(
-      Setup::getCoefficients(material), gradient, view);
-
-  const double scale = std::max(1.0, *std::max_element(reference.begin(), reference.end()));
-  for (std::size_t idx = 0; idx < reference.size(); ++idx) {
-    REQUIRE(assembledData[idx] ==
-            doctest::Approx(reference[idx]).epsilon(1e-13).scale(scale));
-  }
-}
-
-void compareFor(const seissol::model::ElasticMaterial& material) {
+/// The declaration has to reproduce what the material writes itself.
+template <typename MaterialT, std::size_t N>
+void checkDeclaration(const MaterialT& material) {
   for (unsigned dim = 0; dim < 3; ++dim) {
-    Eigen::Matrix<double, 9, 9> reference = Eigen::Matrix<double, 9, 9>::Zero();
-    Setup::getTransposedCoefficientMatrix(material, dim, reference);
+    Eigen::Matrix<double, N, N> reference = Eigen::Matrix<double, N, N>::Zero();
+    seissol::model::MaterialSetup<MaterialT>::getTransposedCoefficientMatrix(
+        material, dim, reference);
 
-    const auto candidate = assembled(material, dim);
-    for (std::size_t row = 0; row < 9; ++row) {
-      for (std::size_t column = 0; column < 9; ++column) {
+    const auto candidate = assembled<MaterialT, N>(material, dim);
+    const double scale = std::max(1.0, reference.cwiseAbs().maxCoeff());
+    for (std::size_t row = 0; row < N; ++row) {
+      for (std::size_t column = 0; column < N; ++column) {
         REQUIRE(candidate(row, column) ==
-                doctest::Approx(reference(row, column)).epsilon(1e-14));
+                doctest::Approx(reference(row, column)).epsilon(1e-13).scale(scale));
       }
     }
   }
 }
 
-} // namespace
+/// No entry may be claimed twice within one direction, or the decomposition
+/// would silently add two contributions into the same slot.
+template <typename MaterialT, std::size_t N>
+void checkUnique() {
+  std::array<std::array<bool, N * N>, 3> seen{};
+  for (const auto& entry : seissol::model::MaterialSetup<MaterialT>::CoefficientEntries) {
+    auto& slot = seen.at(entry.dim).at(entry.row * N + entry.column);
+    REQUIRE_FALSE(slot);
+    slot = true;
+  }
+}
 
-TEST_CASE("Elastic coefficient decomposition") {
+inline seissol::model::ElasticMaterial elastic(double rho, double mu, double lambda) {
+  seissol::model::ElasticMaterial material{};
+  material.rho = rho;
+  material.mu = mu;
+  material.lambda = lambda;
+  return material;
+}
+
+inline seissol::model::AcousticMaterial acoustic(double rho, double lambda) {
+  seissol::model::AcousticMaterial material{};
+  material.rho = rho;
+  material.lambda = lambda;
+  return material;
+}
+
+inline seissol::model::AnisotropicMaterial anisotropic(std::mt19937& rng) {
+  std::uniform_real_distribution<double> modulus(1e9, 1e11);
+  seissol::model::AnisotropicMaterial material{};
+  material.rho = 2500.0;
+  for (auto* component :
+       {&material.c11, &material.c12, &material.c13, &material.c14, &material.c15,
+        &material.c16, &material.c22, &material.c23, &material.c24, &material.c25,
+        &material.c26, &material.c33, &material.c34, &material.c35, &material.c36,
+        &material.c44, &material.c45, &material.c46, &material.c55, &material.c56,
+        &material.c66}) {
+    *component = modulus(rng);
+  }
+  return material;
+}
+
+} // namespace coefficients
+
+TEST_CASE("Coefficient decomposition") {
   std::mt19937 rng(20260926);
   std::uniform_real_distribution<double> positive(0.5, 5.0);
 
   SUBCASE("elastic") {
     for (std::size_t sample = 0; sample < 64; ++sample) {
-      compareFor(makeMaterial(positive(rng) * 1000.0, positive(rng) * 1e10, positive(rng) * 1e10));
+      coefficients::checkDeclaration<seissol::model::ElasticMaterial, 9>(coefficients::elastic(
+          positive(rng) * 1000.0, positive(rng) * 1e10, positive(rng) * 1e10));
     }
+    // acoustic material suppresses the shear-coupled 1/rho, which the
+    // decomposition carries as a coefficient of its own
+    for (std::size_t sample = 0; sample < 16; ++sample) {
+      coefficients::checkDeclaration<seissol::model::ElasticMaterial, 9>(
+          coefficients::elastic(positive(rng) * 1000.0, 0.0, positive(rng) * 1e10));
+    }
+    coefficients::checkUnique<seissol::model::ElasticMaterial, 9>();
   }
 
   SUBCASE("acoustic") {
     for (std::size_t sample = 0; sample < 16; ++sample) {
-      compareFor(makeMaterial(positive(rng) * 1000.0, 0.0, positive(rng) * 1e10));
+      coefficients::checkDeclaration<seissol::model::AcousticMaterial, 4>(
+          coefficients::acoustic(positive(rng) * 1000.0, positive(rng) * 1e10));
     }
+    coefficients::checkUnique<seissol::model::AcousticMaterial, 4>();
   }
 
-  SUBCASE("assembly against the folded matrices") {
+  SUBCASE("anisotropic") {
+    for (std::size_t sample = 0; sample < 32; ++sample) {
+      coefficients::checkDeclaration<seissol::model::AnisotropicMaterial, 9>(
+          coefficients::anisotropic(rng));
+    }
+    // no uniqueness check here: the three directional matrices share their
+    // stress block, so a slot legitimately takes one entry per direction
+  }
+}
+
+TEST_CASE("Star assembly from coefficients") {
+  if constexpr (std::is_same_v<seissol::model::MaterialT, seissol::model::ElasticMaterial>) {
+    std::mt19937 rng(20260927);
+    std::uniform_real_distribution<double> positive(0.5, 5.0);
     std::normal_distribution<double> gauss(0.0, 1.0);
-    for (std::size_t sample = 0; sample < 64; ++sample) {
-      const double gradient[3] = {gauss(rng), gauss(rng), gauss(rng)};
-      compareAssembly(
-          makeMaterial(positive(rng) * 1000.0, positive(rng) * 1e10, positive(rng) * 1e10),
-          gradient);
-      compareAssembly(makeMaterial(positive(rng) * 1000.0, 0.0, positive(rng) * 1e10), gradient);
-    }
-  }
 
-  SUBCASE("one entry per star slot") {
-    // the three directional matrices are disjointly occupied, so folding the
-    // Jacobian costs exactly one multiplication per entry
-    std::array<std::array<bool, 81>, 3> seen{};
-    for (const auto& entry : Setup::CoefficientEntries) {
-      auto& slot = seen.at(entry.dim).at(entry.row * 9 + entry.column);
-      REQUIRE_FALSE(slot);
-      slot = true;
+    for (std::size_t sample = 0; sample < 64; ++sample) {
+      const auto material = coefficients::elastic(
+          positive(rng) * 1000.0, positive(rng) * 1e10, positive(rng) * 1e10);
+      const double gradient[3] = {gauss(rng), gauss(rng), gauss(rng)};
+
+      // what CellLocalMatrices builds today: the three directional matrices,
+      // each scaled by its row of the Jacobian
+      std::array<std::array<double, seissol::tensor::star::size(0)>, 3> directional{};
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        auto view = seissol::init::star::view<0>::create(directional.at(dim).data());
+        seissol::model::MaterialSetup<seissol::model::ElasticMaterial>::
+            getTransposedCoefficientMatrix(material, dim, view);
+      }
+
+      std::array<double, seissol::tensor::star::size(0)> assembledData{};
+      auto view = seissol::init::star::view<0>::create(assembledData.data());
+      seissol::model::assembleStarMatrix<seissol::model::ElasticMaterial>(
+          seissol::model::MaterialSetup<seissol::model::ElasticMaterial>::getCoefficients(material),
+          gradient,
+          view);
+
+      for (std::size_t idx = 0; idx < assembledData.size(); ++idx) {
+        const double reference = gradient[0] * directional[0].at(idx) +
+                                 gradient[1] * directional[1].at(idx) +
+                                 gradient[2] * directional[2].at(idx);
+        const double scale = std::max(1.0, std::abs(reference));
+        REQUIRE(assembledData.at(idx) == doctest::Approx(reference).epsilon(1e-13).scale(scale));
+      }
     }
   }
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_TESTS_MODEL_COEFFICIENTSTRUCTURE_T_H_

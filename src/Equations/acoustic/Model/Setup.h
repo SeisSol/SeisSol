@@ -18,11 +18,30 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
+
 namespace seissol::model {
 using Matrix44 = Eigen::Matrix<double, 4, 4>;
 
 template <>
 struct MaterialSetup<AcousticMaterial> : public MaterialSetupDefaults<AcousticMaterial> {
+  /// lambda and 1/rho.
+  static constexpr std::size_t NumCoefficients = 2;
+
+  static std::array<double, NumCoefficients> getCoefficients(const AcousticMaterial& material) {
+    return {material.lambda, 1.0 / material.rho};
+  }
+
+  static constexpr std::array<CoefficientEntry, 6> CoefficientEntries{{
+      {0, 0, 1, 0, -1.0},
+      {1, 0, 0, 1, -1.0},
+      {0, 1, 2, 0, -1.0},
+      {1, 1, 0, 2, -1.0},
+      {0, 2, 3, 0, -1.0},
+      {1, 2, 0, 3, -1.0},
+  }};
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& matM) {

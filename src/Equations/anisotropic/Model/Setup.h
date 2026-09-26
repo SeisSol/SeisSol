@@ -16,6 +16,9 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
+
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
@@ -24,6 +27,104 @@ using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
 template <>
 struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<AnisotropicMaterial> {
+  /// The 21 independent elastic constants, then 1/rho. Unlike the isotropic
+  /// case, the three directional matrices share their stress block, so folding
+  /// the Jacobian costs three products per entry there rather than one.
+  static constexpr std::size_t NumCoefficients = 22;
+
+  static std::array<double, NumCoefficients> getCoefficients(const AnisotropicMaterial& material) {
+    return {material.c11,
+            material.c12,
+            material.c13,
+            material.c14,
+            material.c15,
+            material.c16,
+            material.c22,
+            material.c23,
+            material.c24,
+            material.c25,
+            material.c26,
+            material.c33,
+            material.c34,
+            material.c35,
+            material.c36,
+            material.c44,
+            material.c45,
+            material.c46,
+            material.c55,
+            material.c56,
+            material.c66,
+            1.0 / material.rho};
+  }
+
+  static constexpr std::array<CoefficientEntry, 63> CoefficientEntries{{
+      {0, 0, 6, 0, -1.0},
+      {5, 0, 7, 0, -1.0},
+      {4, 0, 8, 0, -1.0},
+      {1, 0, 6, 1, -1.0},
+      {10, 0, 7, 1, -1.0},
+      {9, 0, 8, 1, -1.0},
+      {2, 0, 6, 2, -1.0},
+      {14, 0, 7, 2, -1.0},
+      {13, 0, 8, 2, -1.0},
+      {5, 0, 6, 3, -1.0},
+      {20, 0, 7, 3, -1.0},
+      {19, 0, 8, 3, -1.0},
+      {3, 0, 6, 4, -1.0},
+      {17, 0, 7, 4, -1.0},
+      {16, 0, 8, 4, -1.0},
+      {4, 0, 6, 5, -1.0},
+      {19, 0, 7, 5, -1.0},
+      {18, 0, 8, 5, -1.0},
+      {21, 0, 0, 6, -1.0},
+      {21, 0, 3, 7, -1.0},
+      {21, 0, 5, 8, -1.0},
+
+      {5, 1, 6, 0, -1.0},
+      {1, 1, 7, 0, -1.0},
+      {3, 1, 8, 0, -1.0},
+      {10, 1, 6, 1, -1.0},
+      {6, 1, 7, 1, -1.0},
+      {8, 1, 8, 1, -1.0},
+      {14, 1, 6, 2, -1.0},
+      {7, 1, 7, 2, -1.0},
+      {12, 1, 8, 2, -1.0},
+      {20, 1, 6, 3, -1.0},
+      {10, 1, 7, 3, -1.0},
+      {17, 1, 8, 3, -1.0},
+      {17, 1, 6, 4, -1.0},
+      {8, 1, 7, 4, -1.0},
+      {15, 1, 8, 4, -1.0},
+      {19, 1, 6, 5, -1.0},
+      {9, 1, 7, 5, -1.0},
+      {16, 1, 8, 5, -1.0},
+      {21, 1, 3, 6, -1.0},
+      {21, 1, 1, 7, -1.0},
+      {21, 1, 4, 8, -1.0},
+
+      {4, 2, 6, 0, -1.0},
+      {3, 2, 7, 0, -1.0},
+      {2, 2, 8, 0, -1.0},
+      {9, 2, 6, 1, -1.0},
+      {8, 2, 7, 1, -1.0},
+      {7, 2, 8, 1, -1.0},
+      {13, 2, 6, 2, -1.0},
+      {12, 2, 7, 2, -1.0},
+      {11, 2, 8, 2, -1.0},
+      {19, 2, 6, 3, -1.0},
+      {17, 2, 7, 3, -1.0},
+      {14, 2, 8, 3, -1.0},
+      {16, 2, 6, 4, -1.0},
+      {15, 2, 7, 4, -1.0},
+      {12, 2, 8, 4, -1.0},
+      {18, 2, 6, 5, -1.0},
+      {16, 2, 7, 5, -1.0},
+      {13, 2, 8, 5, -1.0},
+      {21, 2, 5, 6, -1.0},
+      {21, 2, 4, 7, -1.0},
+      {21, 2, 2, 8, -1.0},
+  }};
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {
