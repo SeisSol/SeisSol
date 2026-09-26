@@ -144,3 +144,52 @@ def addFaceKernels(generator, aderdg, matricesDir, pointSet):
         simpleParameterSpace(4),
         lambda side: faceValues["k"] <= aderdg.db.materialToFace[side]["kn"] * samples["n"],
     )
+
+
+#: The three reparametrisations a shared face can have, as permutations of the
+#: barycentric coordinates of the reference triangle. All three are odd: two
+#: tetrahedra see the face between them with opposite orientation, so the map
+#: from one parametrisation to the other always reverses it, and which of the
+#: three it is depends on which vertices pair up.
+FACE_REFLECTIONS = ((0, 2, 1), (1, 0, 2), (2, 1, 0))
+
+
+def faceOrientationPermutations(matricesDir, aderdg):
+    """How the nodes of a face are renumbered between the two cells sharing it.
+
+    A value given at the nodes of a face reaches the other cell's numbering by
+    being reordered, nothing more: the nodal set is symmetric under the
+    triangle's reflections, so each one maps it onto itself. The generated fP
+    carries the same map in the modal basis with a mass factor -- M2 times this
+    permutation -- which is what the weak form needs and what a value does not.
+    """
+    import numpy as np
+    from yateto.input import parseJSONMatrixFile
+
+    db = parseJSONMatrixFile(
+        f"{matricesDir}/nodal/nodalBoundary_matrices_{aderdg.order}.json",
+        clones=dict(),
+        alignStride=aderdg.alignStride,
+    )
+    shape = db.nodes2D.shape()
+    points = np.zeros(shape)
+    for idx, value in db.nodes2D.values().items():
+        points[idx] = float(value)
+
+    bary = np.stack([1.0 - points[:, 0] - points[:, 1], points[:, 0], points[:, 1]], axis=1)
+
+    permutations = []
+    for sigma in FACE_REFLECTIONS:
+        moved = np.stack([bary[:, sigma[1]], bary[:, sigma[2]]], axis=1)
+        order = []
+        for target in moved:
+            distance = np.linalg.norm(points - target, axis=1)
+            nearest = int(np.argmin(distance))
+            if distance[nearest] > 1e-10:
+                raise RuntimeError(
+                    "the two-dimensional nodal set is not symmetric under the "
+                    "reflections of the triangle, so a face cannot be renumbered"
+                )
+            order.append(nearest)
+        permutations.append(tuple(order))
+    return tuple(permutations)

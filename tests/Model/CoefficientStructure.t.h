@@ -427,6 +427,69 @@ TEST_CASE("Flux decomposition") {
   SUBCASE("free surface, acoustic") { check(true, true, seissol::FaceType::FreeSurface); }
 }
 
+/// The two cells sharing a face parametrise it differently, and the generated
+/// fP carries the map between the two in the modal basis with a mass factor.
+/// Strip the factor and go to the nodes and it is a renumbering, nothing more --
+/// which is what a value given at the nodes needs, and what a flux built from
+/// the material of both sides is made of.
+TEST_CASE("Face orientation renumbering") {
+  constexpr auto Nodes = seissol::generated::FaceNodes;
+  using Matrix = Eigen::Matrix<double, Nodes, Nodes>;
+
+  const auto dense = [](auto view, std::size_t rows, std::size_t columns) {
+    Eigen::MatrixXd matrix = Eigen::MatrixXd::Zero(rows, columns);
+    for (std::size_t row = 0; row < rows; ++row) {
+      for (std::size_t column = 0; column < columns; ++column) {
+        if (view.isInRange(row, column)) {
+          matrix(row, column) = view(row, column);
+        }
+      }
+    }
+    return matrix;
+  };
+
+  const auto nodalToModal = dense(seissol::nodal::init::MV2nTo2m::view::create(
+                                      const_cast<double*>(seissol::nodal::init::MV2nTo2m::Values)),
+                                  Nodes,
+                                  Nodes);
+  // the way back is its inverse; only the one direction is generated
+  const Eigen::MatrixXd modalToNodal = nodalToModal.inverse();
+  const auto massInverse =
+      dense(seissol::init::M2inv::view::create(const_cast<double*>(seissol::init::M2inv::Values)),
+            Nodes,
+            Nodes);
+
+  REQUIRE(seissol::generated::FaceOrientations == 3);
+  const auto check = [&](auto tag) {
+    constexpr unsigned Orientation = decltype(tag)::value;
+    const auto facePermutation =
+        dense(seissol::init::fP::view<Orientation>::create(
+                  const_cast<double*>(seissol::init::fP::Values[Orientation])),
+              Nodes,
+              Nodes);
+    const std::size_t orientation = Orientation;
+
+    // the same map without the mass factor, taken to the nodes
+    const Eigen::MatrixXd atNodes = modalToNodal * (massInverse * facePermutation) * nodalToModal;
+
+    Matrix expected = Matrix::Zero();
+    const auto& renumbering = seissol::generated::FaceOrientationPermutations[orientation];
+    for (std::size_t node = 0; node < Nodes; ++node) {
+      expected(node, renumbering[node]) = 1.0;
+    }
+
+    for (std::size_t row = 0; row < Nodes; ++row) {
+      for (std::size_t column = 0; column < Nodes; ++column) {
+        INFO("orientation " << orientation << " at (" << row << "," << column << ")");
+        REQUIRE(atNodes(row, column) == doctest::Approx(expected(row, column)).epsilon(1e-10));
+      }
+    }
+  };
+  check(std::integral_constant<unsigned, 0>{});
+  check(std::integral_constant<unsigned, 1>{});
+  check(std::integral_constant<unsigned, 2>{});
+}
+
 TEST_CASE("Star assembly from coefficients") {
   if constexpr (std::is_same_v<seissol::model::MaterialT, seissol::model::ElasticMaterial>) {
     std::mt19937 rng(20260927);

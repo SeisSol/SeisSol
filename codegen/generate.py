@@ -223,6 +223,7 @@ def main():
     solverCoefficientCount = 0
     solverCoefficientOrigins = []
     materialSampleCount = 1
+    adgForTables = None
 
     routine_cache = GlobalRoutineCache()
 
@@ -283,6 +284,8 @@ def main():
 
         # Equation-specific kernels
         nonlocal solverCoefficientCount, solverCoefficientOrigins, materialSampleCount
+        nonlocal adgForTables
+        adgForTables = adg
         solverCoefficientCount = adg.solverCoefficientCount()
         solverCoefficientOrigins = adg.solverCoefficientOrigins()
         if cmdLineArgs.material_nodal:
@@ -434,6 +437,9 @@ def main():
             solver_count=solverCoefficientCount,
             solver_origins=solverCoefficientOrigins,
             material_samples=materialSampleCount,
+            face_permutations=kernels.material.faceOrientationPermutations(
+                cmdLineArgs.matricesDir, adgForTables
+            ),
         )
 
         forward_files("init.h")

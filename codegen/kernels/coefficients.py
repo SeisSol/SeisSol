@@ -421,7 +421,8 @@ def _table(kind: str, name: str, rows: List[str]) -> List[str]:
 
 def generate(path: str, solver_count: int = None,
              solver_origins: List[str] = None,
-             material_samples: int = 1) -> None:
+             material_samples: int = 1,
+             face_permutations=()) -> None:
     """Write the declarations of every material into a C++ header.
 
     With a count for the configured build, the header also states how many
@@ -475,6 +476,20 @@ def generate(path: str, solver_count: int = None,
                 [f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
                  for e in decomposition.source],
             )
+
+    if face_permutations:
+        lines += [
+            "// how the nodes of a face are renumbered between the two cells\n",
+            "// sharing it, one row per reparametrisation\n",
+            f"inline constexpr std::size_t FaceOrientations = {len(face_permutations)};\n",
+            f"inline constexpr std::size_t FaceNodes = {len(face_permutations[0])};\n",
+            "inline constexpr std::array<std::array<std::size_t, "
+            f"{len(face_permutations[0])}>, {len(face_permutations)}> "
+            "FaceOrientationPermutations{{\n",
+        ]
+        for perm in face_permutations:
+            lines.append("    {{" + ", ".join(str(i) for i in perm) + "}},\n")
+        lines.append("}};\n\n")
 
     lines.append("// the isotropic elastic flux operator, as scalars of the face\n")
     lines.append("// times fixed entries\n")
