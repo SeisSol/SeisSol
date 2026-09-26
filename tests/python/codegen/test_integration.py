@@ -406,11 +406,6 @@ class TestTensorNumpyRoundtrip:
         recovered = tensor_to_numpy(t)
         np.testing.assert_allclose(recovered, a)
 
-    @pytest.mark.xfail(
-        reason="Upstream yateto bug",
-        raises=IndexError,
-        strict=True,
-    )
     def test_roundtrip_all_zeros(self):
         from kernels.common import numpy_to_tensor, tensor_to_numpy
 

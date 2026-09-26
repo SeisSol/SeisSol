@@ -53,8 +53,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                           real* pstrain) {
 
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Vectorsize == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Vectorsize == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Vectorsize == 0);
 
   alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
 
@@ -76,7 +74,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
    */
 
   kernel::plConvertToNodal m2nKrnl;
-  m2nKrnl.v = global->vandermondeMatrix;
+  m2nKrnl.bindGlobals(*global);
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
@@ -84,25 +82,25 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Computes m = s_{ii} / 3.0 for every node
   kernel::plComputeMean cmKrnl;
+  cmKrnl.bindGlobals(*global);
   cmKrnl.meanStress = meanStress;
   cmKrnl.QStressNodal = qStressNodal;
-  cmKrnl.selectBulkAverage = init::selectBulkAverage::Values;
   cmKrnl.execute();
 
   /* Compute s_{ij} := s_{ij} - m delta_{ij},
    * where delta_{ij} = 1 if i == j else 0.
    * Thus, s_{ij} contains the deviatoric stresses. */
   kernel::plSubtractMean smKrnl;
+  smKrnl.bindGlobals(*global);
   smKrnl.meanStress = meanStress;
   smKrnl.QStressNodal = qStressNodal;
-  smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
   smKrnl.execute();
 
   // Compute I_2 = 0.5 s_{ij} s_ji for every node
   kernel::plComputeSecondInvariant siKrnl;
+  siKrnl.bindGlobals(*global);
   siKrnl.secondInvariant = secondInvariant;
   siKrnl.QStressNodal = qStressNodal;
-  siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
   siKrnl.execute();
 
 // tau := sqrt(I_2) for every node
@@ -213,7 +211,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
     kernel::plConvertToModal adjKrnl;
     adjKrnl.QStress = degreesOfFreedom;
-    adjKrnl.vInv = global->vandermondeMatrixInverse;
+    adjKrnl.bindGlobals(*global);
     adjKrnl.QStressNodal = qStressNodal;
     adjKrnl.execute();
 
@@ -257,7 +255,7 @@ void Plasticity::computePlasticityBatched(
     static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal m2nKrnl;
-    m2nKrnl.v = global->vandermondeMatrix;
+    m2nKrnl.bindGlobals(*global);
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
     m2nKrnl.initialLoading = const_cast<const real**>(initLoad);
@@ -279,7 +277,7 @@ void Plasticity::computePlasticityBatched(
                                                  defaultStream);
 
     kernel::gpu_plConvertToModal n2mKrnl;
-    n2mKrnl.vInv = global->vandermondeMatrixInverse;
+    n2mKrnl.bindGlobals(*global);
     n2mKrnl.QStressNodal = const_cast<const real**>(nodalStressTensors);
     n2mKrnl.QStress = modalStressTensors;
     n2mKrnl.streamPtr = defaultStream;

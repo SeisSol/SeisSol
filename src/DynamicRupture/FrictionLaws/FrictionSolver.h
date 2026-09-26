@@ -55,7 +55,7 @@ class FrictionSolver {
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   virtual void allocateAuxiliaryMemory(GlobalData* globalData) {
-    spaceWeights_ = globalData->spaceWeights;
+    spaceWeights_ = globalData->quadweights;
   }
 
   virtual seissol::initializer::AllocationPlace allocationPlace() {
@@ -92,7 +92,7 @@ class FrictionSolver {
   real (*__restrict traction2_)[misc::NumPaddedPoints]{};
   real (*__restrict imposedStatePlus_)[tensor::QInterpolated::size()]{};
   real (*__restrict imposedStateMinus_)[tensor::QInterpolated::size()]{};
-  real* __restrict spaceWeights_{};
+  const real* __restrict spaceWeights_{};
   DREnergyOutput* __restrict energyData_{};
   DRGodunovData* __restrict godunovData_{};
   real (*__restrict stressSourcePressure_)[misc::NumPaddedPoints]{};

@@ -10,8 +10,8 @@ import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import layout, total_extent
-from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
@@ -257,7 +257,7 @@ class LinearCKAnelastic(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            volumeSum = Add()
+            volumeSum = Accumulate(ops.Add())
             for i in range(3):
                 volumeSum += (
                     self.db.kDivM[i][self.t("kl")]
@@ -430,8 +430,8 @@ class LinearCKAnelastic(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            derivativeTaylorExpansionEla = Add()
-            # derivativeTaylorExpansionAne = Add()
+            derivativeTaylorExpansionEla = Accumulate(ops.Add())
+            # derivativeTaylorExpansionAne = Accumulate(ops.Add())
             for d in range(0, self.order):
                 derivativeTaylorExpansionEla += powers[d] * dQ[d]["kp"]
                 # derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
@@ -441,7 +441,7 @@ class LinearCKAnelastic(ADERDGBase):
             # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
             def derivative(kthDer):
-                derivativeSum = Add()
+                derivativeSum = Accumulate(ops.Add())
                 for j in range(3):
                     derivativeSum += (
                         self.db.kDivMT[j][self.t("kl")]

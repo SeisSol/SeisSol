@@ -16,7 +16,8 @@ def generate_kernel_name_prefix(target):
 
 def tensor_to_numpy(tensor):
     np_tensor = np.zeros(tensor.shape())
-    for indices in tensor.values():
+    # a tensor without a single nonzero carries no values at all
+    for indices in tensor.values() or {}:
         np_tensor[indices] = np.float64(tensor._values[indices])
     return np_tensor
 

@@ -44,22 +44,12 @@
 namespace seissol::kernels::solver::linearck {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
-  nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  nfKrnlPrototype_.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  nfKrnlPrototype_.fP = global.onHost->neighborFluxMatrices;
-  drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  nfKrnlPrototype_.bindGlobals(*global.onHost);
+  drKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
-#ifdef USE_PREMULTIPLY_FLUX
-  deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
-#else
-  deviceNfKrnlPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype_.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype_.fP = global.onDevice->neighborFluxMatrices;
-#endif
-  deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceNfKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceDrKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 

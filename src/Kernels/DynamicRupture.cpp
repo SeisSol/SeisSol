@@ -44,11 +44,11 @@ GENERATE_HAS_MEMBER(I)
 namespace seissol::kernels {
 
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
-  krnlPrototype_.V3mTo2n = global.onHost->faceToNodalMatrices;
+  krnlPrototype_.bindGlobals(*global.onHost);
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  gpuKrnlPrototype_.V3mTo2n = global.onDevice->faceToNodalMatrices;
-  gpuCombinedKrnlPrototype_.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  gpuKrnlPrototype_.bindGlobals(*global.onDevice);
+  gpuCombinedKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 
   timeKernel_.setGlobalData(global);
@@ -64,8 +64,8 @@ void DynamicRupture::spaceTimeInterpolation(
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
+
   // assert alignments
-#ifndef NDEBUG
   assert(timeDerivativePlus != nullptr);
   assert(timeDerivativeMinus != nullptr);
   assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Vectorsize == 0);
@@ -74,7 +74,6 @@ void DynamicRupture::spaceTimeInterpolation(
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Vectorsize == 0);
   static_assert(tensor::Q::size() == tensor::I::size(),
                 "The tensors Q and I need to match in size");
-#endif
 
   alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
