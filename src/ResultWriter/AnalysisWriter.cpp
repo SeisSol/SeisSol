@@ -87,6 +87,14 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
+  // the errors of all simulations, gathered on rank 0 as they are printed and written once at the
+  // end; "LInf_rel" is the longest norm name
+  seissol::io::instance::point::Csv table("analysis");
+  table.addColumn<std::int32_t>("variable");
+  table.addTextColumn("norm", 8);
+  table.addColumn<std::uint64_t>("simulation_index");
+  table.addColumn<double>("error");
+
   for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo() << "--------------------------";
@@ -289,17 +297,13 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                0,
                comm);
 
-    // the errors, gathered on rank 0 as they are printed; "LInf_rel" is the longest norm name
-    seissol::io::instance::point::Csv table("analysis");
-    table.addColumn<std::int32_t>("variable");
-    table.addTextColumn("norm", 8);
-    table.addColumn<double>("error");
-    const auto addObservation =
-        [&table](std::size_t variable, const std::string& norm, double error) {
-          table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
-          table.addText(norm);
-          table.addCell<double>(error);
-        };
+    const auto addObservation = [&table,
+                                 sim](std::size_t variable, const std::string& norm, double error) {
+      table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
+      table.addText(norm);
+      table.addCell<std::uint64_t>(sim);
+      table.addCell<double>(error);
+    };
 
     for (std::size_t i = 0; i < NumQuantities; ++i) {
       VrtxCoords centerSend{};
@@ -336,10 +340,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         addObservation(i, "LInf_rel", errLInfRel);
       }
     }
+  }
 
-    if (mpi.rank() == 0) {
-      table.writeFile(fileName_);
-    }
+  if (mpi.rank() == 0) {
+    table.writeFile(fileName_);
   }
 }
 } // namespace seissol::writer

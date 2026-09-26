@@ -23,6 +23,15 @@ parameter file that sets ``kVec`` for a planar wave therefore imposes a
 different wave than before. Without ``kVec``, the wave vector is
 :math:`(\pi, \pi, \pi)`, as it always was.
 
+The simulations in the analysis output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the verification cases on mini meshes)
+
+``-analysis.csv`` has a ``simulation_index`` column, as ``-energy.csv`` has.
+With fused simulations, each simulation used to overwrite the analysis of the
+one before, so that the file held the last simulation only; it now holds all of
+them. A reader that picks the columns by position has to follow.
+
 The fault tag of the elementwise fault output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)

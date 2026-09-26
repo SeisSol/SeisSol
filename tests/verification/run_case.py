@@ -314,9 +314,12 @@ def check_outputs(
 def read_analysis(path):
     """Read ``<prefix>-analysis.csv``, which SeisSol writes at the end of a run.
 
-    The file holds one row per quantity and norm. SeisSol writes it through its
-    CSV table, which quotes text, so the norm comes in quotes, and writes every
-    number in its shortest exact form.
+    The file holds one row per quantity, norm and simulation. SeisSol writes it
+    through its CSV table, which quotes text, so the norm comes in quotes, and
+    writes every number in its shortest exact form. The columns are read by
+    their names. With fused simulations, a quantity is named after its
+    simulation as well, e.g. ``3[5]``, so that the largest error over the
+    quantities is the largest over the simulations, too.
 
     A quantity the wave does not excite, e.g. a stress component off the plane
     of a plane wave along an axis, has no relative error: SeisSol divides by the
@@ -325,13 +328,16 @@ def read_analysis(path):
     """
     norms = {}
     with path.open(encoding="utf-8", newline="") as stream:
-        rows = list(csv.reader(stream))
-    for row in rows[1:]:
-        fields = [field.strip() for field in row]
-        if len(fields) != 3:
-            continue
-        variable, norm, value = fields
-        norms.setdefault(norm, {})[variable] = float(value)
+        rows = [
+            {key.strip(): value.strip() for key, value in row.items()}
+            for row in csv.DictReader(stream)
+        ]
+    fused = len({row.get("simulation_index", "0") for row in rows}) > 1
+    for row in rows:
+        variable = row["variable"]
+        if fused:
+            variable = f"{variable}[{row['simulation_index']}]"
+        norms.setdefault(row["norm"], {})[variable] = float(row["error"])
     for norm in [name for name in norms if name.endswith("_rel")]:
         absolute = norms.get(norm.removesuffix("_rel"), {})
         norms[norm] = {
