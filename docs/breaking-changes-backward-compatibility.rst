@@ -13,6 +13,27 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The receivers of fused simulations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the verification cases on mini meshes)
+
+A receiver of a fused run takes a row per sample and simulation, in the text
+files as in the HDF5 tables, and a column ``SimulationIndex`` says which
+simulation a row holds, counted from zero. The text files used to have a column
+per quantity and simulation instead, with the simulation in the name (``v10``,
+``v11``, ... off the fault, ``SRs-1``, ``SRs-2``, ... on it), and the HDF5 table
+of the off-fault receivers had a row per receiver holding all simulations.
+``postprocessing/science/widen_fused_receivers.py`` converts text files to the
+previous layout. The header of an on-fault receiver gives ``P_0``, ``T_s`` and
+``T_d`` in a line each, with a value per simulation.
+
+Without fused simulations, the text files keep their layout, and the on-fault
+receivers have the header of version 1.3 again: the title names the receiver,
+and the initial stress is given as ``P_0``, ``T_s`` and ``T_d`` rather than
+``P_01``, ``T_s1`` and ``T_d1``. The option ``aggregateperrank`` in the
+``Pickpoint`` section, which wrote all on-fault receivers of a rank into one text
+file, is gone; ``format = 'hdf5'`` writes all of them into a single file.
+
 The wave vector of the planar wave
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the verification cases on mini meshes)

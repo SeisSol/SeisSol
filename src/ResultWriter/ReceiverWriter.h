@@ -88,7 +88,8 @@ class ReceiverWriter : public seissol::Module {
 
   private:
   [[nodiscard]] std::string fileName(std::size_t pointId) const;
-  [[nodiscard]] std::vector<std::string> variableNames() const;
+  //! @brief What one simulation records at a receiver, without the time.
+  [[nodiscard]] std::vector<std::string> quantityNames() const;
   void writeHeader(std::size_t pointId, const Eigen::Vector3d& point, std::size_t globalId);
 
   //! @brief A receiver together with the number of columns one of its samples takes.
@@ -116,7 +117,7 @@ class ReceiverWriter : public seissol::Module {
 
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> receiverClusters_;
 
-  /// One HDF5 table per quantity set, for the receivers this rank holds
+  /// One HDF5 table per quantity set, with a row per receiver this rank holds and simulation
   std::unique_ptr<io::instance::point::Hdf5Table> table_;
 
   /// How far a storage chunk of the table reaches along the sample axis

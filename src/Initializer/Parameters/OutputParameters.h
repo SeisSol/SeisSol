@@ -95,7 +95,6 @@ struct PickpointParameters {
   double writeInterval{VeryLongTime};
   std::array<bool, 12> outputMask{true, true, true};
   std::optional<std::string> pickpointFileName;
-  bool aggregate{false};
   bool collectiveio{false};
   ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
   //! @brief As ReceiverOutputParameters::samplechunk, for the on-fault receivers.

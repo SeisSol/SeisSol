@@ -14,9 +14,12 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "IO/Instance/Point/Hdf5Table.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Kernels/Precision.h"
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <array>
+#include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -67,6 +70,10 @@ class OutputManager {
   //! @brief Moves the samples cached since the last write into the tables.
   void collectPickpointSamples();
 
+  //! @brief The stress the fault starts out under at an on-fault receiver, aligned with strike
+  //! and dip, as the six components of a symmetric tensor.
+  std::array<real, 6> initialStress(const ReceiverOutputData& outputData, std::size_t index);
+
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder_{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder_{nullptr};
 
@@ -76,7 +83,7 @@ class OutputManager {
   struct PickpointFile {
     std::string fileName;
 
-    // all receivers to be printed into this file
+    // the receiver the file holds, as a receiver point per simulation, in the order of their index
     std::vector<std::size_t> indices;
   };
 

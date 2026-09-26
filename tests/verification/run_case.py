@@ -194,7 +194,13 @@ def unmet_requirements(capabilities, requirements):
 
 
 def read_receiver(path):
-    """Read a receiver file into column names and rows of floats."""
+    """Read a receiver file into column names and rows of floats.
+
+    With fused simulations, SeisSol writes a row per sample and simulation, which
+    the column SimulationIndex names. Those rows are joined into one per sample,
+    with the quantities of a simulation named after it, e.g. ``v1[3]``, as
+    read_analysis names them.
+    """
     names = []
     rows = []
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -207,19 +213,49 @@ def read_receiver(path):
             continue
         else:
             rows.append([float(item) for item in stripped.split()])
+    if "SimulationIndex" in names:
+        return _join_simulations(names, rows)
     return names, rows
+
+
+def _join_simulations(names, rows):
+    """Join the rows a fused run writes per simulation into one per sample."""
+    column = names.index("SimulationIndex")
+    quantities = [name for i, name in enumerate(names) if i not in (0, column)]
+    simulations = sorted({int(row[column]) for row in rows})
+    joined = []
+    for start in range(0, len(rows), len(simulations)):
+        sample = rows[start : start + len(simulations)]
+        if [int(row[column]) for row in sample] != simulations or any(
+            row[0] != sample[0][0] for row in sample
+        ):
+            raise ValueError(
+                f"the simulations of the sample in row {start} are not complete"
+            )
+        joined.append(
+            [sample[0][0]]
+            + [
+                value
+                for row in sample
+                for i, value in enumerate(row)
+                if i not in (0, column)
+            ]
+        )
+    header = [
+        f"{name}[{simulation}]" for simulation in simulations for name in quantities
+    ]
+    return [names[0]] + header, joined
 
 
 def receiver_columns(name, simulations):
     """The receiver columns that hold ``name``, one list per fused simulation.
 
-    With fused simulations, SeisSol appends the simulation to every quantity:
-    counted from zero and without a separator in the volume receivers (v10,
-    v11, ...), counted from one and after a dash on the fault (SRs-1, ...).
+    With fused simulations, read_receiver names a quantity after its simulation,
+    counted from zero: ``v1[0]``, ``v1[1]``, ...
     """
     if simulations <= 1:
         return [[name]]
-    return [[f"{name}{index}", f"{name}-{index + 1}"] for index in range(simulations)]
+    return [[f"{name}[{index}]"] for index in range(simulations)]
 
 
 def check_outputs(
@@ -818,6 +854,16 @@ _COMPONENTS = {
 }
 
 
+def _component_group(column):
+    """The vector or tensor a receiver column is a component of, per simulation.
+
+    A column that is no component is a group of its own.
+    """
+    name, bracket, simulation = column.partition("[")
+    group = _COMPONENTS.get(name)
+    return group + bracket + simulation if group else column
+
+
 def compare_fingerprints(reference, current):
     """Compare two sets of fingerprints.
 
@@ -863,7 +909,7 @@ def compare_fingerprints(reference, current):
         common = set(old["columns"]) & set(new["columns"])
         amplitude, energy = {}, {}
         for column in common:
-            group = _COMPONENTS.get(column, column)
+            group = _component_group(column)
             for stats in (old["columns"][column], new["columns"][column]):
                 amplitude[group] = max(amplitude.get(group, 0.0), stats["max"])
                 energy[group] = max(energy.get(group, 0.0), stats["l2"])
@@ -872,7 +918,7 @@ def compare_fingerprints(reference, current):
                 problems.append(f"{name}: column {column} is only in one of the two")
                 continue
             a, b = old["columns"][column], new["columns"][column]
-            group = _COMPONENTS.get(column, column)
+            group = _component_group(column)
             scale = amplitude[group]
             deviations = [_relative(a["l2"], b["l2"], energy[group])]
             deviations += [_relative(a[key], b[key], scale) for key in ("max", "final")]

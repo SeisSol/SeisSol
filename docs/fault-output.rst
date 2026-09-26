@@ -134,6 +134,40 @@ receivers`_ below.
 
 **printtimeinterval** determines how frequently the output is generated — every **printtimeinterval** (local) time step. Please note that using this output with local time-stepping may result in differently sampled receiver files.
 
+The text files
+~~~~~~~~~~~~~~
+
+Every receiver has a file of its own, ``-faultreceiver-00001.dat`` and so on,
+numbered by its line in ``PPFileName``. Its header names the columns and states
+where the receiver sits and the stress the fault starts out under there, rotated
+into the strike and dip directions:
+
+::
+
+  TITLE = "Temporal Signal for fault receiver number 1"
+  VARIABLES = "Time" ,"SRs" ,"SRd" ,"T_s" ,"T_d" ,"P_n" ,...
+  # x1                    ...
+  # x2                    ...
+  # x3                    ...
+  # face-global-id        ...
+  # plus-cell-global-id   ...
+  # plus-face-side        ...
+  # minus-cell-global-id  ...
+  # minus-face-side       ...
+  # P_0                   ...
+  # T_s                   ...
+  # T_d                   ...
+
+followed by a row per sample. ``T_s``, ``T_d`` and ``P_n`` are the change of the
+tractions; adding ``T_s``, ``T_d`` and ``P_0`` of the header gives the total.
+
+With fused simulations, a sample takes a row per simulation, and the second
+column, ``SimulationIndex``, says which one, counted from zero. The lines
+``P_0``, ``T_s`` and ``T_d`` of the header then hold a value per simulation, in
+the same order. SeisSol used to write a column per quantity and simulation
+instead (``SRs-1``, ``SRs-2``, ...); ``postprocessing/science/widen_fused_receivers.py``
+converts the files to that layout for tools that expect it.
+
 .. _outputmask-1:
 
 OutputMask
@@ -147,11 +181,11 @@ HDF5 fault receivers
 Setting ``format = 'hdf5'`` in the ``Pickpoint`` section writes all receivers
 into a single file, ``-faultreceivers.h5``, instead of one text file each.
 
-A row of that table is **one receiver of one simulation**, so what the text
-files express as a column name with a simulation suffix is a row of its own
-here, and what their header states about a receiver becomes a column beside the
-table. The layout is the one of the off-fault receivers, described under
-:ref:`off_fault_receivers`, with these columns:
+A row of that table is **one receiver of one simulation**, as a sample of a
+fused run is a row per simulation in the text files, and what their header
+states about a receiver becomes a column beside the table. The layout is the one
+of the off-fault receivers, described under :ref:`off_fault_receivers`, with
+these columns:
 
 ::
 
@@ -164,6 +198,7 @@ table. The layout is the one of the off-fault receivers, described under
   /faultreceivers/MinusCellId      (receivers,)     the cell on the minus side
   /faultreceivers/MinusFaceSide    (receivers,)     and its local face number
   /faultreceivers/Coordinates      (receivers, 3)   where the receiver sits
+  /faultreceivers/InitialStress    (receivers, 3)   P_0, T_s and T_d of the text header
 
 The quantities of a sample are ``Time`` followed by the components the
 ``OutputMask`` turned on.

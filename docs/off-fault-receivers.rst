@@ -48,6 +48,17 @@ the form:
 The receivers files contain the time-histories of the stress tensor (6 variables) and the particle velocities (3).
 Currently, there is no way to write only a subset of these variables.
 
+With fused simulations, a sample of a text file takes a row per simulation, and
+the second column, ``SimulationIndex``, says which one, counted from zero:
+
+::
+
+  VARIABLES = "Time","SimulationIndex","s_xx","s_yy","s_zz","s_xy","s_yz","s_xz","v1","v2","v3"
+
+SeisSol used to write a column per quantity and simulation instead (``v10``,
+``v11``, ...); ``postprocessing/science/widen_fused_receivers.py`` converts the
+files to that layout for tools that expect it.
+
 The variable :code:`ReceiverOutputInterval` (in the section :code:`Output` of the :ref:`parameter-file`) controls the frequency of flushing receiver time-histories. If not specified, they are written at the end of the simulation.
 
 The HDF5 receiver file
@@ -61,19 +72,23 @@ into groups that share a quantity set, and each group becomes a dataset
 ``group0``, ``group1``, ... of its own. A run in which every receiver records the
 same quantities -- the usual case -- has exactly one of them.
 
-A dataset is indexed by sample and by receiver:
+A dataset is indexed by sample and by row, and a row is **one receiver of one
+simulation**, so a run of fused simulations has a row per receiver and
+simulation:
 
 ::
 
-  /receivers/group0        (samples, receivers)   compound
+  /receivers/group0        (samples, rows)   compound
 
-One element is a whole sample of one receiver, as a compound whose members are
-the quantities: ``Time`` first, then the material quantities, then the derived
-ones if :code:`ReceiverComputeRotation` or :code:`ReceiverComputeStrainRate` are
-on. That is the same memory as a ``(sample, receiver, quantity)`` array of
-numbers, with the quantity axis named rather than numbered, so the names and the
-types come out of the file itself. All the samples of one receiver lie together,
-which is the access a post-processing step usually wants.
+One element is a whole sample of one row, as a compound whose members are the
+quantities: ``Time`` first, then the material quantities, then the derived ones
+if :code:`ReceiverComputeRotation` or :code:`ReceiverComputeStrainRate` are on.
+That is the same memory as a ``(sample, row, quantity)`` array of numbers, with
+the quantity axis named rather than numbered, so the names and the types come
+out of the file itself. All the samples of one row lie together, which is the
+access a post-processing step usually wants. A receiver that took fewer samples
+than the longest one of its dataset leaves the rest of its column at a quiet
+``NaN``.
 
 Two attributes describe a dataset:
 
@@ -83,21 +98,23 @@ Two attributes describe a dataset:
 ``NumberOfPoints``
   how many receivers it holds over all ranks
 
-Beside the datasets, and written once, are the columns describing the receivers,
-in the order the ranks contributed them:
+Beside the datasets, and written once, are the columns describing the rows, in
+the order the ranks contributed them:
 
 ::
 
-  /receivers/Index         (receivers, 2)    group and row within that group
-  /receivers/PointId       (receivers,)      the receiver's line in the receiver file
-  /receivers/Coordinates   (receivers, 3)    where it sits
+  /receivers/Index           (rows, 2)    group and row within that group
+  /receivers/PointId         (rows,)      the receiver's line in the receiver file
+  /receivers/SimulationIndex (rows,)      which fused simulation the row holds
+  /receivers/Coordinates     (rows, 3)    where it sits
 
-The receivers are renumbered so that every rank owns one run of each group;
+The rows are renumbered so that every rank owns one run of each group;
 ``Index`` is what leads from a line of the receiver file back to the row of the
 dataset that holds it.
 
 With numpy and h5py, reading the trace of the receiver on line ``n`` of the
-receiver file is therefore:
+receiver file, counted from zero, in simulation ``s`` (zero without fused
+simulations) is therefore:
 
 .. code-block:: python
 
@@ -106,7 +123,7 @@ receiver file is therefore:
   with h5py.File("output-receivers.h5") as f:
       receivers = f["receivers"]
       index = receivers["Index"][:]
-      row = (receivers["PointId"][:] == n).nonzero()[0][0]
+      row = ((receivers["PointId"][:] == n) & (receivers["SimulationIndex"][:] == s)).nonzero()[0][0]
       group, column = index[row]
       trace = receivers[f"group{group}"][:, column]
       time = trace["Time"]
