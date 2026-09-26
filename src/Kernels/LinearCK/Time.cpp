@@ -88,8 +88,20 @@ void Spacetime::computeAder(const real* coeffs,
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = krnlPrototype_;
+  // where a cell carries its coefficients, the star matrices it applies are put
+  // together here and live no longer than the call
+  alignas(Alignment) real starBuffer[3][tensor::star::size(0)]{};
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+    if constexpr (FactoredStar) {
+      auto starView = init::star::view<0>::create(starBuffer[i]);
+      model::assembleStarMatrix<model::MaterialT>(
+          data.get<LTS::LocalIntegration>().materialCoefficients,
+          data.get<LTS::LocalIntegration>().referenceGradients[i],
+          starView);
+      krnl.star(i) = starBuffer[i];
+    } else {
+      krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+    }
   }
 
   // Optional source term

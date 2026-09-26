@@ -291,10 +291,9 @@ TEST_CASE("Star assembly from coefficients") {
 
       std::array<double, seissol::tensor::star::size(0)> assembledData{};
       auto view = seissol::init::star::view<0>::create(assembledData.data());
+      const auto coefficients = seissol::model::getStarCoefficients(material);
       seissol::model::assembleStarMatrix<seissol::model::ElasticMaterial>(
-          seissol::model::MaterialSetup<seissol::model::ElasticMaterial>::getCoefficients(material),
-          gradient,
-          view);
+          coefficients.data(), gradient, view);
 
       for (std::size_t idx = 0; idx < assembledData.size(); ++idx) {
         const double reference = gradient[0] * directional[0].at(idx) +

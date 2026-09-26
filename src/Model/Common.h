@@ -151,12 +151,10 @@ void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tma
 /// scalar coefficients and the corresponding row of the Jacobian, so that a
 /// cell can carry the two apart and put them together where the operator is
 /// applied.
-template <typename Tmaterial, typename Tmatrix>
-void assembleStarMatrix(
-    const std::array<double, SolverSetup<typename Tmaterial::Solver, Tmaterial>::NumCoefficients>&
-        coefficients,
-    const double gradient[3],
-    Tmatrix& starMatrix) {
+template <typename Tmaterial, typename Tcoefficient, typename Tgradient, typename Tmatrix>
+void assembleStarMatrix(const Tcoefficient* coefficients,
+                        const Tgradient* gradient,
+                        Tmatrix& starMatrix) {
   using Setup = SolverSetup<typename Tmaterial::Solver, Tmaterial>;
   static_assert(Setup::NumCoefficients > 0,
                 "the material does not declare its coefficient decomposition");
@@ -166,6 +164,13 @@ void assembleStarMatrix(
           double factor) {
         starMatrix(row, column) += gradient[dim] * factor * coefficients[coefficient];
       });
+}
+
+/// The coefficients of the operator a cell applies, as its solver composes
+/// them.
+template <typename Tmaterial>
+auto getStarCoefficients(const Tmaterial& material) {
+  return SolverSetup<typename Tmaterial::Solver, Tmaterial>::getCoefficients(material);
 }
 
 template <typename Tmaterial, typename T>
