@@ -807,12 +807,27 @@ def _relative(a, b, scale):
     return abs(a - b) / scale if scale > 0 else math.inf
 
 
+# receiver columns that are components of one vector or tensor
+_COMPONENTS = {
+    **{name: "stress" for name in ("s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz")},
+    **{name: "velocity" for name in ("v1", "v2", "v3")},
+    **{name: "traction" for name in ("T_s", "T_d", "P_n")},
+    **{name: "initial traction" for name in ("Ts0", "Td0", "Pn0")},
+    **{name: "slip" for name in ("Sls", "Sld")},
+    **{name: "slip rate" for name in ("SRs", "SRd")},
+}
+
+
 def compare_fingerprints(reference, current):
     """Compare two sets of fingerprints.
 
     Differences are measured relative to the amplitude of the signal they
     belong to, the column's maximum over time, so that a value near a zero
-    crossing of a large signal does not count as a large relative change.
+    crossing of a large signal does not count as a large relative change. The
+    components of a vector or a tensor share that amplitude, the largest among
+    them: a component the run leaves at zero, like the dip slip of a pure
+    strike slip, holds rounding noise only, and against its own amplitude any
+    other rounding would look like a change of order one.
     Returns the structural problems, the largest deviation per quantity, and
     the files that are identical to the byte.
     """
@@ -845,13 +860,21 @@ def compare_fingerprints(reference, current):
                 f"the reference has {old['samples']} up to t = {old['end-time']}"
             )
             continue
+        common = set(old["columns"]) & set(new["columns"])
+        amplitude, energy = {}, {}
+        for column in common:
+            group = _COMPONENTS.get(column, column)
+            for stats in (old["columns"][column], new["columns"][column]):
+                amplitude[group] = max(amplitude.get(group, 0.0), stats["max"])
+                energy[group] = max(energy.get(group, 0.0), stats["l2"])
         for column in sorted(set(old["columns"]) | set(new["columns"])):
-            if column not in old["columns"] or column not in new["columns"]:
+            if column not in common:
                 problems.append(f"{name}: column {column} is only in one of the two")
                 continue
             a, b = old["columns"][column], new["columns"][column]
-            scale = max(a["max"], b["max"])
-            deviations = [_relative(a["l2"], b["l2"], max(a["l2"], b["l2"]))]
+            group = _COMPONENTS.get(column, column)
+            scale = amplitude[group]
+            deviations = [_relative(a["l2"], b["l2"], energy[group])]
             deviations += [_relative(a[key], b[key], scale) for key in ("max", "final")]
             deviations += [
                 _relative(x, y, scale) for x, y in zip(a["quarters"], b["quarters"])
