@@ -301,6 +301,12 @@ MaterialT getRotatedMaterialCoefficients(const std::array<double, 36>& rotationP
  */
 template <typename MaterialT>
 struct MaterialSetupDefaults {
+  /// Number of scalar coefficients the transposed coefficient matrices of this
+  /// material are linear in. Zero where the material does not declare the
+  /// decomposition, in which case only getTransposedCoefficientMatrix is
+  /// available.
+  static constexpr std::size_t NumCoefficients = 0;
+
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
                                      const MaterialT& material) {

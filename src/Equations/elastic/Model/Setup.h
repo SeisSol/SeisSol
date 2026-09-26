@@ -17,11 +17,40 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
+
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
 template <>
 struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMaterial> {
+  /// lambda + 2 mu, lambda, mu, 1/rho, and the 1/rho that couples the shear
+  /// stresses. The latter is a coefficient of its own because it vanishes for
+  /// acoustic material while the first 1/rho does not, which keeps the
+  /// acoustic case inside the coefficients instead of inside the structure.
+  static constexpr std::size_t NumCoefficients = 5;
+
+  static std::array<double, NumCoefficients> getCoefficients(const ElasticMaterial& material) {
+    const auto rhoInv = 1.0 / material.rho;
+    return {material.lambda + 2.0 * material.mu,
+            material.lambda,
+            material.mu,
+            rhoInv,
+            testIfAcoustic(material.mu) ? 0.0 : rhoInv};
+  }
+
+  static constexpr std::array<CoefficientEntry, 24> CoefficientEntries{{
+      {0, 0, 6, 0, -1.0}, {1, 0, 6, 1, -1.0}, {1, 0, 6, 2, -1.0}, {2, 0, 7, 3, -1.0},
+      {2, 0, 8, 5, -1.0}, {3, 0, 0, 6, -1.0}, {4, 0, 3, 7, -1.0}, {4, 0, 5, 8, -1.0},
+
+      {1, 1, 7, 0, -1.0}, {0, 1, 7, 1, -1.0}, {1, 1, 7, 2, -1.0}, {2, 1, 6, 3, -1.0},
+      {2, 1, 8, 4, -1.0}, {3, 1, 1, 7, -1.0}, {4, 1, 3, 6, -1.0}, {4, 1, 4, 8, -1.0},
+
+      {1, 2, 8, 0, -1.0}, {1, 2, 8, 1, -1.0}, {0, 2, 8, 2, -1.0}, {2, 2, 7, 4, -1.0},
+      {2, 2, 6, 5, -1.0}, {3, 2, 2, 8, -1.0}, {4, 2, 5, 6, -1.0}, {4, 2, 4, 7, -1.0},
+  }};
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const ElasticMaterial& material, unsigned dim, T& matM) {

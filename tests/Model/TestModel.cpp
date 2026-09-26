@@ -10,6 +10,7 @@
 #include "AnisotropicImpedance.t.h" // IWYU pragma: keep
 #include "Attenuation.t.h"
 #include "AttenuationFit.t.h"
+#include "CoefficientStructure.t.h"
 #include "GodunovState.t.h"
 #include "ImpedanceLayout.t.h"      // IWYU pragma: keep
 #include "PoroelasticImpedance.t.h" // IWYU pragma: keep

@@ -13,11 +13,28 @@
 #include "Initializer/Parameters/ModelParameters.h"
 
 #include <array>
+#include <cstddef>
 #include <limits>
 #include <string>
 #include <vector>
 
 namespace seissol::model {
+
+/// One entry of a transposed coefficient matrix, written as a scalar
+/// coefficient of the material times a constant factor. A material that
+/// declares these gives
+///
+///     A_dim(row, column) = sum_a coefficients[a] * factor
+///
+/// over the entries carrying that dim, row and column, so that the geometry
+/// and the material can be folded into the matrix separately.
+struct CoefficientEntry {
+  std::size_t coefficient;
+  std::size_t dim;
+  std::size_t row;
+  std::size_t column;
+  double factor;
+};
 enum class MaterialType {
   Solid,
   Acoustic,
