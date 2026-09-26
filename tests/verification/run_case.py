@@ -210,7 +210,21 @@ def read_receiver(path):
     return names, rows
 
 
-def check_outputs(work, prefix, require_finite, activity, expect_zero=False):
+def receiver_columns(name, simulations):
+    """The receiver columns that hold ``name``, one list per fused simulation.
+
+    With fused simulations, SeisSol appends the simulation to every quantity:
+    counted from zero and without a separator in the volume receivers (v10,
+    v11, ...), counted from one and after a dash on the fault (SRs-1, ...).
+    """
+    if simulations <= 1:
+        return [[name]]
+    return [[f"{name}{index}", f"{name}-{index + 1}"] for index in range(simulations)]
+
+
+def check_outputs(
+    work, prefix, require_finite, activity, expect_zero=False, simulations=1
+):
     """Check that the run produced finite output, and that it did something.
 
     Both the volume receivers and the on-fault receivers are read. With
@@ -218,7 +232,8 @@ def check_outputs(work, prefix, require_finite, activity, expect_zero=False):
     volume receivers record, except the time, has to be exactly zero, as it
     must be for a zero initial state without sources. The on-fault receivers
     are left out of that demand, since friction coefficients and state
-    variables are not zero on a fault at rest.
+    variables are not zero on a fault at rest. With fused simulations, each
+    of them has to show the activity on its own.
     """
     problems = []
     directory = work / Path(prefix).parent
@@ -268,17 +283,31 @@ def check_outputs(work, prefix, require_finite, activity, expect_zero=False):
         names, _, threshold = demand.partition(":")
         threshold = float(threshold)
         candidates = names.split("|")
-        seen = [extrema[candidate] for candidate in candidates if candidate in extrema]
-        if not seen:
+        seen = [
+            [
+                extrema[column]
+                for candidate in candidates
+                for column in receiver_columns(candidate, simulations)[simulation]
+                if column in extrema
+            ]
+            for simulation in range(max(simulations, 1))
+        ]
+        if not any(seen):
             problems.append(
                 f"activity check wants {names!r}, which the receivers do not "
                 f"contain (have: {', '.join(sorted(extrema))})"
             )
-        elif max(seen) <= threshold:
-            # a case that runs cleanly but never excites anything tests nothing
-            problems.append(
-                f"max |{names}| is {max(seen):g}, expected more than {threshold:g}"
-            )
+            continue
+        for simulation, values in enumerate(seen):
+            which = f"simulation {simulation}: " if simulations > 1 else ""
+            if not values:
+                problems.append(f"{which}the receivers do not contain {names!r}")
+            elif max(values) <= threshold:
+                # a case that runs cleanly but never excites anything tests nothing
+                problems.append(
+                    f"{which}max |{names}| is {max(values):g}, expected more "
+                    f"than {threshold:g}"
+                )
     return problems
 
 
@@ -633,7 +662,12 @@ def _command_run(args):
     else:
         problems += check_log(log, args.timestep)
         problems += check_outputs(
-            work, prefix, args.require_finite, args.activity, args.expect_zero
+            work,
+            prefix,
+            args.require_finite,
+            args.activity,
+            args.expect_zero,
+            capabilities["fused"],
         )
 
     if not problems and args.thresholds:
