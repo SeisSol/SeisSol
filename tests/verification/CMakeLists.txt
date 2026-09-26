@@ -16,6 +16,16 @@
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+# The mini meshes are written with numpy and h5py. Without them every mesh fails to generate, and
+# every case on it is reported as not run, which says nothing about why; so it is said here.
+execute_process(COMMAND ${Python3_EXECUTABLE} -c "import numpy, h5py"
+                RESULT_VARIABLE SEISSOL_MINIMESH_MODULES
+                OUTPUT_QUIET ERROR_QUIET)
+if (NOT SEISSOL_MINIMESH_MODULES EQUAL 0)
+  message(WARNING "The verification tests need numpy and h5py for ${Python3_EXECUTABLE}. "
+                  "Without them, no mini mesh can be generated and none of the cases runs.")
+endif()
+
 set(SEISSOL_MINITEST_TIMEOUT 300 CACHE STRING
     "Timeout in seconds for a single verification case")
 set(SEISSOL_MINITEST_MPIEXEC_FLAGS "" CACHE STRING
@@ -271,6 +281,13 @@ function(seissol_add_minitest)
          "--numproc-flag=${MPIEXEC_NUMPROC_FLAG}")
     foreach (flag ${MPIEXEC_PREFLAGS} ${SEISSOL_MINITEST_MPIEXEC_FLAGS})
       list(APPEND arguments "--mpiexec-flag=${flag}")
+    endforeach()
+  elseif (TESTING_COMMAND)
+    # a single rank runs under TESTING_COMMAND, as the unit and smoke tests do: a runtime that
+    # needs a launcher even then, like the one of NVHPC, is given one there
+    separate_arguments(launcher NATIVE_COMMAND "${TESTING_COMMAND}")
+    foreach (token ${launcher})
+      list(APPEND arguments "--launcher=${token}")
     endforeach()
   endif()
 

@@ -52,11 +52,12 @@ jobs:
     steps:
       - name: setup
         run: |
+          # h5py for the verification tests, which write their meshes with it; the images have numpy
           if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
             # the Intel image still works with an older Python version. Hence, use the following hack.
-            pip3 install pyyaml
+            pip3 install pyyaml h5py
           else
-            pip3 install --break-system-packages pyyaml
+            pip3 install --break-system-packages pyyaml h5py
           fi
 
       - id: checkout

@@ -660,6 +660,8 @@ def _command_run(args):
             )
         command += [args.mpiexec, args.numproc_flag, str(args.ranks)]
         command += args.mpiexec_flags
+    else:
+        command += args.launcher
     command += [args.binary, "parameters.par"]
 
     environment = dict(os.environ)
@@ -1203,6 +1205,8 @@ def main(argv=None):
     run.add_argument(
         "--mpiexec-flag", action="append", default=[], dest="mpiexec_flags"
     )
+    # what a run on a single rank is started under, a word each, e.g. mpirun -np 1
+    run.add_argument("--launcher", action="append", default=[])
     run.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
     run.add_argument("--file", action="append", default=[], metavar="NAME")
     run.add_argument("--require", action="append", default=[], metavar="KEY=VALUE")
