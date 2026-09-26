@@ -67,18 +67,35 @@ class LinearCK(ADERDGBase):
     def addLocal(self, generator, targets):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
-            volumeSum = self.Q["kp"]
-            for i in range(3):
-                volumeSum += (
-                    self.db.kDivM[i][self.t("kl")]
-                    * self.I["lq"]
-                    * self.starMatrix(i)["qp"]
+            if getattr(self, "nodalMaterial", False):
+                volumeUpdate = OptionalDimTensor(
+                    "volumeUpdate",
+                    self.Q.optName(),
+                    self.Q.optSize(),
+                    self.Q.optPos(),
+                    self.Q.shape(),
+                    alignStride=True,
+                    temporary=True,
                 )
-            if self.sourceMatrix():
-                volumeSum += self.I["kq"] * self.sourceMatrix()["qp"]
-            volume = self.Q["kp"] <= volumeSum
+                volumeExpr = self.nodalApply(self.I, volumeUpdate, self.db.kDivM)
+                volumeExpr += [self.Q["kp"] <= self.Q["kp"] + volumeUpdate["kp"]]
+                if self.sourceMatrix():
+                    volumeExpr += [
+                        self.Q["kp"] <= self.Q["kp"] + self.I["kq"] * self.sourceMatrix()["qp"]
+                    ]
+            else:
+                volumeSum = self.Q["kp"]
+                for i in range(3):
+                    volumeSum += (
+                        self.db.kDivM[i][self.t("kl")]
+                        * self.I["lq"]
+                        * self.starMatrix(i)["qp"]
+                    )
+                if self.sourceMatrix():
+                    volumeSum += self.I["kq"] * self.sourceMatrix()["qp"]
+                volumeExpr = [self.Q["kp"] <= volumeSum]
             generator.add(
-                f"{name_prefix}volume", self.starAssembly() + [volume], target=target
+                f"{name_prefix}volume", self.starAssembly() + volumeExpr, target=target
             )
 
             localFluxNodal = (
@@ -242,6 +259,35 @@ class LinearCK(ADERDGBase):
 
             for i in range(1, self.order):
                 power = powers[i]
+                if getattr(self, "nodalMaterial", False):
+                    # A constant operator drops a degree with every derivative,
+                    # so each one occupies fewer modes than the last and the
+                    # chain narrows. A material that varies inside the cell
+                    # raises the degree again by as much as it carries itself,
+                    # so nothing narrows and every derivative stays full.
+                    dQ = OptionalDimTensor(
+                        "dQ({})".format(i),
+                        self.Q.optName(),
+                        self.Q.optSize(),
+                        self.Q.optPos(),
+                        qShape,
+                        alignStride=True,
+                    )
+                    self.dQs.append(dQ)
+                    derivativeExpr += self.nodalApply(
+                        derivatives[-1], dQ, self.db.kDivMT
+                    )
+                    if self.sourceMatrix():
+                        derivativeExpr += [
+                            dQ["kp"]
+                            <= dQ["kp"]
+                            + derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
+                        ]
+                    derivativeExpr += [self.I["kp"] <= self.I["kp"] + power * dQ["kp"]]
+                    derivativeTaylorExpansion += power * dQ["kp"]
+                    derivatives.append(dQ)
+                    continue
+
                 derivativeSum = Accumulate(ops.Add())
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]

@@ -9,7 +9,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-from kernels import coefficients
+from kernels import coefficients, material
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
@@ -303,6 +303,64 @@ class ADERDGBase(ABC):
             for dim in range(3)
         ]
 
+        self._configureNodalMaterial(kwargs, count, entries, starSpp)
+
+    def _configureNodalMaterial(self, kwargs, count, entries, starSpp):
+        """Sets up the tensors for a material that varies inside a cell.
+
+        The coefficients then carry a point index, and the product of material
+        and derivative has to be formed where the samples are and projected
+        back. Which points those are the build decides; nothing here depends on
+        the choice beyond the two matrices that read and project.
+
+        The structure is split per coefficient. Written as one product of
+        coefficients, nodal values and structure, the generator materializes an
+        intermediate over (coefficient, point, quantity), which at order six
+        and the conical-product set is larger than everything else in the
+        kernel together.
+        """
+        self.nodalMaterial = self.factoredStar and bool(kwargs.get("material_nodal", False))
+        if not self.nodalMaterial:
+            return
+
+        points = material.tensors(
+            self._matricesDir, self, kwargs["material_points"]
+        )
+        self.materialEval = points["materialEval"]
+        self.materialProject = points["materialProject"]
+        npoints = self.materialEval.shape()[0]
+
+        # one structure per coefficient, written into the kernel as before
+        perCoefficient = [
+            [e for e in entries if e.coefficient == a] for a in range(count)
+        ]
+        shape = (3,) + tuple(starSpp.shape)
+        self.coefficientStructure = []
+        for a in range(count):
+            values = {}
+            for entry in perCoefficient[a]:
+                idx = (entry.dim, entry.row, entry.column)
+                values[idx] = repr(float(values.get(idx, 0.0)) + entry.factor)
+            self.coefficientStructure.append(
+                Tensor(f"coefficientStructure{a}", shape, spp=values,
+                       addressing=AddressingMode.IMMEDIATE)
+            )
+
+        # the Jacobian rows are a per-cell constant, so the fold happens once
+        # and is reused by every step of the chain
+        self.structureFolded = [
+            [Tensor(f"structureFolded{dim}_{a}", tuple(starSpp.shape), temporary=True)
+             for a in range(count)]
+            for dim in range(3)
+        ]
+        self.materialCoefficients = [
+            Tensor(f"materialCoefficients{a}", (npoints,)) for a in range(count)
+        ]
+        quantities = starSpp.shape[0]
+        self.nodalValues = Tensor("nodalValues", (npoints, quantities), temporary=True)
+        self.nodalProduct = Tensor("nodalProduct", (npoints, starSpp.shape[1]),
+                                   temporary=True)
+
     def solverCoefficientCount(self):
         """How many scalars the operator this solver applies is linear in."""
         return getattr(self, "_solverCoefficientCount", 0)
@@ -311,9 +369,51 @@ class ADERDGBase(ABC):
         """Where each of those scalars comes from -- the material, or the run."""
         return getattr(self, "_solverCoefficientOrigins", [])
 
+    def nodalAssembly(self):
+        """Folds the Jacobian rows into the structure, once per kernel."""
+        if not getattr(self, "nodalMaterial", False):
+            return []
+        return [
+            self.structureFolded[dim][a]["qp"]
+            <= self.referenceGradients[dim]["j"] * self.coefficientStructure[a]["jqp"]
+            for dim in range(3)
+            for a in range(len(self.coefficientStructure))
+        ]
+
+    def nodalApply(self, source, target, operators):
+        """One application of the operator where the material varies inside the
+        cell: read the derivative at the sample points, multiply by the
+        material there, and project the result back.
+
+        `operators` gives the modal operator per direction -- the stiffness for
+        a derivative step, whatever the caller needs otherwise.
+        """
+        statements = []
+        first = True
+        for dim in range(3):
+            statements.append(
+                self.nodalValues["nq"]
+                <= self.materialEval["nk"] * operators[dim][self.t("kl")] * source["lq"]
+            )
+            for a, coefficient in enumerate(self.materialCoefficients):
+                term = (
+                    coefficient["n"]
+                    * self.nodalValues["nq"]
+                    * self.structureFolded[dim][a]["qp"]
+                )
+                statements.append(
+                    self.nodalProduct["np"]
+                    <= (term if first else self.nodalProduct["np"] + term)
+                )
+                first = False
+        statements.append(target["kp"] <= self.materialProject["kn"] * self.nodalProduct["np"])
+        return statements
+
     def starAssembly(self):
         """The statements that put the star matrices together, or none where a
         cell carries them assembled already."""
+        if getattr(self, "nodalMaterial", False):
+            return self.nodalAssembly()
         if not self.factoredStar:
             return []
         return [
@@ -327,6 +427,7 @@ class ADERDGBase(ABC):
     def configure(self, matricesDir, memLayout, kwargs, extra=()):
         """Reads this equation's matrix file, plus any the solver needs, and
         resolves the memory layout across all of them."""
+        self._matricesDir = matricesDir
         clones = dict(self.StarClones)
         self.db.update(self.readMatrices(matricesDir, clones))
         for path in extra:

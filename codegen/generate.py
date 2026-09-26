@@ -261,6 +261,8 @@ def main():
 
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
+        # der aufgeloeste Punktsatz, nicht der rohe Kommandozeilenwert
+        cmdArgsDict["material_points"] = materialPoints
 
         equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
 
