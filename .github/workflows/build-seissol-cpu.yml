@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: a77cfc00de563089ffbf76d09338ecc58eaabb58
+  precomputed-hash: b131cf769457acbee51df44579a07b5e83a1ec4a
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -160,9 +160,9 @@ jobs:
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
           if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
-            pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas jq
+            pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           else
-            pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas jq
+            pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           fi
 
       - name: get-precomputed-solutions
