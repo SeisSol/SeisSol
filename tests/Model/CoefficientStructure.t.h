@@ -151,6 +151,22 @@ seissol::model::ViscoElasticMaterial<Mechanisms> viscoelastic(std::mt19937& rng)
   return material;
 }
 
+inline seissol::model::PoroElasticMaterial poroelastic(std::mt19937& rng) {
+  std::uniform_real_distribution<double> unit(0.1, 0.9);
+  seissol::model::PoroElasticMaterial material{};
+  material.rho = 2500.0;
+  material.mu = 1e10;
+  material.lambda = 1.2e10;
+  material.bulkSolid = 4e10;
+  material.porosity = unit(rng) * 0.3;
+  material.permeability = 1e-12;
+  material.tortuosity = 1.0 + unit(rng);
+  material.bulkFluid = 2.2e9;
+  material.rhoFluid = 1000.0;
+  material.viscosity = 1e-3;
+  return material;
+}
+
 } // namespace coefficients
 
 TEST_CASE("Coefficient decomposition") {
@@ -186,6 +202,17 @@ TEST_CASE("Coefficient decomposition") {
     }
     // no uniqueness check here: the three directional matrices share their
     // stress block, so a slot legitimately takes one entry per direction
+  }
+
+  SUBCASE("poroelastic") {
+    for (std::size_t sample = 0; sample < 32; ++sample) {
+      coefficients::checkDeclaration<seissol::model::PoroElasticMaterial, 13>(
+          coefficients::poroelastic(rng));
+    }
+    // the declaration assumes an isotropic frame, which is what makes cBar
+    // three values rather than twenty-one; the comparison above is what
+    // catches an anisotropic one
+    coefficients::checkUnique<seissol::model::PoroElasticMaterial, 13>();
   }
 
   SUBCASE("solver operator including the relaxation blocks") {
