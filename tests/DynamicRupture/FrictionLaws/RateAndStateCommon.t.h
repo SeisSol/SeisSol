@@ -548,6 +548,69 @@ TEST_CASE_TEMPLATE("DR RateAndState arsinhexp differentiates by the slip rate",
   }
 }
 
+TEST_CASE_TEMPLATE("DR RateAndState arsinhexp never returns an infinite slope",
+                   T,
+                   float,
+                   double) { // NOLINT
+  using namespace rstest;
+  // The argument the friction laws pass is V / (2 V_0), whose derivative is the constant 1 / (2
+  // V_0) and therefore does not shrink with the argument. The plain branch forms cExp times both,
+  // so a guard that bounds only the value lets through a product whose derivative overflows -- and
+  // a finite friction coefficient beside an infinite slope is the worst thing the inversion can be
+  // handed: the Newton step comes out exactly zero, the bracket rejects it, and the solve spends
+  // its whole budget halving. In single precision the band is eleven wide in the state variable,
+  // which is squarely where a locked-but-loaded point sits.
+  const auto scale = static_cast<T>(0.5 / 1e-6); // 1 / (2 V_0)
+  const double tolerance = std::is_same_v<T, float> ? 1e-5 : 1e-13;
+
+  SUBCASE("Finite over every state variable, at every slip rate the bracket holds") {
+    for (double exponent = std::log10(slipRateFloor<T>()); exponent <= 2.0; exponent += 0.5) {
+      const auto slipRate = static_cast<T>(std::pow(10.0, exponent));
+      const auto argument = Dual<T>(scale * slipRate, scale);
+      for (double c = -300.0; c <= 400.0; c += 0.5) {
+        const auto cExpLog = Dual<T>(static_cast<T>(c));
+        const auto result = rs::arsinhexp(argument, cExpLog, rs::computeCExp(cExpLog));
+        if (!std::isfinite(result.value)) {
+          continue;
+        }
+        CAPTURE(exponent);
+        CAPTURE(c);
+        CHECK(std::isfinite(result.derivative));
+      }
+    }
+  }
+
+  SUBCASE("And right, in the band where the two bounds part company") {
+    // exp(c) alone is representable there, so the value comes from the plain branch; exp(c) times
+    // the argument's derivative is not, so the slope has to come from the other one
+    const auto limit = static_cast<double>(rs::logMaxExp<T>());
+    const double lower =
+        std::log(static_cast<double>(std::numeric_limits<T>::max()) / static_cast<double>(scale));
+    CAPTURE(lower);
+    CAPTURE(limit);
+    REQUIRE(lower < limit);
+    for (double c = lower + 0.1; c < limit; c += 0.1) {
+      for (const double exponent : {-20.0, -14.0, -10.0}) {
+        const auto slipRate = static_cast<T>(std::pow(10.0, exponent));
+        const auto result = rs::arsinhexp(Dual<T>(scale * slipRate, scale),
+                                          Dual<T>(static_cast<T>(c)),
+                                          rs::computeCExp(Dual<T>(static_cast<T>(c))));
+        // d/dV asinh(V exp(c) / (2 V_0)) = exp(c) / (2 V_0) / sqrt(1 + (V exp(c) / (2 V_0))^2),
+        // and the band is reached only at a product far above one, where that is 1 / V. The
+        // unreduced form cannot be the reference here: its numerator is exactly what overflows.
+        const double product =
+            static_cast<double>(scale) * static_cast<double>(slipRate) * std::exp(c);
+        CAPTURE(c);
+        CAPTURE(exponent);
+        REQUIRE(product > 1e6);
+        REQUIRE(std::isfinite(result.derivative));
+        CHECK(relativeError(static_cast<double>(result.derivative),
+                            1.0 / static_cast<double>(slipRate)) < tolerance);
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // logsinh
 // ---------------------------------------------------------------------------

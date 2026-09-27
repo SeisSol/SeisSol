@@ -112,10 +112,22 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
   constexpr Scalar Log2 = 0.69314718055994530943;
 
   int xexp{};
+  int dexp{};
   (void)std::frexp(valueOf(x), &xexp);
+  (void)std::frexp(derivativeOf(x), &dexp);
+  // The plain branch forms cExp * x, and where x carries a derivative it forms cExp * dx beside it.
+  // Both have to be admitted: a bound on the value alone lets through a product whose derivative
+  // overflows, and a value that comes back representable next to an infinite slope is the worst
+  // thing the inversion can be handed -- the Newton step becomes exactly zero, the bracket rejects
+  // it, and the solve spends its whole budget halving. The derivative of the argument does not
+  // shrink with the argument: the friction laws pass V / (2 V_0), whose derivative is the constant
+  // 1 / (2 V_0), so in single precision the two bounds part company over a band of the state
+  // variable eleven wide. A plain scalar carries no derivative, so frexp reads zero there and this
+  // costs it nothing.
+  const int exponent = std::max(std::max(xexp, dexp), 0);
 
   // the branch selects a formula; the selected formula is what carries the derivative
-  if (valueOf(cExpLog) + std::max(xexp, 0) * Log2 < logMaxExp<Scalar>()) {
+  if (valueOf(cExpLog) + exponent * Log2 < logMaxExp<Scalar>()) {
     return asinh(cExp * x);
   }
   if (valueOf(x) == 0) {
