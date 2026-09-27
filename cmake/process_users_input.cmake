@@ -211,6 +211,13 @@ elseif (NOT SOLVER IN_LIST _allowed_solvers)
     "Available: ${_allowed_solvers}.")
 endif()
 
+if (MATERIAL_NODAL AND NOT SOLVER STREQUAL "linearck")
+  message(FATAL_ERROR
+    "MATERIAL_NODAL=ON needs SOLVER=linearck. Only that scheme forms its "
+    "operator where the samples are; the others would read a star matrix "
+    "nothing assembles.")
+endif()
+
 message(STATUS "Solver: ${SOLVER}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")

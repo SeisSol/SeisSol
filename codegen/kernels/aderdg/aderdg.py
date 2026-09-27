@@ -344,6 +344,14 @@ class ADERDGBase(ABC):
         self.nodalMaterial = self.factoredStar and bool(
             kwargs.get("material_nodal", False)
         )
+        if self.nodalMaterial and kwargs.get("solver") != "linearck":
+            # the other schemes apply a star matrix this path never assembles,
+            # and an unassembled temporary is read rather than reported
+            raise RuntimeError(
+                "a material varying inside a cell needs the linearck solver; "
+                f'"{kwargs.get("solver")}" would read a star matrix nothing '
+                "puts together"
+            )
         if not self.nodalMaterial:
             return
 
