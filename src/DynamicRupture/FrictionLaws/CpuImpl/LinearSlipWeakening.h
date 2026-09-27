@@ -94,6 +94,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       const auto [eta, invEta] = common::projectEta(this->impAndEta_[ltsFace],
                                                     this->impedanceMatrices_[ltsFace],
+                                                    pointIndex,
                                                     totalTraction1,
                                                     totalTraction2,
                                                     absoluteTraction);
@@ -108,6 +109,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
         const auto solution = common::solveSlipRate(this->impAndEta_[ltsFace],
                                                     this->impedanceMatrices_[ltsFace],
+                                                    pointIndex,
                                                     totalTraction1,
                                                     totalTraction2,
                                                     absoluteTraction,
@@ -137,11 +139,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
                                                 this->impedanceMatrices_[ltsFace],
+                                                pointIndex,
                                                 this->slipRate1_[ltsFace][pointIndex],
                                                 this->slipRate2_[ltsFace][pointIndex]);
 
       const auto tUN = common::matmulEtaNormal(this->impAndEta_[ltsFace],
                                                this->impedanceMatrices_[ltsFace],
+                                               pointIndex,
                                                this->slipRate1_[ltsFace][pointIndex],
                                                this->slipRate2_[ltsFace][pointIndex]);
 

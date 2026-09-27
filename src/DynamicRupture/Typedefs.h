@@ -11,37 +11,110 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
+#include "Common/Marker.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
+#include "Model/OperatorLayout.h"
+
+#include <cstddef>
 
 namespace seissol::dr {
+
+/**
+ * One scalar of the Riemann problem, read at a point of the fault.
+ *
+ * A material that varies along a face gives a different value at every
+ * quadrature point of it; one that does not gives the same value everywhere and
+ * has no reason to store it more than once. Both answer the same question --
+ * what is this scalar at point `index` -- so a friction law is written once and
+ * the storage follows the material. Where the value is one number the index
+ * never reaches the array and the compiler hoists the read out of the point
+ * loop again, which is what it did when the scalar was a plain member.
+ */
+template <bool Pointwise>
+class PointScalar {
+  public:
+  static constexpr std::size_t Count = Pointwise ? misc::NumPaddedPoints : 1;
+
+#pragma omp declare simd
+  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr real operator()(std::size_t index) const {
+    return values[Pointwise ? index : 0];
+  }
+
+  /// The same value at every point of the face.
+  SEISSOL_HOSTDEVICE constexpr void fill(real value) {
+    for (std::size_t point = 0; point < Count; ++point) {
+      values[point] = value;
+    }
+  }
+
+  SEISSOL_HOSTDEVICE constexpr void set(std::size_t index, real value) {
+    values[Pointwise ? index : 0] = value;
+  }
+
+  private:
+  real values[Count]{};
+};
 
 /**
  * Stores the P and S wave impedances for an element and its neighbor as well as the eta values from
  * Carsten Uphoff's dissertation equation (4.51)
  */
-struct ImpedancesAndEta {
-  real zp{};
-  real zs{};
-  real zpNeig{};
-  real zsNeig{};
-  real etaP{};
-  real etaS{};
-  real invEtaS{};
-  real invZp{};
-  real invZs{};
-  real invZpNeig{};
-  real invZsNeig{};
+template <bool Pointwise>
+struct ImpedancesAndEtaOf {
+  PointScalar<Pointwise> zp;
+  PointScalar<Pointwise> zs;
+  PointScalar<Pointwise> zpNeig;
+  PointScalar<Pointwise> zsNeig;
+  PointScalar<Pointwise> etaP;
+  PointScalar<Pointwise> etaS;
+  PointScalar<Pointwise> invEtaS;
+  PointScalar<Pointwise> invZp;
+  PointScalar<Pointwise> invZs;
+  PointScalar<Pointwise> invZpNeig;
+  PointScalar<Pointwise> invZsNeig;
+};
+
+/// Whether the fault reads its scalars per point, which it does exactly when the
+/// material is allowed to vary within a cell.
+constexpr bool PointwiseImpedances = NodalMaterial;
+
+using ImpedancesAndEta = ImpedancesAndEtaOf<PointwiseImpedances>;
+
+/// How many points of a face carry their own Riemann problem.
+constexpr std::size_t ImpedancePoints = PointScalar<PointwiseImpedances>::Count;
+
+/**
+ * One matrix of the Riemann problem, read at a point of the fault. The
+ * counterpart of PointScalar for the quantities that are not scalars; a point
+ * gets a contiguous matrix so that a caller can keep reading it as one.
+ */
+template <bool Pointwise, std::size_t Size>
+class PointMatrix {
+  public:
+  static constexpr std::size_t Count = Pointwise ? misc::NumPaddedPoints : 1;
+
+  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr const real* at(std::size_t index) const {
+    return values[Pointwise ? index : 0];
+  }
+
+  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr real* at(std::size_t index) {
+    return values[Pointwise ? index : 0];
+  }
+
+  private:
+  alignas(Alignment) real values[Count][Size]{};
 };
 
 /**
  * Stores the impedance matrices for an element and its neighbor for a poroelastic material.
  * This generalizes equation (4.51) from Carsten's thesis
  */
-struct ImpedanceMatrices {
-  alignas(Alignment) real impedance[tensor::Zplus::size()] = {};
-  alignas(Alignment) real impedanceNeig[tensor::Zminus::size()] = {};
-  alignas(Alignment) real eta[tensor::eta::size()] = {};
+template <bool Pointwise>
+struct ImpedanceMatricesOf {
+  PointMatrix<Pointwise, tensor::Zplus::size()> impedance;
+  PointMatrix<Pointwise, tensor::Zminus::size()> impedanceNeig;
+  PointMatrix<Pointwise, tensor::eta::size()> eta;
   /**
    * Maps a fault-local traction difference to the difference of the stress components which do not
    * take part in the fault-normal Riemann problem:
@@ -57,8 +130,10 @@ struct ImpedanceMatrices {
    * matrix form -- for an isotropic elastic material the single relevant entry is
    * lambda / (lambda + 2 mu) = 1 - 2 (cs/cp)^2, which the output computes from the wave speeds.
    */
-  alignas(Alignment) real lateralStress[3 * tensor::Zminus::Shape[0]] = {};
+  PointMatrix<Pointwise, 3 * tensor::Zminus::Shape[0]> lateralStress;
 };
+
+using ImpedanceMatrices = ImpedanceMatricesOf<PointwiseImpedances>;
 
 template <Executor Executor>
 struct FaultStresses;

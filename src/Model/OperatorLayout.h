@@ -1,0 +1,48 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_MODEL_OPERATORLAYOUT_H_
+#define SEISSOL_SRC_MODEL_OPERATORLAYOUT_H_
+
+#include "Common/Typedefs.h"
+#include "Config.h"
+#include "GeneratedCode/coefficients.h"
+
+#include <cstddef>
+
+/// How the operator of a cell is stored. The flags sit here rather than beside
+/// the cell data, because the fault reads them too and its own declarations
+/// cannot include the cell data without a cycle.
+namespace seissol {
+
+/// Whether a cell carries the coefficients its operator is linear in together
+/// with the rows of its Jacobian, instead of the star matrices the two fold
+/// into. The build decides, and a solver that does not declare the
+/// decomposition keeps the matrices whatever the build asks for.
+constexpr bool FactoredStar =
+    Config::FactoredStar &&
+    // the space-time predictor scales the star matrices by the timestep
+    // before handing them over, which a cell that does not carry them cannot
+    // do; the scalar path through the kernel is what that solver would need
+    Config::Solver != SolverType::STP && generated::SolverNumCoefficients > 0;
+
+/// How many scalars the operator of a cell is linear in. The generator states
+/// it, since this is needed where a solver's declaration cannot be
+/// instantiated; StarOperands.h checks the two against each other.
+constexpr std::size_t StarCoefficientCount = generated::SolverNumCoefficients;
+
+/// Whether the material varies inside a cell, so that a cell carries one
+/// coefficient per sample point rather than one for itself. It needs the
+/// factored star, since the coefficients are what varies.
+constexpr bool NodalMaterial = Config::MaterialNodal && FactoredStar;
+
+/// How many samples of the material a cell carries. One, where it does not
+/// vary inside the cell.
+constexpr std::size_t MaterialSampleCount = generated::MaterialSampleCount;
+
+} // namespace seissol
+
+#endif // SEISSOL_SRC_MODEL_OPERATORLAYOUT_H_

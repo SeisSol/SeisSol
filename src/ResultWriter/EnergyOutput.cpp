@@ -411,16 +411,20 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               return Eigen::Map<const Eigen::Matrix<real, 3, 3>>(data).cast<double>();
             };
             using AnisotropicImpedance = model::ImpedanceCompute<model::AnisotropicMaterial>;
-            const auto gammaPlus = AnisotropicImpedance::christoffelFromAdmittance(
-                admittance(impedanceMatrices[i].impedance), waveSpeedsPlus[i].density);
-            const auto gammaMinus = AnisotropicImpedance::christoffelFromAdmittance(
-                admittance(impedanceMatrices[i].impedanceNeig), waveSpeedsMinus[i].density);
 
             const auto* slip = reinterpret_cast<const real(*)[seissol::dr::misc::NumPaddedPoints]>(
                 drEnergyOutput[i].slip);
 
             for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
               const auto index = k * seissol::multisim::NumSimulations + sim;
+
+              // the admittance is read at this point of the face, since a material
+              // varying along the fault gives a different Christoffel matrix there
+              const auto gammaPlus = AnisotropicImpedance::christoffelFromAdmittance(
+                  admittance(impedanceMatrices[i].impedance.at(index)), waveSpeedsPlus[i].density);
+              const auto gammaMinus = AnisotropicImpedance::christoffelFromAdmittance(
+                  admittance(impedanceMatrices[i].impedanceNeig.at(index)),
+                  waveSpeedsMinus[i].density);
 
               // the rake is taken from the net slip; it is the instantaneous one only as long as
               // the slip direction does not turn during rupture

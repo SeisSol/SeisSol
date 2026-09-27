@@ -119,9 +119,37 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
  * problem couples the traction components. Everything else, isotropic elastic and viscoelastic
  * included, uses the scalar impedances.
  */
+/// The scalar impedances of one point of a fault face, from the material on
+/// either side of it there.
+template <typename MaterialT>
+void setIsotropicImpedance(seissol::dr::ImpedancesAndEta& impAndEta,
+                           std::size_t point,
+                           const MaterialT& plusMaterial,
+                           const MaterialT& minusMaterial) {
+  const double zp = plusMaterial.getDensity() * plusMaterial.getPWaveSpeed();
+  const double zpNeig = minusMaterial.getDensity() * minusMaterial.getPWaveSpeed();
+  const double zs = plusMaterial.getDensity() * plusMaterial.getSWaveSpeed();
+  const double zsNeig = minusMaterial.getDensity() * minusMaterial.getSWaveSpeed();
+
+  impAndEta.zp.set(point, zp);
+  impAndEta.zpNeig.set(point, zpNeig);
+  impAndEta.zs.set(point, zs);
+  impAndEta.zsNeig.set(point, zsNeig);
+
+  impAndEta.invZp.set(point, 1.0 / zp);
+  impAndEta.invZpNeig.set(point, 1.0 / zpNeig);
+  impAndEta.invZs.set(point, 1.0 / zs);
+  impAndEta.invZsNeig.set(point, 1.0 / zsNeig);
+
+  impAndEta.etaP.set(point, 1.0 / (1.0 / zp + 1.0 / zpNeig));
+  impAndEta.invEtaS.set(point, 1.0 / zs + 1.0 / zsNeig);
+  impAndEta.etaS.set(point, 1.0 / (1.0 / zs + 1.0 / zsNeig));
+}
+
 template <typename MaterialT>
 void initializeFaultImpedance(const Fault& fault,
                               std::size_t meshFace,
+                              std::size_t point,
                               const MaterialT& plusMaterial,
                               const MaterialT& minusMaterial,
                               seissol::dr::ImpedanceMatrices& impedanceMatrices,
@@ -176,9 +204,9 @@ void initializeFaultImpedance(const Fault& fault,
     const Eigen::Matrix<double, N, N> bMatrix = faultImpedance.bPlus.transpose();
     const Eigen::Matrix<double, N, N> bNeigMatrix = faultImpedance.bMinus.transpose();
 
-    auto impedanceView = init::Zplus::view::create(impedanceMatrices.impedance);
-    auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices.impedanceNeig);
-    auto etaView = init::eta::view::create(impedanceMatrices.eta);
+    auto impedanceView = init::Zplus::view::create(impedanceMatrices.impedance.at(point));
+    auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices.impedanceNeig.at(point));
+    auto etaView = init::eta::view::create(impedanceMatrices.eta.at(point));
     auto tractionPlusMatrix =
         init::tractionPlusMatrix::view::create(godunovData.tractionPlusMatrix);
     auto tractionMinusMatrix =
@@ -197,7 +225,7 @@ void initializeFaultImpedance(const Fault& fault,
     // the fault receiver output, which evaluates them on the plus side
     for (std::size_t col = 0; col < N; ++col) {
       for (std::size_t row = 0; row < 3; ++row) {
-        impedanceMatrices.lateralStress[col * 3 + row] =
+        impedanceMatrices.lateralStress.at(point)[col * 3 + row] =
             static_cast<real>(faultImpedance.lateralStressPlus(row, col));
       }
     }
@@ -213,12 +241,12 @@ void initializeFaultImpedance(const Fault& fault,
       const double invZsNeig = faultImpedance.admittanceMinus(1, 1);
       const double etaS = faultImpedance.eta(1, 1);
 
-      impAndEta.zs = 1.0 / invZs;
-      impAndEta.zsNeig = 1.0 / invZsNeig;
-      impAndEta.invZs = invZs;
-      impAndEta.invZsNeig = invZsNeig;
-      impAndEta.etaS = etaS;
-      impAndEta.invEtaS = 1.0 / etaS;
+      impAndEta.zs.set(point, 1.0 / invZs);
+      impAndEta.zsNeig.set(point, 1.0 / invZsNeig);
+      impAndEta.invZs.set(point, invZs);
+      impAndEta.invZsNeig.set(point, invZsNeig);
+      impAndEta.etaS.set(point, etaS);
+      impAndEta.invEtaS.set(point, 1.0 / etaS);
     }
   }
 }
@@ -448,25 +476,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
       // calculate Impedances Z and eta
-      impAndEta[ltsFace].zp =
-          (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
-      impAndEta[ltsFace].zpNeig =
-          (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
-      impAndEta[ltsFace].zs =
-          (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
-      impAndEta[ltsFace].zsNeig =
-          (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
-
-      impAndEta[ltsFace].invZp = 1 / impAndEta[ltsFace].zp;
-      impAndEta[ltsFace].invZpNeig = 1 / impAndEta[ltsFace].zpNeig;
-      impAndEta[ltsFace].invZs = 1 / impAndEta[ltsFace].zs;
-      impAndEta[ltsFace].invZsNeig = 1 / impAndEta[ltsFace].zsNeig;
-
-      impAndEta[ltsFace].etaP =
-          1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
-      impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
-      impAndEta[ltsFace].etaS =
-          1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
+      for (std::size_t point = 0; point < seissol::dr::ImpedancePoints; ++point) {
+        setIsotropicImpedance(impAndEta[ltsFace], point, *plusMaterial, *minusMaterial);
+      }
 
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
       seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
@@ -475,13 +487,16 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       case seissol::model::MaterialType::Anisotropic:
         [[fallthrough]];
       case seissol::model::MaterialType::Poroelastic: {
-        initializeFaultImpedance(fault[meshFace],
-                                 meshFace,
-                                 *plusMaterial,
-                                 *minusMaterial,
-                                 impedanceMatrices[ltsFace],
-                                 godunovData[ltsFace],
-                                 impAndEta[ltsFace]);
+        for (std::size_t point = 0; point < seissol::dr::ImpedancePoints; ++point) {
+          initializeFaultImpedance(fault[meshFace],
+                                   meshFace,
+                                   point,
+                                   *plusMaterial,
+                                   *minusMaterial,
+                                   impedanceMatrices[ltsFace],
+                                   godunovData[ltsFace],
+                                   impAndEta[ltsFace]);
+        }
         break;
       }
       default: {
