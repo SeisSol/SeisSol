@@ -12,7 +12,10 @@
 #include "DynamicRupture/FrictionLaws/Dual.h"
 #include "Kernels/Precision.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 
 namespace seissol::dr::friction_law::rs {
@@ -31,73 +34,81 @@ constexpr real almostZero() {
 }
 
 /**
-  Computes asinh(x * exp(c)). Reason is: exp(c) can grow really large (too large for float);
-  but actually asinh(exp(c)) \approx c for large c.
-
-  Hence, we compute instead (x > 0)
-  asinh(x * exp(c))
-  = asinh((x * exp(c)) + sqrt((x * exp(c))**2 + 1))
-  = asinh(exp(c) * (x + sqrt(x**2 + exp(-2c))))
-  = c + asinh(x + sqrt(x**2 + exp(-2c))).
-
-  Here, exp(-2c) is small.
-
-  If c < 0, we can process as normal.
+  The largest argument whose exponential is comfortably representable. The slack to log(max()) --
+  88.7 for float, 709.8 for double -- absorbs the one binade by which the bound on |x| in
+  arsinhexp may overshoot.
  */
-#pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
-  // unqualified so that a dual number picks up the overloads next to its own definition, while a
-  // plain scalar keeps the standard ones
-  using std::abs;
-  using std::asinh;
-  using std::log;
-  using std::sqrt;
-  using Scalar = decltype(valueOf(T{}));
-
-  // Switch is empirically chosen; to prevent issues with
-  // or replacement formula not being accurate enough if x * exp(c) is small
-  constexpr Scalar Switch = 10;
-  constexpr Scalar Threshold = 50;
-  constexpr Scalar Log2 = 0.69314718055994530943;
-  int xexp{};
-  (void)std::frexp(valueOf(x), &xexp);
-
-  // make sure to invert the constant we'd use otherwise (if the exponent is too big/small)
-
-  // the branch selects a formula; the selected formula is what carries the derivative
-  // use the new code path only if we really need to
-  if (valueOf(expLog) + std::max(xexp, 0) * Log2 > Switch || valueOf(expLog) >= Threshold) {
-    if (valueOf(expLog) <= 0) {
-      exp = T(1) / exp;
-    }
-    const T xa = abs(x);
-    const T xs = valueOf(x) >= 0 ? T(1) : T(-1);
-    return xs * (expLog + log(xa + sqrt(xa * xa + exp * exp)));
-  } else {
-    if (valueOf(expLog) > 0) {
-      exp = T(1) / exp;
-    }
-    const auto v = exp * x;
-    return asinh(v);
-  }
+SEISSOL_HOSTDEVICE constexpr T logMaxExp() {
+  return std::is_same_v<T, float> ? T(87) : T(700);
 }
 
 /**
-  Helper function to arsinhexp. Since for asinh(x * exp(c)),
-  we can assume c to be constant, we can pre-compute exp(c) or exp(-2c).
+  Precomputes exp(c) for arsinhexp. c does not depend on the slip rate, so for a friction law whose
+  state variable stays outside the inversion this runs once per point and time step.
+
+  Returns zero where exp(c) is not representable; arsinhexp then takes its asymptotic branch and
+  never reads the value. Zero rather than infinity is deliberate: a masked SIMD loop evaluates both
+  branches on every lane, and inf * 0 raises FE_INVALID on a locked point where 0 * 0 stays quiet.
+  It also survives the licence -ffast-math grants the compiler to assume that no infinities exist.
  */
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
+  // unqualified so that a dual number picks up the overload next to its own definition, while a
+  // plain scalar keeps the standard one
   using std::exp;
-  T cExp{};
-  if (valueOf(cExpLog) > 0) {
-    cExp = exp(-cExpLog);
-  } else {
-    cExp = exp(cExpLog);
+  using Scalar = decltype(valueOf(T{}));
+  return valueOf(cExpLog) < logMaxExp<Scalar>() ? exp(cExpLog) : T(0);
+}
+
+/**
+  Computes asinh(x * exp(c)), with c = cExpLog and cExp = exp(c) precomputed by computeCExp. The
+  point is that exp(c) alone overflows long before asinh(x * exp(c)) does -- c reaches a few
+  hundred for a locked point, while the result stays of the order of c itself.
+
+  frexp bounds log2|x| without evaluating a logarithm: |x| < 2^xexp, hence
+  cExp * x < exp(c + xexp * log 2). Clamping the exponent at zero also forces c < logMaxExp, which
+  covers |x| < 1, where exp(c) alone is the binding constraint. So the test never admits a product
+  that overflows, and wherever the product is representable the plain formula is what runs.
+
+  Where it is not, x * exp(c) lies far beyond 1 / sqrt(eps), and there asinh(z) = log(2z) holds to
+  machine precision -- the asymptotic branch therefore needs neither exp nor asinh. It is odd in x,
+  like asinh itself, and returns zero at x = 0: the asymptotic form has a logarithmic singularity
+  there which the function it stands in for does not.
+
+  The two branches cover everything reachable from a friction law, where x = V / (2 V_0) with V
+  clamped from below by almostZero(): the asymptotic branch is then only ever entered at a product
+  above 1e8, decades beyond where it becomes exact. Two regions outside that are inaccurate, and a
+  caller stepping outside should know which. Where exp(c) overflows while |x| is small enough to
+  bring the product back into range -- below 1e-38 in single precision -- the asymptotic branch is
+  entered at a product of order one and is simply the wrong formula. Where exp(c) underflows while
+  |x| is large enough to lift the product back, mirroring the first, the precomputed factor is zero
+  and the plain branch returns zero. Both would need exp(c/2) and two multiplications in place of
+  one, which costs a sixth of this function in the folded inversion -- measured -- for accuracy
+  outside the domain the friction laws occupy.
+ */
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
+  using std::abs;
+  using std::asinh;
+  using std::log;
+  using Scalar = decltype(valueOf(T{}));
+  constexpr Scalar Log2 = 0.69314718055994530943;
+
+  int xexp{};
+  (void)std::frexp(valueOf(x), &xexp);
+
+  // the branch selects a formula; the selected formula is what carries the derivative
+  if (valueOf(cExpLog) + std::max(xexp, 0) * Log2 < logMaxExp<Scalar>()) {
+    return asinh(cExp * x);
   }
-  return cExp;
+  if (valueOf(x) == 0) {
+    return T(0);
+  }
+  const T xs = valueOf(x) >= 0 ? T(1) : T(-1);
+  return xs * (T(Log2) + cExpLog + log(abs(x)));
 }
 
 /**

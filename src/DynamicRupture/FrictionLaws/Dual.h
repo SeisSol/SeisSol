@@ -117,9 +117,12 @@ SEISSOL_HOSTDEVICE Dual<T> sqrt(Dual<T> a) {
   const T s = std::sqrt(a.value);
   return {s, a.derivative / (T(2) * s)};
 }
+/// hypot rather than sqrt(1 + v*v): asinh is evaluated at arguments reaching to the edge of the
+/// range, where 1 + v*v has long overflowed and would hand the inversion a zero derivative -- and
+/// with it an infinite step. hypot costs about a fifth of the asinh it accompanies.
 template <typename T>
 SEISSOL_HOSTDEVICE Dual<T> asinh(Dual<T> a) {
-  return {std::asinh(a.value), a.derivative / std::sqrt(T(1) + a.value * a.value)};
+  return {std::asinh(a.value), a.derivative / std::hypot(T(1), a.value)};
 }
 template <typename T>
 SEISSOL_HOSTDEVICE Dual<T> abs(Dual<T> a) {
