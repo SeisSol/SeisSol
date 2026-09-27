@@ -293,11 +293,13 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 template void
     GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,
                                                      memory::ManagedAllocator& memoryAllocator,
-                                                     enum memory::Memkind memkind);
+                                                     enum memory::Memkind memkind,
+                                                     std::size_t tpGridPoints);
 
 template void
     GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& globalData,
                                                        memory::ManagedAllocator& memoryAllocator,
-                                                       enum memory::Memkind memkind);
+                                                       enum memory::Memkind memkind,
+                                                       std::size_t tpGridPoints);
 
 } // namespace seissol::initializer

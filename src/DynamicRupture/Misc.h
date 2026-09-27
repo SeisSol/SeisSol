@@ -311,7 +311,7 @@ struct FrictionLawParameters {
   real forcedRuptureRiseTime{0.0};
   /// the rise time and the onset of a source are fields; see StressSourceRiseTime
   std::uint32_t sourceCount{1};
-  std::uint32_t tpGridPoints{DefaultTpGridPoints};
+  std::uint32_t tpGridPoints{misc::DefaultTpGridPoints};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
   real rsSlipRateTolerance{1e-8};
