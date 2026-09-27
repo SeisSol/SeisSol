@@ -211,11 +211,17 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
       }
     }
 
+    // added to the DOFs once, for the reason given in Local::computeIntegral
+    alignas(Alignment) real stressUpdate[tensor::QStress::size()]{};
     kernel::plConvertToModal adjKrnl;
-    adjKrnl.QStress = degreesOfFreedom;
+    adjKrnl.QStress = stressUpdate;
     adjKrnl.vInv = global->vandermondeMatrixInverse;
     adjKrnl.QStressNodal = qStressNodal;
     adjKrnl.execute();
+#pragma omp simd
+    for (std::size_t i = 0; i < tensor::QStress::size(); ++i) {
+      degreesOfFreedom[i] += stressUpdate[i];
+    }
 
     return 1;
   }

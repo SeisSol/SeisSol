@@ -129,8 +129,13 @@ void Local::computeIntegral(
   const auto& materialData = data.get<LTS::Material>();
   const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
 
+  // the kernels add their products into Q term by term; into the DOFs, every one of these
+  // additions would round at the size of the DOFs rather than of the update, so that the rounding
+  // error of a step grows with the number of terms. So they go into a buffer, which is added once.
+  alignas(Alignment) real update[tensor::Q::size()]{};
+
   kernel::volume volKrnl = volumeKernelPrototype_;
-  volKrnl.Q = data.get<LTS::Dofs>();
+  volKrnl.Q = update;
   volKrnl.I = timeIntegratedDoFs;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
@@ -140,7 +145,7 @@ void Local::computeIntegral(
   set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
   kernel::localFlux lfKrnl = localFluxKernelPrototype_;
-  lfKrnl.Q = data.get<LTS::Dofs>();
+  lfKrnl.Q = update;
   lfKrnl.I = timeIntegratedDoFs;
   lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
   lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
@@ -156,7 +161,7 @@ void Local::computeIntegral(
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = nodalLfKrnlPrototype_;
-    nodalLfKrnl.Q = data.get<LTS::Dofs>();
+    nodalLfKrnl.Q = update;
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
     nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
@@ -249,6 +254,12 @@ void Local::computeIntegral(
       // No boundary condition.
       break;
     }
+  }
+
+  real* dofs = data.get<LTS::Dofs>();
+#pragma omp simd
+  for (std::size_t i = 0; i < tensor::Q::size(); ++i) {
+    dofs[i] += update[i];
   }
 }
 
