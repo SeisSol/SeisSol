@@ -19,6 +19,11 @@ subdivision of the same elements), the cells are aggregated per ``global-id`` an
 the volume-weighted means are compared instead; the elements are paired by where
 they are, since their ``global-id`` need not agree between the two files (see
 ``FACES_PER_ELEMENT``).
+
+The error of a quantity is the volume-weighted squared L2 norm of its difference at the
+last output, relative to that of the reference; the components of a vector or a tensor
+are relative to the largest of them (see ``components.py``). Where that norm is below
+1e-10, the error is absolute.
 """
 
 import argparse
@@ -26,6 +31,7 @@ import sys
 
 import numpy as np
 import seissolxdmf as sx
+from components import component_group, group_scales
 from validation_report import write_report_json
 
 # Cell data that describes the run rather than the solution.
@@ -500,11 +506,18 @@ def compare(file, file_ref, epsilon, report_json=None, category="mesh"):
 
     last_index = mesh.ndt
     assert last_index == mesh_ref.ndt
-    for i, q in enumerate(quantity_names):
+
+    def read(q):
         quantity = mesh.ReadData(q, last_index - 1)[ids]
         q_ref = q if q in fields_ref else RENAMED[q]
         quantity_ref = mesh_ref.ReadData(q_ref, last_index - 1)[ids_ref]
+        if q == "DS":
+            quantity = np.where(quantity_ref < 1e-10, 0.0, quantity)
+        return quantity, quantity_ref
 
+    differences = {}
+    references = {}
+    for q in quantity_names:
         # we can leave this one in. A field with the name "DS" only appears on the mesh
         if q == "DS":
             print(
@@ -512,18 +525,22 @@ def compare(file, file_ref, epsilon, report_json=None, category="mesh"):
                 "places. In order to make a fair comparison, we only compare the parts of DS, "
                 "where it is non-zero."
             )
-            quantity = np.where(quantity_ref < 1e-10, 0.0, quantity)
+        differences[q], references[q] = l2_error(*read(q))
 
-        difference, reference = l2_error(quantity, quantity_ref)
+    # the components of a vector or a tensor are relative to the largest reference norm among
+    # them (see components.py)
+    scales = group_scales(references)
+    for i, q in enumerate(quantity_names):
+        reference = scales[component_group(q)]
         if reference < 1e-10:
-            print(f"{q:3}: {difference} [abs.]")
-            errors[i] = difference
+            print(f"{q:3}: {differences[q]} [abs.]")
+            errors[i] = differences[q]
         else:
-            print(f"{q:3}: {difference / reference} [rel.]")
-            errors[i] = difference / reference
+            print(f"{q:3}: {differences[q] / reference} [rel.]")
+            errors[i] = differences[q] / reference
 
         if errors[i] > epsilon and not aggregated and ids_global is not None:
-            diagnose_subcell_permutation(ids_global[ids], quantity, quantity_ref)
+            diagnose_subcell_permutation(ids_global[ids], *read(q))
 
     failure = False
     if global_id_correct is False:

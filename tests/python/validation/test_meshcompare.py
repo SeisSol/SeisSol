@@ -132,6 +132,72 @@ class TestMeshCompareExact:
         assert "Matched all 2 cells geometrically" in out
 
 
+class TestMeshCompareComponentGroups:
+    """A component is measured against the largest norm of its vector or tensor."""
+
+    @staticmethod
+    def errors(registry, tmp_path, sim, ref, epsilon=1e-3):
+        for name, fields in (("sim.xdmf", sim), ("ref.xdmf", ref)):
+            registry[name] = {"geom": GEOM, "connect": CONNECT, "fields": fields}
+        report = tmp_path / "report.json"
+        meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=epsilon, report_json=report)
+        import json
+
+        return json.loads(report.read_text())["quantities"]
+
+    def test_small_component_is_relative_to_its_vector(
+        self, patch_seissolxdmf, tmp_path
+    ):
+        # v2 is nearly zero, as the fault-normal traction change of a symmetric setup; its
+        # noise relative to itself would be 1e-2, relative to the velocity 1e-8 or so
+        ref = {
+            "v1": np.array([1.0, 2.0]),
+            "v2": np.array([1e-3, -1e-3]),
+            "v3": np.array([0.5, 0.5]),
+        }
+        sim = dict(ref, v2=ref["v2"] + 1e-4)
+        errors = self.errors(patch_seissolxdmf, tmp_path, sim, ref)
+        assert errors["v2"] == pytest.approx(2 * 1e-8 / (1.0 + 4.0))
+        assert errors["v1"] == 0.0
+
+    def test_other_vectors_do_not_scale_a_component(self, patch_seissolxdmf):
+        ref = {
+            "v2": np.array([1e-3, -1e-3]),
+            "u1": np.array([1e3, 1e3]),
+        }
+        sim = dict(ref, v2=ref["v2"] + 1e-4)
+        for name, fields in (("sim.xdmf", sim), ("ref.xdmf", ref)):
+            patch_seissolxdmf[name] = {
+                "geom": GEOM,
+                "connect": CONNECT,
+                "fields": fields,
+            }
+        with pytest.raises(SystemExit):
+            meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=1e-3)
+
+    def test_zero_component_is_relative_to_its_vector(
+        self, patch_seissolxdmf, tmp_path
+    ):
+        # identically zero in the reference, as the strike slip of a pure dip-slip source;
+        # compared on its own it would be an absolute error weighted by the cell volumes
+        ref = {"Sls": np.array([0.0, 0.0]), "Sld": np.array([2.0, 2.0])}
+        sim = dict(ref, Sls=np.array([1e-6, -1e-6]))
+        errors = self.errors(patch_seissolxdmf, tmp_path, sim, ref)
+        assert errors["Sls"] == pytest.approx(1e-12 / 4.0)
+
+    def test_fused_simulations_are_apart(self, patch_seissolxdmf, tmp_path):
+        ref = {
+            "v1-1": np.array([1.0, 1.0]),
+            "v2-1": np.array([0.0, 0.0]),
+            "v1-2": np.array([1e-3, 1e-3]),
+            "v2-2": np.array([0.0, 0.0]),
+        }
+        sim = dict(ref, **{"v2-2": np.array([1e-4, 1e-4])})
+        errors = self.errors(patch_seissolxdmf, tmp_path, sim, ref, epsilon=1.0)
+        # relative to the velocity of its own simulation, not to that of the first
+        assert errors["v2-2"] == pytest.approx(1e-2)
+
+
 class TestMeshCompareFailures:
     """Violations should trigger sys.exit(1)."""
 

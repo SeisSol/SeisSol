@@ -15,6 +15,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+from components import component_group, group_scales
 from validation_report import write_report_json
 
 if hasattr(np, "trapezoid"):
@@ -241,36 +242,6 @@ def load_receivers(
     return receivers
 
 
-# receiver columns that are components of one vector or tensor
-_COMPONENTS = {
-    **{name: "stress" for name in ("s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz")},
-    **{
-        name: "strain rate"
-        for name in ("epsxx", "epsyy", "epszz", "epsxy", "epsyz", "epsxz")
-    },
-    **{name: "velocity" for name in ("v1", "v2", "v3")},
-    **{name: "fluid velocity" for name in ("v1_f", "v2_f", "v3_f")},
-    **{name: "traction" for name in ("T_s", "T_d", "P_n")},
-    **{name: "initial traction" for name in ("Ts0", "Td0", "Pn0")},
-    **{name: "slip" for name in ("Sls", "Sld")},
-    **{name: "slip rate" for name in ("SRs", "SRd")},
-}
-
-
-def component_group(column: str) -> str:
-    """The vector or tensor a receiver column is a component of, per simulation.
-
-    A fused simulation appends its index to every column (s_xx3, v13) or, on the
-    fault, a dash and its number (SRs-4); the components of one simulation form
-    one group. A column that is no component is a group of its own.
-    """
-    for end in range(len(column), 0, -1):
-        name, suffix = column[:end], column[end:]
-        if name in _COMPONENTS and re.fullmatch(r"(-?\d+)?", suffix):
-            return _COMPONENTS[name] + suffix
-    return column
-
-
 def compare_receiver_columns(
     sim_receiver: pd.DataFrame, ref_receiver: pd.DataFrame, label: str
 ) -> dict[str, float]:
@@ -278,9 +249,7 @@ def compare_receiver_columns(
 
     Returns a dict mapping column name -> relative L2 error (or absolute if ref is ~zero).
     The components of a vector or a tensor are relative to the largest reference norm
-    among them: a component that stays at zero, like the shear stress in water, holds
-    rounding noise only, and relative to that noise any other rounding would look
-    like a change of order one.
+    among them (see components.py).
     """
     time = ref_receiver["Time"].values
     columns = [col for col in ref_receiver.columns if col != "Time"]
@@ -288,10 +257,7 @@ def compare_receiver_columns(
         col: np.sqrt(trapz_func(ref_receiver[col].values ** 2, x=time))
         for col in columns
     }
-    scale = {}
-    for col, norm in ref_norms.items():
-        group = component_group(col)
-        scale[group] = max(scale.get(group, 0.0), norm)
+    scale = group_scales(ref_norms)
     errors = {}
     for col in columns:
         if col not in sim_receiver.columns:
