@@ -19,6 +19,7 @@
 #include "Solver/MultipleSimulations.h"
 #include "SourceTerm/Manager.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -72,9 +73,34 @@ std::vector<std::unique_ptr<physics::InitialField>>
 
   const auto pos = memoryManager.backmap().get(0);
 
+  // The analytical fields below are solutions of a homogeneous medium, and every
+  // one of them is built from the material of one cell. Where the material is
+  // allowed to vary inside a cell, that assumption is worth checking: the
+  // samples of this cell have to agree with each other, or the field is a
+  // solution of a medium that is not the one being simulated. This says nothing
+  // about the other cells, which the choice of a single cell has always assumed.
+  const auto homogeneousOrFail = [&](const std::string& description) {
+    if constexpr (NodalMaterial) {
+      const auto& samples = memoryManager.ltsStorage().lookup<LTS::NodalMaterialData>(pos);
+      for (const auto& [name, member] : model::MaterialT::ParameterMap) {
+        const double reference = samples[0].*member;
+        const double scale = std::max(1.0, std::abs(reference));
+        for (std::size_t node = 1; node < LTS::MaterialNodes; ++node) {
+          if (std::abs(samples[node].*member - reference) > 1.0e-12 * scale) {
+            logError() << description << "is a solution of a homogeneous medium, but the material"
+                       << "varies inside the cell it was built from (" << name.c_str()
+                       << "). Use a material without sub-cell variation for this initial"
+                       << "condition.";
+          }
+        }
+      }
+    }
+  };
+
   if (initConditionParams.type ==
       seissol::initializer::parameters::InitializationType::Planarwave) {
     initialConditionDescription = "Planar wave";
+    homogeneousOrFail(initialConditionDescription);
     const auto materialData = memoryManager.ltsStorage().lookup<LTS::Material>(pos);
 
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
@@ -84,6 +110,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
     initialConditionDescription = "Super-imposed planar wave";
+    homogeneousOrFail(initialConditionDescription);
 
     const auto materialData = memoryManager.ltsStorage().lookup<LTS::Material>(pos);
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
@@ -98,6 +125,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
                  seissol::initializer::parameters::InitializationType::Travelling &&
              model::MaterialT::Mechanisms == 0) {
     initialConditionDescription = "Travelling wave";
+    homogeneousOrFail(initialConditionDescription);
     auto travellingWaveParameters = getTravellingWaveInformation(seissolInstance);
 
     const auto materialData = memoryManager.ltsStorage().lookup<LTS::Material>(pos);
@@ -107,6 +135,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
                  seissol::initializer::parameters::InitializationType::AcousticTravellingWithITM &&
              model::MaterialT::Mechanisms == 0) {
     initialConditionDescription = "Acoustic Travelling Wave with ITM";
+    homogeneousOrFail(initialConditionDescription);
     auto acousticTravellingWaveParametersITM =
         getAcousticTravellingWaveITMInformation(seissolInstance);
 
