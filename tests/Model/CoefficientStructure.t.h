@@ -146,6 +146,10 @@ seissol::model::ViscoElasticMaterial<Mechanisms> viscoelastic(std::mt19937& rng)
   material.rho = 2500.0;
   material.mu = 3e10;
   material.lambda = 2e10;
+  // the quality factors are what the attenuation fit turns into theta, so a
+  // material that leaves them at zero has no relaxation to speak of
+  material.qp = 100.0;
+  material.qs = 50.0;
   for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
     for (std::size_t component = 0; component < 3; ++component) {
       material.theta[mech][component] = value(rng);
@@ -220,6 +224,15 @@ TEST_CASE("Coefficient decomposition") {
     // three values rather than twenty-one; the comparison above is what
     // catches an anisotropic one
     coefficients::checkUnique<seissol::model::PoroElasticMaterial, 13>();
+  }
+
+  SUBCASE("poroelastic source") {
+    // the Biot drag, which a cell carries as two scalars where the material
+    // varies inside it
+    for (std::size_t sample = 0; sample < 32; ++sample) {
+      coefficients::checkSourceDeclaration<seissol::model::PoroElasticMaterial, 13>(
+          coefficients::poroelastic(rng), 0);
+    }
   }
 #endif
 
@@ -335,9 +348,68 @@ TEST_CASE("Coefficient origins") {
     }
   };
 
+  /// The same question for the source term, where a material has one. Every
+  /// scalar it is stated in has to be reachable from the material, or a cell
+  /// that samples the material inside itself would be sampling a constant.
+  /// The relaxation frequencies are the counterpart: they follow the frequency
+  /// band alone, which is why they stay one number for the whole domain.
+  const auto checkSource = [&](auto prototype) {
+    using Material = decltype(prototype);
+    using Setup = seissol::model::MaterialSetup<Material>;
+    constexpr std::size_t Mechanisms = std::max<std::size_t>(Material::Mechanisms, 1);
+
+    auto base = prototype;
+    base.initialize(parameters);
+
+    std::array<std::array<double, Setup::NumSourceCoefficients>, Mechanisms> movement{};
+    double frequencyMovement = 0.0;
+
+    for (const auto& [name, member] : Material::ParameterMap) {
+      auto perturbed = prototype;
+      perturbed.*member *= 1.5;
+      perturbed.initialize(parameters);
+
+      for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
+        const auto reference = Setup::getSourceCoefficients(base, mech);
+        const auto moved = Setup::getSourceCoefficients(perturbed, mech);
+        for (std::size_t i = 0; i < reference.size(); ++i) {
+          const double scale = std::max(std::abs(reference[i]), std::abs(moved[i]));
+          if (scale > 0.0) {
+            movement[mech][i] =
+                std::max(movement[mech][i], std::abs(moved[i] - reference[i]) / scale);
+          }
+        }
+        if constexpr (Material::Mechanisms > 0) {
+          const double scale =
+              std::max(std::abs(base.omega[mech]), std::abs(perturbed.omega[mech]));
+          if (scale > 0.0) {
+            frequencyMovement = std::max(
+                frequencyMovement, std::abs(perturbed.omega[mech] - base.omega[mech]) / scale);
+          }
+        }
+      }
+    }
+
+    for (std::size_t mech = 0; mech < Mechanisms; ++mech) {
+      for (std::size_t i = 0; i < Setup::NumSourceCoefficients; ++i) {
+        INFO("source coefficient " << i << " of mechanism " << mech
+                                   << " is not reached by any material parameter");
+        REQUIRE(movement[mech][i] > 0.0);
+      }
+    }
+    INFO("a relaxation frequency moves with the material");
+    REQUIRE(frequencyMovement <= 1e-14);
+  };
+
   SUBCASE("elastic") { check(coefficients::elastic(2700.0, 3.24e10, 3.24e10)); }
   SUBCASE("acoustic") { check(coefficients::acoustic(1000.0, 2.25e9)); }
-  SUBCASE("viscoelastic") { check(coefficients::viscoelastic<3>(rng)); }
+  SUBCASE("viscoelastic") {
+    check(coefficients::viscoelastic<3>(rng));
+    checkSource(coefficients::viscoelastic<3>(rng));
+  }
+#ifdef SEISSOL_KERNELS_STP
+  SUBCASE("poroelastic") { checkSource(coefficients::poroelastic(rng)); }
+#endif
 }
 
 /// The flux operator is not linear in either material -- the Riemann solver is

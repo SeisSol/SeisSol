@@ -389,6 +389,18 @@ POROELASTIC = Decomposition(
         "beta2/rho2",
     ],
     entries=_poroelastic_entries(),
+    # the Biot drag: the relative motion of fluid and solid relaxes against the
+    # two densities, one scalar each
+    source_coefficients=[
+        "beta1 eta / (rho1 kappa)",
+        "beta2 eta / (rho2 kappa)",
+    ],
+    # fmt: off
+    source=[
+        SourceEntry(0, 10, 6), SourceEntry(0, 11, 7), SourceEntry(0, 12, 8),
+        SourceEntry(1, 10, 10), SourceEntry(1, 11, 11), SourceEntry(1, 12, 12),
+    ],
+    # fmt: on
 )
 
 # -------------------------------------------------------- viscous materials

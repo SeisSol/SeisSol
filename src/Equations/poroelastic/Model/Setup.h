@@ -52,6 +52,33 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
 
   static constexpr auto CoefficientEntries = generated::PoroElasticCoefficientEntries;
 
+  /// The two drag scalars of the Biot source, one per density.
+  static constexpr std::size_t NumSourceCoefficients = generated::PoroElasticNumSourceCoefficients;
+
+  static std::array<double, NumSourceCoefficients>
+      getSourceCoefficients(const PoroElasticMaterial& material, std::size_t /*mech*/ = 0) {
+    const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
+    const double drag = material.viscosity / material.permeability;
+    return {params.beta1 * drag / params.rho1, params.beta2 * drag / params.rho2};
+  }
+
+  static constexpr auto SourceEntries = generated::PoroElasticSourceEntries;
+
+  /// The source entries of one mechanism, which a poroelastic material has
+  /// exactly one of: the Biot drag between fluid and solid.
+  template <typename F>
+  static void forEachSourceEntry(const PoroElasticMaterial& material,
+                                 std::size_t /*mech*/,
+                                 const F& write) {
+    const auto coefficients = getSourceCoefficients(material);
+    write(10, 6, coefficients[0]);
+    write(11, 7, coefficients[0]);
+    write(12, 8, coefficients[0]);
+    write(10, 10, coefficients[1]);
+    write(11, 11, coefficients[1]);
+    write(12, 12, coefficients[1]);
+  }
+
   template <typename T>
   static void setToZero(T& AT) {
     AT.setZero();
@@ -201,18 +228,10 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
 
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const PoroElasticMaterial& material, T& ET) {
-    const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
-    const double e1 = params.beta1 * material.viscosity / (params.rho1 * material.permeability);
-    const double e2 = params.beta2 * material.viscosity / (params.rho2 * material.permeability);
-
     ET.setZero();
-    ET(10, 6) = e1;
-    ET(11, 7) = e1;
-    ET(12, 8) = e1;
-
-    ET(10, 10) = e2;
-    ET(11, 11) = e2;
-    ET(12, 12) = e2;
+    forEachSourceEntry(material, 0, [&ET](std::size_t row, std::size_t column, double value) {
+      ET(row, column) = value;
+    });
   }
 
   static void getTransposedGodunovState(const PoroElasticMaterial& local,
