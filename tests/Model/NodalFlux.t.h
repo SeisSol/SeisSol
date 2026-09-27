@@ -163,7 +163,10 @@ void compareAgainstModal(FaceType faceType) {
         value = static_cast<real>(gauss(rng));
       }
 
-      for (std::uint8_t side = 0; side < 4; ++side) {
+      // the side is a template parameter so that every member of a family is
+      // read through its own view: they need not share a layout
+      const auto checkSide = [&](auto tag) {
+        constexpr std::uint8_t side = decltype(tag)::value;
         // 3. the nodal form
         alignas(Alignment) std::array<real, tensor::Q::size()> nodal{};
         typename Kernels<Enabled>::LocalFlux krnl{};
@@ -197,14 +200,14 @@ void compareAgainstModal(FaceType faceType) {
           const Eigen::MatrixXd stored = denseOf(view, rows, columns);
           return multisim::NumSimulations > 1 ? Eigen::MatrixXd(stored.transpose()) : stored;
         };
-        const auto rDivM =
-            mathMatrix(init::rDivM::view<0>::create(const_cast<real*>(init::rDivM::Values[side])),
-                       tensor::rDivM::Shape[0][0],
-                       tensor::rDivM::Shape[0][1]);
+        const auto rDivM = mathMatrix(
+            init::rDivM::view<side>::create(const_cast<real*>(init::rDivM::Values[side])),
+            tensor::rDivM::Shape[side][0],
+            tensor::rDivM::Shape[side][1]);
         const auto fMrT =
-            mathMatrix(init::fMrT::view<0>::create(const_cast<real*>(init::fMrT::Values[side])),
-                       tensor::fMrT::Shape[0][0],
-                       tensor::fMrT::Shape[0][1]);
+            mathMatrix(init::fMrT::view<side>::create(const_cast<real*>(init::fMrT::Values[side])),
+                       tensor::fMrT::Shape[side][0],
+                       tensor::fMrT::Shape[side][1]);
         const auto operatorT = denseOf(init::AplusT::view::create(aplus.data()), NQ, NQ);
         auto viewI = init::I::view::create(dofs.data());
         auto viewQ = init::Q::view::create(nodal.data());
@@ -231,7 +234,11 @@ void compareAgainstModal(FaceType faceType) {
             }
           }
         }
-      }
+      };
+      checkSide(std::integral_constant<std::uint8_t, 0>{});
+      checkSide(std::integral_constant<std::uint8_t, 1>{});
+      checkSide(std::integral_constant<std::uint8_t, 2>{});
+      checkSide(std::integral_constant<std::uint8_t, 3>{});
     }
   }
 }

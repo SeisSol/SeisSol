@@ -175,6 +175,12 @@ auto getStarCoefficients(const Tmaterial& material) {
   return SolverSetup<typename Tmaterial::Solver, Tmaterial>::getCoefficients(material);
 }
 
+/// The same for the source term this cell's solver applies.
+template <typename Tmaterial>
+auto getSourceCoefficients(const Tmaterial& material) {
+  return SolverSetup<typename Tmaterial::Solver, Tmaterial>::getSourceCoefficients(material);
+}
+
 template <typename Tmaterial, typename T>
 void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
   SolverSetup<typename Tmaterial::Solver, Tmaterial>::getTransposedSourceCoefficientTensor(material,

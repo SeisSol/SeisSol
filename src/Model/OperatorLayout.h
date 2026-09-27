@@ -38,6 +38,12 @@ constexpr bool NodalMaterial = Config::MaterialNodal && FactoredStar;
 /// vary inside the cell.
 constexpr std::size_t MaterialSampleCount = generated::MaterialSampleCount;
 
+/// How many scalars the source term of a cell is linear in, and whether it is
+/// formed where the material is sampled. A solver without a source term, or
+/// one that does not declare its decomposition, carries none.
+constexpr std::size_t SourceCoefficientCount = generated::SolverNumSourceCoefficients;
+constexpr bool NodalSource = NodalMaterial && SourceCoefficientCount > 0;
+
 /// How many scalars the flux operator of a face is linear in, in the
 /// coordinates of that face, and how many nodes of a face carry them.
 constexpr std::size_t FluxCoefficientCount = generated::FluxNumCoefficients;

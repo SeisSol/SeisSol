@@ -65,6 +65,11 @@ struct alignas(Alignment) LocalIntegrationData {
   real materialCoefficients[zeroGuard(FactoredStar ? StarCoefficientCount : 0)]
                            [zeroGuard(FactoredStar ? MaterialSampleCount : 0)]{};
 
+  // The scalars the source term is linear in, at the sample points, where a
+  // cell forms it from the material it carries rather than from one matrix.
+  real sourceCoefficients[zeroGuard(NodalSource ? SourceCoefficientCount : 0)]
+                         [zeroGuard(NodalSource ? MaterialSampleCount : 0)]{};
+
   // flux solver for element local contribution. It stays where the flux reads
   // the material at the nodes of a face: the anelastic solver keeps the matrix
   // form, and so does the batched path.

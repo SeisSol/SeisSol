@@ -109,17 +109,26 @@ inline seissol::model::AnisotropicMaterial anisotropic(std::mt19937& rng) {
   return material;
 }
 
-/// Not every viscous material attenuates shear: the acoustic one has no shear
-/// to attenuate, so it carries one quality factor instead of two.
+/// Only a material with relaxation carries quality factors, and not every one
+/// of those attenuates shear: the acoustic one has no shear to attenuate, so
+/// it carries one instead of two.
+template <typename T, typename = void>
+struct HasQuality : std::false_type {};
+template <typename T>
+struct HasQuality<T, std::void_t<decltype(std::declval<T&>().qp)>> : std::true_type {};
+
 template <typename T, typename = void>
 struct HasShearQuality : std::false_type {};
 template <typename T>
 struct HasShearQuality<T, std::void_t<decltype(std::declval<T&>().qs)>> : std::true_type {};
 
 template <typename T>
-void setShearQuality(T& material, double value) {
+void setQualityFactors(T& material, double compressional, double shear) {
+  if constexpr (HasQuality<T>::value) {
+    material.qp = compressional;
+  }
   if constexpr (HasShearQuality<T>::value) {
-    material.qs = value;
+    material.qs = shear;
   }
 }
 
@@ -160,10 +169,7 @@ MaterialT configuredMaterial(std::mt19937& rng) {
     material.rho = 2500.0 * unit(rng);
     material.lambda = 2e10 * unit(rng);
     material.mu = 3e10 * unit(rng);
-    material.qp = 100.0 * unit(rng);
-    if constexpr (HasShearQuality<MaterialT>::value) {
-      setShearQuality(material, 50.0 * unit(rng));
-    }
+    setQualityFactors(material, 100.0 * unit(rng), 50.0 * unit(rng));
     material.initialize(parameters);
   }
   return material;

@@ -79,6 +79,17 @@ void bindStarOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) 
 /// two shapes the cell carries it: the scalars at the nodes of that face
 /// together with the rotation into its coordinates, or the matrix the two fold
 /// into.
+/// Hands a kernel the source term of a cell, where it is formed from what the
+/// material says at the sample points rather than from one matrix.
+template <typename KernelT, typename LocalIntegrationT>
+void bindSourceOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) {
+  if constexpr (NodalSource) {
+    for (std::size_t a = 0; a < SourceCoefficientCount; ++a) {
+      krnl.sourceCoefficients(a) = localIntegration.sourceCoefficients[a];
+    }
+  }
+}
+
 template <typename KernelT, typename LocalIntegrationT>
 void bindLocalFluxOperands(KernelT& krnl,
                            const LocalIntegrationT& localIntegration,

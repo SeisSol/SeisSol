@@ -283,6 +283,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               for (std::size_t i = 0; i < coefficients.size(); ++i) {
                 localIntegration[cell].materialCoefficients[i][point] = coefficients[i];
               }
+              if constexpr (NodalSource) {
+                // the source term varies with the material just as the flux does
+                const auto source = seissol::model::getSourceCoefficients(sampled[point]);
+                for (std::size_t i = 0; i < source.size(); ++i) {
+                  localIntegration[cell].sourceCoefficients[i][point] = source[i];
+                }
+              }
             }
           } else {
             const auto coefficients = seissol::model::getStarCoefficients(materialLocal);

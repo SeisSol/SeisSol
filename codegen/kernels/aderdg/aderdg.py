@@ -679,6 +679,19 @@ class ADERDGBase(ABC):
         )
         return statements
 
+    def sourceTerm(self, source, target):
+        """The source term added to a target, in whichever shape this build
+        forms it: from the matrix a cell carries, or from the scalars it
+        carries at the sample points. Nothing at all where the solver has no
+        source term."""
+        if self.sourceMatrix() is None:
+            return []
+        if self.sourceCoefficientCount() == 0:
+            return [
+                target["kp"] <= target["kp"] + source["kq"] * self.sourceMatrix()["qp"]
+            ]
+        return self.nodalSource(source, target, "nq")
+
     def nodalSource(self, source, target, contract, spectator="", temporaries=None):
         """The source term where the material varies inside the cell.
 

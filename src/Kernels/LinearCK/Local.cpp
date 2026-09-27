@@ -126,6 +126,7 @@ void Local::computeIntegral(
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
+  kernels::bindSourceOperands(volKrnl, data.get<LTS::LocalIntegration>());
 
   kernel::localFlux lfKrnl = localFluxKernelPrototype_;
   lfKrnl.Q = data.get<LTS::Dofs>();

@@ -93,6 +93,7 @@ void Spacetime::computeAder(const real* coeffs,
 
   // Optional source term
   set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
+  kernels::bindSourceOperands(krnl, data.get<LTS::LocalIntegration>());
 
   krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
   for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {

@@ -79,11 +79,7 @@ class LinearCK(ADERDGBase):
                 )
                 volumeExpr = self.nodalApply(self.I, volumeUpdate, self.db.kDivM)
                 volumeExpr += [self.Q["kp"] <= self.Q["kp"] + volumeUpdate["kp"]]
-                if self.sourceMatrix():
-                    volumeExpr += [
-                        self.Q["kp"]
-                        <= self.Q["kp"] + self.I["kq"] * self.sourceMatrix()["qp"]
-                    ]
+                volumeExpr += self.sourceTerm(self.I, self.Q)
             else:
                 volumeSum = self.Q["kp"]
                 for i in range(3):
@@ -308,12 +304,7 @@ class LinearCK(ADERDGBase):
                     derivativeExpr += self.nodalApply(
                         derivatives[-1], dQ, self.db.kDivMT
                     )
-                    if self.sourceMatrix():
-                        derivativeExpr += [
-                            dQ["kp"]
-                            <= dQ["kp"]
-                            + derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
-                        ]
+                    derivativeExpr += self.sourceTerm(derivatives[-1], dQ)
                     derivativeExpr += [self.I["kp"] <= self.I["kp"] + power * dQ["kp"]]
                     derivativeTaylorExpansion += power * dQ["kp"]
                     derivatives.append(dQ)
