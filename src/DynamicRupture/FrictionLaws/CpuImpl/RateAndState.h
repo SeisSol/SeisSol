@@ -541,6 +541,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     real xHigh[misc::NumPaddedPoints]{};
     real dxOld[misc::NumPaddedPoints]{};        // previous step, for the "outrun bisection" test
     real gNoise[misc::NumPaddedPoints]{};       // rounding noise of the residual, per point
+    real dMuF[misc::NumPaddedPoints]{};         // d(mu)/dV, from the same pass as mu itself
     int32_t converged[misc::NumPaddedPoints]{}; // int not bool: keeps ICX SIMD happy (cf. below)
 
     // Number of roundings that enter one residual evaluation; used to size both floors below.
@@ -590,7 +591,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         const real x = slipRateTest[pointIndex];
-        muF[pointIndex] = static_cast<Derived*>(this)->updateMu(pointIndex, x, details);
+        // one pass through mu() yields the value and its derivative; the friction law is written
+        // once and instantiated for a dual number here
+        const auto mu = static_cast<Derived*>(this)->updateMu(
+            pointIndex, Dual<real>(x, static_cast<real>(1.0)), details);
+        muF[pointIndex] = mu.value;
+        dMuF[pointIndex] = mu.derivative;
         // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen:
         // that moves the normal coupling out of the outer fixed point and into this Newton.
         const real sigma =
@@ -614,7 +620,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         const real x = slipRateTest[pointIndex];
-        const real dMuF = static_cast<Derived*>(this)->updateMuDerivative(pointIndex, x, details);
         const real sigma =
             effectiveNormalStress(normalStress, normalStressStick, etaNormal, x, pointIndex);
 
@@ -628,10 +633,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
           dAbsSigma = static_cast<real>(0.0);
         }
         const real dGFrozen =
-            -invEta[pointIndex] * (std::abs(sigma) * dMuF) - static_cast<real>(1.0);
-        const real dGCoupled =
-            -invEta[pointIndex] * (std::abs(sigma) * dMuF + dAbsSigma * muF[pointIndex]) -
-            static_cast<real>(1.0);
+            -invEta[pointIndex] * (std::abs(sigma) * dMuF[pointIndex]) - static_cast<real>(1.0);
+        const real dGCoupled = -invEta[pointIndex] * (std::abs(sigma) * dMuF[pointIndex] +
+                                                      dAbsSigma * muF[pointIndex]) -
+                               static_cast<real>(1.0);
         // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which
         // the coupling can weaken g. It stays strictly decreasing as long as
         //   |etaNormal| * mu < eta_proj + |sigma| * mu' ,

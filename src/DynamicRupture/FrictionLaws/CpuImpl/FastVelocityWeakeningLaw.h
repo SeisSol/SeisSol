@@ -85,7 +85,6 @@ class FastVelocityWeakeningLaw
     std::array<real, misc::NumPaddedPoints> cLin{};
     std::array<real, misc::NumPaddedPoints> cExpLog{};
     std::array<real, misc::NumPaddedPoints> cExp{};
-    std::array<real, misc::NumPaddedPoints> acLin{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
@@ -98,13 +97,11 @@ class FastVelocityWeakeningLaw
       const real cLin = static_cast<real>(0.5) / this->drParameters_.rsSr0;
       const real cExpLog = localStateVariable[pointIndex] / localA;
       const real cExp = rs::computeCExp(cExpLog);
-      const real acLin = localA * cLin;
 
       details.a[pointIndex] = localA;
       details.cLin[pointIndex] = cLin;
       details.cExpLog[pointIndex] = cExpLog;
       details.cExp[pointIndex] = cExp;
-      details.acLin[pointIndex] = acLin;
     }
     return details;
   }
@@ -118,10 +115,12 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
-    const real lx = details.cLin[pointIndex] * localSlipRateMagnitude;
-    return details.a[pointIndex] *
-           rs::arsinhexp(lx, details.cExpLog[pointIndex], details.cExp[pointIndex]);
+  /// generic over the scalar: a dual slip rate carries the derivative out with the value
+  template <typename S>
+  S updateMu(std::uint32_t pointIndex, S localSlipRateMagnitude, const MuDetails& details) {
+    const S lx = S(details.cLin[pointIndex]) * localSlipRateMagnitude;
+    return S(details.a[pointIndex]) *
+           rs::arsinhexp(lx, S(details.cExpLog[pointIndex]), S(details.cExp[pointIndex]));
   }
 
 /**
@@ -133,13 +132,6 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  real updateMuDerivative(std::uint32_t pointIndex,
-                          real localSlipRateMagnitude,
-                          const MuDetails& details) {
-    const real lx = details.cLin[pointIndex] * localSlipRateMagnitude;
-    return details.acLin[pointIndex] *
-           rs::arsinhexpDerivative(lx, details.cExpLog[pointIndex], details.cExp[pointIndex]);
-  }
 
   /**
    * Resample the state variable.

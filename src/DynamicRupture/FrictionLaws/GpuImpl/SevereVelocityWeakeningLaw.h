@@ -81,21 +81,15 @@ class SevereVelocityWeakeningLaw
     return MuDetails{localA, c};
   }
 
-  SEISSOL_DEVICE static real updateMu(FrictionLawContext& __restrict ctx,
-                                      real localSlipRateMagnitude,
-                                      const MuDetails& details) {
-    return ctx.data->f0[ctx.ltsFace][ctx.pointIndex] +
-           details.a * localSlipRateMagnitude /
-               (localSlipRateMagnitude + ctx.data->drParameters.rsSr0) -
-           details.c;
-  }
-
-  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& __restrict ctx,
-                                                real localSlipRateMagnitude,
-                                                const MuDetails& details) {
-    // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
-    const real divisor = (localSlipRateMagnitude + ctx.data->drParameters.rsSr0);
-    return details.a * ctx.data->drParameters.rsSr0 / (divisor * divisor);
+  /// generic over the scalar: a dual slip rate carries the derivative out with the value
+  template <typename S>
+  SEISSOL_DEVICE static S updateMu(FrictionLawContext& __restrict ctx,
+                                   S localSlipRateMagnitude,
+                                   const MuDetails& details) {
+    return S(ctx.data->f0[ctx.ltsFace][ctx.pointIndex]) +
+           S(details.a) * localSlipRateMagnitude /
+               (localSlipRateMagnitude + S(ctx.data->drParameters.rsSr0)) -
+           S(details.c);
   }
 
   // no resampling

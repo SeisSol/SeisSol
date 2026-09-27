@@ -101,34 +101,6 @@ SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
 }
 
 /**
-  Derivative to arsinhexp.
- */
-#pragma omp declare simd
-template <typename T>
-SEISSOL_HOSTDEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
-  constexpr T Switch = 10;
-  constexpr T Threshold = 50;
-  constexpr T Log2 = 0.69314718055994530943;
-  int xexp{};
-  (void)std::frexp(x, &xexp);
-
-  // make sure to invert the constant we'd use otherwise (if the exponent is too big/small)
-
-  if (expLog + std::max(xexp, 0) * Log2 > Switch || expLog >= Threshold) {
-    if (expLog <= 0) {
-      exp = 1 / exp;
-    }
-    return 1 / std::sqrt(x * x + exp * exp);
-  } else {
-    if (expLog > 0) {
-      exp = 1 / exp;
-    }
-    const auto v = exp * x;
-    return exp / std::sqrt(1 + v * v);
-  }
-}
-
-/**
   Compute log(x * sinh(c)).
   if c > 0, then
   log(x * (e(c) - e(-c)) / 2)

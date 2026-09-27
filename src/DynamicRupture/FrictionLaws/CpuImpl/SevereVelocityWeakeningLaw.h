@@ -66,21 +66,16 @@ class SevereVelocityWeakeningLaw
   }
 
 #pragma omp declare simd
-  real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
-    return details.f0[pointIndex] +
-           details.a[pointIndex] * localSlipRateMagnitude /
-               (localSlipRateMagnitude + this->drParameters_.rsSr0) -
-           details.c[pointIndex];
+  /// generic over the scalar: a dual slip rate carries the derivative out with the value
+  template <typename S>
+  S updateMu(std::uint32_t pointIndex, S localSlipRateMagnitude, const MuDetails& details) {
+    return S(details.f0[pointIndex]) +
+           S(details.a[pointIndex]) * localSlipRateMagnitude /
+               (localSlipRateMagnitude + S(this->drParameters_.rsSr0)) -
+           S(details.c[pointIndex]);
   }
 
 #pragma omp declare simd
-  real updateMuDerivative(std::uint32_t pointIndex,
-                          real localSlipRateMagnitude,
-                          const MuDetails& details) {
-    // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
-    const real divisor = (localSlipRateMagnitude + this->drParameters_.rsSr0);
-    return details.a[pointIndex] * this->drParameters_.rsSr0 / (divisor * divisor);
-  }
 
   /**
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the

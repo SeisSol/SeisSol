@@ -412,8 +412,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       // >>> precision knob: evaluate muF/g/dG in double (promote sigma, tau, x) to drop the
       //     noise floor AND make the sign below exact. Needs a double mu() evaluation.
-      muF = Derived::updateMu(ctx, x, details);
-      const real dMuF = Derived::updateMuDerivative(ctx, x, details);
+      // one pass through mu() yields the value and its derivative; the friction law is written
+      // once and instantiated for a dual number here
+      const auto mu = Derived::updateMu(ctx, Dual<real>(x, static_cast<real>(1.0)), details);
+      muF = mu.value;
+      const real dMuF = mu.derivative;
       // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen: that
       // moves the normal coupling out of the outer fixed point and into this Newton.
       const real sigma = effectiveNormalStress(normalStress, normalStressStick, etaNormal, x);

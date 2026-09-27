@@ -71,7 +71,6 @@ class FastVelocityWeakeningLaw
     real cLin{};
     real cExpLog{};
     real cExp{};
-    real acLin{};
   };
 
   SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& __restrict ctx,
@@ -80,21 +79,15 @@ class FastVelocityWeakeningLaw
     const real cLin = static_cast<real>(0.5) / ctx.data->drParameters.rsSr0;
     const real cExpLog = localStateVariable / localA;
     const real cExp = rs::computeCExp(cExpLog);
-    const real acLin = localA * cLin;
-    return MuDetails{localA, cLin, cExpLog, cExp, acLin};
+    return MuDetails{localA, cLin, cExpLog, cExp};
   }
 
-  SEISSOL_DEVICE static real
-      updateMu(FrictionLawContext& /*ctx*/, real localSlipRateMagnitude, const MuDetails& details) {
-    const real lx = details.cLin * localSlipRateMagnitude;
-    return details.a * rs::arsinhexp(lx, details.cExpLog, details.cExp);
-  }
-
-  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& /*ctx*/,
-                                                real localSlipRateMagnitude,
-                                                const MuDetails& details) {
-    const real lx = details.cLin * localSlipRateMagnitude;
-    return details.acLin * rs::arsinhexpDerivative(lx, details.cExpLog, details.cExp);
+  /// generic over the scalar: a dual slip rate carries the derivative out with the value
+  template <typename S>
+  SEISSOL_DEVICE static S
+      updateMu(FrictionLawContext& /*ctx*/, S localSlipRateMagnitude, const MuDetails& details) {
+    const S lx = S(details.cLin) * localSlipRateMagnitude;
+    return S(details.a) * rs::arsinhexp(lx, S(details.cExpLog), S(details.cExp));
   }
 
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& __restrict ctx) {
