@@ -26,12 +26,20 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
     using std::exp;
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
-    const S exp1v = exp(preexp1);
-
-    const real stateVarReference = ctx.initialVariables.stateVarReference;
     // (L / V) (1 - exp(-V t / L)) is t times the mean of the relaxation over the step, which keeps
     // L / V and its derivative -L / V^2 out of the expression
-    return S(stateVarReference) * exp1v + S(timeIncrement) * rs::relaxationWeight(-preexp1);
+    const S weight = rs::relaxationWeight(-preexp1);
+
+    const real stateVarReference = ctx.initialVariables.stateVarReference;
+    // the relaxation towards L / V with a single exponential, psi0 + (L / V - psi0) (1 - exp(p)),
+    // which keeps L / V as its fixed point (see FastVelocityWeakeningLaw::updateStateVariable);
+    // with 1 - exp(p) = -p weight, it reads psi0 + weight (t + psi0 p) and leaves L / V out as
+    // well. With exp once the step relaxes more than half the way, since mu takes the logarithm
+    // of the state and the form with expm1 alone may then round it to zero.
+    if (valueOf(-preexp1 * weight) < static_cast<real>(0.5)) {
+      return S(stateVarReference) + weight * (S(timeIncrement) + S(stateVarReference) * preexp1);
+    }
+    return S(stateVarReference) * exp(preexp1) + S(timeIncrement) * weight;
   }
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,

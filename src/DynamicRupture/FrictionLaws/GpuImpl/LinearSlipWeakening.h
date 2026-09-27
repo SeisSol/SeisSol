@@ -341,11 +341,13 @@ class BiMaterialFault {
                                           real prakashLength) {
     const auto expval =
         -(std::max(static_cast<real>(0.0), localSlipRate) + vStar) * deltaT / prakashLength;
-    const real expterm = std::exp(expval);
     const real exp1mterm = -std::expm1(expval);
 
-    const real newStrength = ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] * expterm +
-                             faultStrength * exp1mterm;
+    // the relaxation towards faultStrength with expm1 alone, which keeps faultStrength as its exact
+    // fixed point in any precision (see FastVelocityWeakeningLaw::updateStateVariable)
+    const real regularizedStrength = ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex];
+    const real newStrength =
+        regularizedStrength + (faultStrength - regularizedStrength) * exp1mterm;
 
     ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] = newStrength;
     return newStrength;
