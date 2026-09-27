@@ -42,8 +42,10 @@ Clustering::Clustering(const ClusteringConfig& config, seissol::SeisSol& seissol
       vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat_(config.boundaryFormat), faceMap_(config.faceMap) {}
 
-const ClusteringResult& Clustering::compute(const seissol::geometry::PumlMesh& meshTopology,
-                                            const seissol::geometry::PumlMesh& meshGeometry) {
+const ClusteringResult&
+    Clustering::compute(const seissol::geometry::PumlMesh& meshTopology,
+                        const seissol::geometry::PumlMesh& meshGeometry,
+                        const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
   bool continueComputation = true;
   if (!model::MaterialT::SupportsLTS) {
     logInfo() << "The material" << model::MaterialT::Text
@@ -57,8 +59,8 @@ const ClusteringResult& Clustering::compute(const seissol::geometry::PumlMesh& m
 
   logInfo() << "Computing LTS weights.";
 
-  auto details =
-      computeTimesteps(CellToVertexArray::fromPUML(meshGeometry), seissolInstance_.parameters());
+  auto details = computeTimesteps(CellToVertexArray::fromPUML(meshGeometry, vertexOrders),
+                                  seissolInstance_.parameters());
   auto cellCosts = computeCostsPerTimestep(meshTopology);
 
   const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;

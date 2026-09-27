@@ -77,6 +77,13 @@ static constexpr inline uint32_t NumQuantities =
 static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
 
 /**
+ * Face relations of a dynamic rupture face: 0 addresses the plus side, 1 the minus side. The
+ * minus side carries the face orientation index of the shared face, which the canonical vertex
+ * numbering pins to zero.
+ */
+static constexpr inline uint32_t NumFaceRelations = 2;
+
+/**
  * Constants for Thermal Pressurization
  */
 /// the grid point count is a parameter; this is what it defaults to

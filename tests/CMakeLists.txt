@@ -15,8 +15,28 @@ configure_file(
     COPYONLY
 )
 configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/mesh-permuted.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh-permuted.h5
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/mesh-offgrid.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh-offgrid.h5
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/mesh-offgrid-permuted.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh-offgrid-permuted.h5
+    COPYONLY
+)
+configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/material.yaml
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/material-graded.yaml
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material-graded.yaml
     COPYONLY
 )
 configure_file(
@@ -173,6 +193,10 @@ seissol_add_mpi_test_module(mpi 4
 
 seissol_add_mpi_test_module(iompi 4
     IO/TestIOMPI.cpp
+)
+
+seissol_add_mpi_test_module(geometrympi 4
+    Geometry/TestGeometryMPI.cpp
 )
 
 # =============================================================================
