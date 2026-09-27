@@ -7,6 +7,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Typedefs.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -245,10 +246,12 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
       if (isRequired && notFreeSurfaceGravity) {
         auto iview = init::I::view::create(idofsAddressRegistry_[cell]);
-        // NOTE: velocity components are between 6th and 8th columns
-        constexpr unsigned FirstVelocityComponent{6};
+        // gpu_addVelocity reads the three integrated velocities as consecutive columns of I,
+        // starting at this pointer. Where they start depends on the equation (column 6 for the
+        // elastic ones, column 1 for the acoustic ones), and a wrong column is not caught at
+        // runtime; it silently reads the integrals of other cells.
         iVelocitiesPtrs[face].push_back(
-            &multisim::multisimWrap(iview, 0, 0, FirstVelocityComponent));
+            &multisim::multisimWrap(iview, 0, 0, model::MaterialT::VelocityOffset));
         displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
       }
     }
