@@ -60,8 +60,11 @@ class Clustering {
   public:
   Clustering(const ClusteringConfig& config, seissol::SeisSol& seissolInstance);
 
+  /// vertexOrders is the canonical vertex order of every cell, the one the simulation uses
+  /// later (see geometry::canonicalVertexOrders); the time steps are computed in it.
   const ClusteringResult& compute(const geometry::PumlMesh& meshTopology,
-                                  const geometry::PumlMesh& meshGeometry);
+                                  const geometry::PumlMesh& meshGeometry,
+                                  const std::vector<geometry::VertexOrder>& vertexOrders);
 
   [[nodiscard]] const ClusteringResult& result() const { return result_; }
 
