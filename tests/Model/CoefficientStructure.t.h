@@ -21,6 +21,7 @@
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
@@ -109,6 +110,12 @@ inline seissol::model::AnisotropicMaterial anisotropic(std::mt19937& rng) {
   return material;
 }
 
+/// An acoustic medium carries no shear modulus at all.
+template <typename T, typename = void>
+struct HasShear : std::false_type {};
+template <typename T>
+struct HasShear<T, std::void_t<decltype(std::declval<T&>().mu)>> : std::true_type {};
+
 /// Only a material with relaxation carries quality factors, and not every one
 /// of those attenuates shear: the acoustic one has no shear to attenuate, so
 /// it carries one instead of two.
@@ -142,9 +149,11 @@ using SourceInit = seissol::init::ET;
 #endif
 
 /// A material of whatever type the build is configured for, with enough in it
-/// that its source term is non-trivial.
+/// that its source term is non-trivial. ``withoutShear`` asks for the medium an
+/// elastic build represents an acoustic cell by, which is the same material with
+/// no shear modulus.
 template <typename MaterialT>
-MaterialT configuredMaterial(std::mt19937& rng) {
+MaterialT configuredMaterial(std::mt19937& rng, bool withoutShear = false) {
   const auto parameters = [] {
     seissol::initializer::parameters::ModelParameters p{};
     p.freqCentral = 1.0;
@@ -154,7 +163,18 @@ MaterialT configuredMaterial(std::mt19937& rng) {
   std::uniform_real_distribution<double> unit(0.3, 0.9);
 
   MaterialT material{};
-  if constexpr (std::is_base_of_v<seissol::model::PoroElasticMaterial, MaterialT>) {
+  if constexpr (std::is_base_of_v<seissol::model::AnisotropicMaterial, MaterialT>) {
+    // an isotropic tensor with a mild perturbation, so that everything derived
+    // from it stays well posed and the comparison is about the layout
+    const double lambda = 2e10 * unit(rng);
+    const double mu = 3e10 * unit(rng);
+    material.rho = 2500.0 * unit(rng);
+    material.c11 = material.c22 = material.c33 = lambda + 2 * mu;
+    material.c12 = material.c13 = material.c23 = lambda;
+    material.c44 = material.c55 = material.c66 = mu;
+    material.c16 = 0.05 * mu * unit(rng);
+    material.c45 = 0.05 * mu * unit(rng);
+  } else if constexpr (std::is_base_of_v<seissol::model::PoroElasticMaterial, MaterialT>) {
     material.rho = 2500.0;
     material.lambda = 1.2e10;
     material.mu = 1.0e10;
@@ -168,7 +188,9 @@ MaterialT configuredMaterial(std::mt19937& rng) {
   } else {
     material.rho = 2500.0 * unit(rng);
     material.lambda = 2e10 * unit(rng);
-    material.mu = 3e10 * unit(rng);
+    if constexpr (HasShear<MaterialT>::value) {
+      material.mu = withoutShear ? 0.0 : 3e10 * unit(rng);
+    }
     setQualityFactors(material, 100.0 * unit(rng), 50.0 * unit(rng));
     material.initialize(parameters);
   }
@@ -513,7 +535,15 @@ TEST_CASE("Coefficient origins") {
 /// entries. This holds that, including where one side is acoustic and where
 /// there is no other side at all.
 TEST_CASE("Flux decomposition") {
-  using Material = seissol::model::ElasticMaterial;
+  if (seissol::generated::FluxNumCoefficients == 0) {
+    // The operator of a face is not these scalars for every layout: one that
+    // couples a second medium across a face, or a material without an isotropic
+    // wave split, has no such table. Then no face may carry its operator that
+    // way, and the matrix form is what the flux is built from.
+    REQUIRE_FALSE(seissol::NodalFlux);
+    return;
+  }
+  using Material = seissol::model::MaterialT;
   // the operator is stated over the quantities of the Riemann problem and the
   // columns the star writes, which are not the same count where a solver
   // carries the relaxation in the same matrix
@@ -523,13 +553,8 @@ TEST_CASE("Flux decomposition") {
   using Square = Eigen::Matrix<double, N, N>;
 
   auto rng = std::mt19937(20260926);
-  auto positive = std::uniform_real_distribution<double>(0.4, 2.5);
   const auto draw = [&](bool acoustic) {
-    Material material{};
-    material.rho = positive(rng);
-    material.lambda = positive(rng);
-    material.mu = acoustic ? 0.0 : positive(rng);
-    return material;
+    return coefficients::configuredMaterial<Material>(rng, acoustic);
   };
 
   const auto fluxOperator = [](const Material& local,

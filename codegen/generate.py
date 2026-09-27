@@ -458,9 +458,8 @@ def main():
             face_permutations=kernels.material.faceOrientationPermutations(
                 cmdLineArgs.matricesDir, adgForTables
             ),
-            flux_quantities=adgForTables.numQuantities(),
-            flux_anelastic=adgForTables.numExtendedQuantities()
-            - adgForTables.numQuantities(),
+            flux_blocks=adgForTables.extendedBlocks(),
+            flux_decomposes=adgForTables.fluxDecomposes(),
         )
 
         forward_files("init.h")

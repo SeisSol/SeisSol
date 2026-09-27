@@ -22,6 +22,8 @@ declarations can be checked against what each material writes itself.
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
+from kernels import quantities
+
 #: The two shapes the operator of a cell can be applied in where the material
 #: varies inside it. Factored keeps the coefficients apart and scales the fixed
 #: structures at every application; assembled folds them into one operator per
@@ -143,135 +145,105 @@ class FluxEntry:
     factor: float
 
 
-#: The scalars the isotropic elastic flux operator is linear in, and the entries
-#: they fill. Measured, not derived: over six hundred random material pairs the
-#: operator occupies sixteen of its eighty-one entries, and those sixteen span a
-#: space of exactly ten dimensions -- the singular values fall from 1e-3 to
-#: 1e-17. Every entry outside the ten is equal to one of them, not merely a
-#: multiple, because the two shear directions enter the same way.
-#:
-#: The scalars themselves are whatever the Riemann solver makes of the two
-#: materials at the point; they are not linear in either, which is why they are
-#: read off a computed operator rather than assembled from material parameters.
-# fmt: off
-FLUX_COEFFICIENTS = (
-    "pNormalNormal",
-    "pNormalTransverse",
-    "pNormalVelocity",
-    "pVelocityNormal",
-    "pVelocityTransverse",
-    "pVelocityVelocity",
-    "sShearShear",
-    "sShearVelocity",
-    "sVelocityShear",
-    "sVelocityVelocity",
-)
-# fmt: on
-
-#: Where each scalar is read off a computed operator.
-# fmt: off
-FLUX_SOURCE = {
-    "pNormalNormal": (0, 0),
-    "pNormalTransverse": (0, 2),
-    "pNormalVelocity": (0, 6),
-    "pVelocityNormal": (6, 0),
-    "pVelocityTransverse": (6, 1),
-    "pVelocityVelocity": (6, 6),
-    "sShearShear": (5, 5),
-    "sShearVelocity": (3, 7),
-    "sVelocityShear": (7, 3),
-    "sVelocityVelocity": (7, 7),
-}
-# fmt: on
-
-#: The four the split anelastic layout adds. Its star carries one anelastic
-#: block of six columns whatever the mechanism count, and the flux occupies the
-#: same positions in it that it occupies in the elastic block: the normal and
-#: the two shear directions, from the pressure and the velocity rows.
-# fmt: off
-ANELASTIC_FLUX_COEFFICIENTS = (
-    "aNormalNormal",
-    "aShearShear",
-    "aVelocityNormal",
-    "aVelocityShear",
-)
-# fmt: on
-
-#: Where each of those is read off, as an offset into the anelastic block.
-# fmt: off
-ANELASTIC_FLUX_SOURCE = {
-    "aNormalNormal": (0, 0),
-    "aShearShear": (3, 3),
-    "aVelocityNormal": (6, 0),
-    "aVelocityShear": (7, 3),
-}
-# fmt: on
-
-#: And where each of them sits, again as offsets into the anelastic block.
-# fmt: off
-ANELASTIC_FLUX_POSITIONS = (
-    ("aNormalNormal", ((0, 0),)),
-    ("aShearShear", ((3, 3), (5, 5))),
-    ("aVelocityNormal", ((6, 0),)),
-    ("aVelocityShear", ((7, 3), (8, 5))),
-)
-# fmt: on
-
-
-def flux_decomposition(elastic_quantities: int, anelastic_quantities: int):
+def flux_decomposition(blocks):
     """The scalars the flux operator of a face is linear in, and where they sit.
 
-    Elastic alone for a layout whose star is square; extended by the anelastic
-    block for the one that carries it in the same matrix. The anelastic
-    positions are the elastic ones shifted into that block, which is what the
-    measurement of the operator shows and what keeps the two tables one.
-    """
-    names = list(FLUX_COEFFICIENTS)
-    sources = {name: FLUX_SOURCE[name] for name in names}
-    positions = list(_FLUX_POSITIONS)
+    That the operator is a handful of scalars at all is measured, not derived:
+    over six hundred random isotropic material pairs the nine-quantity operator
+    occupies sixteen of its eighty-one entries, and those sixteen span a space
+    of exactly ten dimensions, the singular values falling from 1e-3 to 1e-17.
+    Entries outside the ten are equal to one of them, not merely a multiple,
+    because the two directions in the face enter the same way. The scalars
+    themselves are whatever the Riemann solver makes of the two materials at
+    the point; they are not linear in either, which is why they are read off a
+    computed operator rather than assembled from material parameters.
 
-    if anelastic_quantities > 0:
-        offset = elastic_quantities
-        names += list(ANELASTIC_FLUX_COEFFICIENTS)
-        for name in ANELASTIC_FLUX_COEFFICIENTS:
-            row, column = ANELASTIC_FLUX_SOURCE[name]
-            sources[name] = (row, column + offset)
-        positions += [
-            (name, tuple((row, column + offset) for row, column in entries))
-            for name, entries in ANELASTIC_FLUX_POSITIONS
+    Which scalars a layout has, and which entries each fills, does follow from
+    that layout. The traction group of a face supplies the component along its
+    normal, the two that go with the directions in the face, and the two normal
+    to those; the velocity group supplies the first three of those. Pairing them
+    gives the ``p`` block the normal picks out, the ``s`` block the two face
+    directions share, and -- once per relaxation mechanism -- the ``a`` block of
+    columns that mechanism couples into both.
+
+    A layout without a shear traction has no shear block at all: there is no
+    shear wave to carry across the face, so the two tangential velocities are
+    left uncoupled, which is what the operator of an acoustic medium shows.
+    Coefficients that end up with no entry are dropped, so a layout gets exactly
+    the scalars it has positions for.
+
+    Returns the coefficient names, where each is read off a computed operator,
+    and the entries each one fills.
+    """
+    extra = quantities.extra_face_blocks(blocks)
+    if extra:
+        names = ", ".join(block.group.name for block in extra)
+        raise ValueError(
+            "the flux operator of a layout with further face-local rows "
+            f"({names}) couples more than the traction and the velocity of one "
+            "medium, and is not these scalars"
+        )
+
+    traction = quantities.face_block(blocks, quantities.FaceRole.TRACTION)
+    velocity = quantities.face_block(blocks, quantities.FaceRole.VELOCITY)
+    tractionNormal, tractionShears, tractionTransverse = quantities.face_components(
+        traction
+    )
+    velocityNormal, velocityShears, _ = quantities.face_components(velocity)
+
+    groups = [
+        ("pNormalNormal", ((tractionNormal, tractionNormal),)),
+        # the two transverse normal stresses enter alike
+        (
+            "pNormalTransverse",
+            tuple((tractionNormal, column) for column in tractionTransverse),
+        ),
+        ("pNormalVelocity", ((tractionNormal, velocityNormal),)),
+        ("pVelocityNormal", ((velocityNormal, tractionNormal),)),
+        (
+            "pVelocityTransverse",
+            tuple((velocityNormal, column) for column in tractionTransverse),
+        ),
+        ("pVelocityVelocity", ((velocityNormal, velocityNormal),)),
+    ]
+    if tractionShears:
+        # and so do the two directions in the face
+        groups += [
+            ("sShearShear", tuple(zip(tractionShears, tractionShears))),
+            ("sShearVelocity", tuple(zip(tractionShears, velocityShears))),
+            ("sVelocityShear", tuple(zip(velocityShears, tractionShears))),
+            ("sVelocityVelocity", tuple(zip(velocityShears, velocityShears))),
         ]
 
+    mechanisms = [block for block in blocks if block.mechanism is not None]
+    for index, block in enumerate(mechanisms):
+        mechanismNormal, mechanismShears, _ = quantities.face_components(block)
+        # one set per block, since what a mechanism carries is its own number
+        suffix = f"[{index}]" if len(mechanisms) > 1 else ""
+        groups += [
+            (f"aNormalNormal{suffix}", ((tractionNormal, mechanismNormal),)),
+            (
+                f"aShearShear{suffix}",
+                tuple(zip(tractionShears, mechanismShears)),
+            ),
+            (f"aVelocityNormal{suffix}", ((velocityNormal, mechanismNormal),)),
+            (
+                f"aVelocityShear{suffix}",
+                tuple(zip(velocityShears, mechanismShears)),
+            ),
+        ]
+
+    groups = [(name, positions) for name, positions in groups if positions]
+    names = tuple(name for name, _ in groups)
+    # the first position of a coefficient is where it is read off; the others
+    # are equal to it, which is what makes them one coefficient
+    sources = {name: positions[0] for name, positions in groups}
     entries = tuple(
-        FluxEntry(names.index(name), row, column, 1.0)
-        for name, group in positions
-        for row, column in group
+        FluxEntry(index, row, column, 1.0)
+        for index, (_, positions) in enumerate(groups)
+        for row, column in positions
     )
-    return tuple(names), sources, entries
-
-
-#: Where each of the ten sits in the operator.
-# fmt: off
-_FLUX_POSITIONS = (
-    ("pNormalNormal", ((0, 0),)),
-    # the two transverse normal stresses enter alike
-    ("pNormalTransverse", ((0, 1), (0, 2))),
-    ("pNormalVelocity", ((0, 6),)),
-    ("pVelocityNormal", ((6, 0),)),
-    ("pVelocityTransverse", ((6, 1), (6, 2))),
-    ("pVelocityVelocity", ((6, 6),)),
-    # and so do the two shear directions
-    ("sShearShear", ((3, 3), (5, 5))),
-    ("sShearVelocity", ((3, 7), (5, 8))),
-    ("sVelocityShear", ((7, 3), (8, 5))),
-    ("sVelocityVelocity", ((7, 7), (8, 8))),
-)
-# fmt: on
-
-FLUX_ENTRIES = tuple(
-    FluxEntry(FLUX_COEFFICIENTS.index(name), row, column, 1.0)
-    for name, positions in _FLUX_POSITIONS
-    for row, column in positions
-)
+    return names, sources, entries
 
 
 def _c(name: str) -> int:
@@ -602,6 +574,15 @@ def _format(value: float) -> str:
     return f"{value:.1f}" if value == int(value) else repr(value)
 
 
+def _flux_table(kind: str, name: str, rows: List[str]) -> List[str]:
+    """Like :func:`_table`, but declared even when there is nothing in it: the
+    code that reads these tables names them whether or not the build it is
+    compiled for has a decomposition to read."""
+    if not rows:
+        return [f"inline constexpr std::array<{kind}, 0> {name}{{}};\n\n"]
+    return _table(kind, name, rows)
+
+
 def _table(kind: str, name: str, rows: List[str]) -> List[str]:
     if not rows:
         return []
@@ -620,8 +601,8 @@ def generate(
     solver_source_deviations: int = None,
     material_samples: int = 1,
     face_permutations=(),
-    flux_quantities: int = 9,
-    flux_anelastic: int = 0,
+    flux_blocks=(),
+    flux_decomposes: bool = True,
 ) -> None:
     """Write the declarations of every material into a C++ header.
 
@@ -703,16 +684,18 @@ def generate(
             lines.append("    {{" + ", ".join(str(i) for i in perm) + "}},\n")
         lines.append("}};\n\n")
 
-    flux_names, flux_sources, flux_entries = flux_decomposition(
-        flux_quantities, flux_anelastic
-    )
-    lines.append("// the isotropic flux operator, as scalars of the face times\n")
-    lines.append("// fixed entries; extended by the anelastic block where the\n")
-    lines.append("// solver carries it in the same matrix\n")
+    if flux_decomposes:
+        flux_names, flux_sources, flux_entries = flux_decomposition(flux_blocks)
+    else:
+        # nothing to state, and a build that would need it is refused where the
+        # kernels are generated
+        flux_names, flux_sources, flux_entries = (), {}, ()
+    lines.append("// the flux operator of a face, as scalars of that face times\n")
+    lines.append("// fixed entries: " + (", ".join(flux_names) or "none") + "\n")
     lines.append(
         f"inline constexpr std::size_t FluxNumCoefficients = {len(flux_names)};\n"
     )
-    lines += _table(
+    lines += _flux_table(
         "model::FluxCoefficientEntry",
         "FluxCoefficientEntries",
         [
@@ -720,7 +703,7 @@ def generate(
             for e in flux_entries
         ],
     )
-    lines += _table(
+    lines += _flux_table(
         "model::FluxCoefficientSource",
         "FluxCoefficientSources",
         [

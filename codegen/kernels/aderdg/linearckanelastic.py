@@ -297,7 +297,7 @@ class LinearCKAnelastic(ADERDGBase):
                 self.db.update(contractionResult)
                 plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
 
-            if self.nodalMaterial:
+            if self.nodalFaceFlux:
                 localFluxExt = lambda i: self.nodalFlux(
                     self.I,
                     self.Qext,
@@ -380,7 +380,7 @@ class LinearCKAnelastic(ADERDGBase):
                     "kl"
                 ]
 
-            if self.nodalMaterial:
+            if self.nodalFaceFlux:
                 # every regular face has the face orientation index zero, see
                 # LinearCK.addNeighbor
                 neighborFluxExt = lambda j, i: self.nodalFlux(

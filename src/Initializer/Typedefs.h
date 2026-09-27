@@ -84,9 +84,9 @@ struct alignas(Alignment) LocalIntegrationData {
   // than the matrix they fold into. The rotation into the face coordinates
   // those scalars are stated in is the same for both sides, so a face keeps one
   // of them; the inverse follows from it inside the kernel.
-  real fluxCoefficients[zeroGuard(NodalMaterial ? Cell::NumFaces : 0)][zeroGuard(
-      NodalMaterial ? FluxCoefficientCount : 0)][zeroGuard(NodalMaterial ? FluxFaceNodes : 0)]{};
-  real faceRotation[zeroGuard(NodalMaterial ? Cell::NumFaces : 0)]
+  real fluxCoefficients[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
+      NodalFlux ? FluxCoefficientCount : 0)][zeroGuard(NodalFlux ? FluxFaceNodes : 0)]{};
+  real faceRotation[zeroGuard(NodalFlux ? Cell::NumFaces : 0)]
                    [zeroGuard(NodalMaterial ? seissol::tensor::T::size() : 0)]{};
 
   // solver-specific data
@@ -102,8 +102,8 @@ struct alignas(Alignment) NeighboringIntegrationData {
   // the neighbour contributes. The matrix above stays: a boundary face takes
   // its neighbour state from a nodal boundary condition, already at the nodes
   // of the face and already rotated, and applies the matrix to it.
-  real fluxCoefficients[zeroGuard(NodalMaterial ? Cell::NumFaces : 0)][zeroGuard(
-      NodalMaterial ? FluxCoefficientCount : 0)][zeroGuard(NodalMaterial ? FluxFaceNodes : 0)]{};
+  real fluxCoefficients[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
+      NodalFlux ? FluxCoefficientCount : 0)][zeroGuard(NodalFlux ? FluxFaceNodes : 0)]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::NeighborData specific;

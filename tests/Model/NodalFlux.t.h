@@ -18,6 +18,8 @@
 
 #include <doctest.h>
 
+// the material builders live with the decomposition they were written for
+#include "CoefficientStructure.t.h" // IWYU pragma: keep
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
 #include "GeneratedCode/coefficients.h"
@@ -67,25 +69,19 @@ constexpr FaceType LinearFaceTypes[] = {
 template <bool Enabled>
 void compareAgainstModal(FaceType faceType) {
   if constexpr (Enabled) {
-    using Material = seissol::model::ElasticMaterial;
-    constexpr std::size_t NQ = Material::NumQuantities;
+    using Material = seissol::model::MaterialT;
+    constexpr std::size_t NQ = tensor::QgodLocal::Shape[0];
     constexpr std::size_t Basis = tensor::Q::Shape[multisim::BasisFunctionDimension];
     constexpr std::size_t Nodes = generated::FaceNodes;
     constexpr std::size_t Coefficients = generated::FluxNumCoefficients;
 
-    std::mt19937_64 rng(20260927);
+    std::mt19937 rng(20260927);
     std::uniform_real_distribution<double> positive(0.4, 2.5);
     std::normal_distribution<double> gauss(0.0, 1.0);
 
     for (std::size_t sample = 0; sample < 8; ++sample) {
-      Material local{};
-      local.rho = positive(rng);
-      local.lambda = positive(rng);
-      local.mu = positive(rng);
-      Material neighbor{};
-      neighbor.rho = positive(rng);
-      neighbor.lambda = positive(rng);
-      neighbor.mu = positive(rng);
+      const auto local = coefficients::configuredMaterial<Material>(rng);
+      const auto neighbor = coefficients::configuredMaterial<Material>(rng);
 
       // a general orthonormal frame: the first tangent of a face is one of its
       // edges, so nothing may lean on a particular choice
@@ -208,7 +204,8 @@ void compareAgainstModal(FaceType faceType) {
             mathMatrix(init::fMrT::view<side>::create(const_cast<real*>(init::fMrT::Values[side])),
                        tensor::fMrT::Shape[side][0],
                        tensor::fMrT::Shape[side][1]);
-        const auto operatorT = denseOf(init::AplusT::view::create(aplus.data()), NQ, NQ);
+        constexpr std::size_t Written = tensor::AplusT::Shape[1];
+        const auto operatorT = denseOf(init::AplusT::view::create(aplus.data()), NQ, Written);
         auto viewI = init::I::view::create(dofs.data());
         auto viewQ = init::Q::view::create(nodal.data());
 
@@ -227,7 +224,7 @@ void compareAgainstModal(FaceType faceType) {
           const Eigen::MatrixXd expected = rDivM * fMrT * field * operatorT;
 
           for (std::size_t row = 0; row < Basis; ++row) {
-            for (std::size_t column = 0; column < NQ; ++column) {
+            for (std::size_t column = 0; column < Written; ++column) {
               const double scale = std::max(1.0, std::abs(expected(row, column)));
               REQUIRE(slicedQ(row, column) ==
                       doctest::Approx(expected(row, column)).epsilon(1e-11).scale(scale));
@@ -247,7 +244,7 @@ void compareAgainstModal(FaceType faceType) {
 
 TEST_CASE("Nodal flux against the matrix form") {
   for (const auto faceType : nodalflux::LinearFaceTypes) {
-    nodalflux::compareAgainstModal<NodalMaterial>(faceType);
+    nodalflux::compareAgainstModal<NodalFlux>(faceType);
   }
 }
 

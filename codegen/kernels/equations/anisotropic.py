@@ -15,6 +15,17 @@ class AnisotropicADERDG(ElasticADERDG):
     def name(self):
         return "anisotropic"
 
+    def fluxDecomposes(self):
+        """The scalars a face would carry are what an isotropic Riemann problem
+        leaves. An anisotropic one has no such split: over a hundred material
+        pairs with a five percent anisotropic perturbation its operator occupies
+        twenty-five of eighty-one entries instead of thirteen and spans sixteen
+        dimensions instead of ten, and reading the ten off it leaves six percent
+        of the operator behind. A decomposition for it would be written from the
+        stiffness tensor, not from these scalars.
+        """
+        return False
+
     def tractionMatrixSpp(self):
         # b = eta * Y is dense for an anisotropic impedance, so every traction row carries all
         # three columns

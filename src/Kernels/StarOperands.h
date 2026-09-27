@@ -105,7 +105,7 @@ template <typename KernelT, typename LocalIntegrationT>
 void bindLocalFluxOperands(KernelT& krnl,
                            const LocalIntegrationT& localIntegration,
                            std::size_t face) {
-  if constexpr (NodalMaterial) {
+  if constexpr (NodalFlux) {
     krnl.T = localIntegration.faceRotation[face];
     for (std::size_t coefficient = 0; coefficient < FluxCoefficientCount; ++coefficient) {
       krnl.fluxCoefficientsLocal(coefficient) =
@@ -123,7 +123,7 @@ void bindNeighborFluxOperands(KernelT& krnl,
                               const LocalIntegrationT& localIntegration,
                               const NeighboringIntegrationT& neighboringIntegration,
                               std::size_t face) {
-  if constexpr (NodalMaterial) {
+  if constexpr (NodalFlux) {
     krnl.T = localIntegration.faceRotation[face];
     for (std::size_t coefficient = 0; coefficient < FluxCoefficientCount; ++coefficient) {
       krnl.fluxCoefficientsNeighbor(coefficient) =

@@ -52,9 +52,16 @@ constexpr std::size_t SourceDeviationCount = generated::SolverNumSourceDeviation
 constexpr bool NodalSourceDeviation = NodalSource && SourceDeviationCount > 0;
 
 /// How many scalars the flux operator of a face is linear in, in the
-/// coordinates of that face, and how many nodes of a face carry them.
+/// coordinates of that face, and how many nodes of a face carry them. None,
+/// where the operator of a face is not those scalars.
 constexpr std::size_t FluxCoefficientCount = generated::FluxNumCoefficients;
 constexpr std::size_t FluxFaceNodes = generated::FaceNodes;
+
+/// Whether the flux operator varies along a face. A material that varies
+/// inside a cell varies along its faces too, but only where the operator there
+/// is the handful of scalars above can a face carry it that way; otherwise the
+/// face keeps the one operator per side that is built from the cell's material.
+constexpr bool NodalFlux = NodalMaterial && FluxCoefficientCount > 0;
 
 } // namespace seissol
 

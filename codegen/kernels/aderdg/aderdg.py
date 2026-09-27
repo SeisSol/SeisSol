@@ -13,6 +13,7 @@ from kernels import coefficients, material
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
+    extra_face_blocks,
     layout,
     role_offset,
     rotation_spp,
@@ -298,6 +299,7 @@ class ADERDGBase(ABC):
         # set here as well, so that every solver can ask without knowing whether
         # the build got as far as the nodal configuration
         self.nodalMaterial = False
+        self.nodalFaceFlux = False
         if not self.factoredStar:
             return
 
@@ -349,6 +351,11 @@ class ADERDGBase(ABC):
         )
         if not self.nodalMaterial:
             return
+        # A face carries its operator as scalars only where that operator is
+        # those scalars. Where it is not, the material still varies inside the
+        # cell and the face keeps the one operator per side that is assembled
+        # from the material of the two cells sharing it.
+        self.nodalFaceFlux = self.fluxDecomposes()
 
         points = material.tensors(self._matricesDir, self, kwargs["material_points"])
         self.materialEval = points["materialEval"]
@@ -410,7 +417,8 @@ class ADERDGBase(ABC):
         self.nodalValues = self.nodalTemporary("nodalValues", self.nodalValuesShape)
         self.nodalProduct = self.nodalTemporary("nodalProduct", self.nodalProductShape)
 
-        self._configureNodalFlux()
+        if self.nodalFaceFlux:
+            self._configureNodalFlux()
         self._configureNodalSource(kwargs)
 
     def _configureNodalSource(self, kwargs):
@@ -520,7 +528,7 @@ class ADERDGBase(ABC):
         weights = voigt_weights(self.quantityBlocks())
 
         names, self.fluxSources, entries = coefficients.flux_decomposition(
-            quantities, extended - quantities
+            self.extendedBlocks()
         )
         count = len(names)
         self._fluxCoefficientCount = count
@@ -850,6 +858,18 @@ class ADERDGBase(ABC):
         dimension rotates one anelastic block forwards and none back."""
         return self.extendedBlocks()
 
+    def fluxDecomposes(self):
+        """Whether the flux operator of a face is the handful of scalars
+        :func:`kernels.coefficients.flux_decomposition` states it as.
+
+        A layout whose face-local vectors carry rows beyond the traction and
+        the velocity of one medium couples across a face in ways those scalars
+        do not name: a second, fluid, medium reaches the whole operator, which
+        then occupies forty-three of its one hundred and sixty-nine entries
+        instead of thirteen, and the scalars leave a third of it behind.
+        """
+        return not extra_face_blocks(self.extendedBlocks())
+
     def numQuantities(self):
         return total_extent(self.quantityBlocks())
 
@@ -982,7 +1002,7 @@ class ADERDGBase(ABC):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
         include_tensors.add(self.db.ET)
-        if self.nodalMaterial:
+        if self.nodalFaceFlux:
             # the reparametrisation of a shared face, which the folded form the
             # nodal flux uses stands in for. It is what that fold is checked
             # against, so it has to reach the generated code even though no

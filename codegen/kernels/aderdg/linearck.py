@@ -113,7 +113,7 @@ class LinearCK(ADERDGBase):
                 target=target,
             )
 
-        if self.nodalMaterial:
+        if self.nodalFaceFlux:
             localFlux = lambda i: self.nodalFlux(
                 self.I,
                 self.Q,
@@ -156,7 +156,7 @@ class LinearCK(ADERDGBase):
                 self.db.update(contractionResult)
                 plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
 
-            if self.nodalMaterial:
+            if self.nodalFaceFlux:
                 localFlux = lambda i: self.nodalFlux(
                     self.I,
                     self.Q,
@@ -192,7 +192,7 @@ class LinearCK(ADERDGBase):
             )
 
     def addNeighbor(self, generator, targets):
-        if self.nodalMaterial:
+        if self.nodalFaceFlux:
             # The canonical vertex order pins the face orientation of every
             # regular face to zero, so the neighbour's face values reach this
             # cell's ordering through the first renumbering only.

@@ -56,7 +56,7 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 option(FACTORED_STAR "Store the material coefficients and the Jacobian rows of a cell instead of its assembled star matrices" ON)
-option(MATERIAL_NODAL "Let the material vary inside a cell: sample it at MATERIAL_POINTS and form the operator there, instead of one operator per cell" OFF)
+option(MATERIAL_NODAL "Let the material vary inside a cell: sample it at MATERIAL_POINTS and form the operator there, instead of one operator per cell. A face carries its flux operator the same way where that operator is a handful of scalars of the face, which is where the medium is isotropic and one medium per cell; elsewhere the flux keeps the one operator per side built from the material of the two cells" OFF)
 
 set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined architecture vector length")
 set(OVERRIDE_ALIGNMENT 0 CACHE STRING "If not 0, it overrides the pre-defined architecture alignment")

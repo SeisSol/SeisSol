@@ -47,6 +47,11 @@ VOIGT_ORDER = ("xx", "yy", "zz", "xy", "yz", "xz")
 #: face whose normal is the local x axis, i.e. sigma_xx, sigma_xy, sigma_xz.
 SYM_TENSOR2_TRACTION = (0, 3, 5)
 
+#: The components that are normal to the two directions in the face, i.e.
+#: sigma_yy and sigma_zz. They carry no traction of that face, but the flux
+#: across it reads them.
+SYM_TENSOR2_TRANSVERSE = (1, 2)
+
 #: Number of rows in the face-local traction and velocity vectors.
 FACE_VECTOR_ROWS = 3
 
@@ -163,13 +168,59 @@ def _face_vector_rows(block):
     raise ValueError(f"no face vector defined for {kind}")
 
 
+def face_components(block):
+    """The quantities of one block, by the part they play across a face.
+
+    ``normal`` is the component along the face normal, ``shears`` the two that
+    go with the two directions in the face, in that order, and ``transverse``
+    the ones normal to those two directions. A scalar has only a normal
+    component -- an isotropic stress carries no shear -- and a vector has no
+    transverse one.
+    """
+    kind = block.group.kind
+    offset = block.offset
+    if kind is QuantityKind.SYM_TENSOR2:
+        normal, *shears = (offset + c for c in SYM_TENSOR2_TRACTION)
+        transverse = [offset + c for c in SYM_TENSOR2_TRANSVERSE]
+        return offset + SYM_TENSOR2_TRACTION[0], list(shears), transverse
+    if kind is QuantityKind.VECTOR:
+        return offset, [offset + 1, offset + 2], []
+    if kind is QuantityKind.SCALAR:
+        return offset, [], []
+    raise ValueError(f"no face components defined for {kind}")
+
+
+def face_block(blocks, role):
+    """The one block that carries the face-local vector of ``role``."""
+    matching = [block for block in blocks if block.group.role is role]
+    if len(matching) != 1:
+        raise ValueError(
+            f"expected exactly one {role.value} group, got {len(matching)}"
+        )
+    return matching[0]
+
+
+def extra_face_blocks(blocks):
+    """The blocks that append a row of their own to the face-local vectors.
+
+    A layout with any of these couples more across a face than the traction and
+    the velocity of one medium, so what the flux operator is made of there is
+    not what it is made of elsewhere.
+    """
+    return [
+        block
+        for block in blocks
+        if block.group.role in (FaceRole.EXTRA_TRACTION, FaceRole.EXTRA_VELOCITY)
+    ]
+
+
 def _selector(blocks, role, extra_role):
-    main = [block for block in blocks if block.group.role is role]
-    extra = [block for block in blocks if block.group.role is extra_role]
-    if len(main) != 1:
-        raise ValueError(f"expected exactly one {role.value} group, got {len(main)}")
+    main = face_block(blocks, role)
+    extra = [
+        block for block in extra_face_blocks(blocks) if block.group.role is extra_role
+    ]
     selector = np.zeros((FACE_VECTOR_ROWS + len(extra), total_extent(blocks)))
-    for row, quantity in _face_vector_rows(main[0]):
+    for row, quantity in _face_vector_rows(main):
         selector[row, quantity] = 1
     for index, block in enumerate(extra):
         # Only the normal component of an extra group takes part.

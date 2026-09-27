@@ -414,7 +414,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
-          if constexpr (NodalMaterial) {
+          if constexpr (NodalFlux) {
             // the operator at the nodes of the face, from the material of both
             // cells there; the rotation is the face's own and the same for both
             // sides, so it is kept once
