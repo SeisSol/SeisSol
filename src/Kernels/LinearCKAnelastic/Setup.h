@@ -157,6 +157,38 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
       }
     }
   }
+  /// The source of every mechanism. The relaxation frequency is not among
+  /// them: this solver keeps it in w and W, outside the source term.
+  static constexpr std::size_t SourcePerMechanism = MaterialSetup<MaterialT>::NumSourceCoefficients;
+  static constexpr std::size_t NumSourceCoefficients = SourcePerMechanism * MaterialT::Mechanisms;
+
+  static std::array<double, NumSourceCoefficients>
+      getSourceCoefficients(const MaterialT& material) {
+    std::array<double, NumSourceCoefficients> coefficients{};
+    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+      const auto block = MaterialSetup<MaterialT>::getSourceCoefficients(material, mech);
+      for (std::size_t i = 0; i < block.size(); ++i) {
+        coefficients[mech * SourcePerMechanism + i] = block[i];
+      }
+    }
+    return coefficients;
+  }
+
+  /// The entries carry the mechanism as an index of its own, so the callback
+  /// takes one more than the folded form does.
+  template <typename F>
+  static void forEachSourceCoefficientEntry(const F& write) {
+    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+      for (const auto& entry : MaterialSetup<MaterialT>::SourceEntries) {
+        write(mech * SourcePerMechanism + entry.coefficient,
+              entry.row,
+              mech,
+              entry.column,
+              entry.factor);
+      }
+    }
+  }
+
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
                                           typename MaterialT::Solver::LocalData* localData) {

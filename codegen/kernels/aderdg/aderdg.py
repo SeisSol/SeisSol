@@ -67,6 +67,10 @@ class ADERDGBase(ABC):
         self.transpose = lambda name: transpose
         self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
+        # every equation reads further matrices from here, whether or not it
+        # goes through configure() to do so
+        self._matricesDir = matricesDir
+
         self.db = parseXMLMatrixFile(
             f"{matricesDir}/aderdg-{order}.xml",
             transpose=self.transpose,
@@ -407,6 +411,72 @@ class ADERDGBase(ABC):
         self.nodalProduct = self.nodalTemporary("nodalProduct", self.nodalProductShape)
 
         self._configureNodalFlux()
+        self._configureNodalSource(kwargs)
+
+    def _configureNodalSource(self, kwargs):
+        """The tensors a source term needs where the material varies inside a
+        cell.
+
+        The same idea as the flux: the source is a handful of scalars the
+        material supplies at fixed entries, so a cell carries those at the
+        sample points and the kernel puts the term together where they are.
+        A solver without a source term declares none and gets none.
+        """
+        self._sourceCoefficientCount = 0
+        prototype = self.sourceStructurePrototype()
+        if prototype is None:
+            return
+
+        shape = tuple(prototype.shape())
+        count, values, origins = coefficients.source_composed(
+            self.name(),
+            kwargs.get("solver"),
+            getattr(self, "numMechanisms", 0),
+            shape,
+            total_extent(self.primaryGroups()),
+            total_extent(self.mechanismGroups()),
+        )
+        if count == 0:
+            return
+
+        self._sourceCoefficientCount = count
+        self._sourceCoefficientOrigins = origins
+        self.sourceStructure = [
+            Tensor(
+                f"sourceStructure({a})",
+                shape,
+                spp={
+                    key[1:]: repr(float(factor))
+                    for key, factor in values.items()
+                    if key[0] == a
+                },
+                addressing=AddressingMode.IMMEDIATE,
+            )
+            for a in range(count)
+        ]
+        npoints = self.materialEval.shape()[0]
+        self.sourceCoefficients = [
+            Tensor(f"sourceCoefficients({a})", (npoints,)) for a in range(count)
+        ]
+        # the field at the sample points, in whatever indices the source term
+        # sums over -- the quantities, and the mechanisms where there are any
+        self.nodalSourceValues = self.nodalTemporary(
+            "nodalSourceValues", (npoints,) + shape[:-1]
+        )
+
+    def sourceStructurePrototype(self):
+        """The tensor this solver states its source term in, or none where it
+        has no source term to state."""
+        matrix = getattr(self, "sourceMatrix", None)
+        return matrix() if matrix is not None else None
+
+    def sourceCoefficientCount(self):
+        """How many scalars the source term of this solver is linear in."""
+        return getattr(self, "_sourceCoefficientCount", 0)
+
+    def sourceCoefficientOrigins(self):
+        """Where each of those scalars comes from -- the material, or the run."""
+        return getattr(self, "_sourceCoefficientOrigins", [])
 
     def _configureNodalFlux(self):
         """The tensors a face carries where the material varies along it.
@@ -606,6 +676,43 @@ class ADERDGBase(ABC):
         statements.append(
             target["kp" + spectator]
             <= (target["kp" + spectator] + projected if accumulate else projected)
+        )
+        return statements
+
+    def nodalSource(self, source, target, contract, spectator="", temporaries=None):
+        """The source term where the material varies inside the cell.
+
+        No derivative is taken here, so the field goes straight to the sample
+        points, is multiplied by the source the material has there, and comes
+        back. `contract` names the indices the source term sums over -- the
+        quantities, and the mechanisms where a solver keeps them in a dimension
+        of their own.
+        """
+        values, product = (
+            temporaries
+            if temporaries is not None
+            else (self.nodalSourceValues, self.nodalProduct)
+        )
+        statements = [
+            values[contract + spectator]
+            <= self.materialEval["nk"] * source["k" + contract[1:] + spectator]
+        ]
+        first = True
+        for a, coefficient in enumerate(self.sourceCoefficients):
+            term = (
+                coefficient["n"]
+                * values[contract + spectator]
+                * self.sourceStructure[a][contract[1:] + "p"]
+            )
+            statements.append(
+                product["np" + spectator]
+                <= (term if first else product["np" + spectator] + term)
+            )
+            first = False
+        statements.append(
+            target["kp" + spectator]
+            <= target["kp" + spectator]
+            + self.materialProject["kn"] * product["np" + spectator]
         )
         return statements
 

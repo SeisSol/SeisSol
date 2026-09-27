@@ -109,6 +109,95 @@ inline seissol::model::AnisotropicMaterial anisotropic(std::mt19937& rng) {
   return material;
 }
 
+/// Not every viscous material attenuates shear: the acoustic one has no shear
+/// to attenuate, so it carries one quality factor instead of two.
+template <typename T, typename = void>
+struct HasShearQuality : std::false_type {};
+template <typename T>
+struct HasShearQuality<T, std::void_t<decltype(std::declval<T&>().qs)>> : std::true_type {};
+
+template <typename T>
+void setShearQuality(T& material, double value) {
+  if constexpr (HasShearQuality<T>::value) {
+    material.qs = value;
+  }
+}
+
+/// The tensor the configured solver states its source term in.
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+using SourceTensor = seissol::tensor::E;
+using SourceInit = seissol::init::E;
+#else
+using SourceTensor = seissol::tensor::ET;
+using SourceInit = seissol::init::ET;
+#endif
+
+/// A material of whatever type the build is configured for, with enough in it
+/// that its source term is non-trivial.
+template <typename MaterialT>
+MaterialT configuredMaterial(std::mt19937& rng) {
+  const auto parameters = [] {
+    seissol::initializer::parameters::ModelParameters p{};
+    p.freqCentral = 1.0;
+    p.freqRatio = 100.0;
+    return p;
+  }();
+  std::uniform_real_distribution<double> unit(0.3, 0.9);
+
+  MaterialT material{};
+  if constexpr (std::is_base_of_v<seissol::model::PoroElasticMaterial, MaterialT>) {
+    material.rho = 2500.0;
+    material.lambda = 1.2e10;
+    material.mu = 1.0e10;
+    material.bulkSolid = 4.0e10;
+    material.porosity = unit(rng) * 0.3;
+    material.permeability = 6.0e-13 * unit(rng);
+    material.tortuosity = 1.0 + 2.0 * unit(rng);
+    material.bulkFluid = 2.5e9;
+    material.rhoFluid = 1040.0;
+    material.viscosity = 1.0e-3 * unit(rng);
+  } else {
+    material.rho = 2500.0 * unit(rng);
+    material.lambda = 2e10 * unit(rng);
+    material.mu = 3e10 * unit(rng);
+    material.qp = 100.0 * unit(rng);
+    if constexpr (HasShearQuality<MaterialT>::value) {
+      setShearQuality(material, 50.0 * unit(rng));
+    }
+    material.initialize(parameters);
+  }
+  return material;
+}
+
+template <typename ArrayT>
+double largest(const ArrayT& values) {
+  double result = 0.0;
+  for (const auto value : values) {
+    result = std::max(result, std::abs(static_cast<double>(value)));
+  }
+  return result;
+}
+
+/// The source term the solver declares, written out entry by entry.
+template <typename ViewT, typename ScalarsT>
+void writeSource(ViewT& view, const ScalarsT& scalars) {
+  using Material = seissol::model::MaterialT;
+  using Setup = seissol::model::SolverSetup<typename Material::Solver, Material>;
+  Setup::forEachSourceCoefficientEntry([&](std::size_t coefficient, auto... rest) {
+    const std::array<double, sizeof...(rest)> arguments{static_cast<double>(rest)...};
+    constexpr std::size_t Indices = sizeof...(rest) - 1;
+    const double weight = arguments[Indices] * scalars.at(coefficient);
+    if constexpr (Indices == 2) {
+      view(static_cast<std::size_t>(arguments[0]), static_cast<std::size_t>(arguments[1])) +=
+          weight;
+    } else {
+      view(static_cast<std::size_t>(arguments[0]),
+           static_cast<std::size_t>(arguments[1]),
+           static_cast<std::size_t>(arguments[2])) += weight;
+    }
+  });
+}
+
 /// A source term's entries, as the declared decomposition builds them.
 template <typename MaterialT, std::size_t N>
 Eigen::Matrix<double, N, N> assembledSource(const MaterialT& material, std::size_t mech) {
@@ -572,6 +661,41 @@ TEST_CASE("Face orientation renumbering") {
   check(std::integral_constant<unsigned, 0>{});
   check(std::integral_constant<unsigned, 1>{});
   check(std::integral_constant<unsigned, 2>{});
+}
+
+/// The source term of the configured solver, put together from the scalars a
+/// cell carries and the entries the generator wrote into the kernel, against
+/// the tensor the solver builds for itself. The two are composed the same way
+/// -- one block per relaxation mechanism, wherever that solver puts it -- so a
+/// block placed at the wrong offset, or a relaxation frequency counted twice,
+/// shows up here.
+TEST_CASE("Source assembly from coefficients") {
+  using Material = seissol::model::MaterialT;
+  using Setup = seissol::model::SolverSetup<typename Material::Solver, Material>;
+
+  if constexpr (Setup::NumSourceCoefficients > 0) {
+    std::mt19937 rng(20260927);
+
+    for (std::size_t sample = 0; sample < 16; ++sample) {
+      const auto material = coefficients::configuredMaterial<Material>(rng);
+
+      std::array<real, coefficients::SourceTensor::size()> referenceData{};
+      auto reference = coefficients::SourceInit::view::create(referenceData.data());
+      Setup::getTransposedSourceCoefficientTensor(material, reference);
+
+      std::array<real, coefficients::SourceTensor::size()> candidateData{};
+      auto candidate = coefficients::SourceInit::view::create(candidateData.data());
+      candidate.setZero();
+      const auto scalars = Setup::getSourceCoefficients(material);
+      coefficients::writeSource(candidate, scalars);
+
+      const double scale = std::max(1.0, coefficients::largest(referenceData));
+      for (std::size_t i = 0; i < referenceData.size(); ++i) {
+        REQUIRE(candidateData.at(i) ==
+                doctest::Approx(referenceData.at(i)).epsilon(1e-13).scale(scale));
+      }
+    }
+  }
 }
 
 TEST_CASE("Star assembly from coefficients") {

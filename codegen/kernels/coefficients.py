@@ -523,6 +523,62 @@ def composed(
     return count, entries, origins
 
 
+def source_composed(
+    equation: str,
+    solver: str,
+    mechanisms: int,
+    shape: Tuple[int, ...],
+    elastic_quantities: int = 0,
+    per_mechanism: int = 0,
+):
+    """The decomposition of the source term a solver applies.
+
+    The same idea as `composed`, over the tensor each solver states its source
+    in. A material without relaxation states it as a matrix and its scalars are
+    read off the material. With relaxation there is one block per mechanism,
+    and where the solver keeps the mechanism in a dimension of its own the
+    relaxation frequency sits outside the source altogether; where it folds the
+    blocks into one matrix, the frequency is on that block's diagonal and
+    becomes a scalar of the decomposition -- one that follows the frequency
+    band rather than the material.
+
+    Returns the number of scalars, where each one's entries go, and where each
+    one comes from.
+    """
+    decomposition = BY_EQUATION[equation]
+    if not decomposition.source_coefficients:
+        return 0, {}, []
+
+    perBlock = len(decomposition.source_coefficients)
+    split = len(shape) == 3
+    blocks = mechanisms if mechanisms > 0 else 1
+    # the folded form carries the relaxation frequency of every block with it
+    perMechanism = perBlock if split or mechanisms == 0 else perBlock + 1
+
+    values = {}
+    origins = []
+    for block in range(blocks):
+        offset = elastic_quantities + block * per_mechanism
+        for entry in decomposition.source:
+            if split:
+                index = (entry.row, block, entry.column)
+            elif mechanisms > 0:
+                index = (offset + entry.row, entry.column)
+            else:
+                index = (entry.row, entry.column)
+            key = (block * perMechanism + entry.coefficient,) + index
+            values[key] = values.get(key, 0.0) + entry.factor
+        origins += [MATERIAL] * perBlock
+
+        if not split and mechanisms > 0:
+            relaxation = block * perMechanism + perBlock
+            for i in range(per_mechanism):
+                values[(relaxation, offset + i, offset + i)] = -1.0
+            origins.append(GLOBAL)
+
+    return perMechanism * blocks, values, origins
+
+
 def structure_values(
     coefficient_count: int, entries: List[Entry], star_shape: Tuple[int, int]
 ) -> Tuple[Tuple[int, ...], dict]:
@@ -560,6 +616,7 @@ def generate(
     path: str,
     solver_count: int = None,
     solver_origins: List[str] = None,
+    solver_source_count: int = None,
     material_samples: int = 1,
     face_permutations=(),
     flux_quantities: int = 9,
@@ -683,6 +740,10 @@ def generate(
             "// the operator the configured solver applies, material and any\n",
             "// relaxation blocks together\n",
             f"inline constexpr std::size_t SolverNumCoefficients = {solver_count};\n",
+            "\n",
+            "// the same for its source term, zero where it has none\n",
+            "inline constexpr std::size_t SolverNumSourceCoefficients = "
+            f"{solver_source_count or 0};\n",
             "\n",
         ]
     if solver_count is not None:

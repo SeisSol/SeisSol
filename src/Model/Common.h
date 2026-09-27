@@ -406,6 +406,30 @@ struct SolverSetupDefaults {
     }
   }
 
+  /// The same for the source term: how many scalars it is linear in, what they
+  /// are, and where they sit. A material without relaxation states its source
+  /// as one block, so the solver's decomposition is the material's.
+  static constexpr std::size_t NumSourceCoefficients =
+      MaterialSetup<MaterialT>::NumSourceCoefficients;
+
+  static std::array<double, NumSourceCoefficients>
+      getSourceCoefficients(const MaterialT& material) {
+    if constexpr (NumSourceCoefficients == 0) {
+      return {};
+    } else {
+      return MaterialSetup<MaterialT>::getSourceCoefficients(material, 0);
+    }
+  }
+
+  template <typename F>
+  static void forEachSourceCoefficientEntry(const F& write) {
+    if constexpr (NumSourceCoefficients > 0) {
+      for (const auto& entry : MaterialSetup<MaterialT>::SourceEntries) {
+        write(entry.coefficient, entry.row, entry.column, entry.factor);
+      }
+    }
+  }
+
   static void getPlaneWaveOperator(
       const MaterialT& material,
       const double n[3],

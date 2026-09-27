@@ -109,6 +109,11 @@ class LinearCKAnelastic(ADERDGBase):
     def numAnelasticQuantities(self):
         return total_extent(layout(self.mechanismGroups()))
 
+    def sourceStructurePrototype(self):
+        """The relaxation, which this solver keeps in a tensor of its own with
+        the mechanism as a dimension."""
+        return self.E
+
     def numExtendedQuantities(self):
         """Return the number of quantities for fused computation of elastic and anelastic update."""
         return self.numQuantities() + self.numAnelasticQuantities()

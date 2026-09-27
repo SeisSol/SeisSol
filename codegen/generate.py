@@ -224,6 +224,7 @@ def main():
     subfolders = []
     solverCoefficientCount = 0
     solverCoefficientOrigins = []
+    solverSourceCoefficientCount = 0
     materialSampleCount = 1
     adgForTables = None
 
@@ -291,10 +292,12 @@ def main():
 
         # Equation-specific kernels
         nonlocal solverCoefficientCount, solverCoefficientOrigins, materialSampleCount
+        nonlocal solverSourceCoefficientCount
         nonlocal adgForTables
         adgForTables = adg
         solverCoefficientCount = adg.solverCoefficientCount()
         solverCoefficientOrigins = adg.solverCoefficientOrigins()
+        solverSourceCoefficientCount = adg.sourceCoefficientCount()
         if cmdLineArgs.material_nodal:
             materialSampleCount = kernels.material.pointCount(
                 cmdLineArgs.matricesDir, adg, materialPoints
@@ -447,6 +450,7 @@ def main():
             os.path.join(cmdLineArgs.outputDir, "coefficients.h"),
             solver_count=solverCoefficientCount,
             solver_origins=solverCoefficientOrigins,
+            solver_source_count=solverSourceCoefficientCount,
             material_samples=materialSampleCount,
             face_permutations=kernels.material.faceOrientationPermutations(
                 cmdLineArgs.matricesDir, adgForTables

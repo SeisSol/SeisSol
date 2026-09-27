@@ -94,6 +94,56 @@ struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
 
   /// E^T = [E_1^T ... E_L^T] stacked below the elastic quantities, with the
   /// relaxation on the diagonal.
+  /// The source of every mechanism, each with its own relaxation frequency on
+  /// the diagonal: the material's scalars per block, then that frequency.
+  static constexpr std::size_t SourcePerMechanism =
+      MaterialSetup<MaterialT>::NumSourceCoefficients + 1;
+  static constexpr std::size_t NumSourceCoefficients =
+      MaterialT::Mechanisms > 0 ? SourcePerMechanism* MaterialT::Mechanisms
+                                : MaterialSetup<MaterialT>::NumSourceCoefficients;
+
+  static std::array<double, NumSourceCoefficients>
+      getSourceCoefficients(const MaterialT& material) {
+    std::array<double, NumSourceCoefficients> coefficients{};
+    if constexpr (MaterialT::Mechanisms == 0) {
+      if constexpr (NumSourceCoefficients > 0) {
+        coefficients = MaterialSetup<MaterialT>::getSourceCoefficients(material, 0);
+      }
+    } else {
+      for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+        const auto block = MaterialSetup<MaterialT>::getSourceCoefficients(material, mech);
+        for (std::size_t i = 0; i < block.size(); ++i) {
+          coefficients[mech * SourcePerMechanism + i] = block[i];
+        }
+        coefficients[mech * SourcePerMechanism + block.size()] = material.omega[mech];
+      }
+    }
+    return coefficients;
+  }
+
+  template <typename F>
+  static void forEachSourceCoefficientEntry(const F& write) {
+    if constexpr (MaterialT::Mechanisms == 0) {
+      SolverSetupDefaults<kernels::solver::linearck::Solver,
+                          MaterialT>::forEachSourceCoefficientEntry(write);
+    } else {
+      constexpr std::size_t PerBlock = MaterialSetup<MaterialT>::NumSourceCoefficients;
+      for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+        const std::size_t offset =
+            MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
+        for (const auto& entry : MaterialSetup<MaterialT>::SourceEntries) {
+          write(mech * SourcePerMechanism + entry.coefficient,
+                offset + entry.row,
+                entry.column,
+                entry.factor);
+        }
+        for (std::size_t i = 0; i < MaterialT::NumberPerMechanism; ++i) {
+          write(mech * SourcePerMechanism + PerBlock, offset + i, offset + i, -1.0);
+        }
+      }
+    }
+  }
+
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& sourceMatrix) {
     sourceMatrix.setZero();
