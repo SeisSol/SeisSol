@@ -122,6 +122,9 @@ class ReceiverCluster {
   private:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};
+  // anelastic DOFs (LinearCKAnelastic only); their host copy is stale between sync points or,
+  // with USM, written by the device concurrently
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollectorAne_{nullptr};
   std::vector<Receiver> receivers_;
   std::vector<ReceiverCell> receiverCells_;
   std::unordered_map<std::size_t, std::size_t> meshToReceiverCell_;

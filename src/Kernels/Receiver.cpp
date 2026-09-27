@@ -151,6 +151,9 @@ double ReceiverCluster::calcReceivers(double time,
       runtime.eventSync(extraRuntime_->eventRecord());
     }
     deviceCollector_->gatherToHost(runtime.stream());
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      deviceCollectorAne_->gatherToHost(runtime.stream());
+    }
     if (extraRuntime_.has_value()) {
       extraRuntime_->eventSync(runtime.eventRecord());
     }
@@ -189,6 +192,11 @@ double ReceiverCluster::calcReceivers(double time,
         tmpReceiverData.setPointer<LTS::Dofs>(
             reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
                 deviceCollector_->get(i)));
+        if constexpr (kernels::size<tensor::Qane>() > 0) {
+          tmpReceiverData.setPointer<LTS::DofsAne>(
+              reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::DofsAne>())>(
+                  deviceCollectorAne_->get(i)));
+        }
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -280,12 +288,23 @@ void ReceiverCluster::allocateData() {
     const bool hostAccessible = useUSM() && !extraRuntime_.has_value();
     deviceCollector_ = std::make_unique<seissol::parallel::DataCollector<real>>(
         dofs, tensor::Q::size(), hostAccessible);
+
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      std::vector<real*> dofsAne;
+      dofsAne.reserve(receiverCells_.size());
+      for (auto& receiverCell : receiverCells_) {
+        dofsAne.push_back(receiverCell.dataDevice.get<LTS::DofsAne>());
+      }
+      deviceCollectorAne_ = std::make_unique<seissol::parallel::DataCollector<real>>(
+          dofsAne, kernels::size<tensor::Qane>(), hostAccessible);
+    }
   }
 
   meshToReceiverCell_ = {};
 }
 void ReceiverCluster::freeData() {
   deviceCollector_.reset(nullptr);
+  deviceCollectorAne_.reset(nullptr);
   extraRuntime_.reset();
 }
 
