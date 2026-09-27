@@ -57,11 +57,17 @@ class FastVelocityWeakeningLaw
         localA * rs::logsinh(ctx.data->drParameters.rsSr0 / localSlipRate * 2,
                              steadyStateFrictionCoefficient / localA);
 
+    // Exact integration over the step with the slip rate held fixed. Written as psi0 + (psi_ss -
+    // psi0) * (1 - exp(p)), it keeps psi_ss as its exact fixed point in any precision. The form
+    // psi_ss * (1 - exp(p)) + psi0 * exp(p) rounds exp and expm1 independently, and their mismatch
+    // moves the fixed point by L / (V dt) times as much, a few thousand here; in single precision
+    // on a device, whose expf errs to one side, that biased the state variable of every sliding
+    // point.
     const real preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const real exp1v = std::exp(preexp1);
     const real exp1m = -std::expm1(preexp1);
+    const real stateVarReference = ctx.initialVariables.stateVarReference;
     const real localStateVariable =
-        steadyStateStateVariable * exp1m + exp1v * ctx.initialVariables.stateVarReference;
+        stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m;
 
     ctx.stateVariableBuffer = localStateVariable;
   }

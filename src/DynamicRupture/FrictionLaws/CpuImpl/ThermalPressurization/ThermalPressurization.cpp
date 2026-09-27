@@ -62,27 +62,23 @@ void ThermalPressurization::calcFluidPressure(
       const real sigmaTpGrid = hydraulicDiffusivity_[ltsFace][pointIndex] * squaredNormalizedTpGrid;
       const real preExpTheta = -thetaTpGrid * deltaT;
       const real preExpSigma = -sigmaTpGrid * deltaT;
-      const real expTheta = std::exp(preExpTheta);
-      const real expSigma = std::exp(preExpSigma);
       const real exp1mTheta = -std::expm1(preExpTheta);
       const real exp1mSigma = -std::expm1(preExpSigma);
 
-      // Temperature and pressure diffusion in spectral domain over timestep
-      // This is + F(t) exp(-A dt) in equation (10)
-      const real thetaDiffusion = theta_[ltsFace][tpGridPointIndex][pointIndex] * expTheta;
-      const real sigmaDiffusion = sigma_[ltsFace][tpGridPointIndex][pointIndex] * expSigma;
-
-      // Heat generation during timestep
-      // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
+      // Noda & Lapusta (2010) equation (10), F(t) exp(-A dt) + B/A (1 - exp(-A dt)), written as
+      // F(t) + (B/A - F(t)) (1 - exp(-A dt)) with expm1 alone: a mode at its steady state B/A stays
+      // there in any precision, rather than drifting by the mismatch of exp and expm1 in every
+      // step.
+      //
       // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
       const real omega = tauV * HeatSource[tpGridPointIndex];
-      const real thetaGeneration = omega / (drParameters_.heatCapacity * thetaTpGrid) * exp1mTheta;
-      const real sigmaGeneration = omega * (drParameters_.undrainedTPResponse + lambdaPrime) /
-                                   (drParameters_.heatCapacity * sigmaTpGrid) * exp1mSigma;
-
-      // Sum both contributions up
-      const auto thetaNew = thetaDiffusion + thetaGeneration;
-      const auto sigmaNew = sigmaDiffusion + sigmaGeneration;
+      const real thetaSteady = omega / (drParameters_.heatCapacity * thetaTpGrid);
+      const real sigmaSteady = omega * (drParameters_.undrainedTPResponse + lambdaPrime) /
+                               (drParameters_.heatCapacity * sigmaTpGrid);
+      const real thetaOld = theta_[ltsFace][tpGridPointIndex][pointIndex];
+      const real sigmaOld = sigma_[ltsFace][tpGridPointIndex][pointIndex];
+      const auto thetaNew = thetaOld + (thetaSteady - thetaOld) * exp1mTheta;
+      const auto sigmaNew = sigmaOld + (sigmaSteady - sigmaOld) * exp1mSigma;
 
       // Recover temperature and altered pressure using inverse Fourier transformation from the new
       // contribution

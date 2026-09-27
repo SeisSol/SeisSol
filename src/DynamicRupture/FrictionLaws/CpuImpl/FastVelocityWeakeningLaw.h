@@ -68,12 +68,14 @@ class FastVelocityWeakeningLaw
         localA * rs::logsinh(this->drParameters_.rsSr0 / localSlipRate * 2,
                              steadyStateFrictionCoefficient / localA);
 
-    // exact integration of dSV/dt DGL, assuming constant V over integration step
-
+    // Exact integration over the step with the slip rate held fixed. Written as psi0 + (psi_ss -
+    // psi0) * (1 - exp(p)), it keeps psi_ss as its exact fixed point in any precision. The form
+    // psi_ss * (1 - exp(p)) + psi0 * exp(p) rounds exp and expm1 independently, and their mismatch
+    // moves the fixed point by L / (V dt) times as much, a few thousand here.
     const auto preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const real exp1v = std::exp(preexp1);
     const real exp1m = -std::expm1(preexp1);
-    const real localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
+    const real localStateVariable =
+        stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m;
     assert((std::isfinite(localStateVariable) ||
             pointIndex >= misc::NumBoundaryGaussPoints * multisim::NumSimulations) &&
            "Inf/NaN detected");
