@@ -254,7 +254,7 @@ class LinearCKAnelastic(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            if getattr(self, "nodalMaterial", False):
+            if self.nodalMaterial:
                 volumeExpr = self.nodalApply(self.I, self.Qext, self.db.kDivM)
             else:
                 volumeSum = Accumulate(ops.Add())
@@ -284,7 +284,7 @@ class LinearCKAnelastic(ADERDGBase):
                 self.db.update(contractionResult)
                 plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
 
-            if getattr(self, "nodalMaterial", False):
+            if self.nodalMaterial:
                 localFluxExt = lambda i: self.nodalFlux(
                     self.I,
                     self.Qext,
@@ -368,7 +368,7 @@ class LinearCKAnelastic(ADERDGBase):
                     "kl"
                 ]
 
-            if getattr(self, "nodalMaterial", False):
+            if self.nodalMaterial:
                 # every regular face has the face orientation index zero, see
                 # LinearCK.addNeighbor
                 neighborFluxExt = lambda j, i: self.nodalFlux(
@@ -481,7 +481,7 @@ class LinearCKAnelastic(ADERDGBase):
                 inside the cell is read where its samples are, so nothing
                 narrows and every derivative stays full.
                 """
-                if getattr(self, "nodalMaterial", False):
+                if self.nodalMaterial:
                     return self.nodalApply(
                         dQ[kthDer - 1], dQext[kthDer], self.db.kDivMT
                     )

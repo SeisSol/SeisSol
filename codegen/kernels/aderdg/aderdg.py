@@ -291,6 +291,9 @@ class ADERDGBase(ABC):
         kernel, where a factor of one is not a multiplication and the zeros
         never become operations."""
         self.factoredStar = bool(kwargs.get("factored_star", False))
+        # set here as well, so that every solver can ask without knowing whether
+        # the build got as far as the nodal configuration
+        self.nodalMaterial = False
         if not self.factoredStar:
             return
 
@@ -340,13 +343,6 @@ class ADERDGBase(ABC):
         self.nodalMaterial = self.factoredStar and bool(
             kwargs.get("material_nodal", False)
         )
-        if self.nodalMaterial and kwargs.get("solver") == "stp":
-            # the predictor scales the star matrices by the timestep outside
-            # the kernel, which a cell carrying coefficients cannot do
-            raise RuntimeError(
-                "a material varying inside a cell cannot be combined with the "
-                "space-time predictor yet"
-            )
         if not self.nodalMaterial:
             return
 
@@ -498,7 +494,7 @@ class ADERDGBase(ABC):
 
     def nodalAssembly(self):
         """Folds the Jacobian rows into the structure, once per kernel."""
-        if not getattr(self, "nodalMaterial", False):
+        if not self.nodalMaterial:
             return []
         return [
             self.structureFolded[dim][a]["qp"]
@@ -507,41 +503,65 @@ class ADERDGBase(ABC):
             for a in range(len(self.coefficientStructure))
         ]
 
-    def nodalApply(self, source, target, operators):
+    def nodalApply(
+        self,
+        source,
+        target,
+        operators,
+        spectator="",
+        temporaries=None,
+        accumulate=False,
+        scalar=None,
+    ):
         """One application of the operator where the material varies inside the
         cell: read the derivative at the sample points, multiply by the
         material there, and project the result back.
 
         `operators` gives the modal operator per direction -- the stiffness for
-        a derivative step, whatever the caller needs otherwise.
+        a derivative step, whatever the caller needs otherwise. `spectator`
+        names indices the operator leaves alone, for a field that carries more
+        than modes and quantities; the caller then hands over the two
+        temporaries those indices widen. `scalar` scales the result, and
+        `accumulate` adds it to what the target holds instead of replacing it.
         """
+        values, product = (
+            temporaries
+            if temporaries is not None
+            else (self.nodalValues, self.nodalProduct)
+        )
         statements = []
         first = True
         for dim in range(3):
             statements.append(
-                self.nodalValues["nq"]
-                <= self.materialEval["nk"] * operators[dim][self.t("kl")] * source["lq"]
+                values["nq" + spectator]
+                <= self.materialEval["nk"]
+                * operators[dim][self.t("kl")]
+                * source["lq" + spectator]
             )
             for a, coefficient in enumerate(self.nodalCoefficients):
                 term = (
                     coefficient["n"]
-                    * self.nodalValues["nq"]
+                    * values["nq" + spectator]
                     * self.structureFolded[dim][a]["qp"]
                 )
                 statements.append(
-                    self.nodalProduct["np"]
-                    <= (term if first else self.nodalProduct["np"] + term)
+                    product["np" + spectator]
+                    <= (term if first else product["np" + spectator] + term)
                 )
                 first = False
+        projected = self.materialProject["kn"] * product["np" + spectator]
+        if scalar is not None:
+            projected = scalar * projected
         statements.append(
-            target["kp"] <= self.materialProject["kn"] * self.nodalProduct["np"]
+            target["kp" + spectator]
+            <= (target["kp" + spectator] + projected if accumulate else projected)
         )
         return statements
 
     def starAssembly(self):
         """The statements that put the star matrices together, or none where a
         cell carries them assembled already."""
-        if getattr(self, "nodalMaterial", False):
+        if self.nodalMaterial:
             return self.nodalAssembly()
         if not self.factoredStar:
             return []
@@ -758,7 +778,7 @@ class ADERDGBase(ABC):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
         include_tensors.add(self.db.ET)
-        if getattr(self, "nodalMaterial", False):
+        if self.nodalMaterial:
             # the reparametrisation of a shared face, which the folded form the
             # nodal flux uses stands in for. It is what that fold is checked
             # against, so it has to reach the generated code even though no

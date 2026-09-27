@@ -95,6 +95,22 @@ class STP(LinearCK):
         )
         timestep = Scalar("timestep")
 
+        # The predictor carries a time index the operator does not touch, so
+        # the two places a nodal operator is formed at are that much wider.
+        nodalValuesInTime = None
+        nodalProductInTime = None
+        if self.nodalMaterial:
+            nodalValuesInTime = Tensor(
+                "nodalValuesInTime",
+                self.nodalValues.shape() + (self.order,),
+                temporary=True,
+            )
+            nodalProductInTime = Tensor(
+                "nodalProductInTime",
+                self.nodalProduct.shape() + (self.order,),
+                temporary=True,
+            )
+
         # Compute the index range for basis functions of a certain degree
         #
         # The basis functions are ordered with increasing degree, i.e. the first
@@ -147,52 +163,100 @@ class STP(LinearCK):
 
             kernels = list()
 
-            kernels.append(
-                spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"]
-            )
-            for n in range(self.order - 1, -1, -1):
+            def quantitySolve(modes, accumulate):
+                """The time system of one block of space modes, solved quantity
+                by quantity.
+
+                What the source puts on the diagonal is already in Zinv, and
+                the rows it couples are substituted back through G, which is
+                why the quantities run downwards: a row is solved before
+                anything writes into it.
+                """
+
+                def block(expr):
+                    return expr if modes is None else expr.subslice("k", *modes)
+
+                statements = []
                 for o in range(self.numQuantities() - 1, -1, -1):
-                    kernels.append(
-                        spaceTimePredictor["kpt"]
-                        .subslice("k", *modeRange(n))
-                        .subslice("p", o, o + 1)
-                        <= spaceTimePredictor["kpt"]
-                        .subslice("k", *modeRange(n))
-                        .subslice("p", o, o + 1)
-                        + spaceTimePredictorRhs["kpu"]
-                        .subslice("k", *modeRange(n))
-                        .subslice("p", o, o + 1)
+                    solved = (
+                        block(spaceTimePredictorRhs["kpu"]).subslice("p", o, o + 1)
                         * Zinv(o)["ut"]
+                    )
+                    if accumulate:
+                        solved = (
+                            block(spaceTimePredictor["kpt"]).subslice("p", o, o + 1)
+                            + solved
+                        )
+                    statements.append(
+                        block(spaceTimePredictor["kpt"]).subslice("p", o, o + 1)
+                        <= solved
                     )
                     # G has one relevant non-zero entry per stiff row, so it is a
                     # scalar: G[o] = E[target, o] * timestep. Rows that are not
                     # stiff contribute nothing.
                     if o in stiffRows:
                         o2 = stiffRows[o][0]
-                        kernels.append(
-                            spaceTimePredictorRhs["kpt"]
-                            .subslice("k", *modeRange(n))
-                            .subslice("p", o2, o2 + 1)
-                            <= spaceTimePredictorRhs["kpt"]
-                            .subslice("k", *modeRange(n))
-                            .subslice("p", o2, o2 + 1)
+                        statements.append(
+                            block(spaceTimePredictorRhs["kpt"]).subslice(
+                                "p", o2, o2 + 1
+                            )
+                            <= block(spaceTimePredictorRhs["kpt"]).subslice(
+                                "p", o2, o2 + 1
+                            )
                             + OptTimestep(
                                 G[o]
-                                * spaceTimePredictor["kpt"]
-                                .subslice("k", *modeRange(n))
-                                .subslice("p", o, o + 1)
+                                * block(spaceTimePredictor["kpt"]).subslice(
+                                    "p", o, o + 1
+                                )
                             )
                         )
-                if n > 0:
-                    derivativeSum = spaceTimePredictorRhs["kpt"]
-                    star = lambda d: self.starMatrix(d)["qp"] * timestep
-                    for d in range(3):
-                        derivativeSum += (
-                            self.db.kDivMT[d]["kl"].subslice("l", *modeRange(n))
-                            * spaceTimePredictor["lqt"].subslice("l", *modeRange(n))
-                            * star(d)
+                return statements
+
+            if self.nodalMaterial:
+                # An operator that is constant over the cell lowers the degree,
+                # and that is what lets the blocks be taken one degree at a
+                # time: the derivative of the block just solved reaches only
+                # blocks still to come. One that varies inside the cell raises
+                # the degree by as much as it carries itself, so it reaches
+                # every block, and the sweep has to become a fixed point.
+                #
+                # The two agree where they overlap: with a constant operator
+                # each step below makes one more degree exact, so after as many
+                # steps as there are degrees the iteration is the sweep. Where
+                # the material varies, what is left after those steps is the
+                # scheme's own truncation error, since each step carries a
+                # factor of the timestep.
+                for iteration in range(self.order):
+                    kernels.append(
+                        spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"]
+                    )
+                    if iteration > 0:
+                        kernels += self.nodalApply(
+                            spaceTimePredictor,
+                            spaceTimePredictorRhs,
+                            self.db.kDivMT,
+                            spectator="t",
+                            temporaries=(nodalValuesInTime, nodalProductInTime),
+                            accumulate=True,
+                            scalar=timestep,
                         )
-                    kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
+                    kernels += quantitySolve(None, accumulate=False)
+            else:
+                kernels.append(
+                    spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"]
+                )
+                for n in range(self.order - 1, -1, -1):
+                    kernels += quantitySolve(modeRange(n), accumulate=True)
+                    if n > 0:
+                        derivativeSum = spaceTimePredictorRhs["kpt"]
+                        for d in range(3):
+                            derivativeSum += (
+                                self.db.kDivMT[d]["kl"].subslice("l", *modeRange(n))
+                                * spaceTimePredictor["lqt"].subslice("l", *modeRange(n))
+                                * self.starMatrix(d)["qp"]
+                                * timestep
+                            )
+                        kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
             kernels.append(
                 self.I["kp"]
                 <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]

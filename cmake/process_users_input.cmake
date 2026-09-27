@@ -211,13 +211,6 @@ elseif (NOT SOLVER IN_LIST _allowed_solvers)
     "Available: ${_allowed_solvers}.")
 endif()
 
-if (MATERIAL_NODAL AND SOLVER STREQUAL "stp")
-  message(FATAL_ERROR
-    "MATERIAL_NODAL=ON cannot be combined with SOLVER=stp yet: the space-time "
-    "predictor scales the star matrices by the timestep before handing them "
-    "over, which a cell carrying coefficients cannot do.")
-endif()
-
 message(STATUS "Solver: ${SOLVER}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")

@@ -67,7 +67,7 @@ class LinearCK(ADERDGBase):
     def addLocal(self, generator, targets):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
-            if getattr(self, "nodalMaterial", False):
+            if self.nodalMaterial:
                 volumeUpdate = OptionalDimTensor(
                     "volumeUpdate",
                     self.Q.optName(),
@@ -117,7 +117,7 @@ class LinearCK(ADERDGBase):
                 target=target,
             )
 
-        if getattr(self, "nodalMaterial", False):
+        if self.nodalMaterial:
             localFlux = lambda i: self.nodalFlux(
                 self.I,
                 self.Q,
@@ -160,7 +160,7 @@ class LinearCK(ADERDGBase):
                 self.db.update(contractionResult)
                 plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
 
-            if getattr(self, "nodalMaterial", False):
+            if self.nodalMaterial:
                 localFlux = lambda i: self.nodalFlux(
                     self.I,
                     self.Q,
@@ -196,7 +196,7 @@ class LinearCK(ADERDGBase):
             )
 
     def addNeighbor(self, generator, targets):
-        if getattr(self, "nodalMaterial", False):
+        if self.nodalMaterial:
             # The canonical vertex order pins the face orientation of every
             # regular face to zero, so the neighbour's face values reach this
             # cell's ordering through the first renumbering only.
@@ -290,7 +290,7 @@ class LinearCK(ADERDGBase):
 
             for i in range(1, self.order):
                 power = powers[i]
-                if getattr(self, "nodalMaterial", False):
+                if self.nodalMaterial:
                     # A constant operator drops a degree with every derivative,
                     # so each one occupies fewer modes than the last and the
                     # chain narrows. A material that varies inside the cell
