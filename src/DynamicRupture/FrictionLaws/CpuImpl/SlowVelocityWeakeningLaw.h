@@ -29,11 +29,12 @@ class SlowVelocityWeakeningLaw
 
 // Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
-  double updateStateVariable(std::uint32_t pointIndex,
-                             std::size_t faceIndex,
-                             double stateVarReference,
-                             double timeIncrement,
-                             double localSlipRate) {
+  template <typename S>
+  S updateStateVariable(std::uint32_t pointIndex,
+                        std::size_t faceIndex,
+                        double stateVarReference,
+                        double timeIncrement,
+                        S localSlipRate) {
     return static_cast<Derived*>(this)->updateStateVariable(
         pointIndex, faceIndex, stateVarReference, timeIncrement, localSlipRate);
   }
@@ -67,6 +68,40 @@ class SlowVelocityWeakeningLaw
       details.cExp[pointIndex] = cExp;
     }
     return details;
+  }
+
+  /// the precision the state variable of this law is stated in
+  using StateScalar = double;
+
+  /// the state variable is a closed-form function of the slip rate, so the inversion can carry it
+  /// inside its own iteration instead of relaying it through a fixed point
+  static constexpr bool FoldsStateVariable = true;
+
+  /// The friction coefficient at a slip rate, with the state variable evaluated at that very slip
+  /// rate. Both dependencies travel through the scalar, so a dual number comes back carrying
+  /// d(mu)/dV of the composition.
+  template <typename S>
+  S updateMuFolded(std::size_t ltsFace,
+                   std::uint32_t pointIndex,
+                   S slipRate,
+                   real stateVarReference,
+                   real timeIncrement) {
+    using std::log;
+    const auto stateVariable =
+        static_cast<Derived*>(this)->updateStateVariable(pointIndex,
+                                                         ltsFace,
+                                                         static_cast<double>(stateVarReference),
+                                                         static_cast<double>(timeIncrement),
+                                                         dualCast<StateScalar>(slipRate));
+
+    const S localStateVariable = dualCast<real>(stateVariable);
+    const S localA = S(this->a_[ltsFace][pointIndex]);
+    const S localSl0 = S(this->sl0_[ltsFace][pointIndex]);
+    const S log1 = log(S(this->drParameters_.rsSr0) * localStateVariable / localSl0);
+    const S cExpLog =
+        (S(this->f0_[ltsFace][pointIndex]) + S(this->b_[ltsFace][pointIndex]) * log1) / localA;
+    const S cLin = S(static_cast<real>(0.5) / this->drParameters_.rsSr0);
+    return localA * rs::arsinhexp(cLin * slipRate, cExpLog, rs::computeCExp(cExpLog));
   }
 
   /**

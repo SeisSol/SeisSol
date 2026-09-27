@@ -31,14 +31,20 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
  * @return \f$ \Psi(t) \f$
  */
 #pragma omp declare simd
-  double updateStateVariable(std::uint32_t pointIndex,
-                             std::size_t faceIndex,
-                             double stateVarReference,
-                             double timeIncrement,
-                             double localSlipRate) {
+  /// generic over the scalar the slip rate arrives in; see SlowVelocityWeakeningLaw::StateScalar
+  template <typename S>
+  S updateStateVariable(std::uint32_t pointIndex,
+                        std::size_t faceIndex,
+                        double stateVarReference,
+                        double timeIncrement,
+                        S localSlipRate) {
+    using std::exp;
+    using std::pow;
     const double localSl0 = this->sl0_[faceIndex][pointIndex];
-    const double exp1v = std::exp(-localSlipRate * (timeIncrement / localSl0));
-    return localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1v);
+    const S exp1v = exp(-localSlipRate * S(timeIncrement / localSl0));
+    // both the base and the exponent follow the slip rate here
+    return S(localSl0) / localSlipRate *
+           pow(localSlipRate * S(stateVarReference) / S(localSl0), exp1v);
   }
 };
 

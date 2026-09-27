@@ -11,6 +11,7 @@
 #include "Common/Marker.h"
 
 #include <cmath>
+#include <type_traits>
 
 namespace seissol::dr::friction_law {
 
@@ -124,11 +125,38 @@ template <typename T>
 SEISSOL_HOSTDEVICE Dual<T> abs(Dual<T> a) {
   return a.value >= T(0) ? a : -a;
 }
-/// only the exponent is a plain number here, which is what the friction laws need
+/// a constant exponent, which is the common case in the friction laws
 template <typename T>
 SEISSOL_HOSTDEVICE Dual<T> pow(Dual<T> a, T exponent) {
   const T p = std::pow(a.value, exponent);
   return {p, exponent * p / a.value * a.derivative};
+}
+/// both the base and the exponent may depend on the variable: d(a^b) = a^b (b' ln a + b a'/a)
+template <typename T>
+SEISSOL_HOSTDEVICE Dual<T> pow(Dual<T> a, Dual<T> b) {
+  const T p = std::pow(a.value, b.value);
+  return {p, p * (b.derivative * std::log(a.value) + b.value * a.derivative / a.value)};
+}
+
+/// The largest of two, decided on the values; the chosen one keeps its own derivative, which is
+/// what a friction law that clamps its state variable needs.
+template <typename T>
+SEISSOL_HOSTDEVICE Dual<T> mmax(Dual<T> a, Dual<T> b) {
+  return a.value >= b.value ? a : b;
+}
+SEISSOL_HOSTDEVICE inline float mmax(float a, float b) { return a >= b ? a : b; }
+SEISSOL_HOSTDEVICE inline double mmax(double a, double b) { return a >= b ? a : b; }
+
+/// Carry a value from one precision to another. A dual number takes its derivative along, a plain
+/// scalar is simply converted, so a formula can move between the precisions its parts are stated
+/// in without knowing whether it is being differentiated.
+template <typename T, typename U>
+SEISSOL_HOSTDEVICE constexpr Dual<T> dualCast(Dual<U> x) {
+  return {static_cast<T>(x.value), static_cast<T>(x.derivative)};
+}
+template <typename T, typename U, std::enable_if_t<std::is_floating_point_v<U>, int> = 0>
+SEISSOL_HOSTDEVICE constexpr T dualCast(U x) {
+  return static_cast<T>(x);
 }
 
 } // namespace seissol::dr::friction_law

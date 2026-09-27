@@ -67,6 +67,11 @@ class SevereVelocityWeakeningLaw
     !             where mu = mu_s + a V/(V+Vc) - b SV/(SV + Vc)
   */
 
+  /// the state variable is relayed through the outer fixed point here; the inversion sees it
+  /// frozen. Folding it in needs the state update stated generically over the scalar, the way the
+  /// host laws do.
+  static constexpr bool FoldsStateVariable = false;
+
   struct MuDetails {
     real a{};
     real c{};

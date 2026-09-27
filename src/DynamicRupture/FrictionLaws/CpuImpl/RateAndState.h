@@ -329,16 +329,18 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     tpMethod_.prepareFluidPressure(this->deltaT_[timeIndex], ltsFace);
 
     for (uint32_t j = 0; j < this->drParameters_.rsNumberStateVariableUpdates; j++) {
+      if constexpr (!Derived::FoldsStateVariable) {
 #pragma omp simd
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-        // fault strength using friction coefficient and fluid pressure from previous
-        // timestep/iteration update state variable using sliprate from the previous time step
-        localStateVariable[pointIndex] =
-            static_cast<Derived*>(this)->updateStateVariable(pointIndex,
-                                                             ltsFace,
-                                                             stateVarReference[pointIndex],
-                                                             this->deltaT_[timeIndex],
-                                                             localSlipRate[pointIndex]);
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+          // fault strength using friction coefficient and fluid pressure from previous
+          // timestep/iteration update state variable using sliprate from the previous time step
+          localStateVariable[pointIndex] = static_cast<Derived*>(this)->updateStateVariable(
+              pointIndex,
+              ltsFace,
+              stateVarReference[pointIndex],
+              this->deltaT_[timeIndex],
+              static_cast<typename Derived::StateScalar>(localSlipRate[pointIndex]));
+        }
       }
       tpMethod_.applyShearHeating(normalStress, this->mu_, localSlipRate, ltsFace);
 
@@ -356,6 +358,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       // solve for new slip rate
       hasConverged = this->invertSlipRateIterative(ltsFace,
                                                    localStateVariable,
+                                                   stateVarReference,
+                                                   this->deltaT_[timeIndex],
                                                    normalStress,
                                                    normalStressStick,
                                                    etaNormal,
@@ -423,21 +427,36 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
-      localStateVariable[pointIndex] =
-          static_cast<Derived*>(this)->updateStateVariable(pointIndex,
-                                                           ltsFace,
-                                                           stateVarReference[pointIndex],
-                                                           this->deltaT_[timeIndex],
-                                                           localSlipRate[pointIndex]);
+      localStateVariable[pointIndex] = static_cast<Derived*>(this)->updateStateVariable(
+          pointIndex,
+          ltsFace,
+          stateVarReference[pointIndex],
+          this->deltaT_[timeIndex],
+          static_cast<typename Derived::StateScalar>(localSlipRate[pointIndex]));
     }
 
-    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+    // Where the law can state its state variable as a function of the slip rate, the friction
+    // coefficient follows the accepted slip rate directly and the coefficients that would be
+    // precomputed from a supplied state have no meaning here.
+    typename Derived::MuDetails details{};
+    if constexpr (!Derived::FoldsStateVariable) {
+      details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+    }
 
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // update LocMu for next strength determination, only needed for last update
-      this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
-          pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
+      if constexpr (Derived::FoldsStateVariable) {
+        this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMuFolded(
+            ltsFace,
+            pointIndex,
+            this->slipRateMagnitude_[ltsFace][pointIndex],
+            stateVarReference[pointIndex],
+            this->deltaT_[timeIndex]);
+      } else {
+        this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
+            pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
+      }
       const real strength = -this->mu_[ltsFace][pointIndex] * normalStress[pointIndex];
 
       // the direction along which the slip rate is decomposed; scaled such that dividing by
@@ -528,6 +547,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    */
   bool invertSlipRateIterative(std::size_t ltsFace,
                                const std::array<real, misc::NumPaddedPoints>& localStateVariable,
+                               const std::array<real, misc::NumPaddedPoints>& stateVarReference,
+                               real timeIncrement,
                                const std::array<real, misc::NumPaddedPoints>& normalStress,
                                const std::array<real, misc::NumPaddedPoints>& normalStressStick,
                                const std::array<real, misc::NumPaddedPoints>& etaNormal,
@@ -553,7 +574,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // guard as the only way out. Clamp it to a few ulp.
     const real xacc = std::max(this->drParameters_.rsSlipRateTolerance, NoiseFactor * Eps);
 
-    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+    // Where the law can state its state variable as a function of the slip rate, the residual
+    // evaluates it at the trial slip rate rather than at one the outer fixed point supplies, and
+    // the coefficients that would be precomputed from a frozen state have no meaning here.
+    typename Derived::MuDetails details{};
+    if constexpr (!Derived::FoldsStateVariable) {
+      details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+    }
 
     // closed-form bracket + warm start (clamped previous-step V); no endpoint evaluations
 #ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
@@ -592,9 +619,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         const real x = slipRateTest[pointIndex];
         // one pass through mu() yields the value and its derivative; the friction law is written
-        // once and instantiated for a dual number here
-        const auto mu = static_cast<Derived*>(this)->updateMu(
-            pointIndex, Dual<real>(x, static_cast<real>(1.0)), details);
+        // once and instantiated for a dual number here. Where the state variable is folded in, the
+        // derivative that comes back is the one of the composition mu(V, psi(V)).
+        const Dual<real> trial(x, static_cast<real>(1.0));
+        Dual<real> mu{};
+        if constexpr (Derived::FoldsStateVariable) {
+          mu = static_cast<Derived*>(this)->updateMuFolded(
+              ltsFace, pointIndex, trial, stateVarReference[pointIndex], timeIncrement);
+        } else {
+          mu = static_cast<Derived*>(this)->updateMu(pointIndex, trial, details);
+        }
         muF[pointIndex] = mu.value;
         dMuF[pointIndex] = mu.derivative;
         // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen:
@@ -707,8 +741,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
 #endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-      this->mu_[ltsFace][pointIndex] =
-          static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
+      if constexpr (Derived::FoldsStateVariable) {
+        this->mu_[ltsFace][pointIndex] =
+            static_cast<Derived*>(this)->updateMuFolded(ltsFace,
+                                                        pointIndex,
+                                                        slipRateTest[pointIndex],
+                                                        stateVarReference[pointIndex],
+                                                        timeIncrement);
+      } else {
+        this->mu_[ltsFace][pointIndex] =
+            static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
+      }
       convergenceInner_[ltsFace][pointIndex] &= (converged[pointIndex] != 0);
     }
 

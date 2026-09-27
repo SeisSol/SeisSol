@@ -42,39 +42,47 @@ class FastVelocityWeakeningLaw
  * @return \f$ \Psi(t) \f$
  */
 #pragma omp declare simd
-  [[nodiscard]] real updateStateVariable(std::uint32_t pointIndex,
-                                         std::size_t faceIndex,
-                                         real stateVarReference,
-                                         real timeIncrement,
-                                         real localSlipRate) const {
+  /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
+  /// the state variable by the very slip rate it is solving for
+  template <typename S>
+  [[nodiscard]] S updateStateVariable(std::uint32_t pointIndex,
+                                      std::size_t faceIndex,
+                                      real stateVarReference,
+                                      real timeIncrement,
+                                      S localSlipRate) const {
+    using std::exp;
+    using std::expm1;
+    using std::log;
+    using std::pow;
     const real localMuW = this->muW_[faceIndex][pointIndex];
     const real localSrW = this->srW_[faceIndex][pointIndex];
     const real localA = this->a_[faceIndex][pointIndex];
     const real localSl0 = this->sl0_[faceIndex][pointIndex];
 
     // low-velocity steady state friction coefficient
-    const real lowVelocityFriction =
-        std::max(static_cast<real>(0),
-                 static_cast<real>(this->f0_[faceIndex][pointIndex] -
-                                   (this->b_[faceIndex][pointIndex] - localA) *
-                                       std::log(localSlipRate / this->drParameters_.rsSr0)));
-    const real steadyStateFrictionCoefficient =
-        localMuW + (lowVelocityFriction - localMuW) /
-                       std::pow(static_cast<real>(1.0) + misc::power<8>(localSlipRate / localSrW),
-                                static_cast<real>(1.0 / 8.0));
+    const S lowVelocityFriction = mmax(S(static_cast<real>(0)),
+                                       S(this->f0_[faceIndex][pointIndex]) -
+                                           S(this->b_[faceIndex][pointIndex] - localA) *
+                                               log(localSlipRate / S(this->drParameters_.rsSr0)));
+    const S steadyStateFrictionCoefficient =
+        S(localMuW) +
+        (lowVelocityFriction - S(localMuW)) /
+            pow(S(static_cast<real>(1.0)) + misc::power<8>(localSlipRate / S(localSrW)),
+                static_cast<real>(1.0 / 8.0));
     // TODO: check again, if double precision is necessary here (earlier, there were cancellation
     // issues)
-    const real steadyStateStateVariable =
-        localA * rs::logsinh(this->drParameters_.rsSr0 / localSlipRate * 2,
-                             steadyStateFrictionCoefficient / localA);
+    const S steadyStateStateVariable =
+        S(localA) *
+        rs::logsinh(S(this->drParameters_.rsSr0) / localSlipRate * S(static_cast<real>(2)),
+                    steadyStateFrictionCoefficient / S(localA));
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
-    const auto preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const real exp1v = std::exp(preexp1);
-    const real exp1m = -std::expm1(preexp1);
-    const real localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
-    assert((std::isfinite(localStateVariable) ||
+    const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
+    const S exp1v = exp(preexp1);
+    const S exp1m = -expm1(preexp1);
+    const S localStateVariable = steadyStateStateVariable * exp1m + exp1v * S(stateVarReference);
+    assert((std::isfinite(valueOf(localStateVariable)) ||
             pointIndex >= misc::NumBoundaryGaussPoints * multisim::NumSimulations) &&
            "Inf/NaN detected");
     return localStateVariable;
@@ -104,6 +112,32 @@ class FastVelocityWeakeningLaw
       details.cExp[pointIndex] = cExp;
     }
     return details;
+  }
+
+  /// the precision the state variable of this law is stated in
+  using StateScalar = real;
+
+  /// the state variable is a closed-form function of the slip rate, so the inversion can carry it
+  /// inside its own iteration instead of relaying it through a fixed point
+  static constexpr bool FoldsStateVariable = true;
+
+  /// The friction coefficient at a slip rate, with the state variable evaluated at that very slip
+  /// rate. Both dependencies travel through the scalar, so a dual number comes back carrying
+  /// d(mu)/dV of the composition.
+  template <typename S>
+  S updateMuFolded(std::size_t ltsFace,
+                   std::uint32_t pointIndex,
+                   S slipRate,
+                   real stateVarReference,
+                   real timeIncrement) {
+    const auto stateVariable = this->updateStateVariable(
+        pointIndex, ltsFace, stateVarReference, timeIncrement, dualCast<StateScalar>(slipRate));
+
+    const S localStateVariable = dualCast<real>(stateVariable);
+    const S localA = S(this->a_[ltsFace][pointIndex]);
+    const S cExpLog = localStateVariable / localA;
+    const S cLin = S(static_cast<real>(0.5) / this->drParameters_.rsSr0);
+    return localA * rs::arsinhexp(cLin * slipRate, cExpLog, rs::computeCExp(cExpLog));
   }
 
 /**

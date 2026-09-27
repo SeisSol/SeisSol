@@ -25,19 +25,22 @@ class SevereVelocityWeakeningLaw
 
 // Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
-  double updateStateVariable(std::uint32_t pointIndex,
-                             std::size_t faceIndex,
-                             double stateVarReference,
-                             double timeIncrement,
-                             double localSlipRate) {
-    const real localSl0 = this->sl0_[faceIndex][pointIndex];
+  /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
+  /// the state variable by the very slip rate it is solving for
+  template <typename S>
+  S updateStateVariable(std::uint32_t pointIndex,
+                        std::size_t faceIndex,
+                        double stateVarReference,
+                        double timeIncrement,
+                        S localSlipRate) {
+    const double localSl0 = this->sl0_[faceIndex][pointIndex];
 
-    const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters_.rsSr0;
+    const S steadyStateStateVariable = localSlipRate * S(localSl0 / this->drParameters_.rsSr0);
 
     const double preexp1 = -this->drParameters_.rsSr0 * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    const double localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
+    const S localStateVariable = steadyStateStateVariable * S(exp1m) + S(exp1v * stateVarReference);
 
     return localStateVariable;
   }
@@ -63,6 +66,37 @@ class SevereVelocityWeakeningLaw
       details.f0[pointIndex] = this->f0_[ltsFace][pointIndex];
     }
     return details;
+  }
+
+  /// the precision the state variable of this law is stated in
+  using StateScalar = double;
+
+  /// the state variable is a closed-form function of the slip rate, so the inversion can carry it
+  /// inside its own iteration instead of relaying it through a fixed point
+  static constexpr bool FoldsStateVariable = true;
+
+  /// The friction coefficient at a slip rate, with the state variable evaluated at that very slip
+  /// rate. Both dependencies travel through the scalar, so a dual number comes back carrying
+  /// d(mu)/dV of the composition.
+  template <typename S>
+  S updateMuFolded(std::size_t ltsFace,
+                   std::uint32_t pointIndex,
+                   S slipRate,
+                   real stateVarReference,
+                   real timeIncrement) {
+    const auto stateVariable = this->updateStateVariable(pointIndex,
+                                                         ltsFace,
+                                                         static_cast<double>(stateVarReference),
+                                                         static_cast<double>(timeIncrement),
+                                                         dualCast<StateScalar>(slipRate));
+
+    const S localStateVariable = dualCast<real>(stateVariable);
+    const S localSl0 = S(this->sl0_[ltsFace][pointIndex]);
+    const S c =
+        S(this->b_[ltsFace][pointIndex]) * localStateVariable / (localStateVariable + localSl0);
+    return S(this->f0_[ltsFace][pointIndex]) +
+           S(this->a_[ltsFace][pointIndex]) * slipRate / (slipRate + S(this->drParameters_.rsSr0)) -
+           c;
   }
 
 #pragma omp declare simd
