@@ -16,10 +16,13 @@
 
 namespace seissol::initializer {
 
+/// \param global the constant pool, for the kernel that reads a material
+/// varying along a face at the quadrature points of the fault
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Storage& drStorage);
+                                      DynamicRupture::Storage& drStorage,
+                                      const GlobalData& global);
 
 } // namespace seissol::initializer
 

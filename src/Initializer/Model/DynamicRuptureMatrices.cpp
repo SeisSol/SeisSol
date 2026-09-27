@@ -109,6 +109,49 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   }
 }
 
+/// The material of one side of a fault face, at the quadrature points of that
+/// face.
+///
+/// A cell carries its material as samples; the fault wants it where its own
+/// points are, and which of the two reparametrisations of the shared face
+/// applies depends on the side. The generated kernel folds the evaluation and
+/// the projection into one matrix per side and reparametrisation, so this runs
+/// one small product per parameter the material declares. The samples are the
+/// initialized ones the cell keeps, so nothing is fitted or derived a second
+/// time here -- for a viscoelastic material that means the unrelaxed moduli
+/// the fit produced, which is what the fault reads on the constant path too.
+template <typename MaterialT>
+void materialAtFaultPoints(const std::array<MaterialT, LTS::MaterialNodes>& samples,
+                           std::uint8_t side,
+                           std::uint8_t faceRelation,
+                           const GlobalData& global,
+                           std::array<MaterialT, seissol::dr::ImpedancePoints>& atPoints) {
+  static_assert(tensor::materialAtFault::size() >= seissol::dr::ImpedancePoints,
+                "The fault reads more points than the material is evaluated at.");
+
+  alignas(Alignment) std::array<real, tensor::materialSamples::size()> sampled{};
+  alignas(Alignment) std::array<real, tensor::materialAtFault::size()> atFault{};
+
+  dynamicRupture::kernel::projectMaterialToFault krnl{};
+  krnl.bindGlobals(global);
+  krnl.materialSamples = sampled.data();
+  krnl.materialAtFault = atFault.data();
+
+  for (const auto& [name, member] : MaterialT::ParameterMap) {
+    for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+      // the material is one field, so every fused simulation sees the same
+      // sample at a point
+      for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+        sampled[sim + multisim::NumSimulations * node] = static_cast<real>(samples[node].*member);
+      }
+    }
+    krnl.execute(side, faceRelation);
+    for (std::size_t point = 0; point < atPoints.size(); ++point) {
+      atPoints[point].*member = atFault[point];
+    }
+  }
+}
+
 /**
  * The "general" material case: impedance, eta and traction averaging matrices of a face whose
  * admittance is a full matrix, from the admittances of both sides.
@@ -256,7 +299,8 @@ void initializeFaultImpedance(const Fault& fault,
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Storage& drStorage) {
+                                      DynamicRupture::Storage& drStorage,
+                                      const GlobalData& global) {
   real matTData[tensor::T::size()]{};
   real matTinvData[tensor::Tinv::size()]{};
   real matAPlusData[tensor::star::size(0)]{};
@@ -475,9 +519,47 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
+      // The material at the points of the fault. Where it does not vary inside a
+      // cell every point sees the cell's own material, so the two arrays hold
+      // one entry and the loops below collapse.
+      std::array<seissol::model::MaterialT, seissol::dr::ImpedancePoints> plusAtPoints{};
+      std::array<seissol::model::MaterialT, seissol::dr::ImpedancePoints> minusAtPoints{};
+      if constexpr (NodalMaterial) {
+        // The samples of a cell that is not on this rank are reached through the
+        // one that is: its face neighbour on the shared side, which is where the
+        // ghost layer keeps them.
+        const auto samplesOf = [&](const std::optional<StoragePosition>& own,
+                                   const std::optional<StoragePosition>& other,
+                                   std::uint8_t otherSide)
+            -> const std::array<seissol::model::MaterialT, LTS::MaterialNodes>& {
+          if (own.has_value()) {
+            return ltsStorage.lookup<LTS::NodalMaterialData>(own.value());
+          }
+          const auto& secondary = ltsStorage.lookup<LTS::SecondaryInformation>(other.value());
+          return ltsStorage.lookup<LTS::NodalMaterialData>(secondary.faceNeighbors[otherSide]);
+        };
+
+        // the plus side reads the face in its own parametrisation, the minus
+        // side in the one the two sides agree on -- the same pair of arguments
+        // the interpolation of the degrees of freedom uses
+        materialAtFaultPoints(samplesOf(plusLtsId, minusLtsId, faceInformation[ltsFace].minusSide),
+                              faceInformation[ltsFace].plusSide,
+                              0,
+                              global,
+                              plusAtPoints);
+        materialAtFaultPoints(samplesOf(minusLtsId, plusLtsId, faceInformation[ltsFace].plusSide),
+                              faceInformation[ltsFace].minusSide,
+                              faceInformation[ltsFace].faceRelation,
+                              global,
+                              minusAtPoints);
+      } else {
+        plusAtPoints[0] = *plusMaterial;
+        minusAtPoints[0] = *minusMaterial;
+      }
+
       // calculate Impedances Z and eta
       for (std::size_t point = 0; point < seissol::dr::ImpedancePoints; ++point) {
-        setIsotropicImpedance(impAndEta[ltsFace], point, *plusMaterial, *minusMaterial);
+        setIsotropicImpedance(impAndEta[ltsFace], point, plusAtPoints[point], minusAtPoints[point]);
       }
 
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
@@ -491,8 +573,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           initializeFaultImpedance(fault[meshFace],
                                    meshFace,
                                    point,
-                                   *plusMaterial,
-                                   *minusMaterial,
+                                   plusAtPoints[point],
+                                   minusAtPoints[point],
                                    impedanceMatrices[ltsFace],
                                    godunovData[ltsFace],
                                    impAndEta[ltsFace]);

@@ -315,6 +315,7 @@ def main():
                 adg,
                 cmdLineArgs.matricesDir,
                 cmdLineArgs.drQuadRule,
+                materialPoints,
                 targets,
                 isOldGpuInterface,
             )

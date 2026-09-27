@@ -224,7 +224,10 @@ struct LTS {
     }
     LayerMask materialNodalMask;
     if (settings.materialNodal) {
-      materialNodalMask = LayerMask(Ghost);
+      // the ghost layer carries the samples too: a fault face reads the material
+      // of both its cells at its own points, and one of them can sit on another
+      // rank
+      materialNodalMask = LayerMask();
     } else {
       materialNodalMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }

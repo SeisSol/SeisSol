@@ -171,6 +171,18 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         const auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
         const auto& localMaterial = materialsDB[materialGhostIdx + ghostOffset];
         initAssign(materialData, localMaterial);
+
+        if (!nodalMaterialsDB.empty()) {
+          // the samples of a ghost cell, for a fault face whose other side is
+          // on another rank; they come from the same query, which covers the
+          // ghost cells already
+          auto* nodalMaterialArray = layer.var<LTS::NodalMaterialData>();
+          const auto* sampled =
+              &nodalMaterialsDB[(materialGhostIdx + ghostOffset) * LTS::MaterialNodes];
+          for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+            initAssign(nodalMaterialArray[cell][node], sampled[node]);
+          }
+        }
       }
     } else {
       auto* materialArray = layer.var<LTS::Material>();
@@ -269,8 +281,11 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                     "are (mostly) computed with \"eta damp\" = 1).";
   }
 
-  seissol::initializer::initializeDynamicRuptureMatrices(
-      meshReader, memoryManager.ltsStorage(), memoryManager.backmap(), memoryManager.drStorage());
+  seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
+                                                         memoryManager.ltsStorage(),
+                                                         memoryManager.backmap(),
+                                                         memoryManager.drStorage(),
+                                                         *memoryManager.globalData().onHost);
 
   memoryManager.initFrictionData();
 

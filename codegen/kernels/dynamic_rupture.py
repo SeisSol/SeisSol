@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
+from kernels import material
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
@@ -19,7 +20,15 @@ from yateto.memory import CSCMemoryLayout
 NumFaceRelations = 2
 
 
-def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInterface):
+def addKernels(
+    generator,
+    aderdg,
+    matricesDir,
+    drQuadRule,
+    materialPoints,
+    targets,
+    isOldGpuInterface,
+):
 
     clones = dict()
 
@@ -96,7 +105,8 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
     fluxScale = Scalar("fluxScaleDR")
     generator.add(
         "rotateFluxMatrix",
-        fluxSolver["qp"] <= fluxScale * aderdg.starMatrixSetup(0)["qk"] * aderdg.T["pk"],
+        fluxSolver["qp"]
+        <= fluxScale * aderdg.starMatrixSetup(0)["qk"] * aderdg.T["pk"],
     )
 
     num3DBasisFunctions = aderdg.num3DBasisFunctions()
@@ -362,6 +372,10 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
     )
     generator.add("computeImposedStateM", computeImposedStateM)
     generator.add("computeImposedStateP", computeImposedStateP)
+
+    # the material at the quadrature points of the fault, for a material that
+    # varies along the face
+    material.addFaultKernels(generator, aderdg, matricesDir, materialPoints, db)
 
     return {db.resample, db.quadpoints, db.quadweights}
 

@@ -44,20 +44,28 @@ def tensors(matricesDir, aderdg, pointSet):
     db = _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride)
 
     def renamed(name, source):
-        # der Tensor traegt seine Werte im Sparsity-Muster, also von dort holen
-        return Tensor(name, source.shape(), spp=dict(source.values()),
-                      alignStride=aderdg.alignStride(name))
+        # the tensor carries its values in the sparsity pattern, so take them there
+        return Tensor(
+            name,
+            source.shape(),
+            spp=dict(source.values()),
+            alignStride=aderdg.alignStride(name),
+        )
 
     return {
         name: renamed(name, source)
-        for name, source in (("materialNodes", db.vNodes),
-                             ("materialEval", db.v),
-                             ("materialProject", db.vInv))
+        for name, source in (
+            ("materialNodes", db.vNodes),
+            ("materialEval", db.v),
+            ("materialProject", db.vInv),
+        )
     }
 
 
 def pointCount(matricesDir, aderdg, pointSet):
-    return _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride).vNodes.shape()[0]
+    return _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride).vNodes.shape()[
+        0
+    ]
 
 
 def includeTensors(matricesDir, aderdg, pointSet, include):
@@ -142,7 +150,56 @@ def addFaceKernels(generator, aderdg, matricesDir, pointSet):
     generator.addFamily(
         "projectMaterialToFace",
         simpleParameterSpace(4),
-        lambda side: faceValues["k"] <= aderdg.db.materialToFace[side]["kn"] * samples["n"],
+        lambda side: faceValues["k"]
+        <= aderdg.db.materialToFace[side]["kn"] * samples["n"],
+    )
+
+
+def addFaultKernels(generator, aderdg, matricesDir, pointSet, faultDb):
+    """The material where a fault needs it.
+
+    A fault face reads its Riemann problem at the quadrature points of the
+    dynamic rupture rule, which is a different set from the nodal one the flux
+    uses and has its own matrix per side and reparametrisation. The route is the
+    same as for a face: the samples give a modal field and the field is read
+    wherever it is wanted, so the two matrices fold into one and the modal
+    coefficients are never written.
+    """
+    mats = tensors(matricesDir, aderdg, pointSet)
+    npoints = pointCount(matricesDir, aderdg, pointSet)
+
+    folded = tensor_collection_from_constant_expression(
+        base_name="materialToFault",
+        expressions=lambda side, relation: faultDb.V3mTo2n[side, relation][
+            aderdg.t("kl")
+        ]
+        * mats["materialProject"]["ln"],
+        group_indices=simpleParameterSpace(4, 4),
+        target_indices="kn",
+    )
+    aderdg.db.update(folded)
+
+    samples = OptionalDimTensor(
+        "materialSamples",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (npoints,),
+        alignStride=True,
+    )
+    faultValues = OptionalDimTensor(
+        "materialAtFault",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (aderdg.t(faultDb.V3mTo2n[0, 0].shape())[0],),
+        alignStride=True,
+    )
+    generator.addFamily(
+        "projectMaterialToFault",
+        simpleParameterSpace(4, 4),
+        lambda side, relation: faultValues["k"]
+        <= aderdg.db.materialToFault[side, relation]["kn"] * samples["n"],
     )
 
 
@@ -176,7 +233,9 @@ def faceOrientationPermutations(matricesDir, aderdg):
     for idx, value in db.nodes2D.values().items():
         points[idx] = float(value)
 
-    bary = np.stack([1.0 - points[:, 0] - points[:, 1], points[:, 0], points[:, 1]], axis=1)
+    bary = np.stack(
+        [1.0 - points[:, 0] - points[:, 1], points[:, 0], points[:, 1]], axis=1
+    )
 
     permutations = []
     for sigma in FACE_REFLECTIONS:
