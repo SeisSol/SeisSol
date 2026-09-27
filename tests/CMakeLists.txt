@@ -20,6 +20,11 @@ configure_file(
     COPYONLY
 )
 configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/material-graded.yaml
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material-graded.yaml
+    COPYONLY
+)
+configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/ResultWriter/receiver_correct.dat
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/receiver_correct.dat
     COPYONLY

@@ -162,19 +162,23 @@ CellToVertexArray
 }
 
 #ifdef USE_HDF
-CellToVertexArray CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh& mesh) {
+CellToVertexArray
+    CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh& mesh,
+                                const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
   const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
+  assert(vertexOrders.size() == elements.size());
   return CellToVertexArray(
       elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
         unsigned vertLids[Cell::NumVertices]{};
         PUML::Downward::vertices(mesh, elements[cell], vertLids);
+        const auto& order = vertexOrders[cell];
         for (std::size_t vtx = 0; vtx < Cell::NumVertices; ++vtx) {
           for (std::size_t d = 0; d < Cell::Dim; ++d) {
-            x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
+            x[vtx](d) = vertices[vertLids[order[vtx]]].coordinate()[d];
           }
         }
         return x;

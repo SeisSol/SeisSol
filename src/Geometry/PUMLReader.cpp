@@ -191,10 +191,9 @@ double orientationDeterminant(const std::array<const double*, Cell::NumVertices>
  * where the rank-local vertex indices are unrelated to each other. The orientation in turn has to
  * be judged on the geometry. For periodic meshes the two differ.
  */
-std::array<std::size_t, Cell::NumVertices>
-    canonicalVertexOrder(const std::array<unsigned long, Cell::NumVertices>& topoVertices,
-                         const std::array<const double*, Cell::NumVertices>& coords) {
-  std::array<std::size_t, Cell::NumVertices> order{};
+VertexOrder canonicalVertexOrder(const std::array<unsigned long, Cell::NumVertices>& topoVertices,
+                                 const std::array<const double*, Cell::NumVertices>& coords) {
+  VertexOrder order{};
   std::iota(order.begin(), order.end(), 0);
   std::sort(order.begin(), order.end(), [&](auto a, auto b) {
     return topoVertices[a] < topoVertices[b];
@@ -214,8 +213,7 @@ std::array<std::size_t, Cell::NumVertices>
  * PUML face index -> SeisSol face index for a given canonical vertex order. Both index schemes
  * cover the same four faces; only the ordering within a cell differs.
  */
-std::array<std::uint8_t, Cell::NumFaces>
-    canonicalFaceMap(const std::array<std::size_t, Cell::NumVertices>& order) {
+std::array<std::uint8_t, Cell::NumFaces> canonicalFaceMap(const VertexOrder& order) {
   std::array<std::size_t, Cell::NumVertices> inverse{};
   for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
     inverse[order[k]] = k;
@@ -231,24 +229,47 @@ std::array<std::uint8_t, Cell::NumFaces>
  * Recover the vertex order from a face map. PumlFaceMissingVertex is a bijection, so the face map
  * already determines the permutation and only one of the two needs to be kept per cell.
  */
-std::array<std::size_t, Cell::NumVertices>
-    vertexOrderFromFaceMap(const std::array<std::uint8_t, Cell::NumFaces>& map) {
-  std::array<std::size_t, Cell::NumVertices> order{};
+VertexOrder vertexOrderFromFaceMap(const std::array<std::uint8_t, Cell::NumFaces>& map) {
+  VertexOrder order{};
   for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-    order[Cell::NumVertices - 1 - map[f]] = PumlFaceMissingVertex[f];
+    order[Cell::NumVertices - 1 - map[f]] = static_cast<std::uint8_t>(PumlFaceMissingVertex[f]);
   }
   return order;
 }
 
 template <typename T>
-void applyVertexOrder(std::array<T, Cell::NumVertices>& values,
-                      const std::array<std::size_t, Cell::NumVertices>& order) {
+void applyVertexOrder(std::array<T, Cell::NumVertices>& values, const VertexOrder& order) {
   const auto original = values;
   for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
     values[k] = original[order[k]];
   }
 }
 } // namespace
+
+std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
+                                               const PumlMesh& meshGeometry) {
+  const std::vector<PumlMesh::cell_t>& cells = meshTopology.cells();
+  const std::vector<PumlMesh::cell_t>& cellsGeometry = meshGeometry.cells();
+  const std::vector<PumlMesh::vertex_t>& verticesGeometry = meshGeometry.vertices();
+  assert(cells.size() == cellsGeometry.size());
+
+  std::vector<VertexOrder> orders(cells.size());
+  for (std::size_t i = 0; i < cells.size(); i++) {
+    std::array<unsigned long, Cell::NumVertices> topoVertices{};
+    PUML::Downward::gvertices(meshTopology, cells[i], topoVertices.data());
+
+    std::array<unsigned int, Cell::NumVertices> geomVertices{};
+    PUML::Downward::vertices(meshGeometry, cellsGeometry[i], geomVertices.data());
+
+    std::array<const double*, Cell::NumVertices> coords{};
+    for (std::size_t k = 0; k < Cell::NumVertices; k++) {
+      coords[k] = verticesGeometry[geomVertices[k]].coordinate();
+    }
+
+    orders[i] = canonicalVertexOrder(topoVertices, coords);
+  }
+  return orders;
+}
 
 PUMLReader::PUMLReader(const std::string& meshFile,
                        const std::string& partitioningLib,
@@ -310,16 +331,27 @@ PUMLReader::PUMLReader(const std::string& meshFile,
                            ? meshGeometry
                            : meshTopologyExtra;
 
+  // Everything that looks at the vertices of a cell from here on -- the clustering first, getMesh
+  // later -- has to see them in the canonical order. It is decided once, here, and carried through
+  // the partitioning with the cell.
+  const auto vertexOrders = canonicalVertexOrders(meshTopology, meshGeometry);
+
   // The clustering needs the meshes, which only exist here -- hence the orchestrator is passed
   // in and run rather than its result.
   const initializer::ClusteringResult* clusteringResult = nullptr;
   if (clustering != nullptr) {
     logInfo() << "Compute clustering.";
-    clusteringResult = &clustering->compute(meshTopology, meshGeometry);
+    clusteringResult = &clustering->compute(meshTopology, meshGeometry, vertexOrders);
   }
 
   logInfo() << "Partition the mesh.";
-  partition(meshTopology, meshGeometry, clusteringResult, weightModel, tpwgt, partitioningLib);
+  partition(meshTopology,
+            meshGeometry,
+            clusteringResult,
+            vertexOrders,
+            weightModel,
+            tpwgt,
+            partitioningLib);
 
   logInfo() << "Generate the correctly-distributed meshes.";
   generatePUML(meshTopology, meshGeometry);
@@ -367,6 +399,7 @@ void PUMLReader::read(PumlMesh& meshTopology,
 void PUMLReader::partition(PumlMesh& meshTopology,
                            PumlMesh& meshGeometry,
                            const initializer::ClusteringResult* clustering,
+                           const std::vector<VertexOrder>& vertexOrders,
                            initializer::VertexWeightModel* weightModel,
                            double tpwgt,
                            const std::string& partitioningLib) {
@@ -408,6 +441,11 @@ void PUMLReader::partition(PumlMesh& meshTopology,
   meshGeometry.addDataArray(clustering->clusterIds.data(), PUML::CELL, {});
   meshGeometry.addDataArray(clustering->timesteps.cellTimeStepWidths.data(), PUML::CELL, {});
 
+  // Cell data 5, read back in getMesh: the vertex order the clustering has used.
+  static_assert(sizeof(VertexOrder) == Cell::NumVertices * sizeof(std::uint8_t));
+  meshGeometry.addDataArray(
+      reinterpret_cast<const std::uint8_t*>(vertexOrders.data()), PUML::CELL, {Cell::NumVertices});
+
   meshGeometry.partition(newPartition.data());
   if (&meshTopology != &meshGeometry) {
     meshTopology.partition(newPartition.data());
@@ -445,27 +483,22 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(meshGeometry.cellData(2));
   const auto* clusterIds = reinterpret_cast<const std::size_t*>(meshGeometry.cellData(3));
   const auto* timestep = reinterpret_cast<const double*>(meshGeometry.cellData(4));
+  const auto* vertexOrders = reinterpret_cast<const VertexOrder*>(meshGeometry.cellData(5));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids
 
   bool isMeshCorrect = true;
 
-  // Canonical local vertex numbering. Computed for every cell up front, because the neighbor
-  // lookup below needs the numbering of cells that come later in the loop.
+  // Canonical local vertex numbering, as decided before the partitioning. Mapped for every cell
+  // up front, because the neighbor lookup below needs the numbering of cells that come later in
+  // the loop.
+#ifndef NDEBUG
+  const auto recomputedOrders = canonicalVertexOrders(meshTopology, meshGeometry);
+#endif
   std::vector<std::array<std::uint8_t, Cell::NumFaces>> pumlFaceMaps(cells.size());
   for (std::size_t i = 0; i < cells.size(); i++) {
-    std::array<unsigned long, Cell::NumVertices> topoVertices{};
-    PUML::Downward::gvertices(meshTopology, cells[i], topoVertices.data());
-
-    std::array<unsigned int, Cell::NumVertices> geomVertices{};
-    PUML::Downward::vertices(meshGeometry, cellsGeometry[i], geomVertices.data());
-
-    std::array<const double*, Cell::NumVertices> coords{};
-    for (std::size_t k = 0; k < Cell::NumVertices; k++) {
-      coords[k] = verticesGeometry[geomVertices[k]].coordinate();
-    }
-
-    pumlFaceMaps[i] = canonicalFaceMap(canonicalVertexOrder(topoVertices, coords));
+    assert(vertexOrders[i] == recomputedOrders[i]);
+    pumlFaceMaps[i] = canonicalFaceMap(vertexOrders[i]);
   }
 
   // Compute everything local
