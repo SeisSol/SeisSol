@@ -641,15 +641,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         // into this Newton. The dual carries d|sigma|/dV of the whole composition, including the
         // part that reaches through mu.
         const Dual<real> sigma =
-            effectiveNormalStress(stickAt(normalStress,
-                                          normalStressStick,
-                                          etaNormal,
-                                          tpMethod_.fluidPressureOffset(pointIndex),
-                                          trial,
-                                          pointIndex),
-                                  tpMethod_.fluidPressureSlope(pointIndex),
-                                  trial,
-                                  mu);
+            rs::effectiveNormalStress(stickAt(normalStress,
+                                              normalStressStick,
+                                              etaNormal,
+                                              tpMethod_.fluidPressureOffset(pointIndex),
+                                              trial,
+                                              pointIndex),
+                                      tpMethod_.fluidPressureSlope(pointIndex),
+                                      trial,
+                                      mu);
         const auto absSigmaDual = abs(sigma);
         absSigma[pointIndex] = absSigmaDual.value;
         dAbsSigma[pointIndex] = absSigmaDual.derivative;
@@ -820,26 +820,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     } else {
       return S(normalStress[pointIndex]);
     }
-  }
-
-  /**
-   * The effective normal stress at a trial slip rate, with the pressurization of this step
-   * resolved rather than lagged.
-   *
-   * The pore pressure is affine in the shear heating, p = offset + slope * tau V, and the heating
-   * is tau V = mu |sigma| V, so the two close in one step:
-   *   sigma = stick / (1 - mu V slope).
-   * The slope is negative -- heating lifts the pressure and unloads the fault -- so the divisor
-   * exceeds one and the fault weakens. A divisor that is not positive would be a runaway with no
-   * solution on this branch; the fault has no strength left there and the clamp takes it.
-   */
-#pragma omp declare simd
-  template <typename S>
-  static S effectiveNormalStress(S stick, real pressureSlope, S slipRate, S mu) {
-    const S divisor = S(static_cast<real>(1.0)) - mu * slipRate * S(pressureSlope);
-    const S sigma = stick / divisor;
-    const bool closed = valueOf(sigma) < 0 && valueOf(divisor) > 0;
-    return closed ? sigma : S(static_cast<real>(0.0));
   }
 
   protected:

@@ -358,25 +358,6 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
   }
 
-  /**
-   * The effective normal stress at a trial slip rate, with the pressurization of this step
-   * resolved rather than lagged.
-   *
-   * The pore pressure is affine in the shear heating, p = offset + slope * tau V, and the heating
-   * is tau V = mu |sigma| V, so the two close in one step:
-   *   sigma = stick / (1 - mu V slope).
-   * The slope is negative -- heating lifts the pressure and unloads the fault -- so the divisor
-   * exceeds one and the fault weakens. A divisor that is not positive would be a runaway with no
-   * solution on this branch; the fault has no strength left there and the clamp takes it.
-   */
-  template <typename S>
-  SEISSOL_DEVICE static S effectiveNormalStress(S stick, real pressureSlope, S slipRate, S mu) {
-    const S divisor = S(static_cast<real>(1.0)) - mu * slipRate * S(pressureSlope);
-    const S sigma = stick / divisor;
-    const bool closed = valueOf(sigma) < 0 && valueOf(divisor) > 0;
-    return closed ? sigma : S(static_cast<real>(0.0));
-  }
-
   SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext& __restrict ctx,
                                                      real& slipRateTest,
                                                      real localStateVariable,
@@ -463,14 +444,15 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       // moves the normal coupling and the pressurization out of the outer fixed point and into
       // this Newton. The dual carries d|sigma|/dV of the whole composition, including the part
       // that reaches through mu.
-      const Dual<real> sigmaDual = effectiveNormalStress(stickAt(normalStress,
-                                                                 normalStressStick,
-                                                                 etaNormal,
-                                                                 TPMethod::fluidPressureOffset(ctx),
-                                                                 trial),
-                                                         TPMethod::fluidPressureSlope(ctx),
-                                                         trial,
-                                                         mu);
+      const Dual<real> sigmaDual =
+          rs::effectiveNormalStress(stickAt(normalStress,
+                                            normalStressStick,
+                                            etaNormal,
+                                            TPMethod::fluidPressureOffset(ctx),
+                                            trial),
+                                    TPMethod::fluidPressureSlope(ctx),
+                                    trial,
+                                    mu);
       const auto absSigmaDual = abs(sigmaDual);
       const real absSigma = absSigmaDual.value;
       const real dAbsSigma = absSigmaDual.derivative;

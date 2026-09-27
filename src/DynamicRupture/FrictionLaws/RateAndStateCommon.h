@@ -112,6 +112,30 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
 }
 
 /**
+  The effective normal stress at a trial slip rate, with the pressurization of this step resolved
+  rather than lagged.
+
+  The pore pressure is affine in the shear heating, p = offset + slope * tau V, and the heating is
+  tau V = mu |sigma| V, so the two close in one step:
+    sigma = stick / (1 - mu V slope).
+  The slope is negative -- heating lifts the pressure and unloads the fault -- so the divisor
+  exceeds one and the fault weakens. A divisor that is not positive would be a runaway with no
+  solution on this branch; the fault has no strength left there and the clamp takes it.
+
+  Both executors solve the same algebra, and it depends on nothing a friction law carries.
+ */
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE T effectiveNormalStress(T stick, real pressureSlope, T slipRate, T mu) {
+  using Scalar = decltype(valueOf(T{}));
+  const T divisor =
+      T(static_cast<Scalar>(1.0)) - mu * slipRate * T(static_cast<Scalar>(pressureSlope));
+  const T sigma = stick / divisor;
+  const bool closed = valueOf(sigma) < 0 && valueOf(divisor) > 0;
+  return closed ? sigma : T(static_cast<Scalar>(0.0));
+}
+
+/**
   Compute log(x * sinh(c)).
   if c > 0, then
   log(x * (e(c) - e(-c)) / 2)

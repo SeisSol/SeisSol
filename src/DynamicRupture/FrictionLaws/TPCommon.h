@@ -9,11 +9,9 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_TPCOMMON_H_
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 
-#include <array>
+#include <cmath>
 #include <cstddef>
 #include <vector>
 
