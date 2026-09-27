@@ -39,6 +39,7 @@ class FastVelocityWeakeningLaw
       stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
     using std::exp;
     using std::expm1;
+    using std::fmax;
     using std::log;
     using std::pow;
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
@@ -49,7 +50,7 @@ class FastVelocityWeakeningLaw
     const real localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
     const real localMuW = ctx.data->muW[ctx.ltsFace][ctx.pointIndex];
 
-    const S lowVelocityFriction = mmax(
+    const S lowVelocityFriction = fmax(
         S(static_cast<real>(0)),
         S(localF0) - S(localB - localA) * log(localSlipRate / S(ctx.data->drParameters.rsSr0)));
 

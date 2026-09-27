@@ -52,6 +52,7 @@ class FastVelocityWeakeningLaw
                                       S localSlipRate) const {
     using std::exp;
     using std::expm1;
+    using std::fmax;
     using std::log;
     using std::pow;
     const real localMuW = this->muW_[faceIndex][pointIndex];
@@ -60,7 +61,7 @@ class FastVelocityWeakeningLaw
     const real localSl0 = this->sl0_[faceIndex][pointIndex];
 
     // low-velocity steady state friction coefficient
-    const S lowVelocityFriction = mmax(S(static_cast<real>(0)),
+    const S lowVelocityFriction = fmax(S(static_cast<real>(0)),
                                        S(this->f0_[faceIndex][pointIndex]) -
                                            S(this->b_[faceIndex][pointIndex] - localA) *
                                                log(localSlipRate / S(this->drParameters_.rsSr0)));
