@@ -311,6 +311,9 @@ std::vector<ReceiverWriter::OrderedReceiver> ReceiverWriter::orderedReceivers() 
 
 void ReceiverWriter::collectSamples() {
   constexpr auto Simulations = seissol::multisim::NumSimulations;
+  for (auto& cluster : receiverClusters_) {
+    cluster->waitForSamples();
+  }
   const auto receivers = orderedReceivers();
   const auto& grouping = table_->grouping();
 
@@ -378,6 +381,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
   constexpr auto Simulations = seissol::multisim::NumSimulations;
   for (auto& cluster : receiverClusters_) {
+    cluster->waitForSamples();
     const auto ncols = cluster->ncols();
     // a sample holds the time, then the quantities of one simulation after the other
     const auto quantities = (ncols - 1) / Simulations;

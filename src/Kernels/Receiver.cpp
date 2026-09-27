@@ -250,8 +250,20 @@ void ReceiverCluster::allocateData() {
   }
 }
 void ReceiverCluster::freeData() {
+  // a handler still running would read the collector and write the outputs
+  waitForSamples();
   deviceCollector_.reset(nullptr);
   extraRuntime_.reset();
+}
+
+void ReceiverCluster::waitForSamples() {
+  // On a device, calcReceivers leaves the sampling to a host function on a stream, which appends
+  // to the output of the receivers once the gathered DOFs are there. Nothing in the time stepping
+  // waits for the one enqueued last before a synchronization point, so whoever reads the output
+  // has to.
+  if (extraRuntime_.has_value()) {
+    extraRuntime_->wait();
+  }
 }
 
 size_t ReceiverCluster::ncols() const {
