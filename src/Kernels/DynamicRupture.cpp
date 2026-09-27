@@ -57,7 +57,8 @@ static_assert(std::size(tensor::V3mTo2nTWDivM::Size) ==
               Cell::NumFaces * dr::misc::NumFaceRelations);
 
 #ifdef ACL_DEVICE
-static_assert(*DrFaceRelations::Count == Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(*seissol::recording::DrFaceRelations::Count ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
 #endif
 
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {

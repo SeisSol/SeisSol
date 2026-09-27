@@ -50,9 +50,10 @@ namespace seissol::kernels::solver::linearck {
 static_assert(std::size(kernel::neighboringFlux::ExecutePtrs) == Cell::NumFaces * Cell::NumFaces);
 
 #ifdef ACL_DEVICE
-static_assert(std::size(kernel::gpu_neighboringFlux::ExecutePtrs) == *FaceRelations::Count);
+static_assert(std::size(kernel::gpu_neighboringFlux::ExecutePtrs) ==
+              *seissol::recording::FaceRelations::Count);
 static_assert(std::size(dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs) ==
-              *DrFaceRelations::Count);
+              *seissol::recording::DrFaceRelations::Count);
 #endif
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
