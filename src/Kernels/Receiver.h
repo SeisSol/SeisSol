@@ -119,6 +119,9 @@ class ReceiverCluster {
   void allocateData();
   void freeData();
 
+  //! @brief Waits for the samples taken so far to be in the output of the receivers.
+  void waitForSamples();
+
   private:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};
