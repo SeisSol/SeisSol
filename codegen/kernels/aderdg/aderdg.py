@@ -386,6 +386,19 @@ class ADERDGBase(ABC):
             Tensor(f"nodalCoefficients({a})", (npoints,)) for a in range(count)
         ]
         quantities = starSpp.shape[0]
+        self.nodalOperatorAssembled = (
+            kwargs.get("material_operator", coefficients.OPERATOR_FORMS[0])
+            == "assembled"
+        )
+        self.starAtPoint = [
+            Tensor(
+                f"starAtPoint({dim})",
+                (npoints,) + tuple(starSpp.shape),
+                temporary=True,
+            )
+            for dim in range(3)
+        ]
+
         # kept as well, since a solver whose field carries more than modes and
         # quantities needs the same two shapes one index wider
         self.nodalValuesShape = (npoints, quantities)
@@ -512,15 +525,30 @@ class ADERDGBase(ABC):
         )
 
     def nodalAssembly(self):
-        """Folds the Jacobian rows into the structure, once per kernel."""
+        """Folds the Jacobian rows into the structure, once per kernel.
+
+        Where the build asks for the assembled form, the coefficients go in as
+        well and what comes out is one operator per sample point. That trades
+        the products a kernel does at every application for a temporary over
+        the points, so which one is cheaper depends on how often the kernel
+        applies the operator and on the machine.
+        """
         if not self.nodalMaterial:
             return []
-        return [
+        statements = [
             self.structureFolded[dim][a]["qp"]
             <= self.referenceGradients[dim]["j"] * self.coefficientStructure[a]["jqp"]
             for dim in range(3)
             for a in range(len(self.coefficientStructure))
         ]
+        if self.nodalOperatorAssembled:
+            for dim in range(3):
+                folded = None
+                for a, coefficient in enumerate(self.nodalCoefficients):
+                    term = coefficient["n"] * self.structureFolded[dim][a]["qp"]
+                    folded = term if folded is None else folded + term
+                statements.append(self.starAtPoint[dim]["nqp"] <= folded)
+        return statements
 
     def nodalApply(
         self,
@@ -557,12 +585,16 @@ class ADERDGBase(ABC):
                 * operators[dim][self.t("kl")]
                 * source["lq" + spectator]
             )
-            for a, coefficient in enumerate(self.nodalCoefficients):
-                term = (
+            if self.nodalOperatorAssembled:
+                terms = [values["nq" + spectator] * self.starAtPoint[dim]["nqp"]]
+            else:
+                terms = [
                     coefficient["n"]
                     * values["nq" + spectator]
                     * self.structureFolded[dim][a]["qp"]
-                )
+                    for a, coefficient in enumerate(self.nodalCoefficients)
+                ]
+            for term in terms:
                 statements.append(
                     product["np" + spectator]
                     <= (term if first else product["np" + spectator] + term)

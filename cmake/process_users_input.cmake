@@ -115,6 +115,10 @@ set(MATERIAL_POINTS "" CACHE STRING "Point set the material is sampled at inside
 set(MATERIAL_POINTS_OPTIONS "" nb ip)
 set_property(CACHE MATERIAL_POINTS PROPERTY STRINGS ${MATERIAL_POINTS_OPTIONS})
 
+set(MATERIAL_OPERATOR "factored" CACHE STRING "Shape a MATERIAL_NODAL build applies the operator in: factored (the coefficients scale the fixed structures at every application) or assembled (they are folded into one operator per sample point beforehand, fewer operations against a larger temporary). Both compute the same thing; which one is faster depends on the kernel and the machine.")
+set(MATERIAL_OPERATOR_OPTIONS factored assembled)
+set_property(CACHE MATERIAL_OPERATOR PROPERTY STRINGS ${MATERIAL_OPERATOR_OPTIONS})
+
 set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
 set(DR_QUAD_RULE_OPTIONS stroud dunavant)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
@@ -215,6 +219,7 @@ message(STATUS "Solver: ${SOLVER}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 check_parameter("MATERIAL_POINTS" "${MATERIAL_POINTS}" "${MATERIAL_POINTS_OPTIONS}")
+check_parameter("MATERIAL_OPERATOR" "${MATERIAL_OPERATOR}" "${MATERIAL_OPERATOR_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 

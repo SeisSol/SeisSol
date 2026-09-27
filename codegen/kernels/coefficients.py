@@ -22,6 +22,14 @@ declarations can be checked against what each material writes itself.
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
+#: The two shapes the operator of a cell can be applied in where the material
+#: varies inside it. Factored keeps the coefficients apart and scales the fixed
+#: structures at every application; assembled folds them into one operator per
+#: sample point beforehand. Which one is cheaper depends on how often a kernel
+#: applies the operator and on what the machine does with the temporary the
+#: fold needs, so a build chooses.
+OPERATOR_FORMS = ("factored", "assembled")
+
 
 @dataclass(frozen=True)
 class Entry:

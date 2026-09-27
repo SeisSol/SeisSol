@@ -67,6 +67,12 @@ def main():
         "--material_points", type=str, choices=list(kernels.material.SETS), default=None
     )
     cmdLineParser.add_argument("--material_nodal", action="store_true", default=False)
+    cmdLineParser.add_argument(
+        "--material_operator",
+        type=str,
+        choices=list(kernels.coefficients.OPERATOR_FORMS),
+        default=kernels.coefficients.OPERATOR_FORMS[0],
+    )
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
@@ -265,6 +271,7 @@ def main():
         cmdArgsDict["old_gpu_interface"] = isOldGpuInterface
         # the resolved point set, not the raw command line value
         cmdArgsDict["material_points"] = materialPoints
+        cmdArgsDict["material_operator"] = cmdLineArgs.material_operator
 
         equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
 
