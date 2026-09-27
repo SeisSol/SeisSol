@@ -108,7 +108,8 @@ real* OnDevice::DeviceCopyPolicy::copy(SEISSOL_GPU_PARAM const real* first,
 template <typename MatrixManipPolicyT>
 void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                                      memory::ManagedAllocator& memoryAllocator,
-                                                     enum seissol::memory::Memkind memkind) {
+                                                     enum seissol::memory::Memkind memkind,
+                                                     std::size_t tpGridPoints) {
   const MemoryProperties prop = MatrixManipPolicyT::getProperties();
 
   // We ensure that global matrices always start at an aligned memory address,
@@ -155,11 +156,11 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   globalMatrixMemSize +=
       yateto::alignedUpper(tensor::quadweights::size(), yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+      yateto::alignedUpper(tpGridPoints, yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+      yateto::alignedUpper(tpGridPoints, yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+      yateto::alignedUpper(tpGridPoints, yateto::alignedReals<real>(prop.alignment));
 
   real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(
       globalMatrixMemSize * sizeof(real), prop.pagesizeHeap, memkind));
@@ -209,40 +210,38 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   // a bit more manual
   {
-    const auto data =
-        seissol::dr::friction_law::tp::InverseFourierCoefficients<dr::misc::NumTpGridPoints>();
+    const auto data = seissol::dr::friction_law::tp::InverseFourierCoefficients<real>(tpGridPoints);
     globalData.tpInverseFourierCoefficients = globalMatrixMemPtr;
     globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+        yateto::alignedUpper(tpGridPoints, yateto::alignedReals<real>(prop.alignment));
     seissol::memory::memcopyTyped<real>(globalData.tpInverseFourierCoefficients,
                                         data.data().data(),
-                                        dr::misc::NumTpGridPoints,
+                                        tpGridPoints,
                                         memkind,
                                         memory::Memkind::Standard);
   }
 
   {
-    const auto data = seissol::dr::friction_law::tp::GridPoints<dr::misc::NumTpGridPoints>();
+    const auto data = seissol::dr::friction_law::tp::GridPoints<real>(tpGridPoints);
     globalData.tpGridPoints = globalMatrixMemPtr;
     globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+        yateto::alignedUpper(tpGridPoints, yateto::alignedReals<real>(prop.alignment));
     seissol::memory::memcopyTyped<real>(globalData.tpGridPoints,
                                         data.data().data(),
-                                        dr::misc::NumTpGridPoints,
+                                        tpGridPoints,
                                         memkind,
                                         memory::Memkind::Standard);
   }
 
   {
-    const auto data =
-        seissol::dr::friction_law::tp::GaussianHeatSource<dr::misc::NumTpGridPoints>();
+    const auto data = seissol::dr::friction_law::tp::GaussianHeatSource<real>(tpGridPoints);
     globalData.heatSource = globalMatrixMemPtr;
     globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
+        yateto::alignedUpper(tpGridPoints, yateto::alignedReals<real>(prop.alignment));
 
     seissol::memory::memcopyTyped<real>(globalData.heatSource,
                                         data.data().data(),
-                                        dr::misc::NumTpGridPoints,
+                                        tpGridPoints,
                                         memkind,
                                         memory::Memkind::Standard);
   }

@@ -19,10 +19,6 @@
 
 namespace seissol::dr::friction_law::cpu {
 
-static const tp::GridPoints<misc::NumTpGridPoints> TpGridPoints;
-static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
-static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
-
 void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   temperature_ = layerData.var<LTSThermalPressurization::Temperature>();
   pressure_ = layerData.var<LTSThermalPressurization::Pressure>();
@@ -50,12 +46,12 @@ void ThermalPressurization::calcFluidPressure(
         drParameters_.undrainedTPResponse * drParameters_.thermalDiffusivity /
         (hydraulicDiffusivity_[ltsFace][pointIndex] - drParameters_.thermalDiffusivity);
 
-    for (uint32_t tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
+    for (uint32_t tpGridPointIndex = 0; tpGridPointIndex < drParameters_.tpGridPoints;
          ++tpGridPointIndex) {
       // Gaussian shear zone in spectral domain, normalized by w
       // \hat{l} / w
       const real squaredNormalizedTpGrid =
-          misc::power<2>(TpGridPoints[tpGridPointIndex] / halfWidthShearZone_[ltsFace][pointIndex]);
+          misc::power<2>(gridPoints_[tpGridPointIndex] / halfWidthShearZone_[ltsFace][pointIndex]);
 
       // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
       const real thetaTpGrid = drParameters_.thermalDiffusivity * squaredNormalizedTpGrid;
@@ -69,13 +65,14 @@ void ThermalPressurization::calcFluidPressure(
 
       // Temperature and pressure diffusion in spectral domain over timestep
       // This is + F(t) exp(-A dt) in equation (10)
-      const real thetaDiffusion = theta_[ltsFace][tpGridPointIndex][pointIndex] * expTheta;
-      const real sigmaDiffusion = sigma_[ltsFace][tpGridPointIndex][pointIndex] * expSigma;
+      const std::size_t gridIndex = ltsFace * drParameters_.tpGridPoints + tpGridPointIndex;
+      const real thetaDiffusion = theta_[gridIndex][pointIndex] * expTheta;
+      const real sigmaDiffusion = sigma_[gridIndex][pointIndex] * expSigma;
 
       // Heat generation during timestep
       // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
       // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
-      const real omega = tauV * HeatSource[tpGridPointIndex];
+      const real omega = tauV * heatSource_[tpGridPointIndex];
       const real thetaGeneration = omega / (drParameters_.heatCapacity * thetaTpGrid) * exp1mTheta;
       const real sigmaGeneration = omega * (drParameters_.undrainedTPResponse + lambdaPrime) /
                                    (drParameters_.heatCapacity * sigmaTpGrid) * exp1mSigma;
@@ -87,13 +84,13 @@ void ThermalPressurization::calcFluidPressure(
       // Recover temperature and altered pressure using inverse Fourier transformation from the new
       // contribution
       const real scaledInverseFourierCoefficient =
-          TpInverseFourierCoefficients[tpGridPointIndex] / halfWidthShearZone_[ltsFace][pointIndex];
+          inverseFourierCoefficients_[tpGridPointIndex] / halfWidthShearZone_[ltsFace][pointIndex];
       temperatureUpdate += scaledInverseFourierCoefficient * thetaNew;
       pressureUpdate += scaledInverseFourierCoefficient * sigmaNew;
 
       if (saveTPinLTS) {
-        theta_[ltsFace][tpGridPointIndex][pointIndex] = thetaNew;
-        sigma_[ltsFace][tpGridPointIndex][pointIndex] = sigmaNew;
+        theta_[gridIndex][pointIndex] = thetaNew;
+        sigma_[gridIndex][pointIndex] = sigmaNew;
       }
     }
     // Update pore pressure change: sigma = pore pressure + lambda' * temperature

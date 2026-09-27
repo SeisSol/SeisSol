@@ -212,10 +212,11 @@ void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& 
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         temperature[ltsFace][pointIndex] = drParameters_->initialTemperature;
         pressure[ltsFace][pointIndex] = drParameters_->initialPressure;
-        for (std::size_t tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
+        for (std::size_t tpGridPointIndex = 0; tpGridPointIndex < drParameters_->tpGridPoints;
              ++tpGridPointIndex) {
-          theta[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
-          sigma[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
+          const std::size_t gridIndex = ltsFace * drParameters_->tpGridPoints + tpGridPointIndex;
+          theta[gridIndex][pointIndex] = 0.0;
+          sigma[gridIndex][pointIndex] = 0.0;
         }
       }
     }

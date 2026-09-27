@@ -79,7 +79,8 @@ static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
 /**
  * Constants for Thermal Pressurization
  */
-static constexpr uint32_t NumTpGridPoints = 60;
+/// the grid point count is a parameter; this is what it defaults to
+static constexpr uint32_t DefaultTpGridPoints = 60;
 static constexpr double TpLogDz = 0.3;
 static constexpr double TpMaxWaveNumber = 10.0;
 
@@ -310,6 +311,7 @@ struct FrictionLawParameters {
   real forcedRuptureRiseTime{0.0};
   /// the rise time and the onset of a source are fields; see StressSourceRiseTime
   std::uint32_t sourceCount{1};
+  std::uint32_t tpGridPoints{DefaultTpGridPoints};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
   real rsSlipRateTolerance{1e-8};

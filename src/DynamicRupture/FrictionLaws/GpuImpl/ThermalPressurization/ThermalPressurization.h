@@ -85,7 +85,7 @@ class ThermalPressurization {
                              (ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex] -
                               ctx.data->drParameters.thermalDiffusivity);
 
-    for (uint32_t tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
+    for (uint32_t tpGridPointIndex = 0; tpGridPointIndex < ctx.data->drParameters.tpGridPoints;
          tpGridPointIndex++) {
       // Gaussian shear zone in spectral domain, normalized by w
       // \hat{l} / w
@@ -106,10 +106,10 @@ class ThermalPressurization {
 
       // Temperature and pressure diffusion in spectral domain over timestep
       // This is + F(t) exp(-A dt) in equation (10)
-      const real thetaDiffusion =
-          ctx.data->theta[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] * expTheta;
-      const real sigmaDiffusion =
-          ctx.data->sigma[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] * expSigma;
+      const std::size_t gridIndex =
+          ctx.ltsFace * ctx.data->drParameters.tpGridPoints + tpGridPointIndex;
+      const real thetaDiffusion = ctx.data->theta[gridIndex][ctx.pointIndex] * expTheta;
+      const real sigmaDiffusion = ctx.data->sigma[gridIndex][ctx.pointIndex] * expSigma;
 
       // Heat generation during timestep
       // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
@@ -134,8 +134,8 @@ class ThermalPressurization {
       pressureUpdate += scaledInverseFourierCoefficient * sigmaNew;
 
       if (saveTmpInTP) {
-        ctx.data->theta[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] = thetaNew;
-        ctx.data->sigma[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] = sigmaNew;
+        ctx.data->theta[gridIndex][ctx.pointIndex] = thetaNew;
+        ctx.data->sigma[gridIndex][ctx.pointIndex] = sigmaNew;
       }
     }
     // Update pore pressure change: sigma = pore pressure + lambda' * temperature

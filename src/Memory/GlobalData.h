@@ -61,9 +61,11 @@ struct OnDevice {
 // Generalized Global data initializers of SeisSol.
 template <typename MatrixManipPolicyT>
 struct GlobalDataInitializer {
+  /// tpGridPoints sizes the thermal pressurization tables; the rest is fixed by the generated code
   static void init(GlobalData& globalData,
                    memory::ManagedAllocator& memoryAllocator,
-                   enum memory::Memkind memkind);
+                   enum memory::Memkind memkind,
+                   std::size_t tpGridPoints = seissol::dr::misc::DefaultTpGridPoints);
 };
 
 // Specific Global data initializers of SeisSol.

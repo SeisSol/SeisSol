@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
@@ -47,7 +48,9 @@ namespace seissol::dr::friction_law::cpu {
 class ThermalPressurization {
   public:
   explicit ThermalPressurization(const FrictionLawParameters& drParameters)
-      : drParameters_(drParameters) {}
+      : gridPoints_(drParameters.tpGridPoints),
+        inverseFourierCoefficients_(drParameters.tpGridPoints),
+        heatSource_(drParameters.tpGridPoints), drParameters_(drParameters) {}
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -73,12 +76,17 @@ class ThermalPressurization {
   protected:
   real (*__restrict temperature_)[misc::NumPaddedPoints]{};
   real (*__restrict pressure_)[misc::NumPaddedPoints]{};
-  real (*__restrict theta_)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
-  real (*__restrict sigma_)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
+  /// the grid points of a face follow each other; see LTSThermalPressurization::Theta
+  real (*__restrict theta_)[misc::NumPaddedPoints]{};
+  real (*__restrict sigma_)[misc::NumPaddedPoints]{};
   real (*__restrict halfWidthShearZone_)[misc::NumPaddedPoints]{};
   real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints]{};
 
   private:
+  /// the wavenumber grid and the coefficients on it, built for the configured point count
+  tp::GridPoints<real> gridPoints_;
+  tp::InverseFourierCoefficients<real> inverseFourierCoefficients_;
+  tp::GaussianHeatSource<real> heatSource_;
   FrictionLawParameters drParameters_;
 };
 } // namespace seissol::dr::friction_law::cpu
