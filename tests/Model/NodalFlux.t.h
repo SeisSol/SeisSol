@@ -50,8 +50,15 @@ struct Kernels {
   using FluxSolver = std::conditional_t<Enabled, kernel::computeFluxSolverLocal, void>;
 };
 
+/// The boundary conditions whose operator the flux itself carries. The others
+/// -- gravity, Dirichlet, analytical -- state their ghost cell at the nodes of
+/// the face first and apply the neighbour matrix to it, so they are not a
+/// question about this decomposition.
+constexpr FaceType LinearFaceTypes[] = {
+    FaceType::Regular, FaceType::FreeSurface, FaceType::Outflow};
+
 template <bool Enabled>
-void compareAgainstModal() {
+void compareAgainstModal(FaceType faceType) {
   if constexpr (Enabled) {
     using Material = seissol::model::ElasticMaterial;
     constexpr std::size_t NQ = Material::NumQuantities;
@@ -103,7 +110,7 @@ void compareAgainstModal() {
       auto viewGodLocal = init::QgodLocal::view::create(godLocal.data());
       auto viewGodNeighbor = init::QgodNeighbor::view::create(godNeighbor.data());
       seissol::model::getTransposedGodunovState(
-          local, neighbor, FaceType::Regular, viewGodLocal, viewGodNeighbor);
+          local, neighbor, faceType, viewGodLocal, viewGodNeighbor);
 
       alignas(Alignment) std::array<real, tensor::star::size(0)> star{};
       auto viewStar = init::star::view<0>::create(star.data());
@@ -210,7 +217,11 @@ void compareAgainstModal() {
 
 } // namespace nodalflux
 
-TEST_CASE("Nodal flux against the matrix form") { nodalflux::compareAgainstModal<NodalMaterial>(); }
+TEST_CASE("Nodal flux against the matrix form") {
+  for (const auto faceType : nodalflux::LinearFaceTypes) {
+    nodalflux::compareAgainstModal<NodalMaterial>(faceType);
+  }
+}
 
 } // namespace seissol::unit_test
 
