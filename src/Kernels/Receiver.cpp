@@ -247,8 +247,18 @@ double ReceiverCluster::calcReceivers(double time,
       }
     };
 
-    auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
-    callRuntime.enqueueLoop(cellCount, receiverHandler);
+    if (executor == Executor::Host) {
+      // A cluster that runs on the host goes on to integrate right after this and overwrites the
+      // DOFs the sampling reads, so it samples right here. (On CUDA and SYCL, enqueueLoop would
+      // leave the sampling to a host function on a stream.)
+#pragma omp parallel for schedule(static)
+      for (std::size_t i = 0; i < cellCount; ++i) {
+        receiverHandler(i);
+      }
+    } else {
+      auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
+      callRuntime.enqueueLoop(cellCount, receiverHandler);
+    }
 
     const auto recvCount = receivers_.size();
 
