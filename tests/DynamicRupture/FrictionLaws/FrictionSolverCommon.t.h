@@ -303,6 +303,35 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
         }
       }
     }
+
+    SUBCASE("Friction energy accumulates in double") {
+      // late in a simulation, the sums of the energy output are large and their increments tiny;
+      // in single precision, the increments would be rounded away
+      DREnergyOutput energyOutput{};
+      real slipRateMagnitude[misc::NumPaddedPoints]{};
+      for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+        energyOutput.accumulatedSlip[p] = 1.0;
+        slipRateMagnitude[p] = static_cast<real>(1e-9);
+      }
+      real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints]{};
+      const DRGodunovData godunovData{};
+      friction_law::common::computeFrictionEnergy(energyOutput,
+                                                  qInterpolatedPlus,
+                                                  qInterpolatedMinus,
+                                                  impAndEta,
+                                                  timeWeights,
+                                                  spaceWeights,
+                                                  godunovData,
+                                                  slipRateMagnitude,
+                                                  false);
+      double gain = 0;
+      for (size_t o = 0; o < misc::TimeSteps; o++) {
+        gain += static_cast<double>(timeWeights[o] * slipRateMagnitude[0]);
+      }
+      for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+        CHECK(energyOutput.accumulatedSlip[p] - 1.0 == doctest::Approx(gain).epsilon(1e-6));
+      }
+    }
   }
 }
 

@@ -654,8 +654,8 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   }
 
   using Range = typename NumPoints<Type>::Range;
-  real localAccumulatedSlip[Range::Size]{};
-  real localFrictionalEnergy[Range::Size]{};
+  double localAccumulatedSlip[Range::Size]{};
+  double localFrictionalEnergy[Range::Size]{};
   real localSlip[3][Range::Size]{};
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
