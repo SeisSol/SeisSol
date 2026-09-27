@@ -438,10 +438,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // Where the law can state its state variable as a function of the slip rate, the friction
     // coefficient follows the accepted slip rate directly and the coefficients that would be
     // precomputed from a supplied state have no meaning here.
-    typename Derived::MuDetails details{};
-    if constexpr (!Derived::FoldsStateVariable) {
-      details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
-    }
+    const auto details = [&]() -> typename Derived::MuDetails {
+      if constexpr (!Derived::FoldsStateVariable) {
+        return static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+      } else {
+        return {};
+      }
+    }();
 
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
@@ -587,10 +590,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // Where the law can state its state variable as a function of the slip rate, the residual
     // evaluates it at the trial slip rate rather than at one the outer fixed point supplies, and
     // the coefficients that would be precomputed from a frozen state have no meaning here.
-    typename Derived::MuDetails details{};
-    if constexpr (!Derived::FoldsStateVariable) {
-      details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
-    }
+    const auto details = [&]() -> typename Derived::MuDetails {
+      if constexpr (!Derived::FoldsStateVariable) {
+        return static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+      } else {
+        return {};
+      }
+    }();
 
     // closed-form bracket + warm start (clamped previous-step V); no endpoint evaluations
 #ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT

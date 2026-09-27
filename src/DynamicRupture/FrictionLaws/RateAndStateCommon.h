@@ -124,7 +124,7 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
   // 1 / (2 V_0), so in single precision the two bounds part company over a band of the state
   // variable eleven wide. A plain scalar carries no derivative, so frexp reads zero there and this
   // costs it nothing.
-  const int exponent = std::max(std::max(xexp, dexp), 0);
+  const int exponent = std::max({xexp, dexp, 0});
 
   // the branch selects a formula; the selected formula is what carries the derivative
   if (valueOf(cExpLog) + exponent * Log2 < logMaxExp<Scalar>()) {

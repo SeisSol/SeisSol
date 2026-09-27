@@ -283,7 +283,7 @@ struct LTSThermalPressurization {
   struct HalfWidthShearZone : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct HydraulicDiffusivity : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  void addTo(DynamicRupture::Storage& storage) {
+  void addTo(DynamicRupture::Storage& storage) const {
     const auto mask = initializer::LayerMask(Ghost);
     storage.add<Temperature>(mask, Alignment, allocationModeDR());
     storage.add<Pressure>(mask, Alignment, allocationModeDR());

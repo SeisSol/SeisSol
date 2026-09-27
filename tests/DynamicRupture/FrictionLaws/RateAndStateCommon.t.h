@@ -78,11 +78,11 @@ constexpr double slipRateFloor() {
 template <typename T>
 std::vector<double> reachableX() {
   const auto scale = 0.5 / 1e-6;
+  const double first = std::log10(scale * slipRateFloor<T>());
+  const double last = std::log10(scale * 100.0);
   std::vector<double> values;
-  for (double exponent = std::log10(scale * slipRateFloor<T>());
-       exponent <= std::log10(scale * 100.0);
-       exponent += 0.5) {
-    values.push_back(std::pow(10.0, exponent));
+  for (int step = 0; first + 0.5 * step <= last; ++step) {
+    values.push_back(std::pow(10.0, first + 0.5 * step));
   }
   return values;
 }
@@ -99,8 +99,8 @@ template <typename T>
 std::vector<double> sampleCExpLog() {
   const double floor = std::log(static_cast<double>(std::numeric_limits<T>::min()));
   std::vector<double> values;
-  for (double c = floor + 2.5; c <= 400.0; c += 2.5) {
-    values.push_back(c);
+  for (int step = 1; floor + 2.5 * step <= 400.0; ++step) {
+    values.push_back(floor + 2.5 * step);
   }
   return values;
 }
@@ -165,7 +165,9 @@ TEST_CASE_TEMPLATE("DR RateAndState the slip-rate floor keeps the law representa
     // over every state variable a locked point can carry: Psi / a runs from nothing to a few
     // hundred, and past logMaxExp the asymptotic branch takes over
     const T argument = static_cast<T>(0.5) / referenceRate * floorRate;
-    for (double cExpLog = -300.0; cExpLog <= 400.0; cExpLog += 0.25) {
+    // from -300 to 400 in quarters
+    for (int quarter = -1200; quarter <= 1600; ++quarter) {
+      const double cExpLog = 0.25 * quarter;
       const auto c = static_cast<T>(cExpLog);
       const T value = evaluate(argument, c);
       CAPTURE(cExpLog);
@@ -365,7 +367,9 @@ TEST_CASE_TEMPLATE("DR RateAndState arsinhexp is continuous across its switch",
   const auto sweep = [&](double x, double from, double to, double step) {
     double worst = 0.0;
     double worstC = from;
-    for (double c = from; c <= to; c += step) {
+    const auto steps = static_cast<int>(std::lround((to - from) / step));
+    for (int i = 0; i <= steps; ++i) {
+      const double c = from + step * i;
       const auto xt = static_cast<T>(x);
       const auto ct = static_cast<T>(c);
       const double target = reference(static_cast<double>(xt), static_cast<double>(ct));
@@ -538,7 +542,7 @@ TEST_CASE_TEMPLATE("DR RateAndState arsinhexp differentiates by the slip rate",
           Dual<T>(static_cast<T>(20)) + Dual<T>(static_cast<T>(slope)) * log(seeded);
       const auto result = rs::arsinhexp(seeded, cExpLog, rs::computeCExp(cExpLog));
 
-      const double xd = static_cast<double>(xt);
+      const auto xd = static_cast<double>(xt);
       const double c = 20.0 + slope * std::log(xd);
       const double product = xd * std::exp(c);
       // d/dx [x e^{c(x)}] = e^c (1 + x c'(x)) with c'(x) = slope / x
@@ -564,10 +568,14 @@ TEST_CASE_TEMPLATE("DR RateAndState arsinhexp never returns an infinite slope",
   const double tolerance = std::is_same_v<T, float> ? 1e-5 : 1e-13;
 
   SUBCASE("Finite over every state variable, at every slip rate the bracket holds") {
-    for (double exponent = std::log10(slipRateFloor<T>()); exponent <= 2.0; exponent += 0.5) {
+    const double firstExponent = std::log10(slipRateFloor<T>());
+    for (int step = 0; firstExponent + 0.5 * step <= 2.0; ++step) {
+      const double exponent = firstExponent + 0.5 * step;
       const auto slipRate = static_cast<T>(std::pow(10.0, exponent));
       const auto argument = Dual<T>(scale * slipRate, scale);
-      for (double c = -300.0; c <= 400.0; c += 0.5) {
+      // from -300 to 400 in halves
+      for (int half = -600; half <= 800; ++half) {
+        const double c = 0.5 * half;
         const auto cExpLog = Dual<T>(static_cast<T>(c));
         const auto result = rs::arsinhexp(argument, cExpLog, rs::computeCExp(cExpLog));
         if (!std::isfinite(result.value)) {
@@ -589,7 +597,9 @@ TEST_CASE_TEMPLATE("DR RateAndState arsinhexp never returns an infinite slope",
     CAPTURE(lower);
     CAPTURE(limit);
     REQUIRE(lower < limit);
-    for (double c = lower + 0.1; c < limit; c += 0.1) {
+    // from lower in steps of 0.1, every point strictly inside the band
+    for (int step = 1; lower + 0.1 * step < limit; ++step) {
+      const double c = lower + 0.1 * step;
       for (const double exponent : {-20.0, -14.0, -10.0}) {
         const auto slipRate = static_cast<T>(std::pow(10.0, exponent));
         const auto result = rs::arsinhexp(Dual<T>(scale * slipRate, scale),
@@ -695,7 +705,9 @@ TEST_CASE("DR RateAndState logsinhOver" * doctest::test_suite("dynamicrupture"))
     // a friction law forms y = V / (2 V_0) with derivative 1 / (2 V_0); the quotient it stands in
     // for, 2 V_0 / V, carries -2 V_0 / V^2, which at the slip-rate floor is 2e64
     const auto scale = static_cast<float>(0.5 / 1e-6);
-    for (double exponent = std::log10(slipRateFloor<float>()); exponent <= 2.0; exponent += 0.25) {
+    const double firstExponent = std::log10(slipRateFloor<float>());
+    for (int step = 0; firstExponent + 0.25 * step <= 2.0; ++step) {
+      const double exponent = firstExponent + 0.25 * step;
       const auto slipRate = static_cast<float>(std::pow(10.0, exponent));
       const auto result = rs::logsinhOver(Dual<float>(scale * slipRate, scale), Dual<float>(75.0F));
       CAPTURE(exponent);
@@ -726,7 +738,9 @@ TEST_CASE("DR RateAndState relaxationWeight" * doctest::test_suite("dynamicruptu
     CHECK(relativeError(rs::relaxationWeight(500.0), 1.0 / 500.0) < 1e-14);
     // and monotone in between, since it is a mean of a decreasing function
     double previous = 1.0;
-    for (double z = 1e-3; z < 100.0; z *= 1.5) {
+    // from 1e-3 by factors of 1.5, as long as z stays below 100
+    for (int step = 0; 1e-3 * std::pow(1.5, step) < 100.0; ++step) {
+      const double z = 1e-3 * std::pow(1.5, step);
       CAPTURE(z);
       const double value = rs::relaxationWeight(z);
       CHECK(value <= previous);

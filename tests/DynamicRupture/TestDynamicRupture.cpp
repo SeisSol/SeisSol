@@ -8,10 +8,10 @@
 #include <doctest.h>
 
 #include "FrictionLaws/AnisotropicSlipRate.t.h" // IWYU pragma: keep
-#include "FrictionLaws/Dual.t.h"
+#include "FrictionLaws/Dual.t.h"                // IWYU pragma: keep
 #include "FrictionLaws/FrictionSolverCommon.t.h"
-#include "FrictionLaws/RateAndStateCommon.t.h"
-#include "FrictionLaws/TPCommon.t.h"
+#include "FrictionLaws/RateAndStateCommon.t.h" // IWYU pragma: keep
+#include "FrictionLaws/TPCommon.t.h"           // IWYU pragma: keep
 #include "Misc.t.h"
 #include "Output/DataTypes.t.h"
 #include "Output/Geometry.t.h"

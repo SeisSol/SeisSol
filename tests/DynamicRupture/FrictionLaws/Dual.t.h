@@ -76,7 +76,11 @@ void binary(const std::vector<std::pair<double, double>>& points,
             Function function,
             First first,
             Second second) {
-  for (const auto& [x, y] : points) {
+  for (const auto& point : points) {
+    // named copies rather than structured bindings, which CAPTURE's lambda may only capture from
+    // C++20 on
+    const double x = point.first;
+    const double y = point.second;
     CAPTURE(x);
     CAPTURE(y);
     const auto firstSeed = static_cast<T>(x);
@@ -212,7 +216,7 @@ TEST_CASE_TEMPLATE("DR Dual exponentials and logarithms", T, float, double) { //
       {-3.0, -0.5, 0.0, 0.5, 3.0, 20.0},
       [](auto d) { return exp2(d); },
       [](double x) { return std::exp2(x); },
-      [Ln2](double x) { return std::exp2(x) * Ln2; });
+      [](double x) { return std::exp2(x) * Ln2; });
   unary<T>(
       {-3.0, -1e-6, 0.0, 1e-6, 3.0},
       [](auto d) { return expm1(d); },
@@ -227,12 +231,12 @@ TEST_CASE_TEMPLATE("DR Dual exponentials and logarithms", T, float, double) { //
       {1e-6, 0.5, 1.0, 2.0, 1e6},
       [](auto d) { return log2(d); },
       [](double x) { return std::log2(x); },
-      [Ln2](double x) { return 1.0 / (x * Ln2); });
+      [](double x) { return 1.0 / (x * Ln2); });
   unary<T>(
       {1e-6, 0.5, 1.0, 2.0, 1e6},
       [](auto d) { return log10(d); },
       [](double x) { return std::log10(x); },
-      [Ln10](double x) { return 1.0 / (x * Ln10); });
+      [](double x) { return 1.0 / (x * Ln10); });
   unary<T>(
       {-0.9, -1e-6, 0.0, 1e-6, 3.0, 1e6},
       [](auto d) { return log1p(d); },
@@ -378,12 +382,12 @@ TEST_CASE_TEMPLATE("DR Dual error functions", T, float, double) { // NOLINT
       {-3.0, -0.5, 0.0, 0.5, 3.0},
       [](auto d) { return erf(d); },
       [](double x) { return std::erf(x); },
-      [TwoOverSqrtPi](double x) { return TwoOverSqrtPi * std::exp(-x * x); });
+      [](double x) { return TwoOverSqrtPi * std::exp(-x * x); });
   unary<T>(
       {-3.0, -0.5, 0.0, 0.5, 3.0},
       [](auto d) { return erfc(d); },
       [](double x) { return std::erfc(x); },
-      [TwoOverSqrtPi](double x) { return -TwoOverSqrtPi * std::exp(-x * x); });
+      [](double x) { return -TwoOverSqrtPi * std::exp(-x * x); });
 }
 
 // ---------------------------------------------------------------------------

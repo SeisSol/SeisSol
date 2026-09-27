@@ -11,7 +11,6 @@
 #include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
-#include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
