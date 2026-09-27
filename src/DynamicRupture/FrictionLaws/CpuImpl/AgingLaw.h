@@ -40,12 +40,12 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   template <typename S>
   [[nodiscard]] S updateStateVariable(std::uint32_t pointIndex,
                                       std::size_t faceIndex,
-                                      double stateVarReference,
-                                      double timeIncrement,
+                                      real stateVarReference,
+                                      real timeIncrement,
                                       S localSlipRate) const {
     using std::exp;
     using std::expm1;
-    const double localSl0 = this->sl0_[faceIndex][pointIndex];
+    const real localSl0 = this->sl0_[faceIndex][pointIndex];
     const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
     const S exp1v = exp(preexp1);
     const S exp1m = -expm1(preexp1);

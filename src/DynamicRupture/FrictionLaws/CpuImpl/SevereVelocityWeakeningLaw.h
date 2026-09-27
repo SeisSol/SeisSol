@@ -68,7 +68,10 @@ class SevereVelocityWeakeningLaw
     return details;
   }
 
-  /// the precision the state variable of this law is stated in
+  /// the precision the state variable of this law is stated in. Unlike the other laws the
+  /// relaxation rate here is -expm1(-V0 dt / L): it follows the reference slip rate rather than
+  /// the actual one, so a step moves the state by some 2.5e-8 of itself whatever the fault is
+  /// doing, which is below a single-precision ulp at every slip rate.
   using StateScalar = double;
 
   /// the state variable is a closed-form function of the slip rate, so the inversion can carry it

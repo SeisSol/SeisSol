@@ -188,7 +188,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     for (uint32_t j = 0; j < ctx.data->drParameters.rsNumberStateVariableUpdates; j++) {
 
       const auto dt{ctx.args->deltaT[timeIndex]};
-      Derived::updateStateVariable(ctx, dt);
+      if constexpr (!Derived::FoldsStateVariable) {
+        Derived::updateStateVariable(ctx, dt);
+      }
       TPMethod::applyShearHeating(ctx);
       const real invEta = updateDirectionAndProjections(ctx);
       updateNormalStress(ctx);
@@ -211,6 +213,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                     ctx.initialVariables.etaNormal,
                                                     absoluteShearStress,
                                                     localSlipRateMagnitude,
+                                                    dt,
                                                     invEta,
                                                     exportMu);
 
@@ -252,8 +255,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     const auto slipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
 
     // the only mu calculation left, outside of the fixed-point loop
-    const auto details = Derived::getMuDetails(ctx, localStateVariable);
-    const auto mu = Derived::updateMu(ctx, slipRateMagnitude, details);
+    real mu{};
+    if constexpr (Derived::FoldsStateVariable) {
+      mu = Derived::updateMuFolded(ctx, slipRateMagnitude, deltaTime);
+    } else {
+      const auto details = Derived::getMuDetails(ctx, localStateVariable);
+      mu = Derived::updateMu(ctx, slipRateMagnitude, details);
+    }
 
     ctx.data->mu[ctx.ltsFace][ctx.pointIndex] = mu;
 
@@ -359,6 +367,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      real etaNormal,
                                                      real absoluteShearStress,
                                                      real slipRateMagnitude,
+                                                     real timeIncrement,
                                                      real invEtaS,
                                                      real& exportMu) {
     // Solve  g(V) = -invEtaS * (|sigma(V)| * mu(V) - tau) - V = 0   for V = slipRateTest,
@@ -375,7 +384,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     // that keep the test reachable in finite precision: xacc clamped to a few ulp, and a residual
     // that has sunk into the rounding noise of its own evaluation.
 
-    const auto details = Derived::getMuDetails(ctx, localStateVariable);
+    // Where the law can state its state variable as a function of the slip rate, the residual
+    // evaluates it at the trial slip rate rather than at one the outer fixed point supplies, and
+    // the coefficients that would be precomputed from a frozen state have no meaning here.
+    typename Derived::MuDetails details{};
+    if constexpr (!Derived::FoldsStateVariable) {
+      details = Derived::getMuDetails(ctx, localStateVariable);
+    }
     const real tau = absoluteShearStress;
 
     real xLow = friction_law::rs::almostZero();
@@ -414,7 +429,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       //     noise floor AND make the sign below exact. Needs a double mu() evaluation.
       // one pass through mu() yields the value and its derivative; the friction law is written
       // once and instantiated for a dual number here
-      const auto mu = Derived::updateMu(ctx, Dual<real>(x, static_cast<real>(1.0)), details);
+      const Dual<real> trial(x, static_cast<real>(1.0));
+      Dual<real> mu{};
+      if constexpr (Derived::FoldsStateVariable) {
+        mu = Derived::updateMuFolded(ctx, trial, timeIncrement);
+      } else {
+        mu = Derived::updateMu(ctx, trial, details);
+      }
       muF = mu.value;
       const real dMuF = mu.derivative;
       // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen: that
@@ -505,7 +526,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
 
     slipRateTest = x;
-    exportMu = Derived::updateMu(ctx, x, details);
+    if constexpr (Derived::FoldsStateVariable) {
+      exportMu = Derived::updateMuFolded(ctx, x, timeIncrement);
+    } else {
+      exportMu = Derived::updateMu(ctx, x, details);
+    }
     return converged;
   }
 

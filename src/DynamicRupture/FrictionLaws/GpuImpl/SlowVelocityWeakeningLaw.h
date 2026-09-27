@@ -28,14 +28,37 @@ class SlowVelocityWeakeningLaw
 
   // Note that we need double precision here, since single precision led to NaNs.
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
-                                                 double timeIncrement) {
+                                                 real timeIncrement) {
     Derived::updateStateVariable(ctx, timeIncrement);
   }
 
-  /// the state variable is relayed through the outer fixed point here; the inversion sees it
-  /// frozen. Folding it in needs the state update stated generically over the scalar, the way the
-  /// host laws do.
-  static constexpr bool FoldsStateVariable = false;
+  /// the precision the state variable of this law is stated in; the relaxation rate here grows
+  /// with the slip rate, so wherever the state moves the step is far above a single-precision ulp
+  using StateScalar = real;
+
+  /// The friction coefficient at a slip rate, with the state variable evaluated at that very slip
+  /// rate. Both dependencies travel through the scalar, so a dual number comes back carrying
+  /// d(mu)/dV of the composition.
+  template <typename S>
+  SEISSOL_DEVICE static S
+      updateMuFolded(FrictionLawContext& __restrict ctx, S slipRate, real timeIncrement) {
+    using std::log;
+    const auto stateVariable =
+        Derived::stateVariableAt(ctx, dualCast<StateScalar>(slipRate), timeIncrement);
+    const S localStateVariable = dualCast<real>(stateVariable);
+    const S localA = S(ctx.data->a[ctx.ltsFace][ctx.pointIndex]);
+    const S localSl0 = S(ctx.data->sl0[ctx.ltsFace][ctx.pointIndex]);
+    const S log1 = log(S(ctx.data->drParameters.rsSr0) * localStateVariable / localSl0);
+    const S cExpLog = (S(ctx.data->f0[ctx.ltsFace][ctx.pointIndex]) +
+                       S(ctx.data->b[ctx.ltsFace][ctx.pointIndex]) * log1) /
+                      localA;
+    const S cLin = S(static_cast<real>(0.5) / ctx.data->drParameters.rsSr0);
+    return localA * rs::arsinhexp(cLin * slipRate, cExpLog, rs::computeCExp(cExpLog));
+  }
+
+  /// the state variable is a closed-form function of the slip rate, so the inversion can carry
+  /// it inside its own iteration instead of relaying it through a fixed point
+  static constexpr bool FoldsStateVariable = true;
 
   struct MuDetails {
     real a{};

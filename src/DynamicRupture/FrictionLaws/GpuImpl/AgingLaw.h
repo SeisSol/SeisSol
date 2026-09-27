@@ -18,17 +18,26 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyStorageToLocal;
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
-                                                 double timeIncrement) {
+  /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
+  /// the state variable by the very slip rate it is solving for
+  template <typename S>
+  SEISSOL_DEVICE static S
+      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
+    using std::exp;
+    using std::expm1;
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const real localSlipRate = ctx.initialVariables.localSlipRate;
-    const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const double exp1v = std::exp(preexp1);
-    const double exp1m = -std::expm1(preexp1);
+    const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
+    const S exp1v = exp(preexp1);
+    const S exp1m = -expm1(preexp1);
 
-    const double stateVarReference = ctx.initialVariables.stateVarReference;
+    const real stateVarReference = ctx.initialVariables.stateVarReference;
+    return S(stateVarReference) * exp1v + S(localSl0) / localSlipRate * exp1m;
+  }
+
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+                                                 real timeIncrement) {
     ctx.stateVariableBuffer =
-        static_cast<real>(stateVarReference * exp1v + localSl0 / localSlipRate * exp1m);
+        stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);
   }
 };
 

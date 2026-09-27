@@ -27,13 +27,12 @@ class SlowVelocityWeakeningLaw
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-// Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
   template <typename S>
   S updateStateVariable(std::uint32_t pointIndex,
                         std::size_t faceIndex,
-                        double stateVarReference,
-                        double timeIncrement,
+                        real stateVarReference,
+                        real timeIncrement,
                         S localSlipRate) {
     return static_cast<Derived*>(this)->updateStateVariable(
         pointIndex, faceIndex, stateVarReference, timeIncrement, localSlipRate);
@@ -70,8 +69,10 @@ class SlowVelocityWeakeningLaw
     return details;
   }
 
-  /// the precision the state variable of this law is stated in
-  using StateScalar = double;
+  /// the precision the state variable of this law is stated in. The relaxation rate here is
+  /// -expm1(-V dt / L) and grows with the slip rate, so wherever the state actually moves the step
+  /// is far above a single-precision ulp: some 8e-3 of the state at a metre per second.
+  using StateScalar = real;
 
   /// the state variable is a closed-form function of the slip rate, so the inversion can carry it
   /// inside its own iteration instead of relaying it through a fixed point
@@ -87,12 +88,8 @@ class SlowVelocityWeakeningLaw
                    real stateVarReference,
                    real timeIncrement) {
     using std::log;
-    const auto stateVariable =
-        static_cast<Derived*>(this)->updateStateVariable(pointIndex,
-                                                         ltsFace,
-                                                         static_cast<double>(stateVarReference),
-                                                         static_cast<double>(timeIncrement),
-                                                         dualCast<StateScalar>(slipRate));
+    const auto stateVariable = static_cast<Derived*>(this)->updateStateVariable(
+        pointIndex, ltsFace, stateVarReference, timeIncrement, dualCast<StateScalar>(slipRate));
 
     const S localStateVariable = dualCast<real>(stateVariable);
     const S localA = S(this->a_[ltsFace][pointIndex]);

@@ -20,15 +20,26 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {}
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
-                                                 double timeIncrement) {
-    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const double localSlipRate = ctx.initialVariables.localSlipRate;
-    const double exp1v = std::exp(-localSlipRate * (timeIncrement / localSl0));
+  /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
+  /// the state variable by the very slip rate it is solving for
+  template <typename S>
+  SEISSOL_DEVICE static S
+      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
+    using std::exp;
+    using std::pow;
+    const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const S exp1v = exp(-localSlipRate * S(timeIncrement / localSl0));
 
-    const double stateVarReference = ctx.initialVariables.stateVarReference;
+    const real stateVarReference = ctx.initialVariables.stateVarReference;
+    // both the base and the exponent follow the slip rate here
+    return S(localSl0) / localSlipRate *
+           pow(localSlipRate * S(stateVarReference) / S(localSl0), exp1v);
+  }
+
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+                                                 real timeIncrement) {
     ctx.stateVariableBuffer =
-        localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1v);
+        stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);
   }
 };
 

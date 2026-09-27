@@ -35,12 +35,12 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   template <typename S>
   S updateStateVariable(std::uint32_t pointIndex,
                         std::size_t faceIndex,
-                        double stateVarReference,
-                        double timeIncrement,
+                        real stateVarReference,
+                        real timeIncrement,
                         S localSlipRate) {
     using std::exp;
     using std::pow;
-    const double localSl0 = this->sl0_[faceIndex][pointIndex];
+    const real localSl0 = this->sl0_[faceIndex][pointIndex];
     const S exp1v = exp(-localSlipRate * S(timeIncrement / localSl0));
     // both the base and the exponent follow the slip rate here
     return S(localSl0) / localSlipRate *

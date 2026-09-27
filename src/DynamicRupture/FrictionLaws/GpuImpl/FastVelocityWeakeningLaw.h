@@ -32,44 +32,70 @@ class FastVelocityWeakeningLaw
         seissol::initializer::AllocationPlace::Device);
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
-                                                 real timeIncrement) {
+  /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
+  /// the state variable by the very slip rate it is solving for
+  template <typename S>
+  SEISSOL_DEVICE static S
+      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
+    using std::exp;
+    using std::expm1;
+    using std::log;
+    using std::pow;
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real localSrW = ctx.data->srW[ctx.ltsFace][ctx.pointIndex];
-    const real localSlipRate = ctx.initialVariables.localSlipRate;
 
-    const auto localF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
-    const auto localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
-    const auto localMuW = ctx.data->muW[ctx.ltsFace][ctx.pointIndex];
+    const real localF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
+    const real localB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
+    const real localMuW = ctx.data->muW[ctx.ltsFace][ctx.pointIndex];
 
-    const real lowVelocityFriction = std::max(
-        static_cast<real>(0),
-        static_cast<real>(localF0 - (localB - localA) *
-                                        std::log(localSlipRate / ctx.data->drParameters.rsSr0)));
+    const S lowVelocityFriction = mmax(
+        S(static_cast<real>(0)),
+        S(localF0) - S(localB - localA) * log(localSlipRate / S(ctx.data->drParameters.rsSr0)));
 
-    const real steadyStateFrictionCoefficient =
-        localMuW + (lowVelocityFriction - localMuW) /
-                       std::pow(static_cast<real>(1.0) + misc::power<8>(localSlipRate / localSrW),
-                                static_cast<real>(1.0 / 8.0));
+    const S steadyStateFrictionCoefficient =
+        S(localMuW) +
+        (lowVelocityFriction - S(localMuW)) /
+            pow(S(static_cast<real>(1.0)) + misc::power<8>(localSlipRate / S(localSrW)),
+                static_cast<real>(1.0 / 8.0));
 
-    const real steadyStateStateVariable =
-        localA * rs::logsinh(ctx.data->drParameters.rsSr0 / localSlipRate * 2,
-                             steadyStateFrictionCoefficient / localA);
+    const S steadyStateStateVariable =
+        S(localA) *
+        rs::logsinh(S(ctx.data->drParameters.rsSr0) / localSlipRate * S(static_cast<real>(2)),
+                    steadyStateFrictionCoefficient / S(localA));
 
-    const real preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const real exp1v = std::exp(preexp1);
-    const real exp1m = -std::expm1(preexp1);
-    const real localStateVariable =
-        steadyStateStateVariable * exp1m + exp1v * ctx.initialVariables.stateVarReference;
-
-    ctx.stateVariableBuffer = localStateVariable;
+    const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
+    const S exp1v = exp(preexp1);
+    const S exp1m = -expm1(preexp1);
+    return steadyStateStateVariable * exp1m + exp1v * S(ctx.initialVariables.stateVarReference);
   }
 
-  /// the state variable is relayed through the outer fixed point here; the inversion sees it
-  /// frozen. Folding it in needs the state update stated generically over the scalar, the way the
-  /// host laws do.
-  static constexpr bool FoldsStateVariable = false;
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+                                                 real timeIncrement) {
+    ctx.stateVariableBuffer =
+        stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);
+  }
+
+  /// the precision the state variable of this law is stated in
+  using StateScalar = real;
+
+  /// The friction coefficient at a slip rate, with the state variable evaluated at that very slip
+  /// rate. Both dependencies travel through the scalar, so a dual number comes back carrying
+  /// d(mu)/dV of the composition.
+  template <typename S>
+  SEISSOL_DEVICE static S
+      updateMuFolded(FrictionLawContext& __restrict ctx, S slipRate, real timeIncrement) {
+    const auto stateVariable = stateVariableAt(ctx, dualCast<StateScalar>(slipRate), timeIncrement);
+    const S localStateVariable = dualCast<real>(stateVariable);
+    const S localA = S(ctx.data->a[ctx.ltsFace][ctx.pointIndex]);
+    const S cExpLog = localStateVariable / localA;
+    const S cLin = S(static_cast<real>(0.5) / ctx.data->drParameters.rsSr0);
+    return localA * rs::arsinhexp(cLin * slipRate, cExpLog, rs::computeCExp(cExpLog));
+  }
+
+  /// the state variable is a closed-form function of the slip rate, so the inversion can carry
+  /// it inside its own iteration instead of relaying it through a fixed point
+  static constexpr bool FoldsStateVariable = true;
 
   struct MuDetails {
     real a{};

@@ -36,20 +36,25 @@ class SevereVelocityWeakeningLaw
                                              DynamicRupture::Layer& layerData) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
-                                                 double timeIncrement) {
-    const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const real localSlipRate = ctx.initialVariables.localSlipRate;
+  /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
+  /// the state variable by the very slip rate it is solving for
+  template <typename S>
+  SEISSOL_DEVICE static S
+      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, double timeIncrement) {
+    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
 
-    const real steadyStateStateVariable = localSlipRate * localSl0 / ctx.data->drParameters.rsSr0;
+    const S steadyStateStateVariable = localSlipRate * S(localSl0 / ctx.data->drParameters.rsSr0);
 
     const double preexp1 = -ctx.data->drParameters.rsSr0 * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    const real localStateVariable =
-        steadyStateStateVariable * exp1m + exp1v * ctx.initialVariables.stateVarReference;
+    return steadyStateStateVariable * S(exp1m) + S(exp1v * ctx.initialVariables.stateVarReference);
+  }
 
-    ctx.stateVariableBuffer = localStateVariable;
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+                                                 double timeIncrement) {
+    ctx.stateVariableBuffer = static_cast<real>(
+        stateVariableAt<double>(ctx, ctx.initialVariables.localSlipRate, timeIncrement));
   }
 
   /*
@@ -67,10 +72,32 @@ class SevereVelocityWeakeningLaw
     !             where mu = mu_s + a V/(V+Vc) - b SV/(SV + Vc)
   */
 
-  /// the state variable is relayed through the outer fixed point here; the inversion sees it
-  /// frozen. Folding it in needs the state update stated generically over the scalar, the way the
-  /// host laws do.
-  static constexpr bool FoldsStateVariable = false;
+  /// the state variable is a closed-form function of the slip rate, so the inversion can carry
+  /// it inside its own iteration instead of relaying it through a fixed point
+  static constexpr bool FoldsStateVariable = true;
+
+  /// the precision the state variable of this law is stated in. Its relaxation rate follows the
+  /// reference slip rate rather than the actual one, so a step moves the state by some 2.5e-8 of
+  /// itself whatever the fault is doing, which is below a single-precision ulp everywhere.
+  using StateScalar = double;
+
+  /// The friction coefficient at a slip rate, with the state variable evaluated at that very slip
+  /// rate. Both dependencies travel through the scalar, so a dual number comes back carrying
+  /// d(mu)/dV of the composition.
+  template <typename S>
+  SEISSOL_DEVICE static S
+      updateMuFolded(FrictionLawContext& __restrict ctx, S slipRate, real timeIncrement) {
+    const auto stateVariable =
+        stateVariableAt(ctx, dualCast<StateScalar>(slipRate), static_cast<double>(timeIncrement));
+    const S localStateVariable = dualCast<real>(stateVariable);
+    const S localSl0 = S(ctx.data->sl0[ctx.ltsFace][ctx.pointIndex]);
+    const S c = S(ctx.data->b[ctx.ltsFace][ctx.pointIndex]) * localStateVariable /
+                (localStateVariable + localSl0);
+    return S(ctx.data->f0[ctx.ltsFace][ctx.pointIndex]) +
+           S(ctx.data->a[ctx.ltsFace][ctx.pointIndex]) * slipRate /
+               (slipRate + S(ctx.data->drParameters.rsSr0)) -
+           c;
+  }
 
   struct MuDetails {
     real a{};
