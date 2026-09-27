@@ -28,6 +28,9 @@ Schema (version 1)::
       "quantities": {                 # per-quantity achieved error
         "elastic_strain_energy": 1.23e-04,
         "seismic_moment": 4.56e-06
+      },
+      "checks": {                     # optional: verdicts other than an error,
+        "global-id": true             # e.g. whether the cell ids agree
       }
     }
 """
@@ -56,6 +59,7 @@ def write_report_json(
     epsilon: float,
     passed: bool,
     quantities: Mapping[str, float],
+    checks: Mapping[str, bool] | None = None,
 ) -> None:
     """Write the achieved-error summary for one comparison to ``path``."""
     numeric = [float(v) for v in quantities.values()]
@@ -68,6 +72,8 @@ def write_report_json(
         "max_error": _json_safe(max_error),
         "quantities": {str(k): _json_safe(float(v)) for k, v in quantities.items()},
     }
+    if checks:
+        payload["checks"] = {str(k): bool(v) for k, v in checks.items()}
     with open(path, "w") as fh:
         json.dump(payload, fh, indent=2, sort_keys=True)
         fh.write("\n")

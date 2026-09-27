@@ -192,6 +192,8 @@ class CompareResult:
     has_summary: bool = False  # a report JSON was produced
     # per-quantity threshold violations: (quantity, achieved, threshold)
     failures: list[tuple[str, float, float]] = dataclasses.field(default_factory=list)
+    # verdicts of the compare script that are not an error measure (e.g. "global-id")
+    checks: dict[str, bool] = dataclasses.field(default_factory=dict)
     # conditional expected-failure state (see the xfail/skip machinery)
     xfail_outcome: str = (
         ""  # "" | "xfail" (failed as expected) | "xpass" (passed unexpectedly)
@@ -417,6 +419,10 @@ def _evaluate_quantities(
         # ``not <=`` so NaN and +inf both count as violations.
         if not (achieved <= thr):
             failures.append((q, float(achieved), thr))
+    # a failed check has no threshold to be relaxed by; listed as an infinite violation
+    for name, ok in result.checks.items():
+        if not ok:
+            failures.append((f"check:{name}", math.inf, 0.0))
     result.failures = failures
     result.passed = not failures
 
@@ -549,6 +555,7 @@ def _apply_summary(result: CompareResult, summary: Optional[dict]) -> CompareRes
         result.has_summary = True
         result.achieved = summary.get("max_error")
         result.quantities = dict(summary.get("quantities", {}))
+        result.checks = {k: bool(v) for k, v in summary.get("checks", {}).items()}
     return result
 
 
