@@ -27,8 +27,8 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
  * Integrates the state variable ODE in time
  * \f[ \frac{\partial \Psi}{\partial t} = 1 - \frac{V}{L} \Psi \f]
  * Analytic solution:
- * \f[\Psi(t) = - \Psi_0 \frac{V}{L} \cdot \exp\left( -\frac{V}{L} \cdot t\right) + \exp\left(
- * -\frac{V}{L} \cdot t\right). \f]
+ * \f[\Psi(t) = \frac{L}{V} + \left(\Psi_0 - \frac{L}{V}\right) \exp\left( -\frac{V}{L} \cdot t
+ * \right). \f]
  * Note that we need double precision here, since single precision led to NaNs.
  * @param stateVarReference \f$ \Psi_0 \f$
  * @param timeIncrement \f$ t \f$
@@ -45,7 +45,14 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
     const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    return stateVarReference * exp1v + localSl0 / localSlipRate * exp1m;
+    const double steadyStateStateVariable = localSl0 / localSlipRate;
+    // the relaxation towards L / V with a single exponential, which keeps L / V as its exact fixed
+    // point (see FastVelocityWeakeningLaw::updateStateVariable); with exp once the step relaxes
+    // more than half the way, since mu takes the logarithm of the state and the form with expm1
+    // alone may then round it to zero
+    return exp1m < 0.5
+               ? stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m
+               : steadyStateStateVariable + (stateVarReference - steadyStateStateVariable) * exp1v;
   }
 };
 

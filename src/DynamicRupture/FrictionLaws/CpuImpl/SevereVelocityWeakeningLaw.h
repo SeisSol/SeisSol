@@ -35,9 +35,11 @@ class SevereVelocityWeakeningLaw
     const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters_.rsSr0;
 
     const double preexp1 = -this->drParameters_.rsSr0 * (timeIncrement / localSl0);
-    const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    const double localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
+    // the relaxation towards the steady state with expm1 alone, which keeps it as its exact fixed
+    // point (see FastVelocityWeakeningLaw::updateStateVariable)
+    const double localStateVariable =
+        stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m;
 
     return localStateVariable;
   }

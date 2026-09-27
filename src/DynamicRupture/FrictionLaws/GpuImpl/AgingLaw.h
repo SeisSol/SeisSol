@@ -26,9 +26,16 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
     const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
 
+    // the relaxation towards L / V with a single exponential, which keeps L / V as its exact fixed
+    // point (see FastVelocityWeakeningLaw::updateStateVariable); with exp once the step relaxes
+    // more than half the way, since mu takes the logarithm of the state and the form with expm1
+    // alone may then round it to zero
     const double stateVarReference = ctx.initialVariables.stateVarReference;
-    ctx.stateVariableBuffer =
-        static_cast<real>(stateVarReference * exp1v + localSl0 / localSlipRate * exp1m);
+    const double steadyStateStateVariable = static_cast<double>(localSl0) / localSlipRate;
+    ctx.stateVariableBuffer = static_cast<real>(
+        exp1m < 0.5
+            ? stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m
+            : steadyStateStateVariable + (stateVarReference - steadyStateStateVariable) * exp1v);
   }
 };
 
