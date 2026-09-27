@@ -24,14 +24,14 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   SEISSOL_DEVICE static S
       stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
     using std::exp;
-    using std::expm1;
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
     const S exp1v = exp(preexp1);
-    const S exp1m = -expm1(preexp1);
 
     const real stateVarReference = ctx.initialVariables.stateVarReference;
-    return S(stateVarReference) * exp1v + S(localSl0) / localSlipRate * exp1m;
+    // (L / V) (1 - exp(-V t / L)) is t times the mean of the relaxation over the step, which keeps
+    // L / V and its derivative -L / V^2 out of the expression
+    return S(stateVarReference) * exp1v + S(timeIncrement) * rs::relaxationWeight(-preexp1);
   }
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,

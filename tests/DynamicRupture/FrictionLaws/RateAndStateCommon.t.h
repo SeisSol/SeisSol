@@ -675,6 +675,92 @@ TEST_CASE("DR RateAndState logsinh" * doctest::test_suite("dynamicrupture")) {
 }
 
 // ---------------------------------------------------------------------------
+// logsinhOver and relaxationWeight
+// ---------------------------------------------------------------------------
+
+TEST_CASE("DR RateAndState logsinhOver" * doctest::test_suite("dynamicrupture")) {
+  using namespace rstest;
+
+  SUBCASE("It is logsinh of the reciprocal") {
+    for (const double c : {0.1, 0.5, 1.0, 5.0, 20.0, 50.0, 100.0, 200.0}) {
+      for (const double y : {1e-12, 1e-6, 0.5, 2.0, 1e8}) {
+        CAPTURE(c);
+        CAPTURE(y);
+        CHECK(relativeError(rs::logsinhOver(y, c), rs::logsinh(1.0 / y, c)) < 1e-13);
+      }
+    }
+  }
+
+  SUBCASE("The reciprocal never appears, so its derivative cannot overflow") {
+    // a friction law forms y = V / (2 V_0) with derivative 1 / (2 V_0); the quotient it stands in
+    // for, 2 V_0 / V, carries -2 V_0 / V^2, which at the slip-rate floor is 2e64
+    const auto scale = static_cast<float>(0.5 / 1e-6);
+    for (double exponent = std::log10(slipRateFloor<float>()); exponent <= 2.0; exponent += 0.25) {
+      const auto slipRate = static_cast<float>(std::pow(10.0, exponent));
+      const auto result = rs::logsinhOver(Dual<float>(scale * slipRate, scale), Dual<float>(75.0F));
+      CAPTURE(exponent);
+      CHECK(std::isfinite(result.value));
+      CHECK(std::isfinite(result.derivative));
+      // d/dV log(sinh(c) 2 V_0 / V) = -1 / V
+      CHECK(relativeError(static_cast<double>(result.derivative),
+                          -1.0 / static_cast<double>(slipRate)) < 1e-5);
+    }
+  }
+}
+
+TEST_CASE("DR RateAndState relaxationWeight" * doctest::test_suite("dynamicrupture")) {
+  using namespace rstest;
+
+  SUBCASE("It is (1 - exp(-z)) / z") {
+    for (const double z : {1e-8, 1e-3, 0.5, 1.0, 5.0, 40.0, 700.0}) {
+      CAPTURE(z);
+      CHECK(relativeError(rs::relaxationWeight(z), -std::expm1(-z) / z) < 1e-14);
+    }
+  }
+
+  SUBCASE("One at the origin, and 1/z far out") {
+    CHECK(rs::relaxationWeight(0.0) == 1.0);
+    CHECK(rs::relaxationWeight(0.0F) == 1.0F);
+    CHECK(rs::relaxationWeight(1e-300) == doctest::Approx(1.0));
+    CHECK(rs::relaxationWeight(1e-40F) == doctest::Approx(1.0F));
+    CHECK(relativeError(rs::relaxationWeight(500.0), 1.0 / 500.0) < 1e-14);
+    // and monotone in between, since it is a mean of a decreasing function
+    double previous = 1.0;
+    for (double z = 1e-3; z < 100.0; z *= 1.5) {
+      CAPTURE(z);
+      const double value = rs::relaxationWeight(z);
+      CHECK(value <= previous);
+      CHECK(value > 0.0);
+      previous = value;
+    }
+  }
+
+  SUBCASE("Reaching the time step where the quotient it stands in for could not") {
+    // theta = theta_ref exp(-z) + t (1 - exp(-z)) / z. At the slip-rate floor the quotient form
+    // assembles the same number out of L / V = 2e33 and a relaxation of 5e-38, which in single
+    // precision leaves the state variable with no digits and its derivative with none at all.
+    const auto timeIncrement = static_cast<float>(1e-4);
+    const auto sl0 = static_cast<float>(0.02);
+    const auto slipRate = static_cast<float>(slipRateFloor<float>());
+    const auto z = Dual<float>(slipRate * (timeIncrement / sl0), timeIncrement / sl0);
+    const auto weight = rs::relaxationWeight(z);
+    CHECK(weight.value == doctest::Approx(1.0F));
+    CHECK(std::isfinite(weight.derivative));
+    CHECK(timeIncrement * weight.value == doctest::Approx(timeIncrement));
+  }
+
+  SUBCASE("A dual argument carries the right derivative") {
+    // d/dz (1 - exp(-z)) / z = (exp(-z) (1 + z) - 1) / z^2
+    for (const double z : {1e-3, 0.5, 2.0, 20.0}) {
+      CAPTURE(z);
+      const auto result = rs::relaxationWeight(Dual<double>(z, 1.0));
+      const double target = (std::exp(-z) * (1.0 + z) - 1.0) / (z * z);
+      CHECK(relativeError(result.derivative, target) < 1e-9);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // effectiveNormalStress
 // ---------------------------------------------------------------------------
 

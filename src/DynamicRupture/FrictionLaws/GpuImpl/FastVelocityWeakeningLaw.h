@@ -60,10 +60,13 @@ class FastVelocityWeakeningLaw
             pow(S(static_cast<real>(1.0)) + misc::power<8>(localSlipRate / S(localSrW)),
                 static_cast<real>(1.0 / 8.0));
 
+    // stated over V / (2 V_0) rather than under 2 V_0 / V: the reciprocal's derivative is
+    // -2 V_0 / V^2, which leaves single precision at a slip rate where the state variable it
+    // belongs to is perfectly well behaved
     const S steadyStateStateVariable =
         S(localA) *
-        rs::logsinh(S(ctx.data->drParameters.rsSr0) / localSlipRate * S(static_cast<real>(2)),
-                    steadyStateFrictionCoefficient / S(localA));
+        rs::logsinhOver(localSlipRate * S(static_cast<real>(0.5) / ctx.data->drParameters.rsSr0),
+                        steadyStateFrictionCoefficient / S(localA));
 
     const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
     const S exp1v = exp(preexp1);

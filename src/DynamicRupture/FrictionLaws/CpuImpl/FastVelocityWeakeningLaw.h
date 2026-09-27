@@ -72,10 +72,13 @@ class FastVelocityWeakeningLaw
                 static_cast<real>(1.0 / 8.0));
     // TODO: check again, if double precision is necessary here (earlier, there were cancellation
     // issues)
+    // stated over V / (2 V_0) rather than under 2 V_0 / V: the reciprocal's derivative is
+    // -2 V_0 / V^2, which at the slip-rate floor is 2e64 and leaves single precision, while the
+    // state variable it belongs to is perfectly well behaved there
     const S steadyStateStateVariable =
         S(localA) *
-        rs::logsinh(S(this->drParameters_.rsSr0) / localSlipRate * S(static_cast<real>(2)),
-                    steadyStateFrictionCoefficient / S(localA));
+        rs::logsinhOver(localSlipRate * S(static_cast<real>(0.5) / this->drParameters_.rsSr0),
+                        steadyStateFrictionCoefficient / S(localA));
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 

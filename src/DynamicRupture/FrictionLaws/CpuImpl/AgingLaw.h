@@ -44,12 +44,14 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
                                       real timeIncrement,
                                       S localSlipRate) const {
     using std::exp;
-    using std::expm1;
     const real localSl0 = this->sl0_[faceIndex][pointIndex];
     const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
     const S exp1v = exp(preexp1);
-    const S exp1m = -expm1(preexp1);
-    return S(stateVarReference) * exp1v + S(localSl0) / localSlipRate * exp1m;
+    // (L / V) (1 - exp(-V t / L)) is t times the mean of the relaxation over the step. Stated that
+    // way, neither L / V nor its derivative -L / V^2 appears: at the slip-rate floor the quotient
+    // is 2e33 and multiplies a relaxation of 5e-38, and the derivative leaves single precision
+    // outright, though the state itself is simply the time step there.
+    return S(stateVarReference) * exp1v + S(timeIncrement) * rs::relaxationWeight(-preexp1);
   }
 };
 

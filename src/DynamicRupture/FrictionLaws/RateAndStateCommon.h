@@ -138,6 +138,50 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
 }
 
 /**
+  Compute log(sinh(c) / y), the companion of logsinh for an argument that enters as a reciprocal.
+
+  A friction law whose steady state carries 2 V_0 / V has that quotient's derivative to carry with
+  it, -2 V_0 / V^2, which leaves single precision at a slip rate where the state variable itself is
+  untroubled: at the floor the quotient is 2e29 and its derivative 2e64. Splitting the logarithm
+  keeps the reciprocal out of the expression, and the derivative that comes back is -1 / V.
+ */
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE T logsinhOver(T y, T c) {
+  using std::abs;
+  using std::expm1;
+  using std::log;
+  const T sign = valueOf(c) >= 0 ? T(1) : T(-1);
+  const T absC = abs(c);
+  return absC + log(-sign * expm1(T(-2) * absC) / T(2)) - log(y);
+}
+
+/**
+  The mean of exp(-s) over the interval from zero to z, (1 - exp(-z)) / z.
+
+  This is the weight a state variable's steady state enters its exact integration with, and stating
+  it this way keeps two things out of the friction laws: the quotient L / V, whose derivative
+  -L / V^2 leaves single precision at a representable slip rate, and the cancellation of a large
+  quotient against a small relaxation -- a state that should come back as the time step itself is
+  otherwise assembled from 2e33 times 5e-38.
+
+  expm1 is the primitive that makes the quotient stable, so no series is needed here; it stays at
+  one as z vanishes, and the guard is for a z that has underflowed to zero outright. The function is
+  phi_1(-z) of Numerical/PhiFunctions.h, which reaches for the standard library by qualified name
+  and so cannot take a dual number.
+ */
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE T relaxationWeight(T z) {
+  using std::expm1;
+  using Scalar = decltype(valueOf(T{}));
+  if (valueOf(z) == Scalar(0)) {
+    return T(Scalar(1));
+  }
+  return -expm1(-z) / z;
+}
+
+/**
   The effective normal stress at a trial slip rate, with the pressurization of this step resolved
   rather than lagged.
 
