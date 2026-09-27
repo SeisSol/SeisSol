@@ -254,6 +254,65 @@ class TestPerformCheck:
         assert "Relative difference" in out
 
 
+class TestReferenceScale:
+    """A quantity is measured against its own magnitude, a frictional work at least against
+    the volume energies."""
+
+    @staticmethod
+    def rel_diff(sim, ref):
+        _, rel_diff = ce.perform_check(sim, ref, epsilon=1.0)
+        return rel_diff
+
+    def test_negative_quantity_is_checked(self):
+        # the frictional work of a fault that does not rupture can come out negative; its
+        # relative difference used to be negative as well and could never fail
+        ref = pd.DataFrame({"total_frictional_work": [0.0, -1.0, -1.0]})
+        sim = pd.DataFrame({"total_frictional_work": [0.0, -1.5, -1.5]})
+        exceeded, rel_diff = ce.perform_check(sim, ref, epsilon=0.1)
+        assert exceeded is True
+        assert rel_diff["total_frictional_work"].tolist() == pytest.approx([0.5, 0.5])
+
+    def test_residual_work_is_relative_to_the_volume_energies(self):
+        ref = pd.DataFrame(
+            {
+                "elastic_strain_energy": [1.0, 2.0, 4.0],
+                "static_frictional_work": [0.0, 1e-6, -1e-6],
+            }
+        )
+        sim = pd.DataFrame(
+            {
+                "elastic_strain_energy": [1.0, 2.0, 4.0],
+                "static_frictional_work": [0.0, 2e-6, -2e-6],
+            }
+        )
+        rel_diff = self.rel_diff(sim, ref)
+        assert rel_diff["static_frictional_work"].tolist() == pytest.approx(
+            [1e-6 / 2.0, 1e-6 / 4.0]
+        )
+
+    def test_work_larger_than_the_energies_is_relative_to_itself(self):
+        ref = pd.DataFrame(
+            {
+                "elastic_strain_energy": [1.0, 1.0, 1.0],
+                "total_frictional_work": [0.0, 8.0, 8.0],
+            }
+        )
+        sim = ref.copy()
+        sim["total_frictional_work"] = [0.0, 10.0, 10.0]
+        rel_diff = self.rel_diff(sim, ref)
+        assert rel_diff["total_frictional_work"].tolist() == pytest.approx([0.25, 0.25])
+
+    @pytest.mark.parametrize("small", ["elastic_kinetic_energy", "seismic_moment"])
+    def test_other_quantities_are_relative_to_themselves(self, small):
+        ref = pd.DataFrame(
+            {"elastic_strain_energy": [1e20, 1e20, 1e20], small: [0.0, 1.0, 2.0]}
+        )
+        sim = ref.copy()
+        sim[small] = [0.0, 1.5, 2.5]
+        rel_diff = self.rel_diff(sim, ref)
+        assert rel_diff[small].tolist() == pytest.approx([0.5, 0.25])
+
+
 class TestDocumentedFormerBugs:
 
     def test_bug2_get_number_of_fused_sims_fails_on_mixed_columns(self):

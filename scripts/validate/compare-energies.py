@@ -56,12 +56,48 @@ def get_sub_simulation(df, fused_index):
         return df.loc[is_subsim, :].reset_index()
 
 
+# The frictional work of a fault that does not rupture holds residuals only, and can even come
+# out negative; relative to itself, any rounding would look like a change of order one. Where
+# the energies in the volume are larger, the works are measured against the largest of them.
+VOLUME_ENERGIES = (
+    "gravitational_potential_energy",
+    "acoustic_potential_energy",
+    "acoustic_kinetic_energy",
+    "elastic_strain_energy",
+    "elastic_kinetic_energy",
+    "anelastic_strain_energy",
+    "anelastic_potential_energy",
+    "poroelastic_strain_energy",
+    "poroelastic_kinetic_energy",
+)
+FRICTIONAL_WORKS = ("total_frictional_work", "static_frictional_work")
+
+
+def reference_scale(energy_ref):
+    """The magnitude each quantity is measured against, at every time.
+
+    That is the magnitude of the reference itself -- a magnitude, since a quantity may well
+    be negative -- and, for a frictional work, the largest magnitude of the volume energies
+    at the time where that is larger.
+    """
+    scale = energy_ref.abs()
+    energies = [column for column in scale.columns if column in VOLUME_ENERGIES]
+    if energies:
+        largest = scale[energies].max(axis=1)
+        for column in FRICTIONAL_WORKS:
+            if column in scale.columns:
+                scale[column] = np.maximum(scale[column], largest)
+    return scale
+
+
 def perform_check(energy, energy_ref, epsilon):
     print("Energies")
     print(energy.to_string())
     print("Energies reference")
     print(energy_ref.to_string())
-    relative_difference = ((energy - energy_ref).abs() / energy_ref).iloc[1:, :]
+    relative_difference = (
+        (energy - energy_ref).abs() / reference_scale(energy_ref)
+    ).iloc[1:, :]
     print("Relative difference")
     print(relative_difference.to_string())
 
