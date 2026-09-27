@@ -90,7 +90,7 @@ TEST_CASE("AnisotropicMaterial getMaxWaveSpeed isotropic case" * doctest::test_s
   ElasticMaterial em({2700.0, 3.24e10, 3.24e10});
   AnisotropicMaterial am(em);
   double vmax = am.getMaxWaveSpeed();
-  CHECK(vmax == doctest::Approx(em.getPWaveSpeed()).epsilon(0.01));
+  CHECK(vmax == doctest::Approx(em.getPWaveSpeed()).epsilon(1e-14));
   CHECK(vmax > 0.0);
 }
 

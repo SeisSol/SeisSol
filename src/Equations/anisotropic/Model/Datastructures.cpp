@@ -156,6 +156,12 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
 
   for (unsigned j = 0; j < 200; ++j) {
     double n[3] = {samplingDirections(j, 0), samplingDirections(j, 1), samplingDirections(j, 2)};
+    // the directions are stored with six digits and are unit vectors to about 1e-6 only; the
+    // Christoffel matrix scales with the square of their length, the wave speed with the length
+    const double length = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+    for (auto& component : n) {
+      component /= length;
+    }
     double m[9];
     computeChristoffel.direction = n;
     computeChristoffel.christoffel = m;
