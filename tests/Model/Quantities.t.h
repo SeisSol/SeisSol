@@ -119,6 +119,13 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
   auto matT = init::T::view::create(matTData.data());
   auto matTinv = init::Tinv::view::create(matTinvData.data());
 
+  // The rotation is stored by its pattern, so a position outside it is not
+  // addressable at all. It is a zero of the operator either way, which is what
+  // the checks below want to read.
+  const auto entry = [](auto& view, std::size_t row, std::size_t column) {
+    return view.isInRange(row, column) ? static_cast<double>(view(row, column)) : 0.0;
+  };
+
   // deterministic on purpose, so that a failure can be reproduced
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng(20260904);
@@ -136,9 +143,7 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
           double accumulator = 0.0;
           for (std::size_t k = 0; k < InverseSize; ++k) {
             // accumulate in double, also in a single precision build
-            const double inverseEntry = matTinv(i, k);
-            const double entry = matT(k, j);
-            accumulator += inverseEntry * entry;
+            accumulator += entry(matTinv, i, k) * entry(matT, k, j);
           }
           CHECK(std::abs(accumulator - (i == j ? 1.0 : 0.0)) < Epsilon);
         }
@@ -149,14 +154,14 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
       for (std::size_t i = 0; i < Size; ++i) {
         for (std::size_t j = 0; j < Size; ++j) {
           if (!insideAGroup(model::MaterialT::RotationGroups, i, j)) {
-            CHECK(matT(i, j) == static_cast<real>(0.0));
+            CHECK(entry(matT, i, j) == 0.0);
           }
         }
       }
       for (std::size_t i = 0; i < InverseSize; ++i) {
         for (std::size_t j = 0; j < InverseSize; ++j) {
           if (!insideAGroup(model::MaterialT::InverseRotationGroups, i, j)) {
-            CHECK(matTinv(i, j) == static_cast<real>(0.0));
+            CHECK(entry(matTinv, i, j) == 0.0);
           }
         }
       }
@@ -166,9 +171,9 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
       std::size_t offset = 0;
       for (const auto& group : model::MaterialT::RotationGroups) {
         if (group.kind == model::QuantityKind::Scalar) {
-          CHECK(std::abs(static_cast<double>(matT(offset, offset)) - 1.0) < Epsilon);
+          CHECK(std::abs(entry(matT, offset, offset) - 1.0) < Epsilon);
           if (offset < InverseSize) {
-            CHECK(std::abs(static_cast<double>(matTinv(offset, offset)) - 1.0) < Epsilon);
+            CHECK(std::abs(entry(matTinv, offset, offset) - 1.0) < Epsilon);
           }
         }
         offset += group.extent();

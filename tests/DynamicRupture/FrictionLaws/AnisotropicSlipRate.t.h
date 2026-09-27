@@ -28,19 +28,27 @@ namespace seissol::unit_test {
 namespace anisotropicsliprate {
 
 using seissol::dr::ImpedanceMatrices;
+using seissol::dr::ImpedancePoints;
 using seissol::dr::ImpedancesAndEta;
+
+/// The point the checks below read the impedance at. A fault that carries one
+/// impedance per point has to be read at the point that is asked for, so this
+/// is deliberately not the first one.
+constexpr std::size_t Point = ImpedancePoints / 2;
 
 /// eta = (Y+ + Y-)^-1 of a homogeneous fault in a VTI tilted out of the fault plane, rounded.
 /// Symmetric positive definite, with both a shear/shear and a normal/shear coupling.
 inline ImpedanceMatrices testImpedance() {
   ImpedanceMatrices impedanceMatrices;
-  auto eta = init::eta::view::create(impedanceMatrices.eta);
-  eta(0, 0) = 3.818e6;
-  eta(1, 1) = 2.106e6;
-  eta(2, 2) = 2.337e6;
-  eta(0, 1) = eta(1, 0) = 2.11e5;
-  eta(0, 2) = eta(2, 0) = 1.9e4;
-  eta(1, 2) = eta(2, 1) = -2.1e4;
+  for (std::size_t point = 0; point < ImpedancePoints; ++point) {
+    auto eta = init::eta::view::create(impedanceMatrices.eta.at(point));
+    eta(0, 0) = 3.818e6;
+    eta(1, 1) = 2.106e6;
+    eta(2, 2) = 2.337e6;
+    eta(0, 1) = eta(1, 0) = 2.11e5;
+    eta(0, 2) = eta(2, 0) = 1.9e4;
+    eta(1, 2) = eta(2, 1) = -2.1e4;
+  }
   return impedanceMatrices;
 }
 
@@ -48,25 +56,29 @@ inline ImpedanceMatrices testImpedance() {
 /// makes eta and its transpose interchangeable -- this one tells them apart.
 inline ImpedanceMatrices asymmetricImpedance() {
   ImpedanceMatrices impedanceMatrices;
-  auto eta = init::eta::view::create(impedanceMatrices.eta);
-  eta(0, 0) = 3.8e6;
-  eta(0, 1) = 1.1e5;
-  eta(0, 2) = 2.2e5;
-  eta(1, 0) = 3.3e5;
-  eta(1, 1) = 2.1e6;
-  eta(1, 2) = 4.4e5;
-  eta(2, 0) = 5.5e5;
-  eta(2, 1) = 6.6e5;
-  eta(2, 2) = 2.3e6;
+  for (std::size_t point = 0; point < ImpedancePoints; ++point) {
+    auto eta = init::eta::view::create(impedanceMatrices.eta.at(point));
+    eta(0, 0) = 3.8e6;
+    eta(0, 1) = 1.1e5;
+    eta(0, 2) = 2.2e5;
+    eta(1, 0) = 3.3e5;
+    eta(1, 1) = 2.1e6;
+    eta(1, 2) = 4.4e5;
+    eta(2, 0) = 5.5e5;
+    eta(2, 1) = 6.6e5;
+    eta(2, 2) = 2.3e6;
+  }
   return impedanceMatrices;
 }
 
 inline ImpedanceMatrices isotropicImpedance(real etaS) {
   ImpedanceMatrices impedanceMatrices;
-  auto eta = init::eta::view::create(impedanceMatrices.eta);
-  eta(0, 0) = 3.818e6;
-  eta(1, 1) = etaS;
-  eta(2, 2) = etaS;
+  for (std::size_t point = 0; point < ImpedancePoints; ++point) {
+    auto eta = init::eta::view::create(impedanceMatrices.eta.at(point));
+    eta(0, 0) = 3.818e6;
+    eta(1, 1) = etaS;
+    eta(2, 2) = etaS;
+  }
   return impedanceMatrices;
 }
 
@@ -78,7 +90,7 @@ inline real slipRateResidual(ImpedanceMatrices impedanceMatrices,
                              real traction2,
                              real strength,
                              real strengthSlope) {
-  const auto eta = init::eta::view::create(impedanceMatrices.eta);
+  const auto eta = init::eta::view::create(impedanceMatrices.eta.at(Point));
   const real slip1 = solution.slipRate * solution.direction1;
   const real slip2 = solution.slipRate * solution.direction2;
 
@@ -125,7 +137,7 @@ TEST_CASE("Anisotropic slip rate solve" *
         const real traction2 = magnitude * std::sin(angle);
 
         const auto solution = solveSlipRate(
-            impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope);
+            impAndEta, impedanceMatrices, Point, traction1, traction2, magnitude, Strength, Slope);
 
         REQUIRE(solution.slipRate > 0);
         CHECK(std::abs(std::sqrt(solution.direction1 * solution.direction1 +
@@ -145,7 +157,7 @@ TEST_CASE("Anisotropic slip rate solve" *
     const real traction2 = Strength * 1.5 * std::sin(0.7);
 
     const auto uncoupled = solveSlipRate(
-        impAndEta, impedanceMatrices, traction1, traction2, Strength * 1.5, Strength, 0.0);
+        impAndEta, impedanceMatrices, Point, traction1, traction2, Strength * 1.5, Strength, 0.0);
 
     CHECK(slipRateResidual(impedanceMatrices, uncoupled, traction1, traction2, Strength, Slope) >
           10 * ResidualBar);
@@ -162,7 +174,7 @@ TEST_CASE("Anisotropic slip rate solve" *
     const real traction2 = magnitude * std::sin(angle);
 
     const auto solution = solveSlipRate(
-        impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope);
+        impAndEta, impedanceMatrices, Point, traction1, traction2, magnitude, Strength, Slope);
 
     CHECK(solution.slipRate == doctest::Approx((magnitude - Strength) / EtaS).epsilon(1e-5));
     CHECK(solution.direction1 == doctest::Approx(std::cos(angle)).epsilon(1e-6));
@@ -176,6 +188,7 @@ TEST_CASE("Anisotropic slip rate solve" *
 
     const auto solution = solveSlipRate(impAndEta,
                                         impedanceMatrices,
+                                        Point,
                                         magnitude * std::cos(0.7),
                                         magnitude * std::sin(0.7),
                                         magnitude,
@@ -185,11 +198,42 @@ TEST_CASE("Anisotropic slip rate solve" *
     CHECK(solution.slipRate == static_cast<real>(0.0));
   }
 
+  SUBCASE("the point index picks the impedance") {
+    // a fault that carries one impedance per point has to be read at the point
+    // that is asked for; with one impedance for the whole fault there is
+    // nothing to tell apart
+    if (ImpedancePoints > 1) {
+      constexpr real EtaFirst = 2.2e6;
+      constexpr real EtaLast = 4.4e6;
+      auto impedanceMatrices = isotropicImpedance(EtaFirst);
+      auto last = init::eta::view::create(impedanceMatrices.eta.at(ImpedancePoints - 1));
+      last(1, 1) = last(2, 2) = EtaLast;
+
+      const real magnitude = Strength * 1.5;
+      const real traction1 = magnitude * std::cos(0.7);
+      const real traction2 = magnitude * std::sin(0.7);
+
+      const auto first = solveSlipRate(
+          impAndEta, impedanceMatrices, 0, traction1, traction2, magnitude, Strength, Slope);
+      const auto other = solveSlipRate(impAndEta,
+                                       impedanceMatrices,
+                                       ImpedancePoints - 1,
+                                       traction1,
+                                       traction2,
+                                       magnitude,
+                                       Strength,
+                                       Slope);
+
+      CHECK(first.slipRate == doctest::Approx((magnitude - Strength) / EtaFirst).epsilon(1e-5));
+      CHECK(other.slipRate == doctest::Approx((magnitude - Strength) / EtaLast).epsilon(1e-5));
+    }
+  }
+
   SUBCASE("vanishing trial traction") {
     const auto impedanceMatrices = testImpedance();
 
     const auto solution =
-        solveSlipRate(impAndEta, impedanceMatrices, 0.0, 0.0, 0.0, Strength, Slope);
+        solveSlipRate(impAndEta, impedanceMatrices, Point, 0.0, 0.0, 0.0, Strength, Slope);
 
     CHECK(solution.slipRate == static_cast<real>(0.0));
     CHECK(std::isfinite(solution.direction1));
@@ -210,7 +254,7 @@ TEST_CASE("Anisotropic impedance projections" *
 
   const ImpedancesAndEta impAndEta{};
   auto impedanceMatrices = asymmetricImpedance();
-  const auto eta = init::eta::view::create(impedanceMatrices.eta);
+  const auto eta = init::eta::view::create(impedanceMatrices.eta.at(Point));
 
   constexpr real V1 = 0.37;
   constexpr real V2 = -0.91;
@@ -219,21 +263,21 @@ TEST_CASE("Anisotropic impedance projections" *
   const real n2 = V2 / magnitude;
 
   SUBCASE("matmulEta applies eta, not its transpose") {
-    const auto [w1, w2] = common::matmulEta(impAndEta, impedanceMatrices, V1, V2);
+    const auto [w1, w2] = common::matmulEta(impAndEta, impedanceMatrices, Point, V1, V2);
 
     CHECK(w1 == doctest::Approx(eta(1, 1) * V1 + eta(1, 2) * V2).epsilon(1e-5));
     CHECK(w2 == doctest::Approx(eta(2, 1) * V1 + eta(2, 2) * V2).epsilon(1e-5));
   }
 
   SUBCASE("the normal coupling reads the fault-normal row") {
-    const auto wn = common::matmulEtaNormal(impAndEta, impedanceMatrices, V1, V2);
+    const auto wn = common::matmulEtaNormal(impAndEta, impedanceMatrices, Point, V1, V2);
 
     CHECK(wn == doctest::Approx(eta(0, 1) * V1 + eta(0, 2) * V2).epsilon(1e-5));
   }
 
   SUBCASE("projectEta is the quadratic form of the shear block") {
     const auto [etaProj, invEtaProj] =
-        common::projectEta(impAndEta, impedanceMatrices, V1, V2, magnitude);
+        common::projectEta(impAndEta, impedanceMatrices, Point, V1, V2, magnitude);
 
     const real expected =
         eta(1, 1) * n1 * n1 + (eta(1, 2) + eta(2, 1)) * n1 * n2 + eta(2, 2) * n2 * n2;

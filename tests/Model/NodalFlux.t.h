@@ -37,6 +37,12 @@
 #include <type_traits>
 #include <vector>
 
+// The anelastic solver writes its face contribution into the extended
+// quantities and has no localFlux of its own, so the comparison below has no
+// kernel to run there. Its decomposition is a separate table and is checked
+// where that table is.
+#ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
+
 namespace seissol::unit_test {
 
 namespace nodalflux {
@@ -224,5 +230,7 @@ TEST_CASE("Nodal flux against the matrix form") {
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_KERNELS_LINEARCKANELASTIC
 
 #endif // SEISSOL_TESTS_MODEL_NODALFLUX_T_H_
