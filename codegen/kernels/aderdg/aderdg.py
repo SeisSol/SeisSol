@@ -469,6 +469,10 @@ class ADERDGBase(ABC):
         self.nodalSourceProduct = self.nodalTemporary(
             "nodalSourceProduct", (npoints, shape[-1])
         )
+        self.sourceDeviation = [
+            Tensor(f"sourceDeviation({a})", (npoints,))
+            for a in range(self.sourceDeviationCount())
+        ]
 
     def sourceStructurePrototype(self):
         """The tensor this solver states its source term in, or none where it
@@ -483,6 +487,17 @@ class ADERDGBase(ABC):
     def sourceCoefficientOrigins(self):
         """Where each of those scalars comes from -- the material, or the run."""
         return getattr(self, "_sourceCoefficientOrigins", [])
+
+    def sourceDeviationCount(self):
+        """How many scalars a cell carries as the difference between its source
+        term at a sample point and the one it carries for itself.
+
+        Only a solver that puts the source term inside a solve needs them: it
+        factorises that solve once for the cell, and what a sample point
+        deviates from it has to be carried separately. Zero for a solver that
+        applies the source as a product, which reads the samples directly.
+        """
+        return 0
 
     def _configureNodalFlux(self):
         """The tensors a face carries where the material varies along it.
@@ -698,15 +713,26 @@ class ADERDGBase(ABC):
             ]
         return self.nodalSource(source, target, "nq")
 
-    def nodalSource(self, source, target, contract, spectator="", temporaries=None):
+    def nodalSource(
+        self,
+        source,
+        target,
+        contract,
+        spectator="",
+        temporaries=None,
+        coefficients=None,
+        scalar=None,
+    ):
         """The source term where the material varies inside the cell.
 
         No derivative is taken here, so the field goes straight to the sample
         points, is multiplied by the source the material has there, and comes
         back. `contract` names the indices the source term sums over -- the
         quantities, and the mechanisms where a solver keeps them in a dimension
-        of their own.
+        of their own. `coefficients` is what the material says at those points,
+        or what it says beyond what the cell carries.
         """
+        coefficients = self.sourceCoefficients if coefficients is None else coefficients
         values, product = (
             temporaries
             if temporaries is not None
@@ -717,7 +743,7 @@ class ADERDGBase(ABC):
             <= self.materialEval["nk"] * source["k" + contract[1:] + spectator]
         ]
         first = True
-        for a, coefficient in enumerate(self.sourceCoefficients):
+        for a, coefficient in enumerate(coefficients):
             term = (
                 coefficient["n"]
                 * values[contract + spectator]
@@ -728,10 +754,11 @@ class ADERDGBase(ABC):
                 <= (term if first else product["np" + spectator] + term)
             )
             first = False
+        projected = self.materialProject["kn"] * product["np" + spectator]
+        if scalar is not None:
+            projected = scalar * projected
         statements.append(
-            target["kp" + spectator]
-            <= target["kp" + spectator]
-            + self.materialProject["kn"] * product["np" + spectator]
+            target["kp" + spectator] <= target["kp" + spectator] + projected
         )
         return statements
 

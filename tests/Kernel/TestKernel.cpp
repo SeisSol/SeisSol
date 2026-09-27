@@ -13,5 +13,6 @@
 #include "PointSourceCluster.t.h"
 
 #ifdef SEISSOL_KERNELS_STP
+#include "NodalSpaceTime.t.h"
 #include "STP.t.h"
 #endif // SEISSOL_KERNELS_STP

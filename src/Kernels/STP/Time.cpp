@@ -52,6 +52,7 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
   // the timestep scales the operator, and the kernel applies it: a cell that
   // carries coefficients rather than matrices has nothing to scale beforehand
   kernels::bindStarOperands(krnl, data.get<LTS::LocalIntegration>());
+  kernels::bindSourceDeviationOperands(krnl, data.get<LTS::LocalIntegration>());
 
   for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
     krnl.G(i) = data.get<LTS::LocalIntegration>().specific.G[i] * timeStepWidth;

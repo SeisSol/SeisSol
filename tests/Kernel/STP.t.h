@@ -184,8 +184,10 @@ class SpaceTimePredictorTestFixture {
     prepareKernel(krnl);
 
     // the predictor reads the operator the way a cell carries it, and scales
-    // it by the timestep itself
+    // it by the timestep itself. A material that does not vary asks nothing of
+    // the source beyond what the cell carries, so that operand stays zero.
     kernels::bindStarOperands(krnl, localIntegration);
+    kernels::bindSourceDeviationOperands(krnl, localIntegration);
 
     for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
       krnl.Zinv(i) = zMatrix[i];

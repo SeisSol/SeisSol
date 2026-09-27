@@ -69,6 +69,10 @@ struct alignas(Alignment) LocalIntegrationData {
   // cell forms it from the material it carries rather than from one matrix.
   real sourceCoefficients[zeroGuard(NodalSource ? SourceCoefficientCount : 0)]
                          [zeroGuard(NodalSource ? MaterialSampleCount : 0)]{};
+  // What a sample point deviates from the source term the cell carries for
+  // itself, for a solver that factorises that term into a solve of its own.
+  real sourceDeviation[zeroGuard(NodalSourceDeviation ? SourceDeviationCount : 0)]
+                      [zeroGuard(NodalSourceDeviation ? MaterialSampleCount : 0)]{};
 
   // flux solver for element local contribution. It stays where the flux reads
   // the material at the nodes of a face: the anelastic solver keeps the matrix

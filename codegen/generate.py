@@ -225,6 +225,7 @@ def main():
     solverCoefficientCount = 0
     solverCoefficientOrigins = []
     solverSourceCoefficientCount = 0
+    solverSourceDeviationCount = 0
     materialSampleCount = 1
     adgForTables = None
 
@@ -292,12 +293,13 @@ def main():
 
         # Equation-specific kernels
         nonlocal solverCoefficientCount, solverCoefficientOrigins, materialSampleCount
-        nonlocal solverSourceCoefficientCount
+        nonlocal solverSourceCoefficientCount, solverSourceDeviationCount
         nonlocal adgForTables
         adgForTables = adg
         solverCoefficientCount = adg.solverCoefficientCount()
         solverCoefficientOrigins = adg.solverCoefficientOrigins()
         solverSourceCoefficientCount = adg.sourceCoefficientCount()
+        solverSourceDeviationCount = adg.sourceDeviationCount()
         if cmdLineArgs.material_nodal:
             materialSampleCount = kernels.material.pointCount(
                 cmdLineArgs.matricesDir, adg, materialPoints
@@ -451,6 +453,7 @@ def main():
             solver_count=solverCoefficientCount,
             solver_origins=solverCoefficientOrigins,
             solver_source_count=solverSourceCoefficientCount,
+            solver_source_deviations=solverSourceDeviationCount,
             material_samples=materialSampleCount,
             face_permutations=kernels.material.faceOrientationPermutations(
                 cmdLineArgs.matricesDir, adgForTables

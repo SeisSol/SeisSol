@@ -617,6 +617,7 @@ def generate(
     solver_count: int = None,
     solver_origins: List[str] = None,
     solver_source_count: int = None,
+    solver_source_deviations: int = None,
     material_samples: int = 1,
     face_permutations=(),
     flux_quantities: int = 9,
@@ -744,6 +745,12 @@ def generate(
             "// the same for its source term, zero where it has none\n",
             "inline constexpr std::size_t SolverNumSourceCoefficients = "
             f"{solver_source_count or 0};\n",
+            "\n",
+            "// how many of those a cell carries as the deviation of a sample\n",
+            "// point from the cell, for a solver that factorises the source\n",
+            "// term into a solve it does once per cell\n",
+            "inline constexpr std::size_t SolverNumSourceDeviations = "
+            f"{solver_source_deviations or 0};\n",
             "\n",
         ]
     if solver_count is not None:

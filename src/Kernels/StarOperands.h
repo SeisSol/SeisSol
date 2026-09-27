@@ -90,6 +90,17 @@ void bindSourceOperands(KernelT& krnl, const LocalIntegrationT& localIntegration
   }
 }
 
+/// The same for what a sample point deviates from the source term a cell
+/// carries for itself.
+template <typename KernelT, typename LocalIntegrationT>
+void bindSourceDeviationOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) {
+  if constexpr (NodalSourceDeviation) {
+    for (std::size_t a = 0; a < SourceDeviationCount; ++a) {
+      krnl.sourceDeviation(a) = localIntegration.sourceDeviation[a];
+    }
+  }
+}
+
 template <typename KernelT, typename LocalIntegrationT>
 void bindLocalFluxOperands(KernelT& krnl,
                            const LocalIntegrationT& localIntegration,

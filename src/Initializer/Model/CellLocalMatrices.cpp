@@ -289,6 +289,14 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                 for (std::size_t i = 0; i < source.size(); ++i) {
                   localIntegration[cell].sourceCoefficients[i][point] = source[i];
                 }
+                if constexpr (NodalSourceDeviation) {
+                  // what this point asks for beyond the term the cell already
+                  // carries, which is the part a solve done once per cell misses
+                  const auto mean = seissol::model::getSourceCoefficients(materialLocal);
+                  for (std::size_t i = 0; i < source.size(); ++i) {
+                    localIntegration[cell].sourceDeviation[i][point] = source[i] - mean[i];
+                  }
+                }
               }
             }
           } else {

@@ -46,6 +46,11 @@ class STP(LinearCK):
     def numExtendedQuantities(self):
         return self.numQuantities()
 
+    def sourceDeviationCount(self):
+        """The predictor factorises its time system once per cell, source term
+        and all, so what a sample point deviates from that is what it applies."""
+        return self.sourceCoefficientCount()
+
     def sourceMatrix(self):
         return None
 
@@ -99,6 +104,8 @@ class STP(LinearCK):
         # the two places a nodal operator is formed at are that much wider.
         nodalValuesInTime = None
         nodalProductInTime = None
+        sourceValuesInTime = None
+        sourceProductInTime = None
         if self.nodalMaterial:
             nodalValuesInTime = self.nodalTemporary(
                 "nodalValuesInTime", self.nodalValuesShape + (self.order,)
@@ -106,6 +113,15 @@ class STP(LinearCK):
             nodalProductInTime = self.nodalTemporary(
                 "nodalProductInTime", self.nodalProductShape + (self.order,)
             )
+            if self.sourceDeviationCount() > 0:
+                sourceValuesInTime = self.nodalTemporary(
+                    "sourceValuesInTime",
+                    tuple(self.nodalSourceValues.shape()[-2:]) + (self.order,),
+                )
+                sourceProductInTime = self.nodalTemporary(
+                    "sourceProductInTime",
+                    tuple(self.nodalSourceProduct.shape()[-2:]) + (self.order,),
+                )
 
         # Compute the index range for basis functions of a certain degree
         #
@@ -236,6 +252,23 @@ class STP(LinearCK):
                             accumulate=True,
                             scalar=timestep,
                         )
+                        # The solve below is factorised once for the cell, source
+                        # term and all. What the samples ask for beyond that is
+                        # what the iteration carries; for a material that does
+                        # not vary it is zero and this term does nothing.
+                        if self.sourceDeviationCount() > 0:
+                            kernels += self.nodalSource(
+                                spaceTimePredictor,
+                                spaceTimePredictorRhs,
+                                "nq",
+                                spectator="t",
+                                temporaries=(
+                                    sourceValuesInTime,
+                                    sourceProductInTime,
+                                ),
+                                coefficients=self.sourceDeviation,
+                                scalar=timestep,
+                            )
                     kernels += quantitySolve(None, accumulate=False)
             else:
                 kernels.append(

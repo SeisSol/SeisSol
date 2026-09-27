@@ -44,6 +44,13 @@ constexpr std::size_t MaterialSampleCount = generated::MaterialSampleCount;
 constexpr std::size_t SourceCoefficientCount = generated::SolverNumSourceCoefficients;
 constexpr bool NodalSource = NodalMaterial && SourceCoefficientCount > 0;
 
+/// How many of those a cell carries a second time, as what a sample point
+/// deviates from the cell. A solver that factorises the source term into a
+/// solve it does once per cell needs them; one that applies it as a product
+/// reads the samples themselves and carries none.
+constexpr std::size_t SourceDeviationCount = generated::SolverNumSourceDeviations;
+constexpr bool NodalSourceDeviation = NodalSource && SourceDeviationCount > 0;
+
 /// How many scalars the flux operator of a face is linear in, in the
 /// coordinates of that face, and how many nodes of a face carry them.
 constexpr std::size_t FluxCoefficientCount = generated::FluxNumCoefficients;
