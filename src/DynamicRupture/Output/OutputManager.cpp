@@ -221,7 +221,7 @@ void OutputManager::initElementwiseOutput() {
   ewOutputBuilder_->build(ewOutputData_);
   const auto& seissolParameters = seissolInstance_.parameters();
 
-  const auto& receiverPoints = ewOutputData_->receiverPoints;
+  const auto& receivers = ewOutputData_->receivers;
 
   const double writeInterval = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
 
@@ -252,7 +252,7 @@ void OutputManager::initElementwiseOutput() {
 
   auto writer = io::instance::geometry::GeometryWriter(
       "fault",
-      receiverPoints.size() / dataCount / multisim::NumSimulations,
+      receivers.size() / dataCount / multisim::NumSimulations,
       io::instance::geometry::Shape::Triangle,
       config,
       1,
@@ -262,12 +262,11 @@ void OutputManager::initElementwiseOutput() {
           for (std::size_t i = 0; i < pointCount; ++i) {
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
               target[i * Cell::Dim + j] =
-                  receiverPoints[(pointCount * index + i) * multisim::NumSimulations]
-                      .global.coords[j];
+                  receivers[(pointCount * index + i) * multisim::NumSimulations].global.coords[j];
             }
           }
         } else {
-          const auto& triangle = receiverPoints[index * multisim::NumSimulations].globalTriangle;
+          const auto& triangle = receivers[index * multisim::NumSimulations].globalTriangle;
           for (std::size_t i = 0; i < pointCount; ++i) {
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
               target[i * Cell::Dim + j] = triangle.point(i).coords[j];
@@ -281,16 +280,13 @@ void OutputManager::initElementwiseOutput() {
       "partition", {}, true, [=](int* target, std::size_t, std::size_t) { target[0] = rank; });
 
   writer.addCellData<int>(
-      "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index, std::size_t) {
-        *target = faultTagOfCell(receiverPoints, index, dataCount, multisim::NumSimulations);
+      "fault-tag", {}, true, [=, &receivers](int* target, std::size_t index, std::size_t) {
+        *target = faultTagOfCell(receivers, index, dataCount, multisim::NumSimulations);
       });
 
   writer.addCellData<std::size_t>(
-      "global-id",
-      {},
-      true,
-      [=, &receiverPoints](std::size_t* target, std::size_t index, std::size_t) {
-        *target = globalFaceIdOfCell(receiverPoints, index, dataCount, multisim::NumSimulations);
+      "global-id", {}, true, [=, &receivers](std::size_t* target, std::size_t index, std::size_t) {
+        *target = globalFaceIdOfCell(receivers, index, dataCount, multisim::NumSimulations);
       });
 
   misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
@@ -336,7 +332,14 @@ void OutputManager::initElementwiseOutput() {
 std::array<real, 6> OutputManager::initialStress(const ReceiverOutputData& outputData,
                                                  std::size_t index) {
   // every stress source in effect at the start, aligned with strike and dip
-  const auto& receiver = outputData.receiverPoints[index];
+  const auto& receiver = outputData.receivers[index];
+  // the receivers of a point are numbered contiguously, so the point is the last one whose
+  // receivers start at or before this one
+  const auto& receiverOffset = outputData.topology.receiverOffset;
+  const auto point = static_cast<std::size_t>(
+      std::upper_bound(receiverOffset.begin(), receiverOffset.end(), index) -
+      receiverOffset.begin() - 1);
+  const auto& face = outputData.topology.faces[outputData.topology.points[point].faceId];
   const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
   const auto sourceCount = dr::stressSourceCount(seissolInstance_.parameters().drParameters);
   const auto& drLayer = drStorage_->layer(position.color);
@@ -352,10 +355,8 @@ std::array<real, 6> OutputManager::initialStress(const ReceiverOutputData& outpu
 
   std::array<real, 6> rotatedInitialStress{};
   seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-  alignAlongDipAndStrikeKernel.stressRotationMatrix =
-      outputData.stressGlbToDipStrikeAligned[index].data();
-  alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-      outputData.stressFaceAlignedToGlb[index].data();
+  alignAlongDipAndStrikeKernel.stressRotationMatrix = face.stressGlbToDipStrikeAligned.data();
+  alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix = face.stressFaceAlignedToGlb.data();
   alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
   alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
   alignAlongDipAndStrikeKernel.execute();
@@ -398,15 +399,15 @@ void OutputManager::initPickpointOutput() {
     });
 
     std::map<std::size_t, std::vector<std::size_t>> simulationsOfReceiver;
-    for (std::size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-      simulationsOfReceiver[outputData->receiverPoints[i].globalReceiverIndex].push_back(i);
+    for (std::size_t i = 0; i < outputData->receivers.size(); ++i) {
+      simulationsOfReceiver[outputData->receivers[i].globalReceiverIndex].push_back(i);
     }
 
     auto& files = ppFiles_[id];
     files.clear();
     for (auto& [index, simulations] : simulationsOfReceiver) {
       std::sort(simulations.begin(), simulations.end(), [&](std::size_t a, std::size_t b) {
-        return outputData->receiverPoints[a].simIndex < outputData->receiverPoints[b].simIndex;
+        return outputData->receivers[a].simIndex < outputData->receivers[b].simIndex;
       });
 
       auto fileName =
@@ -423,7 +424,7 @@ void OutputManager::initPickpointOutput() {
         logError() << "Cannot open fault receiver file" << fileName;
       }
 
-      const auto& receiver = outputData->receiverPoints[simulations.front()];
+      const auto& receiver = outputData->receivers[simulations.front()];
       const auto& point = receiver.global;
       file << "TITLE = \"Temporal Signal for fault receiver number " << (index + 1) << "\"\n";
       file << variables.str() << '\n';
@@ -575,13 +576,13 @@ void OutputManager::initPickpointTable() {
   // simulations of one of them next to each other
   ppTableRows_.clear();
   for (const auto& [layerId, outputData] : ppOutputData_) {
-    for (std::size_t point = 0; point < outputData->receiverPoints.size(); ++point) {
+    for (std::size_t point = 0; point < outputData->receivers.size(); ++point) {
       ppTableRows_.emplace_back(layerId, point);
     }
   }
   std::sort(ppTableRows_.begin(), ppTableRows_.end(), [this](const auto& a, const auto& b) {
-    const auto& left = ppOutputData_.at(a.first)->receiverPoints[a.second];
-    const auto& right = ppOutputData_.at(b.first)->receiverPoints[b.second];
+    const auto& left = ppOutputData_.at(a.first)->receivers[a.second];
+    const auto& right = ppOutputData_.at(b.first)->receivers[b.second];
     return std::tie(left.globalReceiverIndex, left.simIndex) <
            std::tie(right.globalReceiverIndex, right.simIndex);
   });
@@ -604,7 +605,7 @@ void OutputManager::initPickpointTable() {
   std::vector<std::int64_t> minusSides;
   std::vector<double> coordinates;
   for (const auto& [layerId, point] : ppTableRows_) {
-    const auto& receiver = ppOutputData_.at(layerId)->receiverPoints[point];
+    const auto& receiver = ppOutputData_.at(layerId)->receivers[point];
     receiverIds.push_back(static_cast<std::uint64_t>(receiver.globalReceiverIndex));
     simulations.push_back(static_cast<std::uint64_t>(receiver.simIndex));
     faceIds.push_back(static_cast<std::uint64_t>(receiver.globalFaultFaceId()));
@@ -722,16 +723,17 @@ void OutputManager::flushPickpointDataToFile() {
     for (const auto& ppfile : ppFiles_.at(layerId)) {
       std::stringstream data;
       for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
-        // a row per simulation, in the order the file holds them in
-        for (const std::size_t pointId : ppfile.indices) {
+        // a row per simulation, in the order the file holds them in; the output variables are
+        // indexed per receiver
+        for (const std::size_t receiverId : ppfile.indices) {
           data << makeFormatted(outputData->cachedTime[level]) << '\t';
           if constexpr (seissol::multisim::MultisimEnabled) {
-            data << outputData->receiverPoints[pointId].simIndex << '\t';
+            data << outputData->receivers[receiverId].simIndex << '\t';
           }
-          auto recordResults = [pointId, level, &data](const auto& var, int) {
+          auto recordResults = [receiverId, level, &data](const auto& var, int) {
             if (var.isActive) {
               for (std::size_t dim = 0; dim < var.dim(); ++dim) {
-                data << makeFormatted(var(dim, level, pointId)) << '\t';
+                data << makeFormatted(var(dim, level, receiverId)) << '\t';
               }
             }
           };

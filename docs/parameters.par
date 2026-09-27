@@ -192,6 +192,8 @@ receiversamplechunk = 0              ! (hdf5 only) how far a storage chunk reach
 SurfaceOutput = 1
 SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
+! (cf. wavefield)   |stress     |vel
+SurfaceOutputMask = 0 0 0 0 0 0 1 1 1
 
 surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
 

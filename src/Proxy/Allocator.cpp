@@ -65,7 +65,6 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
-  std::uniform_int_distribution<unsigned> orientationDist(0, 2);
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -77,7 +76,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
-      cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
+      cellInformation[cell].faceRelations[f][1] = 0;
 
       const auto neighbor = cellDist(rng);
       secondaryInformation[cell].faceNeighbors[f].global = neighbor;
@@ -253,7 +252,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     std::mt19937 rng(cellCount);
     std::uniform_int_distribution<unsigned> sideDist(0, 3);
-    std::uniform_int_distribution<unsigned> orientationDist(0, 2);
+    std::uniform_int_distribution<unsigned> orientationDist(0, 1);
     std::uniform_int_distribution<std::size_t> drDist(0, interior.size() - 1);
     std::uniform_int_distribution<std::size_t> cellDist(0, cellCount - 1);
 
@@ -286,7 +285,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);
-      faceInformation[face].faceRelation = orientationDist(rng);
+      // a fault face always addresses the minus side here
+      faceInformation[face].faceRelation = 1;
     }
   }
 }

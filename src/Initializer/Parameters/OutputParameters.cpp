@@ -167,6 +167,17 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
 
+  // handle acoustic and elastic
+  std::string velocities;
+  for (std::size_t i = 0; i < seissol::model::MaterialT::VelocityOffset; ++i) {
+    velocities += "0 ";
+  }
+  velocities += "1 1 1";
+  const auto surfaceOutputMaskString = reader->readWithDefault("surfaceoutputmask", velocities);
+  const std::array<bool, seissol::model::MaterialT::NumQuantities> surfaceOutputMask =
+      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(surfaceOutputMaskString,
+                                                                           false);
+
   // The free-surface output has always been an average over each output subcell (cf. the former
   // FreeSurfaceIntegrator::computeSubTriangleAverages), i.e. an L2 projection.
   const auto projection = readProjectionMethod(reader, "surfaceprojection", "l2");
@@ -174,7 +185,7 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
   const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
 
   return FreeSurfaceOutputParameters{
-      enabled, refinement, interval, vtkorder, projection, timeSeries};
+      enabled, refinement, interval, vtkorder, surfaceOutputMask, projection, timeSeries};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {

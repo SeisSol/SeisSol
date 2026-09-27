@@ -84,6 +84,7 @@ struct FreeSurfaceOutputParameters {
   unsigned refinement{0};
   double interval{0};
   int vtkorder{-1};
+  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask{};
   ProjectionMethod projection{ProjectionMethod::L2};
   TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
 };

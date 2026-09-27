@@ -55,7 +55,7 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
 
   for (const auto& point : orderPoints_.at(data.order)) {
     for (std::size_t s = 0; s < data.simcount; ++s) {
-      ReceiverPoint receiver{};
+      Receiver receiver{};
       receiver.isInside = true;
       receiver.faultFaceIndex = data.faultFaceIndex;
       receiver.localFaceSideId = data.localFaceSideId;

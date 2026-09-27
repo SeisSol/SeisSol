@@ -76,11 +76,11 @@ TEST_CASE("ImpedancesAndEta equal impedances" * doctest::test_suite("dynamicrupt
 }
 
 // ---------------------------------------------------------------------------
-// ReceiverPoint: default initialization
+// Receiver: default initialization
 // ---------------------------------------------------------------------------
 
-TEST_CASE("ReceiverPoint defaults" * doctest::test_suite("dynamicrupture")) {
-  ReceiverPoint rp;
+TEST_CASE("Receiver defaults" * doctest::test_suite("dynamicrupture")) {
+  Receiver rp;
   CHECK(rp.faultFaceIndex == -1);
   CHECK(rp.localFaceSideId == -1);
   CHECK(rp.elementIndex == -1);

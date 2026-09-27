@@ -369,3 +369,32 @@ single-phase one.
 The terminal output changed accordingly: the group headings now read
 ``Acoustic mechanical energy``, ``Elastic mechanical energy`` and
 ``Gravitational potential energy``, and the share printed as ``kinematic`` is now ``kinetic``.
+
+Canonical Vertex Order
+~~~~~~~~~~~~~~~~~~~~~~
+
+(since after 1.3.2, `#1630 <https://github.com/SeisSol/SeisSol/pull/1630>`_, September 2026)
+
+While reading the mesh, SeisSol now brings the vertices of each tetrahedron into a canonical order,
+sorted by their global vertex index and reoriented where necessary.
+The order in which the mesh file lists the vertices of a tetrahedron therefore no longer matters.
+
+Checkpoints written before this change cannot be used to restart a simulation after it, and vice versa:
+the degrees of freedom stored in a checkpoint refer to the local vertex order of each tetrahedron.
+Restarting with a different number of ranks keeps working as before.
+
+Results differ slightly from those of earlier versions, by about as much as reordering the vertices
+of each tetrahedron in the mesh file would have changed them before.
+Dynamic rupture is affected most, since the positions of the on-fault quadrature points within a fault face
+follow the local vertex order.
+The time step widths of the local time stepping are computed in the canonical order as well,
+so a few elements may end up in a different time cluster than before.
+The results still depend on the global vertex numbering, i.e. on the order of the vertex list in the mesh file.
+The partitioning no longer depends on the order of the vertices of a tetrahedron either, and therefore differs
+once from earlier versions; a different partition changes the results by round-off only.
+
+Tetrahedra with the wrong orientation are now reoriented, instead of stopping SeisSol with the error
+``There are geometric problems with the given mesh.`` Degenerate tetrahedra of zero volume still do.
+
+Custom memory layout files (see ``MEMORY_LAYOUT`` in :ref:`build_parameters`) describe the neighbor flux
+matrices as ``fPrT(0)`` to ``fPrT(3)``. Entries for ``rT`` and ``fP`` are still accepted, but no longer have an effect.

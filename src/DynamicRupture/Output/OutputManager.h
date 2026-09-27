@@ -83,7 +83,7 @@ class OutputManager {
   struct PickpointFile {
     std::string fileName;
 
-    // the receiver the file holds, as a receiver point per simulation, in the order of their index
+    // the receiver the file holds: its receivers, one per simulation, in the order of their index
     std::vector<std::size_t> indices;
   };
 
