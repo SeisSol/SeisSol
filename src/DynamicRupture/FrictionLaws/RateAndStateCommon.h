@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 
 #include "Common/Marker.h"
+#include "DynamicRupture/FrictionLaws/Dual.h"
 #include "Kernels/Precision.h"
 
 #include <cstdint>
@@ -46,30 +47,39 @@ constexpr real almostZero() {
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
+  // unqualified so that a dual number picks up the overloads next to its own definition, while a
+  // plain scalar keeps the standard ones
+  using std::abs;
+  using std::asinh;
+  using std::log;
+  using std::sqrt;
+  using Scalar = decltype(valueOf(T{}));
+
   // Switch is empirically chosen; to prevent issues with
   // or replacement formula not being accurate enough if x * exp(c) is small
-  constexpr T Switch = 10;
-  constexpr T Threshold = 50;
-  constexpr T Log2 = 0.69314718055994530943;
+  constexpr Scalar Switch = 10;
+  constexpr Scalar Threshold = 50;
+  constexpr Scalar Log2 = 0.69314718055994530943;
   int xexp{};
-  (void)std::frexp(x, &xexp);
+  (void)std::frexp(valueOf(x), &xexp);
 
   // make sure to invert the constant we'd use otherwise (if the exponent is too big/small)
 
+  // the branch selects a formula; the selected formula is what carries the derivative
   // use the new code path only if we really need to
-  if (expLog + std::max(xexp, 0) * Log2 > Switch || expLog >= Threshold) {
-    if (expLog <= 0) {
-      exp = 1 / exp;
+  if (valueOf(expLog) + std::max(xexp, 0) * Log2 > Switch || valueOf(expLog) >= Threshold) {
+    if (valueOf(expLog) <= 0) {
+      exp = T(1) / exp;
     }
-    const T xa = std::abs(x);
-    const T xs = x >= 0 ? 1 : -1;
-    return xs * (expLog + std::log(xa + std::sqrt(xa * xa + exp * exp)));
+    const T xa = abs(x);
+    const T xs = valueOf(x) >= 0 ? T(1) : T(-1);
+    return xs * (expLog + log(xa + sqrt(xa * xa + exp * exp)));
   } else {
-    if (expLog > 0) {
-      exp = 1 / exp;
+    if (valueOf(expLog) > 0) {
+      exp = T(1) / exp;
     }
     const auto v = exp * x;
-    return std::asinh(v);
+    return asinh(v);
   }
 }
 
@@ -80,11 +90,12 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
+  using std::exp;
   T cExp{};
-  if (cExpLog > 0) {
-    cExp = std::exp(-cExpLog);
+  if (valueOf(cExpLog) > 0) {
+    cExp = exp(-cExpLog);
   } else {
-    cExp = std::exp(cExpLog);
+    cExp = exp(cExpLog);
   }
   return cExp;
 }
@@ -133,9 +144,12 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T logsinh(T x, T c) {
-  const T sign = c >= 0 ? 1 : -1;
-  const T absC = std::abs(c);
-  return absC + std::log(x / 2 * -sign * std::expm1(-2 * absC));
+  using std::abs;
+  using std::expm1;
+  using std::log;
+  const T sign = valueOf(c) >= 0 ? T(1) : T(-1);
+  const T absC = abs(c);
+  return absC + log(x / T(2) * -sign * expm1(T(-2) * absC));
 }
 
 } // namespace seissol::dr::friction_law::rs
