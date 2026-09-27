@@ -185,11 +185,7 @@ class STP(LinearCK):
                         )
                 if n > 0:
                     derivativeSum = spaceTimePredictorRhs["kpt"]
-                    star = (
-                        (lambda d: self.starMatrix(d)["qp"] * timestep)
-                        if target == "gpu"
-                        else lambda d: self.starMatrix(d)["qp"]
-                    )
+                    star = lambda d: self.starMatrix(d)["qp"] * timestep
                     for d in range(3):
                         derivativeSum += (
                             self.db.kDivMT[d]["kl"].subslice("l", *modeRange(n))
@@ -202,7 +198,11 @@ class STP(LinearCK):
                 <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]
             )
 
-            generator.add(f"{name_prefix}spaceTimePredictor", kernels, target=target)
+            generator.add(
+                f"{name_prefix}spaceTimePredictor",
+                self.starAssembly() + kernels,
+                target=target,
+            )
 
             evaluateDOFSAtTimeSTP = (
                 QAtTimeSTP["kp"]
@@ -215,7 +215,10 @@ class STP(LinearCK):
             )
 
         # Test to see if the kernel actually solves the system of equations
-        # This part is not used in the time kernel, but for unit testing
+        # This part is not used in the time kernel, but for unit testing.
+        # The matrices are operands here, not something the kernel assembles:
+        # the point of the check is that whatever shape a cell carries its
+        # operator in, the predictor solves the system those matrices state.
         deltaSppLarge = np.eye(self.numQuantities())
         deltaLarge = Tensor("deltaLarge", deltaSppLarge.shape, spp=deltaSppLarge)
         deltaSppSmall = np.eye(self.order)
@@ -231,11 +234,13 @@ class STP(LinearCK):
         )
         generator.add("stpTestLhs", testLhs["lou"] <= lhs)
 
+        # the derivative matrix carries the sign of the term it stands for, so
+        # the scalar here is the timestep the predictor scales its operator by
         rhs = self.Q["lo"] * self.db.wHat["u"]
         for d in range(3):
             rhs += (
-                minus
-                * self.starMatrix(d)["qo"]
+                timestep
+                * self.starMatrixSetup(d)["qo"]
                 * self.db.kDivMT[d]["lm"]
                 * spaceTimePredictor["mqu"]
             )

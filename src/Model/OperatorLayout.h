@@ -22,12 +22,7 @@ namespace seissol {
 /// with the rows of its Jacobian, instead of the star matrices the two fold
 /// into. The build decides, and a solver that does not declare the
 /// decomposition keeps the matrices whatever the build asks for.
-constexpr bool FactoredStar =
-    Config::FactoredStar &&
-    // the space-time predictor scales the star matrices by the timestep
-    // before handing them over, which a cell that does not carry them cannot
-    // do; the scalar path through the kernel is what that solver would need
-    Config::Solver != SolverType::STP && generated::SolverNumCoefficients > 0;
+constexpr bool FactoredStar = Config::FactoredStar && generated::SolverNumCoefficients > 0;
 
 /// How many scalars the operator of a cell is linear in. The generator states
 /// it, since this is needed where a solver's declaration cannot be

@@ -290,11 +290,7 @@ class ADERDGBase(ABC):
         stated as an immediate operand: the generator writes it into the
         kernel, where a factor of one is not a multiplication and the zeros
         never become operations."""
-        # the space-time predictor scales the star matrices by the timestep
-        # outside the kernel, which a cell that does not carry them cannot do
-        self.factoredStar = bool(kwargs.get("factored_star", False)) and kwargs.get(
-            "solver"
-        ) not in ("stp",)
+        self.factoredStar = bool(kwargs.get("factored_star", False))
         if not self.factoredStar:
             return
 

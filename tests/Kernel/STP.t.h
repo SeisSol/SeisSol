@@ -12,11 +12,15 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/STP/Setup.h"
+#include "Kernels/StarOperands.h"
 #include "Model/Common.h"
+#include "Model/OperatorLayout.h"
 #include "Numerical/Transformation.h"
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -35,6 +39,7 @@ class SpaceTimePredictorTestFixture {
   real starMatrices2[tensor::star::size(2)];
   real sourceMatrix[tensor::ET::size()];
   real zMatrix[seissol::model::MaterialT::NumQuantities][tensor::Zinv::size(0)];
+  LocalIntegrationData localIntegration;
 
   void setStarMatrix(
       const real* at, const real* bt, const real* ct, const double grad[3], real* starMatrix) {
@@ -92,6 +97,30 @@ class SpaceTimePredictorTestFixture {
     setStarMatrix(atData, btData, ctData, gradEta, starMatrices1);
     setStarMatrix(atData, btData, ctData, gradZeta, starMatrices2);
 
+    // The three matrices above state the system the predictor has to solve;
+    // what a cell hands the kernel is whatever that build has it carry, so
+    // fill both and let the binding pick.
+    const double* const gradients[3] = {gradXi, gradEta, gradZeta};
+    if constexpr (FactoredStar) {
+      for (std::size_t dim = 0; dim < 3; ++dim) {
+        for (std::size_t component = 0; component < 3; ++component) {
+          localIntegration.referenceGradients[dim][component] = gradients[dim][component];
+        }
+      }
+      const auto coefficients = seissol::model::getStarCoefficients(material);
+      for (std::size_t i = 0; i < coefficients.size(); ++i) {
+        // a material that does not vary carries the same value at every sample
+        for (std::size_t point = 0; point < MaterialSampleCount; ++point) {
+          localIntegration.materialCoefficients[i][point] = coefficients[i];
+        }
+      }
+    } else {
+      const real* const matrices[3] = {starMatrices0, starMatrices1, starMatrices2};
+      for (std::size_t dim = 0; dim < 3; ++dim) {
+        std::copy_n(matrices[dim], tensor::star::size(dim), localIntegration.starMatrices[dim]);
+      }
+    }
+
     // prepare sourceterm
     auto et = init::ET::view::create(sourceMatrix);
     model::getTransposedSourceCoefficientTensor(material, et);
@@ -125,15 +154,10 @@ class SpaceTimePredictorTestFixture {
     model::calcZinv(zinv12, et, 12, model::isStiffRow<model::PoroElasticMaterial>(12), Dt);
   }
 
-  void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
-    krnlPrototype.bindGlobals(seissol::Pool::host());
-  }
-
-  void prepareLHS(seissol::kernel::stpTestLhs& krnlPrototype) {
-    krnlPrototype.bindGlobals(seissol::Pool::host());
-  }
-
-  void prepareRHS(seissol::kernel::stpTestRhs& krnlPrototype) {
+  // Which constant matrices a kernel reads is the generator's business, so let
+  // it hand them over: the operator a cell carries decides how many there are.
+  template <typename KernelT>
+  void prepareKernel(KernelT& krnlPrototype) {
     krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
@@ -159,22 +183,9 @@ class SpaceTimePredictorTestFixture {
     seissol::kernel::spaceTimePredictor krnl;
     prepareKernel(krnl);
 
-    real aValues[seissol::tensor::star::size(0)] = {0};
-    real bValues[seissol::tensor::star::size(0)] = {0};
-    real cValues[seissol::tensor::star::size(0)] = {0};
-
-    // Scaled by Dt, as Spacetime::executeSTP does. The minus sign of the flux term is not
-    // applied here: kDivMT carries it, negated at code generation (negateFamily in
-    // codegen/kernels/aderdg/aderdg.py).
-    for (size_t i = 0; i < seissol::tensor::star::size(0); i++) {
-      aValues[i] = starMatrices0[i] * Dt;
-      bValues[i] = starMatrices1[i] * Dt;
-      cValues[i] = starMatrices2[i] * Dt;
-    }
-
-    krnl.star(0) = aValues;
-    krnl.star(1) = bValues;
-    krnl.star(2) = cValues;
+    // the predictor reads the operator the way a cell carries it, and scales
+    // it by the timestep itself
+    kernels::bindStarOperands(krnl, localIntegration);
 
     for (size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
       krnl.Zinv(i) = zMatrix[i];
@@ -195,7 +206,7 @@ class SpaceTimePredictorTestFixture {
 
   void computeLhs(const real* stp, real* lhs) {
     kernel::stpTestLhs testLhsKrnl;
-    prepareLHS(testLhsKrnl);
+    prepareKernel(testLhsKrnl);
     testLhsKrnl.ET = sourceMatrix;
     testLhsKrnl.spaceTimePredictor = stp;
     testLhsKrnl.testLhs = lhs;
@@ -205,14 +216,13 @@ class SpaceTimePredictorTestFixture {
 
   void computeRhs(const real* stp, const real* qData, real* rhs) {
     kernel::stpTestRhs testRhsKrnl;
-    prepareRHS(testRhsKrnl);
+    prepareKernel(testRhsKrnl);
     testRhsKrnl.Q = qData;
     testRhsKrnl.star(0) = starMatrices0;
     testRhsKrnl.star(1) = starMatrices1;
     testRhsKrnl.star(2) = starMatrices2;
     testRhsKrnl.spaceTimePredictor = stp;
-    // The flux term is -Dt * star * K^T; kDivMT already is -K^T, so its factor here is +Dt.
-    testRhsKrnl.minus = Dt;
+    testRhsKrnl.timestep = Dt;
     testRhsKrnl.testRhs = rhs;
     testRhsKrnl.execute();
   };
