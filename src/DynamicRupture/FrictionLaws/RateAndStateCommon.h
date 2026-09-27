@@ -19,10 +19,24 @@
 #include <type_traits>
 
 namespace seissol::dr::friction_law::rs {
-// If the SR is too close to zero, we will have problems (NaN)
-// as a consequence, the SR is affected the AlmostZero value when too small
-// For double precision 1e-45 is a chosen by trial and error. For single precision, this value is
-// too small, so we use 1e-35
+/**
+  The floor the slip rate is clamped to, and with it the lower end of the inversion's bracket.
+  Every intermediate of a rate-and-state law has to stay representable there, which is what fixes
+  the value:
+
+  - the steady state of the state variable carries 2 V_0 / V, which at 1e-35 in single precision is
+    2e29 against a range that ends at 3.4e38. Past the floor it overflows, and the product of an
+    infinite steady state with a vanishing relaxation rate is a NaN -- which the residual loop does
+    not test for: a NaN fails `g > 0`, the upper end of the bracket takes the iterate, and a bracket
+    that has already collapsed there reports convergence.
+  - arsinhexp is entered at V / (2 V_0), which at the floor is 5e-30 against a smallest normal of
+    1.2e-38. Below 1e-38 it lands in the band where its asymptotic branch stands in for a product of
+    order one and returns a negative friction coefficient. The state variable sets how far below:
+    the band is tightest just above where exp(Psi / a) stops being representable, and even there the
+    floor stays 8.8 decades clear of it.
+
+  Nine decades of margin in single precision, and the clamp is what holds them.
+ */
 constexpr real almostZero() {
   if constexpr (std::is_same<real, double>()) {
     return 1e-45;

@@ -132,6 +132,61 @@ TEST_CASE("DR RateAndState almostZero" * doctest::test_suite("dynamicrupture")) 
   CHECK(value == static_cast<real>(rstest::slipRateFloor<real>()));
 }
 
+TEST_CASE_TEMPLATE("DR RateAndState the slip-rate floor keeps the law representable",
+                   T,
+                   float,
+                   double) { // NOLINT
+  using namespace rstest;
+  // The floor is not just a guard against dividing by zero: every intermediate of a rate-and-state
+  // law has to stay representable at it, and it is the only thing that holds them there. These are
+  // the two that bind, stated for whichever precision the floor belongs to.
+  const auto floorRate = static_cast<T>(slipRateFloor<T>());
+  const auto referenceRate = static_cast<T>(1e-6); // rsSr0, the reference slip rate
+  const auto largest = std::numeric_limits<T>::max();
+  const auto smallest = std::numeric_limits<T>::min();
+
+  SUBCASE("The steady state's 2 V_0 / V stays in range") {
+    // an infinite steady state times a vanishing relaxation rate is a NaN, and the residual loop
+    // has no test for one: it fails `g > 0`, so the upper end of the bracket takes the iterate
+    const T ratio = static_cast<T>(2) * referenceRate / floorRate;
+    CHECK(std::isfinite(ratio));
+    CAPTURE(double(ratio));
+    CHECK(static_cast<double>(ratio) < 0.01 * static_cast<double>(largest));
+  }
+
+  SUBCASE("arsinhexp's argument stays a normal number") {
+    const T argument = static_cast<T>(0.5) / referenceRate * floorRate;
+    CHECK(std::isnormal(argument));
+    CAPTURE(double(argument));
+    CHECK(static_cast<double>(argument) > 100.0 * static_cast<double>(smallest));
+  }
+
+  SUBCASE("The friction coefficient at the floor is finite and not negative") {
+    // over every state variable a locked point can carry: Psi / a runs from nothing to a few
+    // hundred, and past logMaxExp the asymptotic branch takes over
+    const T argument = static_cast<T>(0.5) / referenceRate * floorRate;
+    for (double cExpLog = -300.0; cExpLog <= 400.0; cExpLog += 0.25) {
+      const auto c = static_cast<T>(cExpLog);
+      const T value = evaluate(argument, c);
+      CAPTURE(cExpLog);
+      CHECK(std::isfinite(value));
+      CHECK(value >= static_cast<T>(0));
+    }
+  }
+
+  SUBCASE("And the band that would make it negative is decades away") {
+    // the asymptotic branch returns log 2 + c + log|x|, so it goes negative for
+    // |x| < exp(-log 2 - c), and it is only entered from c >= logMaxExp. The tightest point is
+    // therefore c = logMaxExp itself; beyond it the band retreats exponentially.
+    const auto limit = static_cast<double>(rs::logMaxExp<T>());
+    const double critical = std::exp(-0.6931471805599453 - limit);
+    const double criticalRate = critical * 2.0 * static_cast<double>(referenceRate);
+    CAPTURE(criticalRate);
+    CHECK(criticalRate < static_cast<double>(floorRate));
+    CHECK(std::log10(static_cast<double>(floorRate) / criticalRate) > 8.0);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // logMaxExp
 // ---------------------------------------------------------------------------

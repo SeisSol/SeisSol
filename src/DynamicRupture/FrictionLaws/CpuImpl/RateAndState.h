@@ -535,9 +535,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * needs \f$\mu(0)=0\f$, \f$\mu\ge0\f$ and \f$|\sigma|\ge0\f$ (endpoints are NOT evaluated):
    *   g(0+)           = +invEta * Theta            > 0
    *   g(Theta*invEta) = -invEta * |sigma| * mu    <= 0.
-   * Without the coupling \f$g' < -1\f$ and the root is unique. The coupling can weaken \f$g'\f$
-   * (cf. the derivative below); bisection converges to a root inside the bracket either way, so
-   * the solver does not rest on uniqueness.
+   * The root need not be unique, and for a law that folds its state variable it usually is not. The
+   * state variable weakens with the slip rate, so once it travels inside the residual
+   * \f$\partial\mu/\partial V\f$ changes sign -- around a metre per second for the fast law --
+   * and \f$g'\f$ rises towards zero with it: a plain isotropic fault at 50 MPa reaches
+   * \f$g' = -0.72\f$ there, and stepping rupture histories through the fast law leaves 471 of 3240
+   * inversions with more than one root inside the bracket. The anisotropic normal coupling weakens
+   * \f$g'\f$ further (cf. the derivative below). Bisection converges to a root in the bracket
+   * either way, so the solver does not rest on uniqueness -- but which root it converges to is
+   * decided by where it starts, which is why the warm start below matters for more than speed:
+   * started at the previous step 2 of those 3240 land on a different root than a bisection from the
+   * whole bracket would, started at the free-slip limit 469 of them do.
    * We take Newton while it stays in the bracket and outruns bisection, else bisect. The bracket
    * is non-increasing and loses half of its decades on every fallback, so the iterate settles and
    * termination is relative in SLIP-RATE space (|dV| < xacc * V). Two floors keep that test

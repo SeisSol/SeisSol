@@ -375,8 +375,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     // (no search, endpoints not evaluated):
     //   g(0+)          = invEtaS * tau             > 0
     //   g(tau*invEtaS) = -invEtaS*|sigma(.)|*mu(.) <= 0
-    // Without the coupling dG < -1 everywhere and the root is unique; the coupling can weaken dG
-    // (cf. below), and bisection converges to a root in the bracket either way.
+    // The root need not be unique, and for a law that folds its state variable it usually is not:
+    // the state weakens with the slip rate, so d(mu)/dV changes sign once it travels inside the
+    // residual -- around a metre per second for the fast law -- and dG rises towards zero with it.
+    // The coupling weakens dG further (cf. below). Bisection converges to a root in the bracket
+    // either way, so the solver does not rest on uniqueness, but which root it reaches is decided
+    // by where it starts: hence the warm start below matters for more than speed.
     // rtsafe: Newton while it stays in the bracket and outruns bisection, else bisect.
     // The bracket is non-increasing and loses half of its decades on every fallback => the
     // iterate settles and termination is relative in V-space (|dV| < xacc * V), with two floors
