@@ -12,6 +12,7 @@
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/MemoryOps.h"
+#include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
 
 #include <cassert>
@@ -20,7 +21,6 @@
 #include <stdint.h>
 #include <yateto.h>
 
-#include "Kernels/StarOperands.h"
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"

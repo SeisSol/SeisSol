@@ -81,7 +81,8 @@ class LinearCK(ADERDGBase):
                 volumeExpr += [self.Q["kp"] <= self.Q["kp"] + volumeUpdate["kp"]]
                 if self.sourceMatrix():
                     volumeExpr += [
-                        self.Q["kp"] <= self.Q["kp"] + self.I["kq"] * self.sourceMatrix()["qp"]
+                        self.Q["kp"]
+                        <= self.Q["kp"] + self.I["kq"] * self.sourceMatrix()["qp"]
                     ]
             else:
                 volumeSum = self.Q["kp"]

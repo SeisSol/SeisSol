@@ -17,11 +17,10 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
-#include <array>
-#include <cstddef>
-
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <array>
+#include <cstddef>
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;

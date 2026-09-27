@@ -79,6 +79,7 @@ _L2M, _LAM, _MU, _RHO, _RHO_SHEAR = range(5)
 ELASTIC = Decomposition(
     name="Elastic",
     coefficients=["lambda + 2 mu", "lambda", "mu", "1/rho", "1/rho (shear)"],
+    # fmt: off
     entries=[
         Entry(_L2M, 0, 6, 0), Entry(_LAM, 0, 6, 1), Entry(_LAM, 0, 6, 2),
         Entry(_MU, 0, 7, 3), Entry(_MU, 0, 8, 5),
@@ -92,6 +93,7 @@ ELASTIC = Decomposition(
         Entry(_MU, 2, 7, 4), Entry(_MU, 2, 6, 5),
         Entry(_RHO, 2, 2, 8), Entry(_RHO_SHEAR, 2, 5, 6), Entry(_RHO_SHEAR, 2, 4, 7),
     ],
+    # fmt: on
 )
 
 # ---------------------------------------------------------------- acoustic
@@ -99,15 +101,18 @@ ELASTIC = Decomposition(
 ACOUSTIC = Decomposition(
     name="Acoustic",
     coefficients=["lambda", "1/rho"],
+    # fmt: off
     entries=[
         Entry(0, 0, 1, 0), Entry(1, 0, 0, 1),
         Entry(0, 1, 2, 0), Entry(1, 1, 0, 2),
         Entry(0, 2, 3, 0), Entry(1, 2, 0, 3),
     ],
+    # fmt: on
 )
 
 # ------------------------------------------------------------- anisotropic
 
+# fmt: off
 _VOIGT = [
     "c11", "c12", "c13", "c14", "c15", "c16",
     "c22", "c23", "c24", "c25", "c26",
@@ -116,6 +121,7 @@ _VOIGT = [
     "c55", "c56",
     "c66",
 ]
+# fmt: on
 _ANISO_RHO = len(_VOIGT)
 
 
@@ -139,6 +145,7 @@ class FluxEntry:
 #: The scalars themselves are whatever the Riemann solver makes of the two
 #: materials at the point; they are not linear in either, which is why they are
 #: read off a computed operator rather than assembled from material parameters.
+# fmt: off
 FLUX_COEFFICIENTS = (
     "pNormalNormal",
     "pNormalTransverse",
@@ -151,8 +158,10 @@ FLUX_COEFFICIENTS = (
     "sVelocityShear",
     "sVelocityVelocity",
 )
+# fmt: on
 
 #: Where each scalar is read off a computed operator.
+# fmt: off
 FLUX_SOURCE = {
     "pNormalNormal": (0, 0),
     "pNormalTransverse": (0, 2),
@@ -165,6 +174,7 @@ FLUX_SOURCE = {
     "sVelocityShear": (7, 3),
     "sVelocityVelocity": (7, 7),
 }
+# fmt: on
 
 FLUX_ENTRIES = tuple(
     FluxEntry(FLUX_COEFFICIENTS.index(name), row, column, 1.0)
@@ -195,6 +205,7 @@ def _anisotropic_entries() -> List[Entry]:
     # gradient; the constant at (row, column) is the one the Voigt pair of the
     # two picks out. The three directions share this block entirely, unlike
     # the isotropic case, where they are disjointly occupied.
+    # fmt: off
     stress = {
         0: [("c11", "c16", "c15"), ("c12", "c26", "c25"), ("c13", "c36", "c35"),
             ("c16", "c66", "c56"), ("c14", "c46", "c45"), ("c15", "c56", "c55")],
@@ -203,10 +214,13 @@ def _anisotropic_entries() -> List[Entry]:
         2: [("c15", "c14", "c13"), ("c25", "c24", "c23"), ("c35", "c34", "c33"),
             ("c56", "c46", "c36"), ("c45", "c44", "c34"), ("c55", "c45", "c35")],
     }
+    # fmt: on
     # the velocity rows take 1/rho, at the one column of each direction
-    velocity = {0: [(0, 6), (3, 7), (5, 8)],
-                1: [(3, 6), (1, 7), (4, 8)],
-                2: [(5, 6), (4, 7), (2, 8)]}
+    velocity = {
+        0: [(0, 6), (3, 7), (5, 8)],
+        1: [(3, 6), (1, 7), (4, 8)],
+        2: [(5, 6), (4, 7), (2, 8)],
+    }
 
     entries = []
     for dim in (0, 1, 2):
@@ -244,6 +258,7 @@ def _cbar(i: int, j: int):
 
 
 def _poroelastic_entries() -> List[Entry]:
+    # fmt: off
     spec = {
         0: dict(fluid=[(0, 6, _RHO1), (0, 10, _RHO2), (3, 7, _RHO1),
                        (3, 11, _RHO2), (5, 8, _RHO1), (5, 12, _RHO2)],
@@ -258,6 +273,7 @@ def _poroelastic_entries() -> List[Entry]:
                 stress=[(6, 4), (7, 3), (8, 2)],
                 beta=[(9, 8, _B1), (9, 12, _B2)], pressure=12),
     }
+    # fmt: on
 
     entries = []
     for dim in (0, 1, 2):
@@ -283,8 +299,17 @@ def _poroelastic_entries() -> List[Entry]:
 
 POROELASTIC = Decomposition(
     name="PoroElastic",
-    coefficients=["cBar(0,0)", "cBar(1,0)", "cBar(3,3)", "M alpha", "M",
-                  "1/rho1", "1/rho2", "beta1/rho1", "beta2/rho2"],
+    coefficients=[
+        "cBar(0,0)",
+        "cBar(1,0)",
+        "cBar(3,3)",
+        "M alpha",
+        "M",
+        "1/rho1",
+        "1/rho2",
+        "beta1/rho1",
+        "beta2/rho2",
+    ],
     entries=_poroelastic_entries(),
 )
 
@@ -294,19 +319,30 @@ VISCOELASTIC = Decomposition(
     name="ViscoElastic",
     coefficients=[],  # the flux is the base material's
     anelastic=[
-        AnelasticEntry(0, 6, 0, -1.0), AnelasticEntry(0, 7, 3, -0.5),
+        AnelasticEntry(0, 6, 0, -1.0),
+        AnelasticEntry(0, 7, 3, -0.5),
         AnelasticEntry(0, 8, 5, -0.5),
-        AnelasticEntry(1, 7, 1, -1.0), AnelasticEntry(1, 6, 3, -0.5),
+        AnelasticEntry(1, 7, 1, -1.0),
+        AnelasticEntry(1, 6, 3, -0.5),
         AnelasticEntry(1, 8, 4, -0.5),
-        AnelasticEntry(2, 8, 2, -1.0), AnelasticEntry(2, 7, 4, -0.5),
+        AnelasticEntry(2, 8, 2, -1.0),
+        AnelasticEntry(2, 7, 4, -0.5),
         AnelasticEntry(2, 6, 5, -0.5),
     ],
     source_coefficients=["theta[0]", "theta[1]", "theta[2]"],
     source=[
-        SourceEntry(0, 0, 0), SourceEntry(1, 1, 0), SourceEntry(1, 2, 0),
-        SourceEntry(1, 0, 1), SourceEntry(0, 1, 1), SourceEntry(1, 2, 1),
-        SourceEntry(1, 0, 2), SourceEntry(1, 1, 2), SourceEntry(0, 2, 2),
-        SourceEntry(2, 3, 3), SourceEntry(2, 4, 4), SourceEntry(2, 5, 5),
+        SourceEntry(0, 0, 0),
+        SourceEntry(1, 1, 0),
+        SourceEntry(1, 2, 0),
+        SourceEntry(1, 0, 1),
+        SourceEntry(0, 1, 1),
+        SourceEntry(1, 2, 1),
+        SourceEntry(1, 0, 2),
+        SourceEntry(1, 1, 2),
+        SourceEntry(0, 2, 2),
+        SourceEntry(2, 3, 3),
+        SourceEntry(2, 4, 4),
+        SourceEntry(2, 5, 5),
     ],
 )
 
@@ -349,11 +385,13 @@ MATERIAL = "Material"
 GLOBAL = "Global"
 
 
-def composed(equation: str,
-             solver: str,
-             mechanisms: int,
-             elastic_quantities: int,
-             per_mechanism: int) -> Tuple[int, List[Entry]]:
+def composed(
+    equation: str,
+    solver: str,
+    mechanisms: int,
+    elastic_quantities: int,
+    per_mechanism: int,
+) -> Tuple[int, List[Entry]]:
     """The decomposition of the operator a solver applies, coefficients first.
 
     Mirrors what SolverSetup does on the C++ side: the material's own entries,
@@ -382,15 +420,22 @@ def composed(equation: str,
         for block in range(blocks):
             column = elastic_quantities + block * per_mechanism
             for entry in decomposition.anelastic:
-                entries.append(Entry(weights[block], entry.dim, entry.row,
-                                     column + entry.column_offset, entry.factor))
+                entries.append(
+                    Entry(
+                        weights[block],
+                        entry.dim,
+                        entry.row,
+                        column + entry.column_offset,
+                        entry.factor,
+                    )
+                )
 
     return count, entries, origins
 
 
-def structure_values(coefficient_count: int,
-                     entries: List[Entry],
-                     star_shape: Tuple[int, int]) -> Tuple[Tuple[int, ...], dict]:
+def structure_values(
+    coefficient_count: int, entries: List[Entry], star_shape: Tuple[int, int]
+) -> Tuple[Tuple[int, ...], dict]:
     """The decomposition as a tensor the generator can write into a kernel.
 
     Shape is (coefficients, 3, quantities, quantities); the values are the
@@ -414,15 +459,20 @@ def _format(value: float) -> str:
 def _table(kind: str, name: str, rows: List[str]) -> List[str]:
     if not rows:
         return []
-    return ([f"inline constexpr std::array<{kind}, {len(rows)}> {name}{{{{\n"]
-            + [f"    {row},\n" for row in rows]
-            + ["}};\n\n"])
+    return (
+        [f"inline constexpr std::array<{kind}, {len(rows)}> {name}{{{{\n"]
+        + [f"    {row},\n" for row in rows]
+        + ["}};\n\n"]
+    )
 
 
-def generate(path: str, solver_count: int = None,
-             solver_origins: List[str] = None,
-             material_samples: int = 1,
-             face_permutations=()) -> None:
+def generate(
+    path: str,
+    solver_count: int = None,
+    solver_origins: List[str] = None,
+    material_samples: int = 1,
+    face_permutations=(),
+) -> None:
     """Write the declarations of every material into a C++ header.
 
     With a count for the configured build, the header also states how many
@@ -449,32 +499,44 @@ def generate(path: str, solver_count: int = None,
     for decomposition in ALL:
         name = decomposition.name
         if decomposition.coefficients:
-            lines.append(f"// {name}: "
-                         + ", ".join(decomposition.coefficients) + "\n")
-            lines.append(f"inline constexpr std::size_t {name}NumCoefficients = "
-                         f"{len(decomposition.coefficients)};\n")
+            lines.append(f"// {name}: " + ", ".join(decomposition.coefficients) + "\n")
+            lines.append(
+                f"inline constexpr std::size_t {name}NumCoefficients = "
+                f"{len(decomposition.coefficients)};\n"
+            )
             lines += _table(
                 "model::CoefficientEntry",
                 f"{name}CoefficientEntries",
-                [f"{{{e.coefficient}, {e.dim}, {e.row}, {e.column}, {_format(e.factor)}}}"
-                 for e in decomposition.entries],
+                [
+                    f"{{{e.coefficient}, {e.dim}, {e.row}, {e.column}, {_format(e.factor)}}}"
+                    for e in decomposition.entries
+                ],
             )
         lines += _table(
             "model::AnelasticCoefficientEntry",
             f"{name}AnelasticEntries",
-            [f"{{{e.dim}, {e.row}, {e.column_offset}, {_format(e.factor)}}}"
-             for e in decomposition.anelastic],
+            [
+                f"{{{e.dim}, {e.row}, {e.column_offset}, {_format(e.factor)}}}"
+                for e in decomposition.anelastic
+            ],
         )
         if decomposition.source_coefficients:
-            lines.append(f"// {name} source: "
-                         + ", ".join(decomposition.source_coefficients) + "\n")
-            lines.append(f"inline constexpr std::size_t {name}NumSourceCoefficients = "
-                         f"{len(decomposition.source_coefficients)};\n")
+            lines.append(
+                f"// {name} source: "
+                + ", ".join(decomposition.source_coefficients)
+                + "\n"
+            )
+            lines.append(
+                f"inline constexpr std::size_t {name}NumSourceCoefficients = "
+                f"{len(decomposition.source_coefficients)};\n"
+            )
             lines += _table(
                 "model::SourceCoefficientEntry",
                 f"{name}SourceEntries",
-                [f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
-                 for e in decomposition.source],
+                [
+                    f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
+                    for e in decomposition.source
+                ],
             )
 
     if face_permutations:
@@ -493,19 +555,25 @@ def generate(path: str, solver_count: int = None,
 
     lines.append("// the isotropic elastic flux operator, as scalars of the face\n")
     lines.append("// times fixed entries\n")
-    lines.append("inline constexpr std::size_t FluxNumCoefficients = "
-                 f"{len(FLUX_COEFFICIENTS)};\n")
+    lines.append(
+        "inline constexpr std::size_t FluxNumCoefficients = "
+        f"{len(FLUX_COEFFICIENTS)};\n"
+    )
     lines += _table(
         "model::FluxCoefficientEntry",
         "FluxCoefficientEntries",
-        [f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
-         for e in FLUX_ENTRIES],
+        [
+            f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
+            for e in FLUX_ENTRIES
+        ],
     )
     lines += _table(
         "model::FluxCoefficientSource",
         "FluxCoefficientSources",
-        [f"{{{FLUX_SOURCE[name][0]}, {FLUX_SOURCE[name][1]}}}"
-         for name in FLUX_COEFFICIENTS],
+        [
+            f"{{{FLUX_SOURCE[name][0]}, {FLUX_SOURCE[name][1]}}}"
+            for name in FLUX_COEFFICIENTS
+        ],
     )
 
     lines += [
@@ -528,13 +596,19 @@ def generate(path: str, solver_count: int = None,
             "// to carry it. Empty where the build does not factor the star, and\n",
             "// so carries no coefficients at all.\n",
         ]
-        rows = [f"model::CoefficientOrigin::{origin}" for origin in (solver_origins or [])]
+        rows = [
+            f"model::CoefficientOrigin::{origin}" for origin in (solver_origins or [])
+        ]
         if rows:
-            lines += _table("model::CoefficientOrigin", "SolverCoefficientOrigins", rows)
+            lines += _table(
+                "model::CoefficientOrigin", "SolverCoefficientOrigins", rows
+            )
         else:
             # the name has to exist even then: it is looked up unconditionally
-            lines.append("inline constexpr std::array<model::CoefficientOrigin, 0> "
-                         "SolverCoefficientOrigins{};\n\n")
+            lines.append(
+                "inline constexpr std::array<model::CoefficientOrigin, 0> "
+                "SolverCoefficientOrigins{};\n\n"
+            )
 
     lines += [
         "} // namespace seissol::generated\n",
