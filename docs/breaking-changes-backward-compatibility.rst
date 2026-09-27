@@ -350,8 +350,8 @@ follow the local vertex order.
 The time step widths of the local time stepping are computed in the canonical order as well,
 so a few elements may end up in a different time cluster than before.
 The results still depend on the global vertex numbering, i.e. on the order of the vertex list in the mesh file.
-With several ranks, the partitioning may still depend on the order of the vertices of a tetrahedron in the mesh file,
-which changes the results by round-off only.
+The partitioning no longer depends on the order of the vertices of a tetrahedron either, and therefore differs
+once from earlier versions; a different partition changes the results by round-off only.
 
 Tetrahedra with the wrong orientation are now reoriented, instead of stopping SeisSol with the error
 ``There are geometric problems with the given mesh.`` Degenerate tetrahedra of zero volume still do.
