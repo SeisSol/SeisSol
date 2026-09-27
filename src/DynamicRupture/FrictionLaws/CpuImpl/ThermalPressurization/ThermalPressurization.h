@@ -86,6 +86,14 @@ class ThermalPressurization {
     return pressure_[ltsFace][pointIndex];
   }
 
+  /// the affine law of this step: p(tau V) = offset + slope * tau V; see prepareFluidPressure
+  [[nodiscard]] real fluidPressureOffset(std::uint32_t pointIndex) const {
+    return pressureOffset_[pointIndex];
+  }
+  [[nodiscard]] real fluidPressureSlope(std::uint32_t pointIndex) const {
+    return pressureSlope_[pointIndex];
+  }
+
   protected:
   real (*__restrict temperature_)[misc::NumPaddedPoints]{};
   real (*__restrict pressure_)[misc::NumPaddedPoints]{};

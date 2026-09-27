@@ -134,6 +134,14 @@ class ThermalPressurization {
     ctx.fluidPressure.pressureSlope = -(pressureSlope - lambdaPrime * temperatureSlope);
   }
 
+  /// the affine law of this step: p(tau V) = offset + slope * tau V; see prepareFluidPressure
+  SEISSOL_DEVICE static real fluidPressureOffset(FrictionLawContext& __restrict ctx) {
+    return ctx.fluidPressure.pressureOffset;
+  }
+  SEISSOL_DEVICE static real fluidPressureSlope(FrictionLawContext& __restrict ctx) {
+    return ctx.fluidPressure.pressureSlope;
+  }
+
   /// tau * V, the shear heating this point produces at its current state
   SEISSOL_DEVICE static real shearHeating(FrictionLawContext& __restrict ctx) {
     const real faultStrength =

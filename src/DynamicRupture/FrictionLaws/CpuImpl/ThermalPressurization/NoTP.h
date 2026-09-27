@@ -34,6 +34,9 @@ class NoTP {
   [[nodiscard]] static real getFluidPressure(std::size_t /*unused*/, std::uint32_t /*unused*/) {
     return 0;
   };
+
+  [[nodiscard]] static real fluidPressureOffset(std::uint32_t /*unused*/) { return 0; }
+  [[nodiscard]] static real fluidPressureSlope(std::uint32_t /*unused*/) { return 0; }
 };
 
 } // namespace seissol::dr::friction_law::cpu

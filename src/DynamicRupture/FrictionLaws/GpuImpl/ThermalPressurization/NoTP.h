@@ -28,6 +28,13 @@ class NoTP {
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& /*unused*/) {
     return static_cast<real>(0.0);
   };
+
+  SEISSOL_DEVICE static real fluidPressureOffset(FrictionLawContext& /*unused*/) {
+    return static_cast<real>(0.0);
+  }
+  SEISSOL_DEVICE static real fluidPressureSlope(FrictionLawContext& /*unused*/) {
+    return static_cast<real>(0.0);
+  }
 };
 
 } // namespace seissol::dr::friction_law::gpu

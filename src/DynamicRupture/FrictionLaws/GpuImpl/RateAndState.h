@@ -348,15 +348,33 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
    * resolves it at a linear rate, into the quadratic one.
    */
-  SEISSOL_DEVICE static real effectiveNormalStress(real normalStress,
-                                                   real normalStressStick,
-                                                   real etaNormal,
-                                                   real slipRate) {
+  template <typename S>
+  SEISSOL_DEVICE static S stickAt(
+      real normalStress, real normalStressStick, real etaNormal, real pressureOffset, S slipRate) {
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-      return std::min(static_cast<real>(0.0), normalStressStick - slipRate * etaNormal);
+      return S(normalStressStick - pressureOffset) - slipRate * S(etaNormal);
     } else {
-      return normalStress;
+      return S(normalStress);
     }
+  }
+
+  /**
+   * The effective normal stress at a trial slip rate, with the pressurization of this step
+   * resolved rather than lagged.
+   *
+   * The pore pressure is affine in the shear heating, p = offset + slope * tau V, and the heating
+   * is tau V = mu |sigma| V, so the two close in one step:
+   *   sigma = stick / (1 - mu V slope).
+   * The slope is negative -- heating lifts the pressure and unloads the fault -- so the divisor
+   * exceeds one and the fault weakens. A divisor that is not positive would be a runaway with no
+   * solution on this branch; the fault has no strength left there and the clamp takes it.
+   */
+  template <typename S>
+  SEISSOL_DEVICE static S effectiveNormalStress(S stick, real pressureSlope, S slipRate, S mu) {
+    const S divisor = S(static_cast<real>(1.0)) - mu * slipRate * S(pressureSlope);
+    const S sigma = stick / divisor;
+    const bool closed = valueOf(sigma) < 0 && valueOf(divisor) > 0;
+    return closed ? sigma : S(static_cast<real>(0.0));
   }
 
   SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext& __restrict ctx,
@@ -416,8 +434,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     // directly, because it is the one root rtsafe cannot approach: a root on the bracket boundary
     // leaves the Newton step the same size as the previous one, so the guard falls back to
     // bisection on every iteration and the solve spends its whole budget halving.
-    if (effectiveNormalStress(normalStress, normalStressStick, etaNormal, xHigh) ==
-        static_cast<real>(0.0)) {
+    if (stickAt(normalStress,
+                normalStressStick,
+                etaNormal,
+                TPMethod::fluidPressureOffset(ctx),
+                xHigh) >= static_cast<real>(0.0)) {
       x = xHigh;
       converged = true;
     }
@@ -439,19 +460,21 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       muF = mu.value;
       const real dMuF = mu.derivative;
       // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen: that
-      // moves the normal coupling out of the outer fixed point and into this Newton.
-      const real sigma = effectiveNormalStress(normalStress, normalStressStick, etaNormal, x);
-      const real absSigma = std::abs(sigma);
+      // moves the normal coupling and the pressurization out of the outer fixed point and into
+      // this Newton. The dual carries d|sigma|/dV of the whole composition, including the part
+      // that reaches through mu.
+      const Dual<real> sigmaDual = effectiveNormalStress(stickAt(normalStress,
+                                                                 normalStressStick,
+                                                                 etaNormal,
+                                                                 TPMethod::fluidPressureOffset(ctx),
+                                                                 trial),
+                                                         TPMethod::fluidPressureSlope(ctx),
+                                                         trial,
+                                                         mu);
+      const auto absSigmaDual = abs(sigmaDual);
+      const real absSigma = absSigmaDual.value;
+      const real dAbsSigma = absSigmaDual.derivative;
       const real g = -invEtaS * (absSigma * muF - tau) - x;
-
-      // |sigma| = -sigma while the fault is closed, and sigma follows the slip rate through the
-      // anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
-      real dAbsSigma{};
-      if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-        dAbsSigma = (sigma < static_cast<real>(0)) ? etaNormal : static_cast<real>(0);
-      } else {
-        dAbsSigma = static_cast<real>(0);
-      }
       const real dGFrozen = -invEtaS * (absSigma * dMuF) - static_cast<real>(1);
       const real dGCoupled = -invEtaS * (absSigma * dMuF + dAbsSigma * muF) - static_cast<real>(1);
       // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which the
@@ -546,13 +569,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * Newton solve can follow sigma(V) itself.
    */
   SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& __restrict ctx) {
+    // the stick keeps what does not follow this step's shear heating; the pressurization enters
+    // where sigma is formed, so that the solve can resolve it instead of lagging it
     ctx.initialVariables.normalStressStick =
         ctx.faultStresses.normalStress + ctx.initialStress.normalStress +
-        ctx.faultStresses.fluidPressure + ctx.initialStress.fluidPressure -
-        TPMethod::getFluidPressure(ctx);
+        ctx.faultStresses.fluidPressure + ctx.initialStress.fluidPressure;
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
-                 ctx.initialVariables.normalStressStick -
+                 ctx.initialVariables.normalStressStick - TPMethod::getFluidPressure(ctx) -
                      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] *
                          ctx.initialVariables.etaNormal);
   }

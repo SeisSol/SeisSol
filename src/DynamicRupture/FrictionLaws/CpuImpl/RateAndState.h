@@ -563,6 +563,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     real dxOld[misc::NumPaddedPoints]{};        // previous step, for the "outrun bisection" test
     real gNoise[misc::NumPaddedPoints]{};       // rounding noise of the residual, per point
     real dMuF[misc::NumPaddedPoints]{};         // d(mu)/dV, from the same pass as mu itself
+    real absSigma[misc::NumPaddedPoints]{};     // |sigma| at the trial slip rate
+    real dAbsSigma[misc::NumPaddedPoints]{};    // and its derivative, from the same pass
     int32_t converged[misc::NumPaddedPoints]{}; // int not bool: keeps ICX SIMD happy (cf. below)
 
     // Number of roundings that enter one residual evaluation; used to size both floors below.
@@ -594,9 +596,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       // directly, because it is the one root rtsafe cannot approach: a root on the bracket
       // boundary leaves the Newton step the same size as the previous one, so the guard falls
       // back to bisection on every iteration and the solve spends its whole budget halving.
-      const bool openAtLimit =
-          effectiveNormalStress(normalStress, normalStressStick, etaNormal, hi, pointIndex) ==
-          static_cast<real>(0.0);
+      const bool openAtLimit = stickAt(normalStress,
+                                       normalStressStick,
+                                       etaNormal,
+                                       tpMethod_.fluidPressureOffset(pointIndex),
+                                       hi,
+                                       pointIndex) >= static_cast<real>(0.0);
       xLow[pointIndex] = lo;
       xHigh[pointIndex] = hi;
       slipRateTest[pointIndex] =
@@ -632,17 +637,31 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         muF[pointIndex] = mu.value;
         dMuF[pointIndex] = mu.derivative;
         // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen:
-        // that moves the normal coupling out of the outer fixed point and into this Newton.
-        const real sigma =
-            effectiveNormalStress(normalStress, normalStressStick, etaNormal, x, pointIndex);
-        g[pointIndex] = -invEta[pointIndex] *
-                            (std::abs(sigma) * muF[pointIndex] - absoluteShearStress[pointIndex]) -
+        // that moves the normal coupling and the pressurization out of the outer fixed point and
+        // into this Newton. The dual carries d|sigma|/dV of the whole composition, including the
+        // part that reaches through mu.
+        const Dual<real> sigma =
+            effectiveNormalStress(stickAt(normalStress,
+                                          normalStressStick,
+                                          etaNormal,
+                                          tpMethod_.fluidPressureOffset(pointIndex),
+                                          trial,
+                                          pointIndex),
+                                  tpMethod_.fluidPressureSlope(pointIndex),
+                                  trial,
+                                  mu);
+        const auto absSigmaDual = abs(sigma);
+        absSigma[pointIndex] = absSigmaDual.value;
+        dAbsSigma[pointIndex] = absSigmaDual.derivative;
+        g[pointIndex] = -invEta[pointIndex] * (absSigma[pointIndex] * muF[pointIndex] -
+                                               absoluteShearStress[pointIndex]) -
                         x;
         // |sigma| * mu and tau cancel at the root, so the rounding error of g does not shrink
         // with the iterate: it stays at Eps times the magnitude of the two cancelling terms. Below
         // that level the sign of g -- and with it the bracket update -- carries no information.
-        gNoise[pointIndex] = NoiseFactor * Eps * invEta[pointIndex] *
-                             (std::abs(sigma) * muF[pointIndex] + absoluteShearStress[pointIndex]);
+        gNoise[pointIndex] =
+            NoiseFactor * Eps * invEta[pointIndex] *
+            (absSigma[pointIndex] * muF[pointIndex] + absoluteShearStress[pointIndex]);
         const bool gPos = g[pointIndex] > static_cast<real>(0); // g decreasing: g>0 => root above x
         xLow[pointIndex] = gPos ? x : xLow[pointIndex];
         xHigh[pointIndex] = !gPos ? x : xHigh[pointIndex];
@@ -654,22 +673,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         const real x = slipRateTest[pointIndex];
-        const real sigma =
-            effectiveNormalStress(normalStress, normalStressStick, etaNormal, x, pointIndex);
 
-        // |sigma| = -sigma while the fault is closed, and sigma follows the slip rate through the
-        // anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
-        real dAbsSigma{};
-        if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-          dAbsSigma =
-              (sigma < static_cast<real>(0.0)) ? etaNormal[pointIndex] : static_cast<real>(0.0);
-        } else {
-          dAbsSigma = static_cast<real>(0.0);
-        }
-        const real dGFrozen =
-            -invEta[pointIndex] * (std::abs(sigma) * dMuF[pointIndex]) - static_cast<real>(1.0);
-        const real dGCoupled = -invEta[pointIndex] * (std::abs(sigma) * dMuF[pointIndex] +
-                                                      dAbsSigma * muF[pointIndex]) -
+        const real dGFrozen = -invEta[pointIndex] * (absSigma[pointIndex] * dMuF[pointIndex]) -
+                              static_cast<real>(1.0);
+        const real dGCoupled = -invEta[pointIndex] * (absSigma[pointIndex] * dMuF[pointIndex] +
+                                                      dAbsSigma[pointIndex] * muF[pointIndex]) -
                                static_cast<real>(1.0);
         // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which
         // the coupling can weaken g. It stays strictly decreasing as long as
@@ -778,13 +786,14 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // Todo(SW): consider poroelastic materials together with thermal pressurization
 #pragma omp simd
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      // the stick keeps what does not follow this step's shear heating; the pressurization
+      // enters where sigma is formed, so that the solve can resolve it instead of lagging it
       normalStressStick[pointIndex] =
           faultStresses.normalStress[pointIndex] + initialStress.normalStress[pointIndex] +
-          faultStresses.fluidPressure[pointIndex] + initialStress.fluidPressure[pointIndex] -
-          tpMethod_.getFluidPressure(ltsFace, pointIndex);
+          faultStresses.fluidPressure[pointIndex] + initialStress.fluidPressure[pointIndex];
       normalStress[pointIndex] =
           std::min(static_cast<real>(0.0),
-                   normalStressStick[pointIndex] -
+                   normalStressStick[pointIndex] - tpMethod_.getFluidPressure(ltsFace, pointIndex) -
                        this->slipRateMagnitude_[ltsFace][pointIndex] * etaNormal[pointIndex]);
     }
   }
@@ -798,18 +807,39 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * resolves it at a linear rate, into the quadratic one.
    */
 #pragma omp declare simd
-  static real
-      effectiveNormalStress(const std::array<real, misc::NumPaddedPoints>& normalStress,
-                            const std::array<real, misc::NumPaddedPoints>& normalStressStick,
-                            const std::array<real, misc::NumPaddedPoints>& etaNormal,
-                            real slipRate,
-                            std::uint32_t pointIndex) {
+  template <typename S>
+  static S stickAt(const std::array<real, misc::NumPaddedPoints>& normalStress,
+                   const std::array<real, misc::NumPaddedPoints>& normalStressStick,
+                   const std::array<real, misc::NumPaddedPoints>& etaNormal,
+                   real pressureOffset,
+                   S slipRate,
+                   std::uint32_t pointIndex) {
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-      return std::min(static_cast<real>(0.0),
-                      normalStressStick[pointIndex] - slipRate * etaNormal[pointIndex]);
+      return S(normalStressStick[pointIndex] - pressureOffset) -
+             slipRate * S(etaNormal[pointIndex]);
     } else {
-      return normalStress[pointIndex];
+      return S(normalStress[pointIndex]);
     }
+  }
+
+  /**
+   * The effective normal stress at a trial slip rate, with the pressurization of this step
+   * resolved rather than lagged.
+   *
+   * The pore pressure is affine in the shear heating, p = offset + slope * tau V, and the heating
+   * is tau V = mu |sigma| V, so the two close in one step:
+   *   sigma = stick / (1 - mu V slope).
+   * The slope is negative -- heating lifts the pressure and unloads the fault -- so the divisor
+   * exceeds one and the fault weakens. A divisor that is not positive would be a runaway with no
+   * solution on this branch; the fault has no strength left there and the clamp takes it.
+   */
+#pragma omp declare simd
+  template <typename S>
+  static S effectiveNormalStress(S stick, real pressureSlope, S slipRate, S mu) {
+    const S divisor = S(static_cast<real>(1.0)) - mu * slipRate * S(pressureSlope);
+    const S sigma = stick / divisor;
+    const bool closed = valueOf(sigma) < 0 && valueOf(divisor) > 0;
+    return closed ? sigma : S(static_cast<real>(0.0));
   }
 
   protected:
