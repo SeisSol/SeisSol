@@ -11,6 +11,7 @@
 
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
+#include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 #include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
@@ -21,7 +22,6 @@
 #include <stdint.h>
 #include <yateto.h>
 
-
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #endif
@@ -29,6 +29,8 @@
 #ifndef NDEBUG
 extern long long libxsmm_num_total_flops;
 #endif
+
+GENERATE_HAS_MEMBER(E)
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -94,7 +96,11 @@ void Spacetime::computeAder(const real* coeffs,
   kernels::bindStarOperands(krnl, data.get<LTS::LocalIntegration>());
   krnl.w = data.get<LTS::LocalIntegration>().specific.w;
   krnl.W = data.get<LTS::LocalIntegration>().specific.W;
-  krnl.E = data.get<LTS::LocalIntegration>().specific.E;
+  // where the material varies inside the cell, the relaxation is formed
+  // from what it says at the sample points and the kernel takes no
+  // matrix at all
+  set_E(krnl, data.get<LTS::LocalIntegration>().specific.E);
+  kernels::bindSourceOperands(krnl, data.get<LTS::LocalIntegration>());
 
   // powers in the taylor-series expansion
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {

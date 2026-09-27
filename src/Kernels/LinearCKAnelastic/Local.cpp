@@ -24,6 +24,8 @@
 #include "Common/Offset.h"
 #endif
 
+GENERATE_HAS_MEMBER(E)
+
 namespace seissol::kernels::solver::linearckanelastic {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
@@ -70,7 +72,11 @@ void Local::computeIntegral(
   }
 
   kernel::local lKrnl = localKernelPrototype_;
-  lKrnl.E = data.get<LTS::LocalIntegration>().specific.E;
+  // where the material varies inside the cell, the relaxation is formed
+  // from what it says at the sample points and the kernel takes no
+  // matrix at all
+  set_E(lKrnl, data.get<LTS::LocalIntegration>().specific.E);
+  kernels::bindSourceOperands(lKrnl, data.get<LTS::LocalIntegration>());
   lKrnl.Iane = tmp.timeIntegratedAne;
   lKrnl.Q = data.get<LTS::Dofs>();
   lKrnl.Qane = data.get<LTS::DofsAne>();

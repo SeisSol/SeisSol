@@ -109,6 +109,14 @@ class LinearCKAnelastic(ADERDGBase):
     def numAnelasticQuantities(self):
         return total_extent(layout(self.mechanismGroups()))
 
+    def anelasticSource(self, source, target):
+        """The relaxation added to a target, in whichever shape this build
+        forms it: from the tensor a cell carries, or from the scalars it
+        carries at the sample points."""
+        if self.sourceCoefficientCount() == 0:
+            return [target["kp"] <= target["kp"] + source["kqm"] * self.E["qmp"]]
+        return self.nodalSource(source, target, "nqm")
+
     def sourceStructurePrototype(self):
         """The relaxation, which this solver keeps in a tensor of its own with
         the mechanism as a dimension."""
@@ -326,9 +334,8 @@ class LinearCKAnelastic(ADERDGBase):
                 + self.Iane["kpl"] * self.W["lm"],
                 self.Q["kp"]
                 <= self.Q["kp"]
-                + self.Qext["kp"].subslice("p", 0, self.numQuantities())
-                + self.Iane["kqm"] * self.E["qmp"],
-            ]
+                + self.Qext["kp"].subslice("p", 0, self.numQuantities()),
+            ] + self.anelasticSource(self.Iane, self.Q)
             generator.add(
                 f"{name_prefix}local",
                 local_ops,
@@ -518,8 +525,10 @@ class LinearCKAnelastic(ADERDGBase):
                 derivativeExpr += derivativeStep(d)
                 derivativeExpr += [
                     dQ[d]["kp"]
-                    <= dQext[d]["kp"].subslice("p", 0, self.numQuantities())
-                    + dQane[d - 1]["kqm"] * self.E["qmp"],
+                    <= dQext[d]["kp"].subslice("p", 0, self.numQuantities()),
+                ]
+                derivativeExpr += self.anelasticSource(dQane[d - 1], dQ[d])
+                derivativeExpr += [
                     dQane[d]["kpm"]
                     <= self.w["m"]
                     * dQext[d]["kp"].subslice(
@@ -550,5 +559,8 @@ class LinearCKAnelastic(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
+        # the relaxation a cell carries, which no kernel names where the
+        # material varies inside the cell and the term is formed at its samples
+        include_tensors.add(self.E)
         # Nodal flux kernel uses this matrix but is not supported by visco2
         include_tensors.update([self.db.project2nFaceTo3m[i] for i in range(4)])

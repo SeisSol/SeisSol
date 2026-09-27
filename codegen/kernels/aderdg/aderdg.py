@@ -459,9 +459,15 @@ class ADERDGBase(ABC):
             Tensor(f"sourceCoefficients({a})", (npoints,)) for a in range(count)
         ]
         # the field at the sample points, in whatever indices the source term
-        # sums over -- the quantities, and the mechanisms where there are any
+        # sums over -- the quantities, and the mechanisms where there are any --
+        # and what the source makes of it. The second one is the source's own:
+        # a solver may write fewer quantities here than its operator does, and
+        # what it does not write has to stay out of the projection.
         self.nodalSourceValues = self.nodalTemporary(
             "nodalSourceValues", (npoints,) + shape[:-1]
+        )
+        self.nodalSourceProduct = self.nodalTemporary(
+            "nodalSourceProduct", (npoints, shape[-1])
         )
 
     def sourceStructurePrototype(self):
@@ -704,7 +710,7 @@ class ADERDGBase(ABC):
         values, product = (
             temporaries
             if temporaries is not None
-            else (self.nodalSourceValues, self.nodalProduct)
+            else (self.nodalSourceValues, self.nodalSourceProduct)
         )
         statements = [
             values[contract + spectator]
