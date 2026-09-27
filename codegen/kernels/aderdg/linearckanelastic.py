@@ -254,17 +254,20 @@ class LinearCKAnelastic(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            volumeSum = Accumulate(ops.Add())
-            for i in range(3):
-                volumeSum += (
-                    self.db.kDivM[i][self.t("kl")]
-                    * self.I["lq"]
-                    * self.starMatrix(i)["qp"]
-                )
-            volumeExt = self.Qext["kp"] <= volumeSum
+            if getattr(self, "nodalMaterial", False):
+                volumeExpr = self.nodalApply(self.I, self.Qext, self.db.kDivM)
+            else:
+                volumeSum = Accumulate(ops.Add())
+                for i in range(3):
+                    volumeSum += (
+                        self.db.kDivM[i][self.t("kl")]
+                        * self.I["lq"]
+                        * self.starMatrix(i)["qp"]
+                    )
+                volumeExpr = [self.Qext["kp"] <= volumeSum]
             generator.add(
                 f"{name_prefix}volumeExt",
-                self.starAssembly() + [volumeExt],
+                self.starAssembly() + volumeExpr,
                 target=target,
             )
 
@@ -281,11 +284,20 @@ class LinearCKAnelastic(ADERDGBase):
                 self.db.update(contractionResult)
                 plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
 
-            localFluxExt = (
-                lambda i: self.Qext["kp"]
-                <= self.Qext["kp"]
-                + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
-            )
+            if getattr(self, "nodalMaterial", False):
+                localFluxExt = lambda i: self.nodalFlux(
+                    self.I,
+                    self.Qext,
+                    self.db.V3mTo2nFace[i],
+                    self.db.project2nFaceTo3m[i],
+                    self.fluxCoefficientsLocal,
+                )
+            else:
+                localFluxExt = (
+                    lambda i: self.Qext["kp"]
+                    <= self.Qext["kp"]
+                    + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
+                )
             localFluxExtPrefetch = lambda i: (
                 self.I if i == 0 else (self.Q if i == 1 else None)
             )
@@ -356,11 +368,22 @@ class LinearCKAnelastic(ADERDGBase):
                     "kl"
                 ]
 
-            neighborFluxExt = (
-                lambda j, i: self.Qext["kp"]
-                <= self.Qext["kp"]
-                + minusFluxMatrixAccessor(j, i) * self.I["lq"] * self.AminusT["qp"]
-            )
+            if getattr(self, "nodalMaterial", False):
+                # every regular face has the face orientation index zero, see
+                # LinearCK.addNeighbor
+                neighborFluxExt = lambda j, i: self.nodalFlux(
+                    self.I,
+                    self.Qext,
+                    self.db.neighborToFace[0, j],
+                    self.db.project2nFaceTo3m[i],
+                    self.fluxCoefficientsNeighbor,
+                )
+            else:
+                neighborFluxExt = (
+                    lambda j, i: self.Qext["kp"]
+                    <= self.Qext["kp"]
+                    + minusFluxMatrixAccessor(j, i) * self.I["lq"] * self.AminusT["qp"]
+                )
             neighborFluxExtPrefetch = lambda j, i: self.I
             generator.addFamily(
                 f"{name_prefix}neighborFluxExt",
@@ -450,6 +473,20 @@ class LinearCKAnelastic(ADERDGBase):
                     )
                 return derivativeSum
 
+            def derivativeStep(kthDer):
+                """One step of the chain, in whichever shape the operator has.
+
+                A constant operator drops a degree with every derivative and the
+                generator narrows the matrices accordingly; one that varies
+                inside the cell is read where its samples are, so nothing
+                narrows and every derivative stays full.
+                """
+                if getattr(self, "nodalMaterial", False):
+                    return self.nodalApply(
+                        dQ[kthDer - 1], dQext[kthDer], self.db.kDivMT
+                    )
+                return [dQext[kthDer]["kp"] <= derivative(kthDer)]
+
             # WARNING: the following kernel may produce incorrect results,
             # if not executed in the order as specified here
             # the reason for that is that dQext, dQane (except dQane(0))
@@ -473,8 +510,8 @@ class LinearCKAnelastic(ADERDGBase):
             ]
 
             for d in range(1, self.order):
+                derivativeExpr += derivativeStep(d)
                 derivativeExpr += [
-                    dQext[d]["kp"] <= derivative(d),
                     dQ[d]["kp"]
                     <= dQext[d]["kp"].subslice("p", 0, self.numQuantities())
                     + dQane[d - 1]["kqm"] * self.E["qmp"],

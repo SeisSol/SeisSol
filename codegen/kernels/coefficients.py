@@ -176,22 +176,92 @@ FLUX_SOURCE = {
 }
 # fmt: on
 
+#: The four the split anelastic layout adds. Its star carries one anelastic
+#: block of six columns whatever the mechanism count, and the flux occupies the
+#: same positions in it that it occupies in the elastic block: the normal and
+#: the two shear directions, from the pressure and the velocity rows.
+# fmt: off
+ANELASTIC_FLUX_COEFFICIENTS = (
+    "aNormalNormal",
+    "aShearShear",
+    "aVelocityNormal",
+    "aVelocityShear",
+)
+# fmt: on
+
+#: Where each of those is read off, as an offset into the anelastic block.
+# fmt: off
+ANELASTIC_FLUX_SOURCE = {
+    "aNormalNormal": (0, 0),
+    "aShearShear": (3, 3),
+    "aVelocityNormal": (6, 0),
+    "aVelocityShear": (7, 3),
+}
+# fmt: on
+
+#: And where each of them sits, again as offsets into the anelastic block.
+# fmt: off
+ANELASTIC_FLUX_POSITIONS = (
+    ("aNormalNormal", ((0, 0),)),
+    ("aShearShear", ((3, 3), (5, 5))),
+    ("aVelocityNormal", ((6, 0),)),
+    ("aVelocityShear", ((7, 3), (8, 5))),
+)
+# fmt: on
+
+
+def flux_decomposition(elastic_quantities: int, anelastic_quantities: int):
+    """The scalars the flux operator of a face is linear in, and where they sit.
+
+    Elastic alone for a layout whose star is square; extended by the anelastic
+    block for the one that carries it in the same matrix. The anelastic
+    positions are the elastic ones shifted into that block, which is what the
+    measurement of the operator shows and what keeps the two tables one.
+    """
+    names = list(FLUX_COEFFICIENTS)
+    sources = {name: FLUX_SOURCE[name] for name in names}
+    positions = list(_FLUX_POSITIONS)
+
+    if anelastic_quantities > 0:
+        offset = elastic_quantities
+        names += list(ANELASTIC_FLUX_COEFFICIENTS)
+        for name in ANELASTIC_FLUX_COEFFICIENTS:
+            row, column = ANELASTIC_FLUX_SOURCE[name]
+            sources[name] = (row, column + offset)
+        positions += [
+            (name, tuple((row, column + offset) for row, column in entries))
+            for name, entries in ANELASTIC_FLUX_POSITIONS
+        ]
+
+    entries = tuple(
+        FluxEntry(names.index(name), row, column, 1.0)
+        for name, group in positions
+        for row, column in group
+    )
+    return tuple(names), sources, entries
+
+
+#: Where each of the ten sits in the operator.
+# fmt: off
+_FLUX_POSITIONS = (
+    ("pNormalNormal", ((0, 0),)),
+    # the two transverse normal stresses enter alike
+    ("pNormalTransverse", ((0, 1), (0, 2))),
+    ("pNormalVelocity", ((0, 6),)),
+    ("pVelocityNormal", ((6, 0),)),
+    ("pVelocityTransverse", ((6, 1), (6, 2))),
+    ("pVelocityVelocity", ((6, 6),)),
+    # and so do the two shear directions
+    ("sShearShear", ((3, 3), (5, 5))),
+    ("sShearVelocity", ((3, 7), (5, 8))),
+    ("sVelocityShear", ((7, 3), (8, 5))),
+    ("sVelocityVelocity", ((7, 7), (8, 8))),
+)
+# fmt: on
+
 FLUX_ENTRIES = tuple(
     FluxEntry(FLUX_COEFFICIENTS.index(name), row, column, 1.0)
-    for name, positions in (
-        ("pNormalNormal", ((0, 0),)),
-        # the two transverse normal stresses enter alike
-        ("pNormalTransverse", ((0, 1), (0, 2))),
-        ("pNormalVelocity", ((0, 6),)),
-        ("pVelocityNormal", ((6, 0),)),
-        ("pVelocityTransverse", ((6, 1), (6, 2))),
-        ("pVelocityVelocity", ((6, 6),)),
-        # and so do the two shear directions
-        ("sShearShear", ((3, 3), (5, 5))),
-        ("sShearVelocity", ((3, 7), (5, 8))),
-        ("sVelocityShear", ((7, 3), (8, 5))),
-        ("sVelocityVelocity", ((7, 7), (8, 8))),
-    )
+    for name, positions in _FLUX_POSITIONS
     for row, column in positions
 )
 
@@ -472,6 +542,8 @@ def generate(
     solver_origins: List[str] = None,
     material_samples: int = 1,
     face_permutations=(),
+    flux_quantities: int = 9,
+    flux_anelastic: int = 0,
 ) -> None:
     """Write the declarations of every material into a C++ header.
 
@@ -553,26 +625,29 @@ def generate(
             lines.append("    {{" + ", ".join(str(i) for i in perm) + "}},\n")
         lines.append("}};\n\n")
 
-    lines.append("// the isotropic elastic flux operator, as scalars of the face\n")
-    lines.append("// times fixed entries\n")
+    flux_names, flux_sources, flux_entries = flux_decomposition(
+        flux_quantities, flux_anelastic
+    )
+    lines.append("// the isotropic flux operator, as scalars of the face times\n")
+    lines.append("// fixed entries; extended by the anelastic block where the\n")
+    lines.append("// solver carries it in the same matrix\n")
     lines.append(
-        "inline constexpr std::size_t FluxNumCoefficients = "
-        f"{len(FLUX_COEFFICIENTS)};\n"
+        f"inline constexpr std::size_t FluxNumCoefficients = {len(flux_names)};\n"
     )
     lines += _table(
         "model::FluxCoefficientEntry",
         "FluxCoefficientEntries",
         [
             f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
-            for e in FLUX_ENTRIES
+            for e in flux_entries
         ],
     )
     lines += _table(
         "model::FluxCoefficientSource",
         "FluxCoefficientSources",
         [
-            f"{{{FLUX_SOURCE[name][0]}, {FLUX_SOURCE[name][1]}}}"
-            for name in FLUX_COEFFICIENTS
+            f"{{{flux_sources[name][0]}, {flux_sources[name][1]}}}"
+            for name in flux_names
         ],
     )
 

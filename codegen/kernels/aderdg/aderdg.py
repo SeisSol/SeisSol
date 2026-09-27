@@ -344,13 +344,12 @@ class ADERDGBase(ABC):
         self.nodalMaterial = self.factoredStar and bool(
             kwargs.get("material_nodal", False)
         )
-        if self.nodalMaterial and kwargs.get("solver") != "linearck":
-            # the other schemes apply a star matrix this path never assembles,
-            # and an unassembled temporary is read rather than reported
+        if self.nodalMaterial and kwargs.get("solver") == "stp":
+            # the predictor scales the star matrices by the timestep outside
+            # the kernel, which a cell carrying coefficients cannot do
             raise RuntimeError(
-                "a material varying inside a cell needs the linearck solver; "
-                f'"{kwargs.get("solver")}" would read a star matrix nothing '
-                "puts together"
+                "a material varying inside a cell cannot be combined with the "
+                "space-time predictor yet"
             )
         if not self.nodalMaterial:
             return
@@ -417,27 +416,36 @@ class ADERDGBase(ABC):
         folded into the structure the coefficients scale, the other is a
         constant diagonal the field passes through on its way to the face.
         """
-        count = len(coefficients.FLUX_COEFFICIENTS)
         faceNodes = material.addNeighborFaceMatrices(self, self._matricesDir)
         quantities = self.numQuantities()
+        extended = self.numExtendedQuantities()
         weights = voigt_weights(self.quantityBlocks())
+
+        names, self.fluxSources, entries = coefficients.flux_decomposition(
+            quantities, extended - quantities
+        )
+        count = len(names)
+        self._fluxCoefficientCount = count
+        self._fluxEntries = entries
 
         self.fluxStructure = [
             Tensor(
                 f"fluxStructure({a})",
-                (quantities, quantities),
+                (extended, extended),
                 spp={
                     (e.row, e.column): repr(float(e.factor) * weights[e.row])
-                    for e in coefficients.FLUX_ENTRIES
+                    for e in entries
                     if e.coefficient == a
                 },
                 addressing=AddressingMode.IMMEDIATE,
             )
             for a in range(count)
         ]
+        # the field arrives with the quantities the cell carries and leaves with
+        # the ones the operator writes, so the weights inject as well as scale
         self.inverseVoigtWeights = Tensor(
             "inverseVoigtWeights",
-            (quantities, quantities),
+            (quantities, extended),
             spp={(q, q): repr(1.0 / weights[q]) for q in range(quantities)},
             addressing=AddressingMode.IMMEDIATE,
         )
@@ -447,7 +455,7 @@ class ADERDGBase(ABC):
         self.fluxCoefficientsNeighbor = [
             Tensor(f"fluxCoefficientsNeighbor({a})", (faceNodes,)) for a in range(count)
         ]
-        shape = (faceNodes, quantities)
+        shape = (faceNodes, extended)
         self.faceValues = Tensor("faceValues", shape, temporary=True)
         self.faceRotated = Tensor("faceRotated", shape, temporary=True)
         self.faceProduct = Tensor("faceProduct", shape, temporary=True)

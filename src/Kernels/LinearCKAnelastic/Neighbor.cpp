@@ -11,6 +11,7 @@
 
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
+#include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
 
 #include <cassert>
@@ -72,7 +73,8 @@ void Neighbor::computeNeighborsIntegral(
              data.get<LTS::CellInformation>().faceRelations[face][1] == 0);
 
       nfKrnl.I = timeIntegrated[face];
-      nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+      kernels::bindNeighborFluxOperands(
+          nfKrnl, data.get<LTS::LocalIntegration>(), data.get<LTS::NeighboringIntegration>(), face);
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
       nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][0], face);
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {

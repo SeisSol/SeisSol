@@ -64,7 +64,7 @@ void Local::computeIntegral(
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
-      lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
+      kernels::bindLocalFluxOperands(lfKrnl, data.get<LTS::LocalIntegration>(), face);
       lfKrnl.execute(face);
     }
   }

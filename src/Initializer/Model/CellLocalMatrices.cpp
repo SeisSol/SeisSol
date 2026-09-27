@@ -139,7 +139,10 @@ void fluxScalarsOfNode(const MaterialT& local,
                        double fluxScale,
                        std::array<double, FluxCoefficientCount>& plus,
                        std::array<double, FluxCoefficientCount>& minus) {
-  constexpr std::size_t N = MaterialT::NumQuantities;
+  // the Riemann problem is stated over the quantities the Godunov state spans,
+  // which is not the count the material declares where a solver carries the
+  // relaxation in the same matrix
+  constexpr std::size_t N = tensor::QgodLocal::Shape[1];
   constexpr std::size_t Diagonal =
       std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
 

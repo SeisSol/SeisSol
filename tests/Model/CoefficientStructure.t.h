@@ -346,8 +346,13 @@ TEST_CASE("Coefficient origins") {
 /// there is no other side at all.
 TEST_CASE("Flux decomposition") {
   using Material = seissol::model::ElasticMaterial;
-  constexpr std::size_t N = Material::NumQuantities;
-  using Matrix = Eigen::Matrix<double, N, N>;
+  // the operator is stated over the quantities of the Riemann problem and the
+  // columns the star writes, which are not the same count where a solver
+  // carries the relaxation in the same matrix
+  constexpr std::size_t N = seissol::tensor::QgodLocal::Shape[0];
+  constexpr std::size_t Columns = seissol::tensor::star::Shape[0][1];
+  using Matrix = Eigen::Matrix<double, N, Columns>;
+  using Square = Eigen::Matrix<double, N, N>;
 
   auto rng = std::mt19937(20260926);
   auto positive = std::uniform_real_distribution<double>(0.4, 2.5);
@@ -371,7 +376,7 @@ TEST_CASE("Flux decomposition") {
 
     Matrix coefficientMatrix = Matrix::Zero();
     seissol::model::getTransposedCoefficientMatrix(plus ? local : neighbor, 0, coefficientMatrix);
-    Matrix godunov = Matrix::Zero();
+    Square godunov = Square::Zero();
     auto& view = plus ? godLocal : godNeighbor;
     for (std::size_t row = 0; row < N; ++row) {
       for (std::size_t column = 0; column < N; ++column) {
@@ -410,7 +415,7 @@ TEST_CASE("Flux decomposition") {
 
         const double scale = std::max(1.0, reference.cwiseAbs().maxCoeff());
         for (std::size_t row = 0; row < N; ++row) {
-          for (std::size_t column = 0; column < N; ++column) {
+          for (std::size_t column = 0; column < Columns; ++column) {
             REQUIRE(candidate(row, column) ==
                     doctest::Approx(reference(row, column)).epsilon(1e-14).scale(scale));
           }
