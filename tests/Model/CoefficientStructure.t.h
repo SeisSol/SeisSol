@@ -21,6 +21,7 @@
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -441,12 +442,18 @@ TEST_CASE("Face orientation renumbering") {
   constexpr auto Nodes = seissol::generated::FaceNodes;
   using Matrix = Eigen::Matrix<double, Nodes, Nodes>;
 
+  // Every matrix here comes from a matrix file, and a build that bundles
+  // simulations stores those the other way round; the identity below is the
+  // mathematical one.
   const auto dense = [](auto view, std::size_t rows, std::size_t columns) {
+    constexpr bool Flip = multisim::NumSimulations > 1;
     Eigen::MatrixXd matrix = Eigen::MatrixXd::Zero(rows, columns);
     for (std::size_t row = 0; row < rows; ++row) {
       for (std::size_t column = 0; column < columns; ++column) {
-        if (view.isInRange(row, column)) {
-          matrix(row, column) = view(row, column);
+        const std::size_t first = Flip ? column : row;
+        const std::size_t second = Flip ? row : column;
+        if (view.isInRange(first, second)) {
+          matrix(row, column) = view(first, second);
         }
       }
     }

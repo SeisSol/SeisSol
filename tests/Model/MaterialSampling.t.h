@@ -34,21 +34,30 @@ namespace seissol::unit_test {
 
 TEST_CASE("Material at the points of a fault") {
   constexpr std::size_t Samples = tensor::materialNodes::Shape[0];
-  constexpr std::size_t FaultPoints = tensor::materialAtFault::Shape[0];
+  constexpr std::size_t FaultPoints =
+      tensor::materialAtFault::Shape[multisim::BasisFunctionDimension];
   constexpr std::size_t Modes = tensor::materialProject::Shape[0];
   constexpr std::size_t Groups = 16;
 
-  const auto denseView = [](auto view, std::size_t rows, std::size_t columns) {
-    std::vector<double> dense(rows * columns, 0.0);
-    for (std::size_t row = 0; row < rows; ++row) {
-      for (std::size_t column = 0; column < columns; ++column) {
-        if (view.isInRange(row, column)) {
-          dense[row * columns + column] = view(row, column);
+  // The folds below are stated in the orientation the mathematics has. A build
+  // that bundles simulations stores whatever comes from a matrix file the other
+  // way round, so those reads say where they come from.
+  constexpr bool FileTransposed = multisim::NumSimulations > 1;
+  const auto denseView =
+      [](auto view, std::size_t rows, std::size_t columns, bool fromFile = false) {
+        const bool flip = fromFile && FileTransposed;
+        std::vector<double> dense(rows * columns, 0.0);
+        for (std::size_t row = 0; row < rows; ++row) {
+          for (std::size_t column = 0; column < columns; ++column) {
+            const std::size_t first = flip ? column : row;
+            const std::size_t second = flip ? row : column;
+            if (view.isInRange(first, second)) {
+              dense[row * columns + column] = view(first, second);
+            }
+          }
         }
-      }
-    }
-    return dense;
-  };
+        return dense;
+      };
 
   // Every group of a family has the same shape and size here, so one group's
   // view reads another group's values; the loop checks that before it does.
@@ -78,7 +87,8 @@ TEST_CASE("Material at the points of a fault") {
       const auto evaluate = denseView(
           init::V3mTo2n::view<0, 0>::create(const_cast<real*>(init::V3mTo2n::Values[group])),
           FaultPoints,
-          Modes);
+          Modes,
+          true);
       const auto folded = denseView(init::materialToFault::view<0, 0>::create(
                                         const_cast<real*>(init::materialToFault::Values[group])),
                                     FaultPoints,

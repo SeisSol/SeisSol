@@ -151,7 +151,7 @@ class ADERDGBase(ABC):
         # to modal representation WITHOUT mass matrix factor
         self.V2nTo2JacobiQuad = tensor_from_constant_expression(
             "V2nTo2JacobiQuad",
-            self.db.V2mTo2JacobiQuad["ik"] * self.db.MV2nTo2m["kj"],
+            self.db.V2mTo2JacobiQuad["ik"] * self.db.MV2nTo2m[self.t("kj")],
             target_indices="ij",
         )
 
@@ -167,7 +167,7 @@ class ADERDGBase(ABC):
         project2nFaceTo3m = tensor_collection_from_constant_expression(
             base_name="project2nFaceTo3m",
             expressions=lambda i: self.db.rDivM[i][self.t("jk")]
-            * self.db.V2nTo2m["kl"],
+            * self.db.V2nTo2m[self.t("kl")],
             group_indices=simpleParameterSpace(4),
             target_indices="jl",
         )

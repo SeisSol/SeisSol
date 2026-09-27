@@ -28,6 +28,7 @@
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -68,7 +69,7 @@ void compareAgainstModal(FaceType faceType) {
   if constexpr (Enabled) {
     using Material = seissol::model::ElasticMaterial;
     constexpr std::size_t NQ = Material::NumQuantities;
-    constexpr std::size_t Basis = tensor::Q::Shape[0];
+    constexpr std::size_t Basis = tensor::Q::Shape[multisim::BasisFunctionDimension];
     constexpr std::size_t Nodes = generated::FaceNodes;
     constexpr std::size_t Coefficients = generated::FluxNumCoefficients;
 
@@ -190,30 +191,44 @@ void compareAgainstModal(FaceType faceType) {
           }
           return dense;
         };
+        // a build that bundles simulations stores the global matrices the other
+        // way round, so read them by their own extents and put them back
+        const auto mathMatrix = [&denseOf](auto view, std::size_t rows, std::size_t columns) {
+          const Eigen::MatrixXd stored = denseOf(view, rows, columns);
+          return multisim::NumSimulations > 1 ? Eigen::MatrixXd(stored.transpose()) : stored;
+        };
         const auto rDivM =
-            denseOf(init::rDivM::view<0>::create(const_cast<real*>(init::rDivM::Values[side])),
-                    Basis,
-                    tensor::rDivM::Shape[0][1]);
+            mathMatrix(init::rDivM::view<0>::create(const_cast<real*>(init::rDivM::Values[side])),
+                       tensor::rDivM::Shape[0][0],
+                       tensor::rDivM::Shape[0][1]);
         const auto fMrT =
-            denseOf(init::fMrT::view<0>::create(const_cast<real*>(init::fMrT::Values[side])),
-                    tensor::fMrT::Shape[0][0],
-                    Basis);
+            mathMatrix(init::fMrT::view<0>::create(const_cast<real*>(init::fMrT::Values[side])),
+                       tensor::fMrT::Shape[0][0],
+                       tensor::fMrT::Shape[0][1]);
         const auto operatorT = denseOf(init::AplusT::view::create(aplus.data()), NQ, NQ);
-        Eigen::MatrixXd field = Eigen::MatrixXd::Zero(Basis, NQ);
         auto viewI = init::I::view::create(dofs.data());
-        for (std::size_t row = 0; row < Basis; ++row) {
-          for (std::size_t column = 0; column < NQ; ++column) {
-            field(row, column) = viewI(row, column);
-          }
-        }
-        const Eigen::MatrixXd expected = rDivM * fMrT * field * operatorT;
-
         auto viewQ = init::Q::view::create(nodal.data());
-        for (std::size_t row = 0; row < Basis; ++row) {
-          for (std::size_t column = 0; column < NQ; ++column) {
-            const double scale = std::max(1.0, std::abs(expected(row, column)));
-            REQUIRE(viewQ(row, column) ==
-                    doctest::Approx(expected(row, column)).epsilon(1e-11).scale(scale));
+
+        // the operator is shared by the simulations a build bundles, the field
+        // is not, so every one of them has to come back right
+        for (std::size_t simulation = 0; simulation < multisim::NumSimulations; ++simulation) {
+          auto slicedI = multisim::simtensor(viewI, simulation);
+          auto slicedQ = multisim::simtensor(viewQ, simulation);
+
+          Eigen::MatrixXd field = Eigen::MatrixXd::Zero(Basis, NQ);
+          for (std::size_t row = 0; row < Basis; ++row) {
+            for (std::size_t column = 0; column < NQ; ++column) {
+              field(row, column) = slicedI(row, column);
+            }
+          }
+          const Eigen::MatrixXd expected = rDivM * fMrT * field * operatorT;
+
+          for (std::size_t row = 0; row < Basis; ++row) {
+            for (std::size_t column = 0; column < NQ; ++column) {
+              const double scale = std::max(1.0, std::abs(expected(row, column)));
+              REQUIRE(slicedQ(row, column) ==
+                      doctest::Approx(expected(row, column)).epsilon(1e-11).scale(scale));
+            }
           }
         }
       }
