@@ -338,6 +338,9 @@ def main():
         kernels.material.addFaceKernels(
             generator, adg, cmdLineArgs.matricesDir, materialPoints
         )
+        kernels.material.addNeighborFaceKernels(
+            generator, adg, cmdLineArgs.matricesDir, materialPoints
+        )
         kernels.material.includeTensors(
             cmdLineArgs.matricesDir, adg, materialPoints, include_tensors
         )

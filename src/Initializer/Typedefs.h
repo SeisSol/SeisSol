@@ -65,8 +65,20 @@ struct alignas(Alignment) LocalIntegrationData {
   real materialCoefficients[zeroGuard(FactoredStar ? StarCoefficientCount : 0)]
                            [zeroGuard(FactoredStar ? MaterialSampleCount : 0)]{};
 
-  // flux solver for element local contribution
+  // flux solver for element local contribution. It stays where the flux reads
+  // the material at the nodes of a face: the anelastic solver keeps the matrix
+  // form, and so does the batched path.
   real nApNm1[4][seissol::tensor::AplusT::size()]{};
+
+  // Where the material varies along a face, the flux operator does too, and a
+  // face carries the scalars it is built from at the nodes of that face rather
+  // than the matrix they fold into. The rotation into the face coordinates
+  // those scalars are stated in is the same for both sides, so a face keeps one
+  // of them; the inverse follows from it inside the kernel.
+  real fluxCoefficients[zeroGuard(NodalMaterial ? Cell::NumFaces : 0)][zeroGuard(
+      NodalMaterial ? FluxCoefficientCount : 0)][zeroGuard(NodalMaterial ? FluxFaceNodes : 0)]{};
+  real faceRotation[zeroGuard(NodalMaterial ? Cell::NumFaces : 0)]
+                   [zeroGuard(NodalMaterial ? seissol::tensor::T::size() : 0)]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::LocalData specific;
@@ -76,6 +88,13 @@ struct alignas(Alignment) LocalIntegrationData {
 struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::tensor::AminusT::size()]{};
+
+  // the counterpart of LocalIntegrationData::fluxCoefficients for the operator
+  // the neighbour contributes. The matrix above stays: a boundary face takes
+  // its neighbour state from a nodal boundary condition, already at the nodes
+  // of the face and already rotated, and applies the matrix to it.
+  real fluxCoefficients[zeroGuard(NodalMaterial ? Cell::NumFaces : 0)][zeroGuard(
+      NodalMaterial ? FluxCoefficientCount : 0)][zeroGuard(NodalMaterial ? FluxFaceNodes : 0)]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::NeighborData specific;

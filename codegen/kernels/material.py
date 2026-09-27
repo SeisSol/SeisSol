@@ -252,3 +252,91 @@ def faceOrientationPermutations(matricesDir, aderdg):
             order.append(nearest)
         permutations.append(tuple(order))
     return tuple(permutations)
+
+
+def addNeighborFaceKernels(generator, aderdg, matricesDir, pointSet):
+    """The neighbour's material at the nodes of the shared face.
+
+    The flux of a face is built from the material on both sides of it, at the
+    same points and in the same order. For the cell itself that is
+    materialToFace; for its neighbour the face is parametrised the other way
+    round, so its own evaluation is followed by the renumbering into this
+    cell's ordering -- the same fold the field takes, with the projection from
+    the samples in front of it.
+    """
+    mats = tensors(matricesDir, aderdg, pointSet)
+    npoints = pointCount(matricesDir, aderdg, pointSet)
+    permutations = faceOrientationPermutations(matricesDir, aderdg)
+    nodes = len(permutations[0])
+
+    renumber = [
+        Tensor(
+            f"materialRenumber({h})",
+            (nodes, nodes),
+            spp={(row, permutation[row]): "1.0" for row in range(nodes)},
+        )
+        for h, permutation in enumerate(permutations)
+    ]
+
+    folded = tensor_collection_from_constant_expression(
+        base_name="materialNeighborToFace",
+        expressions=lambda h, j: renumber[h]["km"]
+        * aderdg.db.V3mTo2nFace[j][aderdg.t("ml")]
+        * mats["materialProject"]["ln"],
+        group_indices=simpleParameterSpace(3, 4),
+        target_indices="kn",
+    )
+    aderdg.db.update(folded)
+
+    samples = OptionalDimTensor(
+        "materialSamples",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (npoints,),
+        alignStride=True,
+    )
+    faceValues = OptionalDimTensor(
+        "materialAtFace",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (nodes,),
+        alignStride=True,
+    )
+    generator.addFamily(
+        "projectMaterialToNeighborFace",
+        simpleParameterSpace(3, 4),
+        lambda h, j: faceValues["k"]
+        <= aderdg.db.materialNeighborToFace[h, j]["kn"] * samples["n"],
+    )
+
+
+def addNeighborFaceMatrices(aderdg, matricesDir):
+    """Reading a neighbour's field at the nodes of the shared face.
+
+    Its own face evaluation, then the renumbering into this cell's ordering --
+    folded into one matrix per reparametrisation and neighbour side, so that the
+    kernel does one product instead of two.
+    """
+    permutations = faceOrientationPermutations(matricesDir, aderdg)
+    nodes = len(permutations[0])
+
+    renumber = [
+        Tensor(
+            f"faceRenumber({h})",
+            (nodes, nodes),
+            spp={(row, permutation[row]): "1.0" for row in range(nodes)},
+        )
+        for h, permutation in enumerate(permutations)
+    ]
+
+    folded = tensor_collection_from_constant_expression(
+        base_name="neighborToFace",
+        expressions=lambda h, j: renumber[h]["nm"]
+        * aderdg.db.V3mTo2nFace[j][aderdg.t("ml")],
+        group_indices=simpleParameterSpace(3, 4),
+        target_indices="nl",
+    )
+    aderdg.db.update(folded)
+    return nodes

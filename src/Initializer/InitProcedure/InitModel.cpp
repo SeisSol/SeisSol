@@ -269,8 +269,11 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   auto& meshReader = seissolInstance.meshReader();
   auto& memoryManager = seissolInstance.memoryManager();
 
-  seissol::initializer::initializeCellLocalMatrices(
-      meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
+  seissol::initializer::initializeCellLocalMatrices(meshReader,
+                                                    memoryManager.ltsStorage(),
+                                                    memoryManager.clusterLayout(),
+                                                    seissolParams.model,
+                                                    *memoryManager.globalData().onHost);
 
   if (seissolParams.drParameters.etaDamp != 1.0) {
     logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp

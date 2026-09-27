@@ -63,10 +63,135 @@ void setStarMatrix(const real* matAT,
 
 } // namespace
 
+/// The material of both sides of a face, at the nodes of that face.
+///
+/// The cell reads its own samples through the face evaluation; the neighbour
+/// sees the face with the other parametrisation, so its evaluation carries the
+/// renumbering into this cell's ordering. Both give the same physical point at
+/// the same index, which is what the flux of a node is built from.
+template <typename MaterialT>
+void faceMaterials(const GlobalData& global,
+                   const std::array<MaterialT, LTS::MaterialNodes>& ownSamples,
+                   const std::array<MaterialT, LTS::MaterialNodes>& neighborSamples,
+                   std::uint8_t side,
+                   std::uint8_t neighborSide,
+                   std::uint8_t faceRelation,
+                   std::array<MaterialT, FluxFaceNodes>& own,
+                   std::array<MaterialT, FluxFaceNodes>& neighbor) {
+  alignas(Alignment) std::array<real, tensor::materialSamples::size()> samples{};
+  alignas(Alignment) std::array<real, tensor::materialAtFace::size()> atFace{};
+
+  const auto fill = [&](const std::array<MaterialT, LTS::MaterialNodes>& source,
+                        double MaterialT::*member) {
+    for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+      // the material is one field, so every fused simulation sees the same
+      // sample at a point
+      for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+        samples[sim + multisim::NumSimulations * node] = static_cast<real>(source[node].*member);
+      }
+    }
+  };
+  const auto scatter = [&](std::array<MaterialT, FluxFaceNodes>& target,
+                           double MaterialT::*member) {
+    for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
+      target[node].*member = atFace[node];
+    }
+  };
+
+  kernel::projectMaterialToFace ownKrnl{};
+  ownKrnl.bindGlobals(global);
+  ownKrnl.materialSamples = samples.data();
+  ownKrnl.materialAtFace = atFace.data();
+
+  kernel::projectMaterialToNeighborFace neighborKrnl{};
+  neighborKrnl.bindGlobals(global);
+  neighborKrnl.materialSamples = samples.data();
+  neighborKrnl.materialAtFace = atFace.data();
+
+  for (const auto& [name, member] : MaterialT::ParameterMap) {
+    fill(ownSamples, member);
+    ownKrnl.execute(side);
+    scatter(own, member);
+
+    fill(neighborSamples, member);
+    neighborKrnl.execute(faceRelation, neighborSide);
+    scatter(neighbor, member);
+  }
+}
+
+/// The ten scalars the flux operator of one node is built from, in the
+/// coordinates of the face.
+///
+/// The matrix form folds the rotation into what a face stores; here it stays
+/// in the kernel, because rotated the operator no longer has ten degrees of
+/// freedom but fifty-eight. What is stored is the operator as the Riemann
+/// problem states it, read at the positions the generated table names.
+///
+/// The shape mirrors computeFluxSolverLocal and its neighbour exactly, down to
+/// both sides contracting the Godunov state with the coefficient matrix of the
+/// *local* material, and the scale the matrix form carries in AplusT riding on
+/// the scalars instead.
+template <typename MaterialT>
+void fluxScalarsOfNode(const MaterialT& local,
+                       const MaterialT& neighbor,
+                       FaceType faceType,
+                       parameters::NumericalFlux flux,
+                       double fluxScale,
+                       std::array<double, FluxCoefficientCount>& plus,
+                       std::array<double, FluxCoefficientCount>& minus) {
+  constexpr std::size_t N = MaterialT::NumQuantities;
+  constexpr std::size_t Diagonal =
+      std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
+
+  alignas(Alignment) std::array<real, tensor::QgodLocal::size()> godLocalData{};
+  alignas(Alignment) std::array<real, tensor::QgodNeighbor::size()> godNeighborData{};
+  auto godLocal = init::QgodLocal::view::create(godLocalData.data());
+  auto godNeighbor = init::QgodNeighbor::view::create(godNeighborData.data());
+
+  alignas(Alignment) std::array<real, tensor::star::size(0)> starData{};
+  auto star = init::star::view<0>::create(starData.data());
+  seissol::model::getTransposedCoefficientMatrix(local, 0, star);
+
+  // the Riemann problem, or the central flux the Rusanov form uses instead
+  double correction = 0.0;
+  if (flux == parameters::NumericalFlux::Rusanov) {
+    godLocal.setZero();
+    godNeighbor.setZero();
+    for (std::size_t i = 0; i < Diagonal; ++i) {
+      godLocal(i, i) = 0.5;
+      godNeighbor(i, i) = 0.5;
+    }
+    correction = std::max(local.getMaxWaveSpeed(), neighbor.getMaxWaveSpeed()) * 0.5;
+  } else {
+    seissol::model::getTransposedGodunovState(local, neighbor, faceType, godLocal, godNeighbor);
+  }
+
+  const auto read =
+      [&](auto& godunov, double correctionSign, std::array<double, FluxCoefficientCount>& target) {
+        for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
+          const auto& source = generated::FluxCoefficientSources[c];
+          double value = 0.0;
+          for (std::size_t k = 0; k < N; ++k) {
+            const double g = godunov.isInRange(source.row, k) ? godunov(source.row, k) : 0.0;
+            const double a = star.isInRange(k, source.column) ? star(k, source.column) : 0.0;
+            value += g * a;
+          }
+          // Qcorr is the diagonal the Rusanov form adds, and zero otherwise
+          if (source.row == source.column && source.row < Diagonal) {
+            value += correctionSign * correction;
+          }
+          target[c] = fluxScale * value;
+        }
+      };
+  read(godLocal, 1.0, plus);
+  read(godNeighbor, -1.0, minus);
+}
+
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,
-                                 const parameters::ModelParameters& modelParameters) {
+                                 const parameters::ModelParameters& modelParameters,
+                                 const GlobalData& global) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
@@ -86,6 +211,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* nodalMaterial = NodalMaterial ? layer.var<LTS::NodalMaterialData>() : nullptr;
 
 #pragma omp parallel
     {
@@ -269,6 +395,67 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto enforceGodunov = enforceGodunovBc || enforceGodunovEa;
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
+
+          if constexpr (NodalMaterial) {
+            // the operator at the nodes of the face, from the material of both
+            // cells there; the rotation is the face's own and the same for both
+            // sides, so it is kept once
+            auto rotation = init::T::view::create(localIntegration[cell].faceRotation[side]);
+            const auto source = init::T::view::create(matTData);
+            rotation.setZero();
+            for (std::size_t row = 0; row < tensor::T::Shape[0]; ++row) {
+              for (std::size_t column = 0; column < tensor::T::Shape[1]; ++column) {
+                if (rotation.isInRange(row, column)) {
+                  rotation(row, column) = source(row, column);
+                }
+              }
+            }
+
+            const auto& ownSamples = nodalMaterial[cell];
+            std::array<model::MaterialT, FluxFaceNodes> ownAtFace{};
+            std::array<model::MaterialT, FluxFaceNodes> neighborAtFace{};
+            if (isInternalFaceType(cellInformation[cell].faceTypes[side])) {
+              const auto neighborPosition = secondaryInformation[cell].faceNeighbors[side];
+              faceMaterials(global,
+                            ownSamples,
+                            ltsStorage.lookup<LTS::NodalMaterialData>(neighborPosition),
+                            static_cast<std::uint8_t>(side),
+                            cellInformation[cell].faceRelations[side][0],
+                            cellInformation[cell].faceRelations[side][1],
+                            ownAtFace,
+                            neighborAtFace);
+            } else {
+              // a boundary face has no neighbour; the matrix form takes the
+              // cell's own material for both sides and so does this
+              faceMaterials(global,
+                            ownSamples,
+                            ownSamples,
+                            static_cast<std::uint8_t>(side),
+                            static_cast<std::uint8_t>(side),
+                            0,
+                            ownAtFace,
+                            neighborAtFace);
+              neighborAtFace = ownAtFace;
+            }
+
+            const bool dynamicRupture =
+                cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture;
+            for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
+              std::array<double, FluxCoefficientCount> plus{};
+              std::array<double, FluxCoefficientCount> minus{};
+              fluxScalarsOfNode(ownAtFace[node],
+                                neighborAtFace[node],
+                                cellInformation[cell].faceTypes[side],
+                                flux,
+                                dynamicRupture ? 0.0 : fluxScale,
+                                plus,
+                                minus);
+              for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
+                localIntegration[cell].fluxCoefficients[side][c][node] = plus[c];
+                neighboringIntegration[cell].fluxCoefficients[side][c][node] = minus[c];
+              }
+            }
+          }
 
           kernel::computeFluxSolverLocal localKrnl;
           localKrnl.fluxScale = fluxScale;

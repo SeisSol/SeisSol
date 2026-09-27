@@ -19,6 +19,7 @@ from kernels.quantities import (
     total_extent,
     traction_selector,
     velocity_selector,
+    voigt_weights,
     well_formed,
 )
 from yateto import Scalar, Tensor, simpleParameterSpace
@@ -391,6 +392,90 @@ class ADERDGBase(ABC):
             "nodalProduct", (npoints, starSpp.shape[1]), temporary=True
         )
 
+        self._configureNodalFlux()
+
+    def _configureNodalFlux(self):
+        """The tensors a face carries where the material varies along it.
+
+        In face coordinates the flux operator is ten scalars times fixed
+        entries -- measured, and stated in the generated tables -- so a face
+        holds those scalars per node instead of a matrix. In global coordinates
+        it is not: rotated, the same operator occupies every entry and spans
+        far more than ten dimensions, so the rotation belongs in the kernel and
+        not in what a face stores.
+
+        Only the forward rotation is stored. Its inverse follows from it by the
+        Voigt weights, and neither weight costs a multiplication: one half is
+        folded into the structure the coefficients scale, the other is a
+        constant diagonal the field passes through on its way to the face.
+        """
+        count = len(coefficients.FLUX_COEFFICIENTS)
+        faceNodes = material.addNeighborFaceMatrices(self, self._matricesDir)
+        quantities = self.numQuantities()
+        weights = voigt_weights(self.quantityBlocks())
+
+        self.fluxStructure = [
+            Tensor(
+                f"fluxStructure({a})",
+                (quantities, quantities),
+                spp={
+                    (e.row, e.column): repr(float(e.factor) * weights[e.row])
+                    for e in coefficients.FLUX_ENTRIES
+                    if e.coefficient == a
+                },
+                addressing=AddressingMode.IMMEDIATE,
+            )
+            for a in range(count)
+        ]
+        self.inverseVoigtWeights = Tensor(
+            "inverseVoigtWeights",
+            (quantities, quantities),
+            spp={(q, q): repr(1.0 / weights[q]) for q in range(quantities)},
+            addressing=AddressingMode.IMMEDIATE,
+        )
+        self.fluxCoefficientsLocal = [
+            Tensor(f"fluxCoefficientsLocal({a})", (faceNodes,)) for a in range(count)
+        ]
+        self.fluxCoefficientsNeighbor = [
+            Tensor(f"fluxCoefficientsNeighbor({a})", (faceNodes,)) for a in range(count)
+        ]
+        shape = (faceNodes, quantities)
+        self.faceValues = Tensor("faceValues", shape, temporary=True)
+        self.faceRotated = Tensor("faceRotated", shape, temporary=True)
+        self.faceProduct = Tensor("faceProduct", shape, temporary=True)
+        self.faceBack = Tensor("faceBack", shape, temporary=True)
+
+    def nodalFlux(self, source, target, toFace, lift, coefficientsOfFace):
+        """One face contribution where the operator varies along the face.
+
+        The field is read at the nodes of the face and turned into the face
+        coordinates the ten scalars are stated in, the operator is applied
+        there, and the result is turned back and lifted into the cell with the
+        operator the nodal boundary conditions already use. The rotation is the
+        same matrix both ways, once transposed against the quantity the field
+        carries and once against the quantity the result is written in.
+        """
+        statements = [
+            self.faceValues["nq"]
+            <= toFace[self.t("nl")] * source["lk"] * self.inverseVoigtWeights["kq"],
+            self.faceRotated["nk"] <= self.faceValues["nq"] * self.T["qk"],
+        ]
+        first = True
+        for a, coefficient in enumerate(coefficientsOfFace):
+            term = (
+                coefficient["n"] * self.faceRotated["nk"] * self.fluxStructure[a]["kl"]
+            )
+            statements.append(
+                self.faceProduct["nl"]
+                <= (term if first else self.faceProduct["nl"] + term)
+            )
+            first = False
+        statements.append(self.faceBack["np"] <= self.faceProduct["nl"] * self.T["pl"])
+        statements.append(
+            target["kp"] <= target["kp"] + lift[self.t("kn")] * self.faceBack["np"]
+        )
+        return statements
+
     def solverCoefficientCount(self):
         """How many scalars the operator this solver applies is linear in."""
         return getattr(self, "_solverCoefficientCount", 0)
@@ -661,3 +746,11 @@ class ADERDGBase(ABC):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
         include_tensors.add(self.db.ET)
+        if getattr(self, "nodalMaterial", False):
+            # the reparametrisation of a shared face, which the folded form the
+            # nodal flux uses stands in for. It is what that fold is checked
+            # against, so it has to reach the generated code even though no
+            # kernel names it any more.
+            for orientation in self.db.fP.values():
+                include_tensors.add(orientation)
+            include_tensors.add(self.db.M2)

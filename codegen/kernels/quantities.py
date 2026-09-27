@@ -119,6 +119,24 @@ def total_extent(blocks) -> int:
     return sum(block.extent for block in blocks)
 
 
+def voigt_weights(blocks):
+    """The weights that turn the forward face rotation into its inverse.
+
+    The inverse of the rotation is not its transpose: a symmetric second-order
+    tensor in Voigt form carries its shear components with a factor of two, so
+    ``Tinv[k][q] = w[k] T[q][k] / w[q]`` with w one half on those components and
+    one everywhere else. A vector rotation is orthogonal and a scalar does not
+    rotate at all, so both keep a weight of one.
+    """
+    weights = []
+    for block in blocks:
+        if block.group.kind is QuantityKind.SYM_TENSOR2:
+            weights += [1.0, 1.0, 1.0] + [0.5] * (block.extent - 3)
+        else:
+            weights += [1.0] * block.extent
+    return weights
+
+
 def rotation_spp(blocks):
     """Sparsity of the face rotation matrix: one dense block per group."""
     size = total_extent(blocks)

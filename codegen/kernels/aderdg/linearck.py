@@ -117,14 +117,23 @@ class LinearCK(ADERDGBase):
                 target=target,
             )
 
-        localFlux = (
-            lambda i: self.Q["kp"]
-            <= self.Q["kp"]
-            + self.db.rDivM[i][self.t("km")]
-            * self.db.fMrT[i][self.t("ml")]
-            * self.I["lq"]
-            * self.AplusT["qp"]
-        )
+        if getattr(self, "nodalMaterial", False):
+            localFlux = lambda i: self.nodalFlux(
+                self.I,
+                self.Q,
+                self.db.V3mTo2nFace[i],
+                self.db.project2nFaceTo3m[i],
+                self.fluxCoefficientsLocal,
+            )
+        else:
+            localFlux = (
+                lambda i: self.Q["kp"]
+                <= self.Q["kp"]
+                + self.db.rDivM[i][self.t("km")]
+                * self.db.fMrT[i][self.t("ml")]
+                * self.I["lq"]
+                * self.AplusT["qp"]
+            )
         localFluxPrefetch = lambda i: (
             self.I if i == 0 else (self.Q if i == 1 else None)
         )
@@ -151,11 +160,20 @@ class LinearCK(ADERDGBase):
                 self.db.update(contractionResult)
                 plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
 
-            localFlux = (
-                lambda i: self.Q["kp"]
-                <= self.Q["kp"]
-                + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
-            )
+            if getattr(self, "nodalMaterial", False):
+                localFlux = lambda i: self.nodalFlux(
+                    self.I,
+                    self.Q,
+                    self.db.V3mTo2nFace[i],
+                    self.db.project2nFaceTo3m[i],
+                    self.fluxCoefficientsLocal,
+                )
+            else:
+                localFlux = (
+                    lambda i: self.Q["kp"]
+                    <= self.Q["kp"]
+                    + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
+                )
             if target == "gpu":
                 generator.addFamily(
                     f"{name_prefix}localFlux",
@@ -178,14 +196,26 @@ class LinearCK(ADERDGBase):
             )
 
     def addNeighbor(self, generator, targets):
-        neighborFlux = (
-            lambda j, i: self.Q["kp"]
-            <= self.Q["kp"]
-            + self.db.rDivM[i][self.t("km")]
-            * self.db.fPrT[j][self.t("ml")]
-            * self.I["lq"]
-            * self.AminusT["qp"]
-        )
+        if getattr(self, "nodalMaterial", False):
+            # The canonical vertex order pins the face orientation of every
+            # regular face to zero, so the neighbour's face values reach this
+            # cell's ordering through the first renumbering only.
+            neighborFlux = lambda j, i: self.nodalFlux(
+                self.I,
+                self.Q,
+                self.db.neighborToFace[0, j],
+                self.db.project2nFaceTo3m[i],
+                self.fluxCoefficientsNeighbor,
+            )
+        else:
+            neighborFlux = (
+                lambda j, i: self.Q["kp"]
+                <= self.Q["kp"]
+                + self.db.rDivM[i][self.t("km")]
+                * self.db.fPrT[j][self.t("ml")]
+                * self.I["lq"]
+                * self.AminusT["qp"]
+            )
         neighborFluxPrefetch = lambda j, i: self.I
         generator.addFamily(
             "neighboringFlux",

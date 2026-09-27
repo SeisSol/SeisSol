@@ -75,6 +75,43 @@ void bindStarOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) 
   }
 }
 
+/// Hands the local flux kernel the operator of one face, in whichever of the
+/// two shapes the cell carries it: the scalars at the nodes of that face
+/// together with the rotation into its coordinates, or the matrix the two fold
+/// into.
+template <typename KernelT, typename LocalIntegrationT>
+void bindLocalFluxOperands(KernelT& krnl,
+                           const LocalIntegrationT& localIntegration,
+                           std::size_t face) {
+  if constexpr (NodalMaterial) {
+    krnl.T = localIntegration.faceRotation[face];
+    for (std::size_t coefficient = 0; coefficient < FluxCoefficientCount; ++coefficient) {
+      krnl.fluxCoefficientsLocal(coefficient) =
+          localIntegration.fluxCoefficients[face][coefficient];
+    }
+  } else {
+    krnl.AplusT = localIntegration.nApNm1[face];
+  }
+}
+
+/// The same for the contribution of the neighbour. The rotation belongs to the
+/// face and is therefore the cell's own either way.
+template <typename KernelT, typename LocalIntegrationT, typename NeighboringIntegrationT>
+void bindNeighborFluxOperands(KernelT& krnl,
+                              const LocalIntegrationT& localIntegration,
+                              const NeighboringIntegrationT& neighboringIntegration,
+                              std::size_t face) {
+  if constexpr (NodalMaterial) {
+    krnl.T = localIntegration.faceRotation[face];
+    for (std::size_t coefficient = 0; coefficient < FluxCoefficientCount; ++coefficient) {
+      krnl.fluxCoefficientsNeighbor(coefficient) =
+          neighboringIntegration.fluxCoefficients[face][coefficient];
+    }
+  } else {
+    krnl.AminusT = neighboringIntegration.nAmNm1[face];
+  }
+}
+
 /// The same for a batch, where the operands are offsets into the cells rather
 /// than pointers.
 template <typename KernelT>

@@ -43,6 +43,11 @@ constexpr bool NodalMaterial = Config::MaterialNodal && FactoredStar;
 /// vary inside the cell.
 constexpr std::size_t MaterialSampleCount = generated::MaterialSampleCount;
 
+/// How many scalars the flux operator of a face is linear in, in the
+/// coordinates of that face, and how many nodes of a face carry them.
+constexpr std::size_t FluxCoefficientCount = generated::FluxNumCoefficients;
+constexpr std::size_t FluxFaceNodes = generated::FaceNodes;
+
 } // namespace seissol
 
 #endif // SEISSOL_SRC_MODEL_OPERATORLAYOUT_H_

@@ -19,6 +19,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/StarOperands.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Metric.h"
@@ -88,7 +89,8 @@ void Neighbor::computeNeighborsIntegral(
       kernel::neighboringFlux nfKrnl = nfKrnlPrototype_;
       nfKrnl.Q = data.get<LTS::Dofs>();
       nfKrnl.I = timeIntegrated[face];
-      nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+      kernels::bindNeighborFluxOperands(
+          nfKrnl, data.get<LTS::LocalIntegration>(), data.get<LTS::NeighboringIntegration>(), face);
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
       nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][0], face);
       break;
