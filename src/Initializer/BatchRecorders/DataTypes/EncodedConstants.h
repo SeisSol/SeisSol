@@ -30,7 +30,7 @@ struct Wp {
     Derivatives,
     Godunov,
     FluxSolver,
-    Ivelocities, // 6th, 7the and 8th columns of Idofs
+    Ivelocities, // Idofs at the first velocity column (model::MaterialT::VelocityOffset)
     FaceDisplacement,
     NodalStressTensor,
     Pstrains,
