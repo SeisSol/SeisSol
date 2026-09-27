@@ -11,6 +11,7 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -32,8 +33,8 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 #endif
     }
 
-    resampleMatrix_ = globalData->resample;
-    devSpaceWeights_ = globalData->quadweights;
+    resampleMatrix_ = globalData->*init::resample::PoolMember;
+    devSpaceWeights_ = globalData->*init::quadweights::PoolMember;
 
 #ifdef ACL_DEVICE
     // The thermal-pressurization tables are functions of the grid alone, and
