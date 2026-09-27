@@ -100,15 +100,11 @@ class STP(LinearCK):
         nodalValuesInTime = None
         nodalProductInTime = None
         if self.nodalMaterial:
-            nodalValuesInTime = Tensor(
-                "nodalValuesInTime",
-                self.nodalValues.shape() + (self.order,),
-                temporary=True,
+            nodalValuesInTime = self.nodalTemporary(
+                "nodalValuesInTime", self.nodalValuesShape + (self.order,)
             )
-            nodalProductInTime = Tensor(
-                "nodalProductInTime",
-                self.nodalProduct.shape() + (self.order,),
-                temporary=True,
+            nodalProductInTime = self.nodalTemporary(
+                "nodalProductInTime", self.nodalProductShape + (self.order,)
             )
 
         # Compute the index range for basis functions of a certain degree
@@ -136,7 +132,7 @@ class STP(LinearCK):
             self.Q.optName(),
             self.Q.optSize(),
             self.Q.optPos(),
-            self.Q.shape(),
+            (self.num3DBasisFunctions(), self.numQuantities()),
             alignStride=True,
         )
         timeBasisFunctionsAtPoint = Tensor("timeBasisFunctionsAtPoint", (self.order,))

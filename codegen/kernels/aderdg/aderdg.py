@@ -386,10 +386,12 @@ class ADERDGBase(ABC):
             Tensor(f"nodalCoefficients({a})", (npoints,)) for a in range(count)
         ]
         quantities = starSpp.shape[0]
-        self.nodalValues = Tensor("nodalValues", (npoints, quantities), temporary=True)
-        self.nodalProduct = Tensor(
-            "nodalProduct", (npoints, starSpp.shape[1]), temporary=True
-        )
+        # kept as well, since a solver whose field carries more than modes and
+        # quantities needs the same two shapes one index wider
+        self.nodalValuesShape = (npoints, quantities)
+        self.nodalProductShape = (npoints, starSpp.shape[1])
+        self.nodalValues = self.nodalTemporary("nodalValues", self.nodalValuesShape)
+        self.nodalProduct = self.nodalTemporary("nodalProduct", self.nodalProductShape)
 
         self._configureNodalFlux()
 
@@ -448,10 +450,10 @@ class ADERDGBase(ABC):
             Tensor(f"fluxCoefficientsNeighbor({a})", (faceNodes,)) for a in range(count)
         ]
         shape = (faceNodes, extended)
-        self.faceValues = Tensor("faceValues", shape, temporary=True)
-        self.faceRotated = Tensor("faceRotated", shape, temporary=True)
-        self.faceProduct = Tensor("faceProduct", shape, temporary=True)
-        self.faceBack = Tensor("faceBack", shape, temporary=True)
+        self.faceValues = self.nodalTemporary("faceValues", shape)
+        self.faceRotated = self.nodalTemporary("faceRotated", shape)
+        self.faceProduct = self.nodalTemporary("faceProduct", shape)
+        self.faceBack = self.nodalTemporary("faceBack", shape)
 
     def nodalFlux(self, source, target, toFace, lift, coefficientsOfFace):
         """One face contribution where the operator varies along the face.
@@ -462,10 +464,14 @@ class ADERDGBase(ABC):
         operator the nodal boundary conditions already use. The rotation is the
         same matrix both ways, once transposed against the quantity the field
         carries and once against the quantity the result is written in.
+
+        `toFace` reads the field at the nodes of the face, with the node index
+        first and the mode index second; `lift` goes the other way. Both come
+        indexed, because how a matrix is laid out is the caller's to state.
         """
         statements = [
             self.faceValues["nq"]
-            <= toFace[self.t("nl")] * source["lk"] * self.inverseVoigtWeights["kq"],
+            <= toFace * source["lk"] * self.inverseVoigtWeights["kq"],
             self.faceRotated["nk"] <= self.faceValues["nq"] * self.T["qk"],
         ]
         first = True
@@ -479,9 +485,7 @@ class ADERDGBase(ABC):
             )
             first = False
         statements.append(self.faceBack["np"] <= self.faceProduct["nl"] * self.T["pl"])
-        statements.append(
-            target["kp"] <= target["kp"] + lift[self.t("kn")] * self.faceBack["np"]
-        )
+        statements.append(target["kp"] <= target["kp"] + lift * self.faceBack["np"])
         return statements
 
     def solverCoefficientCount(self):
@@ -491,6 +495,21 @@ class ADERDGBase(ABC):
     def solverCoefficientOrigins(self):
         """Where each of those scalars comes from -- the material, or the run."""
         return getattr(self, "_solverCoefficientOrigins", [])
+
+    def nodalTemporary(self, name, shape):
+        """A temporary of the nodal path.
+
+        It carries the same field a kernel's operands do, so a build that fuses
+        simulations gives it that index as well; everything else about the
+        nodal path is per cell and shared across them."""
+        return OptionalDimTensor(
+            name,
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            shape,
+            temporary=True,
+        )
 
     def nodalAssembly(self):
         """Folds the Jacobian rows into the structure, once per kernel."""

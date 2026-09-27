@@ -73,7 +73,7 @@ class LinearCK(ADERDGBase):
                     self.Q.optName(),
                     self.Q.optSize(),
                     self.Q.optPos(),
-                    self.Q.shape(),
+                    (self.num3DBasisFunctions(), self.numQuantities()),
                     alignStride=True,
                     temporary=True,
                 )
@@ -121,8 +121,8 @@ class LinearCK(ADERDGBase):
             localFlux = lambda i: self.nodalFlux(
                 self.I,
                 self.Q,
-                self.db.V3mTo2nFace[i],
-                self.db.project2nFaceTo3m[i],
+                self.db.V3mTo2nFace[i][self.t("nl")],
+                self.db.project2nFaceTo3m[i]["kn"],
                 self.fluxCoefficientsLocal,
             )
         else:
@@ -164,8 +164,8 @@ class LinearCK(ADERDGBase):
                 localFlux = lambda i: self.nodalFlux(
                     self.I,
                     self.Q,
-                    self.db.V3mTo2nFace[i],
-                    self.db.project2nFaceTo3m[i],
+                    self.db.V3mTo2nFace[i][self.t("nl")],
+                    self.db.project2nFaceTo3m[i]["kn"],
                     self.fluxCoefficientsLocal,
                 )
             else:
@@ -203,8 +203,8 @@ class LinearCK(ADERDGBase):
             neighborFlux = lambda j, i: self.nodalFlux(
                 self.I,
                 self.Q,
-                self.db.neighborToFace[0, j],
-                self.db.project2nFaceTo3m[i],
+                self.db.neighborToFace[0, j]["nl"],
+                self.db.project2nFaceTo3m[i]["kn"],
                 self.fluxCoefficientsNeighbor,
             )
         else:
