@@ -58,7 +58,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     updateStateVariableIterative(ctx, timeIndex);
 
-    TPMethod::calcFluidPressure(ctx, timeIndex, true);
+    TPMethod::finalizeFluidPressure(ctx, timeIndex);
     updateDirectionAndProjections(ctx);
     updateNormalStress(ctx);
     calcSlipRateAndTraction(ctx, timeIndex);
@@ -180,11 +180,16 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     bool hasConvergedOuter = false;
     bool hasConvergedInner = true;
 
+    // The pressurization of this step is affine in the shear heating, so one walk over the
+    // wavenumber grid covers every iteration below; what the iterations then do is evaluate two
+    // coefficients.
+    TPMethod::prepareFluidPressure(ctx, timeIndex);
+
     for (uint32_t j = 0; j < ctx.data->drParameters.rsNumberStateVariableUpdates; j++) {
 
       const auto dt{ctx.args->deltaT[timeIndex]};
       Derived::updateStateVariable(ctx, dt);
-      TPMethod::calcFluidPressure(ctx, timeIndex, false);
+      TPMethod::applyShearHeating(ctx);
       const real invEta = updateDirectionAndProjections(ctx);
       updateNormalStress(ctx);
 

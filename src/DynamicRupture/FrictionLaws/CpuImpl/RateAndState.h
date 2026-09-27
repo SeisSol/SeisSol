@@ -80,8 +80,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                        ltsFace);
 
     // compute final thermal pressure and normalStress
-    tpMethod_.calcFluidPressure(
-        normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], true, ltsFace);
+    tpMethod_.finalizeFluidPressure(
+        normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], ltsFace);
     updateDirectionAndProjections(slipDirection1,
                                   slipDirection2,
                                   absoluteShearStress,
@@ -323,6 +323,11 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     // procedure source: Kaneko 2008; doi:10.1029/2007JB005154 . Section 2.3. But extended for a
     // virtually unlimited number of outer fixed point iterations.
 
+    // The pressurization of this step is affine in the shear heating, so one walk over the
+    // wavenumber grid covers every iteration below; what the iterations then do is evaluate two
+    // coefficients per point.
+    tpMethod_.prepareFluidPressure(this->deltaT_[timeIndex], ltsFace);
+
     for (uint32_t j = 0; j < this->drParameters_.rsNumberStateVariableUpdates; j++) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
@@ -335,8 +340,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                              this->deltaT_[timeIndex],
                                                              localSlipRate[pointIndex]);
       }
-      tpMethod_.calcFluidPressure(
-          normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], false, ltsFace);
+      tpMethod_.applyShearHeating(normalStress, this->mu_, localSlipRate, ltsFace);
 
       updateDirectionAndProjections(slipDirection1,
                                     slipDirection2,
