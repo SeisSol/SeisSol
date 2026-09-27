@@ -235,7 +235,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   real matAMinusData[tensor::star::size(0)]{};
 
   const auto& fault = meshReader.getFault();
-  const auto& elements = meshReader.getElements();
 
   for (auto& layer : drStorage.leaves(Ghost)) {
     auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>();

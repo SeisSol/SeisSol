@@ -38,10 +38,10 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace vertexorderinvariancetest {
 
 // as PUMLReader reads a mesh without periodic identification
-void readPumlMesh(seissol::geometry::PumlMesh& mesh, const std::string& file) {
+inline void readPumlMesh(seissol::geometry::PumlMesh& mesh, const std::string& file) {
   mesh.setComm(seissol::Mpi::mpi.comm());
   mesh.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
   mesh.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
@@ -49,9 +49,9 @@ void readPumlMesh(seissol::geometry::PumlMesh& mesh, const std::string& file) {
   mesh.generateMesh();
 }
 
-std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string& file,
-                                                        const std::string& partitioningLib,
-                                                        seissol::SeisSol& seissolInstance) {
+inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string& file,
+                                                               const std::string& partitioningLib,
+                                                               seissol::SeisSol& seissolInstance) {
   using namespace seissol::initializer;
   static const auto FaceMap = defaultFaceMap();
   const ClusteringConfig config{
@@ -69,7 +69,7 @@ std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string& file,
 }
 
 // a mesh, and the same mesh with the vertices of its cells listed in another order
-const std::vector<std::pair<std::string, std::string>> MeshPairs = {
+inline const std::vector<std::pair<std::string, std::string>> MeshPairs = {
     {"Testing/mesh.h5", "Testing/mesh-permuted.h5"},
     {"Testing/mesh-offgrid.h5", "Testing/mesh-offgrid-permuted.h5"}};
 
@@ -77,24 +77,33 @@ const std::vector<std::pair<std::string, std::string>> MeshPairs = {
 // ParHIPEcoMesh and ParHIPEcoSocial: their evolutionary initial partitioning runs for a fixed
 // wall-clock time (2048 s over the number of ranks), so their partition differs from run to run
 // anyway.
-const std::vector<std::string> PartitioningLibs = {"Parmetis",
-                                                   "ParmetisGeometric",
-                                                   "PtScotch",
-                                                   "PtScotchQuality",
-                                                   "PtScotchBalance",
-                                                   "PtScotchBalanceQuality",
-                                                   "PtScotchSpeed",
-                                                   "PtScotchBalanceSpeed",
-                                                   "ParHIPUltrafastMesh",
-                                                   "ParHIPFastMesh",
-                                                   "ParHIPUltrafastSocial",
-                                                   "ParHIPFastSocial"};
+inline const std::vector<std::string> PartitioningLibs = {"Parmetis",
+                                                          "ParmetisGeometric",
+                                                          "PtScotch",
+                                                          "PtScotchQuality",
+                                                          "PtScotchBalance",
+                                                          "PtScotchBalanceQuality",
+                                                          "PtScotchSpeed",
+                                                          "PtScotchBalanceSpeed",
+                                                          "ParHIPUltrafastMesh",
+                                                          "ParHIPFastMesh",
+                                                          "ParHIPUltrafastSocial",
+                                                          "ParHIPFastSocial"};
 
-} // namespace
+// a neighbor on this rank (and not the number of elements, which stands for none)
+inline bool isLocal(LocalElemId neighbor, std::size_t elementCount) {
+  return neighbor >= 0 && static_cast<std::size_t>(neighbor) < elementCount;
+}
+
+} // namespace vertexorderinvariancetest
+
+using namespace vertexorderinvariancetest;
 
 TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
           doctest::test_suite("geometry")) {
-  for (const auto& [file, filePermuted] : MeshPairs) {
+  for (const auto& meshPair : MeshPairs) {
+    const auto& file = meshPair.first;
+    const auto& filePermuted = meshPair.second;
     CAPTURE(file);
     seissol::geometry::PumlMesh mesh;
     seissol::geometry::PumlMesh meshPermuted;
@@ -102,7 +111,7 @@ TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
     readPumlMesh(meshPermuted, tpath(filePermuted));
 
     PUML::TETPartitionGraph graph(mesh);
-    PUML::TETPartitionGraph graphPermuted(meshPermuted);
+    const PUML::TETPartitionGraph graphPermuted(meshPermuted);
 
     // the partitioners see nothing but these (and the weights, which are per cell)
     CHECK(graph.vertexDistribution() == graphPermuted.vertexDistribution());
@@ -189,7 +198,9 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
     }
   }
   for (const auto& partitioningLib : partitioningLibs) {
-    for (const auto& [file, filePermuted] : MeshPairs) {
+    for (const auto& meshPair : MeshPairs) {
+      const auto& file = meshPair.first;
+      const auto& filePermuted = meshPair.second;
       CAPTURE(partitioningLib);
       CAPTURE(file);
       std::cout.setstate(std::ios_base::failbit);
@@ -227,9 +238,10 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
           CHECK(element.boundaries[j] == elementPermuted.boundaries[j]);
           CHECK(element.neighborRanks[j] == elementPermuted.neighborRanks[j]);
           CHECK(element.faultTags[j] == elementPermuted.faultTags[j]);
-          const bool local = element.neighbors[j] < elements.size();
-          CHECK(local == (elementPermuted.neighbors[j] < elementsPermuted.size()));
-          if (local && elementPermuted.neighbors[j] < elementsPermuted.size()) {
+          const bool local = isLocal(element.neighbors[j], elements.size());
+          const bool localPermuted = isLocal(elementPermuted.neighbors[j], elementsPermuted.size());
+          CHECK(local == localPermuted);
+          if (local && localPermuted) {
             CHECK(elements[element.neighbors[j]].globalId ==
                   elementsPermuted[elementPermuted.neighbors[j]].globalId);
           }
