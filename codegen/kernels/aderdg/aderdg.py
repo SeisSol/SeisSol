@@ -572,13 +572,36 @@ class ADERDGBase(ABC):
         self.fluxCoefficientsNeighbor = [
             Tensor(f"fluxCoefficientsNeighbor({a})", (faceNodes,)) for a in range(count)
         ]
+        # A kernel that applies the flux of all four faces at once needs the
+        # operands of each face apart: the scalars and the rotation both belong
+        # to one face. The rotations alias what a face stores, so they take the
+        # layout of the one rotation the per-face kernels read.
+        self.fluxCoefficientsLocalAll = [
+            [
+                Tensor(f"fluxCoefficientsLocalAll({face},{a})", (faceNodes,))
+                for a in range(count)
+            ]
+            for face in range(4)
+        ]
+        rotationLayout = self.T.memoryLayout()
+        self.TAll = []
+        for face in range(4):
+            rotation = Tensor(f"TAll({face})", self.T.shape(), spp=self.T.spp())
+            rotation.setMemoryLayout(
+                rotationLayout.__class__,
+                alignStride=rotationLayout.alignedStride(),
+                alignmentArch=rotationLayout.alignmentArch(),
+            )
+            self.TAll.append(rotation)
         shape = (faceNodes, extended)
         self.faceValues = self.nodalTemporary("faceValues", shape)
         self.faceRotated = self.nodalTemporary("faceRotated", shape)
         self.faceProduct = self.nodalTemporary("faceProduct", shape)
         self.faceBack = self.nodalTemporary("faceBack", shape)
 
-    def nodalFlux(self, source, target, toFace, lift, coefficientsOfFace):
+    def nodalFlux(
+        self, source, target, toFace, lift, coefficientsOfFace, rotation=None
+    ):
         """One face contribution where the operator varies along the face.
 
         The field is read at the nodes of the face and turned into the face
@@ -591,11 +614,14 @@ class ADERDGBase(ABC):
         `toFace` reads the field at the nodes of the face, with the node index
         first and the mode index second; `lift` goes the other way. Both come
         indexed, because how a matrix is laid out is the caller's to state.
+        `rotation` is the face rotation the kernel reads, T unless a kernel
+        applies more than one face and needs one per face.
         """
+        rotation = self.T if rotation is None else rotation
         statements = [
             self.faceValues["nq"]
             <= toFace * source["lk"] * self.inverseVoigtWeights["kq"],
-            self.faceRotated["nk"] <= self.faceValues["nq"] * self.T["qk"],
+            self.faceRotated["nk"] <= self.faceValues["nq"] * rotation["qk"],
         ]
         first = True
         for a, coefficient in enumerate(coefficientsOfFace):
@@ -607,8 +633,30 @@ class ADERDGBase(ABC):
                 <= (term if first else self.faceProduct["nl"] + term)
             )
             first = False
-        statements.append(self.faceBack["np"] <= self.faceProduct["nl"] * self.T["pl"])
+        statements.append(
+            self.faceBack["np"] <= self.faceProduct["nl"] * rotation["pl"]
+        )
         statements.append(target["kp"] <= target["kp"] + lift * self.faceBack["np"])
+        return statements
+
+    def nodalLocalFluxAll(self, source, target):
+        """The local flux of all four faces in one kernel, where the operator
+        varies along a face.
+
+        A face whose flux the cell does not take -- a fault face -- carries
+        zero scalars, the same way the matrix form carries a zero matrix, so
+        the four faces need no case distinction here.
+        """
+        statements = []
+        for face in range(4):
+            statements += self.nodalFlux(
+                source,
+                target,
+                self.db.V3mTo2nFace[face][self.t("nl")],
+                self.db.project2nFaceTo3m[face]["kn"],
+                self.fluxCoefficientsLocalAll[face],
+                rotation=self.TAll[face],
+            )
         return statements
 
     def solverCoefficientCount(self):
@@ -1021,3 +1069,10 @@ class ADERDGBase(ABC):
             include_tensors.add(orientation)
         if self.nodalFaceFlux:
             include_tensors.add(self.db.M2)
+            # the nodal flux is checked against the matrix form, which is
+            # built from these. No flux kernel of such a build names them, and
+            # a device build premultiplies them even where the matrix form
+            # remains, so they reach the generated code only from here.
+            for family in (self.db.rDivM, self.db.fMrT):
+                for member in family.values():
+                    include_tensors.add(member)

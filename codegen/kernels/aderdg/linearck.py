@@ -178,13 +178,18 @@ class LinearCK(ADERDGBase):
                     target=target,
                 )
 
-            localFluxAll = self.Q["kp"] <= sum(
-                [
-                    plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusTAll[i]["qp"]
-                    for i in range(4)
-                ],
-                start=self.Q["kp"],
-            )
+            if self.nodalFaceFlux:
+                localFluxAll = self.nodalLocalFluxAll(self.I, self.Q)
+            else:
+                localFluxAll = self.Q["kp"] <= sum(
+                    [
+                        plusFluxMatrixAccessor(i)
+                        * self.I["lq"]
+                        * self.AplusTAll[i]["qp"]
+                        for i in range(4)
+                    ],
+                    start=self.Q["kp"],
+                )
             generator.add(
                 f"{name_prefix}localFluxAll",
                 localFluxAll,
@@ -221,7 +226,16 @@ class LinearCK(ADERDGBase):
             target="cpu",
         )
 
-        if "gpu" in targets:
+        if "gpu" in targets and self.nodalFaceFlux:
+            # the same statements as on the host; only the premultiplied
+            # matrices below are a device matter, and the nodal form has none
+            generator.addFamily(
+                "gpu_neighboringFlux",
+                simpleParameterSpace(4, 4),
+                neighborFlux,
+                target="gpu",
+            )
+        elif "gpu" in targets:
             minusFluxMatrixAccessor = (
                 lambda j, i: self.db.rDivM[i][self.t("km")]
                 * self.db.fPrT[j][self.t("ml")]

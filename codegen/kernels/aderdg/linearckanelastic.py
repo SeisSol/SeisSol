@@ -342,18 +342,21 @@ class LinearCKAnelastic(ADERDGBase):
                 target=target,
             )
 
-            flux_ops = [
-                self.Qext["kp"]
-                <= sum(
-                    [
-                        plusFluxMatrixAccessor(i)
-                        * self.I["lq"]
-                        * self.AplusTAll[i]["qp"]
-                        for i in range(4)
-                    ],
-                    start=self.Qext["kp"],
-                )
-            ]
+            if self.nodalFaceFlux:
+                flux_ops = self.nodalLocalFluxAll(self.I, self.Qext)
+            else:
+                flux_ops = [
+                    self.Qext["kp"]
+                    <= sum(
+                        [
+                            plusFluxMatrixAccessor(i)
+                            * self.I["lq"]
+                            * self.AplusTAll[i]["qp"]
+                            for i in range(4)
+                        ],
+                        start=self.Qext["kp"],
+                    )
+                ]
             generator.add(
                 f"{name_prefix}fluxLocalAll",
                 flux_ops + local_ops,
