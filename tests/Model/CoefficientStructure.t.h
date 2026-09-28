@@ -437,7 +437,11 @@ TEST_CASE("Coefficient origins") {
     // can be shown to depend on the material at all
     std::array<double, Setup::NumCoefficients> movement{};
 
-    for (const auto& [name, member] : Material::ParameterMap) {
+    for (const auto& parameter : Material::ParameterMap) {
+      // not a structured binding: INFO captures the name in a lambda, which
+      // may not capture one before C++20
+      const auto& name = parameter.first;
+      const auto member = parameter.second;
       auto perturbed = prototype;
       // a factor rather than an offset, so every parameter is probed on its
       // own scale

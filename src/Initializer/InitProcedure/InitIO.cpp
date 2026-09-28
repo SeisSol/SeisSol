@@ -557,7 +557,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         });
 
         const bool nodal = seissolParams.model.materialNodal;
-        for (const auto& [parameterName, member] : parameters) {
+        for (const auto& parameter : parameters) {
+          // a copy rather than a structured binding: a lambda may not capture
+          // one before C++20
+          const auto& parameterName = parameter.first;
+          const auto member = parameter.second;
           writer.addGeometryOutput<real>(
               namewrap(parameterName, sim),
               {},
