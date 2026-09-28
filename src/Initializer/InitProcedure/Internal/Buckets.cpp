@@ -7,9 +7,9 @@
 #include "Buckets.h"
 
 #include "Alignment.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
-#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
@@ -157,7 +157,7 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   const auto* cellInformation = layer.var<LTS::CellInformation>();
   BucketManager manager;
 
-  const auto datatype = Config::Precision;
+  const auto datatype = configValue(layer.getIdentifier().config).precision;
   const auto typeSize = sizeOfRealType(datatype);
 
   const auto allocate = [&](std::size_t index, BufferType type) {

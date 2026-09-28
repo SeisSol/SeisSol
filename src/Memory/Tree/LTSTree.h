@@ -10,9 +10,9 @@
 #define SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 
 #include "Backmap.h"
+#include "Common/ConfigDispatch.h"
 #include "Common/Iterator.h"
 #include "Common/Literals.h"
-#include "Config.h"
 #include "Layer.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
@@ -103,26 +103,22 @@ class Storage {
     if constexpr (std::is_same_v<typename TraitT::Type, void>) {
       m.bytes = 0;
       m.bytesLayer = [count](const LayerIdentifier& identifier) {
-        return std::visit(
-            [&](auto type) {
-              using SelfT = typename TraitT::template VariantType<decltype(type)>;
-              if constexpr (!std::is_same_v<void, SelfT>) {
-                return sizeof(SelfT) * count;
-              }
-              return 0_UZ;
-            },
-            identifier.config);
+        return dispatchConfig(identifier.config, [&](auto config) {
+          using SelfT = typename TraitT::template VariantType<decltype(config)>;
+          if constexpr (!std::is_same_v<void, SelfT>) {
+            return sizeof(SelfT) * count;
+          }
+          return 0_UZ;
+        });
       };
       m.alignmentLayer = [](const LayerIdentifier& identifier) {
-        return std::visit(
-            [&](auto type) {
-              using SelfT = typename TraitT::template VariantType<decltype(type)>;
-              if constexpr (!std::is_same_v<void, SelfT>) {
-                return alignof(SelfT);
-              }
-              return alignof(std::max_align_t);
-            },
-            identifier.config);
+        return dispatchConfig(identifier.config, [&](auto config) {
+          using SelfT = typename TraitT::template VariantType<decltype(config)>;
+          if constexpr (!std::is_same_v<void, SelfT>) {
+            return alignof(SelfT);
+          }
+          return alignof(std::max_align_t);
+        });
       };
     } else {
       using SelfT = typename TraitT::Type;

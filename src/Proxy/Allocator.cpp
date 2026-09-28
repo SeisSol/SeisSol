@@ -9,6 +9,8 @@
 #include "Allocator.h"
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Config.h"
 #include "GeneratedCode/tensor.h"
@@ -133,8 +135,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 } // namespace
 
 ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
-  layerId =
-      initializer::LayerIdentifier(HaloType::Interior, initializer::ConfigVariant{Config()}, 0);
+  layerId = initializer::LayerIdentifier(HaloType::Interior, configIdOf<Config>(), 0);
 
   initGlobalData();
   initDataStructures(enableDR);
@@ -161,10 +162,9 @@ void ProxyData::initGlobalData() {
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
-  const initializer::LTSColorMap map(
-      initializer::EnumLayer<HaloType>({HaloType::Interior}),
-      initializer::EnumLayer<std::size_t>({0}),
-      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
+  const initializer::LTSColorMap map(initializer::EnumLayer<HaloType>({HaloType::Interior}),
+                                     initializer::EnumLayer<std::size_t>({0}),
+                                     initializer::EnumLayer<ConfigId>({configIdOf<Config>()}));
 
   // init RNG
   const auto nullSettings = SimulationSettings(false, false);
