@@ -64,10 +64,12 @@ __global__ void
                                unsigned* __restrict isAdjustableVector,
                                std::size_t* __restrict yieldCounter,
                                const seissol::model::PlasticityData* __restrict plasticity,
+                               const unsigned* __restrict cellIndices,
                                double oneMinusIntegratingFactor,
                                double tV,
                                double timeStepWidth) {
   real* __restrict qStressNodal = nodalStressTensors[blockIdx.x];
+  const seissol::model::PlasticityData& cellPlasticity = plasticity[cellIndices[blockIdx.x]];
   real localStresses[NumStressComponents];
 
   constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
@@ -94,8 +96,8 @@ __global__ void
 
   // 4. Compute the plasticity criteria
   const real cohesionTimesCosAngularFriction =
-      plasticity[blockIdx.x].cohesionTimesCosAngularFriction[linearidx()];
-  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction[linearidx()];
+      cellPlasticity.cohesionTimesCosAngularFriction[linearidx()];
+  const real sinAngularFriction = cellPlasticity.sinAngularFriction[linearidx()];
   const real taulim = std::max(static_cast<real>(0.0),
                                cohesionTimesCosAngularFriction - meanStress * sinAngularFriction);
 
@@ -115,7 +117,7 @@ __global__ void
   // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
   __syncthreads();
   if (isAdjusted) {
-    const real factor = plasticity[blockIdx.x].mufactor / (tV * oneMinusIntegratingFactor);
+    const real factor = cellPlasticity.mufactor / (tV * oneMinusIntegratingFactor);
 
     real* __restrict eta = pstrainPtr[blockIdx.x] + tensor::QStressNodal::size();
     real* __restrict localPstrain = pstrainPtr[blockIdx.x];
@@ -153,6 +155,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
                          const seissol::model::PlasticityData* __restrict plasticity,
+                         const unsigned* __restrict cellIndices,
                          double oneMinusIntegratingFactor,
                          double tV,
                          double timeStepWidth,
@@ -169,6 +172,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                                                          isAdjustableVector,
                                                          yieldCounter,
                                                          plasticity,
+                                                         cellIndices,
                                                          oneMinusIntegratingFactor,
                                                          tV,
                                                          timeStepWidth);
