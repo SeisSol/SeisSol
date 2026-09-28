@@ -8,9 +8,12 @@
 #ifndef SEISSOL_SRC_COMMON_COMPACTOPTIONAL_H_
 #define SEISSOL_SRC_COMMON_COMPACTOPTIONAL_H_
 
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <optional>
-#include <stdexcept>
+#include <type_traits>
+#include <utils/logger.h>
 
 namespace seissol {
 
@@ -22,6 +25,9 @@ namespace seissol {
  */
 template <typename T, T Empty>
 class CompactOptional {
+  static_assert(std::is_trivially_copyable_v<T>,
+                "CompactOptional stores its value in place; use std::optional otherwise.");
+
   private:
   T value_{Empty};
 
@@ -30,16 +36,16 @@ class CompactOptional {
   constexpr CompactOptional(T value) : value_(value) {}
   constexpr CompactOptional() = default;
 
-  [[nodiscard]] constexpr bool hasValue() const { return value_ != Empty; }
+  [[nodiscard]] constexpr bool hasValue() const noexcept { return value_ != Empty; }
 
   [[nodiscard]] constexpr T value() const {
     if (!hasValue()) {
-      throw std::runtime_error("The optional has no value, but it was requested.");
+      logError() << "The optional has no value, but it was requested.";
     }
     return value_;
   }
 
-  [[nodiscard]] constexpr T valueOr(T alternative) const {
+  [[nodiscard]] constexpr T valueOr(T alternative) const noexcept {
     if (hasValue()) {
       return value_;
     } else {
@@ -54,9 +60,22 @@ class CompactOptional {
       return std::optional<T>{};
     }
   }
+
+  constexpr void reset() noexcept { value_ = Empty; }
+
+  friend constexpr bool operator==(const CompactOptional& lhs, const CompactOptional& rhs) noexcept {
+    return lhs.value_ == rhs.value_;
+  }
+
+  friend constexpr bool operator!=(const CompactOptional& lhs, const CompactOptional& rhs) noexcept {
+    return !(lhs == rhs);
+  }
 };
 
 using OptionalSize = CompactOptional<std::size_t, std::numeric_limits<std::size_t>::max()>;
+
+/// A side of a cell, or nothing; sides are stored as small signed integers throughout.
+using OptionalSide = CompactOptional<std::int8_t, -1>;
 
 } // namespace seissol
 

@@ -14,6 +14,8 @@
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>
+#include "Common/CompactOptional.h"
+
 #include <limits>
 
 namespace seissol::dr {
@@ -44,19 +46,15 @@ struct ExtTriangle {
 };
 
 struct ReceiverPoint {
-  CoordinateT global{};       // physical coords of a receiver
-  CoordinateT reference{};    // reference coords of a receiver
-  ExtTriangle globalTriangle; // a surrounding triangle of a receiver
-  size_t faultFaceIndex{
-      std::numeric_limits<std::size_t>::max()}; // Face Fault index which the receiver belongs to
-  int8_t localFaceSideId{-1};                   // Side ID of a reference element
-  size_t elementIndex{
-      std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
-  std::size_t elementGlobalIndex{
-      std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
-  size_t globalReceiverIndex{
-      std::numeric_limits<std::size_t>::max()}; // receiver index of global list
-  bool isInside{false};                         // If a point is inside the mesh or not
+  CoordinateT global{};        // physical coords of a receiver
+  CoordinateT reference{};     // reference coords of a receiver
+  ExtTriangle globalTriangle;  // a surrounding triangle of a receiver
+  OptionalSize faultFaceIndex; // Face Fault index which the receiver belongs to
+  OptionalSide localFaceSideId;         // Side ID of a reference element
+  OptionalSize elementIndex;            // Element which the receiver belongs to
+  OptionalSize elementGlobalIndex;      // Element which the receiver belongs to
+  OptionalSize globalReceiverIndex;     // receiver index of global list
+  bool isInside{false};                 // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   int faultTag{-1};
   int simIndex{0}; // Simulation index for multisim

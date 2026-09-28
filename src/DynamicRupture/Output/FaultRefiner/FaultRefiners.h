@@ -11,7 +11,7 @@
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
 
-#include <limits>
+#include <cstdint>
 #include <memory>
 #include <tuple>
 
@@ -20,9 +20,9 @@ class FaultRefiner {
   public:
   struct Data {
     int refinementLevel{};
-    int faultFaceIndex{};
-    int localFaceSideId{};
-    std::size_t elementId{std::numeric_limits<std::size_t>::max()};
+    std::size_t faultFaceIndex{};
+    std::int8_t localFaceSideId{};
+    std::size_t elementId{};
     std::size_t globalId{};
   };
   using PointsPair = std::pair<CoordinateT, CoordinateT>;

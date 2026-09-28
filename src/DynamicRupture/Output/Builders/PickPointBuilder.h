@@ -140,7 +140,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           auto singleReceiver = receiver;
           singleReceiver.simIndex = i;
 
-          const auto layerId = faceToLtsMap_->at(receiver.faultFaceIndex).color;
+          const auto layerId = faceToLtsMap_->at(receiver.faultFaceIndex.value()).color;
           if (outputDataPerCluster[layerId] == nullptr) {
             outputDataPerCluster[layerId] = std::make_shared<ReceiverOutputData>();
           }

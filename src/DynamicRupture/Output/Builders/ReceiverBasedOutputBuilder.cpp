@@ -120,15 +120,16 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
   constexpr size_t NumVertices{Cell::NumVertices};
   for (const auto& point : outputData_->receiverPoints) {
     if (point.isInside) {
-      if (faceIndices.find(faceToLtsMap_->at(point.faultFaceIndex).global) == faceIndices.end()) {
+      const auto faultFaceIndex = point.faultFaceIndex.value();
+      if (faceIndices.find(faceToLtsMap_->at(faultFaceIndex).global) == faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
-        faceIndices[faceToLtsMap_->at(point.faultFaceIndex).global] = faceIndex;
+        faceIndices[faceToLtsMap_->at(faultFaceIndex).global] = faceIndex;
       }
 
       ++foundPoints;
 
-      assert(faultInfo[point.faultFaceIndex].element.hasValue());
-      const auto elementIndex = faultInfo[point.faultFaceIndex].element.value();
+      assert(faultInfo[faultFaceIndex].element.hasValue());
+      const auto elementIndex = faultInfo[faultFaceIndex].element.value();
       const auto& element = elementsInfo[elementIndex];
 
       if (elementIndices.find(elementIndex) == elementIndices.end()) {
@@ -136,7 +137,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
         elementIndices[elementIndex] = index;
       }
 
-      const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
+      const auto neighborElementIndex = faultInfo[faultFaceIndex].neighborElement;
 
       std::array<CoordinateT, NumVertices> neighborElemCoords{};
       if (neighborElementIndex.hasValue()) {
@@ -149,7 +150,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
           neighborElemCoords[vertexIdx] = verticesInfo[address].coords;
         }
       } else {
-        const auto faultSide = faultInfo[point.faultFaceIndex].side;
+        const auto faultSide = faultInfo[faultFaceIndex].side;
         const auto neighborRank = element.neighborRanks[faultSide];
         const auto& ghostMetadataItr = mpiGhostMetadata.find(neighborRank);
         assert(ghostMetadataItr != mpiGhostMetadata.end());
@@ -231,20 +232,21 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
   for (std::size_t i = 0; i < outputData_->receiverPoints.size(); ++i) {
     const auto& point = outputData_->receiverPoints[i];
     if (point.isInside) {
-      assert(faultInfo[point.faultFaceIndex].element.hasValue());
-      const auto elementIndex = faultInfo[point.faultFaceIndex].element.value();
+      const auto faultFaceIndex = point.faultFaceIndex.value();
+      assert(faultInfo[faultFaceIndex].element.hasValue());
+      const auto elementIndex = faultInfo[faultFaceIndex].element.value();
       const auto& element = elementsInfo[elementIndex];
       outputData_->deviceIndices[pointCounter] =
-          faceIndices.at(faceToLtsMap_->at(point.faultFaceIndex).global);
+          faceIndices.at(faceToLtsMap_->at(faultFaceIndex).global);
 
       outputData_->deviceDataPlus[pointCounter] = elementIndices.at(elementIndex);
 
-      const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
+      const auto neighborElementIndex = faultInfo[faultFaceIndex].neighborElement;
       if (neighborElementIndex.hasValue()) {
         outputData_->deviceDataMinus[pointCounter] =
             elementIndices.at(neighborElementIndex.value());
       } else {
-        const auto faultSide = faultInfo[point.faultFaceIndex].side;
+        const auto faultSide = faultInfo[faultFaceIndex].side;
         const auto neighborRank = element.neighborRanks[faultSide];
         const auto neighborIndex = element.mpiIndices[faultSide];
         outputData_->deviceDataMinus[pointCounter] =
@@ -263,7 +265,7 @@ void ReceiverBasedOutputBuilder::initFaultDirections() {
   const auto& faultInfo = meshReader_->getFault();
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const size_t globalIndex = outputData_->receiverPoints[receiverId].faultFaceIndex;
+    const size_t globalIndex = outputData_->receiverPoints[receiverId].faultFaceIndex.value();
 
     auto& faceNormal = outputData_->faultDirections[receiverId].faceNormal;
     auto& tangent1 = outputData_->faultDirections[receiverId].tangent1;
@@ -343,8 +345,8 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   outputData_->jacobianT2d.resize(nReceiverPoints);
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto side = outputData_->receiverPoints[receiverId].localFaceSideId;
-    const auto elementIndex = outputData_->receiverPoints[receiverId].elementIndex;
+    const auto side = outputData_->receiverPoints[receiverId].localFaceSideId.value();
+    const auto elementIndex = outputData_->receiverPoints[receiverId].elementIndex.value();
 
     assert(elementIndex < elementsInfo.size());
 
@@ -360,7 +362,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
       xac[d] = faceJacobian(d, 1);
     }
 
-    const auto faultIndex = outputData_->receiverPoints[receiverId].faultFaceIndex;
+    const auto faultIndex = outputData_->receiverPoints[receiverId].faultFaceIndex.value();
     const auto& tangent1 = faultInfo[faultIndex].tangent1;
     const auto& tangent2 = faultInfo[faultIndex].tangent2;
 
@@ -392,7 +394,7 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
   auto& geoPoints = outputData_->receiverPoints;
   const auto& faultInfo = meshReader_->getFault();
   for (auto& geoPoint : geoPoints) {
-    geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex].tag;
+    geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex.value()].tag;
   }
 }
 

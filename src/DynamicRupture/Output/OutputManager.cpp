@@ -7,6 +7,8 @@
 
 #include "DynamicRupture/Output/OutputManager.h"
 
+#include "Common/Constants.h"
+
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
@@ -214,7 +216,8 @@ void OutputManager::initElementwiseOutput() {
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
       faceIdentifiers[i] =
-          receiverPoints[i].elementGlobalIndex * 4 + receiverPoints[i].localFaceSideId;
+          receiverPoints[i].elementGlobalIndex.value() * Cell::NumFaces +
+          receiverPoints[i].localFaceSideId.value();
     }
 
     seissolInstance_.faultWriter().init(cellConnectivity.data(),
@@ -261,7 +264,8 @@ void OutputManager::initElementwiseOutput() {
     writer.addCellData<std::size_t>(
         "global-id", {}, [=, &receiverPoints](std::size_t* target, std::size_t index) {
           *target =
-              receiverPoints[index].elementGlobalIndex * 4 + receiverPoints[index].localFaceSideId;
+              receiverPoints[index].elementGlobalIndex.value() * Cell::NumFaces +
+              receiverPoints[index].localFaceSideId.value();
         });
 
     misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
@@ -327,7 +331,7 @@ void OutputManager::initPickpointOutput() {
 
       std::unordered_map<std::size_t, std::vector<std::size_t>> globalIndexMap;
       for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-        globalIndexMap[outputData->receiverPoints[i].globalReceiverIndex].push_back(i);
+        globalIndexMap[outputData->receiverPoints[i].globalReceiverIndex.value()].push_back(i);
       }
 
       files.resize(globalIndexMap.size());
@@ -393,7 +397,7 @@ void OutputManager::initPickpointOutput() {
           title << "TITLE = \"Temporal Signal for fault receiver number(s) and simulation(s)";
           for (const auto& gIdx : ppfile.indices) {
             const auto& receiver = outputData->receiverPoints[gIdx];
-            const size_t globalIndex = receiver.globalReceiverIndex + 1;
+            const size_t globalIndex = receiver.globalReceiverIndex.value() + 1;
             const size_t simIndex = receiver.simIndex + 1;
             title << " " << globalIndex << "," << simIndex << ";";
           }
@@ -408,7 +412,7 @@ void OutputManager::initPickpointOutput() {
 
           for (const auto& gIdx : ppfile.indices) {
             const auto& receiver = outputData->receiverPoints[gIdx];
-            const size_t globalIndex = receiver.globalReceiverIndex + 1;
+            const size_t globalIndex = receiver.globalReceiverIndex.value() + 1;
             const size_t simIndex = receiver.simIndex;
             const auto& point = receiver.global;
 
@@ -423,7 +427,7 @@ void OutputManager::initPickpointOutput() {
             // stress info
             std::array<real, 6> rotatedInitialStress{};
             {
-              auto [layer, face] = faceToLtsMap_.at(receiver.faultFaceIndex);
+              auto [layer, face] = faceToLtsMap_.at(receiver.faultFaceIndex.value());
 
               const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>();
               const auto* initialStress = initialStressVar[face];

@@ -122,8 +122,9 @@ void ReceiverOutput::calcFaultOutput(
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
 
-    const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex;
-    assert(faceIndex != std::numeric_limits<std::size_t>::max() && "receiver is not initialized");
+    assert(outputData->receiverPoints[i].faultFaceIndex.hasValue() &&
+           "receiver is not initialized");
+    const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex.value();
     LocalInfo local{};
 
     auto [layer, ltsId] = (*faceToLtsMap_)[faceIndex];

@@ -82,7 +82,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
                   elementIdx.value(), faceSideIdx, *meshReader_));
 
           faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,
-                                             static_cast<int>(faceIdx),
+                                             faceIdx,
                                              faceSideIdx,
                                              elementIdx.value(),
                                              element.globalId},

@@ -137,7 +137,7 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
   for (auto& geoPoint : geoPoints) {
 
     const auto targetPoint2D =
-        geometry::ReferenceFaceMap(geoPoint.localFaceSideId)
+        geometry::ReferenceFaceMap(geoPoint.localFaceSideId.value())
             .cellToFace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
 
     int nearestPoint{-1};
