@@ -233,6 +233,18 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
       auto matT = init::T::view::create(matTData);
       auto matTinv = init::Tinv::view::create(matTinvData);
 
+      // Where the ghost state is already rotated, the identity stands in for
+      // Tinv. The flux solver reads it through Tinv's layout, which keeps only
+      // the pattern of the rotation, so it is written in that layout rather
+      // than handed over as the dense identityT.
+      real identityTinvData[seissol::tensor::Tinv::size()]{};
+      {
+        const auto identity = init::identityT::view::create(init::identityT::Values);
+        init::Tinv::view::create(identityTinvData).forall([&](const auto* entry, real& value) {
+          value = identity.isInRange(entry[0], entry[1]) ? identity(entry[0], entry[1]) : 0;
+        });
+      }
+
       real qGodLocalData[tensor::QgodLocal::size()]{};
       real qGodNeighborData[tensor::QgodNeighbor::size()]{};
       auto qGodLocal = init::QgodLocal::view::create(qGodLocalData);
@@ -509,7 +521,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
               cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
             // already rotated
-            neighKrnl.Tinv = init::identityT::Values;
+            neighKrnl.Tinv = identityTinvData;
           }
           neighKrnl.execute();
         }
