@@ -610,11 +610,13 @@ def generate(
     coefficients its operator has, so that a cell can be sized without
     instantiating the solver's declaration.
     """
+    # REUSE-IgnoreStart
     lines = [
         "// SPDX-FileCopyrightText: 2026 SeisSol Group\n",
         "//\n",
         "// SPDX-License-Identifier: BSD-3-Clause\n",
         "\n",
+        # REUSE-IgnoreEnd
         "#ifndef SEISSOL_GENERATEDCODE_COEFFICIENTS_H_\n",
         "#define SEISSOL_GENERATEDCODE_COEFFICIENTS_H_\n",
         "\n",
