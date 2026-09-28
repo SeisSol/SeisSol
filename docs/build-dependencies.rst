@@ -284,8 +284,7 @@ Other functionalities (optional, recommended)
 netCDF
 """"""
 
-NetCDF is needed for convergence tests, as these use periodic boundary conditions, and such are not yet supported by the PUML mesh format.
-Also, point sources utilize the netCDF backend for one type of them.
+NetCDF is needed for the finite sources in the NRF format (source type 42).
 Once again, if you do not have it installed (sometimes it comes bundled with HDF5), you may do so manually.
 
 .. code-block:: bash

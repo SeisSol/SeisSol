@@ -92,7 +92,6 @@ preprocessing/
 ============= =============
 Folder        Description
 ============= =============
-meshing       Cube generator; gmsh converter; various scripts.
 science       ASAGI converter; standard rupture format converter; various scripts.
 ============= =============
 

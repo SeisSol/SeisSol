@@ -158,8 +158,3 @@ requires additional data to be specified. There are two ways to encode purely-to
 - vertex-wise: assign a topological vertex to each geometric vertex, called ``identify`` in the mesh file. From that, we subsequently generate the topological connectivity array. (topology format ``identify-vertex``)
 
 Currently, the topological vertex IDs may not exceed the number of geometric vertices.
-
-Cube Generator
-~~~~~~~~~~~~~~
-
-A cube mesh generator is integrated in SeisSol as well; it also supports periodic boundary conditions, but only single-rank setups.
