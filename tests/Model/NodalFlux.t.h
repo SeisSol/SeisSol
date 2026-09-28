@@ -9,7 +9,7 @@
 #define SEISSOL_TESTS_MODEL_NODALFLUX_T_H_
 
 // Where the material varies along a face the flux is applied at the nodes of
-// that face, from ten scalars per node instead of one matrix. A material that
+// that face, from a few scalars per node instead of one matrix. A material that
 // does not vary has to give back exactly what the matrix form gives, and the
 // reference here is the real one: the operator that computeFluxSolverLocal
 // builds, contracted with the matrices the modal kernel uses. A face taken for
@@ -133,7 +133,7 @@ void compareAgainstModal(FaceType faceType) {
       solver.star(0) = star.data();
       solver.execute();
 
-      // 2. the ten scalars, read off the face-coordinate operator
+      // 2. the scalars, read off the face-coordinate operator
       Eigen::MatrixXd faceOperator = Eigen::MatrixXd::Zero(NQ, NQ);
       for (std::size_t row = 0; row < NQ; ++row) {
         for (std::size_t column = 0; column < NQ; ++column) {

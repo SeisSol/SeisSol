@@ -145,7 +145,7 @@ class FluxEntry:
     factor: float
 
 
-def flux_decomposition(blocks):
+def flux_decomposition(blocks, diagonal=None):
     """The scalars the flux operator of a face is linear in, and where they sit.
 
     That the operator is a handful of scalars at all is measured, not derived:
@@ -171,6 +171,14 @@ def flux_decomposition(blocks):
     left uncoupled, which is what the operator of an acoustic medium shows.
     Coefficients that end up with no entry are dropped, so a layout gets exactly
     the scalars it has positions for.
+
+    The Rusanov form adds a penalty on the whole diagonal of the operator, up
+    to ``diagonal`` quantities -- including the ones the Godunov state never
+    reads, the transverse stresses of a face say, which no scalar above has a
+    position for. With ``diagonal`` given, those positions get one scalar of
+    their own. It is zero for the Godunov flux, and the penalty for the
+    Rusanov one; the diagonal positions the scalars above already hold take
+    the penalty on top of what they carry.
 
     Returns the coefficient names, where each is read off a computed operator,
     and the entries each one fills.
@@ -232,6 +240,17 @@ def flux_decomposition(blocks):
                 tuple(zip(velocityShears, mechanismShears)),
             ),
         ]
+
+    if diagonal is not None:
+        covered = {
+            row for _, positions in groups for row, column in positions if row == column
+        }
+        groups.append(
+            (
+                "penalty",
+                tuple((q, q) for q in range(diagonal) if q not in covered),
+            )
+        )
 
     groups = [(name, positions) for name, positions in groups if positions]
     names = tuple(name for name, _ in groups)
@@ -602,6 +621,7 @@ def generate(
     material_samples: int = 1,
     face_permutations=(),
     flux_blocks=(),
+    flux_diagonal=None,
     flux_decomposes: bool = True,
 ) -> None:
     """Write the declarations of every material into a C++ header.
@@ -687,7 +707,9 @@ def generate(
         lines.append("}};\n\n")
 
     if flux_decomposes:
-        flux_names, flux_sources, flux_entries = flux_decomposition(flux_blocks)
+        flux_names, flux_sources, flux_entries = flux_decomposition(
+            flux_blocks, flux_diagonal
+        )
     else:
         # nothing to state, and a build that would need it is refused where the
         # kernels are generated

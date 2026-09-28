@@ -459,6 +459,7 @@ def main():
                 cmdLineArgs.matricesDir, adgForTables
             ),
             flux_blocks=adgForTables.extendedBlocks(),
+            flux_diagonal=adgForTables.QgodLocal.shape()[0],
             flux_decomposes=adgForTables.fluxDecomposes(),
         )
 

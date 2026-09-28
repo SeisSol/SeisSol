@@ -510,8 +510,10 @@ class ADERDGBase(ABC):
     def _configureNodalFlux(self):
         """The tensors a face carries where the material varies along it.
 
-        In face coordinates the flux operator is ten scalars times fixed
-        entries -- measured, and stated in the generated tables -- so a face
+        In face coordinates the flux operator is a few scalars times fixed
+        entries -- ten for the Godunov flux of an elastic medium, one more for
+        the Rusanov penalty, and a set per relaxation mechanism; measured, and
+        stated in the generated tables -- so a face
         holds those scalars per node instead of a matrix. In global coordinates
         it is not: rotated, the same operator occupies every entry and spans
         far more than ten dimensions, so the rotation belongs in the kernel and
@@ -527,8 +529,9 @@ class ADERDGBase(ABC):
         extended = self.numExtendedQuantities()
         weights = voigt_weights(self.quantityBlocks())
 
+        # the Rusanov diagonal spans the square part of the Godunov state
         names, self.fluxSources, entries = coefficients.flux_decomposition(
-            self.extendedBlocks()
+            self.extendedBlocks(), self.QgodLocal.shape()[0]
         )
         count = len(names)
         self._fluxCoefficientCount = count
@@ -571,7 +574,7 @@ class ADERDGBase(ABC):
         """One face contribution where the operator varies along the face.
 
         The field is read at the nodes of the face and turned into the face
-        coordinates the ten scalars are stated in, the operator is applied
+        coordinates the scalars are stated in, the operator is applied
         there, and the result is turned back and lifted into the cell with the
         operator the nodal boundary conditions already use. The rotation is the
         same matrix both ways, once transposed against the quantity the field

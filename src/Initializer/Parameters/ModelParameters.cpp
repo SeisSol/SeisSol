@@ -138,11 +138,6 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                                                            {"rusanov", NumericalFlux::Rusanov},
                                                        });
 
-  if (NodalFlux && (flux == NumericalFlux::Rusanov || fluxNearFault == NumericalFlux::Rusanov)) {
-    logError() << "The flux at the nodes of a face (MATERIAL_NODAL=ON) is stated for the Godunov "
-                  "flux only, so numflux and numfluxnearfault have to be godunov in this build.";
-  }
-
   return ModelParameters{hasBoundaryFile,
                          plasticity,
                          plasticityPointwise,

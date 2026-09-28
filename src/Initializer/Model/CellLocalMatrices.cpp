@@ -136,8 +136,10 @@ void faceMaterials(const GlobalData& global,
   }
 }
 
-/// The ten scalars the flux operator of one node is built from, in the
-/// coordinates of the face.
+/// The scalars the flux operator of one node is built from, in the
+/// coordinates of the face: ten for the Godunov flux of an elastic medium, and
+/// one more for the Rusanov penalty on the part of the diagonal the Godunov
+/// state never reads, which is zero for the Godunov flux.
 ///
 /// The matrix form folds the rotation into what a face stores; here it stays
 /// in the kernel, because rotated the operator no longer has ten degrees of

@@ -592,6 +592,45 @@ TEST_CASE("Flux decomposition") {
     return Matrix(godunov * coefficientMatrix);
   };
 
+  // The Rusanov form: the central flux of the local material and a penalty of
+  // half the larger wave speed on the whole diagonal, added on the plus side
+  // and taken off on the minus side -- which is what the flux solvers build
+  // from the central Godunov state and the Rusanov correction.
+  const auto rusanovOperator = [&](const Material& local, const Material& neighbor, bool plus) {
+    Matrix coefficientMatrix = Matrix::Zero();
+    seissol::model::getTransposedCoefficientMatrix(local, 0, coefficientMatrix);
+    Matrix result = 0.5 * coefficientMatrix;
+    const double penalty = 0.5 * std::max(local.getMaxWaveSpeed(), neighbor.getMaxWaveSpeed());
+    for (std::size_t i = 0; i < std::min(N, Columns); ++i) {
+      result(i, i) += plus ? penalty : -penalty;
+    }
+    return result;
+  };
+
+  // read the scalars off an operator, put it back together from them, and
+  // require the two to agree
+  const auto requireDecomposes = [&](const Matrix& reference) {
+    std::array<double, seissol::generated::FluxNumCoefficients> coefficients{};
+    for (std::size_t a = 0; a < coefficients.size(); ++a) {
+      const auto& source = seissol::generated::FluxCoefficientSources[a];
+      coefficients[a] = reference(source.row, source.column);
+    }
+
+    Matrix candidate = Matrix::Zero();
+    for (const auto& entry : seissol::generated::FluxCoefficientEntries) {
+      candidate(entry.row, entry.column) += entry.factor * coefficients[entry.coefficient];
+    }
+
+    const double scale = std::max(1.0, reference.cwiseAbs().maxCoeff());
+    for (std::size_t row = 0; row < N; ++row) {
+      for (std::size_t column = 0; column < Columns; ++column) {
+        REQUIRE(candidate(row, column) == doctest::Approx(reference(row, column))
+                                              .epsilon(coefficients::tolerance(1e-14))
+                                              .scale(scale));
+      }
+    }
+  };
+
   const auto check = [&](bool acousticLocal, bool acousticNeighbor, seissol::FaceType faceType) {
     for (std::size_t sample = 0; sample < 64; ++sample) {
       const auto local = draw(acousticLocal);
@@ -604,26 +643,10 @@ TEST_CASE("Flux decomposition") {
       const bool hasNeighbor = faceType == seissol::FaceType::Regular;
       for (const bool plus :
            hasNeighbor ? std::vector<bool>{true, false} : std::vector<bool>{true}) {
-        const Matrix reference = fluxOperator(local, neighbor, plus, faceType);
-
-        std::array<double, seissol::generated::FluxNumCoefficients> coefficients{};
-        for (std::size_t a = 0; a < coefficients.size(); ++a) {
-          const auto& source = seissol::generated::FluxCoefficientSources[a];
-          coefficients[a] = reference(source.row, source.column);
-        }
-
-        Matrix candidate = Matrix::Zero();
-        for (const auto& entry : seissol::generated::FluxCoefficientEntries) {
-          candidate(entry.row, entry.column) += entry.factor * coefficients[entry.coefficient];
-        }
-
-        const double scale = std::max(1.0, reference.cwiseAbs().maxCoeff());
-        for (std::size_t row = 0; row < N; ++row) {
-          for (std::size_t column = 0; column < Columns; ++column) {
-            REQUIRE(candidate(row, column) == doctest::Approx(reference(row, column))
-                                                  .epsilon(coefficients::tolerance(1e-14))
-                                                  .scale(scale));
-          }
+        requireDecomposes(fluxOperator(local, neighbor, plus, faceType));
+        // the Rusanov form is only taken between two cells
+        if (hasNeighbor) {
+          requireDecomposes(rusanovOperator(local, neighbor, plus));
         }
       }
     }
