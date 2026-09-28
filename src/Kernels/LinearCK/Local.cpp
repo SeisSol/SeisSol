@@ -284,6 +284,7 @@ void Local::computeBatchedIntegral(
 
     set_ET(volKrnl, localIntegrationPtrs);
     set_extraOffset_ET(volKrnl, SourceMatrixOffset / sizeof(real));
+    kernels::bindSourceOperandsBatched(volKrnl, localIntegrationPtrs);
 
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
@@ -296,13 +297,7 @@ void Local::computeBatchedIntegral(
     localFluxKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      localFluxKrnl.AplusTAll(face) = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localFluxKrnl.extraOffset_AplusTAll(face) =
-          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-    }
+    kernels::bindLocalFluxAllOperandsBatched(localFluxKrnl, localIntegrationPtrs);
     localFluxKrnl.linearAllocator.initialize(tmpMem.get());
     localFluxKrnl.streamPtr = runtime.stream();
     localFluxKrnl.execute();
@@ -321,11 +316,11 @@ void Local::computeBatchedIntegral(
       localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       localFluxKrnl.I =
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-
-      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
-      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+      kernels::bindLocalFluxOperandsBatched(
+          localFluxKrnl,
+          const_cast<const real**>(
+              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()),
+          face);
       localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);

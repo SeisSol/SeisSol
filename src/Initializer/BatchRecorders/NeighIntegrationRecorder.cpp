@@ -15,6 +15,7 @@
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/OperatorLayout.h"
 #include "Recorders.h"
 
 #include <array>
@@ -122,6 +123,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
+  // where the flux is applied at the nodes of a face, it reads the rotation of
+  // the face from the cell's own data
+  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicLocal {};
 
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
@@ -159,6 +163,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
               idofsAddressRegistry_[neighborBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
+          if constexpr (NodalFlux) {
+            regularPeriodicLocal[face][faceRelation].push_back(
+                reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
+          }
           if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
             regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
                                                          kernels::size<tensor::Qext>() * cell);
@@ -215,6 +223,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
                                   regularPeriodicDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
                                   regularPeriodicAminusT[face][faceRelation]);
+        if constexpr (NodalFlux) {
+          (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData,
+                                    regularPeriodicLocal[face][faceRelation]);
+        }
         if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt,
                                     regularDofsExt[face][faceRelation]);

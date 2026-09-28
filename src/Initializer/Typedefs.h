@@ -74,9 +74,10 @@ struct alignas(Alignment) LocalIntegrationData {
   real sourceDeviation[zeroGuard(NodalSourceDeviation ? SourceDeviationCount : 0)]
                       [zeroGuard(NodalSourceDeviation ? MaterialSampleCount : 0)]{};
 
-  // flux solver for element local contribution. It stays where the flux reads
-  // the material at the nodes of a face: the anelastic solver keeps the matrix
-  // form, and so does the batched path.
+  // flux solver for element local contribution. It is filled where the flux
+  // reads the material at the nodes of a face as well, although the flux
+  // kernels of such a build read the scalars below instead, on the host and on
+  // the device alike.
   real nApNm1[4][seissol::tensor::AplusT::size()]{};
 
   // Where the material varies along a face, the flux operator does too, and a

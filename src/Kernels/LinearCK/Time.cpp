@@ -173,6 +173,7 @@ void Spacetime::computeBatchedAder(
 
     set_ET(derivativesKrnl, localIntegrationPtrs);
     set_extraOffset_ET(derivativesKrnl, SourceMatrixOffset / sizeof(real));
+    kernels::bindSourceOperandsBatched(derivativesKrnl, localIntegrationPtrs);
 
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();

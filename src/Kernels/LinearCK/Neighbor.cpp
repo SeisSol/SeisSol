@@ -22,6 +22,7 @@
 #include "Kernels/StarOperands.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/OperatorLayout.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -142,12 +143,19 @@ void Neighbor::computeBatchedNeighborsIntegral(
               neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
               neighFluxKrnl.I = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-              neighFluxKrnl.AminusT = const_cast<const real**>(
-                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
-
-              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
-              neighFluxKrnl.extraOffset_AminusT =
-                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+              // the cell's own data is recorded only where the flux reads the
+              // rotation of the face from it
+              const real** localIntegrationPtrs = nullptr;
+              if constexpr (NodalFlux) {
+                localIntegrationPtrs = const_cast<const real**>(
+                    entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+              }
+              kernels::bindNeighborFluxOperandsBatched(
+                  neighFluxKrnl,
+                  localIntegrationPtrs,
+                  const_cast<const real**>(
+                      entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr()),
+                  face);
 
               real* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
                   seissol::kernel::gpu_neighboringFlux::TmpMaxMemRequiredInBytes * numElements,
