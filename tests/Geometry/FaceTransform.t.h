@@ -17,6 +17,7 @@
 #include <array>
 #include <cstddef>
 #include <random>
+#include <vector>
 
 namespace seissol::unit_test {
 
