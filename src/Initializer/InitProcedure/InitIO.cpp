@@ -12,7 +12,6 @@
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
@@ -24,6 +23,7 @@
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
@@ -187,6 +187,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 }
 
 void setupOutput(seissol::SeisSol& seissolInstance) {
+  constexpr auto Variant = kernels::RuntimeVariant;
   const auto& seissolParams = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
   auto& ltsStorage = memoryManager.ltsStorage();
@@ -379,15 +380,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
       const auto projectVolume =
           [=](real* target, const real* dofsSingleQuantity, const real* collvv) {
-            kernel::projectBasisToVtkVolume vtkproj{};
+            runtime::kernel::projectBasisToVtkVolume vtkproj{};
             memory::AlignedArray<real, multisim::NumSimulations> simselect{};
             alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
             simselect[sim] = 1;
-            vtkproj.simselect = simselect.data();
-            vtkproj.qb = dofsSingleQuantity;
-            vtkproj.xv(order) = alignedTarget.data();
-            vtkproj.collvv(ConvergenceOrder, order) = collvv;
-            vtkproj.execute(order);
+            vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
+            vtkproj.qb = runtime::init::qb::view(Variant, dofsSingleQuantity);
+            vtkproj.xv(order) = runtime::init::xv::view(Variant, order, alignedTarget.data());
+            vtkproj.collvv(ConvergenceOrder, order) =
+                runtime::init::collvv::view(Variant, ConvergenceOrder, order, collvv);
+            vtkproj.execute(Variant, order);
             std::copy_n(alignedTarget.data(), dataBase.size(), target);
           };
 
@@ -538,15 +540,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* pointsSingleQuantity =
                       dofsAllQuantities + QDofPointsPadded * quantity;
-                  kernel::projectNodalToVtkVolume vtkproj{};
+                  runtime::kernel::projectNodalToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                   alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
                   simselect[sim] = 1;
-                  vtkproj.simselect = simselect.data();
-                  vtkproj.qn = pointsSingleQuantity;
-                  vtkproj.xv(order) = alignedTarget.data();
-                  vtkproj.collnv(ConvergenceOrder, order) = (*projNodal)(subcell, ConvergenceOrder);
-                  vtkproj.execute(order);
+                  vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
+                  vtkproj.qn = runtime::init::qn::view(Variant, pointsSingleQuantity);
+                  vtkproj.xv(order) = runtime::init::xv::view(Variant, order, alignedTarget.data());
+                  vtkproj.collnv(ConvergenceOrder, order) = runtime::init::collnv::view(
+                      Variant, ConvergenceOrder, order, (*projNodal)(subcell, ConvergenceOrder));
+                  vtkproj.execute(Variant, order);
                   std::copy_n(alignedTarget.data(), dataBase.size(), target);
                 });
           }
@@ -713,15 +716,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto position = backmap.get(meshId);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                kernel::projectBasisToVtkFaceFromVolume vtkproj{};
+                runtime::kernel::projectBasisToVtkFaceFromVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect{};
                 alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
                 simselect[sim] = 1;
-                vtkproj.simselect = simselect.data();
-                vtkproj.qb = dofsSingleQuantity;
-                vtkproj.xf(order) = alignedTarget.data();
-                vtkproj.collvf(ConvergenceOrder, order) = (*proj[side])(subcell, ConvergenceOrder);
-                vtkproj.execute(order);
+                vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
+                vtkproj.qb = runtime::init::qb::view(Variant, dofsSingleQuantity);
+                vtkproj.xf(order) = runtime::init::xf::view(Variant, order, alignedTarget.data());
+                vtkproj.collvf(ConvergenceOrder, order) = runtime::init::collvf::view(
+                    Variant, ConvergenceOrder, order, (*proj[side])(subcell, ConvergenceOrder));
+                vtkproj.execute(Variant, order);
                 std::copy_n(alignedTarget.data(), dataBase.size(), target);
               });
         }
@@ -742,15 +746,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto& faceDisplacements = ltsStorage.lookup<LTS::FaceDisplacements>(position);
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
-              kernel::projectNodalToVtkFace vtkproj{};
+              runtime::kernel::projectNodalToVtkFace vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect{};
               alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
               simselect[sim] = 1;
-              vtkproj.simselect = simselect.data();
-              vtkproj.pn = faceDisplacementVariable;
-              vtkproj.xf(order) = alignedTarget.data();
-              vtkproj.collnf(ConvergenceOrder, order) = (*projf)(subcell, ConvergenceOrder);
-              vtkproj.execute(order);
+              vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
+              vtkproj.pn = runtime::init::pn::view(Variant, faceDisplacementVariable);
+              vtkproj.xf(order) = runtime::init::xf::view(Variant, order, alignedTarget.data());
+              vtkproj.collnf(ConvergenceOrder, order) = runtime::init::collnf::view(
+                  Variant, ConvergenceOrder, order, (*projf)(subcell, ConvergenceOrder));
+              vtkproj.execute(Variant, order);
               std::copy_n(alignedTarget.data(), dataBase.size(), target);
             });
       }

@@ -11,7 +11,6 @@
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/pool.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 
@@ -53,10 +52,7 @@ struct EnergyCompute<PoroElasticMaterial> {
   /// non-trivial case; the arguments are accepted uniformly so that
   /// EnergyOutput does not need to branch on the material.
   struct Moments {};
-  static Moments
-      computeMoments(const real* /*dofs*/, const real* /*dofsAne*/, const seissol::Pool& /*pool*/) {
-    return {};
-  }
+  static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
 
   static PoroElasticMaterial::EnergyData initEnergyData(const PoroElasticMaterial& /*material*/) {
     return {};

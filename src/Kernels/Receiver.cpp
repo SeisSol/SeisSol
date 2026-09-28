@@ -20,6 +20,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -168,12 +169,14 @@ double ReceiverCluster::calcReceivers(double time,
 
       kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
-      kernel::evaluateDOFSAtPoint krnl;
-      krnl.QAtPoint = timeEvaluatedAtPoint;
-      krnl.Q = timeEvaluated;
-      kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
-      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-      derivativeKrnl.Q = timeEvaluated;
+      constexpr auto Variant = kernels::RuntimeVariant;
+      runtime::kernel::evaluateDOFSAtPoint krnl;
+      krnl.QAtPoint = runtime::init::QAtPoint::view(Variant, timeEvaluatedAtPoint);
+      krnl.Q = runtime::init::Q::view(Variant, timeEvaluated);
+      runtime::kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
+      derivativeKrnl.QDerivativeAtPoint =
+          runtime::init::QDerivativeAtPoint::view(Variant, timeEvaluatedDerivativesAtPoint);
+      derivativeKrnl.Q = runtime::init::Q::view(Variant, timeEvaluated);
 
       auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
       auto qDerivativeAtPoint =
@@ -213,12 +216,14 @@ double ReceiverCluster::calcReceivers(double time,
 
           auto& receiver = receivers_[receiverId];
 
-          krnl.basisFunctionsAtPoint = receiver.basisFunctions.data().data();
+          krnl.basisFunctionsAtPoint = runtime::init::basisFunctionsAtPoint::view(
+              Variant, receiver.basisFunctions.data().data());
           derivativeKrnl.basisFunctionDerivativesAtPoint =
-              receiver.basisFunctionDerivatives.data().data();
+              runtime::init::basisFunctionDerivativesAtPoint::view(
+                  Variant, receiver.basisFunctionDerivatives.data().data());
 
-          krnl.execute();
-          derivativeKrnl.execute();
+          krnl.execute(Variant);
+          derivativeKrnl.execute(Variant);
 
           // note: necessary receiver space is reserved in advance
           receiver.output.push_back(receiverTime);

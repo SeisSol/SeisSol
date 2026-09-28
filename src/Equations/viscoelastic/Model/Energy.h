@@ -11,9 +11,8 @@
 #include "Equations/EnergyBase.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
-#include "GeneratedCode/pool.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Model/Common.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -76,21 +75,20 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     alignas(Alignment) real cross[tensor::momentQQane::size()]{};
   };
 
-  static Moments computeMoments(const real* dofs, const real* dofsAne, const seissol::Pool& pool) {
+  static Moments computeMoments(const real* dofs, const real* dofsAne) {
+    constexpr auto Variant = kernels::RuntimeVariant;
     Moments moments{};
 
-    kernel::momentQaneQaneCompute aneKrnl;
-    aneKrnl.bindGlobals(pool);
-    aneKrnl.Qane = dofsAne;
-    aneKrnl.momentQaneQane = moments.ane;
-    aneKrnl.execute();
+    runtime::kernel::momentQaneQaneCompute aneKrnl;
+    aneKrnl.Qane = runtime::init::Qane::view(Variant, dofsAne);
+    aneKrnl.momentQaneQane = runtime::init::momentQaneQane::view(Variant, moments.ane);
+    aneKrnl.execute(Variant);
 
-    kernel::momentQQaneCompute crossKrnl;
-    crossKrnl.bindGlobals(pool);
-    crossKrnl.Q = dofs;
-    crossKrnl.Qane = dofsAne;
-    crossKrnl.momentQQane = moments.cross;
-    crossKrnl.execute();
+    runtime::kernel::momentQQaneCompute crossKrnl;
+    crossKrnl.Q = runtime::init::Q::view(Variant, dofs);
+    crossKrnl.Qane = runtime::init::Qane::view(Variant, dofsAne);
+    crossKrnl.momentQQane = runtime::init::momentQQane::view(Variant, moments.cross);
+    crossKrnl.execute(Variant);
 
     return moments;
   }

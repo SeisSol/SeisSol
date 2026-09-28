@@ -10,7 +10,6 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -22,6 +21,7 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
@@ -61,7 +61,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& iniFields = seissolInstance_.memoryManager().initialConditions();
 
   const auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
-  const auto* globalData = seissolInstance_.memoryManager().globalData().onHost;
+  constexpr auto Variant = kernels::RuntimeVariant;
 
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
   const std::vector<Element>& elements = meshReader_->getElements();
@@ -129,7 +129,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     vertices,                                                      \
                                     iniFields,                                                     \
                                     quadraturePoints,                                              \
-                                    globalData,                                                    \
                                     errsLInfLocal,                                                 \
                                     simulationTime,                                                \
                                     sim,                                                           \
@@ -185,11 +184,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         }
 
         // Evaluate numerical solution at quad. nodes
-        kernel::evalAtQP krnl;
-        krnl.bindGlobals(*globalData);
-        krnl.dofsQP = numericalSolutionData;
-        krnl.Q = dofsData[cell];
-        krnl.execute();
+        runtime::kernel::evalAtQP krnl;
+        krnl.dofsQP = runtime::init::dofsQP::view(Variant, numericalSolutionData);
+        krnl.Q = runtime::init::Q::view(Variant, dofsData[cell]);
+        krnl.execute(Variant);
 
         const auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
 
