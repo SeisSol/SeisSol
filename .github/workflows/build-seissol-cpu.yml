@@ -43,6 +43,15 @@ jobs:
           - type: viscoacoustic
             multisim: 1
             mechanisms: 3
+          # the memory variables in Q instead of in a separate tensor
+          - type: viscoelastic
+            multisim: 1
+            mechanisms: 3
+            solver: linearck
+          - type: viscoacoustic
+            multisim: 1
+            mechanisms: 3
+            solver: linearck
           - type: anisotropic
             multisim: 1
             mechanisms: 0
@@ -124,7 +133,8 @@ jobs:
             -DEQUATIONS=${{matrix.equation.type}} \
             -DPRECISION=${{matrix.precision}} \
             -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} \
-            -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+            -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} \
+            -DSOLVER=${{ matrix.equation.solver || 'auto' }}
 
           ninja install
 
@@ -174,7 +184,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}${{ matrix.equation.solver && format('-{0}', matrix.equation.solver) || '' }}
           path: /opt/seissol
 
   seissol-run-test:
