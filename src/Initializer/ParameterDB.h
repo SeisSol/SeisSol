@@ -200,7 +200,7 @@ class EasiBoundary {
   public:
   explicit EasiBoundary(const std::string& fileName);
 
-  EasiBoundary() : model_(nullptr){};
+  EasiBoundary() : model_(nullptr) {};
   EasiBoundary(const EasiBoundary&) = delete;
   EasiBoundary& operator=(const EasiBoundary&) = delete;
   EasiBoundary(EasiBoundary&& other) noexcept;

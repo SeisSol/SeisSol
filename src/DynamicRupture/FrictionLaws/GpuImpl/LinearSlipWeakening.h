@@ -22,7 +22,7 @@ template <typename Derived>
 class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
   explicit LinearSlipWeakeningBase(const FrictionLawParameters& drParameters)
-      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
+      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters) {};
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -175,7 +175,7 @@ class LinearSlipWeakeningLaw
   public:
   explicit LinearSlipWeakeningLaw(const FrictionLawParameters& drParameters)
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
-        specialization_(drParameters){};
+        specialization_(drParameters) {};
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
@@ -275,7 +275,7 @@ class LinearSlipWeakeningLaw
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(const FrictionLawParameters& parameters){};
+  explicit NoSpecialization(const FrictionLawParameters& parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 
@@ -316,7 +316,7 @@ class NoSpecialization {
 
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(const FrictionLawParameters& parameters){};
+  explicit BiMaterialFault(const FrictionLawParameters& parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     data->regularizedStrength =
@@ -370,7 +370,7 @@ class BiMaterialFault {
 
 class TPApprox {
   public:
-  explicit TPApprox(const FrictionLawParameters& parameters){};
+  explicit TPApprox(const FrictionLawParameters& parameters) {};
 
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 

@@ -82,7 +82,7 @@ void faceMaterials(const GlobalData& global,
   alignas(Alignment) std::array<real, tensor::materialAtFace::size()> atFace{};
 
   const auto fill = [&](const std::array<MaterialT, LTS::MaterialNodes>& source,
-                        double MaterialT::*member) {
+                        double MaterialT::* member) {
     for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
       // the material is one field, so every fused simulation sees the same
       // sample at a point
@@ -92,7 +92,7 @@ void faceMaterials(const GlobalData& global,
     }
   };
   const auto scatter = [&](std::array<MaterialT, FluxFaceNodes>& target,
-                           double MaterialT::*member) {
+                           double MaterialT::* member) {
     for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
       target[node].*member = atFace[node];
     }

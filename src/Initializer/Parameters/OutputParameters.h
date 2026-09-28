@@ -138,7 +138,7 @@ struct OutputBounds {
                OutputInterval intervalX,
                OutputInterval intervalY,
                OutputInterval intervalZ)
-      : enabled(enabled), boundsX(intervalX), boundsY(intervalY), boundsZ(intervalZ){};
+      : enabled(enabled), boundsX(intervalX), boundsY(intervalY), boundsZ(intervalZ) {};
 
   [[nodiscard]] bool contains(double x, double y, double z) const {
     if (enabled) {

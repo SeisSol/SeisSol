@@ -19,7 +19,6 @@
 
 #include <array>
 #include <cstddef>
-
 #include <yateto.h>
 
 namespace seissol::model {
@@ -40,8 +39,7 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
   /// on top -- once per mechanism weighted by its relaxation frequency, or
   /// once with the frequency held elsewhere -- is the solver's decision.
   /// The flux is the base material's, and so is its decomposition.
-  static constexpr std::size_t NumCoefficients =
-      MaterialSetup<AcousticMaterial>::NumCoefficients;
+  static constexpr std::size_t NumCoefficients = MaterialSetup<AcousticMaterial>::NumCoefficients;
   static constexpr auto CoefficientEntries = MaterialSetup<AcousticMaterial>::CoefficientEntries;
 
   static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
@@ -54,7 +52,8 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
   static constexpr auto AnelasticEntries = generated::ViscoAcousticAnelasticEntries;
 
   /// The single theta value of one relaxation mechanism.
-  static constexpr std::size_t NumSourceCoefficients = generated::ViscoAcousticNumSourceCoefficients;
+  static constexpr std::size_t NumSourceCoefficients =
+      generated::ViscoAcousticNumSourceCoefficients;
 
   static std::array<double, NumSourceCoefficients> getSourceCoefficients(const MaterialT& material,
                                                                          std::size_t mech) {

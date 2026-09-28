@@ -19,7 +19,6 @@
 
 #include <array>
 #include <cstddef>
-
 #include <yateto.h>
 
 namespace seissol::model {
@@ -37,8 +36,7 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
   using MaterialT = ViscoElasticMaterial<N>;
 
   /// The flux is the base material's, and so is its decomposition.
-  static constexpr std::size_t NumCoefficients =
-      MaterialSetup<ElasticMaterial>::NumCoefficients;
+  static constexpr std::size_t NumCoefficients = MaterialSetup<ElasticMaterial>::NumCoefficients;
   static constexpr auto CoefficientEntries = MaterialSetup<ElasticMaterial>::CoefficientEntries;
 
   static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {

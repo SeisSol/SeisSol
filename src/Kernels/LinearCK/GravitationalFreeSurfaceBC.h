@@ -37,7 +37,7 @@ class GravitationalFreeSurfaceBc {
 
   public:
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
-      : gravitationalAcceleration_(gravitationalAcceleration){};
+      : gravitationalAcceleration_(gravitationalAcceleration) {};
 
   static PerformanceEstimate metrics(int8_t face, [[maybe_unused]] FaceType faceType);
 
