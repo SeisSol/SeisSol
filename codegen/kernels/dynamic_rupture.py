@@ -6,7 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
@@ -72,6 +72,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         <= stressRotationMatrix["ki"]
         * reducedFaceAlignedMatrix["ij"]
         * initialStress["j"],
+        attrs=cold_kernel_attrs(),
     )
 
     originalQ = OptionalDimTensor(
@@ -97,6 +98,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
     generator.add(
         "rotateFluxMatrix",
         fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
+        attrs=cold_kernel_attrs(),
     )
 
     num3DBasisFunctions = aderdg.num3DBasisFunctions()
@@ -114,6 +116,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         "evaluateFaceAlignedDOFSAtPoint",
         QAtPoint["q"]
         <= aderdg.Tinv["qp"] * aderdg.Q["lp"] * basisFunctionsAtPoint["l"],
+        attrs=cold_kernel_attrs(),
     )
 
     def interpolateQGenerator(i, h):
@@ -252,7 +255,11 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         <= QInterpolatedMinus["kq"] * aderdg.tractionMinusMatrix["qp"]
         + QInterpolatedPlus["kq"] * aderdg.tractionPlusMatrix["qp"]
     )
-    generator.add("computeTractionInterpolated", computeTractionInterpolated)
+    generator.add(
+        "computeTractionInterpolated",
+        computeTractionInterpolated,
+        attrs=cold_kernel_attrs(),
+    )
 
     accumulateStaticFrictionalWork = (
         staticFrictionalWork["l"]
@@ -262,7 +269,11 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         * slipInterpolated["kp"]
         * db.quadweights["k"]
     )
-    generator.add("accumulateStaticFrictionalWork", accumulateStaticFrictionalWork)
+    generator.add(
+        "accumulateStaticFrictionalWork",
+        accumulateStaticFrictionalWork,
+        attrs=cold_kernel_attrs(),
+    )
 
     # Dynamic Rupture Precompute
     qPlus = OptionalDimTensor(
