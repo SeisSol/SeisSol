@@ -78,6 +78,8 @@ Mij and di are defined in a fault local coordinate system defined by strike, dip
 The above equations also hold for viscoelastic or anisotropic materials.
 In the viscoelastic case, the equations are extended by the memory variables.
 In the anisotropic case, :math:`\lambda` and :math:`\mu` are replaced by the entries of the Hooke tensor :math:`c_{ij}`.
+For acoustic and viscoacoustic materials, only :math:`M_{xx}` enters the pressure equation and :math:`d_i` the velocity equations.
+The memory variables of the viscoelastic and viscoacoustic equations receive no source term.
 
 For poroelastic materials, we add the possibility to consider forces in the fluid or pressure sources.
 To do so, add these two lines before ``Number of subfaults``:
