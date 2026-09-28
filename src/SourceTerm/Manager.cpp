@@ -15,8 +15,6 @@
 #include "Common/Marker.h"
 #include "Equations/Datastructures.h"
 #include "FSRMReader.h"
-#include "GeneratedCode/kernel.h"
-#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
@@ -26,6 +24,7 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/PointSourceClusterOnHost.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
@@ -77,8 +76,7 @@ void computeMInvJInvPhisAtSources(
     seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
         mInvJInvPhisAtSources,
     std::size_t meshId,
-    const seissol::geometry::MeshReader& mesh,
-    const seissol::Pool& pool) {
+    const seissol::geometry::MeshReader& mesh) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -90,12 +88,14 @@ void computeMInvJInvPhisAtSources(
   const double volume = MeshTools::volume(elements[meshId], vertices);
   const double jInv = 1.0 / (6.0 * volume);
 
-  kernel::computeMInvJInvPhisAtSources krnl;
-  krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data().data();
-  krnl.bindGlobals(pool);
-  krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
+  constexpr auto Variant = kernels::RuntimeVariant;
+  runtime::kernel::computeMInvJInvPhisAtSources krnl;
+  krnl.basisFunctionsAtPoint =
+      runtime::init::basisFunctionsAtPoint::view(Variant, basisFunctionsAtPoint.data().data());
+  krnl.mInvJInvPhisAtSources =
+      runtime::init::mInvJInvPhisAtSources::view(Variant, mInvJInvPhisAtSources.data());
   krnl.JInv = jInv;
-  krnl.execute();
+  krnl.execute(Variant);
 }
 
 struct SourceFile {
@@ -111,8 +111,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
                                         const seissol::model::Material* material,
                                         PointSources& pointSources,
                                         std::size_t index,
-                                        std::size_t tensorIndex,
-                                        const seissol::Pool& pool) {
+                                        std::size_t tensorIndex) {
   std::array<real, 9> faultBasis{};
   faultBasis[0] = subfault.tan1(0);
   faultBasis[1] = subfault.tan1(1);
@@ -154,15 +153,17 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
   std::array<real, 81> stiffnessTensorReal{};
   std::copy(stiffnessTensor.begin(), stiffnessTensor.end(), stiffnessTensorReal.begin());
 
-  kernel::transformNRF transformKernel;
+  constexpr auto Variant = kernels::RuntimeVariant;
+  runtime::kernel::transformNRF transformKernel;
   transformKernel.mArea = -subfault.area;
-  transformKernel.mNormal = faultBasis.data() + 6;
-  transformKernel.stiffnessTensor = stiffnessTensorReal.data();
-  transformKernel.bindGlobals(pool);
-  transformKernel.rotateNRF = faultBasis.data();
-  transformKernel.tensorNRF = pointSources.tensor.data() + tensorIndex * tensor::update::Size;
+  transformKernel.mNormal = runtime::init::mNormal::view(Variant, faultBasis.data() + 6);
+  transformKernel.stiffnessTensor =
+      runtime::init::stiffnessTensor::view(Variant, stiffnessTensorReal.data());
+  transformKernel.rotateNRF = runtime::init::rotateNRF::view(Variant, faultBasis.data());
+  transformKernel.tensorNRF = runtime::init::tensorNRF::view(
+      Variant, pointSources.tensor.data() + tensorIndex * tensor::update::Size);
 
-  transformKernel.execute();
+  transformKernel.execute(Variant);
 
   pointSources.onsetTime[index] = subfault.tinit;
   pointSources.samplingInterval[index] = subfault.timestep;
@@ -195,8 +196,7 @@ struct NrfFile : public SourceFile {
   void transform(PointSources& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
-                 const seissol::model::Material& material,
-                 const seissol::Pool& pool) {
+                 const seissol::model::Material& material) {
     const std::size_t nrfIndex = originalIndex[sourceIndex];
     transformNRFSourceToInternalSource(nrf.subfaults[nrfIndex],
                                        nrf.sroffsets[nrfIndex],
@@ -205,8 +205,7 @@ struct NrfFile : public SourceFile {
                                        &material,
                                        sources,
                                        index,
-                                       sources.sampleRange[index],
-                                       pool);
+                                       sources.sampleRange[index]);
   }
 };
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -226,8 +225,7 @@ struct FsrmFile : public SourceFile {
   void transform(PointSources& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
-                 const seissol::model::Material& material,
-                 const seissol::Pool& /*pool*/) {
+                 const seissol::model::Material& material) {
     const std::size_t fsrmIndex = originalIndex[sourceIndex];
 
     auto* tensor = sources.tensor.data() + sources.sampleRange[index] * tensor::update::Size;
@@ -441,8 +439,6 @@ auto loadSourceFile(const char* fileName,
       mapPointSourcesToClusters(meshIds.data(), numSources, ltsStorage, backmap, memkind);
   std::vector<seissol::kernels::PointSourceClusterPair> sourceCluster(ltsStorage.numChildren());
 
-  const auto pool = seissol::Pool::host();
-
   for (std::size_t cluster = 0; cluster < ltsStorage.numChildren(); ++cluster) {
     auto numberOfSources = clusterMappings[cluster].sources.size();
 
@@ -483,12 +479,11 @@ auto loadSourceFile(const char* fileName,
       computeMInvJInvPhisAtSources(points[fileIndex],
                                    sources.mInvJInvPhisAtSources[clusterSource],
                                    meshIds[sourceIndex],
-                                   mesh,
-                                   pool);
+                                   mesh);
 
       const auto position = backmap.get(meshIds[sourceIndex]);
       const auto& material = *ltsStorage.lookup<LTS::Material>(position).local;
-      file.transform(sources, sourceIndex, clusterSource, material, pool);
+      file.transform(sources, sourceIndex, clusterSource, material);
     }
 
     sourceCluster[cluster] = makePointSourceCluster(

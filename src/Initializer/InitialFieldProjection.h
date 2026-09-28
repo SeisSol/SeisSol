@@ -20,7 +20,6 @@
 
 namespace seissol::initializer {
 void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
-                         const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
                          LTS::Storage& storage);
 
@@ -30,7 +29,6 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       bool needsTime);
 
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
-                             const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
                              LTS::Storage& storage,
                              bool needsTime);

@@ -15,7 +15,6 @@
 #include "Equations/ImpedanceBase.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
@@ -26,6 +25,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -229,6 +229,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage) {
+  constexpr auto Variant = kernels::RuntimeVariant;
   real matTData[tensor::T::size()]{};
   real matTinvData[tensor::Tinv::size()]{};
   real matAPlusData[tensor::star::size(0)]{};
@@ -566,18 +567,18 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
-      dynamicRupture::kernel::rotateFluxMatrix krnl;
-      krnl.T = matTData;
+      runtime::dynamicRupture::kernel::rotateFluxMatrix krnl;
+      krnl.T = runtime::init::T::view(Variant, matTData);
 
-      krnl.fluxSolver = fluxSolverPlus[ltsFace];
+      krnl.fluxSolver = runtime::init::fluxSolver::view(Variant, fluxSolverPlus[ltsFace]);
       krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
-      krnl.star(0) = matAPlusData;
-      krnl.execute();
+      krnl.star(0) = runtime::init::star::view(Variant, 0, matAPlusData);
+      krnl.execute(Variant);
 
-      krnl.fluxSolver = fluxSolverMinus[ltsFace];
+      krnl.fluxSolver = runtime::init::fluxSolver::view(Variant, fluxSolverMinus[ltsFace]);
       krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
-      krnl.star(0) = matAMinusData;
-      krnl.execute();
+      krnl.star(0) = runtime::init::star::view(Variant, 0, matAMinusData);
+      krnl.execute(Variant);
     }
   }
 }

@@ -13,7 +13,6 @@
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
@@ -22,6 +21,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
@@ -41,6 +41,8 @@ namespace seissol::initializer {
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const std::optional<DirichletCondition>& dirichletCondition,
                                 LTS::Storage& ltsStorage) {
+  constexpr auto Variant = kernels::RuntimeVariant;
+
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* boundary = layer.var<LTS::BoundaryMapping>();
@@ -104,14 +106,17 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
               std::copy_n(globalMapData, tensor::dirichletMap::size(), dirichletMap);
               std::copy_n(globalConstantData, tensor::dirichletOffset::size(), dirichletOffset);
             } else {
-              kernel::rotateBoundaryCondition rotateKrnl;
-              rotateKrnl.dirichletMapGlobal = globalMapData;
-              rotateKrnl.dirichletOffsetGlobal = globalConstantData;
-              rotateKrnl.dirichletMap = dirichletMap;
-              rotateKrnl.dirichletOffset = dirichletOffset;
-              rotateKrnl.T = matTData;
-              rotateKrnl.Tinv = matTinvData;
-              rotateKrnl.execute();
+              runtime::kernel::rotateBoundaryCondition rotateKrnl;
+              rotateKrnl.dirichletMapGlobal =
+                  runtime::init::dirichletMapGlobal::view(Variant, globalMapData);
+              rotateKrnl.dirichletOffsetGlobal =
+                  runtime::init::dirichletOffsetGlobal::view(Variant, globalConstantData);
+              rotateKrnl.dirichletMap = runtime::init::dirichletMap::view(Variant, dirichletMap);
+              rotateKrnl.dirichletOffset =
+                  runtime::init::dirichletOffset::view(Variant, dirichletOffset);
+              rotateKrnl.T = runtime::init::T::view(Variant, matTData);
+              rotateKrnl.Tinv = runtime::init::Tinv::view(Variant, matTinvData);
+              rotateKrnl.execute(Variant);
             }
           } else {
             logError() << "Dirichlet face found, but no boundary condition definition given.";

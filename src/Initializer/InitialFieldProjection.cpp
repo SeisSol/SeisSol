@@ -12,7 +12,6 @@
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
@@ -20,6 +19,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
@@ -108,9 +108,11 @@ struct EasiLoader {
 namespace seissol::initializer {
 
 void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
-                         const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
                          LTS::Storage& storage) {
+  constexpr auto Variant = kernels::RuntimeVariant;
+  // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
+  const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
 
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
@@ -129,9 +131,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
       quadraturePointsXyz.resize(NumQuadPoints);
 
-      kernel::projectIniCond krnl;
-      krnl.bindGlobals(globalData);
-      krnl.iniCond = iniCondData;
+      runtime::kernel::projectIniCond krnl;
+      krnl.iniCond = runtime::init::iniCond::view(Variant, iniCondData);
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* material = layer.var<LTS::Material>();
@@ -154,11 +155,11 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
               0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
         }
 
-        krnl.Q = dofs[cell];
+        krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
         if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-          set_Qane(krnl, dofsAne[cell]);
+          set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
         }
-        krnl.execute();
+        krnl.execute(Variant);
       }
     }
   }
@@ -222,10 +223,12 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 }
 
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
-                             const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
                              LTS::Storage& storage,
                              bool needsTime) {
+  constexpr auto Variant = kernels::RuntimeVariant;
+  // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
+  const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
@@ -246,9 +249,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       std::vector<std::array<double, 3>> quadraturePointsXyz;
       quadraturePointsXyz.resize(NumQuadPoints);
 
-      kernel::projectIniCond krnl;
-      krnl.bindGlobals(globalData);
-      krnl.iniCond = iniCondData;
+      runtime::kernel::projectIniCond krnl;
+      krnl.iniCond = runtime::init::iniCond::view(Variant, iniCondData);
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       auto* dofs = layer.var<LTS::Dofs>();
@@ -270,11 +272,11 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
           }
         }
 
-        krnl.Q = dofs[cell];
+        krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
         if constexpr (kernels::HasSize<tensor::Qane>::Value) {
-          set_Qane(krnl, dofsAne[cell]);
+          set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
         }
-        krnl.execute();
+        krnl.execute(Variant);
       }
     }
   }
