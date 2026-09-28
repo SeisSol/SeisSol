@@ -611,8 +611,18 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         setWaveSpeeds(waveSpeedsMinus[ltsFace], point, minusAtPoints[point]);
       }
 
-      seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
-      seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
+      // The lift applies the coefficient matrix of the first direction to the imposed state,
+      // which is given in the coordinates of the face; so it is the matrix of the material seen
+      // in those coordinates, whose first direction is the fault normal -- the material the
+      // impedances above and the flux of a regular face are formed from. Rotating an isotropic
+      // material changes nothing.
+      std::array<double, 36> bond{};
+      seissol::model::getBondMatrix(
+          fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, bond);
+      seissol::model::getTransposedCoefficientMatrix(
+          seissol::model::getRotatedMaterialCoefficients(bond, *plusMaterial), 0, matAPlus);
+      seissol::model::getTransposedCoefficientMatrix(
+          seissol::model::getRotatedMaterialCoefficients(bond, *minusMaterial), 0, matAMinus);
 
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Anisotropic:
