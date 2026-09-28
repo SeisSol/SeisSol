@@ -121,8 +121,10 @@ class NodalPointGenerator : public QueryGenerator {
 
   //! The set the plastic strain lives on (@c vNodes ).
   static PointSet plasticityPoints();
-  //! The set the material is sampled at (@c materialNodes ). The two coincide
-  //! unless the build asked for different ones.
+  //! The set the material is sampled at (@c materialNodes ), pulled towards the
+  //! barycentre by a tiny fraction of the cell so that no sample lies on a face.
+  //! The two sets coincide, but for that, unless the build asked for different
+  //! ones.
   static PointSet materialPoints();
 
   explicit NodalPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)

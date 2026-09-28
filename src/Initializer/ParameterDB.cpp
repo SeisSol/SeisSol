@@ -316,7 +316,25 @@ NodalPointGenerator::PointSet NodalPointGenerator::plasticityPoints() {
 }
 
 NodalPointGenerator::PointSet NodalPointGenerator::materialPoints() {
-  return pointsOf<init::materialNodes>();
+  // The nodal set has points on the faces and at the vertices of a cell. Where
+  // the material jumps across a face of the mesh -- a layer boundary the mesh
+  // follows, say -- a query there lands on the boundary itself, and which side
+  // easi then answers with is a matter of convention and of rounding, not of
+  // the cell. A cell would carry the other side's material at some of its
+  // samples, and the operator formed from them oscillates and grows. So the
+  // points are pulled towards the barycentre by a tiny fraction of the cell:
+  // every sample lies inside the cell and reads the material of its own side,
+  // while a smooth material moves by far less than the discretization sees.
+  constexpr double Shrink = 1e-6;
+  auto points = pointsOf<init::materialNodes>();
+  points.point = [nodes = points.point](std::size_t i) {
+    auto point = nodes(i);
+    for (auto& coordinate : point) {
+      coordinate = (1 - Shrink) * coordinate + Shrink * 0.25;
+    }
+    return point;
+  };
+  return points;
 }
 
 std::size_t NodalPointGenerator::outputPerCell() const { return pointwise_ ? points_.count : 1; }
