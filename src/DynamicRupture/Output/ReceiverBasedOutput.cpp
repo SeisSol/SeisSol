@@ -17,7 +17,6 @@
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
@@ -25,6 +24,7 @@
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -130,6 +130,7 @@ void ReceiverOutput::calcFaultOutput(
                         integrateCoeffs,
                         stateTime,
                         frictionTime](std::size_t faceId) {
+    constexpr auto Variant = kernels::RuntimeVariant;
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
 
@@ -196,25 +197,30 @@ void ReceiverOutput::calcFaultOutput(
     const auto* stressSourceOnset = local.layer->var<DynamicRupture::StressSourceOnset>();
     const auto* stressSourceRiseTime = local.layer->var<DynamicRupture::StressSourceRiseTime>();
 
-    seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
-    kernel.Tinv = outFace.glbToFaceAlignedData.data();
+    runtime::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
+    kernel.Tinv = runtime::init::Tinv::view(Variant, outFace.glbToFaceAlignedData.data());
 
-    seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-    alignAlongDipAndStrikeKernel.stressRotationMatrix = outFace.stressGlbToDipStrikeAligned.data();
-    alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix = outFace.stressFaceAlignedToGlb.data();
+    runtime::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+    alignAlongDipAndStrikeKernel.stressRotationMatrix = runtime::init::stressRotationMatrix::view(
+        Variant, outFace.stressGlbToDipStrikeAligned.data());
+    alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
+        runtime::init::reducedFaceAlignedMatrix::view(Variant,
+                                                      outFace.stressFaceAlignedToGlb.data());
 
     for (const auto pointId : topology.pointsOf(faceId)) {
       const auto& outPoint = topology.points[pointId];
 
-      kernel.Q = dofsPlus;
-      kernel.basisFunctionsAtPoint = outPoint.basisFunctions.plusSide.data();
-      kernel.QAtPoint = faceAlignedValuesPlus;
-      kernel.execute();
+      kernel.Q = runtime::init::Q::view(Variant, dofsPlus);
+      kernel.basisFunctionsAtPoint = runtime::init::basisFunctionsAtPoint::view(
+          Variant, outPoint.basisFunctions.plusSide.data());
+      kernel.QAtPoint = runtime::init::QAtPoint::view(Variant, faceAlignedValuesPlus);
+      kernel.execute(Variant);
 
-      kernel.Q = dofsMinus;
-      kernel.basisFunctionsAtPoint = outPoint.basisFunctions.minusSide.data();
-      kernel.QAtPoint = faceAlignedValuesMinus;
-      kernel.execute();
+      kernel.Q = runtime::init::Q::view(Variant, dofsMinus);
+      kernel.basisFunctionsAtPoint = runtime::init::basisFunctionsAtPoint::view(
+          Variant, outPoint.basisFunctions.minusSide.data());
+      kernel.QAtPoint = runtime::init::QAtPoint::view(Variant, faceAlignedValuesMinus);
+      kernel.execute(Variant);
 
       local.nearestGpIndex = static_cast<int>(outPoint.nearestGpIndex);
       local.nearestInternalGpIndex = static_cast<int>(outPoint.nearestInternalGpIndex);
@@ -268,10 +274,12 @@ void ReceiverOutput::calcFaultOutput(
         updatedStress[QuantityIndices::YZ] = local.faceAlignedStress23;
         updatedStress[QuantityIndices::XZ] = local.updatedTraction2;
 
-        alignAlongDipAndStrikeKernel.initialStress = updatedStress.data();
+        alignAlongDipAndStrikeKernel.initialStress =
+            runtime::init::initialStress::view(Variant, updatedStress.data());
         std::array<real, 6> rotatedUpdatedStress{};
-        alignAlongDipAndStrikeKernel.rotatedStress = rotatedUpdatedStress.data();
-        alignAlongDipAndStrikeKernel.execute();
+        alignAlongDipAndStrikeKernel.rotatedStress =
+            runtime::init::rotatedStress::view(Variant, rotatedUpdatedStress.data());
+        alignAlongDipAndStrikeKernel.execute(Variant);
 
         std::array<real, 6> stress{};
         stress[QuantityIndices::XX] = local.transientNormalTraction;
@@ -281,10 +289,12 @@ void ReceiverOutput::calcFaultOutput(
         stress[QuantityIndices::YZ] = local.faceAlignedStress23;
         stress[QuantityIndices::XZ] = local.faceAlignedStress13;
 
-        alignAlongDipAndStrikeKernel.initialStress = stress.data();
+        alignAlongDipAndStrikeKernel.initialStress =
+            runtime::init::initialStress::view(Variant, stress.data());
         std::array<real, 6> rotatedStress{};
-        alignAlongDipAndStrikeKernel.rotatedStress = rotatedStress.data();
-        alignAlongDipAndStrikeKernel.execute();
+        alignAlongDipAndStrikeKernel.rotatedStress =
+            runtime::init::rotatedStress::view(Variant, rotatedStress.data());
+        alignAlongDipAndStrikeKernel.execute(Variant);
 
         switch (slipRateOutputType) {
         case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
@@ -347,9 +357,11 @@ void ReceiverOutput::calcFaultOutput(
           for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
             unrotatedInitStress[stressVar] = initialStress[stressVar];
           }
-          alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
-          alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
-          alignAlongDipAndStrikeKernel.execute();
+          alignAlongDipAndStrikeKernel.initialStress =
+              runtime::init::initialStress::view(Variant, unrotatedInitStress.data());
+          alignAlongDipAndStrikeKernel.rotatedStress =
+              runtime::init::rotatedStress::view(Variant, rotatedInitStress.data());
+          alignAlongDipAndStrikeKernel.execute(Variant);
 
           totalTractions(DirectionID::Strike, level, i) =
               rotatedUpdatedStress[QuantityIndices::XY] + rotatedInitStress[QuantityIndices::XY];
