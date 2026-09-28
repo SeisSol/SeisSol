@@ -568,7 +568,7 @@ void EnergyOutput::computeVolumeEnergies() {
       auto lin = init::momentQ::view::create(linData);
       // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
       kernel::momentQCompute krnl;
-      krnl.M3 = init::M3::Values;
+      krnl.bindGlobals(*global_);
       krnl.momentQ = linData;
       krnl.Q = dofsData[cell];
       krnl.execute();
@@ -577,13 +577,13 @@ void EnergyOutput::computeVolumeEnergies() {
       auto quad = init::momentQQ::view::create(quadData);
       // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
       kernel::momentQQCompute krnl2;
-      krnl2.M3 = init::M3::Values;
+      krnl2.bindGlobals(*global_);
       krnl2.momentQQ = quadData;
       krnl2.Q = dofsData[cell];
       krnl2.execute();
 
       const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
-          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr);
+          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr, *global_);
 
       for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
 
@@ -637,9 +637,8 @@ void EnergyOutput::computeVolumeEnergies() {
             faceDisplacementSquared{};
         {
           seissol::kernel::faceDisplacementSquaredCompute evalKrnl;
+          evalKrnl.bindGlobals(*global_);
           evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
-          evalKrnl.M2 = init::M2::Values;
-          evalKrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
           evalKrnl.faceDisplacementSquared = faceDisplacementSquared.data();
           evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
           evalKrnl.execute();

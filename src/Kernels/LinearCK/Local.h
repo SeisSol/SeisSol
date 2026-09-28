@@ -60,6 +60,8 @@ class Local : public LocalKernel {
   kernel::projectToNodalBoundary projectKrnlPrototype_;
   kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
 
+  kernel::createEasiBoundaryGhostCells easiBoundaryKrnlPrototype_;
+
   kernels::DirichletBoundary dirichletBoundary_;
 
 #ifdef ACL_DEVICE

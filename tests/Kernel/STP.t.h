@@ -10,6 +10,7 @@
 #include "Equations/poroelastic/Model/Setup.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/STP/Setup.h"
@@ -125,24 +126,15 @@ class SpaceTimePredictorTestFixture {
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
-    krnlPrototype.timeInt = seissol::init::timeInt::Values;
-    krnlPrototype.wHat = seissol::init::wHat::Values;
-    for (size_t i = 0; i < 3; i++) {
-      krnlPrototype.kDivMT(i) = seissol::init::kDivMT::Values[seissol::init::kDivMT::index(i)];
-    }
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareLHS(seissol::kernel::stpTestLhs& krnlPrototype) {
-    krnlPrototype.Z = seissol::init::Z::Values;
-    krnlPrototype.deltaLarge = seissol::init::deltaLarge::Values;
-    krnlPrototype.deltaSmall = seissol::init::deltaSmall::Values;
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareRHS(seissol::kernel::stpTestRhs& krnlPrototype) {
-    for (size_t i = 0; i < 3; i++) {
-      krnlPrototype.kDivMT(i) = seissol::init::kDivMT::Values[seissol::init::kDivMT::index(i)];
-    }
-    krnlPrototype.wHat = seissol::init::wHat::Values;
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareQ(real* qData) {

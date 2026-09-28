@@ -57,15 +57,7 @@
 #include <utils/logger.h>
 #endif
 
-GENERATE_HAS_MEMBER(selectAneFull)
-GENERATE_HAS_MEMBER(selectElaFull)
-GENERATE_HAS_MEMBER(Values)
 GENERATE_HAS_MEMBER(Qane)
-
-namespace seissol::init {
-struct selectAneFull;
-struct selectElaFull;
-} // namespace seissol::init
 
 #ifndef USE_ASAGI
 namespace easi {
@@ -143,8 +135,6 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       kernel::projectIniCond krnl;
       krnl.bindGlobals(globalData);
       krnl.iniCond = iniCondData;
-      set_selectAneFull(krnl, get_static_ptr_Values<init::selectAneFull>());
-      set_selectElaFull(krnl, get_static_ptr_Values<init::selectElaFull>());
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* material = layer.var<LTS::Material>();
@@ -282,8 +272,6 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernel::projectIniCond krnl;
       krnl.bindGlobals(globalData);
       krnl.iniCond = iniCondData;
-      set_selectAneFull(krnl, get_static_ptr_Values<init::selectAneFull>());
-      set_selectElaFull(krnl, get_static_ptr_Values<init::selectElaFull>());
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       auto* dofs = layer.var<LTS::Dofs>();

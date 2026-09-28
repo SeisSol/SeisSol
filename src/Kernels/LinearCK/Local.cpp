@@ -59,6 +59,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
   projectKrnlPrototype_.bindGlobals(*global.onHost);
   projectRotatedKrnlPrototype_.bindGlobals(*global.onHost);
+  easiBoundaryKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
@@ -193,12 +194,12 @@ void Local::computeIntegral(
       auto* easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
-      auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
+      auto applyEasiBoundary = [this, easiBoundaryMap, easiBoundaryConstant](
                                    const real* /*nodes*/, init::INodal::view::type& boundaryDofs) {
-        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
+        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel =
+            easiBoundaryKrnlPrototype_;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
-        easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
         easiBoundaryKernel.INodal = boundaryDofs.data();
         easiBoundaryKernel.execute();
       };
