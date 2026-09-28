@@ -156,14 +156,19 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       Derived::preHook(ctx);
 
-      real startTime = 0;
       real updateTime = ctx.args->fullUpdateTime;
 
       for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps; ++timeIndex) {
         const real dt = ctx.args->deltaT[timeIndex];
 
-        startTime = updateTime;
         updateTime += dt;
+        const auto times =
+            common::subStepTimes(ctx.args->fullUpdateTime, ctx.args->deltaT, timeIndex);
+        const auto rateTimes = common::slipRateTimes(times, Derived::SlipRateAtIntervalEnds);
+        // the values before the update, for the times of the events that it crosses the threshold
+        // of (see common::crossingTime)
+        const real previousSlipRate = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
+        const real previousDynamicStressQuantity = Derived::dynamicStressQuantity(ctx);
 
         common::precomputeStressFromQInterpolated<GpuRangeType>(
             ctx.faultStresses,
@@ -194,11 +199,13 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         // time-dependent outputs
         common::saveRuptureFrontOutput<GpuRangeType>(ctx.data->ruptureTimePending[ctx.ltsFace],
                                                      ctx.data->ruptureTime[ctx.ltsFace],
+                                                     &previousSlipRate,
                                                      ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                     startTime,
+                                                     rateTimes.previousPoint,
+                                                     rateTimes.point,
                                                      ctx.pointIndex);
 
-        Derived::saveDynamicStressOutput(ctx, startTime);
+        Derived::saveDynamicStressOutput(ctx, previousDynamicStressQuantity, times);
 
         common::savePeakSlipRateOutput<GpuRangeType>(ctx.data->slipRateMagnitude[ctx.ltsFace],
                                                      ctx.data->peakSlipRate[ctx.ltsFace],

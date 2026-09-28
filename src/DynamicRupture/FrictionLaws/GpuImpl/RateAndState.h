@@ -24,6 +24,8 @@ namespace seissol::dr::friction_law::gpu {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
   public:
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
   explicit RateAndStateBase(const FrictionLawParameters& drParameters)
       : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters) {}
 
@@ -312,17 +314,30 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
   }
 
+  //! the friction coefficient, whose falling to the weakened one is the dynamic stress time
+  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext& __restrict ctx) {
+    return ctx.data->mu[ctx.ltsFace][ctx.pointIndex];
+  }
+
+  /*
+   * output time when the friction coefficient has fallen to the weakened one after the rupture
+   * arrived, interpolated between the time points of the previous and the current evaluation (see
+   * common::crossingTime), and not before the rupture time
+   */
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
-                                                     real time) {
+                                                     real previousMu,
+                                                     const common::SubStepTimes& times) {
     auto muW{ctx.data->muW[ctx.ltsFace][ctx.pointIndex]};
     auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
+    const real threshold = muW + static_cast<real>(0.05) * (rsF0 - muW);
+    const real mu = ctx.data->mu[ctx.ltsFace][ctx.pointIndex];
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > static_cast<real>(0.0) && localRuptureTime <= time &&
-        ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <=
-            (muW + static_cast<real>(0.05) * (rsF0 - muW))) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
+    if (localRuptureTime > static_cast<real>(0.0) && localRuptureTime <= times.point &&
+        ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] && mu <= threshold) {
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = std::max(
+          localRuptureTime,
+          common::crossingTime(previousMu, mu, threshold, times.previousPoint, times.point));
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }

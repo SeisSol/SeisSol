@@ -17,6 +17,8 @@ namespace seissol::dr::friction_law::cpu {
 template <typename STF>
 class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   public:
+  // the slip rate of a sub-step is the one prescribed at the end of its interval
+  static constexpr bool SlipRateAtIntervalEnds = true;
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
@@ -85,7 +87,11 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {}
   void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
   }
-  void saveDynamicStressOutput(std::size_t ltsFace, real time) {}
+  //! no dynamic stress time
+  [[nodiscard]] const real* dynamicStressQuantity(std::size_t /*ltsFace*/) const { return nullptr; }
+  void saveDynamicStressOutput(std::size_t /*ltsFace*/,
+                               const real* /*previousQuantity*/,
+                               const common::SubStepTimes& /*times*/) {}
 
   protected:
   real (*__restrict imposedSlipDirection1_)[misc::NumPaddedPoints]{};

@@ -89,8 +89,8 @@ Here's what each bit in the OutputMask array represents:
 7. **Vr**: Rupture velocity, computed from the spatial derivatives of the rupture time
 8. **ASl**: Accumulated slip
 9. **PSR**: Peak slip rate
-10. **RT**: Rupture time
-11. **DS**: Dynamic stress time. With LSW, the time at which ASl>D_c. With RS, the time at which mu <= (f0 + mu_w). DS can be used to evaluate the process zone size.
+10. **RT**: Rupture time, the time at which the slip rate exceeds 1 mm/s, interpolated linearly between the time points of the friction solve. A point that slips from the start of the simulation on has a rupture time of 0.
+11. **DS**: Dynamic stress time. With LSW, the time at which ASl>D_c, interpolated linearly over the interval over which a sub-step integrates the slip. With RS, the time at which mu <= mu_w + 0.05 (f0 - mu_w), interpolated like the rupture time, but not before it. DS can be used to evaluate the process zone size.
 12. **P_f** and **Tmp**: Only with thermal pressurization, pore pressure and temperature
 
 Initial fault tractions

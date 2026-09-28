@@ -21,6 +21,8 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Derived>
 class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
   public:
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
   explicit LinearSlipWeakeningBase(const FrictionLawParameters& drParameters)
       : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters) {};
 
@@ -144,16 +146,24 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     }
   }
 
+  //! the slip, whose reaching d_c is the dynamic stress time
+  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext& __restrict ctx) {
+    return ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex];
+  }
+
   /*
-   * output time when shear stress is equal to the dynamic stress after rupture arrived
-   * currently only for linear slip weakening
+   * output time when shear stress is equal to the dynamic stress after rupture arrived: when the
+   * slip reaches d_c, interpolated over the interval the sub-step integrates the slip over (see
+   * common::crossingTime)
    */
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
-                                                     real time) {
-    if (ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        std::fabs(ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex]) >=
-            ctx.data->dC[ctx.ltsFace][ctx.pointIndex]) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
+                                                     real previousSlip,
+                                                     const common::SubStepTimes& times) {
+    const real slip = std::fabs(ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex]);
+    const real dC = ctx.data->dC[ctx.ltsFace][ctx.pointIndex];
+    if (ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] && slip >= dC) {
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] =
+          common::crossingTime(std::fabs(previousSlip), slip, dC, times.start, times.end);
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }

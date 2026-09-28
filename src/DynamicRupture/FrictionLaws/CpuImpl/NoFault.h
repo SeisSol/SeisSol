@@ -16,6 +16,8 @@ namespace seissol::dr::friction_law::cpu {
  */
 class NoFault : public BaseFrictionLaw<NoFault> {
   public:
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
   using BaseFrictionLaw::BaseFrictionLaw;
 
   static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
@@ -30,7 +32,11 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   };
   void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
   };
-  void saveDynamicStressOutput(std::size_t ltsFace, real time) {};
+  //! no dynamic stress time
+  [[nodiscard]] const real* dynamicStressQuantity(std::size_t /*ltsFace*/) const { return nullptr; }
+  void saveDynamicStressOutput(std::size_t /*ltsFace*/,
+                               const real* /*previousQuantity*/,
+                               const common::SubStepTimes& /*times*/) {}
 };
 } // namespace seissol::dr::friction_law::cpu
 

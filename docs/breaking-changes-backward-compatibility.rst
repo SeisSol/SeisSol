@@ -13,6 +13,28 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The rupture and dynamic stress times
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the verification cases on mini meshes)
+
+The rupture time ``RT`` and the dynamic stress time ``DS`` of the fault output are
+the times at which the slip rate exceeds 1 mm/s, and at which the slip reaches
+``d_c`` or the friction coefficient falls to its weakened value, interpolated
+linearly between the time points of the friction solve. They used to be the start
+of the sub-step in which the solver saw the crossing, and so lay on the grid of
+those time points; they are now later by half a sub-step on average. A crossing
+at the first time point of a time step is interpolated from the last one of the
+previous step, so that ``RT`` can now lie before the start of the time step, at
+which a receiver or the fault output may still have shown the point as not
+ruptured. The rupture velocity ``Vr``, which differentiates the rupture time
+across a fault face, no longer jumps when a rounding error moves a crossing past
+a time point. A point that slips from the start of a simulation on still has a
+rupture time of 0.
+
+Checkpoints now also hold the slip rate magnitude, from which the rupture time of
+the first time step after a restart is interpolated; checkpoints written before
+cannot be restored.
+
 The receivers of fused simulations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the verification cases on mini meshes)

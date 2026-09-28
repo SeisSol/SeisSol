@@ -32,6 +32,8 @@ namespace seissol::dr::friction_law::cpu {
 template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
   public:
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
   explicit RateAndStateBase(const FrictionLawParameters& drParameters)
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod_(TPMethod(drParameters)) {}
@@ -486,18 +488,32 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void saveDynamicStressOutput(std::size_t faceIndex, real time) {
+  //! the friction coefficient, whose falling to the weakened one is the dynamic stress time
+  [[nodiscard]] const real* dynamicStressQuantity(std::size_t faceIndex) const {
+    return this->mu_[faceIndex];
+  }
+
+  /**
+   * output time when the friction coefficient has fallen to the weakened one after the rupture
+   * arrived, interpolated between the time points of the previous and the current evaluation (see
+   * common::crossingTime), and not before the rupture time
+   */
+  void saveDynamicStressOutput(std::size_t faceIndex,
+                               const real previousMu[misc::NumPaddedPoints],
+                               const common::SubStepTimes& times) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-
-      if (this->ruptureTime_[faceIndex][pointIndex] > static_cast<real>(0.0) &&
-          this->ruptureTime_[faceIndex][pointIndex] <= time &&
-          this->dynStressTimePending_[faceIndex][pointIndex] &&
-          this->mu_[faceIndex][pointIndex] <=
-              (this->muW_[faceIndex][pointIndex] +
-               static_cast<real>(0.05) *
-                   (this->f0_[faceIndex][pointIndex] - this->muW_[faceIndex][pointIndex]))) {
-        this->dynStressTime_[faceIndex][pointIndex] = time;
+      const real ruptureTime = this->ruptureTime_[faceIndex][pointIndex];
+      const real threshold = this->muW_[faceIndex][pointIndex] +
+                             static_cast<real>(0.05) * (this->f0_[faceIndex][pointIndex] -
+                                                        this->muW_[faceIndex][pointIndex]);
+      const real mu = this->mu_[faceIndex][pointIndex];
+      if (ruptureTime > static_cast<real>(0.0) && ruptureTime <= times.point &&
+          this->dynStressTimePending_[faceIndex][pointIndex] && mu <= threshold) {
+        this->dynStressTime_[faceIndex][pointIndex] =
+            std::max(ruptureTime,
+                     common::crossingTime(
+                         previousMu[pointIndex], mu, threshold, times.previousPoint, times.point));
         this->dynStressTimePending_[faceIndex][pointIndex] = false;
       }
     }

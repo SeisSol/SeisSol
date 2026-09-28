@@ -164,6 +164,8 @@ struct DynamicRupture {
     manager.registerData<Mu>("mu", storage);
     manager.registerData<SlipRate1>("slipRate1", storage);
     manager.registerData<SlipRate2>("slipRate2", storage);
+    // the slip rate the rupture time of the first sub-step after a restart is interpolated from
+    manager.registerData<SlipRateMagnitude>("slipRateMagnitude", storage);
     manager.registerData<AccumulatedSlipMagnitude>("accumulatedSlipMagnitude", storage);
     manager.registerData<Slip1>("slip1", storage);
     manager.registerData<Slip2>("slip2", storage);

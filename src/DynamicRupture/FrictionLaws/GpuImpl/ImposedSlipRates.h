@@ -17,6 +17,8 @@ namespace seissol::dr::friction_law::gpu {
 template <typename STF>
 class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
   public:
+  // the slip rate of a sub-step is the one prescribed at the end of its interval
+  static constexpr bool SlipRateAtIntervalEnds = true;
   using BaseFrictionSolver<ImposedSlipRates>::BaseFrictionSolver;
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
@@ -81,8 +83,11 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     ctx.tractionResults.traction2 = traction2;
   }
 
+  //! no dynamic stress time
+  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext& __restrict ctx) { return 0; }
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
-                                                     real time) {}
+                                                     real previousQuantity,
+                                                     const common::SubStepTimes& times) {}
   SEISSOL_DEVICE static void preHook(FrictionLawContext& __restrict ctx) {}
   SEISSOL_DEVICE static void postHook(FrictionLawContext& __restrict ctx) {}
 };

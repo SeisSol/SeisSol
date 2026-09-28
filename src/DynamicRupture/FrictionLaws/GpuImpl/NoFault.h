@@ -15,6 +15,8 @@ namespace seissol::dr::friction_law::gpu {
 
 class NoFault : public BaseFrictionSolver<NoFault> {
   public:
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
   explicit NoFault(const FrictionLawParameters& drParameters)
       : BaseFrictionSolver<NoFault>(drParameters) {}
 
@@ -30,12 +32,11 @@ class NoFault : public BaseFrictionSolver<NoFault> {
     ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction2;
   }
 
-  /*
-   * output time when shear stress is equal to the dynamic stress after rupture arrived
-   * currently only for linear slip weakening
-   */
+  //! no dynamic stress time
+  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext& __restrict ctx) { return 0; }
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
-                                                     real time) {}
+                                                     real previousQuantity,
+                                                     const common::SubStepTimes& times) {}
 
   SEISSOL_DEVICE static void preHook(FrictionLawContext& __restrict ctx) {}
   SEISSOL_DEVICE static void postHook(FrictionLawContext& __restrict ctx) {}

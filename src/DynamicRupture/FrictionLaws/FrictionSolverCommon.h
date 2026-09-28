@@ -16,6 +16,7 @@
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <type_traits>
@@ -488,13 +489,103 @@ SEISSOL_HOSTDEVICE inline void
 }
 
 /**
+ * The times of a sub-step of the friction solve: the interval its time weight integrates over,
+ * and the time points of the previous and of the current evaluation of the friction law.
+ */
+struct SubStepTimes {
+  real start{};
+  real end{};
+  real previousPoint{};
+  real point{};
+};
+
+/**
+ * The times of the sub-step timeIndex of the step from fullUpdateTime on.
+ *
+ * The time points of a step lie symmetric in it, so the last one of the previous step lies as far
+ * before fullUpdateTime as the first one after it. That is exact between two steps of equal
+ * length, and off by the difference of their first time points after a step that a
+ * synchronization point has shortened. The time is taken from the step alone: which of the two
+ * actors of a cluster computes the friction of its interior faces changes from step to step, so a
+ * friction solver does not see every step of the faces it computes, and a restart has nothing to
+ * start from either. The first evaluation of a simulation has no previous one; it gets the start
+ * of the simulation as both time points.
+ */
+SEISSOL_HOSTDEVICE inline SubStepTimes
+    subStepTimes(real fullUpdateTime, const real deltaT[misc::TimeSteps], uint32_t timeIndex) {
+  SubStepTimes times{};
+  times.start = fullUpdateTime;
+  for (uint32_t i = 0; i < timeIndex; ++i) {
+    times.start += deltaT[i];
+  }
+  times.end = times.start + deltaT[timeIndex];
+  // the last interval reaches to the end of the step, past its time point by the first deltaT
+  times.point = timeIndex + 1 < misc::TimeSteps ? times.end : times.end - deltaT[0];
+  times.previousPoint = timeIndex > 0 ? times.start : fullUpdateTime - deltaT[0];
+  if (fullUpdateTime == static_cast<real>(0.0) && timeIndex == 0) {
+    times.previousPoint = fullUpdateTime;
+    times.point = fullUpdateTime;
+  }
+  return times;
+}
+
+/**
+ * The time points the slip rates of the previous and the current evaluation belong to: those of
+ * the friction solve, or the ends of the sub-step interval for a law that evaluates a prescribed
+ * slip rate there. The first evaluation of a simulation keeps its time points, both its start.
+ */
+SEISSOL_HOSTDEVICE inline SubStepTimes slipRateTimes(const SubStepTimes& times,
+                                                     bool atIntervalEnds) {
+  SubStepTimes rateTimes = times;
+  if (atIntervalEnds && times.previousPoint != times.point) {
+    rateTimes.previousPoint = times.start;
+    rateTimes.point = times.end;
+  }
+  return rateTimes;
+}
+
+/**
+ * The time at which a quantity crosses a threshold between two consecutive evaluations, taken
+ * linearly between the times of the two.
+ *
+ * Taking the time of an evaluation instead puts the event on the grid of the time points of the
+ * friction solve, and a rounding error that moves the crossing past one of them moves the event by
+ * a whole sub-step; the rupture velocity, which differentiates the rupture time across a face,
+ * turns such a jump at a single point into an offset of the whole face. Interpolated, the time
+ * moves with the crossing.
+ *
+ * The fraction (threshold - previous) / (current - previous) lies in (0, 1] exactly when the
+ * threshold lies between the two values, past the previous one; a previous value on the threshold
+ * or on the side of the current one already, whichever way the value moves, gives the previous
+ * time, as does an unchanged one.
+ */
+SEISSOL_HOSTDEVICE inline real crossingTime(
+    real previousValue, real currentValue, real threshold, real previousTime, real currentTime) {
+  const real difference = currentValue - previousValue;
+  const real fraction = difference != static_cast<real>(0.0)
+                            ? (threshold - previousValue) / difference
+                            : static_cast<real>(0.0);
+  const bool between = fraction > static_cast<real>(0.0) && fraction <= static_cast<real>(1.0);
+  return between ? previousTime + fraction * (currentTime - previousTime) : previousTime;
+}
+
+/**
  * output rupture front, saves update time of the rupture front
  * rupture front is the first registered change in slip rates that exceeds 0.001
  *
+ * The time is the one at which the slip rate crosses the threshold, interpolated between the time
+ * points of the previous and the current evaluation (see crossingTime). The caller passes the
+ * start of the simulation as both for the first evaluation of a simulation: a point that slips
+ * from the start on then ruptures at 0, which the rupture velocity takes as not ruptured yet, as
+ * it does for a nucleation patch.
+ *
  * param[in,out] ruptureTimePending
  * param[out] ruptureTime
+ * param[in] previousSlipRateMagnitude the slip rate of the previous evaluation, indexed by the
+ * points of the range
  * param[in] slipRateMagnitude
- * param[in] fullUpdateTime
+ * param[in] previousTime the time point of the previous evaluation
+ * param[in] currentTime the time point of the current evaluation
  */
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
@@ -504,8 +595,10 @@ SEISSOL_HOSTDEVICE inline void
                            // See https://github.com/llvm/llvm-project/issues/60163
                            // NOLINTNEXTLINE
                            real ruptureTime[misc::NumPaddedPoints],
+                           const real* previousSlipRateMagnitude,
                            const real slipRateMagnitude[misc::NumPaddedPoints],
-                           real fullUpdateTime,
+                           real previousTime,
+                           real currentTime,
                            uint32_t startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
@@ -517,7 +610,11 @@ SEISSOL_HOSTDEVICE inline void
     auto pointIndex{startIndex + index};
     constexpr real RuptureFrontThreshold = 0.001;
     if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > RuptureFrontThreshold) {
-      ruptureTime[pointIndex] = fullUpdateTime;
+      ruptureTime[pointIndex] = crossingTime(previousSlipRateMagnitude[index],
+                                             slipRateMagnitude[pointIndex],
+                                             RuptureFrontThreshold,
+                                             previousTime,
+                                             currentTime);
       ruptureTimePending[pointIndex] = false;
     }
   }
