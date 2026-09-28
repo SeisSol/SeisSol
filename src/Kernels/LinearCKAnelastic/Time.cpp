@@ -31,6 +31,7 @@ extern long long libxsmm_num_total_flops;
 #endif
 
 GENERATE_HAS_MEMBER(E)
+GENERATE_HAS_MEMBER(extraOffset_E)
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -240,9 +241,15 @@ void Spacetime::computeBatchedAder(
     krnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
-    krnl.E = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    // the relaxation in whichever shape the cells carry it, see computeAder
+    set_E(krnl,
+          const_cast<const real**>(
+              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
+    set_extraOffset_E(krnl, SEISSOL_OFFSET(LocalIntegrationData, specific.E));
+    kernels::bindSourceOperandsBatched(
+        krnl,
+        const_cast<const real**>(
+            entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
 
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
