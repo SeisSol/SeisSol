@@ -43,6 +43,10 @@ namespace seissol::initializer {
 
 namespace {
 
+// The three directional star matrices share one shape and layout (they are
+// clones of each other in the generator), so star(0) sizes all of them. A
+// factored build only keeps star(0) in the generated code at all, for the
+// kernels that set up the flux solvers.
 void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,
@@ -52,11 +56,11 @@ void setStarMatrix(const real* matAT,
     starMatrix[idx] = grad[0] * matAT[idx];
   }
 
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] += grad[1] * matBT[idx];
   }
 
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] += grad[2] * matCT[idx];
   }
 }
@@ -220,8 +224,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     {
       real matATData[tensor::star::size(0)]{};
       real matATtildeData[tensor::star::size(0)]{};
-      real matBTData[tensor::star::size(1)]{};
-      real matCTData[tensor::star::size(2)]{};
+      real matBTData[tensor::star::size(0)]{};
+      real matCTData[tensor::star::size(0)]{};
       auto matAT = init::star::view<0>::create(matATData);
       // matAT with elastic parameters in local coordinate system, used for flux kernel
       auto matATtilde = init::star::view<0>::create(matATtildeData);
