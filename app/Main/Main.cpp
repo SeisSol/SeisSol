@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "BuildInfo.h"
-#include "Common/ConfigHelper.h"
+#include "Common/ConfigRegistry.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -126,8 +126,9 @@ int main(int argc, char* argv[]) {
 
     utils::Args args(
         "SeisSol is a scientific software for the numerical simulation of seismic wave "
-        "phenomena and earthquake dynamics. This version of SeisSol (" +
-        ConfigString + ") was built with the following properties:\n" + ConfigDescriptor);
+        "phenomena and earthquake dynamics. This version of SeisSol was built for the "
+        "following configurations:\n" +
+        describeBuiltConfigs());
     args.addAdditionalOption("parameterfile", "The parameter file", false);
     args.addOption(
         "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);

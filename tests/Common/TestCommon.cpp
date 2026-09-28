@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "ConfigRegistry.t.h"
 #include "ConfigValue.t.h"
 #include "IntegerMaskParser.t.h"
 #include "Iterator.t.h"
