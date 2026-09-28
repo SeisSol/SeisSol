@@ -111,9 +111,6 @@ struct LTS {
   /// is, the build decides; it follows the plastic strain unless asked
   /// otherwise.
   static constexpr std::size_t MaterialNodes = tensor::materialNodes::Shape[0];
-  /// Whether the two sets coincide, so that a quantity reading both needs no
-  /// interpolation between them.
-  static constexpr bool MaterialSharesPlasticityPoints = MaterialNodes == tensor::vNodes::Shape[0];
   struct NodalMaterialData
       : public initializer::Variable<std::array<model::MaterialT, MaterialNodes>> {};
   struct Material : public initializer::Variable<CellMaterialData> {};

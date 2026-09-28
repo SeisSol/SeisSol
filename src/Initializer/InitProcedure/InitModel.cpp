@@ -12,6 +12,8 @@
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
 #include "Initializer/InitProcedure/Internal/Recording.h"
@@ -243,14 +245,23 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           }
           constexpr auto NodeCount = model::PlasticityData::PointCount;
           std::array<double, NodeCount> muBar{};
-          if (nodalMaterialArray == nullptr || !LTS::MaterialSharesPlasticityPoints) {
-            // where the two sample sets differ, reading a nodal shear modulus
-            // would need an interpolation between them; the cell's own value
-            // stands in until that exists
+          if (nodalMaterialArray == nullptr) {
             muBar.fill(material.local->getMuBar());
           } else {
+            // the samples themselves where the material is sampled at the
+            // points of the plastic strain, and what they interpolate there
+            // where it is not
+            static_assert(tensor::materialToPlasticity::Shape[0] == NodeCount);
+            static_assert(tensor::materialToPlasticity::Shape[1] == LTS::MaterialNodes);
+            const auto interpolation =
+                init::materialToPlasticity::view::create(init::materialToPlasticity::Values);
             for (std::size_t node = 0; node < NodeCount; ++node) {
-              muBar[node] = nodalMaterialArray[cell][node].getMuBar();
+              for (std::size_t sample = 0; sample < LTS::MaterialNodes; ++sample) {
+                if (interpolation.isInRange(node, sample)) {
+                  muBar[node] +=
+                      interpolation(node, sample) * nodalMaterialArray[cell][sample].getMuBar();
+                }
+              }
             }
           }
 

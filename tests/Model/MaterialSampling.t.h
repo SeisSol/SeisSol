@@ -10,9 +10,10 @@
 
 // Where a material varies inside a cell it is carried as samples, and whoever
 // wants it somewhere else reads it there: the nodes of a face for the flux, the
-// quadrature points of the dynamic rupture rule for a fault. Each of those is
-// one matrix that takes the samples straight to the points, folded from the
-// projection to the modal basis and the evaluation at the points.
+// quadrature points of the dynamic rupture rule for a fault, the points of the
+// plastic strain and of the volume quadrature. Each of those is one matrix that
+// takes the samples straight to the points, folded from the projection to the
+// modal basis and the evaluation at the points.
 
 #include <doctest.h>
 
@@ -24,6 +25,7 @@
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
+#include "Numerical/Quadrature.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
@@ -144,6 +146,68 @@ TEST_CASE("Material at the points of a fault") {
         }
       }
     }
+  }
+}
+
+TEST_CASE("Material at the points of the plastic strain and of the volume quadrature") {
+  constexpr std::size_t Samples = tensor::materialNodes::Shape[0];
+  constexpr double Tolerance = std::is_same_v<real, double> ? 1e-11 : 1e-5;
+
+  // A field of degree two, or one where the basis does not reach that, which
+  // every sample set carries exactly: sampled where the material is, it has to
+  // arrive at the points it is read at as itself, in the order of those points.
+  constexpr double Quadratic = ConvergenceOrder > 2 ? 1.0 : 0.0;
+  const auto field = [&](const double* point) {
+    return 1.0 + 0.3 * point[0] - 0.2 * point[1] + 0.5 * point[2] +
+           Quadratic * (0.4 * point[0] * point[2] - 0.1 * point[1] * point[1]);
+  };
+
+  const auto nodes = init::materialNodes::view::create(init::materialNodes::Values);
+  std::vector<double> sampled(Samples);
+  for (std::size_t sample = 0; sample < Samples; ++sample) {
+    const double point[3] = {nodes(sample, 0), nodes(sample, 1), nodes(sample, 2)};
+    sampled[sample] = field(point);
+  }
+
+  const auto check = [&](const auto& interpolation, std::size_t points, const auto& pointAt) {
+    for (std::size_t point = 0; point < points; ++point) {
+      double value = 0.0;
+      for (std::size_t sample = 0; sample < Samples; ++sample) {
+        if (interpolation.isInRange(point, sample)) {
+          value += interpolation(point, sample) * sampled[sample];
+        }
+      }
+      const auto coordinates = pointAt(point);
+      REQUIRE(value == doctest::Approx(field(coordinates.data())).epsilon(Tolerance));
+    }
+  };
+
+  SUBCASE("where the plastic strain lives") {
+    constexpr std::size_t Points = tensor::vNodes::Shape[0];
+    static_assert(tensor::materialToPlasticity::Shape[0] == Points);
+    static_assert(tensor::materialToPlasticity::Shape[1] == Samples);
+    const auto plasticity = init::vNodes::view::create(init::vNodes::Values);
+    check(init::materialToPlasticity::view::create(init::materialToPlasticity::Values),
+          Points,
+          [&](std::size_t point) {
+            return std::array<double, 3>{
+                plasticity(point, 0), plasticity(point, 1), plasticity(point, 2)};
+          });
+  }
+
+  SUBCASE("where the energies are integrated") {
+    constexpr std::size_t PerDirection = ConvergenceOrder + 1;
+    constexpr std::size_t Points = PerDirection * PerDirection * PerDirection;
+    static_assert(tensor::materialToQuadrature::Shape[0] == Points);
+    static_assert(tensor::materialToQuadrature::Shape[1] == Samples);
+    double points[Points][3]{};
+    double weights[Points]{};
+    seissol::quadrature::TetrahedronQuadrature(points, weights, PerDirection);
+    check(init::materialToQuadrature::view::create(init::materialToQuadrature::Values),
+          Points,
+          [&](std::size_t point) {
+            return std::array<double, 3>{points[point][0], points[point][1], points[point][2]};
+          });
   }
 }
 

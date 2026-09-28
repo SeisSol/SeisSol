@@ -361,7 +361,11 @@ def main():
             generator, adg, cmdLineArgs.matricesDir, materialPoints
         )
         kernels.material.includeTensors(
-            cmdLineArgs.matricesDir, adg, materialPoints, include_tensors
+            cmdLineArgs.matricesDir,
+            adg,
+            materialPoints,
+            include_tensors,
+            cmdLineArgs.PlasticityMethod,
         )
 
         kernels.nodalbc.addKernels(

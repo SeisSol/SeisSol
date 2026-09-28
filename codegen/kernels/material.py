@@ -174,20 +174,36 @@ def quadratureInterpolation(matricesDir, aderdg, pointSet):
     )
 
 
+def plasticityInterpolation(matricesDir, aderdg, pointSet, plasticitySet):
+    """The material at the points the plastic strain lives on, which is what
+    its shear modulus is read at: the samples themselves where the two sets
+    coincide, and what they interpolate there where they do not."""
+    plasticity = _db(matricesDir, plasticitySet, aderdg.order, aderdg.alignStride)
+    samples = _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride)
+    return _interpolation(
+        "materialToPlasticity",
+        aderdg,
+        samples,
+        plasticity,
+        pointSet == plasticitySet,
+    )
+
+
 def pointCount(matricesDir, aderdg, pointSet):
     return _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride).vNodes.shape()[
         0
     ]
 
 
-def includeTensors(matricesDir, aderdg, pointSet, include):
+def includeTensors(matricesDir, aderdg, pointSet, include, plasticitySet):
     """The sample points are read by the host, which builds the query that
-    fills them, and so is their interpolation to the volume quadrature, which
-    the energies are integrated with; they have to reach the generated code
-    even where no kernel names them."""
+    fills them, and so are their interpolations to the volume quadrature, which
+    the energies are integrated with, and to the points of the plastic strain;
+    they have to reach the generated code even where no kernel names them."""
     for tensor in tensors(matricesDir, aderdg, pointSet).values():
         include.add(tensor)
     include.add(quadratureInterpolation(matricesDir, aderdg, pointSet))
+    include.add(plasticityInterpolation(matricesDir, aderdg, pointSet, plasticitySet))
 
 
 def addKernels(generator, aderdg, matricesDir, pointSet):
