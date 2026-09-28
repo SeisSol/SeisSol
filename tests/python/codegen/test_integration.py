@@ -254,6 +254,83 @@ class TestViscoelasticConstruction:
 
 
 # =============================================================================
+# Fused simulations — the nodal matrices keep their layout
+# =============================================================================
+
+
+def _elastic(order, multipleSimulations):
+    from kernels.equations.elastic import ElasticADERDG
+
+    return ElasticADERDG(
+        order=order,
+        multipleSimulations=multipleSimulations,
+        matricesDir=str(MATRICES_DIR),
+        memLayout=_default_memLayout(),
+    )
+
+
+def _viscoelastic_anelastic(order, multipleSimulations):
+    from kernels.equations.viscoelastic import ViscoelasticAnelasticADERDG
+
+    return ViscoelasticAnelasticADERDG(
+        order=order,
+        multipleSimulations=multipleSimulations,
+        matricesDir=str(MATRICES_DIR),
+        memLayout=_default_memLayout(),
+        numMechanisms=3,
+    )
+
+
+class TestFusedNodalMatrices:
+    """Fused simulations transpose the matrices, but of the nodal ones only
+    the face projections V3mTo2nFace are contracted that way. nodes2D is read
+    by the C++ code as [node][chi/tau], and V2nTo2m and MV2nTo2m are
+    contracted as stored, so these and the constants derived from them have
+    to be the same with and without fused simulations.
+    """
+
+    @staticmethod
+    def _assert_close(actual, expected):
+        from kernels.common import tensor_to_numpy
+
+        x = tensor_to_numpy(expected)
+        y = tensor_to_numpy(actual)
+        # summed in a different order for fused simulations (rDivM is transposed)
+        np.testing.assert_allclose(y, x, rtol=1e-12, atol=1e-12 * np.abs(x).max())
+
+    @pytest.mark.parametrize(
+        "construct",
+        [_elastic, _viscoelastic_anelastic],
+        ids=["elastic", "viscoelastic-anelastic"],
+    )
+    @pytest.mark.parametrize("order", [2, 3, 6])
+    def test_nodal_matrices_match_single_simulation(self, construct, order):
+        from kernels.common import tensor_to_numpy
+
+        single = construct(order, 1)
+        fused = construct(order, 8)
+
+        nodes = single.num2DBasisFunctions()
+        assert single.db.nodes2D.shape() == (nodes, 2)
+        assert fused.db.nodes2D.shape() == (nodes, 2)
+        for name in ["nodes2D", "V2nTo2m", "MV2nTo2m"]:
+            np.testing.assert_array_equal(
+                tensor_to_numpy(fused.db[name]), tensor_to_numpy(single.db[name])
+            )
+
+        self._assert_close(fused.V2nTo2JacobiQuad, single.V2nTo2JacobiQuad)
+        for i in range(4):
+            self._assert_close(
+                fused.db.project2nFaceTo3m[i], single.db.project2nFaceTo3m[i]
+            )
+            # the kernels contract the face projections through aderdg.t()
+            assert (
+                fused.db.V3mTo2nFace[i].shape()
+                == single.db.V3mTo2nFace[i].shape()[::-1]
+            )
+
+
+# =============================================================================
 # Matrix-file inventory — catches missing files for supported orders
 # =============================================================================
 

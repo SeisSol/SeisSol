@@ -12,6 +12,10 @@
 #include "Plasticity.t.h"
 #include "PointSourceCluster.t.h"
 
+#ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
+#include "NodalBoundary.t.h"
+#endif // SEISSOL_KERNELS_LINEARCKANELASTIC
+
 #ifdef SEISSOL_KERNELS_STP
 #include "STP.t.h"
 #endif // SEISSOL_KERNELS_STP
