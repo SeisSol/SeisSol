@@ -114,6 +114,11 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   }
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
+  if (NodalMaterial && itmParameters.itmEnabled) {
+    logError() << "The instantaneous time mirror rescales the material of a cell, not its samples, "
+                  "so it cannot be combined with a material that varies inside a cell "
+                  "(MATERIAL_NODAL=ON).";
+  }
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
@@ -132,6 +137,11 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                                                            {"godunov", NumericalFlux::Godunov},
                                                            {"rusanov", NumericalFlux::Rusanov},
                                                        });
+
+  if (NodalFlux && (flux == NumericalFlux::Rusanov || fluxNearFault == NumericalFlux::Rusanov)) {
+    logError() << "The flux at the nodes of a face (MATERIAL_NODAL=ON) is stated for the Godunov "
+                  "flux only, so numflux and numfluxnearfault have to be godunov in this build.";
+  }
 
   return ModelParameters{hasBoundaryFile,
                          plasticity,
