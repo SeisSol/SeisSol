@@ -151,6 +151,9 @@ double ReceiverCluster::calcReceivers(double time,
       runtime.eventSync(extraRuntime_->eventRecord());
     }
     deviceCollector_->gatherToHost(runtime.stream());
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      deviceCollectorAne_->gatherToHost(runtime.stream());
+    }
     if (extraRuntime_.has_value()) {
       extraRuntime_->eventSync(runtime.eventRecord());
     }
@@ -189,6 +192,11 @@ double ReceiverCluster::calcReceivers(double time,
         tmpReceiverData.setPointer<LTS::Dofs>(
             reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
                 deviceCollector_->get(i)));
+        if constexpr (kernels::size<tensor::Qane>() > 0) {
+          tmpReceiverData.setPointer<LTS::DofsAne>(
+              reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::DofsAne>())>(
+                  deviceCollectorAne_->get(i)));
+        }
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -239,8 +247,18 @@ double ReceiverCluster::calcReceivers(double time,
       }
     };
 
-    auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
-    callRuntime.enqueueLoop(cellCount, receiverHandler);
+    if (executor == Executor::Host) {
+      // A cluster that runs on the host goes on to integrate right after this and overwrites the
+      // DOFs the sampling reads, so it samples right here. (On CUDA and SYCL, enqueueLoop would
+      // leave the sampling to a host function on a stream.)
+#pragma omp parallel for schedule(static)
+      for (std::size_t i = 0; i < cellCount; ++i) {
+        receiverHandler(i);
+      }
+    } else {
+      auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
+      callRuntime.enqueueLoop(cellCount, receiverHandler);
+    }
 
     const auto recvCount = receivers_.size();
 
@@ -280,13 +298,36 @@ void ReceiverCluster::allocateData() {
     const bool hostAccessible = useUSM() && !extraRuntime_.has_value();
     deviceCollector_ = std::make_unique<seissol::parallel::DataCollector<real>>(
         dofs, tensor::Q::size(), hostAccessible);
+
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      std::vector<real*> dofsAne;
+      dofsAne.reserve(receiverCells_.size());
+      for (auto& receiverCell : receiverCells_) {
+        dofsAne.push_back(receiverCell.dataDevice.get<LTS::DofsAne>());
+      }
+      deviceCollectorAne_ = std::make_unique<seissol::parallel::DataCollector<real>>(
+          dofsAne, kernels::size<tensor::Qane>(), hostAccessible);
+    }
   }
 
   meshToReceiverCell_ = {};
 }
 void ReceiverCluster::freeData() {
+  // a handler still running would read the collector and write the outputs
+  waitForSamples();
   deviceCollector_.reset(nullptr);
+  deviceCollectorAne_.reset(nullptr);
   extraRuntime_.reset();
+}
+
+void ReceiverCluster::waitForSamples() {
+  // On CUDA and SYCL, calcReceivers leaves the sampling of a device cluster to a host function on a
+  // stream, which appends to the output of the receivers once the gathered DOFs are there. Nothing
+  // in the time stepping waits for the one enqueued last before a synchronization point, so whoever
+  // reads the output has to.
+  if (extraRuntime_.has_value()) {
+    extraRuntime_->wait();
+  }
 }
 
 size_t ReceiverCluster::ncols() const {

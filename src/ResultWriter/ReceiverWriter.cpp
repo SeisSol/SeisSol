@@ -314,6 +314,9 @@ std::vector<ReceiverWriter::OrderedReceiver> ReceiverWriter::orderedReceivers() 
 }
 
 void ReceiverWriter::collectSamples() {
+  for (auto& cluster : receiverClusters_) {
+    cluster->waitForSamples();
+  }
   const auto receivers = orderedReceivers();
   const auto& grouping = table_->grouping();
 
@@ -368,6 +371,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   stopwatch_.start();
 
   for (auto& cluster : receiverClusters_) {
+    cluster->waitForSamples();
     const auto ncols = cluster->ncols();
     for (auto& receiver : *cluster) {
       assert(receiver.output.size() % ncols == 0);

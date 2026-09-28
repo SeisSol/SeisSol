@@ -582,6 +582,14 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
         if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
           // our calculation was off (maybe due to many intermediate sync points), so resize
 
+          // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream,
+          // which runs once the friction law is done, and stores into whatever memory the cache
+          // has at that time. Growing the cache moves it, and a sample stored into the old memory
+          // while it is being moved is lost. Hence, all samples taken so far have to be in first.
+          auto& sampleRuntime =
+              outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+          sampleRuntime.wait();
+
           outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
           const auto newCacheLevel = outputData->maxCacheLevel;
           outputData->cachedTime.resize(newCacheLevel);
