@@ -781,20 +781,23 @@ class ADERDGBase(ABC):
         if not getattr(self, "_singleDefinitions", False):
             return prototype
         self._definitionCount = getattr(self, "_definitionCount", 0) + 1
+        # a member of a family carries its group in its name, which a name of
+        # its own cannot; the group goes into the base name instead
+        name = "".join(
+            [prototype.baseName()]
+            + [f"_{index}" for index in prototype.group()]
+            + [f"Once{self._definitionCount}"]
+        )
         if not isinstance(prototype, OptionalDimTensor):
             # per cell, so shared by the simulations a build bundles
-            return Tensor(
-                f"{prototype.name()}Once{self._definitionCount}",
-                prototype.shape(),
-                temporary=True,
-            )
+            return Tensor(name, prototype.shape(), temporary=True)
         shape = tuple(
             extent
             for position, extent in enumerate(prototype.shape())
             if not (prototype.hasOptDim() and position == prototype.optPos())
         )
         return OptionalDimTensor(
-            f"{prototype.name()}Once{self._definitionCount}",
+            name,
             prototype.optName(),
             prototype.optSize(),
             prototype.optPos(),
