@@ -10,6 +10,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
 #include "Equations/EnergyBase.h"
@@ -74,6 +75,7 @@ std::array<real, multisim::NumSimulations>
                       const real* degreesOfFreedomMinus,
                       const DRFaceInformation& faceInfo,
                       const DRGodunovData& godunovData,
+                      const dr::ImpedanceMatrices& impedanceMatrices,
                       const real slip[seissol::tensor::slipInterpolated::size()],
                       const GlobalData* global) {
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
@@ -101,13 +103,40 @@ std::array<real, multisim::NumSimulations>
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
-  dynamicRupture::kernel::computeTractionInterpolated trKrnl;
-  trKrnl.tractionPlusMatrix = godunovData.tractionPlusMatrix;
-  trKrnl.tractionMinusMatrix = godunovData.tractionMinusMatrix;
-  trKrnl.QInterpolatedPlus = qInterpolatedPlus;
-  trKrnl.QInterpolatedMinus = qInterpolatedMinus;
-  trKrnl.tractionInterpolated = tractionInterpolated;
-  trKrnl.execute();
+  if constexpr (dr::PointwiseImpedances) {
+    // the averaging weights are those of each point, so the contraction the kernel below does
+    // with one pair of matrices for the whole face is done point by point instead
+    auto traction = init::tractionInterpolated::view::create(tractionInterpolated);
+    auto plus = init::QInterpolatedPlus::view::create(qInterpolatedPlus);
+    auto minus = init::QInterpolatedMinus::view::create(qInterpolatedMinus);
+    traction.setZero();
+    for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+      auto tractionOfSim = multisim::simtensor(traction, sim);
+      const auto plusOfSim = multisim::simtensor(plus, sim);
+      const auto minusOfSim = multisim::simtensor(minus, sim);
+      for (std::size_t point = 0; point < dr::misc::NumBoundaryGaussPoints; ++point) {
+        const auto index = point * multisim::NumSimulations + sim;
+        const auto weightsPlus =
+            init::tractionPlusMatrix::view::create(impedanceMatrices.tractionPlus.at(index));
+        const auto weightsMinus =
+            init::tractionMinusMatrix::view::create(impedanceMatrices.tractionMinus.at(index));
+        weightsPlus.forall([&](const auto* entry, const auto& weight) {
+          tractionOfSim(point, entry[1]) += weight * plusOfSim(point, entry[0]);
+        });
+        weightsMinus.forall([&](const auto* entry, const auto& weight) {
+          tractionOfSim(point, entry[1]) += weight * minusOfSim(point, entry[0]);
+        });
+      }
+    }
+  } else {
+    dynamicRupture::kernel::computeTractionInterpolated trKrnl;
+    trKrnl.tractionPlusMatrix = impedanceMatrices.tractionPlus.at(0);
+    trKrnl.tractionMinusMatrix = impedanceMatrices.tractionMinus.at(0);
+    trKrnl.QInterpolatedPlus = qInterpolatedPlus;
+    trKrnl.QInterpolatedMinus = qInterpolatedMinus;
+    trKrnl.tractionInterpolated = tractionInterpolated;
+    trKrnl.execute();
+  }
 
   alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
 
@@ -384,6 +413,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                                     timeDofsMinus[i],
                                                                     faceInformation[i],
                                                                     godunovData[i],
+                                                                    impedanceMatrices[i],
                                                                     drEnergyOutput[i].slip,
                                                                     global_);
 

@@ -126,8 +126,6 @@ struct DRFaceInformation {
 
 struct DRGodunovData {
   real dataTinvT[seissol::tensor::TinvT::size()]{};
-  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()]{};
-  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()]{};
   // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of

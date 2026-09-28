@@ -131,6 +131,15 @@ struct ImpedanceMatricesOf {
    * lambda / (lambda + 2 mu) = 1 - 2 (cs/cp)^2, which the output computes from the wave speeds.
    */
   PointMatrix<Pointwise, 3 * tensor::Zminus::Shape[0]> lateralStress;
+  /**
+   * The traction averaging matrices b+ and b-: the weights with which the state of either side
+   * enters the traction of the interface, tau = b+^T q+ + b-^T q-, stored in the layout of the
+   * tractionPlusMatrix and tractionMinusMatrix tensors. The friction energy and the static
+   * frictional work contract them. They follow from the impedances of a point exactly as eta
+   * does, so they vary along the face wherever the impedances do.
+   */
+  PointMatrix<Pointwise, tensor::tractionPlusMatrix::size()> tractionPlus;
+  PointMatrix<Pointwise, tensor::tractionMinusMatrix::size()> tractionMinus;
 };
 
 using ImpedanceMatrices = ImpedanceMatricesOf<PointwiseImpedances>;

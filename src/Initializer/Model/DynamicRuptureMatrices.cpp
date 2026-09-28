@@ -156,16 +156,6 @@ void materialAtFaultPoints(const std::array<MaterialT, LTS::MaterialNodes>& samp
   }
 }
 
-/**
- * The "general" material case: impedance, eta and traction averaging matrices of a face whose
- * admittance is a full matrix, from the admittances of both sides.
- *
- * A template, so that the `if constexpr` below depends on MaterialT: every build instantiates it
- * with its own material, but the body is only compiled for the materials that take this path.
- * Their code generator gives the traction averaging matrices the full pattern, and their Riemann
- * problem couples the traction components. Everything else, isotropic elastic and viscoelastic
- * included, uses the scalar impedances.
- */
 /// The scalar impedances of one point of a fault face, from the material on
 /// either side of it there.
 template <typename MaterialT>
@@ -193,6 +183,45 @@ void setIsotropicImpedance(seissol::dr::ImpedancesAndEta& impAndEta,
   impAndEta.etaS.set(point, 1.0 / (1.0 / zs + 1.0 / zsNeig));
 }
 
+/// The traction averaging matrices of one point of a fault face whose impedances are scalars:
+/// each side enters the traction of the interface with eta / Z of its own impedance.
+template <typename MaterialT>
+void setIsotropicTractionAveraging(seissol::dr::ImpedanceMatrices& impedanceMatrices,
+                                   std::size_t point,
+                                   const MaterialT& plusMaterial,
+                                   const MaterialT& minusMaterial) {
+  auto tractionPlusMatrix =
+      init::tractionPlusMatrix::view::create(impedanceMatrices.tractionPlus.at(point));
+  auto tractionMinusMatrix =
+      init::tractionMinusMatrix::view::create(impedanceMatrices.tractionMinus.at(point));
+  const double cZpP = plusMaterial.getDensity() * plusMaterial.getPWaveSpeed();
+  const double cZsP = plusMaterial.getDensity() * plusMaterial.getSWaveSpeed();
+  const double cZpM = minusMaterial.getDensity() * minusMaterial.getPWaveSpeed();
+  const double cZsM = minusMaterial.getDensity() * minusMaterial.getSWaveSpeed();
+  const double etaP = cZpP * cZpM / (cZpP + cZpM);
+  const double etaS = cZsP * cZsM / (cZsP + cZsM);
+
+  tractionPlusMatrix.setZero();
+  tractionPlusMatrix(0, 0) = etaP / cZpP;
+  tractionPlusMatrix(3, 1) = etaS / cZsP;
+  tractionPlusMatrix(5, 2) = etaS / cZsP;
+
+  tractionMinusMatrix.setZero();
+  tractionMinusMatrix(0, 0) = etaP / cZpM;
+  tractionMinusMatrix(3, 1) = etaS / cZsM;
+  tractionMinusMatrix(5, 2) = etaS / cZsM;
+}
+
+/**
+ * The "general" material case: impedance, eta and traction averaging matrices of a face whose
+ * admittance is a full matrix, from the admittances of both sides, at one point of the face.
+ *
+ * A template, so that the `if constexpr` below depends on MaterialT: every build instantiates it
+ * with its own material, but the body is only compiled for the materials that take this path.
+ * Their code generator gives the traction averaging matrices the full pattern, and their Riemann
+ * problem couples the traction components. Everything else, isotropic elastic and viscoelastic
+ * included, uses the scalar impedances.
+ */
 template <typename MaterialT>
 void initializeFaultImpedance(const Fault& fault,
                               std::size_t meshFace,
@@ -200,7 +229,6 @@ void initializeFaultImpedance(const Fault& fault,
                               const MaterialT& plusMaterial,
                               const MaterialT& minusMaterial,
                               seissol::dr::ImpedanceMatrices& impedanceMatrices,
-                              DRGodunovData& godunovData,
                               seissol::dr::ImpedancesAndEta& impAndEta) {
   if constexpr (MaterialT::Type == seissol::model::MaterialType::Anisotropic ||
                 MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
@@ -255,9 +283,9 @@ void initializeFaultImpedance(const Fault& fault,
     auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices.impedanceNeig.at(point));
     auto etaView = init::eta::view::create(impedanceMatrices.eta.at(point));
     auto tractionPlusMatrix =
-        init::tractionPlusMatrix::view::create(godunovData.tractionPlusMatrix);
+        init::tractionPlusMatrix::view::create(impedanceMatrices.tractionPlus.at(point));
     auto tractionMinusMatrix =
-        init::tractionMinusMatrix::view::create(godunovData.tractionMinusMatrix);
+        init::tractionMinusMatrix::view::create(impedanceMatrices.tractionMinus.at(point));
 
     copyEigenToYateto(impedanceMatrix, impedanceView);
     copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
@@ -592,7 +620,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                    plusAtPoints[point],
                                    minusAtPoints[point],
                                    impedanceMatrices[ltsFace],
-                                   godunovData[ltsFace],
                                    impAndEta[ltsFace]);
         }
         break;
@@ -611,28 +638,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         // the "fast" case, for isotropic elastic/viscoelastic. Does not need the extra impedance
         // matrices.
 
-        /// Traction matrices for "average" traction
-
-        auto tractionPlusMatrix =
-            init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
-        auto tractionMinusMatrix =
-            init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
-        const double cZpP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].pWaveVelocity;
-        const double cZsP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].sWaveVelocity;
-        const double cZpM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].pWaveVelocity;
-        const double cZsM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].sWaveVelocity;
-        const double etaP = cZpP * cZpM / (cZpP + cZpM);
-        const double etaS = cZsP * cZsM / (cZsP + cZsM);
-
-        tractionPlusMatrix.setZero();
-        tractionPlusMatrix(0, 0) = etaP / cZpP;
-        tractionPlusMatrix(3, 1) = etaS / cZsP;
-        tractionPlusMatrix(5, 2) = etaS / cZsP;
-
-        tractionMinusMatrix.setZero();
-        tractionMinusMatrix(0, 0) = etaP / cZpM;
-        tractionMinusMatrix(3, 1) = etaS / cZsM;
-        tractionMinusMatrix(5, 2) = etaS / cZsM;
+        /// Traction matrices for "average" traction, from the impedances of each point
+        for (std::size_t point = 0; point < seissol::dr::ImpedancePoints; ++point) {
+          setIsotropicTractionAveraging(
+              impedanceMatrices[ltsFace], point, plusAtPoints[point], minusAtPoints[point]);
+        }
         break;
       }
       }

@@ -242,6 +242,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                     ctx.data->qInterpolatedPlus[ctx.ltsFace],
                                                     ctx.data->qInterpolatedMinus[ctx.ltsFace],
                                                     ctx.data->impAndEta[ctx.ltsFace],
+                                                    ctx.data->impedanceMatrices[ctx.ltsFace],
                                                     ctx.args->timeWeights,
                                                     ctx.args->spaceWeights,
                                                     ctx.data->godunovData[ctx.ltsFace],

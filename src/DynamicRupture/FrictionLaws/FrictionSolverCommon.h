@@ -594,6 +594,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
     const ImpedancesAndEta& __restrict impAndEta,
+    [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
     const real timeWeights[misc::TimeSteps],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
     const DRGodunovData& __restrict godunovData,
@@ -653,19 +654,23 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       real bMinus20{};
 
       if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+        // the weights of this point: they follow its impedances, which vary along the face
+        // wherever the material does
         constexpr auto Rows = 3;
-        bPlus10 = godunovData.tractionPlusMatrix[Rows * 1 + 0];
-        bPlus11 = godunovData.tractionPlusMatrix[Rows * 1 + 1];
-        bPlus12 = godunovData.tractionPlusMatrix[Rows * 1 + 2];
-        bPlus20 = godunovData.tractionPlusMatrix[Rows * 2 + 0];
-        bPlus21 = godunovData.tractionPlusMatrix[Rows * 2 + 1];
-        bPlus22 = godunovData.tractionPlusMatrix[Rows * 2 + 2];
-        bMinus10 = godunovData.tractionMinusMatrix[Rows * 1 + 0];
-        bMinus11 = godunovData.tractionMinusMatrix[Rows * 1 + 1];
-        bMinus12 = godunovData.tractionMinusMatrix[Rows * 1 + 2];
-        bMinus20 = godunovData.tractionMinusMatrix[Rows * 2 + 0];
-        bMinus21 = godunovData.tractionMinusMatrix[Rows * 2 + 1];
-        bMinus22 = godunovData.tractionMinusMatrix[Rows * 2 + 2];
+        const auto* __restrict tractionPlus = impedanceMatrices.tractionPlus.at(i);
+        const auto* __restrict tractionMinus = impedanceMatrices.tractionMinus.at(i);
+        bPlus10 = tractionPlus[Rows * 1 + 0];
+        bPlus11 = tractionPlus[Rows * 1 + 1];
+        bPlus12 = tractionPlus[Rows * 1 + 2];
+        bPlus20 = tractionPlus[Rows * 2 + 0];
+        bPlus21 = tractionPlus[Rows * 2 + 1];
+        bPlus22 = tractionPlus[Rows * 2 + 2];
+        bMinus10 = tractionMinus[Rows * 1 + 0];
+        bMinus11 = tractionMinus[Rows * 1 + 1];
+        bMinus12 = tractionMinus[Rows * 1 + 2];
+        bMinus20 = tractionMinus[Rows * 2 + 0];
+        bMinus21 = tractionMinus[Rows * 2 + 1];
+        bMinus22 = tractionMinus[Rows * 2 + 2];
       } else {
         bPlus10 = 0;
         bPlus11 = impAndEta.etaS(i) * impAndEta.invZs(i);
