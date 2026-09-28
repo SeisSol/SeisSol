@@ -8,7 +8,6 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
-#include "Initializer/BoundaryHelper.h"
 #include "Initializer/BoundarySetup.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/Boundary.h"

@@ -10,6 +10,7 @@
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/Parameters/InitializationParameters.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -48,6 +49,7 @@ FaceTypeCensus collectFaceTypes(LTS::Storage& storage) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         const auto faceType = cellInformation[cell].faceTypes[face];
         census.present |= faceTypeBit(faceType);
+        // NOLINTNEXTLINE
         if (!model::faceTypeCellAdmissible<model::MaterialT>(faceType, materialData[cell])) {
           census.cellRejected |= faceTypeBit(faceType);
         }

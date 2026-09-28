@@ -26,18 +26,14 @@
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
-#include "Physics/InitialField.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <memory>
 #include <stdint.h>
 #include <utils/logger.h>
-#include <vector>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE

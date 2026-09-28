@@ -19,6 +19,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <math.h>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -67,7 +68,7 @@ AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(const Input
 // Fused simulations are offset against each other in phase, so that they do not all carry the
 // same wave.
 template <typename FieldT, typename... Args>
-FieldList perSimulation(Args&&... args) {
+FieldList perSimulation(const Args&... args) {
   FieldList fields;
   for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
     const double phase = (2.0 * M_PI * sim) / multisim::NumSimulations;
