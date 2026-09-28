@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "InitLayout.h"
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshReader.h"
@@ -123,16 +124,18 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
+  const auto config = defaultConfig();
+
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
+      initializer::EnumLayer<ConfigId>({config}));
 
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
     const auto& element = meshReader.getElements()[i];
     const auto halo = geometry::isCopy(element, rank) ? HaloType::Copy : HaloType::Interior;
-    colors[i] = colorMap.color(halo, element.clusterId, Config());
+    colors[i] = colorMap.color(halo, element.clusterId, config);
   }
 
   const auto ghostSize = meshReader.linearGhostlayer().size();
@@ -142,7 +145,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     const auto& element =
         meshReader.getGhostlayerMetadata().at(linearGhost.rank)[linearGhost.inRankIndices[0]];
     const auto halo = HaloType::Ghost;
-    colorsGhost[i] = colorMap.color(halo, element.clusterId, Config());
+    colorsGhost[i] = colorMap.color(halo, element.clusterId, config);
   }
 
   const auto needsIntegration =
@@ -208,7 +211,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       const auto dup = addToBackmap(cell, i);
 
       zeroLayer[i].meshId = cell;
-      zeroLayer[i].configId = layer.getIdentifier().config.index();
+      zeroLayer[i].configId = layer.getIdentifier().config;
       zeroLayer[i].clusterId = layer.getIdentifier().lts;
       zeroLayer[i].duplicate = dup;
       zeroLayer[i].halo = layer.getIdentifier().halo;

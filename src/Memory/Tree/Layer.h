@@ -20,7 +20,6 @@
 #include <type_traits>
 #include <typeindex>
 #include <utils/logger.h>
-#include <variant>
 #include <vector>
 
 // TODO: remove the following
@@ -673,11 +672,6 @@ private:
         }
       }
     }
-  }
-
-  template <typename F>
-  void wrap(F&& function) {
-    std::visit(std::forward<F>(function), identifier_.config);
   }
 
   template <typename InnerKeyType>

@@ -7,15 +7,15 @@
 #ifndef SEISSOL_SRC_MEMORY_TREE_COLORMAP_H_
 #define SEISSOL_SRC_MEMORY_TREE_COLORMAP_H_
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Templating.h"
-#include "Config.h"
 #include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>
 #include <functional>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace seissol::initializer {
@@ -40,38 +40,9 @@ class EnumLayer {
 
   using Type = T;
 
-  using VariantType = void;
-
   private:
   std::vector<T> supportedValues_;
   std::unordered_map<T, std::size_t> reverse_;
-};
-
-/**
-  A wrapper type around a `std::variant`, to be used in `ColorMap`.
- */
-template <typename T>
-class TraitLayer {
-  public:
-  explicit TraitLayer(const std::vector<T>& supportedValues) : supportedValues_(supportedValues) {
-    for (std::size_t i = 0; i < supportedValues.size(); ++i) {
-      reverse_[supportedValues[i].index()] = i;
-    }
-  }
-
-  [[nodiscard]] std::size_t size() const { return supportedValues_.size(); }
-
-  [[nodiscard]] T argument(std::size_t index) const { return supportedValues_.at(index); }
-
-  [[nodiscard]] std::size_t color(const T& value) const { return reverse_.at(value.index()); }
-
-  using Type = T;
-
-  using VariantType = T;
-
-  private:
-  std::vector<T> supportedValues_;
-  std::unordered_map<std::size_t, std::size_t> reverse_;
 };
 
 /**
@@ -91,13 +62,11 @@ class StopLayerSet {
 
   using Type = std::tuple<>;
 
-  using VariantType = std::variant<>;
-
   [[nodiscard]] Type argument(std::size_t /*color*/) const { return {}; }
 };
 
 /**
-  Helper class for `ColorMap`; contains either an `EnumLayer` or a `TraitLayer`.
+  Helper class for `ColorMap`; contains an `EnumLayer`.
   Not intended for outside use.
  */
 template <typename Definition, typename SubLayerSet>
@@ -122,11 +91,6 @@ class LayerSet {
   [[nodiscard]] std::size_t size() const { return definition_.size() * subLayerSet_.size(); }
 
   using Type = PrependVariadicT<typename Definition::Type, typename SubLayerSet::Type>;
-
-  using VariantType = std::conditional_t<
-      std::is_same_v<typename Definition::VariantType, void>,
-      typename SubLayerSet::VariantType,
-      PrependVariadicT<typename Definition::VariantType, typename SubLayerSet::VariantType>>;
 
   [[nodiscard]] Type argument(std::size_t color) const {
     const std::size_t index = color % definition_.size();
@@ -199,44 +163,40 @@ class ColorMap {
   using Type = typename NestedLayerSets::Type;
 };
 
-using ConfigVariant = std::variant<Config>;
-
 /**
   A convenience data structure for the Layer identifier type we use.
   In essence, it provides basic infos about the layer, like e.g. if it is a ghost, copy or interior
-  layer or which LTS cluster it belongs to; and maps identifier to a contiguous ID (a.k.a. color),
-  and back.
+  layer, which LTS cluster and which configuration it belongs to; and maps identifier to a
+  contiguous ID (a.k.a. color), and back.
   */
 struct LayerIdentifier {
   HaloType halo{HaloType::Interior};
-  ConfigVariant config;
+  ConfigId config{};
   std::size_t lts{};
 
   LayerIdentifier() = default;
 
-  LayerIdentifier(HaloType halo, ConfigVariant config, std::size_t lts)
+  LayerIdentifier(HaloType halo, ConfigId config, std::size_t lts)
       : halo(halo), config(config), lts(lts) {}
 
-  [[nodiscard]] std::tuple<HaloType, std::size_t, ConfigVariant> toTuple() const {
+  [[nodiscard]] std::tuple<HaloType, std::size_t, ConfigId> toTuple() const {
     return {halo, lts, config};
   }
 
-  static LayerIdentifier fromTuple(const std::tuple<HaloType, std::size_t, ConfigVariant>& tuple) {
+  static LayerIdentifier fromTuple(const std::tuple<HaloType, std::size_t, ConfigId>& tuple) {
     return LayerIdentifier(std::get<0>(tuple), std::get<2>(tuple), std::get<1>(tuple));
   }
 };
 
 // NOTE: keep the ordering like this until we merge #1411. Otherwise, there will be a data layout
 // mismatch with the LtsLayout class.
-using LTSColorMap = ColorMap<LayerIdentifier,
-                             EnumLayer<HaloType>,
-                             EnumLayer<std::size_t>,
-                             TraitLayer<ConfigVariant>>;
+using LTSColorMap =
+    ColorMap<LayerIdentifier, EnumLayer<HaloType>, EnumLayer<std::size_t>, EnumLayer<ConfigId>>;
 
 // to get a full layer representation (including Copy, Ghost, Interior), do
 // ColorMap<EnumLayer<SupportedConfigs>, RangeLayer, EnumLayer<LayerType>> to also take into account
-// different devices etc. (e.g. to get a single-process-per-node representation), define a variant
-// std::variant<CpuType, GpuType>, and use an EnumLayer.
+// different devices etc. (e.g. to get a single-process-per-node representation), define an enum
+// of the device types, and use an EnumLayer.
 
 } // namespace seissol::initializer
 #endif // SEISSOL_SRC_MEMORY_TREE_COLORMAP_H_
