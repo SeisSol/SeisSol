@@ -73,7 +73,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
 
-  auto clusteringWriter = writer::ClusteringWriter(seissolInstance_.parameters().output.prefix);
+  // written in initIO, once the output directory exists
+  auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix);
 
   std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
 
@@ -232,8 +233,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
-  clusteringWriter.write();
-
   // Sort clusters by time step size in increasing order
   auto rateSorter = [](const auto& a, const auto& b) {
     return a->getTimeStepRate() < b->getTimeStepRate();
@@ -269,6 +268,12 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   for (auto& timeMirrorManager : seissolInstance_.getTimeMirrorManagers()) {
     timeMirrorManager.setClusterVector(allClusters);
+  }
+}
+
+void TimeManager::writeClustering() const {
+  if (clusteringWriter_.has_value()) {
+    clusteringWriter_->write();
   }
 }
 
