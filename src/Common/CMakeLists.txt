@@ -7,6 +7,7 @@
 
 add_library(seissol-common OBJECT
     ConfigHelper.cpp
+    ConfigValue.cpp
     Filesystem.cpp
     IntegerMaskParser.cpp
 )
