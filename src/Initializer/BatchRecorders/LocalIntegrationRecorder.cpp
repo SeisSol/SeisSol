@@ -14,6 +14,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/BatchRecorders/DataTypes/ScratchRanges.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
@@ -484,8 +485,18 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
           dofsPtrs[face].push_back(data.get<LTS::Dofs>());
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-          analytical[face].push_back(analyticScratch + cell * tensor::INodal::size());
         }
+      }
+    }
+
+    // one range per face, taken in the same order as by the host function which fills them
+    // (Local::evaluateBatchedTimeDependentBc); the ranges must not overlap, since the host function
+    // of one face may run while the kernel of the previous face still reads its range
+    ScratchRanges<real> scratchRanges(analyticScratch, tensor::INodal::size());
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      real* range = scratchRanges.take(cellIndices[face].size());
+      for (std::size_t i = 0; i < cellIndices[face].size(); ++i) {
+        analytical[face].push_back(range + i * tensor::INodal::size());
       }
     }
 

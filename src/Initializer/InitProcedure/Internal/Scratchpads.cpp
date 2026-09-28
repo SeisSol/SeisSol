@@ -145,6 +145,8 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
                                               sizeof(real));
     }
 
+    // the sum over the faces (not the maximum, as for Dirichlet): each face uses a range of its
+    // own (LocalIntegrationRecorder::recordAnalyticalBc)
     layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal::size() *
                                              sizeof(real));
     if (plasticity) {

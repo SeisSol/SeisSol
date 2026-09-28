@@ -44,6 +44,7 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/BatchRecorders/DataTypes/ScratchRanges.h"
 #include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
 #endif
 
@@ -405,6 +406,9 @@ void Local::evaluateBatchedTimeDependentBc(
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
 
+  // the per-face ranges of the scratch, as assigned by LocalIntegrationRecorder::recordAnalyticalBc
+  ScratchRanges<real> scratchRanges(layer.var<LTS::AnalyticScratch>(), tensor::INodal::size());
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
@@ -413,7 +417,7 @@ void Local::evaluateBatchedTimeDependentBc(
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
       auto* analytical =
-          reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var<LTS::AnalyticScratch>());
+          reinterpret_cast<real(*)[tensor::INodal::size()]>(scratchRanges.take(numElements));
 
       runtime.enqueueLoop(
           numElements,

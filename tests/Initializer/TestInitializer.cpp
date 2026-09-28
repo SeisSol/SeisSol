@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "BatchRecorders/ScratchRanges.t.h"
 #include "Clustering/ClusterHistogram.t.h"
 #include "Clustering/ClusterLadder.t.h"
 #include "Clustering/LTSWeights.t.h"
