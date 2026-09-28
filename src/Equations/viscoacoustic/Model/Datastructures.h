@@ -46,8 +46,7 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
       "pprime", "v1", "v2", "v3"};
   /// The scheme this build advances cells with. The material does not pick
   /// it; which combinations are allowed is checked when the build is
-  /// configured. It cannot live on the base material, because Config.h
-  /// includes CommonDatastructures.h.
+  /// configured.
   using Solver = kernels::SolverSelector<Config::Solver>::Type;
 
   static constexpr auto PrimaryGroups = AcousticQuantities;

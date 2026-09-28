@@ -10,6 +10,10 @@
 
 #include "Kernels/Precision.h"
 
+#include <cstddef>
+#include <utility>
+#include <vector>
+
 namespace seissol::ode {
 
 /**
