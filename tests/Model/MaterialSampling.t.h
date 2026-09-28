@@ -17,8 +17,11 @@
 #include <doctest.h>
 
 #include "Alignment.h"
+#include "Common/Constants.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Solver/MultipleSimulations.h"
@@ -37,7 +40,8 @@ TEST_CASE("Material at the points of a fault") {
   constexpr std::size_t FaultPoints =
       tensor::materialAtFault::Shape[multisim::BasisFunctionDimension];
   constexpr std::size_t Modes = tensor::materialProject::Shape[0];
-  constexpr std::size_t Groups = 16;
+  // one matrix per side and face relation of a dynamic rupture face
+  constexpr std::size_t Groups = Cell::NumFaces * dr::misc::NumFaceRelations;
 
   // The folds below are stated in the orientation the mathematics has. A build
   // that bundles simulations stores whatever comes from a matrix file the other
@@ -111,7 +115,7 @@ TEST_CASE("Material at the points of a fault") {
   SUBCASE("a constant material reaches every point") {
     // Independent of any matrix product: reading a constant field at the points
     // of the fault has to give that constant, whichever side and whichever
-    // reparametrisation of the shared face.
+    // face relation.
     alignas(Alignment) std::array<real, tensor::materialSamples::size()> samples{};
     alignas(Alignment) std::array<real, tensor::materialAtFault::size()> atFault{};
 
@@ -126,15 +130,10 @@ TEST_CASE("Material at the points of a fault") {
     dynamicRupture::kernel::projectMaterialToFault krnl{};
     krnl.materialSamples = samples.data();
     krnl.materialAtFault = atFault.data();
-    for (std::size_t side = 0; side < 4; ++side) {
-      for (std::size_t relation = 0; relation < 4; ++relation) {
-        krnl.materialToFault(side, relation) =
-            init::materialToFault::Values[tensor::materialToFault::index(side, relation)];
-      }
-    }
+    krnl.bindGlobals(seissol::Pool::host());
 
-    for (std::uint8_t side = 0; side < 4; ++side) {
-      for (std::uint8_t relation = 0; relation < 4; ++relation) {
+    for (std::uint8_t side = 0; side < Cell::NumFaces; ++side) {
+      for (std::uint8_t relation = 0; relation < dr::misc::NumFaceRelations; ++relation) {
         atFault.fill(0.0);
         krnl.execute(side, relation);
         for (std::size_t point = 0; point < FaultPoints * multisim::NumSimulations; ++point) {

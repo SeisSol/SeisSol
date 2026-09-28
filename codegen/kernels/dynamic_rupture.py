@@ -375,7 +375,9 @@ def addKernels(
 
     # the material at the quadrature points of the fault, for a material that
     # varies along the face
-    material.addFaultKernels(generator, aderdg, matricesDir, materialPoints, db)
+    material.addFaultKernels(
+        generator, aderdg, matricesDir, materialPoints, db, NumFaceRelations
+    )
 
     return {db.resample, db.quadpoints, db.quadweights}
 

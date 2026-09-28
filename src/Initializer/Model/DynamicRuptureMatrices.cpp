@@ -113,9 +113,11 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
 /// face.
 ///
 /// A cell carries its material as samples; the fault wants it where its own
-/// points are, and which of the two reparametrisations of the shared face
-/// applies depends on the side. The generated kernel folds the evaluation and
-/// the projection into one matrix per side and reparametrisation, so this runs
+/// points are, and which parametrisation of the shared face applies depends on
+/// the side: the face relation is 0 on the plus side and 1 on the minus side,
+/// whose face orientation the canonical vertex order pins to zero. The
+/// generated kernel folds the evaluation and the projection into one matrix per
+/// side and face relation, so this runs
 /// one small product per parameter the material declares. The samples are the
 /// initialized ones the cell keeps, so nothing is fitted or derived a second
 /// time here -- for a viscoelastic material that means the unrelaxed moduli

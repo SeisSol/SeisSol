@@ -155,12 +155,14 @@ def addFaceKernels(generator, aderdg, matricesDir, pointSet):
     )
 
 
-def addFaultKernels(generator, aderdg, matricesDir, pointSet, faultDb):
+def addFaultKernels(generator, aderdg, matricesDir, pointSet, faultDb, faceRelations):
     """The material where a fault needs it.
 
     A fault face reads its Riemann problem at the quadrature points of the
     dynamic rupture rule, which is a different set from the nodal one the flux
-    uses and has its own matrix per side and reparametrisation. The route is the
+    uses and has its own matrix per side and face relation -- the pairs the
+    dynamic rupture families are generated for, faceRelations of them per
+    side (the plus side and the minus side at orientation zero). The route is the
     same as for a face: the samples give a modal field and the field is read
     wherever it is wanted, so the two matrices fold into one and the modal
     coefficients are never written.
@@ -174,7 +176,7 @@ def addFaultKernels(generator, aderdg, matricesDir, pointSet, faultDb):
             aderdg.t("kl")
         ]
         * mats["materialProject"]["ln"],
-        group_indices=simpleParameterSpace(4, 4),
+        group_indices=simpleParameterSpace(4, faceRelations),
         target_indices="kn",
     )
     aderdg.db.update(folded)
@@ -197,7 +199,7 @@ def addFaultKernels(generator, aderdg, matricesDir, pointSet, faultDb):
     )
     generator.addFamily(
         "projectMaterialToFault",
-        simpleParameterSpace(4, 4),
+        simpleParameterSpace(4, faceRelations),
         lambda side, relation: faultValues["k"]
         <= aderdg.db.materialToFault[side, relation]["kn"] * samples["n"],
     )
