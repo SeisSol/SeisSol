@@ -167,7 +167,7 @@ void ProxyData::initDataStructures(bool enableDR) {
       initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   // init RNG
-  const auto nullSettings = SimulationSettings(false, false);
+  const auto nullSettings = SimulationSettings(false, false, false);
   LTS::addTo(ltsStorage, nullSettings);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();
