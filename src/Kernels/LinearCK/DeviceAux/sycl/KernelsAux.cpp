@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
+
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -322,6 +324,7 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
 
   constexpr size_t workGroupSize = 9;
   sycl::nd_range<1> rng{{numElements * workGroupSize}, {workGroupSize}};
+  const auto offsets = displacementRotationOffsets();
 
   queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
     const int elementId = item.get_group().get_group_id(0);
@@ -331,15 +334,13 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
       auto* T = TPtrs[elementId];
       auto* Tinv = TinvPtrs[elementId];
 
-      constexpr auto ldTinv = yateto::leadDim<seissol::init::Tinv>();
-      constexpr auto ldT = yateto::leadDim<seissol::init::T>();
       constexpr auto ldDisplacement = yateto::leadDim<seissol::init::displacementRotationMatrix>();
 
       const int i = item.get_local_id(0) % 3;
       const int j = item.get_local_id(0) / 3;
 
-      displacementToFaceNormal[i + j * ldDisplacement] = Tinv[(i + 6) + (j + 6) * ldTinv];
-      displacementToGlobalData[i + j * ldDisplacement] = T[(i + 6) + (j + 6) * ldT];
+      displacementToFaceNormal[i + j * ldDisplacement] = Tinv[offsets.tinv[i][j]];
+      displacementToGlobalData[i + j * ldDisplacement] = T[offsets.t[i][j]];
     }
   });
 }

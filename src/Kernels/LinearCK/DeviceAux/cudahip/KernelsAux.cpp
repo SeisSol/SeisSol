@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
+
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -366,6 +368,7 @@ __global__ void kernelextractRotationMatrices(real** displacementToFaceNormalPtr
                                               real** displacementToGlobalDataPtrs,
                                               real** tPtrs,
                                               real** tinvPtrs,
+                                              DisplacementRotationOffsets offsets,
                                               size_t numElements) {
   const int elementId = blockIdx.x;
   if (elementId < numElements) {
@@ -374,15 +377,13 @@ __global__ void kernelextractRotationMatrices(real** displacementToFaceNormalPtr
     auto* t = tPtrs[elementId];
     auto* tinv = tinvPtrs[elementId];
 
-    constexpr auto LdTinv = yateto::leadDim<seissol::init::Tinv>();
-    constexpr auto LdT = yateto::leadDim<seissol::init::T>();
     constexpr auto LdDisplacement = yateto::leadDim<seissol::init::displacementRotationMatrix>();
 
     const int i = threadIdx.x;
     const int j = threadIdx.y;
 
-    displacementToFaceNormal[i + j * LdDisplacement] = tinv[(i + 6) + (j + 6) * LdTinv];
-    displacementToGlobalData[i + j * LdDisplacement] = t[(i + 6) + (j + 6) * LdT];
+    displacementToFaceNormal[i + j * LdDisplacement] = tinv[offsets.tinv[i][j]];
+    displacementToGlobalData[i + j * LdDisplacement] = t[offsets.t[i][j]];
   }
 }
 
@@ -395,8 +396,12 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
   const dim3 block(3, 3, 1);
   const dim3 grid(numElements, 1, 1);
   auto* stream = reinterpret_cast<StreamT>(deviceStream);
-  kernelextractRotationMatrices<<<grid, block, 0, stream>>>(
-      displacementToFaceNormalPtrs, displacementToGlobalDataPtrs, tPtrs, tinvPtrs, numElements);
+  kernelextractRotationMatrices<<<grid, block, 0, stream>>>(displacementToFaceNormalPtrs,
+                                                            displacementToGlobalDataPtrs,
+                                                            tPtrs,
+                                                            tinvPtrs,
+                                                            displacementRotationOffsets(),
+                                                            numElements);
 }
 
 __global__ void

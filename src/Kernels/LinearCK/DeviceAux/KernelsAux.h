@@ -8,7 +8,9 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 
 namespace seissol::kernels::time::aux {
@@ -72,6 +74,31 @@ struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
 } // namespace seissol::kernels::local_flux::aux
 
 namespace seissol::kernels::time::aux {
+/// Where the displacement block of the face rotation -- the rows and columns of
+/// the velocity -- sits in the storage of T and Tinv. The generator may store
+/// the rotation dense or by its pattern, so the offsets are read on the host,
+/// through the views, and the device kernels only follow them.
+struct DisplacementRotationOffsets {
+  unsigned t[3][3];
+  unsigned tinv[3][3];
+};
+
+inline DisplacementRotationOffsets displacementRotationOffsets() {
+  DisplacementRotationOffsets offsets{};
+  real tData[seissol::tensor::T::size()]{};
+  real tinvData[seissol::tensor::Tinv::size()]{};
+  auto t = seissol::init::T::view::create(tData);
+  auto tinv = seissol::init::Tinv::view::create(tinvData);
+  constexpr unsigned UIdx = seissol::model::MaterialT::VelocityOffset;
+  for (unsigned i = 0; i < 3; ++i) {
+    for (unsigned j = 0; j < 3; ++j) {
+      offsets.t[i][j] = static_cast<unsigned>(&t(i + UIdx, j + UIdx) - tData);
+      offsets.tinv[i][j] = static_cast<unsigned>(&tinv(i + UIdx, j + UIdx) - tinvData);
+    }
+  }
+  return offsets;
+}
+
 void extractRotationMatrices(real** displacementToFaceNormalPtrs,
                              real** displacementToGlobalDataPtrs,
                              real** tPtrs,
