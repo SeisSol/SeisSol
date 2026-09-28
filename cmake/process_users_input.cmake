@@ -220,6 +220,12 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 check_parameter("MATERIAL_POINTS" "${MATERIAL_POINTS}" "${MATERIAL_POINTS_OPTIONS}")
 check_parameter("MATERIAL_OPERATOR" "${MATERIAL_OPERATOR}" "${MATERIAL_OPERATOR_OPTIONS}")
+if (MATERIAL_NODAL AND NOT DEVICE_BACKEND STREQUAL "none")
+  message(FATAL_ERROR
+    "MATERIAL_NODAL=ON is not available for GPU builds yet: the batched device "
+    "kernels do not bind the operator at the samples, the source term or the flux "
+    "at the nodes of a face.")
+endif()
 if (MATERIAL_NODAL AND NOT FACTORED_STAR)
   message(FATAL_ERROR
     "MATERIAL_NODAL=ON needs FACTORED_STAR=ON: what varies inside a cell are the "
