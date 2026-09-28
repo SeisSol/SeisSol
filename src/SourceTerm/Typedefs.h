@@ -16,6 +16,8 @@
 #include "Memory/MemoryAllocator.h"
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 
 namespace seissol::sourceterm {
