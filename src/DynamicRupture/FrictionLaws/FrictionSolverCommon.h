@@ -139,12 +139,12 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
       auto i{startLoopIndex + index};
       // read inside the loop, since a material varying along the face gives a
       // different Riemann problem at every point of it
-      const auto etaP = impAndEta.etaP(index) * etaPDamp;
-      const auto etaS = impAndEta.etaS(index);
-      const auto invZp = impAndEta.invZp(index);
-      const auto invZs = impAndEta.invZs(index);
-      const auto invZpNeig = impAndEta.invZpNeig(index);
-      const auto invZsNeig = impAndEta.invZsNeig(index);
+      const auto etaP = impAndEta.etaP(i) * etaPDamp;
+      const auto etaS = impAndEta.etaS(i);
+      const auto invZp = impAndEta.invZp(i);
+      const auto invZs = impAndEta.invZs(i);
+      const auto invZpNeig = impAndEta.invZpNeig(i);
+      const auto invZsNeig = impAndEta.invZsNeig(i);
       VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
@@ -190,9 +190,9 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
       real strP[Count]{};
       real strM[Count]{};
-      const auto* __restrict impedance = impedanceMatrices.impedance.at(index);
-      const auto* __restrict impedanceNeig = impedanceMatrices.impedanceNeig.at(index);
-      const auto* __restrict eta = impedanceMatrices.eta.at(index);
+      const auto* __restrict impedance = impedanceMatrices.impedance.at(i);
+      const auto* __restrict impedanceNeig = impedanceMatrices.impedanceNeig.at(i);
+      const auto* __restrict eta = impedanceMatrices.eta.at(i);
       const auto rowCompute = [&](auto linear, auto qindex) {
 #pragma unroll
         for (std::uint32_t j = 0; j < Count; ++j) {
@@ -305,10 +305,10 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
          index += NumPointsRange::Step) {
       auto i{startIndex + index};
-      const auto invZs = impAndEta.invZs(index);
-      const auto invZp = impAndEta.invZp(index);
-      const auto invZsNeig = impAndEta.invZsNeig(index);
-      const auto invZpNeig = impAndEta.invZpNeig(index);
+      const auto invZs = impAndEta.invZs(i);
+      const auto invZp = impAndEta.invZp(i);
+      const auto invZsNeig = impAndEta.invZsNeig(i);
+      const auto invZpNeig = impAndEta.invZpNeig(i);
 
       const auto normalStress = Acc::index(tractionResults.normalStress, i);
       const auto traction1 = Acc::index(tractionResults.traction1, i);
@@ -389,8 +389,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         }
       };
 
-      handleSide(state.minus, qIMinus, impedanceMatrices.impedanceNeig.at(index), -1);
-      handleSide(state.plus, qIPlus, impedanceMatrices.impedance.at(index), 1);
+      handleSide(state.minus, qIMinus, impedanceMatrices.impedanceNeig.at(i), -1);
+      handleSide(state.plus, qIPlus, impedanceMatrices.impedance.at(i), 1);
     }
   }
 }
@@ -668,17 +668,17 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
         bMinus22 = godunovData.tractionMinusMatrix[Rows * 2 + 2];
       } else {
         bPlus10 = 0;
-        bPlus11 = impAndEta.etaS(index) * impAndEta.invZs(index);
+        bPlus11 = impAndEta.etaS(i) * impAndEta.invZs(i);
         bPlus12 = 0;
         bPlus20 = 0;
         bPlus21 = 0;
-        bPlus22 = impAndEta.etaS(index) * impAndEta.invZs(index);
+        bPlus22 = impAndEta.etaS(i) * impAndEta.invZs(i);
         bMinus10 = 0;
-        bMinus11 = impAndEta.etaS(index) * impAndEta.invZsNeig(index);
+        bMinus11 = impAndEta.etaS(i) * impAndEta.invZsNeig(i);
         bMinus12 = 0;
         bMinus20 = 0;
         bMinus21 = 0;
-        bMinus22 = impAndEta.etaS(index) * impAndEta.invZsNeig(index);
+        bMinus22 = impAndEta.etaS(i) * impAndEta.invZsNeig(i);
       }
 
       const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
