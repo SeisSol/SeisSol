@@ -413,7 +413,8 @@ void Local::evaluateBatchedTimeDependentBc(
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
-      const auto& cellIds =
+      // a copy: the loop runs as a stream host function, i.e. possibly after this scope has ended
+      const auto cellIds =
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
       auto* analytical =
@@ -421,7 +422,7 @@ void Local::evaluateBatchedTimeDependentBc(
 
       runtime.enqueueLoop(
           numElements,
-          [this, face, time, timeStepWidth, analytical, &cellIds, &layer](std::size_t index) {
+          [this, face, time, timeStepWidth, analytical, cellIds, &layer](std::size_t index) {
             auto cellId = cellIds.at(index);
             auto data = layer.cellRef(cellId);
 
