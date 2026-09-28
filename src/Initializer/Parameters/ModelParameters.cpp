@@ -9,6 +9,7 @@
 
 #include "Equations/Datastructures.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cstddef>
@@ -84,7 +85,19 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const bool useCellHomogenizedMaterial =
       reader->readWithDefault("usecellhomogenizedmaterial", true);
 
-  const bool materialNodal = reader->readWithDefault("materialnodal", false);
+  // A build that forms the operator where the material is sampled needs the
+  // samples of every cell, so it takes them unless told otherwise, and it
+  // cannot run without them.
+  const bool materialNodal = reader->readWithDefault("materialnodal", NodalMaterial);
+  if (NodalMaterial && !materialNodal) {
+    logError() << "This build forms the operator where the material is sampled inside each cell "
+                  "(MATERIAL_NODAL=ON), so it needs materialnodal = 1.";
+  }
+  if (!NodalMaterial && materialNodal) {
+    logWarning() << "materialnodal = 1 samples the material inside each cell for the timestep, "
+                    "the plasticity and the material output only; this build keeps one operator "
+                    "per cell (MATERIAL_NODAL=OFF).";
+  }
 
   const double gravitationalAcceleration =
       reader->readWithDefault("gravitationalacceleration", 9.81);
