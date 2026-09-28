@@ -26,6 +26,7 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -100,23 +101,28 @@ std::array<real, multisim::NumSimulations>
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
-  dynamicRupture::kernel::computeTractionInterpolated trKrnl;
-  trKrnl.tractionPlusMatrix = godunovData.tractionPlusMatrix;
-  trKrnl.tractionMinusMatrix = godunovData.tractionMinusMatrix;
-  trKrnl.QInterpolatedPlus = qInterpolatedPlus;
-  trKrnl.QInterpolatedMinus = qInterpolatedMinus;
-  trKrnl.tractionInterpolated = tractionInterpolated;
-  trKrnl.execute();
+  constexpr auto Variant = kernels::RuntimeVariant;
+  runtime::dynamicRupture::kernel::computeTractionInterpolated trKrnl;
+  trKrnl.tractionPlusMatrix =
+      runtime::init::tractionPlusMatrix::view(Variant, godunovData.tractionPlusMatrix);
+  trKrnl.tractionMinusMatrix =
+      runtime::init::tractionMinusMatrix::view(Variant, godunovData.tractionMinusMatrix);
+  trKrnl.QInterpolatedPlus = runtime::init::QInterpolatedPlus::view(Variant, qInterpolatedPlus);
+  trKrnl.QInterpolatedMinus = runtime::init::QInterpolatedMinus::view(Variant, qInterpolatedMinus);
+  trKrnl.tractionInterpolated =
+      runtime::init::tractionInterpolated::view(Variant, tractionInterpolated);
+  trKrnl.execute(Variant);
 
   alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
 
-  dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
-  feKrnl.bindGlobals(*global);
-  feKrnl.slipInterpolated = slip;
-  feKrnl.tractionInterpolated = tractionInterpolated;
-  feKrnl.staticFrictionalWork = staticFrictionalWork;
+  runtime::dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
+  feKrnl.slipInterpolated = runtime::init::slipInterpolated::view(Variant, slip);
+  feKrnl.tractionInterpolated =
+      runtime::init::tractionInterpolated::view(Variant, tractionInterpolated);
+  feKrnl.staticFrictionalWork =
+      runtime::init::staticFrictionalWork::view(Variant, staticFrictionalWork);
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
-  feKrnl.execute();
+  feKrnl.execute(Variant);
 
   std::array<real, multisim::NumSimulations> frictionalWorkReturn{};
   std::copy_n(staticFrictionalWork, multisim::NumSimulations, frictionalWorkReturn.begin());
@@ -509,6 +515,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 void EnergyOutput::computeVolumeEnergies() {
   const std::vector<Element>& elements = meshReader_->getElements();
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
+  constexpr auto Variant = kernels::RuntimeVariant;
 
   const auto g = seissolInstance_.gravitationSetup().acceleration;
 
@@ -545,7 +552,7 @@ void EnergyOutput::computeVolumeEnergies() {
     reduction(+ : localGravitationalPotentialEnergy[ : SimCount],                                  \
                   energyValues[ : EnergyCount],                                                    \
                   localPlasticMoment[ : SimCount])                                                 \
-    shared(elements, vertices, global_, quadratureWeightsTet)
+    shared(elements, vertices, quadratureWeightsTet)
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate > 0) {
@@ -566,23 +573,21 @@ void EnergyOutput::computeVolumeEnergies() {
       alignas(Alignment) real linData[tensor::momentQ::size()];
       auto lin = init::momentQ::view::create(linData);
       // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
-      kernel::momentQCompute krnl;
-      krnl.bindGlobals(*global_);
-      krnl.momentQ = linData;
-      krnl.Q = dofsData[cell];
-      krnl.execute();
+      runtime::kernel::momentQCompute krnl;
+      krnl.momentQ = runtime::init::momentQ::view(Variant, linData);
+      krnl.Q = runtime::init::Q::view(Variant, dofsData[cell]);
+      krnl.execute(Variant);
 
       alignas(Alignment) real quadData[tensor::momentQQ::size()];
       auto quad = init::momentQQ::view::create(quadData);
       // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
-      kernel::momentQQCompute krnl2;
-      krnl2.bindGlobals(*global_);
-      krnl2.momentQQ = quadData;
-      krnl2.Q = dofsData[cell];
-      krnl2.execute();
+      runtime::kernel::momentQQCompute krnl2;
+      krnl2.momentQQ = runtime::init::momentQQ::view(Variant, quadData);
+      krnl2.Q = runtime::init::Q::view(Variant, dofsData[cell]);
+      krnl2.execute(Variant);
 
       const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
-          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr, *global_);
+          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr);
 
       for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
 
@@ -635,12 +640,14 @@ void EnergyOutput::computeVolumeEnergies() {
         alignas(Alignment) std::array<real, tensor::faceDisplacementSquared::Size>
             faceDisplacementSquared{};
         {
-          seissol::kernel::faceDisplacementSquaredCompute evalKrnl;
-          evalKrnl.bindGlobals(*global_);
-          evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
-          evalKrnl.faceDisplacementSquared = faceDisplacementSquared.data();
-          evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
-          evalKrnl.execute();
+          runtime::kernel::faceDisplacementSquaredCompute evalKrnl;
+          evalKrnl.rotatedFaceDisplacement =
+              runtime::init::rotatedFaceDisplacement::view(Variant, curFaceDisplacementsData);
+          evalKrnl.faceDisplacementSquared =
+              runtime::init::faceDisplacementSquared::view(Variant, faceDisplacementSquared.data());
+          evalKrnl.displacementRotationMatrix = runtime::init::displacementRotationMatrix::view(
+              Variant, rotateDisplacementToFaceNormalData);
+          evalKrnl.execute(Variant);
         }
 
         const auto squaredViewFused =
@@ -667,11 +674,10 @@ void EnergyOutput::computeVolumeEnergies() {
 
         alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject::size()]{};
 
-        kernel::plProject krnl;
-        krnl.bindGlobals(*global_);
-        krnl.QEtaNodal = qEta;
-        krnl.QEtaNodalProject = qEtaQuad;
-        krnl.execute();
+        runtime::kernel::plProject krnl;
+        krnl.QEtaNodal = runtime::init::QEtaNodal::view(Variant, qEta);
+        krnl.QEtaNodalProject = runtime::init::QEtaNodalProject::view(Variant, qEtaQuad);
+        krnl.execute(Variant);
 
         // go through the view: QEtaNodalProject is padded (at order 6, its 343 points take up 344
         // entries), and for fused simulations the simulation index leads and may be padded as well
