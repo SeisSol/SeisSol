@@ -95,10 +95,14 @@ void faceMaterials(const GlobalData& global,
       }
     }
   };
+  // the simulation index is the leading dimension of the face values, and
+  // every simulation holds the same material there
+  static_assert(tensor::materialAtFace::size() >= multisim::NumSimulations * FluxFaceNodes,
+                "The face values hold fewer nodes than the flux reads.");
   const auto scatter = [&](std::array<MaterialT, FluxFaceNodes>& target,
                            double MaterialT::* member) {
     for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
-      target[node].*member = atFace[node];
+      target[node].*member = atFace[node * multisim::NumSimulations];
     }
   };
 
@@ -111,6 +115,15 @@ void faceMaterials(const GlobalData& global,
   neighborKrnl.bindGlobals(global);
   neighborKrnl.materialSamples = samples.data();
   neighborKrnl.materialAtFace = atFace.data();
+
+  // What a material holds beyond the parameters it binds is derived rather
+  // than sampled, and only the bound parameters are interpolated to the face.
+  // The rest comes from a sample as it is: right for what is the same at every
+  // point, like the relaxation frequencies, and not interpolated for what is
+  // not, like the theta of a viscoelastic material -- which the flux does not
+  // read.
+  own.fill(ownSamples[0]);
+  neighbor.fill(neighborSamples[0]);
 
   for (const auto& [name, member] : MaterialT::ParameterMap) {
     fill(ownSamples, member);
