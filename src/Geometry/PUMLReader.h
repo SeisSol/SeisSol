@@ -16,10 +16,15 @@
 
 #include <PUML/PUML.h>
 #include <PUML/Topology.h>
+#include <array>
+#include <cstdint>
+#include <vector>
 
-namespace seissol::initializer::time_stepping {
-class LtsWeights;
-} // namespace seissol::initializer::time_stepping
+namespace seissol::initializer {
+class Clustering;
+struct ClusteringResult;
+class VertexWeightModel;
+} // namespace seissol::initializer
 
 namespace seissol::geometry {
 constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
@@ -44,6 +49,19 @@ inline uint32_t decodeBoundary(const void* data,
   }
 }
 
+/// The local vertex order of a cell: entry k is the slot, in the vertex list of the cell as the
+/// mesh file gives it, of the vertex that SeisSol uses as local vertex k.
+using VertexOrder = std::array<std::uint8_t, Cell::NumVertices>;
+
+/**
+ * The canonical local vertex order of every local cell of the two meshes, which have to
+ * correspond cell by cell and slot by slot (as they do from reading until getMesh(),
+ * partitioning included). It needs no communication: the sort key is the global vertex id from
+ * the file.
+ */
+std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
+                                               const PumlMesh& meshGeometry);
+
 class PUMLReader : public seissol::geometry::MeshReader {
   public:
   PUMLReader(const std::string& meshFile,
@@ -53,7 +71,8 @@ class PUMLReader : public seissol::geometry::MeshReader {
                  seissol::initializer::parameters::BoundaryFormat::I32,
              seissol::initializer::parameters::TopologyFormat topologyFormat =
                  seissol::initializer::parameters::TopologyFormat::Geometric,
-             initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
+             initializer::Clustering* clustering = nullptr,
+             initializer::VertexWeightModel* weightModel = nullptr,
              double tpwgt = 1.0);
 
   bool inlineTimestepCompute() const override;
@@ -73,7 +92,9 @@ class PUMLReader : public seissol::geometry::MeshReader {
    */
   static void partition(PumlMesh& meshTopology,
                         PumlMesh& meshGeometry,
-                        initializer::time_stepping::LtsWeights* ltsWeights,
+                        const initializer::ClusteringResult* clustering,
+                        const std::vector<VertexOrder>& vertexOrders,
+                        initializer::VertexWeightModel* weightModel,
                         double tpwgt,
                         const std::string& partitioningLib);
   /**
@@ -89,8 +110,10 @@ class PUMLReader : public seissol::geometry::MeshReader {
                const FaceMap& faceMap,
                seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
-  void
-      addMPINeighor(const PumlMesh& meshTopology, int rank, const std::vector<unsigned int>& faces);
+  void addMPINeighor(const PumlMesh& meshTopology,
+                     int rank,
+                     const std::vector<unsigned int>& faces,
+                     const std::vector<std::array<std::uint8_t, Cell::NumFaces>>& pumlFaceMaps);
 };
 
 } // namespace seissol::geometry

@@ -13,35 +13,53 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/LinearCK/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cstddef>
 #include <string>
 
 namespace seissol::model {
-struct AnisotropicLocalData;
-struct AnisotropicNeighborData;
+struct AnisotropicEnergyData;
 
 struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Anisotropic;
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+  /// The scheme this build advances cells with. The material does not pick
+  /// it; which combinations are allowed is checked when the build is
+  /// configured. It cannot live on the base material, because Config.h
+  /// includes CommonDatastructures.h.
+  using Solver = kernels::SolverSelector<Config::Solver>::Type;
+
+  static constexpr auto PrimaryGroups = ElasticQuantities;
+  static constexpr auto RotationGroups = PrimaryGroups;
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
+
   static constexpr std::size_t Parameters = 21 + Material::Parameters;
 
-  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = AnisotropicLocalData;
-  using NeighborSpecificData = AnisotropicNeighborData;
-  using Solver = kernels::solver::linearck::Solver;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
+
+  using EnergyData = AnisotropicEnergyData;
 
   double c11{};
   double c12{};
@@ -64,6 +82,8 @@ struct AnisotropicMaterial : public Material {
   double c55{};
   double c56{};
   double c66{};
+
+  static const std::unordered_map<std::string, double AnisotropicMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override;
 
@@ -92,6 +112,22 @@ struct AnisotropicMaterial : public Material {
 
   void setLameParameters(double mu, double lambda) override;
 };
+
+inline const std::unordered_map<std::string, double AnisotropicMaterial::*>
+    AnisotropicMaterial::ParameterMap{
+        {"rho", &AnisotropicMaterial::rho}, {"c11", &AnisotropicMaterial::c11},
+        {"c12", &AnisotropicMaterial::c12}, {"c13", &AnisotropicMaterial::c13},
+        {"c14", &AnisotropicMaterial::c14}, {"c15", &AnisotropicMaterial::c15},
+        {"c16", &AnisotropicMaterial::c16}, {"c22", &AnisotropicMaterial::c22},
+        {"c23", &AnisotropicMaterial::c23}, {"c24", &AnisotropicMaterial::c24},
+        {"c25", &AnisotropicMaterial::c25}, {"c26", &AnisotropicMaterial::c26},
+        {"c33", &AnisotropicMaterial::c33}, {"c34", &AnisotropicMaterial::c34},
+        {"c35", &AnisotropicMaterial::c35}, {"c36", &AnisotropicMaterial::c36},
+        {"c44", &AnisotropicMaterial::c44}, {"c45", &AnisotropicMaterial::c45},
+        {"c46", &AnisotropicMaterial::c46}, {"c55", &AnisotropicMaterial::c55},
+        {"c56", &AnisotropicMaterial::c56}, {"c66", &AnisotropicMaterial::c66},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_DATASTRUCTURES_H_

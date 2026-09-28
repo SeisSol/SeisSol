@@ -30,7 +30,14 @@ struct InitialVariables {
   real absoluteShearTraction{};
   real localSlipRate{};
   real normalStress{};
+  /// the same, before the slip rate dependent part and the clamp; the Newton solve needs it to
+  /// evaluate sigma(V) itself
+  real normalStressStick{};
   real stateVarReference{};
+  real etaNormal{};
+  /// unit slip direction; equals the normalized trial traction unless the impedance is anisotropic
+  real slipDirection1{};
+  real slipDirection2{};
 };
 
 struct FrictionLawArgs {
@@ -56,9 +63,12 @@ struct FrictionLawContext {
   void* item{nullptr};
 
   FaultStresses<Executor::Device> faultStresses{};
+  FaultStresses<Executor::Device> initialStress{};
   TractionResults<Executor::Device> tractionResults{};
   real stateVariableBuffer{};
   real strengthBuffer{};
+  /// d(strength)/d(-sigma_eff); only used for the anisotropic normal/shear coupling
+  real strengthSlopeBuffer{};
   InitialVariables initialVariables{};
 };
 
@@ -137,18 +147,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.args->fullUpdateTime
                                 ? ctx.data->drParameters.etaDamp
                                 : static_cast<real>(1.0);
-      common::precomputeStressFromQInterpolated<GpuRangeType>(
-          ctx.faultStresses,
-          ctx.data->impAndEta[ctx.ltsFace],
-          ctx.data->impedanceMatrices[ctx.ltsFace],
-          ctx.data->qInterpolatedPlus[ctx.ltsFace],
-          ctx.data->qInterpolatedMinus[ctx.ltsFace],
-          etaPDamp,
-          ctx.pointIndex);
 
       const auto isFrictionEnergyRequired{ctx.data->drParameters.isFrictionEnergyRequired};
       const auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};
       const auto devTerminatorSlipRateThreshold{ctx.data->drParameters.terminatorSlipRateThreshold};
+
+      ImposedState<Executor::Device> imposedState{};
 
       Derived::preHook(ctx);
 
@@ -161,21 +165,29 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         startTime = updateTime;
         updateTime += dt;
 
-        for (uint32_t i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
-          common::adjustInitialStress<GpuRangeType>(
-              ctx.data->initialStressInFaultCS[ctx.ltsFace],
-              ctx.data
-                  ->nucleationStressInFaultCS[ctx.ltsFace * ctx.data->drParameters.nucleationCount +
-                                              i],
-              ctx.data->initialPressure[ctx.ltsFace],
-              ctx.data
-                  ->nucleationPressure[ctx.ltsFace * ctx.data->drParameters.nucleationCount + i],
-              updateTime,
-              ctx.data->drParameters.t0[i],
-              ctx.data->drParameters.s0[i],
-              dt,
-              ctx.pointIndex);
-        }
+        common::precomputeStressFromQInterpolated<GpuRangeType>(
+            ctx.faultStresses,
+            ctx.data->impAndEta[ctx.ltsFace],
+            ctx.data->impedanceMatrices[ctx.ltsFace],
+            ctx.data->qInterpolatedPlus[ctx.ltsFace],
+            ctx.data->qInterpolatedMinus[ctx.ltsFace],
+            etaPDamp,
+            timeIndex,
+            ctx.pointIndex);
+
+        common::initializeTractionResults<GpuRangeType>(
+            ctx.faultStresses, ctx.tractionResults, ctx.pointIndex);
+
+        const auto sourceCount = ctx.data->drParameters.sourceCount;
+        common::computeInitialStress<GpuRangeType>(
+            ctx.initialStress,
+            &ctx.data->stressSourceInFaultCS[ctx.ltsFace * sourceCount],
+            &ctx.data->stressSourcePressure[ctx.ltsFace * sourceCount],
+            &ctx.data->stressSourceOnset[ctx.ltsFace * sourceCount],
+            &ctx.data->stressSourceRiseTime[ctx.ltsFace * sourceCount],
+            sourceCount,
+            updateTime,
+            ctx.pointIndex);
 
         Derived::updateFrictionAndSlip(ctx, timeIndex);
 
@@ -201,21 +213,26 @@ class BaseFrictionSolver : public FrictionSolverDetails {
               devTerminatorSlipRateThreshold,
               ctx.pointIndex);
         }
+
+        common::postcomputeImposedStateFromNewStress<GpuRangeType>(
+            imposedState,
+            ctx.faultStresses,
+            ctx.tractionResults,
+            ctx.data->impAndEta[ctx.ltsFace],
+            ctx.data->impedanceMatrices[ctx.ltsFace],
+            ctx.data->qInterpolatedPlus[ctx.ltsFace],
+            ctx.data->qInterpolatedMinus[ctx.ltsFace],
+            timeIndex,
+            ctx.args->timeWeights[timeIndex],
+            ctx.pointIndex);
       }
 
       Derived::postHook(ctx);
 
-      common::postcomputeImposedStateFromNewStress<GpuRangeType>(
-          ctx.faultStresses,
-          ctx.tractionResults,
-          ctx.data->impAndEta[ctx.ltsFace],
-          ctx.data->impedanceMatrices[ctx.ltsFace],
-          ctx.data->imposedStatePlus[ctx.ltsFace],
-          ctx.data->imposedStateMinus[ctx.ltsFace],
-          ctx.data->qInterpolatedPlus[ctx.ltsFace],
-          ctx.data->qInterpolatedMinus[ctx.ltsFace],
-          ctx.args->timeWeights,
-          ctx.pointIndex);
+      common::finalizeImposedState<GpuRangeType>(imposedState,
+                                                 ctx.data->imposedStatePlus[ctx.ltsFace],
+                                                 ctx.data->imposedStateMinus[ctx.ltsFace],
+                                                 ctx.pointIndex);
 
       if (isFrictionEnergyRequired) {
         const auto energiesFromAcrossFaultVelocities{

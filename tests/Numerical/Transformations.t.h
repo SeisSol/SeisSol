@@ -15,7 +15,8 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test mapping a cell barycenter to reference coordinates") {
+TEST_CASE("Test mapping a cell barycenter to reference coordinates" *
+          doctest::test_suite("numerical")) {
   // We do all tests in double precision
   constexpr real Epsilon = 10 * std::numeric_limits<double>::epsilon();
 
@@ -36,9 +37,9 @@ TEST_CASE("Test mapping a cell barycenter to reference coordinates") {
   }
 
   const auto res = transform.spaceToRef(center);
-  REQUIRE(res(0) == AbsApprox(0.25).epsilon(Epsilon));
-  REQUIRE(res(1) == AbsApprox(0.25).epsilon(Epsilon));
-  REQUIRE(res(2) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(0) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(1) == AbsApprox(0.25).epsilon(Epsilon));
+  CHECK(res(2) == AbsApprox(0.25).epsilon(Epsilon));
 }
 
 } // namespace seissol::unit_test

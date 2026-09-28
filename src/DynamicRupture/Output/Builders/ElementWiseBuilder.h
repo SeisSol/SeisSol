@@ -12,10 +12,10 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "GeneratedCode/init.h"
-#include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "ReceiverBasedOutputBuilder.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
@@ -27,15 +27,19 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
     outputData_ = std::move(elementwiseOutputData);
     initReceiverLocations();
-    assignNearestGaussianPoints(outputData_->receiverPoints);
+    assignNearestGaussianPoints(outputData_->receivers);
     assignNearestInternalGaussianPoints();
     assignFusedIndices();
     assignFaultTags();
     initTimeCaching();
+    // initTopology establishes the face/point hierarchy all following steps index into, and fixes
+    // the receiver numbering; everything below has to run after it
+    initTopology();
     initOutputVariables(elementwiseParams_.outputMask);
+    initBasisFunctions();
+    initDeviceCollectors(true);
     initFaultDirections();
     initRotationMatrices();
-    initBasisFunctions(true);
     initJacobian2dMatrices();
     outputData_->isActive = true;
   }
@@ -47,123 +51,50 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   }
 
   void initReceiverLocations() {
-    if (elementwiseParams_.vtkorder < 0) {
-      auto faultRefiner = refiner::get(elementwiseParams_.refinementStrategy);
+    auto faultRefiner = refiner::get(elementwiseParams_.refinementStrategy);
 
-      const auto numFaultElements = meshReader_->getFault().size();
-      const auto numSubTriangles = faultRefiner->getNumSubTriangles();
+    const auto numSubTriangles = faultRefiner->getNumSubTriangles();
+    const auto order = static_cast<std::uint32_t>(std::max(elementwiseParams_.vtkorder, 0));
 
-      logInfo() << "Initializing Fault output." << "Number of sub-triangles:" << numSubTriangles;
+    const auto numFaultElements = meshReader_->getFault().size();
 
-      // get arrays of elements and vertices from the meshReader
-      const auto& faultInfo = meshReader_->getFault();
-      const auto& elementsInfo = meshReader_->getElements();
-      const auto& verticesInfo = meshReader_->getVertices();
+    logInfo() << "Initializing Fault output."
+              << "Number of sub-triangles:" << numSubTriangles << "Output order:" << order
+              << "Simulation count:" << multisim::NumSimulations;
 
-      // iterate through each fault side
-      for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
+    // get the array of fault faces from the meshReader
+    const auto& faultInfo = meshReader_->getFault();
 
-        // get a global element ID for the current fault face
-        const auto& fault = faultInfo[faceIdx];
-        const auto elementIdx = fault.element;
+    // iterate through each fault side
+    for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
+      const auto& fault = faultInfo[faceIdx];
+      const auto elementIdx = fault.element;
 
-        if (elementIdx.hasValue()) {
-          const auto& element = elementsInfo[elementIdx.value()];
+      if (elementIdx.hasValue()) {
+        const auto faceSideIdx = fault.side;
 
-          const auto faceSideIdx = fault.side;
+        // init reference coordinates of the fault face
+        const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
-          // init reference coordinates of the fault face
-          const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
+        // init global coordinates of the fault face
+        const ExtTriangle globalFace =
+            toExtTriangle(seissol::geometry::AffineFaceTransform::fromMeshCell(
+                elementIdx.value(), faceSideIdx, *meshReader_));
 
-          // init global coordinates of the fault face
-          const ExtTriangle globalFace =
-              toExtTriangle(seissol::geometry::AffineFaceTransform::fromMeshCell(
-                  elementIdx.value(), faceSideIdx, *meshReader_));
-
-          faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,
-                                             faceIdx,
-                                             faceSideIdx,
-                                             elementIdx.value(),
-                                             element.globalId},
-                                            std::make_pair(globalFace, referenceTriangle));
-        }
-      }
-
-      // retrieve all receivers from a fault face refiner
-      outputData_->receiverPoints = faultRefiner->moveAllReceiverPoints();
-      faultRefiner.reset(nullptr);
-    } else {
-      const auto order = elementwiseParams_.vtkorder;
-
-      const auto numFaultElements = meshReader_->getFault().size();
-
-      // get arrays of elements and vertices from the meshReader
-      const auto& faultInfo = meshReader_->getFault();
-      const auto& elementsInfo = meshReader_->getElements();
-      const auto& verticesInfo = meshReader_->getVertices();
-
-      std::size_t faceCount = 0;
-      for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
-
-        // get a global element ID for the current fault face
-        const auto& fault = faultInfo[faceIdx];
-        const auto elementIdx = fault.element;
-
-        if (elementIdx.hasValue()) {
-          ++faceCount;
-        }
-      }
-
-      outputData_->receiverPoints.resize(faceCount * seissol::init::vtk2d::Shape[order][1]);
-      std::size_t faceOffset = 0;
-
-      // iterate through each fault side
-      for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
-
-        // get a global element ID for the current fault face
-        const auto& fault = faultInfo[faceIdx];
-        const auto elementIdx = fault.element;
-
-        if (elementIdx.hasValue()) {
-          const auto& element = elementsInfo[elementIdx.value()];
-
-          const auto faceSideIdx = fault.side;
-
-          const auto faceTransform = seissol::geometry::AffineFaceTransform::fromMeshCell(
-              elementIdx.value(), faceSideIdx, *meshReader_);
-
-          // init global coordinates of the fault face
-          const ExtTriangle globalFace = toExtTriangle(faceTransform);
-
-          for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
-            auto& receiverPoint =
-                outputData_->receiverPoints[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
-            const real nullpoint[2] = {0, 0};
-            const real* prepoint =
-                i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
-            const auto point =
-                seissol::geometry::FaceTransform::FaceVectorT(prepoint[0], prepoint[1]);
-            const auto reference = faceTransform.refToCell(point);
-            const auto global = faceTransform.refToSpace(point);
-            for (std::size_t d = 0; d < Cell::Dim; ++d) {
-              receiverPoint.reference[d] = reference(d);
-              receiverPoint.global[d] = global(d);
-            }
-            receiverPoint.globalTriangle = globalFace;
-            receiverPoint.isInside = true;
-            receiverPoint.faultFaceIndex = faceIdx;
-            receiverPoint.localFaceSideId = faceSideIdx;
-            receiverPoint.elementIndex = element.localId;
-            receiverPoint.elementGlobalIndex = element.globalId;
-            receiverPoint.globalReceiverIndex =
-                faceOffset * seissol::init::vtk2d::Shape[order][1] + i;
-            receiverPoint.faultTag = fault.tag;
-          }
-
-          ++faceOffset;
-        }
+        faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,
+                                           faceIdx,
+                                           faceSideIdx,
+                                           elementIdx.value(),
+                                           &fault,
+                                           order,
+                                           multisim::NumSimulations},
+                                          std::make_pair(globalFace, referenceTriangle));
       }
     }
+
+    // retrieve all receivers from a fault face refiner
+    outputData_->receivers = faultRefiner->moveAllReceivers();
+    faultRefiner.reset(nullptr);
   }
 
   inline const static size_t MaxAllowedCacheLevel = 1;

@@ -35,7 +35,7 @@ struct Element {
   /** Material of the element */
   int group{};
   std::array<int, Cell::NumFaces> faultTags{};
-  int clusterId{};
+  std::size_t clusterId{};
   double timestep{};
 };
 

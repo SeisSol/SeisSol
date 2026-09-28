@@ -57,7 +57,7 @@ auto samplePointsOnReferenceFace(std::mt19937& rng, int count) -> std::vector<Fa
 }
 } // namespace
 
-TEST_CASE("Reference face map") {
+TEST_CASE("Reference face map" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-14;
   std::mt19937 rng(20260928);
   const auto points = samplePointsOnReferenceFace(rng, 200);
@@ -105,7 +105,7 @@ TEST_CASE("Reference face map") {
   }
 }
 
-TEST_CASE("Affine face transform") {
+TEST_CASE("Affine face transform" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-12;
   std::mt19937 rng(20260929);
   std::uniform_real_distribution<double> dist(0.0, 1.0);

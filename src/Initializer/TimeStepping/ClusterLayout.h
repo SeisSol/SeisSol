@@ -7,6 +7,8 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERLAYOUT_H_
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERLAYOUT_H_
 
+#include "Initializer/Clustering/ClusterLadder.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -18,27 +20,30 @@ class MeshReader;
 namespace seissol::initializer {
 
 struct ClusterLayout {
+  private:
+  // declared first: `rates` is initialized from it
+  ClusterLadder ladder_;
+
+  public:
+  /// Normalized ratios, i.e. exactly `globalClusterCount - 1` entries with the rate
+  /// vector's abbreviations expanded.
   std::vector<std::uint64_t> rates;
+  /// Base timestep; the wiggle factor is already applied.
   double minimumTimestep;
   std::size_t globalClusterCount;
 
   ClusterLayout(const std::vector<std::uint64_t>& rates,
                 double minimumTimestep,
                 std::size_t globalClusterCount)
-      : rates(rates), minimumTimestep(minimumTimestep), globalClusterCount(globalClusterCount) {}
+      : ladder_(ClusterLadder::ofSize(rates, minimumTimestep, globalClusterCount)),
+        rates(ladder_.ratios()), minimumTimestep(minimumTimestep),
+        globalClusterCount(globalClusterCount) {}
 
-  [[nodiscard]] double timestepRate(std::size_t id) const {
-    return clusterRate(id) * minimumTimestep;
-  }
+  [[nodiscard]] double timestepRate(std::size_t id) const { return ladder_.timestep(id); }
 
-  [[nodiscard]] std::uint64_t clusterRate(std::size_t id) const {
-    std::uint64_t value = 1;
-    for (std::size_t i = 0; i < id; ++i) {
-      const auto rate = rates.size() > i ? rates[i] : rates.back();
-      value *= rate;
-    }
-    return value;
-  }
+  [[nodiscard]] std::uint64_t clusterRate(std::size_t id) const { return ladder_.updateFactor(id); }
+
+  [[nodiscard]] const ClusterLadder& clusterLadder() const { return ladder_; }
 
   static ClusterLayout fromMesh(const std::vector<std::uint64_t>& rates,
                                 const geometry::MeshReader& mesh,

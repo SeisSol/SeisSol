@@ -42,18 +42,30 @@ does not use a workload manager but is equipped with multiple GPUs per node.
 Supported SeisSol features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The SeisSol GPU version supports everything the SeisSol CPU version supports,
-except for poroelasticity (which is currently being ported).
+The SeisSol GPU version supports everything the SeisSol CPU version supports.
 
 In some cases, the features are still considered "beta" due to limited testing so far;
 see the following list:
 
-- acoustic, elastic (isotropic, anisotropic), and visco-elastic wave propagation models (all stable)
+- acoustic, elastic (isotropic, anisotropic), visco-elastic, and poroelastic wave propagation models (all stable)
 - elastic-acoustic interaction (stable)
 - fused simulations (beta)
 - kinematic point sources (stable)
 - dynamic rupture (stable; except TP in beta)
 - off-fault plasticity (stable)
+
+Time clustering
+~~~~~~~~~~~~~~~
+
+Local time-stepping poses additional challenges on GPUs compared on CPUs:
+a time cluster that carries little work does not become cheap in proportion, because a launch costs
+roughly the same regardless of how many elements it touches, and because a small cluster never
+saturates the device. While these effects are also already visible on CPUs; they do not carry such a large effect.
+The cost model that SeisSol uses to pick a clustering can be told about both effects through
+*LtsCostLaunch* and *LtsCostFill*; see :ref:`the section on choosing the ladder automatically
+<lts_lattice_search>`.
+Both default to zero, which reproduces the CPU-oriented update counting, so they have to be measured
+and set explicitly for the clustering to reflect GPU behavior.
 
 Compilation
 ~~~~~~~~~~~

@@ -14,6 +14,7 @@
 #include "Geometry/MeshReader.h"
 
 #include <array>
+#include <cstddef>
 #include <memory>
 
 namespace seissol {
@@ -34,18 +35,20 @@ ExtTriangle getReferenceTriangle(std::size_t sideIdx);
 
 CoordinateT getMidPointTriangle(const ExtTriangle& triangle);
 
+CoordinateT getTrianglePointByCoords(const ExtTriangle& triangle,
+                                     const std::array<double, 2>& point);
+
 CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2);
 
 struct TriangleQuadratureData {
-  static constexpr size_t Size{
-      tensor::quadweights::Shape[seissol::multisim::BasisFunctionDimension]};
+  static constexpr size_t Size{tensor::quadweights::Shape[0]};
   std::array<double, 2 * Size> points{};
   std::array<double, Size> weights{};
 };
 
 TriangleQuadratureData generateTriangleQuadrature();
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
+void assignNearestGaussianPoints(Receivers& geoPoints);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
@@ -66,23 +69,38 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoord
                                                    const geometry::CellTransform& plusTransform,
                                                    const geometry::CellTransform& minusTransform);
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
-
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints);
-std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints);
-
 real computeTriangleArea(ExtTriangle& triangle);
 
-template <int Size>
-std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& boolMask) {
-  auto intMask = std::unique_ptr<int[]>(new int[boolMask.size()]);
+/**
+ * @brief The index of the first receiver an output cell owns.
+ *
+ * The refiner emits the receivers of a cell point-major and simulation-minor, so a cell owns
+ * @p pointsPerCell * @p simulationCount consecutive entries. Properties that every receiver of
+ * the cell shares are read off the first of them.
+ */
+std::size_t
+    firstReceiverOfCell(std::size_t cell, std::size_t pointsPerCell, std::size_t simulationCount);
 
-  for (size_t i = 0; i < boolMask.size(); ++i) {
-    intMask[i] = static_cast<int>(boolMask[i]);
-  }
+/**
+ * @brief The fault tag of an output cell, as the mesh assigned it to the face.
+ *
+ * This is the group the face was tagged with in the mesh file, not an identifier: several faces
+ * carry the same tag, and a mesh that tags nothing leaves it at its default.
+ */
+int faultTagOfCell(const Receivers& receivers,
+                   std::size_t cell,
+                   std::size_t pointsPerCell,
+                   std::size_t simulationCount);
 
-  return intMask;
-}
+/**
+ * @brief The global identifier of the face an output cell sits on.
+ *
+ * Unique across the mesh, since it is built from the global element index and the side.
+ */
+std::size_t globalFaceIdOfCell(const Receivers& receivers,
+                               std::size_t cell,
+                               std::size_t pointsPerCell,
+                               std::size_t simulationCount);
 } // namespace seissol::dr
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_

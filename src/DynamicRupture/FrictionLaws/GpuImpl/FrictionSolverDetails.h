@@ -9,7 +9,9 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -17,16 +19,48 @@ namespace seissol::dr::friction_law::gpu {
 
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
-  explicit FrictionSolverDetails(const FrictionLawParameters& drParameters);
-  ~FrictionSolverDetails() override;
+  explicit FrictionSolverDetails(const FrictionLawParameters& drParameters)
+      : FrictionSolverInterface(drParameters) {}
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override;
+  ~FrictionSolverDetails() override = default;
 
-  protected:
+  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+    // call the device module directly here
+    {
+#ifdef ACL_DEVICE
+      data_ = reinterpret_cast<FrictionLawData*>(
+          device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(FrictionLawData)));
+#endif
+    }
+
+    resampleMatrix_ = globalData->*init::resample::PoolMember;
+    devSpaceWeights_ = globalData->*init::quadweights::PoolMember;
+
+#ifdef ACL_DEVICE
+    // The thermal-pressurization tables are functions of the grid alone, and
+    // only the device path reads them -- the CPU friction law holds its own
+    // copies. So they are built and uploaded here, alongside this solver's
+    // other device memory, rather than travelling through the global
+    // matrices. Per solver rather than per process: they live and die with
+    // the device allocation they sit next to, and are rebuilt whenever it is.
+    const auto upload = [](const auto& source) {
+      auto& device = device::DeviceInstance::getInstance();
+      const std::size_t bytes = source.data().size() * sizeof(real);
+      auto* target = reinterpret_cast<real*>(device.api->allocGlobMem(bytes));
+      device.api->copyTo(target, source.data().data(), bytes);
+      return target;
+    };
+    devTpGridPoints_ = upload(tp::GridPoints<misc::NumTpGridPoints>());
+    devTpInverseFourierCoefficients_ =
+        upload(tp::InverseFourierCoefficients<misc::NumTpGridPoints>());
+    devHeatSource_ = upload(tp::GaussianHeatSource<misc::NumTpGridPoints>());
+#endif
+  }
+
   size_t currLayerSize_{};
 
-  real* resampleMatrix_{nullptr};
-  real* devSpaceWeights_{nullptr};
+  const real* resampleMatrix_{nullptr};
+  const real* devSpaceWeights_{nullptr};
   real* devTpInverseFourierCoefficients_{nullptr};
   real* devTpGridPoints_{nullptr};
   real* devHeatSource_{nullptr};

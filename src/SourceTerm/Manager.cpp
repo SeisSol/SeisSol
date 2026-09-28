@@ -15,8 +15,8 @@
 #include "Common/Marker.h"
 #include "Equations/Datastructures.h"
 #include "FSRMReader.h"
-#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
@@ -77,7 +77,8 @@ void computeMInvJInvPhisAtSources(
     seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
         mInvJInvPhisAtSources,
     std::size_t meshId,
-    const seissol::geometry::MeshReader& mesh) {
+    const seissol::geometry::MeshReader& mesh,
+    const seissol::Pool& pool) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -91,7 +92,7 @@ void computeMInvJInvPhisAtSources(
 
   kernel::computeMInvJInvPhisAtSources krnl;
   krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data().data();
-  krnl.M3inv = init::M3inv::Values;
+  krnl.bindGlobals(pool);
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
   krnl.JInv = jInv;
   krnl.execute();
@@ -110,7 +111,8 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
                                         const seissol::model::Material* material,
                                         PointSources& pointSources,
                                         std::size_t index,
-                                        std::size_t tensorIndex) {
+                                        std::size_t tensorIndex,
+                                        const seissol::Pool& pool) {
   std::array<real, 9> faultBasis{};
   faultBasis[0] = subfault.tan1(0);
   faultBasis[1] = subfault.tan1(1);
@@ -124,24 +126,28 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
 
   std::array<double, 81> stiffnessTensor{};
   switch (material->getMaterialType()) {
-  case seissol::model::MaterialType::Acoustic:
-    logError() << "NRF sources are only compatible with isotropic (visco)elastic, anisotropic, and "
-                  "poroelastic materials.";
-    break;
   case seissol::model::MaterialType::Anisotropic:
     [[fallthrough]];
-  case seissol::model::MaterialType::Poroelastic:
+  case seissol::model::MaterialType::Poroelastic: {
     if (subfault.mu != 0) {
       logError() << "There are specific fault parameters for the fault. This is only compatible "
                     "with isotropic (visco)elastic materials.";
     }
     material->getFullStiffnessTensor(stiffnessTensor);
     break;
-  default:
+  }
+  case seissol::model::MaterialType::Viscoelastic:
+    [[fallthrough]];
+  case seissol::model::MaterialType::Elastic: {
     seissol::model::ElasticMaterial em =
         *dynamic_cast<const seissol::model::ElasticMaterial*>(material);
     em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
     em.getFullStiffnessTensor(stiffnessTensor);
+    break;
+  }
+  default:
+    logError() << "NRF sources are only compatible with isotropic (visco)elastic, anisotropic, and "
+                  "poroelastic materials.";
     break;
   }
 
@@ -152,7 +158,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
   transformKernel.mArea = -subfault.area;
   transformKernel.mNormal = faultBasis.data() + 6;
   transformKernel.stiffnessTensor = stiffnessTensorReal.data();
-  transformKernel.momentToNRF = init::momentToNRF::Values;
+  transformKernel.bindGlobals(pool);
   transformKernel.rotateNRF = faultBasis.data();
   transformKernel.tensorNRF = pointSources.tensor.data() + tensorIndex * tensor::update::Size;
 
@@ -189,7 +195,8 @@ struct NrfFile : public SourceFile {
   void transform(PointSources& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
-                 const seissol::model::Material& material) {
+                 const seissol::model::Material& material,
+                 const seissol::Pool& pool) {
     const std::size_t nrfIndex = originalIndex[sourceIndex];
     transformNRFSourceToInternalSource(nrf.subfaults[nrfIndex],
                                        nrf.sroffsets[nrfIndex],
@@ -198,7 +205,8 @@ struct NrfFile : public SourceFile {
                                        &material,
                                        sources,
                                        index,
-                                       sources.sampleRange[index]);
+                                       sources.sampleRange[index],
+                                       pool);
   }
 };
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -218,7 +226,8 @@ struct FsrmFile : public SourceFile {
   void transform(PointSources& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
-                 const seissol::model::Material& material) {
+                 const seissol::model::Material& material,
+                 const seissol::Pool& /*pool*/) {
     const std::size_t fsrmIndex = originalIndex[sourceIndex];
 
     auto* tensor = sources.tensor.data() + sources.sampleRange[index] * tensor::update::Size;
@@ -236,7 +245,7 @@ struct FsrmFile : public SourceFile {
     }
     if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
       for (std::size_t i = 0; i < Cell::Dim; ++i) {
-        tensor[model::MaterialT::TractionQuantities + i] /= material.rho;
+        tensor[model::MaterialT::VelocityOffset + i] /= material.rho;
       }
     } else {
       logWarning() << "The poroelastic equation does not scale the force components with the "
@@ -432,6 +441,8 @@ auto loadSourceFile(const char* fileName,
       mapPointSourcesToClusters(meshIds.data(), numSources, ltsStorage, backmap, memkind);
   std::vector<seissol::kernels::PointSourceClusterPair> sourceCluster(ltsStorage.numChildren());
 
+  const auto pool = seissol::Pool::host();
+
   for (std::size_t cluster = 0; cluster < ltsStorage.numChildren(); ++cluster) {
     auto numberOfSources = clusterMappings[cluster].sources.size();
 
@@ -472,11 +483,12 @@ auto loadSourceFile(const char* fileName,
       computeMInvJInvPhisAtSources(points[fileIndex],
                                    sources.mInvJInvPhisAtSources[clusterSource],
                                    meshIds[sourceIndex],
-                                   mesh);
+                                   mesh,
+                                   pool);
 
       const auto position = backmap.get(meshIds[sourceIndex]);
       const auto& material = *ltsStorage.lookup<LTS::Material>(position).local;
-      file.transform(sources, sourceIndex, clusterSource, material);
+      file.transform(sources, sourceIndex, clusterSource, material, pool);
     }
 
     sourceCluster[cluster] = makePointSourceCluster(

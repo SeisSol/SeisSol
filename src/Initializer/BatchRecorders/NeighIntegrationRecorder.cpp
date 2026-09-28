@@ -10,6 +10,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/LtsSetup.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
@@ -24,6 +25,10 @@
 #include <yateto.h>
 
 // NOLINTBEGIN (-misc-const-correctness)
+
+namespace seissol::tensor {
+struct Qext;
+}
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
@@ -62,7 +67,8 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
             if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Regular) {
 
               const bool isNeighbProvidesDerivatives =
-                  dataHost.get<LTS::CellInformation>().ltsSetup.neighborHasDerivatives(face);
+                  dataHost.get<LTS::CellInformation>().ltsSetup.neighborBuffer(face) ==
+                  BufferType::Derivatives;
 
               if (isNeighbProvidesDerivatives) {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter_];
@@ -70,6 +76,10 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                 const bool isGtsNeighbor =
                     dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTSRelation(face);
                 if (isGtsNeighbor) {
+
+                  // might effectively not occur anymore; but we keep it anyways (for now)
+                  // (formerly, this was due to AccumulatedIntegrals and StepIntegrals not being
+                  // allowed to coexist; so we used Derivatives instead)
 
                   idofsAddressRegistry_[neighborBuffer] = nextTempIDofsPtr;
                   gtsIDofsPtrs.push_back(nextTempIDofsPtr);
@@ -80,7 +90,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
+                integratedDofsAddressCounter_ += kernels::Solver::IntegralsSize;
               } else {
                 idofsAddressRegistry_[neighborBuffer] = neighborBuffer;
               }
@@ -122,9 +132,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
   const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>();
 
-#ifdef USE_VISCOELASTIC2
   auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-#endif
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
@@ -140,8 +148,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBufferPtr != nullptr) {
           const auto faceRelation =
-              dataHost.get<LTS::CellInformation>().faceRelations[face][1] +
-              3 * dataHost.get<LTS::CellInformation>().faceRelations[face][0] + 12 * face;
+              dataHost.get<LTS::CellInformation>().faceRelations[face][0] + 4 * face;
 
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
@@ -152,10 +159,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
               idofsAddressRegistry_[neighborBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-#ifdef USE_VISCOELASTIC2
-          regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                       tensor::Qext::size() * cell);
-#endif
+          if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+            regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                         kernels::size<tensor::Qext>() * cell);
+          }
         }
         break;
       }
@@ -167,10 +174,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
-#ifdef USE_VISCOELASTIC2
-        drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                tensor::Qext::size() * cell);
-#endif
+        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+          drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                  kernels::size<tensor::Qext>() * cell);
+        }
         break;
       }
       case FaceType::FreeSurface:
@@ -208,9 +215,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
                                   regularPeriodicDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
                                   regularPeriodicAminusT[face][faceRelation]);
-#ifdef USE_VISCOELASTIC2
-        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, regularDofsExt[face][faceRelation]);
-#endif
+        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+          (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt,
+                                    regularDofsExt[face][faceRelation]);
+        }
       }
     }
 
@@ -224,9 +232,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
-#ifdef USE_VISCOELASTIC2
-        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
-#endif
+        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+          (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
+        }
       }
     }
   }

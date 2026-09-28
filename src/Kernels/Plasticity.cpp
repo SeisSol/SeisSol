@@ -18,6 +18,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -25,6 +26,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <utility>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
@@ -50,9 +52,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                           real degreesOfFreedom[tensor::Q::size()],
                                           real* pstrain) {
 
-  assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Vectorsize == 0);
 
   alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
 
@@ -74,7 +74,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
    */
 
   kernel::plConvertToNodal m2nKrnl;
-  m2nKrnl.v = global->vandermondeMatrix;
+  m2nKrnl.bindGlobals(*global);
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
@@ -82,25 +82,25 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Computes m = s_{ii} / 3.0 for every node
   kernel::plComputeMean cmKrnl;
+  cmKrnl.bindGlobals(*global);
   cmKrnl.meanStress = meanStress;
   cmKrnl.QStressNodal = qStressNodal;
-  cmKrnl.selectBulkAverage = init::selectBulkAverage::Values;
   cmKrnl.execute();
 
   /* Compute s_{ij} := s_{ij} - m delta_{ij},
    * where delta_{ij} = 1 if i == j else 0.
    * Thus, s_{ij} contains the deviatoric stresses. */
   kernel::plSubtractMean smKrnl;
+  smKrnl.bindGlobals(*global);
   smKrnl.meanStress = meanStress;
   smKrnl.QStressNodal = qStressNodal;
-  smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
   smKrnl.execute();
 
   // Compute I_2 = 0.5 s_{ij} s_ji for every node
   kernel::plComputeSecondInvariant siKrnl;
+  siKrnl.bindGlobals(*global);
   siKrnl.secondInvariant = secondInvariant;
   siKrnl.QStressNodal = qStressNodal;
-  siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
   siKrnl.execute();
 
 // tau := sqrt(I_2) for every node
@@ -211,7 +211,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
     kernel::plConvertToModal adjKrnl;
     adjKrnl.QStress = degreesOfFreedom;
-    adjKrnl.vInv = global->vandermondeMatrixInverse;
+    adjKrnl.bindGlobals(*global);
     adjKrnl.QStressNodal = qStressNodal;
     adjKrnl.execute();
 
@@ -255,7 +255,7 @@ void Plasticity::computePlasticityBatched(
     static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal m2nKrnl;
-    m2nKrnl.v = global->vandermondeMatrix;
+    m2nKrnl.bindGlobals(*global);
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
     m2nKrnl.initialLoading = const_cast<const real**>(initLoad);
@@ -277,7 +277,7 @@ void Plasticity::computePlasticityBatched(
                                                  defaultStream);
 
     kernel::gpu_plConvertToModal n2mKrnl;
-    n2mKrnl.vInv = global->vandermondeMatrixInverse;
+    n2mKrnl.bindGlobals(*global);
     n2mKrnl.QStressNodal = const_cast<const real**>(nodalStressTensors);
     n2mKrnl.QStress = modalStressTensors;
     n2mKrnl.streamPtr = defaultStream;
@@ -290,46 +290,38 @@ void Plasticity::computePlasticityBatched(
 #endif // ACL_DEVICE
 }
 
-void Plasticity::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
-                                 std::uint64_t& hardwareFlopsCheck,
-                                 std::uint64_t& nonZeroFlopsYield,
-                                 std::uint64_t& hardwareFlopsYield) {
+std::pair<PerformanceEstimate, PerformanceEstimate> Plasticity::metrics() {
   // reset flops
-  nonZeroFlopsCheck = 0;
-  hardwareFlopsCheck = 0;
-  nonZeroFlopsYield = 0;
-  hardwareFlopsYield = 0;
+  PerformanceEstimate check;
+  PerformanceEstimate yield;
 
   // flops from checking, i.e. outside if (adjust) {}
-  nonZeroFlopsCheck += kernel::plConvertToNodal::NonZeroFlops;
-  hardwareFlopsCheck += kernel::plConvertToNodal::HardwareFlops;
+  check += PerformanceEstimate::fromKernel<kernel::plConvertToNodal>();
 
   // compute mean stress
-  nonZeroFlopsCheck += kernel::plComputeMean::NonZeroFlops;
-  hardwareFlopsCheck += kernel::plComputeMean::HardwareFlops;
+  check += PerformanceEstimate::fromKernel<kernel::plComputeMean>();
 
   // subtract mean stress
-  nonZeroFlopsCheck += kernel::plSubtractMean::NonZeroFlops;
-  hardwareFlopsCheck += kernel::plSubtractMean::HardwareFlops;
+  check += PerformanceEstimate::fromKernel<kernel::plSubtractMean>();
 
   // compute second invariant
-  nonZeroFlopsCheck += kernel::plComputeSecondInvariant::NonZeroFlops;
-  hardwareFlopsCheck += kernel::plComputeSecondInvariant::HardwareFlops;
+  check += PerformanceEstimate::fromKernel<kernel::plComputeSecondInvariant>();
 
   // compute taulim (1 add, 1 mul, max NOT counted)
-  nonZeroFlopsCheck += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
-  hardwareFlopsCheck += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
+  check.nonzeroFlop += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
+  check.hardwareFlop += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
 
   // check for yield (NOT counted, as it would require counting the number of yielding points)
 
   // flops from plastic yielding, i.e. inside if (adjust) {}
-  nonZeroFlopsYield += kernel::plConvertToModal::NonZeroFlops;
-  hardwareFlopsYield += kernel::plConvertToModal::HardwareFlops;
+  yield += PerformanceEstimate::fromKernel<kernel::plConvertToModal>();
 
   // manually counted
-  nonZeroFlopsYield += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
-  hardwareFlopsYield += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
-  nonZeroFlopsYield += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
-  hardwareFlopsYield += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+  yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
+  yield.hardwareFlop += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
+  yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+  yield.hardwareFlop += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+
+  return {check, yield};
 }
 } // namespace seissol::kernels

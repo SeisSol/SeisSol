@@ -97,10 +97,9 @@ struct LTS {
   struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
   struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
   // size is zero if Qane is not defined
-  struct DofsAne
-      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
-  };
-  struct Buffers : public initializer::Variable<real*> {};
+  struct DofsAne : public initializer::Variable<real[zeroGuard(kernels::size<tensor::Qane>())]> {};
+  struct StepIntegrals : public initializer::Variable<real*> {};
+  struct AccumulatedIntegrals : public initializer::Variable<real*> {};
   struct Derivatives : public initializer::Variable<real*> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
@@ -116,9 +115,10 @@ struct LTS {
   struct PStrain : public initializer::Variable<
                        real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
   struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
-  struct BuffersDerivatives : public initializer::Bucket<real> {};
+  struct Buffers : public initializer::Bucket<real> {};
 
-  struct BuffersDevice : public initializer::Variable<real*> {};
+  struct StepIntegralsDevice : public initializer::Variable<real*> {};
+  struct AccumulatedIntegralsDevice : public initializer::Variable<real*> {};
   struct DerivativesDevice : public initializer::Variable<real*> {};
   struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
@@ -127,6 +127,8 @@ struct LTS {
   };
   struct BoundaryMappingDevice
       : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
+
+  struct EnergyData : public initializer::Variable<model::MaterialT::EnergyData> {};
 
   struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
   struct DerivativesScratch : public initializer::Scratchpad<real> {};
@@ -147,12 +149,15 @@ struct LTS {
   struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
   struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
 
+  struct ZinvExtra : public initializer::Scratchpad<real> {};
+
   struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
                                                         DofsAne,
-                                                        Buffers,
+                                                        StepIntegrals,
+                                                        AccumulatedIntegrals,
                                                         Derivatives,
                                                         CellInformation,
                                                         SecondaryInformation,
@@ -166,8 +171,9 @@ struct LTS {
                                                         BoundaryMapping,
                                                         PStrain,
                                                         FaceDisplacements,
-                                                        BuffersDerivatives,
-                                                        BuffersDevice,
+                                                        Buffers,
+                                                        StepIntegralsDevice,
+                                                        AccumulatedIntegralsDevice,
                                                         DerivativesDevice,
                                                         FaceNeighborsDevice,
                                                         FaceDisplacementsDevice,
@@ -189,7 +195,9 @@ struct LTS {
                                                         DofsFaceNodalScratch,
                                                         PrevCoefficientsScratch,
                                                         DofsFaceBoundaryNodalScratch,
-                                                        Integrals> {};
+                                                        Integrals,
+                                                        EnergyData,
+                                                        ZinvExtra> {};
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
@@ -225,7 +233,9 @@ struct LTS {
                            allocationModeWP(AllocationPreset::Dofs));
     }
 
-    storage.add<Buffers>(
+    storage.add<StepIntegrals>(
+        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<AccumulatedIntegrals>(
         LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<Derivatives>(
         LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
@@ -252,10 +262,11 @@ struct LTS {
 
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
     // handled differently)
-    storage.add<BuffersDerivatives>(
+    storage.add<Buffers>(
         LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
 
-    storage.add<BuffersDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<StepIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<AccumulatedIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<DerivativesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<FaceDisplacementsDevice>(
         LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
@@ -263,6 +274,7 @@ struct LTS {
     storage.add<DRMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<BoundaryMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
 
+    storage.add<EnergyData>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
 
     if constexpr (isDeviceOn()) {
@@ -286,6 +298,8 @@ struct LTS {
       storage.add<DofsFaceNodalScratch>(LayerMask(), Alignment, mode);
       storage.add<PrevCoefficientsScratch>(LayerMask(), Alignment, mode);
       storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), Alignment, mode);
+
+      storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
     }
   }
 

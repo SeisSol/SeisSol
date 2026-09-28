@@ -26,7 +26,6 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -79,15 +78,32 @@ CoordinateT getMidPointTriangle(const ExtTriangle& triangle) {
   const auto p0 = triangle.point(0);
   const auto p1 = triangle.point(1);
   const auto p2 = triangle.point(2);
-  for (int axis = 0; axis < 3; ++axis) {
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
     avgPoint[axis] = (p0[axis] + p1[axis] + p2[axis]) / 3.0;
+  }
+  return avgPoint;
+}
+
+CoordinateT getTrianglePointByCoords(const ExtTriangle& triangle,
+                                     const std::array<double, 2>& point) {
+  CoordinateT avgPoint{};
+  const auto& p0 = triangle.point(0);
+  const auto& p1 = triangle.point(1);
+  const auto& p2 = triangle.point(2);
+
+  // barycentric coordinates
+  const auto w0 = 1 - point[0] - point[1];
+  const auto w1 = point[0];
+  const auto w2 = point[1];
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
+    avgPoint[axis] = w0 * p0[axis] + w1 * p1[axis] + w2 * p2[axis];
   }
   return avgPoint;
 }
 
 CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2) {
   CoordinateT midPoint{};
-  for (int axis = 0; axis < 3; ++axis) {
+  for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
     midPoint[axis] = 0.5 * (p1[axis] + p2[axis]);
   }
   return midPoint;
@@ -104,7 +120,7 @@ TriangleQuadratureData generateTriangleQuadrature() {
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
     reshapedPoints[i][0] = seissol::multisim::multisimTranspose(pointsView, i, 0);
     reshapedPoints[i][1] = seissol::multisim::multisimTranspose(pointsView, i, 1);
-    data.weights[i] = seissol::multisim::multisimWrap(weightsView, 0, i);
+    data.weights[i] = weightsView(i);
   }
 
   return data;
@@ -129,7 +145,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
   return std::make_pair(nearestPoint, shortestDistance);
 }
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
+void assignNearestGaussianPoints(Receivers& geoPoints) {
   auto quadratureData = generateTriangleQuadrature();
   const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
@@ -231,43 +247,6 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoord
   return basisFunctions;
 }
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (std::uint32_t vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
-      const auto& triangle = receiverPoints[pointIndex].globalTriangle;
-      const auto& point = triangle.point(vertexIndex);
-
-      const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      for (std::uint32_t coordIndex{0}; coordIndex < point.size(); ++coordIndex) {
-        vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
-      }
-    }
-  }
-  return vertices;
-}
-
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<unsigned int> cells(3 * receiverPoints.size());
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (int vertexIndex{0}; vertexIndex < 3; ++vertexIndex) {
-      const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      cells[globalVertexIndex] = globalVertexIndex;
-    }
-  }
-  return cells;
-}
-std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
-  std::vector<unsigned int> faultTags(receiverPoints.size());
-
-  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
-  }
-  return faultTags;
-}
-
 real computeTriangleArea(ExtTriangle& triangle) {
   const auto p0 = Eigen::Vector3d(triangle.point(0).data());
   const auto p1 = Eigen::Vector3d(triangle.point(1).data());
@@ -277,5 +256,24 @@ real computeTriangleArea(ExtTriangle& triangle) {
   const auto vector2 = p2 - p0;
   const auto normal = vector1.cross(vector2);
   return 0.5 * normal.norm();
+}
+
+std::size_t
+    firstReceiverOfCell(std::size_t cell, std::size_t pointsPerCell, std::size_t simulationCount) {
+  return cell * pointsPerCell * simulationCount;
+}
+
+int faultTagOfCell(const Receivers& receivers,
+                   std::size_t cell,
+                   std::size_t pointsPerCell,
+                   std::size_t simulationCount) {
+  return receivers[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].faultTag;
+}
+
+std::size_t globalFaceIdOfCell(const Receivers& receivers,
+                               std::size_t cell,
+                               std::size_t pointsPerCell,
+                               std::size_t simulationCount) {
+  return receivers[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].globalFaultFaceId();
 }
 } // namespace seissol::dr

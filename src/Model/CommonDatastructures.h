@@ -18,7 +18,15 @@
 #include <vector>
 
 namespace seissol::model {
-enum class MaterialType { Solid, Acoustic, Elastic, Viscoelastic, Anisotropic, Poroelastic };
+enum class MaterialType {
+  Solid,
+  Acoustic,
+  Elastic,
+  Viscoelastic,
+  Viscoacoustic,
+  Anisotropic,
+  Poroelastic
+};
 
 // the local solvers. CK is the default for elastic, acoustic etc.
 // viscoelastic uses CauchyKovalevskiAnelastic (maybe all other materials may be extended to use
@@ -32,10 +40,24 @@ enum class LocalSolver {
   SpaceTimePredictorPoroelastic
 };
 
+/**
+ * A source row stiff enough that a space-time predictor has to factorise it
+ * separately: it carries a damping term on the diagonal and feeds one other
+ * quantity through an off-diagonal entry.
+ */
+struct StiffSourceRow {
+  std::size_t quantity;
+  std::size_t target;
+};
+
 struct Material {
-  static constexpr std::size_t NumQuantities = 0;             // ?
-  static constexpr std::size_t NumberPerMechanism = 0;        // ?
-  static constexpr std::size_t TractionQuantities = 0;        // ?
+  static constexpr std::size_t NumQuantities = 0;      // ?
+  static constexpr std::size_t NumberPerMechanism = 0; // ?
+  /// Materials whose source term is not stiff declare none.
+  static constexpr std::array<StiffSourceRow, 0> StiffSourceRows{};
+
+  static constexpr std::size_t VelocityOffset = 0;
+  static constexpr std::size_t TractionComponents = 0;
   static constexpr std::size_t Mechanisms = 0;                // ?
   static constexpr MaterialType Type = MaterialType::Solid;   // ?
   static constexpr LocalSolver Solver = LocalSolver::Unknown; // ?
@@ -47,6 +69,7 @@ struct Material {
 
   double rho{};
   Material() = default;
+  explicit Material(double rho) : rho(rho) {}
   explicit Material(const std::vector<double>& data) : rho(data.at(0)) {}
 
   virtual void initialize(const initializer::parameters::ModelParameters& parameters) {}
@@ -77,6 +100,19 @@ struct Plasticity {
   double sXY;
   double sYZ;
   double sXZ;
+
+  static const std::unordered_map<std::string, double Plasticity::*> ParameterMap;
+};
+
+inline const std::unordered_map<std::string, double Plasticity::*> Plasticity::ParameterMap{
+    {"bulkFriction", &Plasticity::bulkFriction},
+    {"plastCo", &Plasticity::plastCo},
+    {"s_xx", &Plasticity::sXX},
+    {"s_yy", &Plasticity::sYY},
+    {"s_zz", &Plasticity::sZZ},
+    {"s_xy", &Plasticity::sXY},
+    {"s_yz", &Plasticity::sYZ},
+    {"s_xz", &Plasticity::sXZ},
 };
 
 struct IsotropicWaveSpeeds {

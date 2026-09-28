@@ -284,7 +284,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
                                                    MPI_INT,
                                                    PUML::MPITypeInfer<size_t>::type(),
                                                    PUML::MPITypeInfer<size_t>::type(),
-                                                   MPI_INT,
+                                                   Mpi::castToMpiType<std::size_t>(),
                                                    MPI_DOUBLE};
 
   MPI_Type_create_struct(datatypeCount,
@@ -369,7 +369,7 @@ void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInsta
   if (!inlineTimestepCompute()) {
     const auto ctvarray = seissol::initializer::CellToVertexArray::fromMeshReader(*this);
     const auto timesteps =
-        seissol::initializer::computeTimesteps(ctvarray, seissolInstance.getSeisSolParameters());
+        seissol::initializer::computeTimesteps(ctvarray, seissolInstance.parameters());
     for (auto [cell, timestep] : seissol::common::zip(elements_, timesteps.cellTimeStepWidths)) {
       cell.timestep = timestep;
 

@@ -14,6 +14,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Kernel.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 namespace seissol::kernels {
@@ -48,16 +49,10 @@ class NeighborKernel : public Kernel {
       computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsNeighborsIntegral(
-      const std::array<FaceType, Cell::NumFaces>& faceTypes,
-      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
-      std::uint64_t& nonZeroFlops,
-      std::uint64_t& hardwareFlops,
-      std::uint64_t& drNonZeroFlops,
-      std::uint64_t& drHardwareFlops) = 0;
-
-  virtual std::uint64_t bytesNeighborsIntegral() = 0;
+  [[nodiscard]] virtual std::pair<PerformanceEstimate, PerformanceEstimate>
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+              const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+              const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const = 0;
 };
 
 } // namespace seissol::kernels

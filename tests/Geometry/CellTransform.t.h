@@ -63,7 +63,7 @@ auto randomTetrahedron(std::mt19937& rng, double scale, const VectorT& shift)
 }
 } // namespace
 
-TEST_CASE("Affine cell transform") {
+TEST_CASE("Affine cell transform" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-12;
   std::mt19937 rng(20260928);
 
@@ -154,7 +154,7 @@ TEST_CASE("Affine cell transform") {
   }
 }
 
-TEST_CASE("Generic cell transform inversion") {
+TEST_CASE("Generic cell transform inversion" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-9;
   const QuadraticTransform transform;
 

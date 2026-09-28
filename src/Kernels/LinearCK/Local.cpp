@@ -24,6 +24,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Physics/InitialField.h"
 #include "Solver/MultipleSimulations.h"
@@ -47,34 +48,25 @@
 #endif
 
 GENERATE_HAS_MEMBER(ET)
+GENERATE_HAS_MEMBER(extraOffset_ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+
 namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
-  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-
-  nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
-
-  projectKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
-  projectRotatedKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  volumeKernelPrototype_.bindGlobals(*global.onHost);
+  localFluxKernelPrototype_.bindGlobals(*global.onHost);
+  nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
+  projectKrnlPrototype_.bindGlobals(*global.onHost);
+  projectRotatedKrnlPrototype_.bindGlobals(*global.onHost);
+  easiBoundaryKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
-  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
-#ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-  deviceLocalFluxAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-#else
-  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-  deviceLocalFluxAllKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-#endif
-  deviceNodalLfKrnlPrototype_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceProjectRotatedKrnlPrototype_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxAllKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceProjectRotatedKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -120,8 +112,8 @@ struct ApplyAnalyticalSolution {
 
 void Local::computeIntegral(
     real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
 
   const auto& materialData = data.get<LTS::Material>();
   const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
@@ -202,12 +194,12 @@ void Local::computeIntegral(
       auto* easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
-      auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
+      auto applyEasiBoundary = [this, easiBoundaryMap, easiBoundaryConstant](
                                    const real* /*nodes*/, init::INodal::view::type& boundaryDofs) {
-        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
+        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel =
+            easiBoundaryKrnlPrototype_;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
-        easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
         easiBoundaryKernel.INodal = boundaryDofs.data();
         easiBoundaryKernel.execute();
       };
@@ -279,12 +271,24 @@ void Local::computeBatchedIntegral(
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
+    const auto** localIntegrationPtrs = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      volKrnl.star(i) = localIntegrationPtrs;
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
+
+    constexpr auto SourceMatrixOffset =
+        offsetof(LocalIntegrationData, specific) +
+        get_offset_sourceMatrix<decltype(LocalIntegrationData::specific)>();
+    static_assert(SourceMatrixOffset % sizeof(real) == 0,
+                  "SourceMatrixOffset is not dividable by the real size.");
+
+    set_ET(volKrnl, localIntegrationPtrs);
+    set_extraOffset_ET(volKrnl, SourceMatrixOffset / sizeof(real));
+
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
@@ -408,7 +412,7 @@ void Local::evaluateBatchedTimeDependentBc(
 
             alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
-            assert(initConds != nullptr);
+            assert(initConds_ != nullptr);
             const ApplyAnalyticalSolution applyAnalyticalSolution(initConds_, data);
 
             dirichletBoundary_.evaluateTimeDependent(nullptr,
@@ -444,19 +448,25 @@ void Local::evaluateBatchedTimeDependentBc(
 #endif // ACL_DEVICE
 }
 
-void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                          std::uint64_t& nonZeroFlops,
-                          std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volume::HardwareFlops;
+PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
+  PerformanceEstimate estimate;
+  estimate += PerformanceEstimate::fromKernel<seissol::kernel::volume>();
+
+#if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
+  constexpr bool CombineLocalFlux = true;
+#else
+  constexpr bool CombineLocalFlux = false;
+#endif
+
+  if constexpr (CombineLocalFlux) {
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxAll>();
+  }
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
-    // Or we're on the GPU where we run the kernel anyways.
-    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
-      nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
+    if (faceTypes[face] != FaceType::DynamicRupture && !CombineLocalFlux) {
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFlux>(face);
     }
 
     // Take boundary condition flops into account.
@@ -465,30 +475,26 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
     // The (probably incorrect) assumption is that they are negligible.
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
+      estimate +=
+          PerformanceEstimate::fromKernel<seissol::kernel::projectToNodalBoundaryRotated>(face);
       break;
     case FaceType::Dirichlet:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
+      estimate +=
+          PerformanceEstimate::fromKernel<seissol::kernel::projectToNodalBoundaryRotated>(face);
       break;
     case FaceType::Analytical:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
+      estimate +=
+          PerformanceEstimate::fromKernel<seissol::kernel::updateINodal>() * ConvergenceOrder;
       break;
     default:
       break;
     }
   }
-}
 
-std::uint64_t Local::bytesIntegral() {
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // star matrices load
@@ -499,7 +505,9 @@ std::uint64_t Local::bytesIntegral() {
   // DOFs write
   reals += tensor::Q::size();
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 } // namespace seissol::kernels::solver::linearck

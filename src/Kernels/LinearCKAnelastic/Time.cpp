@@ -12,6 +12,7 @@
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/MemoryOps.h"
+#include "Monitoring/Metric.h"
 
 #include <cassert>
 #include <cstddef>
@@ -32,22 +33,10 @@ namespace seissol::kernels::solver::linearckanelastic {
 void Time::setGlobalData(const CompoundGlobalData& global) {}
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(0))) % Alignment ==
-         0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(1))) % Alignment ==
-         0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(2))) % Alignment ==
-         0);
-
-  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  krnlPrototype_.selectAne = init::selectAne::Values;
-  krnlPrototype_.selectEla = init::selectEla::Values;
+  krnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  // the selectAne/selectEla are inlined
-  deviceKrnlPrototype_.selectAne = global.onDevice->selectAne;
-  deviceKrnlPrototype_.selectEla = global.onDevice->selectEla;
+  deviceKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -61,9 +50,9 @@ void Spacetime::computeAder(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Alignment == 0 ||
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Vectorsize == 0 ||
          timeDerivativesOrSTP == nullptr);
 
   /*
@@ -118,12 +107,10 @@ void Spacetime::computeAder(const real* coeffs,
   // Compute integrated displacement over time step if needed.
 }
 
-void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::derivative::NonZeroFlops;
-  hardwareFlops = kernel::derivative::HardwareFlops;
-}
+PerformanceEstimate Spacetime::metrics() const {
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative>();
 
-std::uint64_t Spacetime::bytesAder() {
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -135,7 +122,9 @@ std::uint64_t Spacetime::bytesAder() {
 
   /// \todo incorporate derivatives
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 void Time::evaluate(const real* coeffs,
@@ -144,8 +133,8 @@ void Time::evaluate(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Vectorsize == 0);
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 
@@ -160,10 +149,8 @@ void Time::evaluate(const real* coeffs,
   krnl.execute();
 }
 
-void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  // interate over derivatives
-  nonZeroFlops = kernel::derivativeTaylorExpansionEla::NonZeroFlops;
-  hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;
+PerformanceEstimate Time::metrics() const {
+  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansionEla>();
 }
 
 void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
@@ -198,6 +185,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
 void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,

@@ -38,7 +38,7 @@ struct GhostElementMetadata {
   int group{};
   size_t localId{};
   size_t globalId{};
-  int clusterId{};
+  std::size_t clusterId{};
   double timestep{};
 };
 

@@ -35,12 +35,14 @@ class ReceiverBasedOutputBuilder {
                   DynamicRupture::Storage& userDrStorage);
 
   void setVariableList(const std::vector<std::size_t>& variables);
-  void setFaceToLtsMap(std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap);
+  void setFaceToLtsMap(::seissol::initializer::StorageBackmap<1>* faceToLtsMap);
 
   protected:
   virtual void initTimeCaching() = 0;
 
-  void initBasisFunctions(bool elementwise);
+  void initTopology();
+  void initBasisFunctions();
+  void initDeviceCollectors(bool elementwise);
   void initFaultDirections();
   void initRotationMatrices();
   void initOutputVariables(std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask);
@@ -55,7 +57,7 @@ class ReceiverBasedOutputBuilder {
   DynamicRupture::Storage* drStorage_{nullptr};
   std::shared_ptr<ReceiverOutputData> outputData_;
   std::vector<std::size_t> variables_;
-  std::vector<::seissol::initializer::StoragePosition>* faceToLtsMap_{nullptr};
+  ::seissol::initializer::StorageBackmap<1>* faceToLtsMap_{nullptr};
   int localRank_{-1};
 };
 } // namespace seissol::dr::output

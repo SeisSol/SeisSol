@@ -12,16 +12,40 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Instruction.h"
 
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
+
 namespace seissol::io::instance::metadata {
+
+/**
+ * @brief A double as text that reads back as the same double, e.g. an output time.
+ *
+ * Fifteen significant digits where they suffice, which keeps 0.1 as "0.1", and seventeen where
+ * they do not.
+ */
+inline std::string formatExact(double value) {
+  std::ostringstream shortForm;
+  shortForm << std::setprecision(15) << value;
+  if (std::stod(shortForm.str()) == value) {
+    return shortForm.str();
+  }
+  std::ostringstream longForm;
+  longForm << std::setprecision(17) << value;
+  return longForm.str();
+}
 
 class XmlInstructor {
   public:
   explicit XmlInstructor(const std::string& file);
 
   void addText(const std::string& text);
+
+  void newLine();
+
+  void indentLeft();
+  void indentRight();
 
   void addBuffer(const std::shared_ptr<writer::DataSource>& dataSource);
 
@@ -30,6 +54,8 @@ class XmlInstructor {
   std::vector<std::shared_ptr<writer::instructions::WriteInstruction>> instructions();
 
   private:
+  bool written_{false};
+  int indent_{0};
   std::string file_;
   std::ostringstream cache_;
   std::vector<std::shared_ptr<writer::instructions::WriteInstruction>> instructionList_;
@@ -38,13 +64,6 @@ class XmlInstructor {
 class XmlAttribute {
   public:
   explicit XmlAttribute(const std::string& name);
-
-  template <typename T>
-  static XmlAttribute create(const std::string& name, const T& value) {
-    auto attribute = XmlAttribute(name);
-    attribute.setImmediate(value);
-    return attribute;
-  }
 
   template <typename T>
   void setImmediate(const T& data) {
@@ -57,6 +76,8 @@ class XmlAttribute {
     const auto* dataConv = reinterpret_cast<const T*>(data);
     return *dataConv;
   }
+
+  static XmlAttribute create(const std::string& name, const std::string& value);
 
   void write(XmlInstructor& instructor) const;
 
@@ -74,7 +95,15 @@ template <>
 inline std::string XmlAttribute::getImmediate<std::string>() const {
   const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
+
+  // createString stores the text without a null terminator
   return std::string(dataConv, dataConv + this->data_->getLocalSize());
+}
+
+inline XmlAttribute XmlAttribute::create(const std::string& name, const std::string& value) {
+  auto attribute = XmlAttribute(name);
+  attribute.setImmediate(value);
+  return attribute;
 }
 
 class XmlEntry {
@@ -88,6 +117,7 @@ class XmlEntry {
 
   protected:
   virtual void innerWrite(XmlInstructor& instructor) const = 0;
+  [[nodiscard]] virtual bool isEmpty() const = 0;
 
   private:
   std::string name_;
@@ -103,6 +133,7 @@ class XmlNode : public XmlEntry {
 
   protected:
   void innerWrite(XmlInstructor& instructor) const override;
+  [[nodiscard]] bool isEmpty() const override;
 
   private:
   std::vector<std::shared_ptr<XmlEntry>> entries_;
@@ -125,14 +156,13 @@ class XmlData : public XmlEntry {
     return *dataConv;
   }
 
-  template <typename T>
-  void setBuffer(const T* /*unused*/) {}
+  void setDataSource(const std::shared_ptr<writer::DataSource>& dataSource);
 
-  template <typename T>
-  const T* getBuffer() const;
+  [[nodiscard]] const std::shared_ptr<writer::DataSource>& getDataSource() const;
 
   protected:
   void innerWrite(XmlInstructor& instructor) const override;
+  [[nodiscard]] bool isEmpty() const override;
 
   private:
   std::shared_ptr<writer::DataSource> data_;
@@ -147,6 +177,8 @@ template <>
 inline std::string XmlData::getImmediate<std::string>() const {
   const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
+
+  // createString stores the text without a null terminator
   return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 

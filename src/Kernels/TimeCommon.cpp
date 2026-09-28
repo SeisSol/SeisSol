@@ -53,8 +53,8 @@ void TimeCommon::computeIntegrals(Time& time,
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
   for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; dofneighbor++) {
-    assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Alignment == 0);
-    assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Vectorsize == 0);
+    assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Vectorsize == 0);
   }
 #endif
 
@@ -65,7 +65,7 @@ void TimeCommon::computeIntegrals(Time& time,
     // collect information only in the case that neighboring element contributions are required
     if (faceTypes[dofneighbor] == FaceType::Regular) {
       // check if the time integration is already done (-> copy pointer)
-      if (!ltsSetup.neighborHasDerivatives(dofneighbor)) {
+      if (ltsSetup.neighborBuffer(dofneighbor) != BufferType::Derivatives) {
         timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer

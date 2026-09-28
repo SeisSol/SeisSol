@@ -103,14 +103,17 @@ void Aux::writeOutput(std::ostream& stream,
     stream << "GFLOP (non-zero) for seissol proxy  : " << output.actualNonZeroGFlop << '\n';
     stream << "GFLOP (hardware) for seissol proxy  : " << output.actualHardwareGFlop << '\n';
     stream << "GiB (estimate) for seissol proxy    : " << output.gib << '\n';
+    stream << "GiB (kernels) for seissol proxy     : " << output.kernelGib << '\n';
     stream << '\n';
     stream << "FLOPS/cycle (non-zero)              : " << output.nonZeroFlopPerCycle << '\n';
     stream << "FLOPS/cycle (hardware)              : " << output.hardwareFlopPerCycle << '\n';
     stream << "Bytes/cycle (estimate)              : " << output.bytesPerCycle << '\n';
+    stream << "Bytes/cycle (kernel)                : " << output.kernelBytesPerCycle << '\n';
     stream << '\n';
     stream << "GFLOPS (non-zero) for seissol proxy : " << output.nonZeroGFlops << '\n';
     stream << "GFLOPS (hardware) for seissol proxy : " << output.hardwareGFlops << '\n';
     stream << "GiB/s (estimate) for seissol proxy  : " << output.gibPerSecond << '\n';
+    stream << "GiB/s (kernel) for seissol proxy    : " << output.kernelGibPerSecond << '\n';
     stream << "=================================================\n";
     stream << '\n';
   } else {
@@ -137,12 +140,15 @@ void Aux::writeOutput(std::ostream& stream,
     writeField("gflop-nz", output.actualNonZeroGFlop);
     writeField("gflop-hw", output.actualHardwareGFlop);
     writeField("gib", output.gib);
+    writeField("gib-kernel", output.kernelGib);
     writeField("gflopcycle-nz", output.nonZeroFlopPerCycle);
     writeField("gflopcycle-hw", output.nonZeroFlopPerCycle);
     writeField("gibcycle", output.bytesPerCycle);
+    writeField("gibcycle-kernel", output.kernelBytesPerCycle);
     writeField("gflops-nz", output.nonZeroGFlops);
     writeField("gflops-hw", output.hardwareGFlops);
     writeField("gibs", output.gibPerSecond);
+    writeField("gibs-kernel", output.kernelGibPerSecond);
     stream << '}' << '\n';
   }
 }

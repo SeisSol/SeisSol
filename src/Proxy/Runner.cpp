@@ -122,6 +122,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   const double hardwareFlops = config.timesteps * performanceEstimate.hardwareFlop;
   const double nonzeroFlops = config.timesteps * performanceEstimate.nonzeroFlop;
   const double bytesEstimate = config.timesteps * performanceEstimate.bytes;
+  const double bytesKernel = config.timesteps * performanceEstimate.kernelBytes;
 
   ProxyOutput output{};
   output.time = total;
@@ -133,12 +134,15 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   output.actualNonZeroGFlop = static_cast<double>(nonzeroFlops) * 1.e-9;
   output.actualHardwareGFlop = static_cast<double>(hardwareFlops) * 1.e-9;
   output.gib = bytesEstimate / (1024.0 * 1024.0 * 1024.0);
+  output.kernelGib = bytesKernel / (1024.0 * 1024.0 * 1024.0);
   output.nonZeroFlopPerCycle = static_cast<double>(nonzeroFlops) / totalCycles;
   output.hardwareFlopPerCycle = static_cast<double>(hardwareFlops) / totalCycles;
   output.bytesPerCycle = bytesEstimate / totalCycles;
+  output.kernelBytesPerCycle = bytesKernel / totalCycles;
   output.nonZeroGFlops = (static_cast<double>(nonzeroFlops) * 1.e-9) / total;
   output.hardwareGFlops = (static_cast<double>(hardwareFlops) * 1.e-9) / total;
   output.gibPerSecond = (bytesEstimate / (1024.0 * 1024.0 * 1024.0)) / total;
+  output.kernelGibPerSecond = (bytesKernel / (1024.0 * 1024.0 * 1024.0)) / total;
 
   runtime.reset();
 

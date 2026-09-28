@@ -17,7 +17,6 @@ jobs:
     name: seissol-build-test
     runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -38,7 +37,10 @@ jobs:
           - type: poroelastic
             multisim: 1
             mechanisms: 0
-          - type: viscoelastic2
+          - type: viscoelastic
+            multisim: 1
+            mechanisms: 3
+          - type: viscoacoustic
             multisim: 1
             mechanisms: 3
           - type: anisotropic
@@ -102,6 +104,13 @@ jobs:
             TESTING_GENERATED_ENABLE=ON;
           fi;
 
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           cmake .. \
             -GNinja \
             -DTESTING_COMMAND="${TESTING_COMMAND}" \
@@ -123,6 +132,14 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           cd build
+
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           ctest -j --rerun-failed --output-on-failure
 
       - name: run-seissol-no-input
@@ -164,7 +181,7 @@ jobs:
     name: seissol-run-test
     runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
-    continue-on-error: true
+    continue-on-error: true # TODO: remove once passing
     needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
     env:
@@ -198,7 +215,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-visco
-            equation: viscoelastic2
+            equation: viscoelastic
             dispequation: viscoelastic-3
             multisim: 1
             energies: true
@@ -432,6 +449,13 @@ jobs:
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
           export SEISSOL_MINI_NUM_ELEMENTS=100
 
+          # allow oversubscribe and run as root for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
           cd precomputed/${{matrix.case.name}}
 
           mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
@@ -453,11 +477,13 @@ jobs:
       - name: check-volume
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.volume }}
         run: |
-          VOLUME_FILE=tpv.xdmf
+          # the wavefield output is named after what it holds; the references predate that
+          VOLUME_FILE=tpv-wavefield.xdmf
+          VOLUME_FILE_REF=tpv.xdmf
           EPSILON=0.05
 
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE} --epsilon ${EPSILON}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE_REF} --epsilon ${EPSILON}
       - name: check-surface
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.surface }}
         run: |

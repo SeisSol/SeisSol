@@ -324,6 +324,7 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, std::in
   }
 }
 } // namespace tri_dubiner
+
 } // namespace seissol::basisFunction
 
 #endif // SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_

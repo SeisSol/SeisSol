@@ -11,6 +11,7 @@
 
 #include "Common/Marker.h"
 #include "Kernels/Common.h"
+#include "Monitoring/Metric.h"
 
 #include <cassert>
 #include <cstddef>
@@ -25,43 +26,13 @@
 namespace seissol::kernels::solver::linearckanelastic {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-
-#ifndef NDEBUG
-  for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) % Alignment ==
-           0);
-  }
-  for (std::size_t flux = 0; flux < Cell::NumFaces; ++flux) {
-    assert(
-        (reinterpret_cast<uintptr_t>(global.onHost->localChangeOfBasisMatricesTransposed(flux))) %
-            Alignment ==
-        0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(flux))) % Alignment ==
-           0);
-  }
-#endif
-
-  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
-  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-  localKernelPrototype_.selectEla = init::selectEla::Values;
-  localKernelPrototype_.selectAne = init::selectAne::Values;
+  volumeKernelPrototype_.bindGlobals(*global.onHost);
+  localFluxKernelPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
-#ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-  deviceFluxLocalAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-#else
-  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-  deviceFluxLocalAllKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceFluxLocalAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-#endif
-  deviceLocalKernelPrototype_.selectEla = global.onDevice->selectEla;
-  deviceLocalKernelPrototype_.selectAne = global.onDevice->selectAne;
-  deviceFluxLocalAllKernelPrototype_.selectEla = global.onDevice->selectEla;
-  deviceFluxLocalAllKernelPrototype_.selectAne = global.onDevice->selectAne;
+  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceFluxLocalAllKernelPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -69,9 +40,9 @@ void Local::computeIntegral(
     real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
-  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
 #endif
 
   alignas(Alignment) real Qext[tensor::Qext::size()];
@@ -111,24 +82,28 @@ void Local::computeIntegral(
   lKrnl.execute();
 }
 
-void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                          std::uint64_t& nonZeroFlops,
-                          std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
+PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
+  auto estimate = PerformanceEstimate::fromKernel<seissol::kernel::volumeExt>();
 
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    if (faceTypes[face] != FaceType::DynamicRupture || isDeviceOn()) {
-      nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
+#if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
+  constexpr bool CombineLocalFlux = true;
+#else
+  constexpr bool CombineLocalFlux = false;
+#endif
+
+  if constexpr (CombineLocalFlux) {
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::fluxLocalAll>();
+  } else {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      if (faceTypes[face] != FaceType::DynamicRupture) {
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
+      }
     }
+
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
   }
 
-  nonZeroFlops += seissol::kernel::local::NonZeroFlops;
-  hardwareFlops += seissol::kernel::local::HardwareFlops;
-}
-
-std::uint64_t Local::bytesIntegral() {
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // star matrices load
@@ -140,7 +115,9 @@ std::uint64_t Local::bytesIntegral() {
   // DOFs write
   reals += tensor::Q::size() + tensor::Qane::size();
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
 void Local::computeBatchedIntegral(

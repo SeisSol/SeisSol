@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Local.h"
+#include "Monitoring/Metric.h"
 
 #include <memory>
 #pragma GCC diagnostic push
@@ -23,10 +24,6 @@
 #ifdef ACL_DEVICE
 #include <Device/device.h>
 #endif
-
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
 
 namespace seissol::kernels::solver::linearck {
 
@@ -52,11 +49,8 @@ class Local : public LocalKernel {
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                     std::uint64_t& nonZeroFlops,
-                     std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesIntegral() override;
+  [[nodiscard]] PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
   kernel::volume volumeKernelPrototype_;
@@ -65,6 +59,8 @@ class Local : public LocalKernel {
 
   kernel::projectToNodalBoundary projectKrnlPrototype_;
   kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
+
+  kernel::createEasiBoundaryGhostCells easiBoundaryKrnlPrototype_;
 
   kernels::DirichletBoundary dirichletBoundary_;
 

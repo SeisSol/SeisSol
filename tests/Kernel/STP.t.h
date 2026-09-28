@@ -6,13 +6,18 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/poroelastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Helper.h"
+#include "Equations/poroelastic/Model/Setup.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Kernels/Common.h"
+#include "Kernels/STP/Setup.h"
 #include "Model/Common.h"
-#include "Model/PoroelasticSetup.h"
 
+#include <array>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -96,66 +101,44 @@ class SpaceTimePredictorTestFixture {
     model::getTransposedSourceCoefficientTensor(material, et);
 
     // prepare Zinv
-    auto zinv = init::Zinv::view<0>::create(zMatrix[0]);
-    model::calcZinv(zinv, et, 0, Dt);
+    auto zinv0 = init::Zinv::view<0>::create(zMatrix[0]);
+    model::calcZinv(zinv0, et, 0, model::isStiffRow<model::PoroElasticMaterial>(0), Dt);
     auto zinv1 = init::Zinv::view<1>::create(zMatrix[1]);
-    model::calcZinv(zinv1, et, 1, Dt);
+    model::calcZinv(zinv1, et, 1, model::isStiffRow<model::PoroElasticMaterial>(1), Dt);
     auto zinv2 = init::Zinv::view<2>::create(zMatrix[2]);
-    model::calcZinv(zinv2, et, 2, Dt);
+    model::calcZinv(zinv2, et, 2, model::isStiffRow<model::PoroElasticMaterial>(2), Dt);
     auto zinv3 = init::Zinv::view<3>::create(zMatrix[3]);
-    model::calcZinv(zinv3, et, 3, Dt);
+    model::calcZinv(zinv3, et, 3, model::isStiffRow<model::PoroElasticMaterial>(3), Dt);
     auto zinv4 = init::Zinv::view<4>::create(zMatrix[4]);
-    model::calcZinv(zinv4, et, 4, Dt);
+    model::calcZinv(zinv4, et, 4, model::isStiffRow<model::PoroElasticMaterial>(4), Dt);
     auto zinv5 = init::Zinv::view<5>::create(zMatrix[5]);
-    model::calcZinv(zinv5, et, 5, Dt);
+    model::calcZinv(zinv5, et, 5, model::isStiffRow<model::PoroElasticMaterial>(5), Dt);
     auto zinv6 = init::Zinv::view<6>::create(zMatrix[6]);
-    model::calcZinv(zinv6, et, 6, Dt);
+    model::calcZinv(zinv6, et, 6, model::isStiffRow<model::PoroElasticMaterial>(6), Dt);
     auto zinv7 = init::Zinv::view<7>::create(zMatrix[7]);
-    model::calcZinv(zinv7, et, 7, Dt);
+    model::calcZinv(zinv7, et, 7, model::isStiffRow<model::PoroElasticMaterial>(7), Dt);
     auto zinv8 = init::Zinv::view<8>::create(zMatrix[8]);
-    model::calcZinv(zinv8, et, 8, Dt);
+    model::calcZinv(zinv8, et, 8, model::isStiffRow<model::PoroElasticMaterial>(8), Dt);
     auto zinv9 = init::Zinv::view<9>::create(zMatrix[9]);
-    model::calcZinv(zinv9, et, 9, Dt);
+    model::calcZinv(zinv9, et, 9, model::isStiffRow<model::PoroElasticMaterial>(9), Dt);
     auto zinv10 = init::Zinv::view<10>::create(zMatrix[10]);
-    model::calcZinv(zinv10, et, 10, Dt);
+    model::calcZinv(zinv10, et, 10, model::isStiffRow<model::PoroElasticMaterial>(10), Dt);
     auto zinv11 = init::Zinv::view<11>::create(zMatrix[11]);
-    model::calcZinv(zinv11, et, 11, Dt);
+    model::calcZinv(zinv11, et, 11, model::isStiffRow<model::PoroElasticMaterial>(11), Dt);
     auto zinv12 = init::Zinv::view<12>::create(zMatrix[12]);
-    model::calcZinv(zinv12, et, 12, Dt);
+    model::calcZinv(zinv12, et, 12, model::isStiffRow<model::PoroElasticMaterial>(12), Dt);
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
-    for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-      if (n > 0) {
-        for (int d = 0; d < 3; ++d) {
-          krnlPrototype.kDivMTSub(d, n) =
-              seissol::init::kDivMTSub::Values[seissol::tensor::kDivMTSub::index(d, n)];
-        }
-      }
-      krnlPrototype.selectModes(n) =
-          seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
-    }
-    for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-      krnlPrototype.selectQuantity(k) =
-          seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
-      krnlPrototype.selectQuantityG(k) =
-          init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
-    }
-    krnlPrototype.timeInt = seissol::init::timeInt::Values;
-    krnlPrototype.wHat = seissol::init::wHat::Values;
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareLHS(seissol::kernel::stpTestLhs& krnlPrototype) {
-    krnlPrototype.Z = seissol::init::Z::Values;
-    krnlPrototype.deltaLarge = seissol::init::deltaLarge::Values;
-    krnlPrototype.deltaSmall = seissol::init::deltaSmall::Values;
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareRHS(seissol::kernel::stpTestRhs& krnlPrototype) {
-    for (size_t i = 0; i < 3; i++) {
-      krnlPrototype.kDivMT(i) = seissol::init::kDivMT::Values[seissol::init::kDivMT::index(i)];
-    }
-    krnlPrototype.wHat = seissol::init::wHat::Values;
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareQ(real* qData) {
@@ -176,8 +159,6 @@ class SpaceTimePredictorTestFixture {
 
   void solveWithKernel(real stp[], const real* qData) {
     real timeIntegrated[seissol::tensor::I::size()];
-    alignas(PagesizeStack) real stpRhs[seissol::tensor::spaceTimePredictorRhs::size()];
-    std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
 
     seissol::kernel::spaceTimePredictor krnl;
     prepareKernel(krnl);
@@ -185,6 +166,10 @@ class SpaceTimePredictorTestFixture {
     real aValues[seissol::tensor::star::size(0)] = {0};
     real bValues[seissol::tensor::star::size(0)] = {0};
     real cValues[seissol::tensor::star::size(0)] = {0};
+
+    // Scaled by Dt, as Spacetime::executeSTP does. The minus sign of the flux term is not
+    // applied here: kDivMT carries it, negated at code generation (negateFamily in
+    // codegen/kernels/aderdg/aderdg.py).
     for (size_t i = 0; i < seissol::tensor::star::size(0); i++) {
       aValues[i] = starMatrices0[i] * Dt;
       bValues[i] = starMatrices1[i] * Dt;
@@ -200,15 +185,15 @@ class SpaceTimePredictorTestFixture {
     }
 
     auto sourceView = init::ET::view::create(sourceMatrix);
-    krnl.Gk = sourceView(10, 6) * Dt;
-    krnl.Gl = sourceView(11, 7) * Dt;
-    krnl.Gm = sourceView(12, 8) * Dt;
+    for (std::size_t i = 0; i < model::PoroElasticMaterial::StiffSourceRows.size(); ++i) {
+      const auto& row = model::PoroElasticMaterial::StiffSourceRows[i];
+      krnl.G(i) = sourceView(row.quantity, row.target) * Dt;
+    }
 
     krnl.Q = qData;
     krnl.I = timeIntegrated;
     krnl.timestep = Dt;
     krnl.spaceTimePredictor = stp;
-    krnl.spaceTimePredictorRhs = stpRhs;
     krnl.execute();
   }
 
@@ -230,7 +215,8 @@ class SpaceTimePredictorTestFixture {
     testRhsKrnl.star(1) = starMatrices1;
     testRhsKrnl.star(2) = starMatrices2;
     testRhsKrnl.spaceTimePredictor = stp;
-    testRhsKrnl.minus = -Dt;
+    // The flux term is -Dt * star * K^T; kDivMT already is -K^T, so its factor here is +Dt.
+    testRhsKrnl.minus = Dt;
     testRhsKrnl.testRhs = rhs;
     testRhsKrnl.execute();
   };
@@ -239,7 +225,8 @@ class SpaceTimePredictorTestFixture {
   SpaceTimePredictorTestFixture() { prepareModel(); };
 };
 
-TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
+TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture,
+                  "Solve Space Time Predictor" * doctest::test_suite("kernel")) {
   alignas(PagesizeStack) real stp[seissol::tensor::spaceTimePredictor::size()];
   alignas(PagesizeStack) real rhs[seissol::tensor::testLhs::size()];
   alignas(PagesizeStack) real lhs[seissol::tensor::testRhs::size()];
@@ -273,7 +260,7 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture, "Solve Space Time Predictor") {
     }
   }
 
-  REQUIRE(diffNorm / refNorm < Epsilon);
+  CHECK(diffNorm / refNorm < Epsilon);
 }
 
 } // namespace seissol::unit_test

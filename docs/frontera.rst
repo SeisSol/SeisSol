@@ -156,6 +156,6 @@ In particular, note how timeout and retry count are increased.
 
 
     # Launch MPI code...
-    seissol_exe=SeisSol_Release_dskx_6_viscoelastic2
+    seissol_exe=SeisSol_Release_dskx_6_viscoelastic
     echo $seissol_exe
     time -p ibrun $seissol_exe parameters.par

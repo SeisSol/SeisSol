@@ -14,6 +14,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
+#include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/TimeStepping/GhostTimeClusterFactory.h"
@@ -23,6 +24,7 @@
 #include <cassert>
 #include <list>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <utils/logger.h>
 #include <vector>
@@ -58,6 +60,9 @@ class TimeManager {
   //! dynamic rupture output
   dr::output::OutputManager* faultOutputManager_{};
 
+  //! the clusters as laid out, kept until the output directory exists
+  std::optional<writer::ClusteringWriter> clusteringWriter_;
+
   public:
   /**
    * Construct a new time manager.
@@ -82,8 +87,13 @@ class TimeManager {
                    initializer::MemoryManager& memoryManager,
                    const SimulationSettings& settings);
 
+  /**
+   * Writes the clustering table recorded by addClusters. Collective: every rank has to call it.
+   **/
+  void writeClustering() const;
+
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
-  seissol::dr::output::OutputManager* getFaultOutputManager();
+  seissol::dr::output::OutputManager* faultOutputManager();
 
   /**
    * Advance in time until all clusters reach the next synchronization time.

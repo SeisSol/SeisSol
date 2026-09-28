@@ -13,6 +13,7 @@
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
+#include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
@@ -74,6 +75,13 @@ static constexpr inline uint32_t NumQuantities =
  */
 
 static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
+
+/**
+ * Face relations of a dynamic rupture face: 0 addresses the plus side, 1 the minus side. The
+ * minus side carries the face orientation index of the shared face, which the canonical vertex
+ * numbering pins to zero.
+ */
+static constexpr inline uint32_t NumFaceRelations = 2;
 
 /**
  * Constants for Thermal Pressurization
@@ -227,6 +235,10 @@ enum QuantityIndices : uint32_t {
   XY = 3,
   YZ = 4,
   XZ = 5,
+  FP = 9,
+  FU = 10,
+  FV = 11,
+  FW = 12,
 };
 } // namespace quantity_indices
 } // namespace seissol::dr::misc
@@ -241,6 +253,40 @@ namespace seissol::dr {
 // compile-time parameter; rather arbitrary (and just large enough for most cases). It's there to
 // avoid us allocating dynamic arrays in the parameters.
 constexpr std::size_t MaxNucleations = 16;
+
+/// bound on the stress sources of a face, which are the nucleations plus the initial state
+constexpr std::size_t MaxStressSources = MaxNucleations + 1;
+
+/**
+ * The fraction of a stress source that is in effect at the given time, for a source with the
+ * given rise time and onset.
+ *
+ * The absolute value of the ramp, not its increment over the time step. The stress at a point is
+ * therefore a function of the time alone: it does not depend on the sequence of time steps that
+ * led there, nothing accumulates, and nothing has to be carried across a restart. A ramp that is
+ * not monotone, or one that returns to zero, would be as admissible here as the smooth step is.
+ */
+SEISSOL_HOSTDEVICE inline real stressSourceFraction(real time, real t0, real s0) {
+  if (t0 <= 0) {
+    // without a rise time, a source is in full effect from its onset on
+    return time >= s0 ? static_cast<real>(1.0) : static_cast<real>(0.0);
+  }
+  return gaussianNucleationFunction::smoothStep<real>(time - s0, t0);
+}
+
+/**
+ * The stress sources of a fault: the nucleations the parameter file configures, then the initial
+ * state. They share one storage array, indexed by ltsFace * stressSourceCount + source.
+ *
+ * The initial state comes last for two reasons. The configured nucleations keep the indices the
+ * parameter file gives them, so nothing else has to be renumbered along with them; and the sum
+ * over the sources then runs from the perturbations up to the state they perturb, which is the
+ * order that costs the fewest digits.
+ */
+template <typename ParametersT>
+SEISSOL_HOSTDEVICE constexpr std::uint32_t stressSourceCount(const ParametersT& parameters) {
+  return parameters.nucleationCount + 1;
+}
 
 /**
  * Friction law parameters, as used in the kernels.
@@ -267,9 +313,10 @@ struct FrictionLawParameters {
   real terminatorSlipRateThreshold{0.0};
   real etaDamp{1.0};
   real etaDampEnd{std::numeric_limits<real>::infinity()};
-  std::array<real, MaxNucleations> t0{};
-  std::array<real, MaxNucleations> s0{};
-  std::uint32_t nucleationCount{0};
+  /// rise time of the forced rupture ramp, which is not one of the stress sources
+  real forcedRuptureRiseTime{0.0};
+  /// the rise time and the onset of a source are fields; see StressSourceRiseTime
+  std::uint32_t sourceCount{1};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
   real rsSlipRateTolerance{1e-8};
@@ -281,6 +328,31 @@ struct FrictionLawParameters {
   FrictionLawParameters() = default;
   explicit FrictionLawParameters(const seissol::initializer::parameters::DRParameters& parameters);
 };
+
+/**
+ * The stress of a fault point at the given time, summed over the stress sources of its face.
+ *
+ * @param[in] sources the stress of every source of the face, i.e. the face's slice of the
+ *                    storage array
+ * @param[in] riseTimes the rise time of every source of the face, at this point
+ * @param[in] onsets the onset of every source of the face, at this point
+ */
+inline std::array<real, 6> stressAtTime(const real (*sources)[6][misc::NumPaddedPoints],
+                                        const real (*riseTimes)[misc::NumPaddedPoints],
+                                        const real (*onsets)[misc::NumPaddedPoints],
+                                        std::uint32_t sourceCount,
+                                        std::uint32_t pointIndex,
+                                        real time) {
+  std::array<real, 6> stress{};
+  for (std::uint32_t source = 0; source < sourceCount; ++source) {
+    const real fraction =
+        stressSourceFraction(time, riseTimes[source][pointIndex], onsets[source][pointIndex]);
+    for (std::size_t component = 0; component < stress.size(); ++component) {
+      stress[component] += sources[source][component][pointIndex] * fraction;
+    }
+  }
+  return stress;
+}
 } // namespace seissol::dr
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
