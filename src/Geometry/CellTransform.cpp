@@ -11,6 +11,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 
+#include <Eigen/Dense>
 #include <Eigen/LU>
 #include <array>
 #include <cstddef>
@@ -21,16 +22,8 @@ namespace seissol::geometry {
 
 CellTransform::~CellTransform() = default;
 
-auto CellTransform::refToSpace(const VectorEigenT& input) const -> VectorEigenT {
-  return refToSpaceImpl(input);
-}
-auto CellTransform::refToSpaceJacobian(const VectorEigenT& input) const -> MatrixEigenT {
-  return refToSpaceJacobianImpl(input);
-}
-
 auto CellTransform::refToSpace(const VectorT& input) const -> VectorT {
-  const auto inputEigen = VectorEigenT(input.data());
-  const auto outputEigen = refToSpaceImpl(inputEigen);
+  const auto outputEigen = refToSpace(VectorEigenT(input.data()));
   VectorT output{};
   for (std::size_t i = 0; i < Cell::Dim; ++i) {
     output[i] = outputEigen(i);
@@ -40,33 +33,40 @@ auto CellTransform::refToSpace(const VectorT& input) const -> VectorT {
 
 auto CellTransform::refToSpace(const std::vector<VectorT>& input) const -> std::vector<VectorT> {
   std::vector<VectorT> output(input.size());
-  for (std::size_t i = 0; i < output.size(); ++i) {
-    output[i] = refToSpace(input[i]);
-  }
+  refToSpace(input.data(), output.data(), input.size());
   return output;
 }
 
-auto CellTransform::spaceToRefJacobian(const CellTransform::VectorEigenT& input) const
-    -> MatrixEigenT {
-  const auto refToSpaceJ = refToSpaceJacobian(spaceToRef(input));
-  return refToSpaceJ.inverse();
+void CellTransform::refToSpace(const VectorT* input, VectorT* output, std::size_t count) const {
+  for (std::size_t i = 0; i < count; ++i) {
+    output[i] = refToSpace(input[i]);
+  }
 }
 
-auto CellTransform::spaceToRef(const CellTransform::VectorEigenT& input) const -> VectorEigenT {
+auto CellTransform::refToSpaceJacobianInverse(const VectorEigenT& input) const -> MatrixEigenT {
+  return refToSpaceJacobian(input).inverse();
+}
+
+auto CellTransform::spaceToRefJacobian(const VectorEigenT& input) const -> MatrixEigenT {
+  return refToSpaceJacobianInverse(spaceToRef(input));
+}
+
+auto CellTransform::spaceToRef(const VectorEigenT& input) const -> VectorEigenT {
   // in the general case... we need to invert a function. So... Newton.
   // we want: f(y) = x; or: f(y) - x = 0
 
-  auto iterate = VectorEigenT::Zero().eval();
-  constexpr double Eps = 1e-5;
+  // start at the barycenter of the reference cell, so that the first iterate is inside the cell
+  auto iterate = VectorEigenT(Cell::ReferenceBarycenter.data());
+
+  // the residual lives in space coordinates, hence the tolerance has to scale with them
+  const double eps = 1e-12 * (1.0 + input.norm());
   constexpr std::size_t Tries = 100;
   for (std::size_t i = 0; i < Tries; ++i) {
-    const auto inputProbe = refToSpace(iterate);
-    const auto residual = inputProbe - input;
-    if ((inputProbe - input).norm() < Eps) {
+    const VectorEigenT residual = refToSpace(iterate) - input;
+    if (residual.norm() < eps) {
       return iterate;
     }
-    const auto inputProbeDerivative = refToSpaceJacobian(iterate);
-    iterate -= inputProbeDerivative.fullPivLu().solve(residual).eval();
+    iterate -= refToSpaceJacobian(iterate).fullPivLu().solve(residual).eval();
   }
 
   logError() << "Root finding failed for" << input << "after" << Tries
@@ -74,39 +74,43 @@ auto CellTransform::spaceToRef(const CellTransform::VectorEigenT& input) const -
   return iterate;
 }
 
-AffineTransform::AffineTransform(const std::array<CoordinateT, Cell::NumVertices>& vertices) {
-  offset_ = VectorEigenT(vertices[0].data());
+void AffineTransform::setup(const std::array<VectorEigenT, Cell::NumVertices>& vertices) {
+  offset_ = vertices[0];
 
   for (std::size_t i = 0; i < Cell::Dim; ++i) {
-    const auto v = VectorEigenT(vertices[i + 1].data()) - offset_;
+    const VectorEigenT v = vertices[i + 1] - offset_;
     for (std::size_t j = 0; j < Cell::Dim; ++j) {
       transform_(j, i) = v(j);
     }
   }
 
-  itransform_ = Eigen::PartialPivLU<MatrixEigenT>(transform_);
   determinant_ = transform_.determinant();
+}
+
+AffineTransform::AffineTransform(const std::array<CoordinateT, Cell::NumVertices>& vertices) {
+  std::array<VectorEigenT, Cell::NumVertices> verticesEigen{};
+  for (std::size_t i = 0; i < Cell::NumVertices; ++i) {
+    verticesEigen[i] = VectorEigenT(vertices[i].data());
+  }
+  setup(verticesEigen);
 }
 
 AffineTransform::AffineTransform(const std::array<VectorEigenT, Cell::NumVertices>& vertices) {
-  offset_ = VectorEigenT(vertices[0]);
-
-  for (std::size_t i = 0; i < Cell::Dim; ++i) {
-    const auto v = VectorEigenT(vertices[i + 1]) - offset_;
-    for (std::size_t j = 0; j < Cell::Dim; ++j) {
-      transform_(j, i) = v(j);
-    }
-  }
-
-  itransform_ = Eigen::PartialPivLU<MatrixEigenT>(transform_);
-  determinant_ = transform_.determinant();
+  setup(vertices);
 }
 
-auto AffineTransform::refToSpaceImpl(const VectorEigenT& input) const -> VectorEigenT {
+auto AffineTransform::factorization() const -> const Eigen::PartialPivLU<MatrixEigenT>& {
+  if (!factorization_.has_value()) {
+    factorization_.emplace(transform_);
+  }
+  return factorization_.value();
+}
+
+auto AffineTransform::refToSpace(const VectorEigenT& input) const -> VectorEigenT {
   return transform_ * input + offset_;
 }
 
-auto AffineTransform::refToSpaceJacobianImpl(const VectorEigenT& /*input*/) const -> MatrixEigenT {
+auto AffineTransform::refToSpaceJacobian(const VectorEigenT& /*input*/) const -> MatrixEigenT {
   // since we're linear—no dependency on the input vector here
   return transform_;
 }
@@ -121,8 +125,8 @@ auto AffineTransform::fromMeshCell(std::size_t id, const MeshReader& mesh) -> Af
 }
 
 auto AffineTransform::spaceToRef(const VectorEigenT& input) const -> VectorEigenT {
-  // we can invert pretty straight-forwardly
-  return itransform_.solve(input - offset_);
+  // solving is both cheaper and more accurate than forming an explicit inverse
+  return factorization().solve(input - offset_);
 }
 
 } // namespace seissol::geometry

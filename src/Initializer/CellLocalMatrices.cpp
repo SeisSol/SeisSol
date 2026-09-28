@@ -201,7 +201,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
         // hence, you may use an AffineTransform with an arbitrary point here; but nothing more.
-        const auto grad = transform.spaceToRefJacobian(Eigen::Vector3d(1. / 4, 1. / 4, 1. / 4));
+        const auto grad = transform.refToSpaceJacobianInverse(
+            seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
 
         for (std::size_t i = 0; i < Cell::Dim; ++i) {
           gradXi[i] = grad(0, i);
