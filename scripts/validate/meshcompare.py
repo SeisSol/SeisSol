@@ -511,20 +511,11 @@ def compare(file, file_ref, epsilon, report_json=None, category="mesh"):
         quantity = mesh.ReadData(q, last_index - 1)[ids]
         q_ref = q if q in fields_ref else RENAMED[q]
         quantity_ref = mesh_ref.ReadData(q_ref, last_index - 1)[ids_ref]
-        if q == "DS":
-            quantity = np.where(quantity_ref < 1e-10, 0.0, quantity)
         return quantity, quantity_ref
 
     differences = {}
     references = {}
     for q in quantity_names:
-        # we can leave this one in. A field with the name "DS" only appears on the mesh
-        if q == "DS":
-            print(
-                "There is a bug on the master branch, which sets DS output to zero in wrong "
-                "places. In order to make a fair comparison, we only compare the parts of DS, "
-                "where it is non-zero."
-            )
         differences[q], references[q] = l2_error(*read(q))
 
     # the components of a vector or a tensor are relative to the largest reference norm among

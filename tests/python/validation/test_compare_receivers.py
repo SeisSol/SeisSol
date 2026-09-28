@@ -487,6 +487,78 @@ class TestFindAllReceivers:
         assert len(ids) == 0
 
 
+class TestEventQuantities:
+    """RT, Vr and DS are 0 until the event and constant from it on."""
+
+    @staticmethod
+    def frames(sim_values, ref_values, column="RT"):
+        time = np.arange(len(ref_values), dtype=float)
+        sim = pd.DataFrame({"Time": time, column: np.array(sim_values, dtype=float)})
+        ref = pd.DataFrame({"Time": time, column: np.array(ref_values, dtype=float)})
+        return sim, ref
+
+    def test_onset_one_sample_apart_is_left_out(self):
+        sim, ref = self.frames([0, 0, 2.001, 2.001, 2.001], [0, 0, 0, 2.0, 2.0])
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        # only the samples both hold the event in count
+        assert errors["RT"] == pytest.approx(0.001 / 2.0, rel=1e-2)
+
+    def test_fused_suffix_is_an_event_quantity_too(self):
+        sim, ref = self.frames([0, 1.0, 1.0], [0, 0, 1.0], column="Vr-3")
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["Vr-3"] == 0.0
+
+    def test_missing_event_still_counts(self):
+        # no rupture at all in one run: not an onset, the whole difference counts
+        sim, ref = self.frames([0, 0, 0, 0, 0], [0, 2.0, 2.0, 2.0, 2.0])
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["RT"] == pytest.approx(1.0)
+
+    def test_other_quantities_are_compared_in_full(self):
+        sim, ref = self.frames([0, 1.0, 1.0], [0, 0, 1.0], column="SRs")
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["SRs"] > 0.1
+
+    @staticmethod
+    def repeated(rt_sim, rt_ref, repeat):
+        # a receiver of a coarser cluster: each time step shown at `repeat` samples in a row
+        steps = len(rt_ref)
+        time = np.arange(steps * repeat, dtype=float)
+        srs = np.repeat(np.arange(1.0, steps + 1.0), repeat)
+        sim = pd.DataFrame(
+            {"Time": time, "SRs": srs, "RT": np.repeat(np.array(rt_sim, float), repeat)}
+        )
+        ref = pd.DataFrame(
+            {"Time": time, "SRs": srs, "RT": np.repeat(np.array(rt_ref, float), repeat)}
+        )
+        return sim, ref
+
+    def test_onset_counts_time_steps_not_samples(self):
+        # one time step apart, at four samples per time step
+        sim, ref = self.repeated([0, 0, 2.0, 2.0, 2.0], [0, 0, 0, 2.0, 2.0], repeat=4)
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["RT"] == 0.0
+
+    def test_onset_longer_than_the_bound_counts(self):
+        sim, ref = self.frames([0, 2.0, 2.0, 2.0, 2.0, 2.0], [0, 0, 0, 0, 2.0, 2.0])
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["RT"] > 0.1
+
+    def test_one_sided_samples_away_from_the_onset_count(self):
+        # the event vanishes again in one run: not an onset
+        sim, ref = self.frames([0, 2.0, 2.0, 0, 2.0], [0, 0, 2.0, 2.0, 2.0])
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["RT"] > 0.1
+
+    def test_not_finite_values_fail(self):
+        sim, ref = self.frames([0, float("nan"), 2.0, 2.0], [0, 0, 2.0, 2.0])
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["RT"] == float("inf")
+        sim, ref = self.frames([0, float("nan"), 2.0], [0, 1.0, 2.0], column="SRs")
+        errors = cr.compare_receiver_columns(sim, ref, label="test")
+        assert errors["SRs"] == float("inf")
+
+
 # ============================================================================
 # report_errors — the gate that decides pass/fail
 # ============================================================================

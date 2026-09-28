@@ -337,31 +337,32 @@ class TestMeshCompareMetafieldsExcluded:
         meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
 
 
-class TestMeshCompareDSBugWorkaround:
-    """meshcompare has an inline comment and workaround for the DS field:
-        # There is a bug on the master branch, which sets DS output to zero
-        # in wrong places.
-    When the REFERENCE is ~zero, the simulation value is forced to zero
-    before the comparison — so any simulation DS value passes.
+class TestMeshCompareDynamicStressTime:
+    """DS is compared like any other quantity: a DS that only one of the two runs has fails.
+
+    meshcompare used to zero the test run's DS wherever the reference had none, for a bug that
+    set DS to zero in wrong places, and so hid any DS the test run set there.
     """
 
-    def test_ds_zero_in_reference_masks_sim_value(self, patch_seissolxdmf):
-        # Reference DS = 0 everywhere → sim DS gets zeroed → passes
-        patch_seissolxdmf["sim.xdmf"] = {
-            "geom": GEOM,
-            "connect": CONNECT,
-            "fields": {"DS": np.array([1e5, 1e5])},  # huge sim DS values
-            "int_fields": {"global-id": np.array([0, 1])},
-        }
-        patch_seissolxdmf["ref.xdmf"] = {
-            "geom": GEOM,
-            "connect": CONNECT,
-            "fields": {"DS": np.array([0.0, 0.0])},
-            "int_fields": {"global-id": np.array([0, 1])},
-        }
-        # The workaround zeroes the sim where ref is ~0, so this passes
-        # despite the gigantic raw difference
-        meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
+    @staticmethod
+    def register(registry, sim, ref):
+        for name, values in (("sim.xdmf", sim), ("ref.xdmf", ref)):
+            registry[name] = {
+                "geom": GEOM,
+                "connect": CONNECT,
+                "fields": {"DS": np.array(values)},
+                "int_fields": {"global-id": np.array([0, 1])},
+            }
+
+    def test_ds_only_in_the_test_run_fails(self, patch_seissolxdmf):
+        self.register(patch_seissolxdmf, [1e5, 1e5], [0.0, 0.0])
+        with pytest.raises(SystemExit):
+            meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
+
+    def test_ds_only_in_the_reference_fails(self, patch_seissolxdmf):
+        self.register(patch_seissolxdmf, [0.0, 1.0], [1.0, 1.0])
+        with pytest.raises(SystemExit):
+            meshcompare.compare("sim.xdmf", "ref.xdmf", epsilon=0.01)
 
 
 class TestMeshCompareVelocityRenaming:

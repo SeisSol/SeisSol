@@ -242,6 +242,75 @@ def load_receivers(
     return receivers
 
 
+# on-fault quantities that are 0 until an event at the receiver and constant from it on: the rupture
+# time, the rupture velocity and the dynamic stress time
+EVENT_QUANTITIES = ("RT", "Vr", "DS")
+# time steps at the onset of such a quantity at which one output already holds the event and the
+# other not yet, which the comparison leaves out: an event close to the end of a time step can make
+# it into that step in one run and into the next in the other, and the difference would count the
+# whole value
+ONSET_STEPS = 2
+
+
+def is_event_quantity(column: str) -> bool:
+    """Whether a column is an event quantity, of any fused simulation (RT, RT-3)."""
+    return re.sub(r"-\d+$", "", column) in EVENT_QUANTITIES
+
+
+def output_steps(sim_receiver: pd.DataFrame, ref_receiver: pd.DataFrame) -> np.ndarray:
+    """The time step each sample shows, counted from zero.
+
+    A receiver in a cluster whose time step spans several output steps repeats the state of
+    that time step at each of them; a new time step is wherever a quantity other than an event
+    quantity changes, in either run.
+    """
+    columns = [
+        column
+        for column in ref_receiver.columns
+        if column != "Time"
+        and not is_event_quantity(column)
+        and column in sim_receiver.columns
+    ]
+    if not columns:
+        return np.arange(len(ref_receiver))
+    changed = np.zeros(max(len(ref_receiver) - 1, 0), dtype=bool)
+    for frame in (sim_receiver, ref_receiver):
+        values = frame[columns].to_numpy()
+        changed |= np.any(values[1:] != values[:-1], axis=1)
+    return np.concatenate(([0], np.cumsum(changed)))
+
+
+def event_difference(sim: np.ndarray, ref: np.ndarray, steps: np.ndarray) -> np.ndarray:
+    """The difference of an event quantity, without its onset: the samples from the first one
+    that holds the event in one run up to the first one in the other.
+
+    That holds only for an event that both runs have, if these samples are the only ones where
+    one run holds the event and the other not, and if they span at most ONSET_STEPS time steps
+    (see output_steps); otherwise all samples count, as do any that are not finite.
+    """
+    difference = sim - ref
+    if not (np.all(np.isfinite(sim)) and np.all(np.isfinite(ref))):
+        return difference
+    onset = (sim == 0) != (ref == 0)
+    if not np.any(onset):
+        return difference
+
+    def first_event(values):
+        nonzero = np.flatnonzero(values != 0)
+        return nonzero[0] if len(nonzero) > 0 else len(values)
+
+    lo, hi = sorted((first_event(sim), first_event(ref)))
+    window = np.zeros(len(sim), dtype=bool)
+    window[lo:hi] = True
+    if (
+        hi < len(sim)
+        and np.array_equal(onset, window)
+        and steps[hi - 1] - steps[lo] < ONSET_STEPS
+    ):
+        difference = np.where(window, 0.0, difference)
+    return difference
+
+
 def compare_receiver_columns(
     sim_receiver: pd.DataFrame, ref_receiver: pd.DataFrame, label: str
 ) -> dict[str, float]:
@@ -249,7 +318,8 @@ def compare_receiver_columns(
 
     Returns a dict mapping column name -> relative L2 error (or absolute if ref is ~zero).
     The components of a vector or a tensor are relative to the largest reference norm
-    among them (see components.py).
+    among them (see components.py), and an event quantity leaves out the samples at its
+    onset (see event_difference).
     """
     time = ref_receiver["Time"].values
     columns = [col for col in ref_receiver.columns if col != "Time"]
@@ -258,18 +328,24 @@ def compare_receiver_columns(
         for col in columns
     }
     scale = group_scales(ref_norms)
+    steps = output_steps(sim_receiver, ref_receiver)
     errors = {}
     for col in columns:
         if col not in sim_receiver.columns:
             print(f"Warning: column '{col}' missing in simulated output for {label}")
             errors[col] = float("inf")
             continue
-        diff_col = sim_receiver[col].values - ref_receiver[col].values
+        if is_event_quantity(col):
+            diff_col = event_difference(
+                sim_receiver[col].values, ref_receiver[col].values, steps
+            )
+        else:
+            diff_col = sim_receiver[col].values - ref_receiver[col].values
         diff_norm = np.sqrt(trapz_func(diff_col**2, x=time))
         ref_norm = scale[component_group(col)]
-        errors[col] = (
-            float(diff_norm / ref_norm) if ref_norm > 1e-10 else float(diff_norm)
-        )
+        error = float(diff_norm / ref_norm) if ref_norm > 1e-10 else float(diff_norm)
+        # a value that is not finite fails, like a missing column
+        errors[col] = error if np.isfinite(error) else float("inf")
     return errors
 
 
