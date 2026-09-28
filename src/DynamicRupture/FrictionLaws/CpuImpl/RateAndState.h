@@ -18,7 +18,10 @@
 #ifdef __INTEL_LLVM_COMPILER
 #if __INTEL_LLVM_COMPILER >= 20250000
 #define SEISSOL_INTEL_SIMD_EXCEPTION
-#if __INTEL_LLVM_COMPILER < 20260000
+// icpx 2026.0 still crashes in its vectorizer (vplan-vec) in single precision, on the strength
+// and slip rate loop of calcSlipRateAndTraction and on the loops of invertSlipRateIterative; they
+// stay scalar for it in either precision. Re-check with newer releases.
+#if __INTEL_LLVM_COMPILER < 20260100
 #define SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #endif
 #endif
@@ -446,7 +449,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       }
     }();
 
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // update LocMu for next strength determination, only needed for last update
       if constexpr (Derived::FoldsStateVariable) {
