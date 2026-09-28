@@ -9,6 +9,7 @@
 
 #include "DynamicRuptureMatrices.h"
 
+#include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Impedance.h"      // IWYU pragma: keep
@@ -32,6 +33,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
 #include <array>
@@ -554,6 +556,18 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                               faceInformation[ltsFace].faceRelation,
                               global,
                               minusAtPoints);
+
+        // The points are padded to the vector width, and the evaluation leaves
+        // the padding at zero: a material of density zero, whose impedances are
+        // infinite. Nothing reads those points, but the impedances of every
+        // point are formed, so the padding takes the material of the cell, as
+        // it did before the material varied.
+        constexpr std::size_t FaultPoints =
+            seissol::dr::misc::NumBoundaryGaussPoints * multisim::NumSimulations;
+        for (std::size_t point = FaultPoints; point < seissol::dr::ImpedancePoints; ++point) {
+          plusAtPoints[point] = *plusMaterial;
+          minusAtPoints[point] = *minusMaterial;
+        }
       } else {
         plusAtPoints[0] = *plusMaterial;
         minusAtPoints[0] = *minusMaterial;
