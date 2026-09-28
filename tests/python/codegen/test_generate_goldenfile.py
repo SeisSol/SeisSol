@@ -22,6 +22,7 @@ Design notes:
 """
 
 import importlib.util  # noqa: F401
+import json
 import os
 import subprocess
 import sys
@@ -36,7 +37,13 @@ GENERATE = CODEGEN_DIR / "generate.py"
 
 
 def _invoke_generate(
-    outdir, equation="elastic", order=3, precision="d", multi_sims=1, mechanisms=0
+    outdir,
+    equation="elastic",
+    order=3,
+    precision="d",
+    multi_sims=1,
+    mechanisms=0,
+    mode="codegen",
 ):
     """Run generate.py with the given config. Returns CompletedProcess.
 
@@ -75,6 +82,8 @@ def _invoke_generate(
             "dunavant",
             "--device_backend",
             "none",
+            "--mode",
+            mode,
         ],
         env={**os.environ, "PYTHONHASHSEED": "0"},
         cwd=str(CODEGEN_DIR),
@@ -215,6 +224,67 @@ class TestGeneratedContent:
             "computeFluxSolverNeighbor",
         ]:
             assert name in content, f"Expected kernel '{name}' in test-kernel.cpp"
+
+
+# =============================================================================
+# runtime.h — the kernels reached by the variant of their configuration
+# =============================================================================
+
+
+class TestRuntime:
+    """The equation is generated through a yateto metagen, which adds runtime.h:
+    kernels reached by the variant of the configuration they compute for, with
+    operands as views. CMake builds its units from what `--mode collect` lists.
+    """
+
+    EQUATION = "equation-elastic-3-double"
+
+    def test_runtime_files_produced(self, generated_elastic_o3):
+        outdir, _ = generated_elastic_o3
+        for name in ["runtime.h", "runtime.cpp", "variant.h"]:
+            assert (outdir / name).is_file(), f"Expected {name} at the top level"
+        # the unit that binds views to the kernels of the equation
+        assert (outdir / self.EQUATION / "runtime.cpp").is_file()
+
+    def test_variant_h_keys_the_configuration(self, generated_elastic_o3):
+        """Kernels/Runtime.h takes the variant as runtime::variantOf<Config>()."""
+        outdir, _ = generated_elastic_o3
+        content = (outdir / "variant.h").read_text()
+        assert '#include "Config.h"' in content
+        assert "VariantOf<seissol::Config>" in content
+
+    def test_kernels_keep_their_namespace(self, generated_elastic_o3):
+        """The kernels of the equation are in seissol::kernel, and the headers at
+        the top level are the ones that include those of every subfolder, rather
+        than headers that name a kernel by the key of its configuration."""
+        outdir, _ = generated_elastic_o3
+        content = (outdir / self.EQUATION / "kernel.h").read_text()
+        assert "namespace seissol {\n  namespace kernel {" in content
+        for name in ["init.h", "kernel.h", "tensor.h"]:
+            forward = (outdir / name).read_text()
+            assert f'#include "{self.EQUATION}/{name}"' in forward
+            assert "template" not in forward
+
+    def test_collect_lists_what_codegen_writes(self, generated_elastic_o3, tmp_path):
+        outdir, _ = generated_elastic_o3
+        result = _invoke_generate(tmp_path, mode="collect")
+        assert result.returncode == 0, result.stderr[-1000:]
+        targets = json.loads((tmp_path / "targets.json").read_text())
+
+        assert targets["runtime"]["kernels"] == ["runtime.cpp"]
+        assert sorted(targets["runtime"]["headers"]) == ["runtime.h", "variant.h"]
+        assert f"{self.EQUATION}/runtime.cpp" in targets[self.EQUATION]["kernels"]
+
+        listed = [
+            path
+            for target in targets.values()
+            for kind in ("kernels", "tests", "headers")
+            for path in target[kind]
+        ]
+        missing = [path for path in listed if not (outdir / path).is_file()]
+        assert (
+            not missing
+        ), f"collect lists files that codegen does not write: {missing}"
 
 
 # =============================================================================
