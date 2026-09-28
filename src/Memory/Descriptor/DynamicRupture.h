@@ -57,8 +57,8 @@ struct DynamicRupture {
   struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
   struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
   struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
-  struct WaveSpeedsPlus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
-  struct WaveSpeedsMinus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
+  struct WaveSpeedsPlus : public initializer::Variable<seissol::dr::WaveSpeeds> {};
+  struct WaveSpeedsMinus : public initializer::Variable<seissol::dr::WaveSpeeds> {};
   struct DREnergyOutputVar : public initializer::Variable<DREnergyOutput> {};
 
   struct ImpAndEta : public initializer::Variable<seissol::dr::ImpedancesAndEta> {};

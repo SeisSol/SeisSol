@@ -10,6 +10,7 @@
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ParametersInitializer.h"
+#include "DynamicRupture/Typedefs.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Solver.h"
@@ -118,8 +119,8 @@ class ReceiverOutput {
     real faceAlignedValuesMinus
         [tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
 
-    model::IsotropicWaveSpeeds* waveSpeedsPlus{};
-    model::IsotropicWaveSpeeds* waveSpeedsMinus{};
+    WaveSpeeds* waveSpeedsPlus{};
+    WaveSpeeds* waveSpeedsMinus{};
 
     ReceiverOutputData* state{};
   };

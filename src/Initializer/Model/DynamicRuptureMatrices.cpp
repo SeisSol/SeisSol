@@ -183,6 +183,16 @@ void setIsotropicImpedance(seissol::dr::ImpedancesAndEta& impAndEta,
   impAndEta.etaS.set(point, 1.0 / (1.0 / zs + 1.0 / zsNeig));
 }
 
+/// The density and the wave speeds of one side of a fault face, at one point of it.
+template <typename MaterialT>
+void setWaveSpeeds(seissol::dr::WaveSpeeds& waveSpeeds,
+                   std::size_t point,
+                   const MaterialT& material) {
+  waveSpeeds.density.set(point, material.getDensity());
+  waveSpeeds.pWaveVelocity.set(point, material.getPWaveSpeed());
+  waveSpeeds.sWaveVelocity.set(point, material.getSWaveSpeed());
+}
+
 /// The traction averaging matrices of one point of a fault face whose impedances are scalars:
 /// each side enters the traction of the interface with eta / Z of its own impedance.
 template <typename MaterialT>
@@ -544,13 +554,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       auto matAPlus = init::star::view<0>::create(matAPlusData);
       auto matAMinus = init::star::view<0>::create(matAMinusData);
 
-      waveSpeedsPlus[ltsFace].density = plusMaterial->getDensity();
-      waveSpeedsMinus[ltsFace].density = minusMaterial->getDensity();
-      waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial->getPWaveSpeed();
-      waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
-      waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
-      waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
-
       // The material at the points of the fault. Where it does not vary inside a
       // cell every point sees the cell's own material, so the two arrays hold
       // one entry and the loops below collapse.
@@ -601,9 +604,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         minusAtPoints[0] = *minusMaterial;
       }
 
-      // calculate Impedances Z and eta
+      // calculate Impedances Z and eta, and keep the wave speeds they come from
       for (std::size_t point = 0; point < seissol::dr::ImpedancePoints; ++point) {
         setIsotropicImpedance(impAndEta[ltsFace], point, plusAtPoints[point], minusAtPoints[point]);
+        setWaveSpeeds(waveSpeedsPlus[ltsFace], point, plusAtPoints[point]);
+        setWaveSpeeds(waveSpeedsMinus[ltsFace], point, minusAtPoints[point]);
       }
 
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);

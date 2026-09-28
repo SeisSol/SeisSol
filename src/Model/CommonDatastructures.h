@@ -188,11 +188,6 @@ inline const std::unordered_map<std::string, double Plasticity::*> Plasticity::P
     {"s_xz", &Plasticity::sXZ},
 };
 
-struct IsotropicWaveSpeeds {
-  double density;
-  double pWaveVelocity;
-  double sWaveVelocity;
-};
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_

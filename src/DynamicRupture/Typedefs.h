@@ -31,29 +31,29 @@ namespace seissol::dr {
  * never reaches the array and the compiler hoists the read out of the point
  * loop again, which is what it did when the scalar was a plain member.
  */
-template <bool Pointwise>
+template <bool Pointwise, typename T = real>
 class PointScalar {
   public:
   static constexpr std::size_t Count = Pointwise ? misc::NumPaddedPoints : 1;
 
 #pragma omp declare simd
-  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr real operator()(std::size_t index) const {
+  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr T operator()(std::size_t index) const {
     return values[Pointwise ? index : 0];
   }
 
   /// The same value at every point of the face.
-  SEISSOL_HOSTDEVICE constexpr void fill(real value) {
+  SEISSOL_HOSTDEVICE constexpr void fill(T value) {
     for (std::size_t point = 0; point < Count; ++point) {
       values[point] = value;
     }
   }
 
-  SEISSOL_HOSTDEVICE constexpr void set(std::size_t index, real value) {
+  SEISSOL_HOSTDEVICE constexpr void set(std::size_t index, T value) {
     values[Pointwise ? index : 0] = value;
   }
 
   private:
-  real values[Count]{};
+  T values[Count]{};
 };
 
 /**
@@ -83,6 +83,22 @@ using ImpedancesAndEta = ImpedancesAndEtaOf<PointwiseImpedances>;
 
 /// How many points of a face carry their own Riemann problem.
 constexpr std::size_t ImpedancePoints = PointScalar<PointwiseImpedances>::Count;
+
+/**
+ * The density and the wave speeds on one side of a fault, read at a point of it. What the fault
+ * derives from the material beyond its Riemann problem -- the modulus that turns slip into
+ * seismic moment, the stress components outside the Riemann problem the receivers reconstruct --
+ * reads them here, so that it sees the same material at a point as the impedances do. Kept in
+ * double precision, as the material is.
+ */
+template <bool Pointwise>
+struct WaveSpeedsOf {
+  PointScalar<Pointwise, double> density;
+  PointScalar<Pointwise, double> pWaveVelocity;
+  PointScalar<Pointwise, double> sWaveVelocity;
+};
+
+using WaveSpeeds = WaveSpeedsOf<PointwiseImpedances>;
 
 /**
  * One matrix of the Riemann problem, read at a point of the fault. The

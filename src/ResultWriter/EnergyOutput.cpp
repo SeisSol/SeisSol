@@ -449,13 +449,14 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
               const auto index = k * seissol::multisim::NumSimulations + sim;
 
-              // the admittance is read at this point of the face, since a material
-              // varying along the fault gives a different Christoffel matrix there
+              // the admittance and the density are read at this point of the face, since a
+              // material varying along the fault gives a different Christoffel matrix there
               const auto gammaPlus = AnisotropicImpedance::christoffelFromAdmittance(
-                  admittance(impedanceMatrices[i].impedance.at(index)), waveSpeedsPlus[i].density);
+                  admittance(impedanceMatrices[i].impedance.at(index)),
+                  waveSpeedsPlus[i].density(index));
               const auto gammaMinus = AnisotropicImpedance::christoffelFromAdmittance(
                   admittance(impedanceMatrices[i].impedanceNeig.at(index)),
-                  waveSpeedsMinus[i].density);
+                  waveSpeedsMinus[i].density(index));
 
               // the rake is taken from the net slip; it is the instantaneous one only as long as
               // the slip direction does not turn during rupture
@@ -482,18 +483,36 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           } else {
             // rho * cs^2 is the shear modulus of the frame for every material with an isotropic
             // one, poroelasticity included -- there the fluid carries no shear
-            const double muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
-                                  waveSpeedsPlus[i].sWaveVelocity;
-            const double muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
-                                   waveSpeedsMinus[i].sWaveVelocity;
-            const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
-            for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
-              potencyIncrease +=
-                  drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
-                  init::quadweights::Values[k];
+            const auto shearModulus = [&](std::size_t index) {
+              const double muPlus = waveSpeedsPlus[i].density(index) *
+                                    waveSpeedsPlus[i].sWaveVelocity(index) *
+                                    waveSpeedsPlus[i].sWaveVelocity(index);
+              const double muMinus = waveSpeedsMinus[i].density(index) *
+                                     waveSpeedsMinus[i].sWaveVelocity(index) *
+                                     waveSpeedsMinus[i].sWaveVelocity(index);
+              return 2.0 * muPlus * muMinus / (muPlus + muMinus);
+            };
+            if constexpr (seissol::dr::PointwiseImpedances) {
+              // the modulus of each point, where the material varies along the fault
+              for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+                const auto index = k * seissol::multisim::NumSimulations + sim;
+                const double slipIncrease =
+                    drEnergyOutput[i].accumulatedSlip[index] * init::quadweights::Values[k];
+                potencyIncrease += slipIncrease;
+                momentIncrease += slipIncrease * shearModulus(index);
+              }
+              potencyIncrease *= areaWeight;
+              momentIncrease *= areaWeight;
+            } else {
+              const double mu = shearModulus(0);
+              for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+                potencyIncrease +=
+                    drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
+                    init::quadweights::Values[k];
+              }
+              potencyIncrease *= areaWeight;
+              momentIncrease = potencyIncrease * mu;
             }
-            potencyIncrease *= areaWeight;
-            momentIncrease = potencyIncrease * mu;
           }
 
           potency[sim] += potencyIncrease;

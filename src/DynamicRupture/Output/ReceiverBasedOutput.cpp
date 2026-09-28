@@ -523,11 +523,13 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
         (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
             impAndEta.invZp(local.gpIndex);
 
+    // lambda / (lambda + 2 mu) of the plus side, at this point of the face
     real missingSigmaValues =
         (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
-    missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
-                                                    local.waveSpeedsPlus->pWaveVelocity,
-                                                2));
+    missingSigmaValues *=
+        (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity(local.gpIndex) /
+                                  local.waveSpeedsPlus->pWaveVelocity(local.gpIndex),
+                              2));
 
     local.faceAlignedStress22 =
         local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
