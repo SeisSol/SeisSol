@@ -7,9 +7,9 @@
 
 #include "InitModel.h"
 
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "Common/Constants.h"
-#include "Common/Real.h"
-#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
 #include "Initializer/BasicTypedefs.h"
@@ -342,11 +342,7 @@ void initModel(seissol::SeisSol& seissolInstance) {
 
   // these four methods need to be called in this order.
   logInfo() << "Model info:";
-  logInfo() << "Material:" << MaterialT::Text.c_str();
-  logInfo() << "Order:" << ConvergenceOrder;
-  logInfo() << "Precision:"
-            << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
-  logInfo() << "Number of simulations: " << Config::NumSimulations;
+  logInfo() << "Configuration:" << configName(configValue(defaultConfig())).c_str();
   logInfo() << "Plasticity:" << (seissolInstance.parameters().model.plasticity ? "on" : "off");
   logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
   logInfo() << "Flux near fault:"
