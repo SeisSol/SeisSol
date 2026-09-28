@@ -349,11 +349,15 @@ class StreamRuntime {
       } else {
         computeGraphHandle = device().api->streamBeginCapture(allStreams_);
 
-        capturing_ = true;
+        // a backend without graph support hands back an empty handle and captures nothing; the
+        // handler then simply runs, and may synchronize like it does outside of graphs
+        capturing_ = computeGraphHandle.isInitialized();
         std::invoke(std::forward<F>(handler), *this);
         capturing_ = false;
 
-        device().api->streamEndCapture(computeGraphHandle);
+        if (computeGraphHandle.isInitialized()) {
+          device().api->streamEndCapture(computeGraphHandle);
+        }
       }
     }
 
