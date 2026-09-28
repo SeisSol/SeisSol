@@ -10,6 +10,7 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
@@ -46,20 +47,6 @@ TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolI
     }
   }
   return travellingWaveParameters;
-}
-
-AcousticTravellingWaveParametersITM
-    getAcousticTravellingWaveITMInformation(seissol::SeisSol& seissolInstance) {
-  const auto& initConditionParams = seissolInstance.parameters().initialization;
-  const auto& itmParams = seissolInstance.parameters().model.itmParameters;
-
-  AcousticTravellingWaveParametersITM acousticTravellingWaveParametersITM{};
-  acousticTravellingWaveParametersITM.k = initConditionParams.k;
-  acousticTravellingWaveParametersITM.itmStartingTime = itmParams.itmStartingTime;
-  acousticTravellingWaveParametersITM.itmDuration = itmParams.itmDuration;
-  acousticTravellingWaveParametersITM.itmVelocityScalingFactor = itmParams.itmVelocityScalingFactor;
-
-  return acousticTravellingWaveParametersITM;
 }
 
 std::vector<std::unique_ptr<physics::InitialField>>
@@ -111,8 +98,8 @@ std::vector<std::unique_ptr<physics::InitialField>>
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::AcousticTravellingWithITM) {
     initialConditionDescription = "Acoustic Travelling Wave with ITM";
-    auto acousticTravellingWaveParametersITM =
-        getAcousticTravellingWaveITMInformation(seissolInstance);
+    auto acousticTravellingWaveParametersITM = getAcousticTravellingWaveITMInformation(
+        initConditionParams, seissolInstance.parameters().model.itmParameters);
 
     const auto materialData = memoryManager.ltsStorage().lookup<LTS::Material>(pos);
     initConditions.emplace_back(
@@ -191,6 +178,21 @@ void initSource(seissol::SeisSol& seissolInstance) {
 }
 
 } // namespace
+
+AcousticTravellingWaveParametersITM getAcousticTravellingWaveITMInformation(
+    const parameters::InitializationParameters& initConditionParams,
+    const parameters::ITMParameters& itmParams) {
+  AcousticTravellingWaveParametersITM acousticTravellingWaveParametersITM{};
+  acousticTravellingWaveParametersITM.k = initConditionParams.k;
+  acousticTravellingWaveParametersITM.itmStartingTime = itmParams.itmStartingTime;
+  acousticTravellingWaveParametersITM.itmDuration = itmParams.itmDuration;
+  // Without an enabled mirror, the ITM values are ignored. A factor of one makes the wave pass the
+  // mirror times unchanged, whatever they are.
+  acousticTravellingWaveParametersITM.itmVelocityScalingFactor =
+      itmParams.itmEnabled ? itmParams.itmVelocityScalingFactor : 1.0;
+
+  return acousticTravellingWaveParametersITM;
+}
 
 void initSideConditions(seissol::SeisSol& seissolInstance) {
   logInfo() << "Setting initial conditions.";

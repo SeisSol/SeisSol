@@ -116,6 +116,17 @@ The Travelling wave can be configured in the parameter file (in the ``IniConditi
 
 The travelling wave is not available for viscoelastic and viscoacoustic materials.
 
+Acoustic travelling wave with ITM (``AcousticTravellingwithITM``)
+-----------------------------------------------------------------
+
+An acoustic plane wave travelling in x-direction, with the wave number ``k`` given in the ``IniCondition`` section.
+With ``ITMEnable = 1``, it switches at the times of the instantaneous time mirror (ITM) configured by the ``ITM*`` parameters in the ``equations`` section,
+keeping the pressure continuous and scaling the velocity by ``ITMVelocityScalingFactor``, independent of ``ITMReflectionType``;
+this has not been validated against the ITM that SeisSol computes, which changes the material instead.
+With ``ITMEnable = 0``, the ITM parameters are ignored and the wave is a plain travelling wave.
+It needs a fluid: the elastic equations with :math:`\mu = 0`, or the acoustic equations.
+The acoustic equations do not support the mirror itself (SeisSol rejects ``ITMEnable = 1`` there), so use ``ITMEnable = 0`` with them.
+
 Scholte (``Scholte``)
 ---------------------
 

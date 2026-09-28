@@ -12,6 +12,7 @@
 #include "Clustering/LTSWeights.t.h"
 #include "Clustering/LadderOptimizer.t.h"
 #include "FaceMap.t.h"
+#include "InitSideConditions.t.h"
 #include "LtsSetup.t.h"
 #include "ParameterReader.t.h"
 #include "Parameters/DRParameters.t.h"
