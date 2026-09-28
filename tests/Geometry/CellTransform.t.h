@@ -44,9 +44,8 @@ class QuadraticTransform : public CellTransform {
   }
 };
 
-auto randomTetrahedron(std::mt19937& rng,
-                       double scale,
-                       const VectorT& shift) -> std::array<VectorT, Cell::NumVertices> {
+auto randomTetrahedron(std::mt19937& rng, double scale, const VectorT& shift)
+    -> std::array<VectorT, Cell::NumVertices> {
   std::uniform_real_distribution<double> dist(0.0, 1.0);
   std::array<VectorT, Cell::NumVertices> vertices{};
   // rejection sampling: a random tetrahedron may be arbitrarily flat, which would make the round

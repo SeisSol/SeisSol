@@ -26,7 +26,6 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
-#include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"

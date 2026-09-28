@@ -162,8 +162,8 @@ auto AffineFaceTransform::fromMeshCell(std::size_t id,
   return {AffineTransform::fromMeshCell(id, mesh), ReferenceFaceMap(side, orientation)};
 }
 
-auto AffineFaceTransform::fromMeshFault(std::size_t faultId,
-                                        const MeshReader& mesh) -> AffineFaceTransform {
+auto AffineFaceTransform::fromMeshFault(std::size_t faultId, const MeshReader& mesh)
+    -> AffineFaceTransform {
   const auto& fault = mesh.getFault()[faultId];
   if (fault.element.hasValue()) {
     return fromMeshCell(fault.element.value(), fault.side, mesh);

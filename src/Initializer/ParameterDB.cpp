@@ -28,7 +28,6 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/Plasticity.h"
 #include "Numerical/Quadrature.h"
-#include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 #include "easi/ResultAdapter.h"

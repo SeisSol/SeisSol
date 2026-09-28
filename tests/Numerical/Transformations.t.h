@@ -6,14 +6,16 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Geometry/CellTransform.h"
-#include "Numerical/Transformation.h"
+#include "Kernels/Precision.h"
 
 #include <Eigen/Dense>
+#include <array>
+#include <limits>
 #include <random>
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test tetrahedron global to reference") {
+TEST_CASE("Test mapping a cell barycenter to reference coordinates") {
   // We do all tests in double precision
   constexpr real Epsilon = 10 * std::numeric_limits<double>::epsilon();
 

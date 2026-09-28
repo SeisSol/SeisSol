@@ -133,11 +133,11 @@ class AffineFaceTransform : public FaceTransform {
   AffineFaceTransform(const AffineTransform& cell, const ReferenceFaceMap& embedding);
 
   /// the face of a mesh cell, as seen from that cell
-  static auto
-      fromMeshCell(std::size_t id,
-                   std::size_t side,
-                   const MeshReader& mesh,
-                   FaceOrientation orientation = FaceOrientation::Local) -> AffineFaceTransform;
+  static auto fromMeshCell(std::size_t id,
+                           std::size_t side,
+                           const MeshReader& mesh,
+                           FaceOrientation orientation = FaceOrientation::Local)
+      -> AffineFaceTransform;
 
   /// the face carrying a fault, as seen from whichever adjacent cell is on this rank
   static auto fromMeshFault(std::size_t faultId, const MeshReader& mesh) -> AffineFaceTransform;

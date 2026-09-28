@@ -13,7 +13,6 @@
 #include "Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
 #include "TestHelper.h"
 
 #include <Eigen/Dense>
@@ -145,7 +144,7 @@ TEST_CASE("DR Geometry") {
         2.4874032376060777E-002};
 
     auto data = generateTriangleQuadrature();
-    double(*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+    double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
 
     constexpr double Epsilon = 1e-6;
     for (unsigned i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
@@ -176,7 +175,7 @@ TEST_CASE("DR Geometry") {
     }
   }
 
-  SUBCASE("XiEtaZeta2chiTau") {
+  SUBCASE("CellToFace") {
     constexpr double Epsilon = 1e-6;
     std::array<double, 2> testChiTau = {0.0, 0.0};
     const auto toArray = [](const geometry::ReferenceFaceMap::FaceVectorT& v) {
