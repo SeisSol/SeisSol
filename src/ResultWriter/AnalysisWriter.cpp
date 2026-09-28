@@ -196,7 +196,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           const auto transform =
               seissol::geometry::AffineTransform::fromMeshCell(meshId, *meshReader_);
 
-          quadraturePointsXyz = transform.refToSpace(quadraturePoints);
+          transform.refToSpace(
+              quadraturePoints.data(), quadraturePointsXyz.data(), quadraturePoints.size());
 
           // Evaluate analytical solution at quad. nodes
           const CellMaterialData& material = materialData[cell];

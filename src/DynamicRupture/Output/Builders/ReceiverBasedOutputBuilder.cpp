@@ -104,6 +104,19 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
       elementIndicesGhost;
   std::size_t foundPoints = 0;
 
+  // many receiver points share a cell, and the fault faces of one cell share it too, so the
+  // transforms are built once per cell rather than once per point
+  std::unordered_map<std::size_t, geometry::AffineTransform> cellTransforms;
+  const auto cellTransform = [&](std::size_t index) -> const geometry::AffineTransform& {
+    const auto it = cellTransforms.find(index);
+    if (it != cellTransforms.end()) {
+      return it->second;
+    }
+    return cellTransforms
+        .emplace(index, geometry::AffineTransform::fromMeshCell(index, *meshReader_))
+        .first->second;
+  };
+
   constexpr size_t NumVertices{Cell::NumVertices};
   for (const auto& point : outputData_->receiverPoints) {
     if (point.isInside) {
@@ -124,9 +137,6 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
       }
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
-
-      const auto elemTransform =
-          geometry::AffineTransform::fromMeshCell(elementIndex, *meshReader_);
 
       std::array<CoordinateT, NumVertices> neighborElemCoords{};
       if (neighborElementIndex.hasValue()) {
@@ -162,7 +172,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions(bool elementwise) {
       const auto neighTransform = geometry::AffineTransform(neighborElemCoords);
 
       outputData_->basisFunctions.emplace_back(
-          getPlusMinusBasisFunctions(point.global, elemTransform, neighTransform));
+          getPlusMinusBasisFunctions(point.global, cellTransform(elementIndex), neighTransform));
     }
   }
 

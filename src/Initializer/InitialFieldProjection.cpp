@@ -123,7 +123,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(ConvergenceOrder + 1);
+  const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(QuadPolyDegree);
   const auto& quadraturePoints = quadrature.first;
 
   for (auto& layer : storage.leaves(Ghost)) {
@@ -154,7 +154,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto meshId = secondaryInformation[cell].meshId;
         const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
-        quadraturePointsXyz = transform.refToSpace(quadraturePoints);
+        transform.refToSpace(
+            quadraturePoints.data(), quadraturePointsXyz.data(), quadraturePoints.size());
 
         const CellMaterialData& materialData = material[cell];
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
