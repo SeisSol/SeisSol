@@ -8,8 +8,6 @@
 #include "Physics/InitialField.h"
 
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
@@ -17,7 +15,6 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 #include "Numerical/Eigenvalues.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
 #include <array>
@@ -189,12 +186,12 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  const std::size_t basisFunCount = init::Q::Shape[multisim::BasisFunctionDimension];
-  const std::size_t quantityCount = init::Q::Shape[multisim::BasisFunctionDimension + 1];
-
-  std::vector<real> dofsPwVector(quantityCount * basisFunCount);
-  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
-      dofsPwVector.data(), {basisFunCount, quantityCount}, {0, 0}, {basisFunCount, quantityCount});
+  // scratch space for one planar wave, shaped like the caller's points and quantities
+  const auto pointCount = static_cast<unsigned>(count);
+  const auto quantityCount = dofsQP.shape(1);
+  std::vector<real> dofsPwVector(static_cast<std::size_t>(pointCount) * quantityCount);
+  auto dofsPW =
+      yateto::DenseTensorView<2, real, unsigned>(dofsPwVector.data(), {pointCount, quantityCount});
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave

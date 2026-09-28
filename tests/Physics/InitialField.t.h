@@ -226,6 +226,58 @@ TEST_CASE("Ocean writes a fluid stress and the velocity of the build" *
   checkGuard(buffer, points.size());
 }
 
+TEST_CASE("SuperimposedPlanarwave is the sum of its three planar waves" *
+          doctest::skip(!initialfield::LameBuild) * doctest::test_suite("physics")) {
+  using namespace initialfield;
+
+  model::MaterialT material;
+  material.rho = 1.0;
+  material.setLameParameters(1.0, 2.0);
+  const CellMaterialData materialData{&material, {}};
+
+  // as many points as the initial field projection evaluates, i.e. more than basis functions
+  constexpr std::size_t PointCount =
+      (ConvergenceOrder + 1) * (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+  std::vector<std::array<double, 3>> points(PointCount);
+  for (std::size_t i = 0; i < PointCount; ++i) {
+    const auto s = static_cast<double>(i);
+    points[i] = {std::fmod(0.37 * s, 1.0), std::fmod(0.61 * s, 1.0), std::fmod(0.83 * s, 1.0)};
+  }
+
+  constexpr real Phase = 0.5;
+  constexpr double Time = 0.25;
+
+  std::vector<real> actual(PointCount * NumQuantities);
+  auto actualDofs = dofsView(actual, PointCount);
+  const physics::SuperimposedPlanarwave superimposed(materialData, Phase);
+  superimposed.evaluate(Time, points.data(), PointCount, materialData, actualDofs);
+
+  std::vector<real> expected(PointCount * NumQuantities, 0);
+  std::vector<real> single(PointCount * NumQuantities);
+  auto expectedDofs = dofsView(expected, PointCount);
+  auto singleDofs = dofsView(single, PointCount);
+  const std::array<Eigen::Vector3d, 3> kVecs{Eigen::Vector3d(M_PI, 0.0, 0.0),
+                                             Eigen::Vector3d(0.0, M_PI, 0.0),
+                                             Eigen::Vector3d(0.0, 0.0, M_PI)};
+  for (const auto& kVec : kVecs) {
+    const physics::Planarwave planarwave(materialData, Phase, kVec);
+    planarwave.evaluate(Time, points.data(), PointCount, materialData, singleDofs);
+    for (std::size_t j = 0; j < NumQuantities; ++j) {
+      for (std::size_t i = 0; i < PointCount; ++i) {
+        expectedDofs(i, j) += singleDofs(i, j);
+      }
+    }
+  }
+
+  std::size_t mismatches = 0;
+  for (std::size_t i = 0; i < actual.size(); ++i) {
+    if (!std::isfinite(actual[i]) || std::abs(actual[i] - expected[i]) > Tolerance) {
+      ++mismatches;
+    }
+  }
+  CHECK(mismatches == 0);
+}
+
 TEST_CASE("Hard-coded initial conditions are offered only for equations that can represent them" *
           doctest::test_suite("physics")) {
   using initializer::parameters::InitializationType;
