@@ -40,8 +40,8 @@ You may explicitly compile and install multiple of these configurations at the s
 - ``SOLVER``: the scheme which advances a cell in time. The default, ``auto``, picks the first one the equation system supports.
 
     * ``linearck``: the Cauchy-Kovalevskaya procedure for linear equations. The only choice for ``elastic``, ``acoustic`` and ``anisotropic``. For ``viscoelastic`` and ``viscoacoustic``, it carries the memory variables as additional quantities; this replaces ``VISCO_MODE=extend``.
-    * ``linearckanelastic``: the Cauchy-Kovalevskaya procedure with the memory variables kept separately, which is faster. The default for ``viscoelastic`` and ``viscoacoustic``; this replaces ``VISCO_MODE=split``.
-    * ``stp``: the space-time predictor, which treats stiff source terms implicitly. The only choice for ``poroelastic``.
+    * ``linearckanelastic``: the Cauchy-Kovalevskaya procedure with the memory variables kept separately, which is faster. The default for ``viscoelastic`` and ``viscoacoustic``; this replaces ``VISCO_MODE=split``. It does not support free surfaces with gravity, Dirichlet or analytical boundaries; SeisSol stops during the initialization if the mesh has any.
+    * ``stp``: the space-time predictor, which treats stiff source terms implicitly. The only choice for ``poroelastic``. It does not support free surfaces with gravity; SeisSol stops during the initialization if the mesh has any.
 
 - ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic and viscoacoustic simulations. For all other equations, this parameter is required to be 0.
 - ``ORDER``: the expected convergence order. It corresponds to the polynomial degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.

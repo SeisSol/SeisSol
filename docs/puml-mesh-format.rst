@@ -94,7 +94,7 @@ SeisSol indexes the boundary conditions as follows:
 
 - 1: free surface. Boundary condition; no neighbor.
 
-- 2: gravity-based free surface. Boundary condition; no neighbor.
+- 2: gravity-based free surface. Boundary condition; no neighbor. Not supported by the ``linearckanelastic`` and ``stp`` solvers (see :doc:`build-parameters`).
 
 - 3: dynamic rupture. A dynamic rupture face between two cells.
 
