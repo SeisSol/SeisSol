@@ -104,7 +104,7 @@ SeisSol indexes the boundary conditions as follows:
 
 - 6: regular. Like face type 0, a regular face between two cells. Formerly known as "periodic" or "identified".
 
-- 7: analytical. Boundary condition given by
+- 7: analytical. Boundary condition given by the hard-coded initial condition at the respective time (see :doc:`initial-condition`); no neighbor. Not supported with the easi initial condition or the ``linearckanelastic`` solver.
 
 - n>64: dynamic rupture. A dynamic rupture face between two cells, but with a different tag. (see :doc:`fault-tagging`)
 

@@ -15,6 +15,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BoundaryHelper.h"
 #include "Initializer/Clustering/Clustering.h"
+#include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Monitoring/Instrumentation.h"
@@ -80,9 +81,11 @@ const char* faceTypeName(FaceType faceType) {
   return "unknown";
 }
 
-// Rejects the faces whose boundary condition this build does not apply; they would silently act as
-// a different boundary condition otherwise.
-void checkBoundaryConditions(const seissol::geometry::MeshReader& meshReader) {
+// Rejects the faces whose boundary condition this build or the initial condition does not apply;
+// they would silently act as a different boundary condition otherwise.
+void checkBoundaryConditions(
+    const seissol::geometry::MeshReader& meshReader,
+    const seissol::initializer::parameters::InitializationParameters& initialization) {
   for (const auto& element : meshReader.getElements()) {
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
       const auto faceType = element.boundaries[side];
@@ -100,6 +103,12 @@ void checkBoundaryConditions(const seissol::geometry::MeshReader& meshReader) {
         if (faceType == FaceType::FreeSurfaceGravity) {
           unsupportedBy = "the stp solver";
         }
+      }
+      // the analytical boundary evaluates the hard-coded initial condition; with easi, there is
+      // none (initInitialCondition sets no initial conditions then)
+      if (initialization.type == seissol::initializer::parameters::InitializationType::Easi &&
+          faceType == FaceType::Analytical) {
+        unsupportedBy = "the easi initial condition (cICType = 'easi')";
       }
       if (unsupportedBy != nullptr) {
         logError() << utils::nospace << "A face of the element " << element.globalId << " has the "
@@ -147,7 +156,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.verifyMeshOrientation();
 
   logInfo() << "Check the boundary conditions of the mesh.";
-  checkBoundaryConditions(meshReader);
+  checkBoundaryConditions(meshReader, seissolInstance.parameters().initialization);
 
   double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};

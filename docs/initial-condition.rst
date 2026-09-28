@@ -45,7 +45,7 @@ The parameter ``hastime`` indicates that the easi file has ``t`` as a time input
 This way, the easi boundary condition can be used for comparing against after time has passed (e.g. for convergence tests).
 However, it requires easi 1.5.0 or higher to function correctly.
 
-As a caveat, the Easi initial condition currently does not support the analytical boundary condition.
+As a caveat, the Easi initial condition does not support the analytical boundary condition; SeisSol stops during the initialization if the mesh has analytical faces.
 
 Hard-Coded Initial Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
