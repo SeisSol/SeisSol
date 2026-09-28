@@ -88,8 +88,11 @@ constexpr std::size_t ImpedancePoints = PointScalar<PointwiseImpedances>::Count;
  * The density and the wave speeds on one side of a fault, read at a point of it. What the fault
  * derives from the material beyond its Riemann problem -- the modulus that turns slip into
  * seismic moment, the stress components outside the Riemann problem the receivers reconstruct --
- * reads them here, so that it sees the same material at a point as the impedances do. Kept in
- * double precision, as the material is.
+ * reads them here, so that it sees the same material at a point as the impedances do. Stored in
+ * double in every build, as the members of the material are, where the impedances are real. Where
+ * the material varies inside a cell, the material at a point comes out of the generated
+ * projection of the samples, which computes in real, so in a single precision build these values
+ * carry no more than single precision there.
  */
 template <bool Pointwise>
 struct WaveSpeedsOf {
@@ -163,8 +166,11 @@ class PointMatrix {
 };
 
 /**
- * Stores the impedance matrices for an element and its neighbor for a poroelastic material.
- * This generalizes equation (4.51) from Carsten's thesis
+ * Stores the matrices of the Riemann problem of a fault face, for an element and its neighbor.
+ * The admittances, eta and the lateral stress map generalize equation (4.51) from Carsten's
+ * thesis to a Riemann problem that couples the traction components; they are filled only for the
+ * materials that have one, anisotropic and poroelastic ones. The traction averaging matrices are
+ * filled for every material.
  */
 template <bool Pointwise>
 struct ImpedanceMatricesOf {
@@ -190,9 +196,11 @@ struct ImpedanceMatricesOf {
   /**
    * The traction averaging matrices b+ and b-: the weights with which the state of either side
    * enters the traction of the interface, tau = b+^T q+ + b-^T q-, stored in the layout of the
-   * tractionPlusMatrix and tractionMinusMatrix tensors. The friction energy and the static
-   * frictional work contract them. They follow from the impedances of a point exactly as eta
-   * does, so they vary along the face wherever the impedances do.
+   * tractionPlusMatrix and tractionMinusMatrix tensors. The static frictional work of the energy
+   * output contracts them for every material; the friction energy contracts them only for an
+   * anisotropic one, where the normal traction enters the shear traction, and takes the same
+   * weights from the scalar impedances otherwise. They follow from the impedances of a point
+   * exactly as eta does, so they vary along the face wherever the impedances do.
    */
   PointMatrix<Pointwise, tensor::tractionPlusMatrix::size()> tractionPlus;
   PointMatrix<Pointwise, tensor::tractionMinusMatrix::size()> tractionMinus;

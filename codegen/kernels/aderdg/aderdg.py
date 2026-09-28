@@ -189,7 +189,8 @@ class ADERDGBase(ABC):
         )
 
         # The traction weights are computed per fault face from the impedances
-        # (DynamicRuptureMatrices), so only their pattern is known here. Passed
+        # (DynamicRuptureMatrices), or per point of it where the material varies
+        # inside a cell, so only their pattern is known here. Passed
         # as booleans: a float array would be taken for the values, which
         # would make them constants held in the pool and bound by bindGlobals.
         self.selectTractionSpp = self.tractionMatrixSpp() != 0

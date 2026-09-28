@@ -124,8 +124,9 @@ struct DynamicRupture {
     storage.add<FluxSolverPlus>(mask, Alignment, allocationModeDR());
     storage.add<FluxSolverMinus>(mask, Alignment, allocationModeDR());
     storage.add<FaceInformation>(mask, Alignment, AllocationMode::HostOnly, true);
-    storage.add<WaveSpeedsPlus>(mask, Alignment, allocationModeDR(), true);
-    storage.add<WaveSpeedsMinus>(mask, Alignment, allocationModeDR(), true);
+    // only read on the host, by the energy and the receiver output; per point they are sizeable
+    storage.add<WaveSpeedsPlus>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<WaveSpeedsMinus>(mask, Alignment, AllocationMode::HostOnly, true);
     storage.add<DREnergyOutputVar>(mask, Alignment, allocationModeDR());
     storage.add<ImpAndEta>(mask, Alignment, allocationModeDR(), true);
     storage.add<ImpedanceMatrices>(mask, Alignment, allocationModeDR(), true);

@@ -157,17 +157,17 @@ void materialAtFaultPoints(const std::array<MaterialT, LTS::MaterialNodes>& samp
   }
 }
 
-/// The scalar impedances of one point of a fault face, from the material on
-/// either side of it there.
-template <typename MaterialT>
+/// The scalar impedances of one point of a fault face, from the density and the wave speeds on
+/// either side of it there. They are read from what setWaveSpeeds kept rather than from the
+/// material again, since the P wave speed of a poroelastic material is an eigenvalue problem.
 void setIsotropicImpedance(seissol::dr::ImpedancesAndEta& impAndEta,
                            std::size_t point,
-                           const MaterialT& plusMaterial,
-                           const MaterialT& minusMaterial) {
-  const double zp = plusMaterial.getDensity() * plusMaterial.getPWaveSpeed();
-  const double zpNeig = minusMaterial.getDensity() * minusMaterial.getPWaveSpeed();
-  const double zs = plusMaterial.getDensity() * plusMaterial.getSWaveSpeed();
-  const double zsNeig = minusMaterial.getDensity() * minusMaterial.getSWaveSpeed();
+                           const seissol::dr::WaveSpeeds& plus,
+                           const seissol::dr::WaveSpeeds& minus) {
+  const double zp = plus.density(point) * plus.pWaveVelocity(point);
+  const double zpNeig = minus.density(point) * minus.pWaveVelocity(point);
+  const double zs = plus.density(point) * plus.sWaveVelocity(point);
+  const double zsNeig = minus.density(point) * minus.sWaveVelocity(point);
 
   impAndEta.zp.set(point, zp);
   impAndEta.zpNeig.set(point, zpNeig);
@@ -184,7 +184,8 @@ void setIsotropicImpedance(seissol::dr::ImpedancesAndEta& impAndEta,
   impAndEta.etaS.set(point, 1.0 / (1.0 / zs + 1.0 / zsNeig));
 }
 
-/// The density and the wave speeds of one side of a fault face, at one point of it.
+/// The density and the wave speeds of one side of a fault face, at one point of it. Each is
+/// asked of the material once per point and side; the scalar impedances are formed from them.
 template <typename MaterialT>
 void setWaveSpeeds(seissol::dr::WaveSpeeds& waveSpeeds,
                    std::size_t point,
@@ -551,7 +552,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         logError() << "Materials on both sides of a fault face do not match.";
       }
 
-      /// Wave speeds and Coefficient Matrices
+      /// Coefficient Matrices
       auto matAPlus = init::star::view<0>::create(matAPlusData);
       auto matAMinus = init::star::view<0>::create(matAMinusData);
 
@@ -605,18 +606,20 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         minusAtPoints[0] = *minusMaterial;
       }
 
-      // calculate Impedances Z and eta, and keep the wave speeds they come from
+      // keep the wave speeds, and calculate the impedances Z and eta from them
       for (std::size_t point = 0; point < seissol::dr::ImpedancePoints; ++point) {
-        setIsotropicImpedance(impAndEta[ltsFace], point, plusAtPoints[point], minusAtPoints[point]);
         setWaveSpeeds(waveSpeedsPlus[ltsFace], point, plusAtPoints[point]);
         setWaveSpeeds(waveSpeedsMinus[ltsFace], point, minusAtPoints[point]);
+        setIsotropicImpedance(
+            impAndEta[ltsFace], point, waveSpeedsPlus[ltsFace], waveSpeedsMinus[ltsFace]);
       }
 
       // The lift applies the coefficient matrix of the first direction to the imposed state,
       // which is given in the coordinates of the face; so it is the matrix of the material seen
-      // in those coordinates, whose first direction is the fault normal -- the material the
-      // impedances above and the flux of a regular face are formed from. Rotating an isotropic
-      // material changes nothing.
+      // in those coordinates, whose first direction is the fault normal -- the rotated material
+      // the impedance matrices of initializeFaultImpedance below and the flux of a regular face
+      // are formed from. Rotating an isotropic material changes nothing, which is why the scalar
+      // impedances above can take it unrotated.
       std::array<double, 36> bond{};
       seissol::model::getBondMatrix(
           fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, bond);
@@ -651,8 +654,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                      << ::seissol::model::MaterialT::Text << ")";
         }
 
-        // the "fast" case, for isotropic elastic/viscoelastic. Does not need the extra impedance
-        // matrices.
+        // the "fast" case, for isotropic elastic/viscoelastic: the scalar impedances above are the
+        // whole Riemann problem, so of the impedance matrices it needs only the traction averaging
+        // weights; the admittances, eta and the lateral stress map stay unset.
 
         /// Traction matrices for "average" traction, from the impedances of each point
         for (std::size_t point = 0; point < seissol::dr::ImpedancePoints; ++point) {

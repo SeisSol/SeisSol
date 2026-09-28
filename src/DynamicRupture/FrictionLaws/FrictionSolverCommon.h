@@ -716,9 +716,10 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       const auto qIMinusT1 = qIMinus[o][T1][i];
       const auto qIMinusT2 = qIMinus[o][T2][i];
 
-      // tau* = b+ tau+ + b- tau-, i.e. b+ pairs with the *plus* side -- matching the
-      // computeTractionInterpolated kernel in EnergyOutput, which contracts tractionPlusMatrix
-      // with QInterpolatedPlus. Only relevant for a bimaterial interface, where b+ != b-.
+      // tau* = b+ tau+ + b- tau-, i.e. b+ pairs with the *plus* side -- matching computeStaticWork
+      // in EnergyOutput, which contracts tractionPlusMatrix with QInterpolatedPlus, per point
+      // where the weights vary along the face and with the computeTractionInterpolated kernel
+      // where they do not. Only relevant for a bimaterial interface, where b+ != b-.
       const real interpolatedTraction12 = bPlus10 * qIPlusN + bPlus11 * qIPlusT1 +
                                           bPlus12 * qIPlusT2 + bMinus10 * qIMinusN +
                                           bMinus11 * qIMinusT1 + bMinus12 * qIMinusT2;
