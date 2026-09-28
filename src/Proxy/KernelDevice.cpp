@@ -43,6 +43,7 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
+  data.spacetimeKernel.prepareBatchedAder(Timestep, layer, runtime);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
         integrationCoeffs.data(), Timestep, layer, tmp, dataTable, materialTable, false, runtime);
@@ -80,6 +81,7 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
 
   const ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
+  data.spacetimeKernel.prepareBatchedAder(Timestep, layer, runtime);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
         integrationCoeffs.data(), Timestep, layer, tmp, dataTable, materialTable, false, runtime);

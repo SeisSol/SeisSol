@@ -456,6 +456,10 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   const ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
+
+  // host work cannot be captured into the graph on all backends; hence enqueue it beforehand
+  spacetimeKernel_.prepareBatchedAder(timeStepWidth, *clusterData_, streamRuntime_);
+
   streamRuntime_.runGraph(
       computeGraphKey,
       *clusterData_,

@@ -66,6 +66,21 @@ class SpacetimeKernel : public Kernel {
                                   bool updateDisplacement,
                                   seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
+  /**
+   * @brief Enqueue the host-side preparations of computeBatchedAder (if any).
+   *
+   * Needs to be called before each computeBatchedAder call with the same time step width, and
+   * outside of any device graph capture (since host work cannot be captured on all backends;
+   * e.g. on HIP, enqueueHost synchronizes the stream).
+   *
+   * @param timeStepWidth The size of the current timestep
+   * @param layer The layer which computeBatchedAder is called on
+   * @param runtime The stream runtime to enqueue the preparations on
+   */
+  virtual void prepareBatchedAder(double timeStepWidth,
+                                  LTS::Layer& layer,
+                                  seissol::parallel::runtime::StreamRuntime& runtime) {}
+
   [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
 };
 

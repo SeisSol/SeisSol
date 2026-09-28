@@ -11,13 +11,18 @@
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 #include "Kernels/STP/Setup.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "Monitoring/Metric.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -157,6 +162,18 @@ PerformanceEstimate Spacetime::metrics() const {
   return estimate;
 }
 
+#ifdef ACL_DEVICE
+namespace {
+bool isDefaultTimestep(const LTS::Layer& layer, double timeStepWidth) {
+  // checking the first cell should suffice; if we always work on the same cluster.
+  // (which we currently always do)
+  return std::abs(
+             (layer.var<LTS::LocalIntegration>()[0].specific.typicalTimeStepWidth - timeStepWidth) /
+             timeStepWidth) < 1e-7;
+}
+} // namespace
+#endif
+
 void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
@@ -198,14 +215,7 @@ void Spacetime::computeBatchedAder(
       krnl.extraOffset_Gt(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, specific.G, i);
     }
 
-    // checking the first cell should suffice; if we always work on the same cluster.
-    // (which we currently always do)
-    const auto defaultTimestep =
-        std::abs(
-            (layer.var<LTS::LocalIntegration>()[0].specific.typicalTimeStepWidth - timeStepWidth) /
-            timeStepWidth) < 1e-7;
-
-    if (defaultTimestep) {
+    if (isDefaultTimestep(layer, timeStepWidth)) {
       // Zinv is one flat family, so its members are not spaced by the size of a single entry
       SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.Zinv);
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
@@ -215,18 +225,7 @@ void Spacetime::computeBatchedAder(
                                    yateto::computeFamilySize<tensor::Zinv>(1, i);
       }
     } else {
-      auto* layerZinvData = layer.var<LTS::ZinvExtra>();
-      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>();
-      runtime.enqueueLoop(numElements, [=](std::size_t i) {
-        auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i;
-        const auto& localIntegration = layerLocalIntegration[i];
-
-        const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
-        model::ZInvInitializer<seissol::model::MaterialT,
-                               0,
-                               seissol::model::MaterialT::NumQuantities,
-                               decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
-      });
+      // ZinvExtra has been filled for the current time step width by prepareBatchedAder
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
             (entry.get(inner_keys::Wp::Id::ZinvExtra))->getDeviceDataPtr());
@@ -244,6 +243,33 @@ void Spacetime::computeBatchedAder(
                                  krnl.streamPtr);
 
     krnl.execute();
+  }
+#else
+  logError() << "No GPU implementation provided";
+#endif
+}
+
+void Spacetime::prepareBatchedAder(
+    SEISSOL_GPU_PARAM double timeStepWidth,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  // Zinv depends on the time step width; recompute it on every call, since ZinvExtra is a
+  // scratchpad shared by all layers. (outside of the device graph, as host work cannot be captured
+  // on HIP)
+  if (layer.size() > 0 && !isDefaultTimestep(layer, timeStepWidth)) {
+    auto* layerZinvData = layer.var<LTS::ZinvExtra>();
+    const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>();
+    runtime.enqueueLoop(layer.size(), [=](std::size_t i) {
+      auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i;
+      const auto& localIntegration = layerLocalIntegration[i];
+
+      const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
+      model::ZInvInitializer<seissol::model::MaterialT,
+                             0,
+                             seissol::model::MaterialT::NumQuantities,
+                             decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
+    });
   }
 #else
   logError() << "No GPU implementation provided";

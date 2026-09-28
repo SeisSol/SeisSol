@@ -41,6 +41,9 @@ class Spacetime : public SpacetimeKernel {
                           recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
+  void prepareBatchedAder(double timeStepWidth,
+                          LTS::Layer& layer,
+                          seissol::parallel::runtime::StreamRuntime& runtime) override;
 
   [[nodiscard]] PerformanceEstimate metrics() const override;
 
