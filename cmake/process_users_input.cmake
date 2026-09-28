@@ -220,12 +220,6 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 check_parameter("MATERIAL_POINTS" "${MATERIAL_POINTS}" "${MATERIAL_POINTS_OPTIONS}")
 check_parameter("MATERIAL_OPERATOR" "${MATERIAL_OPERATOR}" "${MATERIAL_OPERATOR_OPTIONS}")
-if (MATERIAL_NODAL AND NOT DEVICE_BACKEND STREQUAL "none")
-  message(FATAL_ERROR
-    "MATERIAL_NODAL=ON is not available for GPU builds yet: the batched device "
-    "kernels do not bind the operator at the samples, the source term or the flux "
-    "at the nodes of a face.")
-endif()
 if (MATERIAL_NODAL AND NOT FACTORED_STAR)
   message(FATAL_ERROR
     "MATERIAL_NODAL=ON needs FACTORED_STAR=ON: what varies inside a cell are the "
@@ -435,6 +429,22 @@ message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
 if (WITH_GPU)
     list(JOIN AUTO_DEVICE_CODEGEN "," DEVICE_CODEGEN)
     message(STATUS "DEVICE_CODEGEN are: ${DEVICE_CODEGEN}")
+
+    if (MATERIAL_NODAL AND NOT ("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN))
+        message(FATAL_ERROR
+            "MATERIAL_NODAL=ON on a GPU needs DEVICE_CODEGEN=tensorforge: the kernels that "
+            "form the operator at the samples have been generated and checked with "
+            "tensorforge only, and the explicit Taylor-sum kernel the other generators "
+            "enable assumes that every derivative is narrower than the last, which it is "
+            "not where the material varies inside a cell.")
+    endif()
+    if (MATERIAL_NODAL AND SOLVER STREQUAL "stp")
+        message(FATAL_ERROR
+            "MATERIAL_NODAL=ON is not available for SOLVER=stp on a GPU: the space-time "
+            "predictor at the samples keeps the whole space-time field of a cell at the "
+            "sample points, and tensorforge asks for more shared memory for it than a "
+            "block has (144 KiB against 99 KiB on sm_120, order 6, double precision).")
+    endif()
 
     # the premultiplication was only so far demonstrated to be efficient on AMD+NVIDIA HW; enable on others by demand
     option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${IS_NVIDIA_OR_AMD})
