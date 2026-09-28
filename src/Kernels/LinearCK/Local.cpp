@@ -173,7 +173,9 @@ void Local::computeBatchedIntegral(
   kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype_;
   kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype_;
 
-  const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
+  // the boundary kernels below run on the same temporary memory
+  const auto maxTmpMem =
+      yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl, deviceFsgFlux_, deviceDirichletFlux_);
 
   // volume kernel always contains more elements than any local one
   const auto maxNumElements = dataTable.find(key) != dataTable.end()
@@ -273,6 +275,7 @@ void Local::computeBatchedIntegral(
 
       bcKernel.numElements = dataTable[fsgKey].get(inner_keys::Wp::Id::Dofs)->getSize();
 
+      bcKernel.linearAllocator.initialize(tmpMem.get());
       bcKernel.streamPtr = runtime.stream();
 
       bcKernel.execute(face);
@@ -296,6 +299,7 @@ void Local::computeBatchedIntegral(
 
       bcKernel.numElements = dataTable[dirichletKey].get(inner_keys::Wp::Id::Dofs)->getSize();
 
+      bcKernel.linearAllocator.initialize(tmpMem.get());
       bcKernel.streamPtr = runtime.stream();
 
       bcKernel.execute(face);

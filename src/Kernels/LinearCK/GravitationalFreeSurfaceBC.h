@@ -26,6 +26,7 @@
 
 #include <Device/device.h>
 #include <tuple>
+#include <yateto.h>
 #endif
 
 namespace seissol {
@@ -148,7 +149,11 @@ class GravitationalFreeSurfaceBc {
         kernel.fsgpower(i + 1) = powerTmp;
       }
 
+      const auto maxTmpMem = yateto::getMaxTmpMemRequired(kernel);
+      auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
+
       kernel.numElements = numElements;
+      kernel.linearAllocator.initialize(tmpMem.get());
       kernel.streamPtr = deviceStream;
       kernel.execute(faceIdx);
     }
