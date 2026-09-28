@@ -95,6 +95,62 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     return moments;
   }
 
+  /// The same, point by point, for a material that varies inside the cell: the
+  /// anelastic variables at the points of the volume quadrature (next to the
+  /// quantities there, see `evalAtQP`), and the products at one of them, which
+  /// are what the cell moments integrate.
+  struct AnelasticAtPoints {
+    alignas(Alignment) real values[tensor::dofsAneQP::size()]{};
+  };
+
+  static AnelasticAtPoints evaluateAnelastic(const real* dofsAne, const seissol::Pool& pool) {
+    AnelasticAtPoints anelastic{};
+
+    kernel::evalAneAtQP krnl;
+    krnl.bindGlobals(pool);
+    krnl.Qane = dofsAne;
+    krnl.dofsAneQP = anelastic.values;
+    krnl.execute();
+
+    return anelastic;
+  }
+
+  static Moments pointMoments(const real* dofsAtPoints,
+                              const AnelasticAtPoints& anelastic,
+                              std::size_t point) {
+    Moments moments{};
+
+    const auto dofsFused = init::dofsQP::view::create(dofsAtPoints);
+    const auto dofsAneFused = init::dofsAneQP::view::create(anelastic.values);
+    auto aneFused = init::momentQaneQane::view::create(moments.ane);
+    auto crossFused = init::momentQQane::view::create(moments.cross);
+    for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+      const auto dofs = multisim::simtensor(dofsFused, sim);
+      const auto dofsAne = multisim::simtensor(dofsAneFused, sim);
+      auto ane = multisim::simtensor(aneFused, sim);
+      auto cross = multisim::simtensor(crossFused, sim);
+
+      for (std::size_t m = 0; m < ane.shape(2); ++m) {
+        for (std::size_t n = 0; n < ane.shape(3); ++n) {
+          for (std::size_t i = 0; i < ane.shape(0); ++i) {
+            for (std::size_t j = 0; j < ane.shape(1); ++j) {
+              ane(i, j, m, n) = dofsAne(point, i, m) * dofsAne(point, j, n);
+            }
+          }
+        }
+      }
+      for (std::size_t m = 0; m < cross.shape(2); ++m) {
+        for (std::size_t i = 0; i < cross.shape(0); ++i) {
+          for (std::size_t j = 0; j < cross.shape(1); ++j) {
+            cross(i, j, m) = dofs(point, i) * dofsAne(point, j, m);
+          }
+        }
+      }
+    }
+
+    return moments;
+  }
+
   static typename ViscoMaterial::EnergyData initEnergyData(const ViscoMaterial& /*material*/) {
     return {};
   }

@@ -118,33 +118,59 @@ def operatorExports(matricesDir, aderdg, pointSet, projection):
             alignStride=aderdg.alignStride(name),
         )
 
+    return (
+        renamed("operatorEval", ops.v),
+        renamed("operatorProject", ops.vInv),
+        _interpolation(
+            "materialToOperator", aderdg, samples, ops, operatorSet == pointSet
+        ),
+    )
+
+
+def _interpolation(name, aderdg, samples, points, same):
+    """The values the samples give at the points of another set.
+
+    The samples give a modal field, and the field has a value at every point;
+    at the samples themselves that is the samples again.
+    """
+
     def dense(source):
         matrix = np.zeros(source.shape())
         for index, value in source.values().items():
             matrix[index] = float(value)
         return matrix
 
-    # the samples give a modal field, and the field has a value at every point;
-    # at the samples themselves that is the samples again
-    if operatorSet == pointSet:
+    if same:
         interpolation = np.eye(samples.vNodes.shape()[0])
     else:
-        interpolation = dense(ops.v) @ dense(samples.vInv)
+        interpolation = dense(points.v) @ dense(samples.vInv)
     interpolation[np.abs(interpolation) < 1e-14] = 0.0
-    toOperator = Tensor(
-        "materialToOperator",
+    return Tensor(
+        name,
         interpolation.shape,
         spp={
             index: repr(float(value))
             for index, value in np.ndenumerate(interpolation)
             if value != 0.0
         },
-        alignStride=aderdg.alignStride("materialToOperator"),
+        alignStride=aderdg.alignStride(name),
     )
-    return (
-        renamed("operatorEval", ops.v),
-        renamed("operatorProject", ops.vInv),
-        toOperator,
+
+
+def quadratureInterpolation(matricesDir, aderdg, pointSet):
+    """The material at the points of the volume quadrature, the conical-product
+    set a modal field is integrated over.
+
+    A quantity integrated over the cell with a material that varies inside it,
+    such as an energy, reads the material there: the samples themselves where
+    they are that set, and what they interpolate there where they are not --
+    the same values the operator is formed from when it is formed at those
+    points.
+    """
+    quadrature = _db(matricesDir, "ip", aderdg.order, aderdg.alignStride)
+    samples = _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride)
+    return _interpolation(
+        "materialToQuadrature", aderdg, samples, quadrature, pointSet == "ip"
     )
 
 
@@ -156,10 +182,12 @@ def pointCount(matricesDir, aderdg, pointSet):
 
 def includeTensors(matricesDir, aderdg, pointSet, include):
     """The sample points are read by the host, which builds the query that
-    fills them, so they have to reach the generated code even where no kernel
-    names them."""
+    fills them, and so is their interpolation to the volume quadrature, which
+    the energies are integrated with; they have to reach the generated code
+    even where no kernel names them."""
     for tensor in tensors(matricesDir, aderdg, pointSet).values():
         include.add(tensor)
+    include.add(quadratureInterpolation(matricesDir, aderdg, pointSet))
 
 
 def addKernels(generator, aderdg, matricesDir, pointSet):

@@ -209,6 +209,24 @@ class LinearCKAnelastic(ADERDGBase):
             "evalAtQP",
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
         )
+        # the anelastic variables at the same points, which the energies of a
+        # material varying inside the cell are integrated at
+        dofsAneQP = OptionalDimTensor(
+            "dofsAneQP",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (
+                self.num3DQuadraturePoints(),
+                self.numAnelasticQuantities(),
+                self.numMechanisms,
+            ),
+            alignStride=True,
+        )
+        generator.add(
+            "evalAneAtQP",
+            dofsAneQP["kpm"] <= self.db.evalAtQP[self.t("kl")] * self.Qane["lpm"],
+        )
 
         self.addAnelasticEnergyProducts(generator)
 

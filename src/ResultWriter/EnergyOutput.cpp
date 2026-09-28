@@ -34,6 +34,7 @@
 #include "Monitoring/Unit.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
+#include "ResultWriter/EnergyQuadrature.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -524,6 +525,13 @@ void EnergyOutput::computeVolumeEnergies() {
   seissol::quadrature::TetrahedronQuadrature(
       quadraturePointsTet, quadratureWeightsTet, QuadPolyDegree);
 
+  // where the material varies inside a cell, the energies are integrated point
+  // by point, at the points the plastic strain is read at below
+  using Quadrature = EnergyQuadrature<model::MaterialT>;
+  static_assert(Quadrature::Points == NumQuadraturePointsTet);
+  const auto energyQuadrature =
+      NodalMaterial ? std::optional<Quadrature>(std::in_place) : std::nullopt;
+
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
   for (const auto& layer : ltsStorage_->leaves(Ghost)) {
@@ -537,6 +545,8 @@ void EnergyOutput::computeVolumeEnergies() {
     const auto* energyData = layer.var<LTS::EnergyData>();
     // only allocated for materials with anelastic variables
     const auto* dofsAneData = layer.var<LTS::DofsAne>();
+    // only where the material varies inside a cell
+    const auto* nodalMaterialData = NodalMaterial ? layer.var<LTS::NodalMaterialData>() : nullptr;
 
     constexpr auto SimCount = multisim::NumSimulations;
     constexpr auto EnergyCountSingle = model::EnergyCompute<model::MaterialT>::EnergyCount;
@@ -568,39 +578,57 @@ void EnergyOutput::computeVolumeEnergies() {
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
 
-      alignas(Alignment) real linData[tensor::momentQ::size()];
-      auto lin = init::momentQ::view::create(linData);
-      // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
-      kernel::momentQCompute krnl;
-      krnl.bindGlobals(*global_);
-      krnl.momentQ = linData;
-      krnl.Q = dofsData[cell];
-      krnl.execute();
+      // the shear modulus the plastic strain is weighted with at each point of
+      // the quadrature, where the material varies inside the cell
+      std::array<double, NumQuadraturePointsTet> shearModulus{};
 
-      alignas(Alignment) real quadData[tensor::momentQQ::size()];
-      auto quad = init::momentQQ::view::create(quadData);
-      // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
-      kernel::momentQQCompute krnl2;
-      krnl2.bindGlobals(*global_);
-      krnl2.momentQQ = quadData;
-      krnl2.Q = dofsData[cell];
-      krnl2.execute();
+      if (nodalMaterialData != nullptr) {
+        // for a material that does not vary, this is what the moments below give
+        const auto values =
+            energyQuadrature->energies(nodalMaterialData[cell],
+                                       dofsData[cell],
+                                       dofsAneData != nullptr ? dofsAneData[cell] : nullptr,
+                                       *global_,
+                                       shearModulus);
+        for (std::size_t i = 0; i < values.size(); ++i) {
+          energyValues[i] += jacobiDet * values[i];
+        }
+      } else {
+        alignas(Alignment) real linData[tensor::momentQ::size()];
+        auto lin = init::momentQ::view::create(linData);
+        // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
+        kernel::momentQCompute krnl;
+        krnl.bindGlobals(*global_);
+        krnl.momentQ = linData;
+        krnl.Q = dofsData[cell];
+        krnl.execute();
 
-      const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
-          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr, *global_);
+        alignas(Alignment) real quadData[tensor::momentQQ::size()];
+        auto quad = init::momentQQ::view::create(quadData);
+        // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
+        kernel::momentQQCompute krnl2;
+        krnl2.bindGlobals(*global_);
+        krnl2.momentQQ = quadData;
+        krnl2.Q = dofsData[cell];
+        krnl2.execute();
 
-      for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
+        const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
+            dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr, *global_);
 
-        auto linSub = multisim::simtensor(lin, sim);
-        auto quadSub = multisim::simtensor(quad, sim);
+        for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
 
-        // assume _constant_ material over a cell (will need adjustments for e.g. #1297)
+          auto linSub = multisim::simtensor(lin, sim);
+          auto quadSub = multisim::simtensor(quad, sim);
 
-        const auto localValues = model::EnergyCompute<model::MaterialT>::computeEnergies(
-            material, energyData[cell], linSub, quadSub, moments, sim);
+          // the material is constant over the cell; one that varies inside it
+          // is integrated point by point above
 
-        for (std::size_t i = 0; i < localValues.size(); ++i) {
-          energyValues[localValues.size() * sim + i] += jacobiDet * localValues[i];
+          const auto localValues = model::EnergyCompute<model::MaterialT>::computeEnergies(
+              material, energyData[cell], linSub, quadSub, moments, sim);
+
+          for (std::size_t i = 0; i < localValues.size(); ++i) {
+            energyValues[localValues.size() * sim + i] += jacobiDet * localValues[i];
+          }
         }
       }
 
@@ -652,6 +680,8 @@ void EnergyOutput::computeVolumeEnergies() {
             init::faceDisplacementSquared::view::create(faceDisplacementSquared.data());
 
         const auto surface = MeshTools::surface(elements[elementId], face, vertices);
+        // the density the boundary condition reads, which is the cell's also
+        // where the material varies inside it
         const auto rho = material.getDensity();
 
         for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
@@ -666,6 +696,7 @@ void EnergyOutput::computeVolumeEnergies() {
         // plastic moment
         const real* pstrainCell = pstrainData[cell];
         const double mu = material.getMuBar();
+        const bool pointwise = nodalMaterialData != nullptr;
 
         // integrating over all collocation points suffices
         const real* __restrict qEta = &pstrainCell[tensor::QStressNodal::size()];
@@ -687,9 +718,10 @@ void EnergyOutput::computeVolumeEnergies() {
           const auto qEtaQuadSim = multisim::simtensor(qEtaQuadView, sim);
           double pMoment = 0;
           for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
-            pMoment += quadratureWeightsTet[qp] * qEtaQuadSim(qp);
+            pMoment +=
+                quadratureWeightsTet[qp] * qEtaQuadSim(qp) * (pointwise ? shearModulus[qp] : 1.0);
           }
-          localPlasticMoment[sim] += mu * jacobiDet * pMoment;
+          localPlasticMoment[sim] += (pointwise ? 1.0 : mu) * jacobiDet * pMoment;
         }
       }
     }
