@@ -15,6 +15,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -29,7 +30,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
-#include "Numerical/Transformation.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -46,7 +46,7 @@ namespace {
 void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,
-                   const double grad[3],
+                   const std::array<double, Cell::Dim>& grad,
                    real* starMatrix) {
   for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
@@ -121,23 +121,22 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         // NOLINTNEXTLINE
         auto& materialLocal = materialData[cell];
 
-        double x[Cell::NumVertices];
-        double y[Cell::NumVertices];
-        double z[Cell::NumVertices];
-        double gradXi[3];
-        double gradEta[3];
-        double gradZeta[3];
+        std::array<double, Cell::Dim> gradXi{};
+        std::array<double, Cell::Dim> gradEta{};
+        std::array<double, Cell::Dim> gradZeta{};
 
-        // Iterate over all 4 vertices of the tetrahedron
-        for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
-          const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
-          x[vertex] = coords[0];
-          y[vertex] = coords[1];
-          z[vertex] = coords[2];
+        const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
+
+        // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
+        // hence, you may use an AffineTransform with an arbitrary point here; but nothing more.
+        const auto grad = transform.refToSpaceJacobianInverse(
+            seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
+
+        for (std::size_t i = 0; i < Cell::Dim; ++i) {
+          gradXi[i] = grad(0, i);
+          gradEta[i] = grad(1, i);
+          gradZeta[i] = grad(2, i);
         }
-
-        seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-            x, y, z, gradXi, gradEta, gradZeta);
 
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
@@ -153,9 +152,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-          VrtxCoords normal;
-          VrtxCoords tangent1;
-          VrtxCoords tangent2;
+          CoordinateT normal{};
+          CoordinateT tangent1{};
+          CoordinateT tangent2{};
           MeshTools::normalAndTangents(
               elements[meshId], side, vertices, normal, tangent1, tangent2);
           const double surface = MeshTools::surface(normal);

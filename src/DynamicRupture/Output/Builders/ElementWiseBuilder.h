@@ -12,8 +12,8 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/FaceTransform.h"
 #include "Initializer/Parameters/OutputParameters.h"
-#include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -62,38 +62,29 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
               << "Number of sub-triangles:" << numSubTriangles << "Output order:" << order
               << "Simulation count:" << multisim::NumSimulations;
 
-    // get arrays of elements and vertices from the meshReader
+    // get the array of fault faces from the meshReader
     const auto& faultInfo = meshReader_->getFault();
-    const auto& elementsInfo = meshReader_->getElements();
-    const auto& verticesInfo = meshReader_->getVertices();
 
     // iterate through each fault side
     for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
       const auto& fault = faultInfo[faceIdx];
       const auto elementIdx = fault.element;
 
-      if (elementIdx >= 0) {
-        const auto& element = elementsInfo[elementIdx];
-
-        // store coords of vertices of the current ELEMENT
-        std::array<const double*, Cell::NumVertices> elementVerticesCoords{};
-        for (size_t vertexIdx = 0; vertexIdx < Cell::NumVertices; ++vertexIdx) {
-          auto globalVertexIdx = element.vertices[vertexIdx];
-          elementVerticesCoords[vertexIdx] = verticesInfo[globalVertexIdx].coords;
-        }
-
+      if (elementIdx.hasValue()) {
         const auto faceSideIdx = fault.side;
 
         // init reference coordinates of the fault face
         const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
         // init global coordinates of the fault face
-        const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+        const ExtTriangle globalFace =
+            toExtTriangle(seissol::geometry::AffineFaceTransform::fromMeshCell(
+                elementIdx.value(), faceSideIdx, *meshReader_));
 
         faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,
-                                           static_cast<int>(faceIdx),
+                                           faceIdx,
                                            faceSideIdx,
-                                           elementIdx,
+                                           elementIdx.value(),
                                            &fault,
                                            order,
                                            multisim::NumSimulations},

@@ -15,9 +15,8 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/MeshDefinition.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
-#include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
@@ -25,7 +24,6 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
-#include "Numerical/Transformation.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
@@ -36,16 +34,12 @@
 #include <limits>
 #include <optional>
 #include <utils/logger.h>
-#include <vector>
 
 namespace seissol::initializer {
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const std::optional<EasiBoundary>& easiBoundary,
                                 LTS::Storage& ltsStorage) {
-  const std::vector<Element>& elements = meshReader.getElements();
-  const std::vector<Vertex>& vertices = meshReader.getVertices();
-
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* boundary = layer.var<LTS::BoundaryMapping>();
@@ -53,17 +47,17 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      const auto& element = elements[secondaryInformation[cell].meshId];
-      const double* coords[Cell::NumVertices];
-      for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-        coords[v] = vertices[element.vertices[v]].coords;
-      }
+      const auto meshId = secondaryInformation[cell].meshId;
       for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
         if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
             cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
             cellInformation[cell].faceTypes[side] != FaceType::Analytical) {
           continue;
         }
+
+        const auto face =
+            seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, meshReader);
+
         // Compute nodal points in global coordinates for each side.
         real nodesReferenceData[nodal::tensor::nodes2D::Size];
         std::copy_n(nodal::init::nodes2D::Values, nodal::tensor::nodes2D::Size, nodesReferenceData);
@@ -73,18 +67,12 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto offset = 0;
         for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
              ++i) {
-          double nodeReference[2];
-          nodeReference[0] = nodesReference(i, 0);
-          nodeReference[1] = nodesReference(i, 1);
           // Compute the global coordinates for the nodal points.
-          double xiEtaZeta[3];
-          double xyz[3];
-          seissol::transformations::chiTau2XiEtaZeta(side, nodeReference, xiEtaZeta);
-          seissol::transformations::tetrahedronReferenceToGlobal(
-              coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
-          nodes[offset++] = xyz[0];
-          nodes[offset++] = xyz[1];
-          nodes[offset++] = xyz[2];
+          const auto xyz = face.refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
+              nodesReference(i, 0), nodesReference(i, 1)));
+          for (std::size_t d = 0; d < Cell::Dim; ++d) {
+            nodes[offset++] = xyz(d);
+          }
         }
 
         // Compute map that rotates to normal aligned coordinate system.
@@ -95,14 +83,9 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto matT = init::T::view::create(matTData);
         auto matTinv = init::Tinv::view::create(matTinvData);
 
-        VrtxCoords normal;
-        VrtxCoords tangent1;
-        VrtxCoords tangent2;
-        MeshTools::normalAndTangents(element, side, vertices, normal, tangent1, tangent2);
-        MeshTools::normalize(normal, normal);
-        MeshTools::normalize(tangent1, tangent1);
-        MeshTools::normalize(tangent2, tangent2);
-        seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
+        const auto basis = face.faceAlignedBasis();
+        seissol::model::getFaceRotationMatrix(
+            basis[0].normalized(), basis[1].normalized(), basis[2].normalized(), matT, matTinv);
 
         // Evaluate easi boundary condition matrices if needed
         real* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;

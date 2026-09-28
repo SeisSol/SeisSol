@@ -10,19 +10,18 @@
 #include "Common/Constants.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/FaceTransform.h"
 #include "IO/Instance/Geometry/Points.h"
 #include "IO/Instance/Geometry/Refinement.h"
 #include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Projection.h"
-#include "Numerical/Transformation.h"
 #include "Solver/MultipleSimulations.h"
 #include "TestHelper.h"
 
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <limits>
 #include <vector>
 
@@ -136,12 +135,12 @@ inline void requireSameCell(const Tet& actual, const Tet& expected) {
 inline seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
   const std::array<std::array<double, 2>, 3> corners = {
       std::array<double, 2>{0, 0}, std::array<double, 2>{1, 0}, std::array<double, 2>{0, 1}};
+  const seissol::geometry::ReferenceFaceMap faceMap(side);
   std::vector<std::array<double, 3>> vertices;
   for (const auto& chiTau : corners) {
-    std::array<double, 3> xez{};
-    seissol::transformations::chiTau2XiEtaZeta(
-        static_cast<std::uint32_t>(side), chiTau.data(), xez.data());
-    vertices.push_back(xez);
+    const auto xez =
+        faceMap.faceToCell(seissol::geometry::ReferenceFaceMap::FaceVectorT(chiTau[0], chiTau[1]));
+    vertices.push_back(std::array<double, 3>{xez(0), xez(1), xez(2)});
   }
   return seissol::numerical::AffineMap<2, 3>::fromVertices(vertices);
 }
@@ -411,17 +410,17 @@ TEST_CASE("Numerical/Projection: tetrahedron subdivisions match the legacy refin
   check(refine32, legacy32);
 }
 
-TEST_CASE("Numerical/Projection: face embedding is consistent with chiTau2XiEtaZeta") {
+TEST_CASE("Numerical/Projection: face embedding is consistent with ReferenceFaceMap") {
   const auto points = io::instance::geometry::pointsTriangle(4);
   for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
     const auto embedding = faceEmbedding(side);
+    const seissol::geometry::ReferenceFaceMap faceMap(side);
     for (const auto& point : points) {
-      std::array<double, 3> expected{};
-      seissol::transformations::chiTau2XiEtaZeta(
-          static_cast<std::uint32_t>(side), point.data(), expected.data());
+      const auto expected =
+          faceMap.faceToCell(seissol::geometry::ReferenceFaceMap::FaceVectorT(point[0], point[1]));
       const auto actual = embedding(point);
       for (std::size_t d = 0; d < 3; ++d) {
-        REQUIRE(actual[d] == AbsApprox(expected[d]).epsilon(Tolerance).delta(Tolerance));
+        REQUIRE(actual[d] == AbsApprox(expected(d)).epsilon(Tolerance).delta(Tolerance));
       }
     }
   }
