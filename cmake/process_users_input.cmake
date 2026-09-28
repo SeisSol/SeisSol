@@ -169,7 +169,7 @@ set(CUSTOM_BINARY_SUFFIX "" CACHE STRING "Specifies an optional extra suffix for
 #-------------------------------------------------------------------------------
 function(check_parameter parameter_name value options)
 
-    list(FIND options ${value} INDEX)
+    list(FIND options "${value}" INDEX)
 
     set(WRONG_PARAMETER -1)
     if (${INDEX} EQUAL ${WRONG_PARAMETER})
