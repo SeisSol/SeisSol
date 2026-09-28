@@ -50,7 +50,8 @@ class CellTransform {
   [[nodiscard]] virtual auto refToSpace(const VectorEigenT& input) const -> VectorEigenT = 0;
 
   /// the Jacobian d(space)/d(reference), evaluated at a **reference** coordinate
-  [[nodiscard]] virtual auto refToSpaceJacobian(const VectorEigenT& input) const -> MatrixEigenT = 0;
+  [[nodiscard]] virtual auto
+      refToSpaceJacobian(const VectorEigenT& input) const -> MatrixEigenT = 0;
 
   /// maps a space coordinate back to a reference coordinate
   [[nodiscard]] virtual auto spaceToRef(const VectorEigenT& input) const -> VectorEigenT;
@@ -97,8 +98,8 @@ class AffineTransform : public CellTransform {
 
   [[nodiscard]] auto refToSpace(const VectorEigenT& input) const -> VectorEigenT override;
 
-  [[nodiscard]] auto refToSpaceJacobian(const VectorEigenT& /*input*/) const
-      -> MatrixEigenT override;
+  [[nodiscard]] auto
+      refToSpaceJacobian(const VectorEigenT& /*input*/) const -> MatrixEigenT override;
 
   [[nodiscard]] auto spaceToRef(const VectorEigenT& input) const -> VectorEigenT override;
 

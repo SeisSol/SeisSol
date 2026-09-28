@@ -8,7 +8,6 @@
 #include "DynamicRupture/Output/OutputManager.h"
 
 #include "Common/Constants.h"
-
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
@@ -215,9 +214,8 @@ void OutputManager::initElementwiseOutput() {
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
-      faceIdentifiers[i] =
-          receiverPoints[i].elementGlobalIndex.value() * Cell::NumFaces +
-          receiverPoints[i].localFaceSideId.value();
+      faceIdentifiers[i] = receiverPoints[i].elementGlobalIndex.value() * Cell::NumFaces +
+                           receiverPoints[i].localFaceSideId.value();
     }
 
     seissolInstance_.faultWriter().init(cellConnectivity.data(),
@@ -263,9 +261,8 @@ void OutputManager::initElementwiseOutput() {
 
     writer.addCellData<std::size_t>(
         "global-id", {}, [=, &receiverPoints](std::size_t* target, std::size_t index) {
-          *target =
-              receiverPoints[index].elementGlobalIndex.value() * Cell::NumFaces +
-              receiverPoints[index].localFaceSideId.value();
+          *target = receiverPoints[index].elementGlobalIndex.value() * Cell::NumFaces +
+                    receiverPoints[index].localFaceSideId.value();
         });
 
     misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {

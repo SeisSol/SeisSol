@@ -63,11 +63,13 @@ class CompactOptional {
 
   constexpr void reset() noexcept { value_ = Empty; }
 
-  friend constexpr bool operator==(const CompactOptional& lhs, const CompactOptional& rhs) noexcept {
+  friend constexpr bool operator==(const CompactOptional& lhs,
+                                   const CompactOptional& rhs) noexcept {
     return lhs.value_ == rhs.value_;
   }
 
-  friend constexpr bool operator!=(const CompactOptional& lhs, const CompactOptional& rhs) noexcept {
+  friend constexpr bool operator!=(const CompactOptional& lhs,
+                                   const CompactOptional& rhs) noexcept {
     return !(lhs == rhs);
   }
 };

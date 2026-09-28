@@ -165,7 +165,7 @@ easi::Query ElementBarycenterGenerator::generate() const {
 ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex)
     : cellToVertex_(cellToVertex) {
   const auto [quadraturePoints, quadratureWeights] =
-      seissol::quadrature::quadrature<3>(ConvergenceOrder);
+      seissol::quadrature::simplexRule<3>(ConvergenceOrder);
 
   std::copy(
       std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(quadratureWeights_));
@@ -317,8 +317,8 @@ easi::Query FaultGPGenerator::generate() const {
           seissol::multisim::multisimTranspose(pointsView, n, 1));
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::NumBoundaryGaussPoints) {
-        localPoints = seissol::geometry::FaceTransform::FaceVectorT(
-            Face::ReferenceBarycenter.data());
+        localPoints =
+            seissol::geometry::FaceTransform::FaceVectorT(Face::ReferenceBarycenter.data());
       }
 
       const auto xyz = face.refToSpace(localPoints);

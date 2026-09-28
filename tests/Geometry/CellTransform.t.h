@@ -7,10 +7,9 @@
 
 #include <doctest.h>
 
-#include "TestHelper.h"
-
 #include "Common/Constants.h"
 #include "Geometry/CellTransform.h"
+#include "TestHelper.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -44,17 +43,17 @@ class QuadraticTransform : public CellTransform {
   }
 };
 
-auto randomTetrahedron(std::mt19937& rng, double scale, const VectorT& shift)
-    -> std::array<VectorT, Cell::NumVertices> {
+auto randomTetrahedron(std::mt19937& rng,
+                       double scale,
+                       const VectorT& shift) -> std::array<VectorT, Cell::NumVertices> {
   std::uniform_real_distribution<double> dist(0.0, 1.0);
   std::array<VectorT, Cell::NumVertices> vertices{};
   // rejection sampling: a random tetrahedron may be arbitrarily flat, which would make the round
   // trip below fail for reasons of conditioning rather than correctness
   while (true) {
     for (auto& vertex : vertices) {
-      vertex = VectorT(shift(0) + scale * dist(rng),
-                       shift(1) + scale * dist(rng),
-                       shift(2) + scale * dist(rng));
+      vertex = VectorT(
+          shift(0) + scale * dist(rng), shift(1) + scale * dist(rng), shift(2) + scale * dist(rng));
     }
     const auto transform = AffineTransform(vertices);
     if (std::abs(transform.determinant()) > 1e-3 * scale * scale * scale) {
@@ -111,8 +110,8 @@ TEST_CASE("Affine cell transform") {
     const auto transform = AffineTransform(vertices);
 
     const auto point = VectorT(0.1, 0.2, 0.3);
-    const auto product = transform.refToSpaceJacobian(point) *
-                         transform.refToSpaceJacobianInverse(point);
+    const auto product =
+        transform.refToSpaceJacobian(point) * transform.refToSpaceJacobianInverse(point);
     REQUIRE((product - CellTransform::MatrixEigenT::Identity()).norm() ==
             AbsApprox(0.0).epsilon(Epsilon));
   }
@@ -130,8 +129,8 @@ TEST_CASE("Affine cell transform") {
       const auto back = transform.spaceToRef(transform.refToSpace(point));
       REQUIRE((back - point).norm() == AbsApprox(0.0).epsilon(1e-10));
 
-      const auto product = transform.refToSpaceJacobian(point) *
-                           transform.refToSpaceJacobianInverse(point);
+      const auto product =
+          transform.refToSpaceJacobian(point) * transform.refToSpaceJacobianInverse(point);
       REQUIRE((product - CellTransform::MatrixEigenT::Identity()).norm() ==
               AbsApprox(0.0).epsilon(1e-10));
     }
@@ -166,8 +165,7 @@ TEST_CASE("Generic cell transform inversion") {
       const auto target = transform.refToSpace(point);
       const auto recovered = transform.spaceToRef(target);
       REQUIRE((recovered - point).norm() == AbsApprox(0.0).epsilon(Epsilon));
-      REQUIRE((transform.refToSpace(recovered) - target).norm() ==
-              AbsApprox(0.0).epsilon(Epsilon));
+      REQUIRE((transform.refToSpace(recovered) - target).norm() == AbsApprox(0.0).epsilon(Epsilon));
     }
   }
 

@@ -258,8 +258,8 @@ EnergyOutput::~EnergyOutput() = default;
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
   alignas(Alignment) real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints];
-  const auto quadrature = seissol::quadrature::quadrature<2>(ConvergenceOrder + 1);
-  std::copy(quadrature.second.begin(), quadrature.second.end(), spaceWeights);
+  const auto rule = seissol::quadrature::simplexRule<2>(ConvergenceOrder + 1);
+  std::copy(rule.second.begin(), rule.second.end(), spaceWeights);
 
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     double& totalFrictionalWork = energiesStorage_.totalFrictionalWork(sim);
@@ -372,8 +372,8 @@ void EnergyOutput::computeVolumeEnergies() {
     constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
     constexpr auto NumQuadraturePointsTri = QuadPolyDegree * QuadPolyDegree;
 
-    const auto quadratureTri = seissol::quadrature::quadrature<2>(ConvergenceOrder + 1);
-    const auto quadratureTet = seissol::quadrature::quadrature<3>(ConvergenceOrder + 1);
+    const auto quadratureTri = seissol::quadrature::simplexRule<2>(ConvergenceOrder + 1);
+    const auto quadratureTet = seissol::quadrature::simplexRule<3>(ConvergenceOrder + 1);
     const auto& quadratureWeightsTri = quadratureTri.second;
     const auto& quadratureWeightsTet = quadratureTet.second;
 

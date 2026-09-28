@@ -16,4 +16,6 @@ add_library(seissol-numerical OBJECT
 target_link_libraries(seissol-numerical PUBLIC seissol-common-properties)
 target_link_libraries(seissol-lib PUBLIC seissol-numerical)
 
-target_compile_definitions(seissol-numerical PUBLIC _USE_MATH_DEFINES)
+# Quadrature.h uses M_PI, which MSVC only declares with this set before <cmath>;
+# the header is consumed well beyond this target, so it goes on the common properties
+target_compile_definitions(seissol-common-properties INTERFACE _USE_MATH_DEFINES)

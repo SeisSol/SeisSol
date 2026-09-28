@@ -114,9 +114,9 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         seissolInstance_.getSeisSolParameters().initialization.hasTime);
   }
 
-  const auto quadrature = seissol::quadrature::quadrature<3>(QuadPolyDegree);
-  const auto& quadraturePoints = quadrature.first;
-  const auto& quadratureWeights = quadrature.second;
+  const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
+  const auto& quadraturePoints = rule.first;
+  const auto& quadratureWeights = rule.second;
 
   for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";

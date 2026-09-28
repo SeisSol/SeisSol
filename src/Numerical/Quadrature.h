@@ -12,6 +12,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Numerical/Functions.h"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -125,7 +126,7 @@ inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a,
  *
  *  n is the polynomial degree. Make sure that points and weights have space for n^2 entries.
  */
-inline void TriangleQuadrature(double (*points)[2], double* weights, std::size_t n) {
+inline void TriangleQuadrature(std::array<double, 2>* points, double* weights, std::size_t n) {
   auto points0 = std::vector<double>(n);
   auto weights0 = std::vector<double>(n);
   auto points1 = std::vector<double>(n);
@@ -147,7 +148,7 @@ inline void TriangleQuadrature(double (*points)[2], double* weights, std::size_t
 /** Quadrature formula of arbitrary accuracy on the reference tetrahedron
  *  consisting of the nodes (0,0,0), (1,0,0), (0,1,0), (0,0,1)
  */
-inline void TetrahedronQuadrature(double (*points)[3], double* weights, std::size_t n) {
+inline void TetrahedronQuadrature(std::array<double, 3>* points, double* weights, std::size_t n) {
   // This is a port of similarly named fortran method
   // (TetrahedronQuadraturePoints) in quadpoints.f90.
   // Note:
@@ -203,29 +204,34 @@ inline void TetrahedronQuadrature(double (*points)[3], double* weights, std::siz
   }
 }
 
+/**
+ * The quadrature rule on the reference simplex of the given dimension, as a pair of points and
+ * weights holding degree^Dim entries each.
+ */
 template <std::size_t Dim>
 std::pair<std::vector<std::array<double, Dim>>, std::vector<double>>
-    quadrature(std::size_t degree) {
+    simplexRule(std::size_t degree) {
   static_assert(Dim >= 1, "Dim needs to be positive");
   static_assert(Dim <= 3, "Higher dimensions than 3 are not implemented for the quadrature");
   std::size_t arraysize = 1;
-  for (std::size_t _ = 0; _ < Dim; ++_) {
+  for (std::size_t dim = 0; dim < Dim; ++dim) {
     arraysize *= degree;
   }
   std::vector<std::array<double, Dim>> points(arraysize);
   std::vector<double> weights(arraysize);
   if constexpr (Dim == 3) {
-    TetrahedronQuadrature(reinterpret_cast<double (*)[3]>(points.data()), weights.data(), degree);
+    TetrahedronQuadrature(points.data(), weights.data(), degree);
   }
   if constexpr (Dim == 2) {
-    TriangleQuadrature(reinterpret_cast<double (*)[2]>(points.data()), weights.data(), degree);
+    TriangleQuadrature(points.data(), weights.data(), degree);
   }
   if constexpr (Dim == 1) {
-    GaussLegendre(reinterpret_cast<double*>(points.data()), weights.data(), degree);
+    std::vector<double> points1d(arraysize);
+    GaussLegendre(points1d.data(), weights.data(), degree);
 
     // convert to shifted GL
-    for (auto& point : points) {
-      point[0] = (point[0] + 1) / 2;
+    for (std::size_t i = 0; i < arraysize; ++i) {
+      points[i][0] = (points1d[i] + 1) / 2;
     }
     for (auto& weight : weights) {
       weight /= 2;

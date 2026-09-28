@@ -132,7 +132,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
   auto quadratureData = generateTriangleQuadrature();
-  const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
+  const double(*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {
 

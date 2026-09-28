@@ -57,7 +57,7 @@ namespace {
 void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,
-                   const std::array<double, 3> grad,
+                   const std::array<double, Cell::Dim>& grad,
                    real* starMatrix) {
   for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
@@ -414,11 +414,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto matTinv = init::Tinv::view::create(matTinvData);
 
         const auto basis = face.faceAlignedBasis();
-        seissol::model::getFaceRotationMatrix(basis[0].normalized(),
-                                              basis[1].normalized(),
-                                              basis[2].normalized(),
-                                              matT,
-                                              matTinv);
+        seissol::model::getFaceRotationMatrix(
+            basis[0].normalized(), basis[1].normalized(), basis[2].normalized(), matT, matTinv);
 
         // Evaluate easi boundary condition matrices if needed
         real* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;

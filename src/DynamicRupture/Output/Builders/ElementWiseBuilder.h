@@ -53,8 +53,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
       const auto numFaultElements = meshReader_->getFault().size();
       const auto numSubTriangles = faultRefiner->getNumSubTriangles();
 
-      logInfo() << "Initializing Fault output."
-                << "Number of sub-triangles:" << numSubTriangles;
+      logInfo() << "Initializing Fault output." << "Number of sub-triangles:" << numSubTriangles;
 
       // get arrays of elements and vertices from the meshReader
       const auto& faultInfo = meshReader_->getFault();
@@ -77,8 +76,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
           // init global coordinates of the fault face
-          const ExtTriangle globalFace = toExtTriangle(
-              seissol::geometry::AffineFaceTransform::fromMeshCell(
+          const ExtTriangle globalFace =
+              toExtTriangle(seissol::geometry::AffineFaceTransform::fromMeshCell(
                   elementIdx.value(), faceSideIdx, *meshReader_));
 
           faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,

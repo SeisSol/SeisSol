@@ -7,12 +7,11 @@
 
 #include <doctest.h>
 
-#include "TestHelper.h"
-
 #include "Common/Constants.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshTools.h"
+#include "TestHelper.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -139,8 +138,7 @@ TEST_CASE("Affine face transform") {
       const auto corners = face.vertices();
 
       // MeshTools::normal spans the face by its first two edges, in that order
-      const CellVectorT expectedNormal =
-          (corners[1] - corners[0]).cross(corners[2] - corners[0]);
+      const CellVectorT expectedNormal = (corners[1] - corners[0]).cross(corners[2] - corners[0]);
       const auto normal = face.normal(FaceVectorT(Face::ReferenceBarycenter.data()));
       REQUIRE((normal - expectedNormal).norm() == AbsApprox(0.0).epsilon(Epsilon));
 

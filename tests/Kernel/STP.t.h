@@ -33,8 +33,11 @@ class SpaceTimePredictorTestFixture {
   real sourceMatrix[tensor::ET::size()];
   real zMatrix[seissol::model::MaterialT::NumQuantities][tensor::Zinv::size(0)];
 
-  void setStarMatrix(
-      const real* at, const real* bt, const real* ct, const double grad[3], real* starMatrix) {
+  void setStarMatrix(const real* at,
+                     const real* bt,
+                     const real* ct,
+                     const std::array<double, Cell::Dim>& grad,
+                     real* starMatrix) {
     for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
       starMatrix[idx] = grad[0] * at[idx];
     }
@@ -59,12 +62,12 @@ class SpaceTimePredictorTestFixture {
     std::uniform_real_distribution<real> distribution(0, 1);
     std::array<CoordinateT, Cell::NumVertices> vertices{};
     for (auto& vertex : vertices) {
-      vertex = CoordinateT{distribution(generator), distribution(generator), distribution(generator)};
+      vertex =
+          CoordinateT{distribution(generator), distribution(generator), distribution(generator)};
     }
 
-    const auto grad =
-        seissol::geometry::AffineTransform(vertices).refToSpaceJacobianInverse(
-            seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
+    const auto grad = seissol::geometry::AffineTransform(vertices).refToSpaceJacobianInverse(
+        seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
 
     std::array<double, Cell::Dim> gradXi{};
     std::array<double, Cell::Dim> gradEta{};

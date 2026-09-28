@@ -14,6 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/Refinement/TriangleRefiner.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
@@ -26,7 +27,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
-#include "Geometry/FaceTransform.h"
 
 #include <algorithm>
 #include <array>
@@ -170,7 +170,7 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
 
   // Triangle quadrature points and weights
   // TODO: Use the same quadrature rule, which is used for Dynamic Rupture
-  const auto [points, weights] = seissol::quadrature::quadrature<2>(PolyDegree);
+  const auto [points, weights] = seissol::quadrature::simplexRule<2>(PolyDegree);
 
   auto points3D =
       std::array<std::array<double, 3>, NumQuadraturePoints>{}; // Points for eval of 3D basis
@@ -188,8 +188,8 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
                 points[qp][1] * (subTri.x[2][0] - subTri.x[0][0]) + subTri.x[0][0],
             points[qp][0] * (subTri.x[1][1] - subTri.x[0][1]) +
                 points[qp][1] * (subTri.x[2][1] - subTri.x[0][1]) + subTri.x[0][1]};
-        const auto xiEtaZeta = embedding.faceToCell(
-            seissol::geometry::ReferenceFaceMap::FaceVectorT(chiTau.data()));
+        const auto xiEtaZeta =
+            embedding.faceToCell(seissol::geometry::ReferenceFaceMap::FaceVectorT(chiTau.data()));
         for (std::size_t d = 0; d < Cell::Dim; ++d) {
           points3D[qp][d] = xiEtaZeta(d);
         }

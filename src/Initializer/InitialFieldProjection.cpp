@@ -123,8 +123,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(QuadPolyDegree);
-  const auto& quadraturePoints = quadrature.first;
+  const auto rule = seissol::quadrature::simplexRule<Cell::Dim>(QuadPolyDegree);
+  const auto& quadraturePoints = rule.first;
 
   for (auto& layer : storage.leaves(Ghost)) {
 #if !NVHPC_AVOID_OMP
@@ -188,8 +188,8 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   easi::Query query(elements.size() * NumQuadPoints, dimensions);
 
   {
-    const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(QuadPolyDegree);
-    const auto& quadraturePoints = quadrature.first;
+    const auto rule = seissol::quadrature::simplexRule<Cell::Dim>(QuadPolyDegree);
+    const auto& quadraturePoints = rule.first;
 
 #pragma omp parallel for schedule(static)
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
