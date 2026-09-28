@@ -34,14 +34,10 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::stp {
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  krnlPrototype_.timeInt = global.onHost->stpInt;
-  krnlPrototype_.wHat = global.onHost->stpZero;
+  krnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceKrnlPrototype_.timeInt = global.onDevice->stpInt;
-  deviceKrnlPrototype_.wHat = global.onDevice->stpZero;
+  deviceKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 

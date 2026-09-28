@@ -10,6 +10,7 @@
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
+#include "GeneratedCode/init.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -55,7 +56,7 @@ class FrictionSolver {
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   virtual void allocateAuxiliaryMemory(GlobalData* globalData) {
-    spaceWeights_ = globalData->spaceWeights;
+    spaceWeights_ = globalData->*init::quadweights::PoolMember;
   }
 
   virtual seissol::initializer::AllocationPlace allocationPlace() {
@@ -92,7 +93,7 @@ class FrictionSolver {
   real (*__restrict traction2_)[misc::NumPaddedPoints]{};
   real (*__restrict imposedStatePlus_)[tensor::QInterpolated::size()]{};
   real (*__restrict imposedStateMinus_)[tensor::QInterpolated::size()]{};
-  real* __restrict spaceWeights_{};
+  const real* __restrict spaceWeights_{};
   DREnergyOutput* __restrict energyData_{};
   DRGodunovData* __restrict godunovData_{};
   real (*__restrict stressSourcePressure_)[misc::NumPaddedPoints]{};

@@ -33,20 +33,10 @@ namespace seissol::kernels::solver::linearckanelastic {
 void Time::setGlobalData(const CompoundGlobalData& global) {}
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(0))) %
-             Vectorsize ==
-         0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(1))) %
-             Vectorsize ==
-         0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(2))) %
-             Vectorsize ==
-         0);
-
-  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  krnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 

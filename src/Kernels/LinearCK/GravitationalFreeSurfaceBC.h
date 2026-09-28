@@ -66,6 +66,9 @@ class GravitationalFreeSurfaceBc {
       logError()
           << "The Free Surface Gravity BC kernel does not work with multiple simulations yet.";
     } else {
+      // The views below are indexed through multisimWrap although this branch is for a single
+      // simulation: their operator() is constexpr, so clang instantiates it here in fused builds
+      // as well, where these views carry the simulation index.
       constexpr int PIdx = 0;
       constexpr int UIdx = model::MaterialT::VelocityOffset;
 
@@ -122,10 +125,11 @@ class GravitationalFreeSurfaceBc {
 
       // Initialize first component of Taylor series
       for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-        const auto localCoeff = rotatedFaceDisplacement(i, 0);
+        const auto localCoeff = multisim::multisimWrap(rotatedFaceDisplacement, 0, i, 0);
         prevCoefficients[i] = localCoeff;
         // This is clearly a zeroth order approximation of the integral!
-        integratedDisplacementNodal(i) = deltaTInt * localCoeff; // 1 FLOP
+        multisim::multisimWrap(integratedDisplacementNodal, 0, i) =
+            deltaTInt * localCoeff; // 1 FLOP
       }
 
       // Coefficients for Taylor series
@@ -153,10 +157,10 @@ class GravitationalFreeSurfaceBc {
 #pragma omp simd
         for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
           // Derivatives of interior variables
-          const auto uInside = dofsFaceNodal(i, UIdx + 0);
-          const auto vInside = dofsFaceNodal(i, UIdx + 1);
-          const auto wInside = dofsFaceNodal(i, UIdx + 2);
-          const auto pressureInside = dofsFaceNodal(i, PIdx);
+          const auto uInside = multisim::multisimWrap(dofsFaceNodal, 0, i, UIdx + 0);
+          const auto vInside = multisim::multisimWrap(dofsFaceNodal, 0, i, UIdx + 1);
+          const auto wInside = multisim::multisimWrap(dofsFaceNodal, 0, i, UIdx + 2);
+          const auto pressureInside = multisim::multisimWrap(dofsFaceNodal, 0, i, PIdx);
 
           const double curCoeff =
               uInside - (1.0 / z) * (rho * g * prevCoefficients[i] + pressureInside);
@@ -166,12 +170,12 @@ class GravitationalFreeSurfaceBc {
           prevCoefficients[i] = curCoeff;
 
           // 2 * 3 = 6 flops for updating displacement
-          rotatedFaceDisplacement(i, 0) += factorEvaluated * curCoeff;
-          rotatedFaceDisplacement(i, 1) += factorEvaluated * vInside;
-          rotatedFaceDisplacement(i, 2) += factorEvaluated * wInside;
+          multisim::multisimWrap(rotatedFaceDisplacement, 0, i, 0) += factorEvaluated * curCoeff;
+          multisim::multisimWrap(rotatedFaceDisplacement, 0, i, 1) += factorEvaluated * vInside;
+          multisim::multisimWrap(rotatedFaceDisplacement, 0, i, 2) += factorEvaluated * wInside;
 
           // 2 flops for updating integral of displacement
-          integratedDisplacementNodal(i) += factorInt * curCoeff;
+          multisim::multisimWrap(integratedDisplacementNodal, 0, i) += factorInt * curCoeff;
         }
       }
 

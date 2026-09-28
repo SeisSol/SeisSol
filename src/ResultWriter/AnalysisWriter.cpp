@@ -193,7 +193,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP krnl;
-        krnl.evalAtQP = globalData->evalAtQPMatrix;
+        krnl.bindGlobals(*globalData);
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();

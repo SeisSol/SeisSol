@@ -22,10 +22,6 @@
 #include <Device/device.h>
 #endif // ACL_DEVICE
 
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
-
 namespace seissol::kernels::solver::linearck {
 
 class Spacetime : public SpacetimeKernel {

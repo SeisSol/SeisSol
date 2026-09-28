@@ -25,10 +25,6 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
-
 namespace seissol::kernels::solver::linearck {
 
 class Local : public LocalKernel {
@@ -63,6 +59,8 @@ class Local : public LocalKernel {
 
   kernel::projectToNodalBoundary projectKrnlPrototype_;
   kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
+
+  kernel::createEasiBoundaryGhostCells easiBoundaryKrnlPrototype_;
 
   kernels::DirichletBoundary dirichletBoundary_;
 

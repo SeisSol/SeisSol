@@ -30,7 +30,6 @@
 #include <vector>
 
 namespace seissol {
-struct GlobalData;
 class SeisSol;
 
 namespace kernels {
