@@ -31,6 +31,7 @@
 #include "Numerical/Projection.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
+#include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/MultipleSimulations.h"
@@ -910,6 +911,11 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
     }
   }
   seissol::Mpi::barrier(Mpi::mpi.comm());
+
+  // recorded while reading the mesh and laying out the clusters, before there was a directory to
+  // write them to
+  seissolInstance.miniSeisSolWriter().write(seissolParams.output.prefix);
+  seissolInstance.timeManager().writeClustering();
 
   enableFreeSurfaceOutput(seissolInstance);
   initFaultOutputManager(seissolInstance);
