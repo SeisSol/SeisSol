@@ -9,10 +9,10 @@
 #define SEISSOL_TESTS_MODEL_FAULTFLUX_T_H_
 
 // The lift of a fault face takes the imposed state of a side, given in the coordinates of the
-// face, into the side's cell. Two things are checked here: that the operator it applies is the
-// flux of the fault normal, whatever the orientation of the face and whatever the material; and
-// that where a face carries it per point, a material that does not vary gives back exactly what
-// the one matrix per side gives.
+// face, into the side's cell. Two things are checked here: that the matrix a face keeps per side
+// is the flux of the fault normal, whatever the orientation of the face and whatever the material;
+// and that where a face carries the lift per point, every point lifts with the material there,
+// just as that matrix does for the material of the point.
 
 #include <doctest.h>
 
@@ -34,16 +34,14 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <random>
 #include <type_traits>
 #include <vector>
-
-// The anelastic solver lifts into the extended quantities, which the checks below do not model;
-// its lift is the same code with a wider target.
-#ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
 
 namespace seissol::unit_test {
 
@@ -73,36 +71,31 @@ inline Frame randomFrame(std::mt19937& rng) {
                {frame(0, 2), frame(1, 2), frame(2, 2)}};
 }
 
-/// The matrix of one side, as a build that keeps one per side forms it.
-template <typename MaterialT>
-Eigen::MatrixXd matrixForm(const MaterialT& material,
-                           const std::array<double, 36>& bond,
-                           real* matT,
-                           double fluxScale) {
-  alignas(Alignment) std::array<real, tensor::star::size(0)> star{};
-  auto viewStar = init::star::view<0>::create(star.data());
-  seissol::model::getTransposedCoefficientMatrix(
-      seissol::model::getRotatedMaterialCoefficients(bond, material), 0, viewStar);
-
-  alignas(Alignment) std::array<real, tensor::fluxSolver::size()> fluxSolver{};
-  dynamicRupture::kernel::rotateFluxMatrix krnl;
-  krnl.T = matT;
-  krnl.fluxSolver = fluxSolver.data();
-  krnl.fluxScaleDR = fluxScale;
-  krnl.star(0) = star.data();
-  krnl.execute();
-
-  const auto view = init::fluxSolver::view::create(fluxSolver.data());
-  Eigen::MatrixXd dense =
-      Eigen::MatrixXd::Zero(tensor::fluxSolver::Shape[0], tensor::fluxSolver::Shape[1]);
-  for (std::size_t row = 0; row < tensor::fluxSolver::Shape[0]; ++row) {
-    for (std::size_t column = 0; column < tensor::fluxSolver::Shape[1]; ++column) {
+/// The entries a view stores, as a dense matrix.
+template <typename ViewT>
+Eigen::MatrixXd denseOf(const ViewT& view, std::size_t rows, std::size_t columns) {
+  Eigen::MatrixXd dense = Eigen::MatrixXd::Zero(rows, columns);
+  for (std::size_t row = 0; row < rows; ++row) {
+    for (std::size_t column = 0; column < columns; ++column) {
       if (view.isInRange(row, column)) {
         dense(row, column) = view(row, column);
       }
     }
   }
   return dense;
+}
+
+/// The matrix of one side, formed by what a build that keeps one per side runs.
+template <typename MaterialT>
+Eigen::MatrixXd matrixForm(const MaterialT& material,
+                           const std::array<double, 36>& bond,
+                           const real* matT,
+                           double fluxScale) {
+  alignas(Alignment) std::array<real, tensor::fluxSolver::size()> fluxSolver{};
+  seissol::initializer::setMatrixFaultFlux(fluxSolver.data(), matT, fluxScale, material, bond);
+  return denseOf(init::fluxSolver::view::create(fluxSolver.data()),
+                 tensor::fluxSolver::Shape[0],
+                 tensor::fluxSolver::Shape[1]);
 }
 
 /// The lift is the coefficient matrix of the normal direction, in global coordinates, applied to
@@ -142,25 +135,28 @@ inline void liftIsNormalFlux() {
       seissol::model::getTransposedCoefficientMatrix(material, dim, view);
       transposed[dim] = Eigen::Map<Eigen::MatrixXd>(data.data(), Rows, Columns);
     }
-    Eigen::MatrixXd rotation = Eigen::MatrixXd::Zero(Columns, Columns);
-    for (std::size_t row = 0; row < Columns; ++row) {
-      for (std::size_t column = 0; column < Columns; ++column) {
-        if (viewT.isInRange(row, column)) {
-          rotation(row, column) = viewT(row, column);
-        }
-      }
-    }
+    const Eigen::MatrixXd rotation = denseOf(viewT, Columns, Columns).topLeftCorner(Rows, Rows);
 
-    // lift(q, p) is what face quantity q gives global quantity p
+    // lift(q, p) is what face quantity q gives global quantity p; `magnitude` adds up the size of
+    // the terms each entry of it is a sum of
     Eigen::MatrixXd expected = Eigen::MatrixXd::Zero(Rows, Columns);
+    Eigen::MatrixXd magnitude = Eigen::MatrixXd::Zero(Rows, Columns);
     for (std::size_t dim = 0; dim < 3; ++dim) {
-      expected += fluxScale * frame.normal[dim] *
-                  (transposed[dim].transpose() * rotation.topLeftCorner(Rows, Rows)).transpose();
+      const double weight = fluxScale * frame.normal[dim];
+      expected += weight * (transposed[dim].transpose() * rotation).transpose();
+      magnitude += std::abs(weight) *
+                   (transposed[dim].cwiseAbs().transpose() * rotation.cwiseAbs()).transpose();
     }
 
+    // The rows are orders of magnitude apart -- a face stress enters the velocities with the
+    // inverse density, a face velocity the stresses with the moduli -- so every row is measured
+    // against the size of its own terms, and a small entry is not hidden behind the largest one
+    // of the matrix. The terms rather than the entries, since a row may cancel to zero exactly in
+    // one form and to roundoff in the other.
     constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
-    const double scale = expected.cwiseAbs().maxCoeff();
     for (std::size_t row = 0; row < Rows; ++row) {
+      const double scale =
+          std::max(magnitude.row(row).maxCoeff(), std::numeric_limits<double>::min());
       for (std::size_t column = 0; column < Columns; ++column) {
         REQUIRE(lift(row, column) ==
                 doctest::Approx(expected(row, column)).epsilon(Tolerance).scale(scale));
@@ -169,23 +165,44 @@ inline void liftIsNormalFlux() {
   }
 }
 
+/// Where the lift writes: the quantities of the cell, or, for the solver that keeps its memory
+/// variables apart from them, the extended quantities that include those.
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+using LiftTarget = tensor::Qext;
+using LiftTargetInit = init::Qext;
+#else
+using LiftTarget = tensor::Q;
+using LiftTargetInit = init::Q;
+#endif
+
+template <typename KernelT>
+void bindLiftTarget(KernelT& krnl, real* target) {
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+  krnl.Qext = target;
+#else
+  krnl.Q = target;
+#endif
+}
+
 /// Makes the kernel operands dependent on a template parameter, so that a build whose face keeps
 /// one matrix per side never instantiates a body that names the operands of the pointwise form.
 template <bool Enabled>
 void pointwiseAgainstMatrix() {
-  if constexpr (Enabled && multisim::NumSimulations == 1) {
+  if constexpr (Enabled) {
     using Material = seissol::model::MaterialT;
-    constexpr std::size_t Basis = tensor::Q::Shape[0];
+    constexpr std::size_t Basis = LiftTarget::Shape[multisim::BasisFunctionDimension];
     constexpr std::size_t Points = dr::misc::NumBoundaryGaussPoints;
-    constexpr std::size_t Quantities = tensor::QInterpolated::Shape[1];
+    constexpr std::size_t Quantities =
+        tensor::QInterpolated::Shape[multisim::BasisFunctionDimension + 1];
     constexpr std::size_t Written = tensor::fluxSolver::Shape[1];
+    constexpr std::size_t Simulations = multisim::NumSimulations;
 
     std::mt19937 rng(20260929);
     std::uniform_real_distribution<double> positive(0.4, 2.5);
     std::normal_distribution<double> gauss(0.0, 1.0);
 
     for (std::size_t sample = 0; sample < 4; ++sample) {
-      const auto material = coefficients::configuredMaterial<Material>(rng);
+      const auto cell = coefficients::configuredMaterial<Material>(rng);
       const auto frame = randomFrame(rng);
 
       alignas(Alignment) std::array<real, tensor::T::size()> matT{};
@@ -198,57 +215,92 @@ void pointwiseAgainstMatrix() {
       seissol::model::getBondMatrix(frame.normal, frame.tangent1, frame.tangent2, bond);
 
       const double fluxScale = -0.37 * positive(rng);
-      const Eigen::MatrixXd lift = matrixForm(material, bond, matT.data(), fluxScale);
 
-      // the same material at every point
+      // A material of its own at every point, set up the way the fault sets up the material at
+      // its points: default constructed, with only the fields the material declares taken from
+      // the samples, the same for every fused simulation, and the padding given the material of
+      // the cell. What is derived rather than sampled -- the relaxation frequencies -- is left at
+      // its default there, so a lift that took it from a point instead of the cell would show.
+      // The reference of a point is the matrix form of the material that point stands for: the
+      // cell's, with the sampled fields of the point.
       std::array<Material, dr::ImpedancePoints> atPoints{};
-      atPoints.fill(material);
+      std::vector<Eigen::MatrixXd> lifts(Points);
+      for (std::size_t point = 0; point < Points; ++point) {
+        const auto drawn = coefficients::configuredMaterial<Material>(rng);
+        Material sampled{};
+        Material reference = cell;
+        for (const auto& [name, member] : Material::ParameterMap) {
+          sampled.*member = drawn.*member;
+          reference.*member = drawn.*member;
+        }
+        for (std::size_t simulation = 0; simulation < Simulations; ++simulation) {
+          atPoints[point * Simulations + simulation] = sampled;
+        }
+        lifts[point] = matrixForm(reference, bond, matT.data(), fluxScale);
+      }
+      for (std::size_t point = Points * Simulations; point < atPoints.size(); ++point) {
+        atPoints[point] = cell;
+      }
+
       alignas(Alignment) std::array<real, dr::FaultFluxLayout::Size> pointwise{};
       seissol::initializer::setPointwiseFaultFlux(
-          pointwise.data(), matT.data(), fluxScale, atPoints, material, bond);
+          pointwise.data(), matT.data(), fluxScale, atPoints, cell, bond);
 
       alignas(Alignment) std::array<real, tensor::QInterpolated::size()> imposed{};
       for (auto& value : imposed) {
         value = static_cast<real>(gauss(rng));
-      }
-      const auto viewImposed = init::QInterpolated::view::create(imposed.data());
-      Eigen::MatrixXd state = Eigen::MatrixXd::Zero(Points, Quantities);
-      for (std::size_t point = 0; point < Points; ++point) {
-        for (std::size_t quantity = 0; quantity < Quantities; ++quantity) {
-          state(point, quantity) = viewImposed(point, quantity);
-        }
       }
 
       const auto checkSide = [&](auto sideTag, auto relationTag) {
         constexpr unsigned Side = decltype(sideTag)::value;
         constexpr unsigned Relation = decltype(relationTag)::value;
 
-        alignas(Alignment) std::array<real, tensor::Q::size()> dofs{};
+        alignas(Alignment) std::array<real, LiftTarget::size()> dofs{};
         dynamicRupture::kernel::nodalFlux krnl{};
         krnl.bindGlobals(seissol::Pool::host());
         kernels::bindFaultFluxOperands(krnl, pointwise.data());
         krnl.QInterpolated = imposed.data();
-        krnl.Q = dofs.data();
+        bindLiftTarget(krnl, dofs.data());
         krnl.execute(Side, Relation);
 
+        // a build that bundles simulations stores the global matrices the other way round
         constexpr auto Index = tensor::V3mTo2nTWDivM::index(Side, Relation);
         const auto viewLift =
             init::V3mTo2nTWDivM::view<Side, Relation>::create(init::V3mTo2nTWDivM::Values[Index]);
-        Eigen::MatrixXd project = Eigen::MatrixXd::Zero(Basis, Points);
-        for (std::size_t row = 0; row < Basis; ++row) {
-          for (std::size_t column = 0; column < Points; ++column) {
-            project(row, column) = viewLift(row, column);
-          }
-        }
-        const Eigen::MatrixXd expected = project * state * lift;
+        const Eigen::MatrixXd project =
+            Simulations > 1 ? Eigen::MatrixXd(denseOf(viewLift, Points, Basis).transpose())
+                            : denseOf(viewLift, Basis, Points);
 
-        const auto viewDofs = init::Q::view::create(dofs.data());
-        constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
-        for (std::size_t column = 0; column < Written; ++column) {
-          const double scale = std::max(1.0, expected.col(column).cwiseAbs().maxCoeff());
-          for (std::size_t row = 0; row < Basis; ++row) {
-            REQUIRE(viewDofs(row, column) ==
-                    doctest::Approx(expected(row, column)).epsilon(Tolerance).scale(scale));
+        auto viewImposed = init::QInterpolated::view::create(imposed.data());
+        auto viewDofs = LiftTargetInit::view::create(dofs.data());
+        // the material is shared by the simulations a build bundles, the state is not
+        for (std::size_t simulation = 0; simulation < Simulations; ++simulation) {
+          auto stateOfSim = multisim::simtensor(viewImposed, simulation);
+          auto dofsOfSim = multisim::simtensor(viewDofs, simulation);
+
+          // the lift of every point applied to the state there, projected into the cell; and
+          // the size of the terms that adds up
+          Eigen::MatrixXd expected = Eigen::MatrixXd::Zero(Basis, Written);
+          Eigen::MatrixXd magnitude = Eigen::MatrixXd::Zero(Basis, Written);
+          for (std::size_t point = 0; point < Points; ++point) {
+            Eigen::RowVectorXd state = Eigen::RowVectorXd::Zero(Quantities);
+            for (std::size_t quantity = 0; quantity < Quantities; ++quantity) {
+              state(quantity) = stateOfSim(point, quantity);
+            }
+            expected += project.col(point) * (state * lifts[point]);
+            magnitude +=
+                project.col(point).cwiseAbs() * (state.cwiseAbs() * lifts[point].cwiseAbs());
+          }
+
+          // every quantity against its own size, as in the matrix check above
+          constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
+          for (std::size_t column = 0; column < Written; ++column) {
+            const double scale =
+                std::max(magnitude.col(column).maxCoeff(), std::numeric_limits<double>::min());
+            for (std::size_t row = 0; row < Basis; ++row) {
+              REQUIRE(dofsOfSim(row, column) ==
+                      doctest::Approx(expected(row, column)).epsilon(Tolerance).scale(scale));
+            }
           }
         }
       };
@@ -273,7 +325,5 @@ TEST_CASE("Pointwise fault lift against the matrix form") {
 }
 
 } // namespace seissol::unit_test
-
-#endif // SEISSOL_KERNELS_LINEARCKANELASTIC
 
 #endif // SEISSOL_TESTS_MODEL_FAULTFLUX_T_H_

@@ -347,8 +347,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       const GlobalData& global) {
   real matTData[tensor::T::size()]{};
   real matTinvData[tensor::Tinv::size()]{};
-  real matAPlusData[tensor::star::size(0)]{};
-  real matAMinusData[tensor::star::size(0)]{};
 
   const auto& fault = meshReader.getFault();
 
@@ -377,8 +375,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
     auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
 
-#pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
-    schedule(static)
+#pragma omp parallel for private(matTData, matTinvData) schedule(static)
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       const std::size_t meshFace = faceInformation[ltsFace].meshFace;
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
@@ -552,10 +549,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         logError() << "Materials on both sides of a fault face do not match.";
       }
 
-      /// Coefficient Matrices
-      auto matAPlus = init::star::view<0>::create(matAPlusData);
-      auto matAMinus = init::star::view<0>::create(matAMinusData);
-
       // The material at the points of the fault. Where it does not vary inside a
       // cell every point sees the cell's own material, so the two arrays hold
       // one entry and the loops below collapse.
@@ -613,20 +606,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         setIsotropicImpedance(
             impAndEta[ltsFace], point, waveSpeedsPlus[ltsFace], waveSpeedsMinus[ltsFace]);
       }
-
-      // The lift applies the coefficient matrix of the first direction to the imposed state,
-      // which is given in the coordinates of the face; so it is the matrix of the material seen
-      // in those coordinates, whose first direction is the fault normal -- the rotated material
-      // the impedance matrices of initializeFaultImpedance below and the flux of a regular face
-      // are formed from. Rotating an isotropic material changes nothing, which is why the scalar
-      // impedances above can take it unrotated.
-      std::array<double, 36> bond{};
-      seissol::model::getBondMatrix(
-          fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, bond);
-      seissol::model::getTransposedCoefficientMatrix(
-          seissol::model::getRotatedMaterialCoefficients(bond, *plusMaterial), 0, matAPlus);
-      seissol::model::getTransposedCoefficientMatrix(
-          seissol::model::getRotatedMaterialCoefficients(bond, *minusMaterial), 0, matAMinus);
 
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Anisotropic:
@@ -712,6 +691,13 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       const double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       const double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
+
+      // Either form of the lift takes the material in the coordinates of the face, rotated with
+      // the bond matrix as for the impedance matrices of initializeFaultImpedance above; the
+      // scalar impedances above take it unrotated, which an isotropic material does not notice.
+      std::array<double, 36> bond{};
+      seissol::model::getBondMatrix(
+          fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, bond);
       if constexpr (NodalFaultFlux) {
         // the lift of every point from the material there, as the impedances are
         setPointwiseFaultFlux(
@@ -723,18 +709,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                               *minusMaterial,
                               bond);
       } else {
-        dynamicRupture::kernel::rotateFluxMatrix krnl;
-        krnl.T = matTData;
-
-        krnl.fluxSolver = fluxSolverPlus[ltsFace];
-        krnl.fluxScaleDR = fluxScalePlus;
-        krnl.star(0) = matAPlusData;
-        krnl.execute();
-
-        krnl.fluxSolver = fluxSolverMinus[ltsFace];
-        krnl.fluxScaleDR = fluxScaleMinus;
-        krnl.star(0) = matAMinusData;
-        krnl.execute();
+        setMatrixFaultFlux(fluxSolverPlus[ltsFace], matTData, fluxScalePlus, *plusMaterial, bond);
+        setMatrixFaultFlux(
+            fluxSolverMinus[ltsFace], matTData, fluxScaleMinus, *minusMaterial, bond);
       }
     }
   }

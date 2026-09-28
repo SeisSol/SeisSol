@@ -8,10 +8,13 @@
 #ifndef SEISSOL_SRC_INITIALIZER_MODEL_FAULTFLUX_H_
 #define SEISSOL_SRC_INITIALIZER_MODEL_FAULTFLUX_H_
 
+#include "Alignment.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "GeneratedCode/coefficients.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
@@ -26,14 +29,45 @@
 namespace seissol::initializer {
 
 /**
+ * The lift of one side of a fault face, where the face carries it as one matrix (see
+ * dr::FaultFluxLayout); `target` takes tensor::fluxSolver::size() reals.
+ *
+ * The lift applies the coefficient matrix of the fault normal to the imposed state, which is given
+ * in the coordinates of the face. So it is the star of the first direction of the material seen in
+ * those coordinates -- the rotated material, which the impedance matrices of an anisotropic or a
+ * poroelastic face and the flux of a regular face are formed from as well; rotating an isotropic
+ * material changes nothing. The scale of the side and the rotation back to global coordinates are
+ * folded into the matrix.
+ */
+template <typename MaterialT>
+void setMatrixFaultFlux(real* target,
+                        const real* rotation,
+                        double fluxScale,
+                        const MaterialT& material,
+                        const std::array<double, 36>& bond) {
+  alignas(Alignment) std::array<real, tensor::star::size(0)> star{};
+  auto viewStar = init::star::view<0>::create(star.data());
+  seissol::model::getTransposedCoefficientMatrix(
+      seissol::model::getRotatedMaterialCoefficients(bond, material), 0, viewStar);
+
+  dynamicRupture::kernel::rotateFluxMatrix krnl;
+  krnl.T = rotation;
+  krnl.fluxSolver = target;
+  krnl.fluxScaleDR = fluxScale;
+  krnl.star(0) = star.data();
+  krnl.execute();
+}
+
+/**
  * The lift of one side of a fault face, where the face carries it per point (see
  * dr::FaultFluxLayout).
  *
  * The lift applies the coefficient matrix of the fault normal to the imposed state, which is given
  * in the coordinates of the face. So at every point it is the star of the first direction of the
- * material there, turned into those coordinates -- the material the impedances of that point are
- * formed from as well. The rotation back is stored once, and the scale of the side rides on the
- * scalars, just as the matrix form folds both into one matrix.
+ * material there, turned into those coordinates -- as setMatrixFaultFlux takes it, and as the
+ * impedance matrices of that point take it where the material has them. The rotation back is
+ * stored once, and the scale of the side rides on the scalars, just as the matrix form folds both
+ * into one matrix.
  *
  * A scalar that the solver does not read off the material -- a relaxation frequency, or the unit
  * weight of a relaxation block -- is not among what the fault evaluates at its points, and it is
