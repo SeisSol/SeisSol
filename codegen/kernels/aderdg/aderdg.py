@@ -29,7 +29,7 @@ from yateto.input import (
     parseJSONMatrixFile,
     parseXMLMatrixFile,
 )
-from yateto.memory import CSCMemoryLayout
+from yateto.memory import CSCMemoryLayout, PatternMemoryLayout
 from yateto.type import AddressingMode
 from yateto.util import (
     tensor_collection_from_constant_expression,
@@ -351,6 +351,14 @@ class ADERDGBase(ABC):
         )
         if not self.nodalMaterial:
             return
+        # The nodal chain contracts the derivative matrices over the modes
+        # that carry a derivative at all. At the lowest orders that range
+        # starts past the first stored row, where a CSC layout cannot be
+        # sliced; a layout by pattern can. It is not aligned: the kernels
+        # unroll the pattern, and the view the C++ side reads it through
+        # strides by the tensor's own rows, not by an aligned extent.
+        for derivative in self.db.kDivM.values():
+            derivative.setMemoryLayout(PatternMemoryLayout, alignStride=False)
         # A face carries its operator as scalars only where that operator is
         # those scalars. Where it is not, the material still varies inside the
         # cell and the face keeps the one operator per side that is assembled
