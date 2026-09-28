@@ -14,6 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
@@ -47,46 +48,29 @@ int getElementVertexId(int localSideId, int localFaceVertexId) {
   return MeshTools::FACE2NODES[localSideId][localFaceVertexId];
 }
 
-ExtTriangle getReferenceTriangle(int sideIdx) {
-  ExtTriangle referenceFace;
-  switch (sideIdx) {
-  case 0:
-    referenceFace.point(0) = {0.0, 0.0, 0.0};
-    referenceFace.point(1) = {0.0, 1.0, 0.0};
-    referenceFace.point(2) = {1.0, 0.0, 0.0};
-    break;
-  case 1:
-    referenceFace.point(0) = {0.0, 0.0, 0.0};
-    referenceFace.point(1) = {1.0, 0.0, 0.0};
-    referenceFace.point(2) = {0.0, 0.0, 1.0};
-    break;
-  case 2:
-    referenceFace.point(0) = {0.0, 0.0, 0.0};
-    referenceFace.point(1) = {0.0, 0.0, 1.0};
-    referenceFace.point(2) = {0.0, 1.0, 0.0};
-    break;
-  case 3:
-    referenceFace.point(0) = {1.0, 0.0, 0.0};
-    referenceFace.point(1) = {0.0, 1.0, 0.0};
-    referenceFace.point(2) = {0.0, 0.0, 1.0};
-    break;
-  default:
-    logError() << "Unknown Local Side Id. Must be 0, 1, 2 or 3";
+ExtTriangle toExtTriangle(const geometry::FaceTransform& face) {
+  const auto corners = face.vertices();
+  ExtTriangle triangle{};
+  for (std::size_t vertex = 0; vertex < Face::NumVertices; ++vertex) {
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      triangle.point(vertex)[d] = corners[vertex](d);
+    }
   }
-
-  return referenceFace;
+  return triangle;
 }
 
-ExtTriangle getGlobalTriangle(int localSideId,
-                              const Element& element,
-                              const std::vector<Vertex>& verticesInfo) {
+ExtTriangle getReferenceTriangle(std::size_t sideIdx) {
+  const geometry::ReferenceFaceMap map(sideIdx);
   ExtTriangle triangle{};
-
-  for (int vertexId = 0; vertexId < 3; ++vertexId) {
-    const auto elementVertexId = getElementVertexId(localSideId, vertexId);
-    const auto globalVertexId = element.vertices[elementVertexId];
-
-    triangle.point(vertexId) = verticesInfo[globalVertexId].coords;
+  const std::array<geometry::ReferenceFaceMap::FaceVectorT, Face::NumVertices> corners{
+      geometry::ReferenceFaceMap::FaceVectorT(0.0, 0.0),
+      geometry::ReferenceFaceMap::FaceVectorT(1.0, 0.0),
+      geometry::ReferenceFaceMap::FaceVectorT(0.0, 1.0)};
+  for (std::size_t vertex = 0; vertex < Face::NumVertices; ++vertex) {
+    const auto point = map.faceToCell(corners[vertex]);
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      triangle.point(vertex)[d] = point(d);
+    }
   }
   return triangle;
 }
@@ -152,8 +136,9 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
 
   for (auto& geoPoint : geoPoints) {
 
-    std::array<double, 2> targetPoint2D{};
-    transformations::XiEtaZeta2chiTau(geoPoint.localFaceSideId, geoPoint.reference, targetPoint2D);
+    const auto targetPoint2D =
+        geometry::ReferenceFaceMap(geoPoint.localFaceSideId)
+            .cellToFace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();

@@ -13,8 +13,8 @@
 #include "DynamicRupture/Output/OutputAux.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Initializer/Parameters/OutputParameters.h"
-#include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
 
 namespace seissol::dr::output {
@@ -77,7 +77,9 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           const ExtTriangle referenceTriangle = getReferenceTriangle(faceSideIdx);
 
           // init global coordinates of the fault face
-          const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+          const ExtTriangle globalFace = toExtTriangle(
+              seissol::geometry::AffineFaceTransform::fromMeshCell(
+                  elementIdx.value(), faceSideIdx, *meshReader_));
 
           faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,
                                              static_cast<int>(faceIdx),
@@ -126,13 +128,13 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         if (elementIdx.hasValue()) {
           const auto& element = elementsInfo[elementIdx.value()];
 
-          const auto transform =
-              seissol::geometry::AffineTransform::fromMeshCell(elementIdx.value(), *meshReader_);
-
           const auto faceSideIdx = fault.side;
 
+          const auto faceTransform = seissol::geometry::AffineFaceTransform::fromMeshCell(
+              elementIdx.value(), faceSideIdx, *meshReader_);
+
           // init global coordinates of the fault face
-          const ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
+          const ExtTriangle globalFace = toExtTriangle(faceTransform);
 
           for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
             auto& receiverPoint =
@@ -140,9 +142,14 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             const real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
-            const std::array<double, 2> point = {prepoint[0], prepoint[1]};
-            transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference);
-            receiverPoint.global = transform.refToSpace(receiverPoint.reference);
+            const auto point =
+                seissol::geometry::FaceTransform::FaceVectorT(prepoint[0], prepoint[1]);
+            const auto reference = faceTransform.refToCell(point);
+            const auto global = faceTransform.refToSpace(point);
+            for (std::size_t d = 0; d < Cell::Dim; ++d) {
+              receiverPoint.reference[d] = reference(d);
+              receiverPoint.global[d] = global(d);
+            }
             receiverPoint.globalTriangle = globalFace;
             receiverPoint.isInside = true;
             receiverPoint.faultFaceIndex = faceIdx;

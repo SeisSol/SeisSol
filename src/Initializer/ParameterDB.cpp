@@ -20,6 +20,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Geometry/PUMLReader.h"
@@ -248,7 +249,6 @@ easi::Query PlasticityPointGenerator::generate() const {
 easi::Query FaultBarycenterGenerator::generate() const {
   const std::vector<Fault>& fault = meshReader_.getFault();
   const std::vector<Element>& elements = meshReader_.getElements();
-  const std::vector<Vertex>& vertices = meshReader_.getVertices();
 
   easi::Query query(numberOfPoints_ * fault.size(), Cell::Dim);
   unsigned q = 0;
@@ -267,11 +267,11 @@ easi::Query FaultBarycenterGenerator::generate() const {
       side = f.neighborSide;
     }
 
-    CoordinateT barycenter = {0.0, 0.0, 0.0};
-    MeshTools::center(elements[element], side, vertices, barycenter);
+    const auto barycenter =
+        seissol::geometry::AffineFaceTransform::fromMeshCell(element, side, meshReader_).center();
     for (std::size_t n = 0; n < numberOfPoints_; ++n, ++q) {
       for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
-        query.x(q, dim) = barycenter[dim];
+        query.x(q, dim) = barycenter(dim);
       }
       query.group(q) = elements[element].faultTags[side];
     }
@@ -294,38 +294,36 @@ easi::Query FaultGPGenerator::generate() const {
     const Fault& f = fault.at(faultId);
     std::size_t element = 0;
     std::int8_t side = 0;
-    std::int8_t sideOrientation = 0;
+    auto sideOrientation = seissol::geometry::FaceOrientation::Local;
     if (f.element.hasValue()) {
-
       element = f.element.value();
       side = f.side;
-      sideOrientation = -1;
-
     } else {
       assert(f.neighborElement.hasValue());
 
       element = f.neighborElement.value();
       side = f.neighborSide;
-      sideOrientation = elements[f.neighborElement.value()].sideOrientations[f.neighborSide];
+      sideOrientation = static_cast<seissol::geometry::FaceOrientation>(
+          elements[f.neighborElement.value()].sideOrientations[f.neighborSide]);
     }
 
     auto coords = cellToVertex.elementCoordinates(element);
-    const auto transform = seissol::geometry::AffineTransform(coords);
+    const auto face = seissol::geometry::AffineFaceTransform(
+        seissol::geometry::AffineTransform(coords),
+        seissol::geometry::ReferenceFaceMap(side, sideOrientation));
     for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
-      std::array<double, Cell::Dim> xiEtaZeta{};
-      auto localPoints =
-          std::array<double, 2>{seissol::multisim::multisimTranspose(pointsView, n, 0),
-                                seissol::multisim::multisimTranspose(pointsView, n, 1)};
+      auto localPoints = seissol::geometry::FaceTransform::FaceVectorT(
+          seissol::multisim::multisimTranspose(pointsView, n, 0),
+          seissol::multisim::multisimTranspose(pointsView, n, 1));
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::NumBoundaryGaussPoints) {
-        localPoints[0] = 1.0 / 3.0;
-        localPoints[1] = 1.0 / 3.0;
+        localPoints = seissol::geometry::FaceTransform::FaceVectorT(
+            Face::ReferenceBarycenter.data());
       }
 
-      seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
-      const auto xyz = transform.refToSpace(xiEtaZeta);
+      const auto xyz = face.refToSpace(localPoints);
       for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
-        query.x(q, dim) = xyz[dim];
+        query.x(q, dim) = xyz(dim);
       }
       query.group(q) = elements[element].faultTags[side];
     }

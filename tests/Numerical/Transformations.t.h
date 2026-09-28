@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Geometry/CellTransform.h"
 #include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
@@ -25,15 +26,14 @@ TEST_CASE("Test tetrahedron global to reference") {
                                  CoordinateT{rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)},
                                  CoordinateT{rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)},
                                  CoordinateT{rngdist(rnggen), rngdist(rnggen), rngdist(rnggen)}};
-  const auto verticesE = std::array<Eigen::Vector3d, 4>{
-      Eigen::Vector3d{vertices[0][0], vertices[0][1], vertices[0][2]},
-      Eigen::Vector3d{vertices[1][0], vertices[1][1], vertices[1][2]},
-      Eigen::Vector3d{vertices[2][0], vertices[2][1], vertices[2][2]},
-      Eigen::Vector3d{vertices[3][0], vertices[3][1], vertices[3][2]}};
-  const auto center = 0.25 * (verticesE[0] + verticesE[1] + verticesE[2] + verticesE[3]);
+  const auto transform = seissol::geometry::AffineTransform(vertices);
 
-  const auto res = seissol::transformations::tetrahedronGlobalToReference(
-      vertices[0], vertices[1], vertices[2], vertices[3], center);
+  Eigen::Vector3d center = Eigen::Vector3d::Zero();
+  for (const auto& vertex : vertices) {
+    center += 0.25 * Eigen::Vector3d(vertex.data());
+  }
+
+  const auto res = transform.spaceToRef(center);
   REQUIRE(res(0) == AbsApprox(0.25).epsilon(Epsilon));
   REQUIRE(res(1) == AbsApprox(0.25).epsilon(Epsilon));
   REQUIRE(res(2) == AbsApprox(0.25).epsilon(Epsilon));

@@ -8,6 +8,7 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
@@ -178,24 +179,30 @@ TEST_CASE("DR Geometry") {
   SUBCASE("XiEtaZeta2chiTau") {
     constexpr double Epsilon = 1e-6;
     std::array<double, 2> testChiTau = {0.0, 0.0};
+    const auto toArray = [](const geometry::ReferenceFaceMap::FaceVectorT& v) {
+      return std::array<double, 2>{v(0), v(1)};
+    };
     {
       const unsigned face = 0;
       const CoordinateT xiEtaZeta{0.25, 0.1, 0.0};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 1;
       const CoordinateT xiEtaZeta{0.1, 0.0, 0.25};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 2;
       const CoordinateT xiEtaZeta{0.0, 0.1, 0.25};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       REQUIRE(testChiTau[0] == AbsApprox(0.25).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.1).epsilon(Epsilon));
     }
@@ -203,7 +210,8 @@ TEST_CASE("DR Geometry") {
       const unsigned face = 3;
       const CoordinateT xiEtaZeta{
           1 / 3.0, 1 / 3.0, 1 / 3.0}; // center of the 4th face (triangle in 3D space)
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       REQUIRE(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(1 / 3.0).epsilon(Epsilon));
     }
@@ -215,7 +223,8 @@ TEST_CASE("DR Geometry") {
       const CoordinateT normalDirection{1.0, 1.0, 1.0};
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       REQUIRE(testChiTau[0] == AbsApprox(xiEtaZeta[Eta]).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(xiEtaZeta[Zeta]).epsilon(Epsilon));
     }

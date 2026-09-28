@@ -18,6 +18,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -326,7 +327,6 @@ void ReceiverBasedOutputBuilder::initOutputVariables(
 
 void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   const auto& faultInfo = meshReader_->getFault();
-  const auto& verticesInfo = meshReader_->getVertices();
   const auto& elementsInfo = meshReader_->getElements();
 
   const size_t nReceiverPoints = outputData_->receiverPoints.size();
@@ -338,22 +338,16 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
     assert(elementIndex < elementsInfo.size());
 
-    const auto& element = elementsInfo[elementIndex];
-    auto face = getGlobalTriangle(side, element, verticesInfo);
+    // the two edge vectors spanning the face are the columns of its Jacobian
+    const auto faceJacobian =
+        geometry::AffineFaceTransform::fromMeshCell(elementIndex, side, *meshReader_)
+            .refToSpaceJacobian(geometry::FaceTransform::FaceVectorT::Zero());
 
     CoordinateT xab{};
     CoordinateT xac{};
-    {
-      constexpr size_t X{0};
-      constexpr size_t Y{1};
-      constexpr size_t Z{2};
-      xab[X] = face.point(1)[X] - face.point(0)[X];
-      xab[Y] = face.point(1)[Y] - face.point(0)[Y];
-      xab[Z] = face.point(1)[Z] - face.point(0)[Z];
-
-      xac[X] = face.point(2)[X] - face.point(0)[X];
-      xac[Y] = face.point(2)[Y] - face.point(0)[Y];
-      xac[Z] = face.point(2)[Z] - face.point(0)[Z];
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      xab[d] = faceJacobian(d, 0);
+      xac[d] = faceJacobian(d, 1);
     }
 
     const auto faultIndex = outputData_->receiverPoints[receiverId].faultFaceIndex;

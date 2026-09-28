@@ -10,6 +10,7 @@
 
 #include "DataTypes.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
 
 #include <array>
@@ -25,11 +26,11 @@ auto unsafe_reshape(T* ptr) -> T (*)[N] {
 namespace seissol::dr {
 int getElementVertexId(int localSideId, int localFaceVertexId);
 
-ExtTriangle getReferenceTriangle(int sideIdx);
+/// the triangle spanned by a face transform, in whichever space the transform maps to
+ExtTriangle toExtTriangle(const geometry::FaceTransform& face);
 
-ExtTriangle getGlobalTriangle(int localSideId,
-                              const Element& element,
-                              const std::vector<Vertex>& verticesInfo);
+/// the triangle a side occupies on the reference cell
+ExtTriangle getReferenceTriangle(std::size_t sideIdx);
 
 CoordinateT getMidPointTriangle(const ExtTriangle& triangle);
 

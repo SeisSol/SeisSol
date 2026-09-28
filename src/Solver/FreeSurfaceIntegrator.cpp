@@ -26,7 +26,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
-#include "Numerical/Transformation.h"
+#include "Geometry/FaceTransform.h"
 
 #include <algorithm>
 #include <array>
@@ -179,6 +179,7 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
 
   // Compute projection matrices
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    const auto embedding = seissol::geometry::ReferenceFaceMap(face);
     for (std::size_t tri = 0; tri < numberOfSubTriangles_; ++tri) {
       for (std::size_t qp = 0; qp < NumQuadraturePoints; ++qp) {
         const seissol::refinement::Triangle& subTri = triRefiner.subTris[tri];
@@ -187,7 +188,11 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
                 points[qp][1] * (subTri.x[2][0] - subTri.x[0][0]) + subTri.x[0][0],
             points[qp][0] * (subTri.x[1][1] - subTri.x[0][1]) +
                 points[qp][1] * (subTri.x[2][1] - subTri.x[0][1]) + subTri.x[0][1]};
-        seissol::transformations::chiTau2XiEtaZeta(face, chiTau, points3D[qp]);
+        const auto xiEtaZeta = embedding.faceToCell(
+            seissol::geometry::ReferenceFaceMap::FaceVectorT(chiTau.data()));
+        for (std::size_t d = 0; d < Cell::Dim; ++d) {
+          points3D[qp][d] = xiEtaZeta(d);
+        }
         points2D[qp] = chiTau;
       }
       computeSubTriangleAverages(projectionMatrix_[face] + tri, points3D, weights.data());

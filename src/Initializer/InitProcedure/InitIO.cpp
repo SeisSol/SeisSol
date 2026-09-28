@@ -15,6 +15,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
@@ -239,12 +240,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
       // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
       std::array<double, 3> point{};
-      std::copy_n(transform.refToSpace(point).begin(), 3, &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk3d::Shape[order][1]; ++i) {
-        point = {init::vtk3d::Values[order][i * 3 - 3 + 0],
-                 init::vtk3d::Values[order][i * 3 - 3 + 1],
-                 init::vtk3d::Values[order][i * 3 - 3 + 2]};
-        std::copy_n(transform.refToSpace(point).begin(), 3, &target[i * 3]);
+      for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+        if (i > 0) {
+          point = {init::vtk3d::Values[order][i * 3 - 3 + 0],
+                   init::vtk3d::Values[order][i * 3 - 3 + 1],
+                   init::vtk3d::Values[order][i * 3 - 3 + 2]};
+        }
+        std::copy_n(transform.refToSpace(point).begin(), Cell::Dim, &target[i * 3]);
       }
     });
 
@@ -370,18 +372,22 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     writer.addPointProjector([=, &freeSurfaceIntegrator](double* target, std::size_t index) {
       auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
       auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
+      const auto face =
+          seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, meshReader);
+
+      using FaceVectorT = seissol::geometry::FaceTransform::FaceVectorT;
 
       // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
-      const auto zero = std::array<double, 2>{0, 0};
-      std::array<double, 3> xez{};
-      seissol::transformations::chiTau2XiEtaZeta(side, zero, xez);
-      std::copy_n(transform.refToSpace(xez).begin(), 3, &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk2d::Shape[order][1]; ++i) {
-        const auto point = std::array<double, 2>{init::vtk2d::Values[order][i * 2 - 2 + 0],
-                                                 init::vtk2d::Values[order][i * 2 - 2 + 1]};
-        seissol::transformations::chiTau2XiEtaZeta(side, point, xez);
-        std::copy_n(transform.refToSpace(xez).begin(), 3, &target[i * 3]);
+      auto point = FaceVectorT::Zero().eval();
+      for (std::size_t i = 0; i < tensor::vtk2d::Shape[order][1]; ++i) {
+        if (i > 0) {
+          point = FaceVectorT(init::vtk2d::Values[order][i * 2 - 2 + 0],
+                              init::vtk2d::Values[order][i * 2 - 2 + 1]);
+        }
+        const auto xyz = face.refToSpace(point);
+        for (std::size_t d = 0; d < Cell::Dim; ++d) {
+          target[i * 3 + d] = xyz(d);
+        }
       }
     });
 

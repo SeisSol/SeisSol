@@ -17,45 +17,6 @@
 
 namespace seissol::transformations {
 /**
- * Calculates the global coordinates from
- * reference tetrahedron coordinates.
- */
-void tetrahedronReferenceToGlobal(const CoordinateT& v0,
-                                  const CoordinateT& v1,
-                                  const CoordinateT& v2,
-                                  const CoordinateT& v3,
-                                  const CoordinateT& xiEtaZeta,
-                                  CoordinateT& xyz);
-
-Eigen::Vector3d tetrahedronReferenceToGlobal(const Eigen::Vector3d& v0,
-                                             const Eigen::Vector3d& v1,
-                                             const Eigen::Vector3d& v2,
-                                             const Eigen::Vector3d& v3,
-                                             const CoordinateT& xiEtaZeta);
-
-/**
- * Calculates the reference tetrahedron coordinates from
- * global tetrahedron coordinates.
- */
-Eigen::Vector3d tetrahedronGlobalToReference(const CoordinateT& v0,
-                                             const CoordinateT& v1,
-                                             const CoordinateT& v2,
-                                             const CoordinateT& v3,
-                                             const Eigen::Vector3d& xyz);
-
-/**
- * Calculates the Jacobian for the coordinate transformation
- * xi(x, y, z), eta(x, y, z), zeta(x, y, z)
- * from a global tetrahedron to the reference tetrahedron.
- **/
-void tetrahedronGlobalToReferenceJacobian(const std::array<double, 4>& iX,
-                                          const std::array<double, 4>& iY,
-                                          const std::array<double, 4>& iZ,
-                                          CoordinateT& oGradXi,
-                                          CoordinateT& oGradEta,
-                                          CoordinateT& oGradZeta);
-
-/**
  * Inverse of Tensor1RotationMatrix().
  **/
 template <typename RealT>
@@ -105,13 +66,6 @@ void symmetricTensor2RotationMatrix(const CoordinateT& iNormal,
                                     std::uint32_t row = 0,
                                     std::uint32_t col = 0);
 
-void chiTau2XiEtaZeta(std::uint32_t face,
-                      const std::array<double, 2>& chiTau,
-                      std::array<double, 3>& xiEtaZeta,
-                      std::int32_t sideOrientation = -1);
-void XiEtaZeta2chiTau(std::uint32_t face,
-                      const std::array<double, 3>& xiEtaZeta,
-                      std::array<double, 2>& chiTau);
 } // namespace seissol::transformations
 
 #endif // SEISSOL_SRC_NUMERICAL_TRANSFORMATION_H_
