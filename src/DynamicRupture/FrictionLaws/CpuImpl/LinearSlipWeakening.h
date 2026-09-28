@@ -296,7 +296,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(const FrictionLawParameters& parameters) {};
+  explicit NoSpecialization(const FrictionLawParameters& /*parameters*/) {};
 
   void allocateAuxiliaryMemory(GlobalData* globalData);
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
