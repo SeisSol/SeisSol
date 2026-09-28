@@ -64,6 +64,20 @@ T evaluate(T x, T cExpLog) {
   return rs::arsinhexp(x, cExpLog, rs::computeCExp(cExpLog));
 }
 
+/**
+ * Whether the arithmetic keeps the subnormal numbers of T at run time.
+ *
+ * It does not under icx's default floating-point model in an optimized build, which sets
+ * flush-to-zero and denormals-are-zero on entry to main. The cases built on a subnormal value then
+ * lose their premise and are skipped. The check has to run inside a test: a doctest::skip decorator
+ * is evaluated during static initialization, before main has set the flags.
+ */
+template <typename T>
+bool keepsSubnormals() {
+  const volatile T smallest = std::numeric_limits<T>::denorm_min();
+  return smallest * static_cast<T>(2) != static_cast<T>(0);
+}
+
 /// The floor almostZero() puts under the slip rate in a build of precision T. Checked against the
 /// function itself for whichever precision this build uses.
 template <typename T>
@@ -449,7 +463,9 @@ TEST_CASE_TEMPLATE("DR RateAndState arsinhexp outside the reachable domain",
     // the product is of order one, so the asymptotic branch is entered far from its asymptote
     const auto x = static_cast<T>(smallest / 8.0);
     const auto c = static_cast<T>(limit + 3.0);
-    if (x > static_cast<T>(0)) {
+    if (!keepsSubnormals<T>()) {
+      MESSAGE("skipped: subnormal numbers are flushed to zero");
+    } else if (x > static_cast<T>(0)) {
       const double target = reference(static_cast<double>(x), static_cast<double>(c));
       CHECK(std::abs(target) > 1e-4);
       CHECK(relativeError(static_cast<double>(evaluate(x, c)), target) > 1e-2);
@@ -460,17 +476,23 @@ TEST_CASE_TEMPLATE("DR RateAndState arsinhexp outside the reachable domain",
     // the mirror image: the precomputed factor is zero and the plain branch returns zero, while
     // the product is still a normal number. exp(c) has to fall below the smallest subnormal for
     // this, which is a decade and a half further out than where it stops being normal.
-    const auto c =
-        static_cast<T>(std::log(static_cast<double>(std::numeric_limits<T>::denorm_min())) - 5.0);
-    // formed through logarithms, since exp(c) underflows a double here as well
-    const auto x =
-        static_cast<T>(std::exp(std::log(smallest) - static_cast<double>(c) + std::log(100.0)));
-    const double target = reference(static_cast<double>(x), static_cast<double>(c));
-    REQUIRE(std::isfinite(x));
-    REQUIRE(rs::computeCExp(c) == static_cast<T>(0));
-    if (std::isnormal(target)) {
-      CHECK(evaluate(x, c) == static_cast<T>(0));
-      CHECK(relativeError(0.0, target) > 0.5);
+    //
+    // The smallest subnormal of a double is subnormal in the double arithmetic that forms c, too.
+    if (std::is_same_v<T, double> && !keepsSubnormals<double>()) {
+      MESSAGE("skipped: subnormal numbers are flushed to zero");
+    } else {
+      const auto c =
+          static_cast<T>(std::log(static_cast<double>(std::numeric_limits<T>::denorm_min())) - 5.0);
+      // formed through logarithms, since exp(c) underflows a double here as well
+      const auto x =
+          static_cast<T>(std::exp(std::log(smallest) - static_cast<double>(c) + std::log(100.0)));
+      const double target = reference(static_cast<double>(x), static_cast<double>(c));
+      REQUIRE(std::isfinite(x));
+      REQUIRE(rs::computeCExp(c) == static_cast<T>(0));
+      if (std::isnormal(target)) {
+        CHECK(evaluate(x, c) == static_cast<T>(0));
+        CHECK(relativeError(0.0, target) > 0.5);
+      }
     }
   }
 }
@@ -753,9 +775,16 @@ TEST_CASE("DR RateAndState relaxationWeight" * doctest::test_suite("dynamicruptu
     // theta = theta_ref exp(-z) + t (1 - exp(-z)) / z. At the slip-rate floor the quotient form
     // assembles the same number out of L / V = 2e33 and a relaxation of 5e-38, which in single
     // precision leaves the state variable with no digits and its derivative with none at all.
-    const auto timeIncrement = static_cast<float>(1e-4);
-    const auto sl0 = static_cast<float>(0.02);
-    const auto slipRate = static_cast<float>(slipRateFloor<float>());
+    //
+    // The inputs are read through volatile, so that they reach the arithmetic at run time, as they
+    // do in a friction law. Folded as constants under a floating-point model that reassociates
+    // (icx's default), the quotient rule of the derivative overflows in single precision.
+    const volatile auto timeIncrementInput = static_cast<float>(1e-4);
+    const volatile auto sl0Input = static_cast<float>(0.02);
+    const volatile auto slipRateInput = static_cast<float>(slipRateFloor<float>());
+    const float timeIncrement = timeIncrementInput;
+    const float sl0 = sl0Input;
+    const float slipRate = slipRateInput;
     const auto z = Dual<float>(slipRate * (timeIncrement / sl0), timeIncrement / sl0);
     const auto weight = rs::relaxationWeight(z);
     CHECK(weight.value == doctest::Approx(1.0F));
