@@ -133,7 +133,6 @@ TEST_CASE("Affine face transform" * doctest::test_suite("geometry")) {
   }
 
   SUBCASE("Reproduces the mesh normal, area and center") {
-    const auto cellVertices = referenceCellVertices();
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
       const AffineFaceTransform face(cell, ReferenceFaceMap(side));
       const auto corners = face.vertices();

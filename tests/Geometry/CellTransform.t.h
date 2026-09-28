@@ -31,13 +31,13 @@ using VectorT = CellTransform::VectorEigenT;
  */
 class QuadraticTransform : public CellTransform {
   public:
-  [[nodiscard]] auto refToSpace(const VectorT& input) const -> VectorT override {
+  [[nodiscard]] auto refToSpace(const VectorEigenT& input) const -> VectorEigenT override {
     return {1.0 + 2.0 * input(0) + 0.3 * input(1) * input(1),
             2.0 + 1.5 * input(1) + 0.2 * input(2) * input(2),
             3.0 + 1.0 * input(2) + 0.1 * input(0) * input(0)};
   }
 
-  [[nodiscard]] auto refToSpaceJacobian(const VectorT& input) const -> MatrixEigenT override {
+  [[nodiscard]] auto refToSpaceJacobian(const VectorEigenT& input) const -> MatrixEigenT override {
     MatrixEigenT jacobian;
     jacobian << 2.0, 0.6 * input(1), 0.0, 0.0, 1.5, 0.4 * input(2), 0.2 * input(0), 0.0, 1.0;
     return jacobian;
@@ -110,7 +110,8 @@ TEST_CASE("Affine cell transform" * doctest::test_suite("geometry")) {
     const auto transform = AffineTransform(vertices);
 
     const auto point = VectorT(0.1, 0.2, 0.3);
-    const auto product =
+    // evaluate right away: an Eigen product expression would keep references to the temporaries
+    const CellTransform::MatrixEigenT product =
         transform.refToSpaceJacobian(point) * transform.refToSpaceJacobianInverse(point);
     REQUIRE((product - CellTransform::MatrixEigenT::Identity()).norm() ==
             AbsApprox(0.0).epsilon(Epsilon));
@@ -129,7 +130,7 @@ TEST_CASE("Affine cell transform" * doctest::test_suite("geometry")) {
       const auto back = transform.spaceToRef(transform.refToSpace(point));
       REQUIRE((back - point).norm() == AbsApprox(0.0).epsilon(1e-10));
 
-      const auto product =
+      const CellTransform::MatrixEigenT product =
           transform.refToSpaceJacobian(point) * transform.refToSpaceJacobianInverse(point);
       REQUIRE((product - CellTransform::MatrixEigenT::Identity()).norm() ==
               AbsApprox(0.0).epsilon(1e-10));
