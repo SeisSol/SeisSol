@@ -46,7 +46,7 @@ struct TriangleQuadratureData {
 
 TriangleQuadratureData generateTriangleQuadrature();
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
+void assignNearestGaussianPoints(Receivers& geoPoints);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
@@ -85,7 +85,7 @@ std::size_t
  * This is the group the face was tagged with in the mesh file, not an identifier: several faces
  * carry the same tag, and a mesh that tags nothing leaves it at its default.
  */
-int faultTagOfCell(const ReceiverPoints& receiverPoints,
+int faultTagOfCell(const Receivers& receivers,
                    std::size_t cell,
                    std::size_t pointsPerCell,
                    std::size_t simulationCount);
@@ -95,7 +95,7 @@ int faultTagOfCell(const ReceiverPoints& receiverPoints,
  *
  * Unique across the mesh, since it is built from the global element index and the side.
  */
-std::size_t globalFaceIdOfCell(const ReceiverPoints& receiverPoints,
+std::size_t globalFaceIdOfCell(const Receivers& receivers,
                                std::size_t cell,
                                std::size_t pointsPerCell,
                                std::size_t simulationCount);

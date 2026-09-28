@@ -16,6 +16,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <iterator>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE
@@ -23,6 +24,12 @@
 #endif
 
 namespace seissol::kernels::solver::linearckanelastic {
+
+// The neighbouring flux family is indexed by the neighbouring side and the own face. The face
+// orientation index is not part of it, since the canonical vertex numbering pins it to zero on
+// every interior face.
+static_assert(std::size(seissol::kernel::neighborFluxExt::ExecutePtrs) ==
+              Cell::NumFaces * Cell::NumFaces);
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   nfKrnlPrototype_.bindGlobals(*global.onHost);
@@ -62,14 +69,12 @@ void Neighbor::computeNeighborsIntegral(
     // neighboring cell contribution only for interior faces
     if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::Regular) {
       assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
-             data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
+             data.get<LTS::CellInformation>().faceRelations[face][1] == 0);
 
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
-                     data.get<LTS::CellInformation>().faceRelations[face][0],
-                     face);
+      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][0], face);
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Vectorsize == 0);
 
@@ -102,10 +107,10 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // neighboring cell contribution only for interior faces
     if (faceTypes[face] == FaceType::Regular) {
-      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
+      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] == 0);
 
       regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt>(
-          neighboringIndices[face][1], neighboringIndices[face][0], face);
+          neighboringIndices[face][0], face);
     } else if (faceTypes[face] == FaceType::DynamicRupture) {
       dr += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux>(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);

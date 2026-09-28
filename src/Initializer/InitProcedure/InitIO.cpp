@@ -714,40 +714,39 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
         });
 
-    const std::vector<std::string> quantityLabelsVelocities = {"v1", "v2", "v3"};
     const std::vector<std::string> quantityLabelsDisplacement = {"u1", "u2", "u3"};
 
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
-      for (std::size_t quantity = 0; quantity < quantityLabelsVelocities.size(); ++quantity) {
+      for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
+           ++quantity) {
         constexpr std::size_t MaxVtk2dPoints =
             tensor::vtk2d::Shape[(sizeof(tensor::vtk2d::Shape) / sizeof(tensor::vtk2d::Shape[0])) -
                                  1][1];
-        writer.addGeometryOutput<real>(
-            namewrap(quantityLabelsVelocities[quantity], sim),
-            {},
-            false,
-            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](
-                real* target, std::size_t index, std::size_t subcell) {
-              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
-              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto position = backmap.get(meshId);
-              const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
 
-              // velocities start at model::MaterialT::VelocityOffset
-              const auto* dofsSingleQuantity =
-                  dofsAllQuantities +
-                  QDofSizePadded * (model::MaterialT::VelocityOffset + quantity);
-              kernel::projectBasisToVtkFaceFromVolume vtkproj{};
-              memory::AlignedArray<real, multisim::NumSimulations> simselect{};
-              alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
-              simselect[sim] = 1;
-              vtkproj.simselect = simselect.data();
-              vtkproj.qb = dofsSingleQuantity;
-              vtkproj.xf(order) = alignedTarget.data();
-              vtkproj.collvf(ConvergenceOrder, order) = (*proj[side])(subcell, ConvergenceOrder);
-              vtkproj.execute(order);
-              std::copy_n(alignedTarget.data(), dataBase.size(), target);
-            });
+        if (seissolParams.output.freeSurfaceParameters.outputMask[quantity]) {
+          writer.addGeometryOutput<real>(
+              namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
+              {},
+              false,
+              [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](
+                  real* target, std::size_t index, std::size_t subcell) {
+                auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+                auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
+                const auto position = backmap.get(meshId);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
+                const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
+                kernel::projectBasisToVtkFaceFromVolume vtkproj{};
+                memory::AlignedArray<real, multisim::NumSimulations> simselect{};
+                alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
+                simselect[sim] = 1;
+                vtkproj.simselect = simselect.data();
+                vtkproj.qb = dofsSingleQuantity;
+                vtkproj.xf(order) = alignedTarget.data();
+                vtkproj.collvf(ConvergenceOrder, order) = (*proj[side])(subcell, ConvergenceOrder);
+                vtkproj.execute(order);
+                std::copy_n(alignedTarget.data(), dataBase.size(), target);
+              });
+        }
       }
       for (std::size_t quantity = 0; quantity < quantityLabelsDisplacement.size(); ++quantity) {
         constexpr std::size_t MaxVtk2dPoints =

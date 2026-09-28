@@ -194,6 +194,23 @@ class ADERDGBase(ABC):
         if not self.db.containsName("ET"):
             self.db.ET = Tensor("ET", self.godunov_spp().shape)
 
+        # The canonical vertex numbering forces the face orientation index to
+        # zero on every interior face, so the neighbouring flux matrix is the
+        # constant fP(0) and folds into the neighbour change of basis. The
+        # stride alignment is given explicitly, since the name based rule would
+        # key off the "fP" prefix, while this tensor takes the role, and hence
+        # the alignment, of a change of basis matrix.
+        self.db.update(
+            tensor_collection_from_constant_expression(
+                "fPrT",
+                lambda j: self.db.fP[0][self.t("mn")] * self.db.rT[j][self.t("nl")],
+                simpleParameterSpace(4),
+                target_indices=self.t("ml"),
+                tensor_args={"alignStride": self.multipleSimulations == 1},
+                zero_tolerance=1e-14,
+            )
+        )
+
     def name(self):
         return ""
 

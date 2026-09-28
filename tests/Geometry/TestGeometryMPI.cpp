@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021 SeisSol Group
+// SPDX-FileCopyrightText: 2026 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,5 +7,4 @@
 
 #include <doctest.h>
 
-#include "MeshReader.t.h"
 #include "VertexOrderInvariance.t.h"
