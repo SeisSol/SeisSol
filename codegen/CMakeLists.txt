@@ -37,6 +37,12 @@ else()
   set(OVERRIDE_ALIGNMENT_PARAM "")
 endif()
 
+if (FACTORED_STAR)
+  set(FACTORED_STAR_PARAM "--factored_star")
+else()
+  set(FACTORED_STAR_PARAM "")
+endif()
+
 if (MATERIAL_NODAL)
   set(MATERIAL_NODAL_PARAM "--material_nodal")
 else()
@@ -66,6 +72,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      ${MATERIAL_POINTS_PARAM}
+     ${FACTORED_STAR_PARAM}
      ${MATERIAL_NODAL_PARAM}
      "--material_operator" ${MATERIAL_OPERATOR}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
