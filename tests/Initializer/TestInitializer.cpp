@@ -11,6 +11,7 @@
 #include "Clustering/ClusterLadder.t.h"
 #include "Clustering/LTSWeights.t.h"
 #include "Clustering/LadderOptimizer.t.h"
+#include "DeviceGraph.t.h"
 #include "FaceMap.t.h"
 #include "LtsSetup.t.h"
 #include "ParameterReader.t.h"
