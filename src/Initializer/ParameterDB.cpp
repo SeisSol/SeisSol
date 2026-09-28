@@ -289,9 +289,15 @@ easi::Query ElementAverageGenerator::generate() const {
 
 namespace {
 //! Reads a point set out of a generated tensor, whatever layout it is stored in.
+//!
+//! The set has as many points as the tensor has rows. Its stored extent may
+//! differ in both directions: an aligned layout pads the rows beyond the last
+//! point, and a layout that is not aligned starts at the first row holding a
+//! nonzero, which for the nodal set is not the point at the origin. A row
+//! outside the stored extent reads as zero, which is what it holds.
 template <typename InitT>
 NodalPointGenerator::PointSet pointsOf() {
-  const auto nodes = InitT::view::create(const_cast<double*>(InitT::Values));
+  const auto nodes = InitT::view::create(InitT::Values);
   return {[nodes](std::size_t i) {
             std::array<double, Cell::Dim> point{};
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
@@ -301,7 +307,7 @@ NodalPointGenerator::PointSet pointsOf() {
             }
             return point;
           },
-          InitT::Stop[0] - InitT::Start[0]};
+          InitT::Shape[0]};
 }
 } // namespace
 
