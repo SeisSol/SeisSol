@@ -439,6 +439,11 @@ void Local::evaluateBatchedTimeDependentBc(
           });
 
       auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
+
+      // as in DirichletBoundary::evaluateOnDevice
+      const auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnl);
+      auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
+
       nodalLfKrnl.INodal = const_cast<const real**>(
           dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
       nodalLfKrnl.AminusT =
@@ -448,6 +453,7 @@ void Local::evaluateBatchedTimeDependentBc(
       nodalLfKrnl.extraOffset_AminusT =
           SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
       nodalLfKrnl.Q = dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+      nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
       nodalLfKrnl.streamPtr = runtime.stream();
       nodalLfKrnl.numElements = numElements;
       nodalLfKrnl.execute(face);
