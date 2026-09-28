@@ -450,6 +450,15 @@ if (WITH_GPU)
             "sample points, and tensorforge asks for more shared memory for it than a "
             "block has (144 KiB against 99 KiB on sm_120, order 6, double precision).")
     endif()
+    if (FACTORED_STAR AND NOT ("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN))
+        # the kernels and the host have to agree, so this has to happen before
+        # the code generator and the configuration header read it
+        message(STATUS
+            "FACTORED_STAR is switched off for DEVICE_CODEGEN=${DEVICE_CODEGEN}: a factored "
+            "build assembles the star matrices in its kernels as a product looped over the "
+            "material coefficients, which only tensorforge generates on a GPU.")
+        set(FACTORED_STAR OFF)
+    endif()
 
     # the premultiplication was only so far demonstrated to be efficient on AMD+NVIDIA HW; enable on others by demand
     option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${IS_NVIDIA_OR_AMD})
