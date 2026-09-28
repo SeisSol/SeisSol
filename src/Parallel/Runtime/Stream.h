@@ -451,7 +451,7 @@ class StreamRuntime {
     recordingStream_ = streamPtr;
     auto node =
         device().api->graphAddNode(buildGraph_, dependencies, streamPtr, [&](void* recorded) {
-          std::invoke(handler, recorded);
+          std::invoke(std::forward<F>(handler), recorded);
         });
     recordingStream_ = previousRecordingStream;
     return node;
