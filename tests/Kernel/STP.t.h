@@ -163,12 +163,13 @@ class SpaceTimePredictorTestFixture {
     real bValues[seissol::tensor::star::size(0)] = {0};
     real cValues[seissol::tensor::star::size(0)] = {0};
 
-    // IMPORTANT: we need to take -Dt instead of Dt here, since kDivMT isn't negated
-    // (that's normally taken care of in the GlobalData structs in the main exe)
+    // Scaled by Dt, as Spacetime::executeSTP does. The minus sign of the flux term is not
+    // applied here: kDivMT carries it, negated at code generation (negateFamily in
+    // codegen/kernels/aderdg/aderdg.py).
     for (size_t i = 0; i < seissol::tensor::star::size(0); i++) {
-      aValues[i] = starMatrices0[i] * -Dt;
-      bValues[i] = starMatrices1[i] * -Dt;
-      cValues[i] = starMatrices2[i] * -Dt;
+      aValues[i] = starMatrices0[i] * Dt;
+      bValues[i] = starMatrices1[i] * Dt;
+      cValues[i] = starMatrices2[i] * Dt;
     }
 
     krnl.star(0) = aValues;
@@ -210,7 +211,8 @@ class SpaceTimePredictorTestFixture {
     testRhsKrnl.star(1) = starMatrices1;
     testRhsKrnl.star(2) = starMatrices2;
     testRhsKrnl.spaceTimePredictor = stp;
-    testRhsKrnl.minus = -Dt;
+    // The flux term is -Dt * star * K^T; kDivMT already is -K^T, so its factor here is +Dt.
+    testRhsKrnl.minus = Dt;
     testRhsKrnl.testRhs = rhs;
     testRhsKrnl.execute();
   };
