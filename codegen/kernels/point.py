@@ -7,8 +7,8 @@
 # SPDX-FileContributor: Carsten Uphoff
 # SPDX-FileContributor: Sebastian Wolf
 
-import numpy as np
 from kernels.multsim import OptionalDimTensor
+from kernels.quantities import moment_tensor_selector
 from yateto import Scalar, Tensor
 
 
@@ -34,20 +34,9 @@ def addKernels(generator, aderdg):
         <= JInv * aderdg.db.M3inv["kl"] * basisFunctionsAtPoint["l"],
     )
 
-    # extract the moment tensors entries in SeisSol ordering
-    # i.e.: (xx, yy, zz, xy, yz, xz)
-    if numQuantities >= 6:  # TODO: need a better criterion
-        assert numQuantities >= 6
-        momentToNRF_spp = np.zeros((numQuantities, 3, 3))
-        momentToNRF_spp[0, 0, 0] = 1
-        momentToNRF_spp[1, 1, 1] = 1
-        momentToNRF_spp[2, 2, 2] = 1
-        momentToNRF_spp[3, 0, 1] = 1
-        momentToNRF_spp[4, 1, 2] = 1
-        momentToNRF_spp[5, 0, 2] = 1
-    else:
-        momentToNRF_spp = np.zeros((numQuantities, 3, 3))
-        momentToNRF_spp[0, 0, 0] = 1
+    # extract the moment tensor entries in SeisSol ordering
+    # i.e.: (xx, yy, zz, xy, yz, xz); a scalar stress (acoustic) takes xx only
+    momentToNRF_spp = moment_tensor_selector(aderdg.quantityBlocks())
     momentToNRF = Tensor("momentToNRF", (numQuantities, 3, 3), spp=momentToNRF_spp)
 
     rotateNRF = Tensor("rotateNRF", (3, 3))
