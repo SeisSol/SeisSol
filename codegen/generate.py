@@ -39,6 +39,7 @@ from yateto import (
 )
 from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 from yateto.gemm_configuration import GeneratorCollection
+from yateto.metagen import MetaGenerator
 
 
 def main():
@@ -210,6 +211,12 @@ def main():
 
     gemmTools = GeneratorCollection(gemm_generators)
 
+    # The kernels of the equation are in seissol::kernel, and runtime.h reaches
+    # them as well, by the variant of their configuration -- the only one
+    # here -- with operands as views where they are to take them so (see
+    # kernels.common.cold_kernel_attrs).
+    metagen = MetaGenerator(["typename"], typedHeaders=False)
+
     def check_run_codegen(name):
         return cmdLineArgs.mode == "codegen" and cmdLineArgs.codegen_target in (
             "__all__",
@@ -322,16 +329,23 @@ def main():
 
         kernels.quantities.emit_header(adg, trueOutputDir)
 
+        metagen.add_generator(
+            ["seissol::Config"],
+            generator,
+            name=re.sub(r"\W", "_", outputDirName),
+            namespace="seissol",
+            directory=outputDirName,
+            gemm_cfg=gemmTools,
+            cost_estimator=cost_estimators,
+            include_tensors=include_tensors,
+            routine_exporters=custom_routine_generators,
+            routine_cache=routine_cache,
+        )
+
         # Generate code (if we need to)
         if check_run_codegen(outputDirName):
-            generator.generate(
-                outputDir=trueOutputDir,
-                namespace="seissol",
-                gemm_cfg=gemmTools,
-                cost_estimator=cost_estimators,
-                include_tensors=include_tensors,
-                routine_exporters=custom_routine_generators,
-                routine_cache=routine_cache,
+            metagen.generate(
+                cmdLineArgs.outputDir, namespace="seissol", includes=["Config.h"]
             )
 
     def generate_general(subfolders):
@@ -415,6 +429,16 @@ def main():
                 ],
             }
             for folder in subfolders
+        }
+
+        # The metagen knows what it adds: a translation unit per generator that
+        # binds views to its kernels, and those of runtime.h next to them.
+        for sources in metagen.sources().values():
+            targets[os.path.dirname(sources[0])]["kernels"] = sources
+        targets["runtime"] = {
+            "kernels": metagen.shared_sources(),
+            "tests": [],
+            "headers": metagen.shared_headers(),
         }
 
         with open(os.path.join(cmdLineArgs.outputDir, "targets.json"), "w") as file:
