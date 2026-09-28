@@ -117,10 +117,13 @@ class ADERDGBase(ABC):
         self.QgodLocal = Tensor("QgodLocal", godunov_spp.shape, spp=godunov_spp)
         self.QgodNeighbor = Tensor("QgodNeighbor", godunov_spp.shape, spp=godunov_spp)
 
+        # Which simulation a point source acts on is set per source at run
+        # time, so this is a pattern, not numbers: numbers would make it a
+        # constant, held in the pool and bound by bindGlobals.
         self.oneSimToMultSim = Tensor(
             "oneSimToMultSim",
             (self.Q.optSize(),),
-            spp={(i,): "1.0" for i in range(self.Q.optSize())},
+            spp={(i,): True for i in range(self.Q.optSize())},
         )
 
         self.db.update(
@@ -176,7 +179,11 @@ class ADERDGBase(ABC):
             CSCMemoryLayout,
         )
 
-        self.selectTractionSpp = self.tractionMatrixSpp()
+        # The traction weights are computed per fault face from the impedances
+        # (DynamicRuptureMatrices), so only their pattern is known here. Passed
+        # as booleans: a float array would be taken for the values, which
+        # would make them constants held in the pool and bound by bindGlobals.
+        self.selectTractionSpp = self.tractionMatrixSpp() != 0
         self.tractionPlusMatrix = Tensor(
             "tractionPlusMatrix",
             self.selectTractionSpp.shape,

@@ -217,6 +217,53 @@ class TestOtherEquationsConstruction:
         assert adg.numQuantities() == 13
 
 
+class TestRuntimeOperandsCarryNoValues:
+    """Operands SeisSol fills in at run time must not carry numbers.
+
+    yateto takes a tensor given numbers -- a float array or a dict of values as
+    its pattern -- for a constant: it is stored in the constant pool and bound
+    by bindGlobals, and a generator may write it into the kernel. The traction
+    weights are computed per fault face and the simulation selector is set per
+    point source, so only their pattern is known at generation time.
+    """
+
+    EQUATIONS = {
+        "acoustic": ("AcousticADERDG", {}),
+        "elastic": ("ElasticADERDG", {}),
+        "anisotropic": ("AnisotropicADERDG", {}),
+        "poroelastic": ("PoroelasticADERDG", {"numMechanisms": 0}),
+        "viscoelastic": ("ViscoelasticADERDG", {"numMechanisms": 3}),
+    }
+
+    def _make(self, module_name, multipleSimulations=1):
+        import importlib
+
+        class_name, kwargs = self.EQUATIONS[module_name]
+        cls = getattr(
+            importlib.import_module(f"kernels.equations.{module_name}"), class_name
+        )
+        return cls(
+            order=4,
+            multipleSimulations=multipleSimulations,
+            matricesDir=str(MATRICES_DIR),
+            memLayout=_default_memLayout(),
+            **kwargs,
+        )
+
+    @pytest.mark.parametrize("module_name", list(EQUATIONS))
+    def test_traction_weights_are_a_pattern(self, module_name):
+        adg = self._make(module_name)
+        expected = adg.tractionMatrixSpp() != 0
+        for tensor in (adg.tractionPlusMatrix, adg.tractionMinusMatrix):
+            assert not tensor.is_compute_constant(), f"{tensor.name()} carries values"
+            assert np.array_equal(tensor.spp().as_ndarray(), expected), tensor.name()
+
+    def test_simulation_selector_is_a_pattern(self):
+        adg = self._make("elastic", multipleSimulations=4)
+        assert not adg.oneSimToMultSim.is_compute_constant()
+        assert adg.oneSimToMultSim.spp().as_ndarray().all()
+
+
 class TestViscoelasticConstruction:
     """Viscoelastic is the configuration that stresses the mechanism-count-
     dependent block structure the most."""
