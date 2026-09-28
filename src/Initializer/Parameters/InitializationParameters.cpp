@@ -28,6 +28,7 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
           {"planarwave", InitializationType::Planarwave},
           {"superimposedplanarwave", InitializationType::SuperimposedPlanarwave},
           {"travelling", InitializationType::Travelling},
+          {"acoustictravellingwithitm", InitializationType::AcousticTravellingWithITM},
           {"scholte", InitializationType::Scholte},
           {"snell", InitializationType::Snell},
           {"ocean_0", InitializationType::Ocean0},
