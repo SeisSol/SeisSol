@@ -312,13 +312,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
 
-    // the plastic strain and, where the material is sampled at the nodes, the
-    // material parameters both live on the nodal set
-    const bool needsNodalProjection =
-        seissolParams.model.plasticity ||
-        (seissolParams.output.waveFieldParameters.material && seissolParams.model.materialNodal);
     std::shared_ptr<projection::Table<3, 3>> projNodal;
-    if (needsNodalProjection) {
+    if (seissolParams.model.plasticity) {
       projNodal = makeVolumeTable(projection::Source::Nodal, {});
     }
 
