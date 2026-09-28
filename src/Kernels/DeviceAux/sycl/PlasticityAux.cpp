@@ -38,6 +38,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
                          const seissol::model::PlasticityData* __restrict plasticity,
+                         const unsigned* __restrict cellIndices,
                          double oneMinusIntegratingFactor,
                          double tV,
                          double timeStepWidth,
@@ -57,6 +58,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       auto tid = item.get_local_id(0);
 
       real* qStressNodal = nodalStressTensors[wid];
+      const seissol::model::PlasticityData& cellPlasticity = plasticity[cellIndices[wid]];
       real localStresses[NumStressComponents];
 
       constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
@@ -83,8 +85,8 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
 
       // 4. Compute the plasticity criteria
       const real cohesionTimesCosAngularFriction =
-          plasticity[wid].cohesionTimesCosAngularFriction[tid];
-      const real sinAngularFriction = plasticity[wid].sinAngularFriction[tid];
+          cellPlasticity.cohesionTimesCosAngularFriction[tid];
+      const real sinAngularFriction = cellPlasticity.sinAngularFriction[tid];
       real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
       taulim = std::max(static_cast<real>(0.0), taulim);
 
@@ -103,7 +105,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
       item.barrier();
       if (isAdjusted[0]) {
-        const real factor = plasticity[wid].mufactor / (tV * oneMinusIntegratingFactor);
+        const real factor = cellPlasticity.mufactor / (tV * oneMinusIntegratingFactor);
 
         real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal::size();
         real* __restrict localPstrain = pstrainPtr[wid];

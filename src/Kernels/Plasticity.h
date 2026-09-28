@@ -42,6 +42,7 @@ class Plasticity {
                                        double tV,
                                        const GlobalData* global,
                                        recording::ConditionalPointersToRealsTable& table,
+                                       recording::ConditionalIndicesTable& indicesTable,
                                        seissol::model::PlasticityData* plasticityData,
                                        std::size_t* yieldCounter,
                                        unsigned* isAdjustableVector,
