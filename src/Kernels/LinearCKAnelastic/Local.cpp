@@ -31,11 +31,14 @@ namespace seissol::kernels::solver::linearckanelastic {
 void Local::setGlobalData(const CompoundGlobalData& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
+  // the relaxation reads constants too where it is formed at the samples
+  localKernelPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
   deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
   deviceFluxLocalAllKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalKernelPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
