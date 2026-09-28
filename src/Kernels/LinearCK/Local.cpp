@@ -54,30 +54,19 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
-  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-
-  nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
-
-  projectKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
-  projectRotatedKrnlPrototype_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  volumeKernelPrototype_.bindGlobals(*global.onHost);
+  localFluxKernelPrototype_.bindGlobals(*global.onHost);
+  nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
+  projectKrnlPrototype_.bindGlobals(*global.onHost);
+  projectRotatedKrnlPrototype_.bindGlobals(*global.onHost);
+  easiBoundaryKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
-  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
-#ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-  deviceLocalFluxAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-#else
-  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-  deviceLocalFluxAllKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-#endif
-  deviceNodalLfKrnlPrototype_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceProjectRotatedKrnlPrototype_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxAllKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceProjectRotatedKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -123,8 +112,8 @@ struct ApplyAnalyticalSolution {
 
 void Local::computeIntegral(
     real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
 
   const auto& materialData = data.get<LTS::Material>();
   const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
@@ -205,12 +194,12 @@ void Local::computeIntegral(
       auto* easiBoundaryConstant = cellBoundaryMapping[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
-      auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
+      auto applyEasiBoundary = [this, easiBoundaryMap, easiBoundaryConstant](
                                    const real* /*nodes*/, init::INodal::view::type& boundaryDofs) {
-        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
+        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel =
+            easiBoundaryKrnlPrototype_;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
-        easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
         easiBoundaryKernel.INodal = boundaryDofs.data();
         easiBoundaryKernel.execute();
       };
@@ -423,7 +412,7 @@ void Local::evaluateBatchedTimeDependentBc(
 
             alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
-            assert(initConds != nullptr);
+            assert(initConds_ != nullptr);
             const ApplyAnalyticalSolution applyAnalyticalSolution(initConds_, data);
 
             dirichletBoundary_.evaluateTimeDependent(nullptr,

@@ -33,17 +33,10 @@ namespace seissol::kernels::solver::linearckanelastic {
 void Time::setGlobalData(const CompoundGlobalData& global) {}
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(0))) % Alignment ==
-         0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(1))) % Alignment ==
-         0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(2))) % Alignment ==
-         0);
-
-  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  krnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -57,9 +50,9 @@ void Spacetime::computeAder(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Alignment == 0 ||
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Vectorsize == 0 ||
          timeDerivativesOrSTP == nullptr);
 
   /*
@@ -140,8 +133,8 @@ void Time::evaluate(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativesOrSTP)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Vectorsize == 0);
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 

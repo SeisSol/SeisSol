@@ -9,7 +9,10 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/kernel.h"
+#include "Initializer/Typedefs.h"
 #include "RateAndState.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <cmath>
 
@@ -20,6 +23,11 @@ class FastVelocityWeakeningLaw
     : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+
+  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+    RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::allocateAuxiliaryMemory(globalData);
+    resampleKrnlPrototype_.bindGlobals(*globalData);
+  }
 
   /**
    * Copies all parameters from the DynamicRupture LTS to the local attributes
@@ -73,7 +81,8 @@ class FastVelocityWeakeningLaw
     const real exp1v = std::exp(preexp1);
     const real exp1m = -std::expm1(preexp1);
     const real localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
-    assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumBoundaryGaussPoints) &&
+    assert((std::isfinite(localStateVariable) ||
+            pointIndex >= misc::NumBoundaryGaussPoints * multisim::NumSimulations) &&
            "Inf/NaN detected");
     return localStateVariable;
   }
@@ -151,8 +160,7 @@ class FastVelocityWeakeningLaw
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable_[ltsFace][pointIndex];
     }
-    dynamicRupture::kernel::resampleParameter resampleKrnl;
-    resampleKrnl.resample = init::resample::Values;
+    auto resampleKrnl = resampleKrnlPrototype_;
     resampleKrnl.originalQ = deltaStateVar.data();
     resampleKrnl.resampledQ = resampledDeltaStateVar.data();
     resampleKrnl.execute();
@@ -165,7 +173,8 @@ class FastVelocityWeakeningLaw
   }
 
   protected:
-  real (*__restrict srW_)[misc::NumPaddedPoints];
+  real (*__restrict srW_)[misc::NumPaddedPoints]{nullptr};
+  dynamicRupture::kernel::resampleParameter resampleKrnlPrototype_;
 };
 } // namespace seissol::dr::friction_law::cpu
 

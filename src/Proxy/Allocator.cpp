@@ -38,7 +38,7 @@
 #include <Device/device.h>
 #endif
 
-#ifdef USE_POROELASTIC
+#ifdef SEISSOL_KERNELS_STP
 #include "Proxy/Constants.h"
 #endif
 
@@ -48,37 +48,35 @@ namespace {
 
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
-  real** buffers = layer.var<LTS::Buffers>();
+  real** buffers = layer.var<LTS::StepIntegrals>();
   real** derivatives = layer.var<LTS::Derivatives>();
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* localIntegration = layer.var<LTS::LocalIntegration>();
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-  real* bucket =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Host));
+  real* bucket = static_cast<real*>(layer.var<LTS::Buffers>(initializer::AllocationPlace::Host));
 
-  real** buffersDevice = layer.var<LTS::BuffersDevice>();
+  real** buffersDevice = layer.var<LTS::StepIntegralsDevice>();
   real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
   auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
+      static_cast<real*>(layer.var<LTS::Buffers>(initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
-  std::uniform_int_distribution<unsigned> orientationDist(0, 2);
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    buffers[cell] = bucket + cell * kernels::Solver::BuffersSize;
+    buffers[cell] = bucket + cell * kernels::Solver::IntegralsSize;
     derivatives[cell] = nullptr;
-    buffersDevice[cell] = bucketDevice + cell * kernels::Solver::BuffersSize;
+    buffersDevice[cell] = bucketDevice + cell * kernels::Solver::IntegralsSize;
     derivativesDevice[cell] = nullptr;
 
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
-      cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
+      cellInformation[cell].faceRelations[f][1] = 0;
 
       const auto neighbor = cellDist(rng);
       secondaryInformation[cell].faceNeighbors[f].global = neighbor;
@@ -109,7 +107,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   }
 
   kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
-  kernels::fillWithStuff(bucket, kernels::Solver::BuffersSize * layer.size(), false);
+  kernels::fillWithStuff(bucket, kernels::Solver::IntegralsSize * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
@@ -117,7 +115,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
                          sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
                          false);
 
-#ifdef USE_POROELASTIC
+#ifdef SEISSOL_KERNELS_STP
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -177,8 +175,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
-  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * kernels::Solver::BuffersSize *
-                                              layer.size());
+  layer.setEntrySize<LTS::Buffers>(sizeof(real) * kernels::Solver::IntegralsSize * layer.size());
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
@@ -255,7 +252,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     std::mt19937 rng(cellCount);
     std::uniform_int_distribution<unsigned> sideDist(0, 3);
-    std::uniform_int_distribution<unsigned> orientationDist(0, 2);
+    std::uniform_int_distribution<unsigned> orientationDist(0, 1);
     std::uniform_int_distribution<std::size_t> drDist(0, interior.size() - 1);
     std::uniform_int_distribution<std::size_t> cellDist(0, cellCount - 1);
 
@@ -288,7 +285,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);
-      faceInformation[face].faceRelation = orientationDist(rng);
+      // a fault face always addresses the minus side here
+      faceInformation[face].faceRelation = 1;
     }
   }
 }

@@ -30,7 +30,7 @@ struct Wp {
     Derivatives,
     Godunov,
     FluxSolver,
-    Ivelocities, // 6th, 7the and 8th columns of Idofs
+    Ivelocities, // Idofs at the first velocity column (model::MaterialT::VelocityOffset)
     FaceDisplacement,
     NodalStressTensor,
     Pstrains,
@@ -128,8 +128,8 @@ enum struct FaceKinds : size_t {
 };
 
 enum struct FaceId : size_t { Count = 4, Any = AllBits };
-enum struct FaceRelations : size_t { PerFace = 12, Count = 48, Any = AllBits };
-enum struct DrFaceRelations : size_t { PerFace = 4, Count = 16, Any = AllBits };
+enum struct FaceRelations : size_t { PerFace = 4, Count = 16, Any = AllBits };
+enum struct DrFaceRelations : size_t { PerFace = 2, Count = 8, Any = AllBits };
 
 enum struct ExchangeInfo : size_t {
   Buffers = 1 << 0,

@@ -27,6 +27,8 @@ namelist:
   SurfaceOutputRefinement = 1
   SurfaceOutputInterval = 0.5
   surfacevtkorder = -1
+  surfaceprojection = 'l2'
+  surfacetimeseries = 'snapshot'
   /
 
 If ``SurfaceOutputRefinement = 0``, one triangle is outputted for each
@@ -34,6 +36,17 @@ mesh cell. The unknowns are evaluated at the center of each cell.
 ``SurfaceOutputRefinement = 1`` subdivides each triangle, into 4
 subtriangles. Higher SurfaceOutputRefinement would further subdivide
 each subtriangle.
+
+Every level multiplies the number of output cells per face by four, and the
+refined surface is held in memory while the output is assembled, so a deep
+refinement is expensive rather than impossible: from level 4 on, SeisSol warns
+and states how many output cells that puts on every surface face.
+
+``surfaceprojection`` controls how the solution reaches the output points. ``l2`` (the default)
+averages over each subtriangle, which is what the free surface output has always done; the
+alternative, ``pointwise``, evaluates the solution at the output points instead. Note that the
+default differs from the one of ``wavefieldprojection``, so that both outputs keep the behavior
+they had before they were unified.
 
 variables
 ---------
@@ -52,3 +65,12 @@ High-Order VTKHDF Output
 ------------------------
 
 The high-order free surface output can be enabled by setting ``surfacevtkorder`` in the ``output`` section to a positive value, corresponding to the order of the output polynomial per cell.
+
+File groupings
+--------------
+
+``surfacetimeseries`` overrides ``outputtimeseries`` for the free surface
+output, so that it can be written as one file for the whole run while the other
+outputs stay one file per step, or the other way round. It takes effect only
+with ``surfacevtkorder`` set; see :ref:`io_infrastructure` for what the
+groupings are.

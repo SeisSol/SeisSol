@@ -30,6 +30,12 @@ else()
   set(OVERRIDE_VECTORSIZE_PARAM "")
 endif()
 
+if (OVERRIDE_ALIGNMENT GREATER 0)
+  set(OVERRIDE_ALIGNMENT_PARAM "--alignment=${OVERRIDE_ALIGNMENT}")
+else()
+  set(OVERRIDE_ALIGNMENT_PARAM "")
+endif()
+
 # common arguments between configure and build
 set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
@@ -42,7 +48,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--device_vendor" ${DEVICE_VENDOR}
      "--precision" ${PRECISION_PREFIX}
      "--order" ${ORDER}
-     "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
+     "--numMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
@@ -50,8 +56,10 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--drQuadRule" ${DR_QUAD_RULE}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
+     "--solver" ${SOLVER}
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     ${OVERRIDE_VECTORSIZE_PARAM})
+     ${OVERRIDE_VECTORSIZE_PARAM}
+     ${OVERRIDE_ALIGNMENT_PARAM})
 
 # find out which files will be generated
 execute_process(COMMAND ${GENERATE_ARGS} "--mode" "collect"

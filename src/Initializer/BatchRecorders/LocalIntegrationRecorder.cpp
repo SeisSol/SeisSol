@@ -6,6 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "Common/Typedefs.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -17,6 +19,7 @@
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Recorders.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -28,6 +31,14 @@
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
+
+namespace seissol::tensor {
+struct Qane;
+struct Qext;
+struct dQane;
+struct dQext;
+struct Zinv;
+} // namespace seissol::tensor
 
 // NOLINTBEGIN (-misc-const-correctness)
 
@@ -68,7 +79,8 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     dQPtrs_.resize(size);
 
     real** derivatives = currentLayer_->var<LTS::DerivativesDevice>();
-    real** buffers = currentLayer_->var<LTS::BuffersDevice>();
+    real** stepIntegrals = currentLayer_->var<LTS::StepIntegralsDevice>();
+    real** accumulatedIntegrals = currentLayer_->var<LTS::AccumulatedIntegralsDevice>();
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
@@ -80,66 +92,67 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter_];
-      const bool isBuffersProvided = dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffers();
-      const bool isLtsBuffers = dataHost.get<LTS::CellInformation>().ltsSetup.accumulateBuffers();
+      const bool hasStepIntegrals =
+          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::StepIntegrals);
+      const bool hasAccumulatedIntegrals =
+          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::AccumulatedIntegrals);
 
-      if (isBuffersProvided) {
-        if (isLtsBuffers) {
-          // lts buffers may require either accumulation or overriding (in case of reset command)
-          idofsPtrs.push_back(nextIdofPtr);
+      // we always need space for the step integral right now
 
-          idofsForLtsBuffers.push_back(nextIdofPtr);
-          ltsBuffers.push_back(buffers[cell]);
-
-          idofsAddressRegistry_[cell] = nextIdofPtr;
-          integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
-        } else {
-          // gts buffers have to be always overridden
-          idofsPtrs.push_back(buffers[cell]);
-          idofsAddressRegistry_[cell] = buffers[cell];
-        }
+      real* stepPtr = nullptr;
+      if (hasStepIntegrals) {
+        stepPtr = stepIntegrals[cell];
       } else {
-        idofsPtrs.push_back(nextIdofPtr);
-        idofsAddressRegistry_[cell] = nextIdofPtr;
-        integratedDofsAddressCounter_ += kernels::Solver::BuffersSize;
+        stepPtr = nextIdofPtr;
+        integratedDofsAddressCounter_ += kernels::Solver::IntegralsSize;
       }
 
-      // stars
-      localPtrs[cell] = reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>());
-#ifdef USE_VISCOELASTIC2
-      auto* dofsAne = currentLayer_->var<LTS::DofsAne>(AllocationPlace::Device);
-      dofsAnePtrs[cell] = dofsAne[cell];
+      idofsPtrs.push_back(stepPtr);
+      idofsAddressRegistry_[cell] = stepPtr;
 
-      auto* idofsAne = currentLayer_->var<LTS::IDofsAneScratch>(AllocationPlace::Device);
-      idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
-
-      auto* derivativesExt =
-          currentLayer_->var<LTS::DerivativesExtScratch>(AllocationPlace::Device);
-      derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) +
-                                 (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
-
-      auto* derivativesAne =
-          currentLayer_->var<LTS::DerivativesAneScratch>(AllocationPlace::Device);
-      derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) +
-                                 (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
-
-      auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-      dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
-#endif
-#ifdef USE_POROELASTIC
-      auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
-      zinvExtraPtrs[cell] = zinvExtraPtr + yateto::computeFamilySize<tensor::Zinv>() * cell;
-#endif
+      if (hasAccumulatedIntegrals) {
+        ltsBuffers.push_back(accumulatedIntegrals[cell]);
+        idofsForLtsBuffers.push_back(stepPtr);
+      }
 
       // derivatives
       const bool isDerivativesProvided =
-          dataHost.get<LTS::CellInformation>().ltsSetup.hasDerivatives();
+          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::Derivatives);
       if (isDerivativesProvided) {
         dQPtrs_[cell] = derivatives[cell];
 
       } else {
         dQPtrs_[cell] = &derivativesScratch[derivativesAddressCounter_];
         derivativesAddressCounter_ += seissol::kernels::Solver::DerivativesSize;
+      }
+
+      // stars
+      localPtrs[cell] = reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>());
+      if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+        auto* dofsAne = currentLayer_->var<LTS::DofsAne>(AllocationPlace::Device);
+        dofsAnePtrs[cell] = dofsAne[cell];
+
+        auto* idofsAne = currentLayer_->var<LTS::IDofsAneScratch>(AllocationPlace::Device);
+        idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + kernels::size<tensor::Iane>() * cell;
+
+        auto* derivativesExt =
+            currentLayer_->var<LTS::DerivativesExtScratch>(AllocationPlace::Device);
+        derivativesExtPtrs[cell] =
+            static_cast<real*>(derivativesExt) +
+            (kernels::size<tensor::dQext>(1) + kernels::size<tensor::dQext>(2)) * cell;
+
+        auto* derivativesAne =
+            currentLayer_->var<LTS::DerivativesAneScratch>(AllocationPlace::Device);
+        derivativesAnePtrs[cell] =
+            static_cast<real*>(derivativesAne) +
+            (kernels::size<tensor::dQane>(1) + kernels::size<tensor::dQane>(2)) * cell;
+
+        auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
+        dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell;
+      }
+      if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
+        auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
+        zinvExtraPtrs[cell] = zinvExtraPtr + kernels::familySize<tensor::Zinv>() * cell;
       }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector
@@ -161,16 +174,16 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsForLtsBuffers);
     }
 
-#ifdef USE_VISCOELASTIC2
-    (*currentTable_)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
-#endif
-#ifdef USE_POROELASTIC
-    (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
-#endif
+    if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+      (*currentTable_)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
+    }
+    if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
+      (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
+    }
   }
 }
 
@@ -196,10 +209,10 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         idofsPtrs.push_back(idofsAddressRegistry_[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
-#ifdef USE_VISCOELASTIC2
-        auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-        dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
-#endif
+        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+          auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
+          dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell);
+        }
       }
     }
 
@@ -210,9 +223,9 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
-#ifdef USE_VISCOELASTIC2
-      (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
-#endif
+      if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+      }
     }
   }
 }
@@ -233,10 +246,14 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
       if (isRequired && notFreeSurfaceGravity) {
         auto iview = init::I::view::create(idofsAddressRegistry_[cell]);
-        // NOTE: velocity components are between 6th and 8th columns
-        constexpr unsigned FirstVelocityComponent{6};
+        // gpu_addVelocity reads the three integrated velocities as consecutive columns of I,
+        // starting at this pointer. Where they start depends on the equation (column 6 for the
+        // elastic ones, column 1 for the acoustic ones); a wrong column reads other quantities or,
+        // past the last one, the integrals of other cells, without any error at runtime.
+        static_assert(model::MaterialT::VelocityOffset + Cell::Dim <=
+                      tensor::I::Shape[multisim::BasisFunctionDimension + 1]);
         iVelocitiesPtrs[face].push_back(
-            &multisim::multisimWrap(iview, 0, 0, FirstVelocityComponent));
+            &multisim::multisimWrap(iview, 0, 0, model::MaterialT::VelocityOffset));
         displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
       }
     }

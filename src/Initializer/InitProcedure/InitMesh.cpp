@@ -11,6 +11,7 @@
 #include "Initializer/Clustering/Clustering.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Monitoring/Instrumentation.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>
@@ -125,8 +126,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
                 << " min =" << summary.min << " median =" << summary.median
                 << " max =" << summary.max;
 
-      writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
-      writer.write(elapsedTime, nodeWeight);
+      // written in initIO, once the output directory exists
+      seissolInstance.miniSeisSolWriter().record(elapsedTime, nodeWeight);
     } else {
       logInfo() << "Skipping mini SeisSol (SeisSol is used with a single rank only).";
     }
