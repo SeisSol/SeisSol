@@ -260,10 +260,10 @@ void ProxyData::initDataStructures(bool enableDR) {
     for (std::size_t cell = 0; cell < cellCount; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
-        const auto side = sideDist(rng);
         const auto orientation = orientationDist(rng);
         const auto drFace = drDist(rng);
-        drm.side = side;
+        // as in the solver, the mapping of a face addresses that face
+        drm.side = face;
         drm.faceRelation = orientation;
         drm.godunov = imposedStatePlus[drFace];
         drm.fluxSolver = fluxSolverPlus[drFace];
