@@ -52,7 +52,8 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          Eigen::Vector3d kVec)
     : phase_(phase), kVec_(std::move(kVec)) {
 
-  if constexpr (model::MaterialT::Type == model::MaterialType::Acoustic) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Acoustic ||
+                model::MaterialT::Type == model::MaterialType::Viscoacoustic) {
     // Acoustic materials has the following wave modes:
     // P, N, N, -P
     // Here we impose the P mode
@@ -583,9 +584,9 @@ void seissol::physics::Ocean::evaluate(double time,
       }
     };
 
-    constexpr auto UIdx = model::MaterialT::TractionQuantities;
-    constexpr auto VIdx = model::MaterialT::TractionQuantities + 1;
-    constexpr auto WIdx = model::MaterialT::TractionQuantities + 2;
+    constexpr auto UIdx = model::MaterialT::VelocityOffset;
+    constexpr auto VIdx = model::MaterialT::VelocityOffset + 1;
+    constexpr auto WIdx = model::MaterialT::VelocityOffset + 2;
 
     if (mode_ == 0) {
       // Gravity mode

@@ -73,7 +73,8 @@ It shows that the hdf5 file consists of the 4 arrays: geometry, connect, group a
 Conventions
 -----------
 
-All tetrahedra need to have the same, positive orientation.
+SeisSol reorients each tetrahedron while reading the mesh, so the orientation of the tetrahedra in the file does not affect the simulation.
+For compatibility with earlier versions of SeisSol and with other tools, all tetrahedra should nevertheless have the same, positive orientation.
 
 Boundary Conditions
 -------------------

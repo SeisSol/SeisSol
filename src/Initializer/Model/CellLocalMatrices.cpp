@@ -292,6 +292,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             // part of the local flux solver; what is left of the boundary condition
             // is the displacement-driven offset
             kernel::foldFreeSurfaceGravity foldKrnl;
+            // fsgMap is a constant; only the pool holds it
+            foldKrnl.bindGlobals(seissol::Pool::host());
             foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
             foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
             foldKrnl.Tinv = matTinvData;

@@ -23,6 +23,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <iterator>
 #include <stdint.h>
 #include <utils/logger.h>
 #include <yateto.h>
@@ -43,12 +44,29 @@ GENERATE_HAS_MEMBER(I)
 
 namespace seissol::kernels {
 
+// The dynamic rupture families are indexed by the side and the face relation. Relation 0
+// addresses the plus side, relation 1 the minus side at a zero face orientation index, which the
+// canonical vertex numbering guarantees on every interior face.
+static_assert(std::size(dynamicRupture::kernel::nodalFlux::ExecutePtrs) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(
+    std::size(dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::ExecutePtrs) ==
+    Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2n::Size) == Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2nTWDivM::Size) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+
+#ifdef ACL_DEVICE
+static_assert(*seissol::recording::DrFaceRelations::Count ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+#endif
+
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
-  krnlPrototype_.V3mTo2n = global.onHost->faceToNodalMatrices;
+  krnlPrototype_.bindGlobals(*global.onHost);
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  gpuKrnlPrototype_.V3mTo2n = global.onDevice->faceToNodalMatrices;
-  gpuCombinedKrnlPrototype_.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  gpuKrnlPrototype_.bindGlobals(*global.onDevice);
+  gpuCombinedKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 
   timeKernel_.setGlobalData(global);
@@ -64,17 +82,16 @@ void DynamicRupture::spaceTimeInterpolation(
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
+
   // assert alignments
-#ifndef NDEBUG
   assert(timeDerivativePlus != nullptr);
   assert(timeDerivativeMinus != nullptr);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Vectorsize == 0);
   static_assert(tensor::Q::size() == tensor::I::size(),
                 "The tensors Q and I need to match in size");
-#endif
 
   alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
@@ -116,9 +133,9 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
   // interpolate all timesteps in a single kernel
 
-  runtime.envMany(16, [&](void* stream, size_t i) {
-    const auto side = i / 4;
-    const auto faceRelation = i % 4;
+  runtime.envMany(Cell::NumFaces * dr::misc::NumFaceRelations, [&](void* stream, size_t i) {
+    const auto side = i / dr::misc::NumFaceRelations;
+    const auto faceRelation = i % dr::misc::NumFaceRelations;
 
     ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
     if (table.find(minusSideKey) != table.end()) {

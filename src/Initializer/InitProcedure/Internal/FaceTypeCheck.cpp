@@ -8,6 +8,7 @@
 
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
 #include "Initializer/BasicTypedefs.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"

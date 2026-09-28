@@ -9,7 +9,6 @@
 #include "Common/Constants.h"
 #include "Common/Typedefs.h"
 #include "Config.h"
-#include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/LtsSetup.h"
@@ -19,8 +18,9 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 
-#include <array>
+#include <algorithm>
 #include <cstddef>
 #include <unordered_set>
 
@@ -29,6 +29,7 @@ struct Iane;
 struct Qext;
 struct dQext;
 struct dQane;
+struct Zinv;
 } // namespace seissol::tensor
 
 namespace seissol::initializer::internal {
@@ -110,7 +111,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    NodalDisplacementsSize * sizeof(real));
 
-    if constexpr (Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+    if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
       layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * kernels::size<tensor::Iane>() *
                                                sizeof(real));
       layer.setEntrySize<LTS::DerivativesExtScratch>(
@@ -132,10 +133,10 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
                                                    sizeof(real));
     }
 
-#ifdef USE_POROELASTIC
-    layer.setEntrySize<LTS::ZinvExtra>(layer.size() * yateto::computeFamilySize<tensor::Zinv>() *
-                                       sizeof(real));
-#endif
+    if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
+      layer.setEntrySize<LTS::ZinvExtra>(layer.size() * kernels::familySize<tensor::Zinv>() *
+                                         sizeof(real));
+    }
   }
 }
 

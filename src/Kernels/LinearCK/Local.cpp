@@ -54,38 +54,26 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
-  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-
-  nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
-
-  fsgFlux_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
-  dirichletFlux_.dirichletLift = global.onHost->dirichletLift;
+  volumeKernelPrototype_.bindGlobals(*global.onHost);
+  localFluxKernelPrototype_.bindGlobals(*global.onHost);
+  nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
+  fsgFlux_.bindGlobals(*global.onHost);
+  dirichletFlux_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  assert(global.onDevice != nullptr);
-
-  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
-#ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-  deviceLocalFluxAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-#else
-  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-  deviceLocalFluxAllKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-#endif
-
-  deviceFsgFlux_.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceDirichletFlux_.dirichletLift = global.onDevice->dirichletLift;
+  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxAllKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceFsgFlux_.bindGlobals(*global.onDevice);
+  deviceDirichletFlux_.bindGlobals(*global.onDevice);
 #endif
 }
 
 void Local::computeIntegral(
     real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
 
   const auto& materialData = data.get<LTS::Material>();
   const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
@@ -126,9 +114,6 @@ void Local::computeIntegral(
     // Include some boundary conditions here.
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::FreeSurfaceGravity: {
-      assert(cellBoundaryMapping != nullptr);
-      assert(materialData != nullptr);
-
       auto kernel = fsgFlux_;
       kernel.g2m = -2 * this->gravitationalAcceleration_;
 
@@ -350,7 +335,7 @@ void Local::evaluateBatchedTimeDependentBc(
 
             alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
-            assert(initConds != nullptr);
+            assert(initConds_ != nullptr);
             const ApplyAnalyticalSolution applyAnalyticalSolution(initConds_, data);
 
             analyticalBoundary_.evaluate(data.get<LTS::BoundaryMapping>()[face],

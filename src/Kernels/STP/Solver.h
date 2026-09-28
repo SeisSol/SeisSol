@@ -11,6 +11,7 @@
 #include "Kernels/Common.h"
 
 #include <cstddef>
+#include <variant>
 
 namespace seissol::numerical {
 template <typename>
@@ -30,6 +31,8 @@ namespace seissol::kernels::solver::stp {
 
 class Spacetime;
 class Time;
+
+struct STPLocalData;
 
 struct Solver {
   using SpacetimeKernelT = Spacetime;
@@ -51,6 +54,9 @@ struct Solver {
 
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor>();
+
+  using LocalData = STPLocalData;
+  using NeighborData = std::monostate;
 };
 
 } // namespace seissol::kernels::solver::stp

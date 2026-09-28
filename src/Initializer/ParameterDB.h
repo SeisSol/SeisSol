@@ -24,6 +24,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #ifdef USE_HDF
 #include <PUML/PUML.h>
@@ -56,7 +57,15 @@ struct CellToVertexArray {
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
-  static CellToVertexArray fromPUML(const seissol::geometry::PumlMesh& mesh);
+  /// The cells of a PUML mesh before PUMLReader::getMesh(), with their vertices in the given
+  /// (canonical) order rather than in the order of the mesh file. The array refers to
+  /// vertexOrders, which therefore has to outlive it.
+  static CellToVertexArray
+      fromPUML(const seissol::geometry::PumlMesh& mesh,
+               const std::vector<seissol::geometry::VertexOrder>& vertexOrders);
+  static CellToVertexArray
+      fromPUML(const seissol::geometry::PumlMesh& mesh,
+               std::vector<seissol::geometry::VertexOrder>&& vertexOrders) = delete;
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,

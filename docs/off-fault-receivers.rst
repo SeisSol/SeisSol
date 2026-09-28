@@ -26,9 +26,9 @@ commented example:
   RFileName = 'receivers.dat' ! Record Points in extra file
   /
 
-If `receiverFormat = 'csv'` (the default), each receiver trace is written to a separate `.dat` file. If `receiverFormat = 'hdf5'`,
-all receiver traces are combined into a single HDF5 output file (`-receivers.h5`). The HDF5 file includes attributes
-(`DimNames` and `VariableNames`) that define the array dimensions (Time, Receivers, Variables) and output quantities.
+If ``receiverFormat = 'csv'`` (the default), each receiver trace is written to a separate ``.dat``
+file. If ``receiverFormat = 'hdf5'``, all of them go into a single file, ``-receivers.h5``; see
+`The HDF5 receiver file`_ below for what it holds.
 
 If pickDtType = 2, the output is generated every N time steps, where N is
 set by pickdt. If pickDtType = 1, output is generated every pickdt
@@ -49,6 +49,78 @@ The receivers files contain the time-histories of the stress tensor (6 variables
 Currently, there is no way to write only a subset of these variables.
 
 The variable :code:`ReceiverOutputInterval` (in the section :code:`Output` of the :ref:`parameter-file`) controls the frequency of flushing receiver time-histories. If not specified, they are written at the end of the simulation.
+
+The HDF5 receiver file
+----------------------
+
+Everything sits under an HDF5 group named ``receivers``.
+
+What a receiver records follows from the material of the element it sits in, so
+not all of them record the same quantities. The receivers are therefore gathered
+into groups that share a quantity set, and each group becomes a dataset
+``group0``, ``group1``, ... of its own. A run in which every receiver records the
+same quantities -- the usual case -- has exactly one of them.
+
+A dataset is indexed by sample and by receiver:
+
+::
+
+  /receivers/group0        (samples, receivers)   compound
+
+One element is a whole sample of one receiver, as a compound whose members are
+the quantities: ``Time`` first, then the material quantities, then the derived
+ones if :code:`ReceiverComputeRotation` or :code:`ReceiverComputeStrainRate` are
+on. That is the same memory as a ``(sample, receiver, quantity)`` array of
+numbers, with the quantity axis named rather than numbered, so the names and the
+types come out of the file itself. All the samples of one receiver lie together,
+which is the access a post-processing step usually wants.
+
+Two attributes describe a dataset:
+
+``Quantities``
+  the quantity set it holds, in the form the grouping reads back
+
+``NumberOfPoints``
+  how many receivers it holds over all ranks
+
+Beside the datasets, and written once, are the columns describing the receivers,
+in the order the ranks contributed them:
+
+::
+
+  /receivers/Index         (receivers, 2)    group and row within that group
+  /receivers/PointId       (receivers,)      the receiver's line in the receiver file
+  /receivers/Coordinates   (receivers, 3)    where it sits
+
+The receivers are renumbered so that every rank owns one run of each group;
+``Index`` is what leads from a line of the receiver file back to the row of the
+dataset that holds it.
+
+With numpy and h5py, reading the trace of the receiver on line ``n`` of the
+receiver file is therefore:
+
+.. code-block:: python
+
+  import h5py
+
+  with h5py.File("output-receivers.h5") as f:
+      receivers = f["receivers"]
+      index = receivers["Index"][:]
+      row = (receivers["PointId"][:] == n).nonzero()[0][0]
+      group, column = index[row]
+      trace = receivers[f"group{group}"][:, column]
+      time = trace["Time"]
+      v1 = trace["v1"]
+
+Storage chunking
+~~~~~~~~~~~~~~~~
+
+How far a storage chunk reaches along the sample axis can be set with
+:code:`receiversamplechunk` in the :code:`Output` section; zero, the default,
+lets the writer take one write as one chunk. The chunking is settled when the
+file is created while the number of samples a write carries varies as soon as
+:code:`pickdt` does not divide :code:`ReceiverOutputInterval`, so a run that is
+read back sample-wise rather than receiver-wise may want it given.
 
 
 Rotational Output

@@ -11,18 +11,22 @@
 // IWYU pragma: begin_exports
 
 // Gather all Setup Headers here
-#include "Equations/acoustic/Model/AcousticSetup.h"
-#include "Equations/anisotropic/Model/AnisotropicSetup.h"
-#include "Equations/elastic/Model/ElasticSetup.h"
-#ifdef USE_POROELASTIC
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
+#ifdef SEISSOL_KERNELS_LINEARCK
+#include "Kernels/LinearCK/Setup.h"
 #endif
-#ifdef USE_VISCOELASTIC
-#include "Equations/viscoelastic/Model/ViscoelasticSetup.h"
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+#include "Kernels/LinearCKAnelastic/Setup.h"
 #endif
-#ifdef USE_VISCOELASTIC2
-#include "Equations/viscoelastic2/Model/ViscoelasticSetup.h"
+#ifdef SEISSOL_KERNELS_STP
+#include "Kernels/STP/Setup.h"
 #endif
+
+#include "Equations/acoustic/Model/Setup.h"
+#include "Equations/anisotropic/Model/Setup.h"
+#include "Equations/elastic/Model/Setup.h"
+#include "Equations/poroelastic/Model/Setup.h"
+#include "Equations/viscoacoustic/Model/Setup.h"
+#include "Equations/viscoelastic/Model/Setup.h"
 
 // IWYU pragma: end_exports
 

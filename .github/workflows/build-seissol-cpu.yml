@@ -37,7 +37,10 @@ jobs:
           - type: poroelastic
             multisim: 1
             mechanisms: 0
-          - type: viscoelastic2
+          - type: viscoelastic
+            multisim: 1
+            mechanisms: 3
+          - type: viscoacoustic
             multisim: 1
             mechanisms: 3
           - type: anisotropic
@@ -212,7 +215,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-visco
-            equation: viscoelastic2
+            equation: viscoelastic
             dispequation: viscoelastic-3
             multisim: 1
             energies: true
@@ -474,11 +477,13 @@ jobs:
       - name: check-volume
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.volume }}
         run: |
-          VOLUME_FILE=tpv.xdmf
+          # the wavefield output is named after what it holds; the references predate that
+          VOLUME_FILE=tpv-wavefield.xdmf
+          VOLUME_FILE_REF=tpv.xdmf
           EPSILON=0.05
 
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE} --epsilon ${EPSILON}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE_REF} --epsilon ${EPSILON}
       - name: check-surface
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.surface }}
         run: |

@@ -14,15 +14,15 @@ from yateto import Scalar, Tensor, simpleParameterSpace
 def addKernels(generator, aderdg, include_tensors, targets):
     maxDepth = 3
 
-    numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
-    numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
+    num3DBasisFunctions = aderdg.num3DBasisFunctions()
+    num2DBasisFunctions = aderdg.num2DBasisFunctions()
 
     faceDisplacement = OptionalDimTensor(
         "faceDisplacement",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOf2DBasisFunctions, 3),
+        (num2DBasisFunctions, 3),
         alignStride=True,
     )
     averageNormalDisplacement = OptionalDimTensor(
@@ -30,7 +30,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOf2DBasisFunctions,),
+        (num2DBasisFunctions,),
         alignStride=True,
     )
 
@@ -50,7 +50,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
     subTriangleProjection = [
         Tensor(
             "subTriangleProjection({})".format(depth),
-            (4**depth, numberOf3DBasisFunctions),
+            (4**depth, num3DBasisFunctions),
             alignStride=True,
         )
         for depth in range(maxDepth + 1)
@@ -58,7 +58,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
     subTriangleProjectionFromFace = [
         Tensor(
             "subTriangleProjectionFromFace({})".format(depth),
-            (4**depth, numberOf2DBasisFunctions),
+            (4**depth, num2DBasisFunctions),
             alignStride=True,
         )
         for depth in range(maxDepth + 1)
@@ -96,7 +96,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOf2DBasisFunctions, 3),
+        (num2DBasisFunctions, 3),
         alignStride=True,
     )
     for target in targets:
@@ -117,13 +117,13 @@ def addKernels(generator, aderdg, include_tensors, targets):
     )
     generator.addFamily("addVelocity", simpleParameterSpace(4), addVelocity)
 
-    numberOfQuadratureNodes = (aderdg.order + 1) ** 2
+    numQuadratureNodes = (aderdg.order + 1) ** 2
     rotatedFaceDisplacementAtQuadratureNodes = OptionalDimTensor(
         "rotatedFaceDisplacementAtQuadratureNodes",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfQuadratureNodes, 3),
+        (numQuadratureNodes, 3),
         alignStride=True,
     )
     generator.add(
@@ -134,6 +134,39 @@ def addKernels(generator, aderdg, include_tensors, targets):
         * displacementRotationMatrix["np"],
     )
 
+    # Explicit temporary: without it the two rotated-displacement factors carry
+    # different contraction indices and yateto cannot see that they are the same
+    # subexpression, so it recomputes the rotation for both.
+    faceDisplacementModal = OptionalDimTensor(
+        "faceDisplacementModal",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (num2DBasisFunctions, 3),
+        alignStride=True,
+        temporary=True,
+    )
+    faceDisplacementSquared = OptionalDimTensor(
+        "faceDisplacementSquared",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (3,),
+    )
+    generator.add(
+        "faceDisplacementSquaredCompute",
+        [
+            faceDisplacementModal["mn"]
+            <= aderdg.db.MV2nTo2m["mI"]
+            * rotatedFaceDisplacement["Ip"]
+            * displacementRotationMatrix["np"],
+            faceDisplacementSquared["n"]
+            <= aderdg.db.M2["ij"]
+            * faceDisplacementModal["in"]
+            * faceDisplacementModal["jn"],
+        ],
+    )
+
     if "gpu" in targets:
         name_prefix = generate_kernel_name_prefix(target="gpu")
 
@@ -142,7 +175,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
             aderdg.I.optName(),
             aderdg.I.optSize(),
             aderdg.I.optPos(),
-            (numberOf3DBasisFunctions, 3),
+            (num3DBasisFunctions, 3),
             alignStride=True,
         )
 
@@ -164,7 +197,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
         aderdg.INodal.optName(),
         aderdg.INodal.optSize(),
         aderdg.INodal.optPos(),
-        (aderdg.numberOf2DBasisFunctions(), 1),
+        (aderdg.num2DBasisFunctions(), 1),
         alignStride=True,
         temporary=True,
     )
@@ -173,7 +206,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOf2DBasisFunctions, 1),
+        (num2DBasisFunctions, 1),
         alignStride=True,
     )
     faceDisplacementTmp = OptionalDimTensor(
@@ -181,14 +214,14 @@ def addKernels(generator, aderdg, include_tensors, targets):
         aderdg.INodal.optName(),
         aderdg.INodal.optSize(),
         aderdg.INodal.optPos(),
-        (aderdg.numberOf2DBasisFunctions(), 3),
+        (aderdg.num2DBasisFunctions(), 3),
         alignStride=True,
         temporary=True,
     )
     # Number of displacement components that the Taylor series contributes to:
     # the normal one always, the two tangential ones only if the material
     # carries shear.
-    numberOfDisplacementComponents = 3 if aderdg.velocityOffset() > 1 else 1
+    numDisplacementComponents = 3 if aderdg.velocityOffset() > 1 else 1
 
     # Modal accumulators. The Taylor coefficients of eta are assembled in modal
     # space and evaluated at the face nodes once, at the end of the kernel.
@@ -197,7 +230,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOf3DBasisFunctions, 1),
+        (num3DBasisFunctions, 1),
         alignStride=True,
         temporary=True,
     )
@@ -206,7 +239,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOf3DBasisFunctions, numberOfDisplacementComponents),
+        (num3DBasisFunctions, numDisplacementComponents),
         alignStride=True,
         temporary=True,
     )
@@ -215,7 +248,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOf3DBasisFunctions, 1),
+        (num3DBasisFunctions, 1),
         alignStride=True,
         temporary=True,
     )
@@ -316,9 +349,9 @@ def addKernels(generator, aderdg, include_tensors, targets):
                         ]
 
             displacementTarget = faceDisplacementTmp["nq"]
-            if numberOfDisplacementComponents < 3:
+            if numDisplacementComponents < 3:
                 displacementTarget = displacementTarget.subslice(
-                    "q", 0, numberOfDisplacementComponents
+                    "q", 0, numDisplacementComponents
                 )
 
             kernel += [

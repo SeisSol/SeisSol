@@ -8,6 +8,7 @@
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
+from kernels.quantities import layout, total_extent
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.util import tensor_collection_from_constant_expression
 
@@ -25,13 +26,13 @@ def addKernels(
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (aderdg.numberOfQuantities(),),
+        (aderdg.numQuantities(),),
         alignStride=True,
     )
 
     dirichlet_map = Tensor(
         "dirichletMap",
-        (aderdg.numberOfQuantities(), aderdg.numberOfQuantities()),
+        (aderdg.numQuantities(), aderdg.numQuantities()),
         alignStride=False,
     )
 
@@ -42,20 +43,20 @@ def addKernels(
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (aderdg.numberOfQuantities(),),
+        (aderdg.numQuantities(),),
         alignStride=True,
     )
 
     dirichlet_map_global = Tensor(
         "dirichletMapGlobal",
-        (aderdg.numberOfQuantities(), aderdg.numberOfQuantities()),
+        (aderdg.numQuantities(), aderdg.numQuantities()),
         alignStride=False,
     )
 
     # The boundary condition acts on the quantities that enter the Riemann
     # problem, which is the leading block of the rotation for materials that
     # carry more quantities than that.
-    nq = aderdg.numberOfQuantities()
+    nq = aderdg.numQuantities()
 
     generator.add(
         "rotateBoundaryCondition",
@@ -79,14 +80,14 @@ def addKernels(
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (aderdg.numberOf2DBasisFunctions(),),
+        (aderdg.num2DBasisFunctions(),),
         alignStride=True,
     )
 
     g2m = Scalar("g2m")  # -2 * g
     dt = Scalar("dt")
 
-    main_stress_select = np.zeros(aderdg.numberOfQuantities())
+    main_stress_select = np.zeros(aderdg.numQuantities())
     main_stress_select[0:mainstresscnt] = 1.0
     main_stress_select = Tensor(
         "mainStressSelect", main_stress_select.shape, main_stress_select
@@ -96,7 +97,7 @@ def addKernels(
     # face-aligned basis and hence constant over the face. Folding it into the
     # local flux solver turns the boundary into an ordinary local flux; only the
     # displacement-driven offset is left over, and that one is rank one.
-    fsg_map = np.eye(aderdg.numberOfQuantities())
+    fsg_map = np.eye(aderdg.numQuantities())
     for i in range(mainstresscnt):
         fsg_map[i, i] = -1.0
     fsg_map = Tensor("fsgMap", fsg_map.shape, fsg_map)
@@ -106,8 +107,8 @@ def addKernels(
     # vector per face.
     face_node_sum = Tensor(
         "faceNodeSum",
-        (aderdg.numberOf2DBasisFunctions(),),
-        np.ones(aderdg.numberOf2DBasisFunctions()),
+        (aderdg.num2DBasisFunctions(),),
+        np.ones(aderdg.num2DBasisFunctions()),
     )
     dirichlet_lift = tensor_collection_from_constant_expression(
         base_name="dirichletLift",
@@ -117,12 +118,16 @@ def addKernels(
     )
     aderdg.db.update(dirichlet_lift)
 
-    fold_dirichlet = (
-        aderdg.AplusT["mp"]
-        <= aderdg.AplusT["mp"]
-        + aderdg.Tinv["bm"].subslice("b", 0, nq).subslice("m", 0, nq)
-        * dirichlet_map["ab"]
-        * aderdg.AminusT["ap"]
+    # The fold lands in the rows of the local flux solver, and only the
+    # quantities of the Riemann problem have rows there: a material that keeps
+    # its relaxation in Q (the fused anelastic solver) holds the rest
+    # structurally zero, so the map can only act on that block.
+    nr = total_extent(layout(aderdg.primaryGroups()))
+    fold_dirichlet = aderdg.AplusT["mp"].subslice("m", 0, nr) <= (
+        aderdg.AplusT["mp"].subslice("m", 0, nr)
+        + aderdg.Tinv["bm"].subslice("b", 0, nr).subslice("m", 0, nr)
+        * dirichlet_map["ab"].subslice("a", 0, nr).subslice("b", 0, nr)
+        * aderdg.AminusT["ap"].subslice("a", 0, nr)
     )
     generator.add("foldDirichlet", fold_dirichlet)
 
@@ -172,13 +177,17 @@ def addKernels(
         )
 
     # To be used as Tinv in flux solver - this way we can save two rotations
-    # for the Dirichlet boundary, as ghost cell dofs are already rotated
-    identity_rotation = np.double(aderdg.transformation_spp())
-    quantities = aderdg.numberOfQuantities()
+    # for the Dirichlet boundary, as ghost cell dofs are already rotated.
+    # It stands in for Tinv, so it has to be shaped like Tinv: the two need not
+    # agree, and where they do not, the flux solver would read this with the
+    # wrong stride.
+    inv_spp = aderdg.transformation_inv_spp()
+    identity_rotation = np.double(inv_spp)
+    quantities = min(aderdg.numQuantities(), inv_spp.shape[0])
     identity_rotation[0:quantities, 0:quantities] = np.eye(quantities)
     identity_rotation = Tensor(
         "identityT",
-        aderdg.transformation_spp().shape,
+        inv_spp.shape,
         identity_rotation,
     )
     include_tensors.add(identity_rotation)
@@ -188,7 +197,7 @@ def addKernels(
         aderdg.INodal.optName(),
         aderdg.INodal.optSize(),
         aderdg.INodal.optPos(),
-        (aderdg.numberOf2DBasisFunctions(), aderdg.numberOfQuantities()),
+        (aderdg.num2DBasisFunctions(), aderdg.numQuantities()),
         alignStride=True,
     )
 

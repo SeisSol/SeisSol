@@ -11,6 +11,7 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol::dr::output {
 class RateAndState : public ReceiverOutput {
@@ -38,16 +39,17 @@ class RateAndState : public ReceiverOutput {
     std::vector<std::size_t> failuresInner;
     std::vector<std::size_t> failuresOuter;
     for (std::size_t i = 0; i < misc::NumBoundaryGaussPoints; ++i) {
-      if (!inner[i]) {
+      const auto index = i * multisim::NumSimulations + local.fusedIndex;
+      if (!inner[index]) {
         failuresInner.push_back(i);
       }
-      if (!outer[i]) {
+      if (!outer[index]) {
         failuresOuter.push_back(i);
       }
     }
 
     if (!(failuresInner.empty() && failuresOuter.empty())) {
-      const auto* pointData = local.state->receiverPoints[local.index].global.coords;
+      const auto* pointData = local.state->receivers[local.index].global.coords;
       const std::array<double, 3> point{pointData[0], pointData[1], pointData[2]};
       auto& printWarning = *local.printWarning;
       if (!printWarning) {

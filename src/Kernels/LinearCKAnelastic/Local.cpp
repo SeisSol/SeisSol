@@ -28,41 +28,17 @@
 namespace seissol::kernels::solver::linearckanelastic {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
+  volumeKernelPrototype_.bindGlobals(*global.onHost);
+  localFluxKernelPrototype_.bindGlobals(*global.onHost);
 
-#ifndef NDEBUG
-  for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) % Alignment ==
-           0);
-  }
-  for (std::size_t flux = 0; flux < Cell::NumFaces; ++flux) {
-    assert(
-        (reinterpret_cast<uintptr_t>(global.onHost->localChangeOfBasisMatricesTransposed(flux))) %
-            Alignment ==
-        0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(flux))) % Alignment ==
-           0);
-  }
-#endif
-
-  volumeKernelPrototype_.kDivM = global.onHost->stiffnessMatrices;
-  localFluxKernelPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  localFluxKernelPrototype_.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-
-  fsgFlux_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
-  dirichletFlux_.dirichletLift = global.onHost->dirichletLift;
-  nodalLfKrnlPrototype_.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
+  fsgFlux_.bindGlobals(*global.onHost);
+  dirichletFlux_.bindGlobals(*global.onHost);
+  nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype_.kDivM = global.onDevice->stiffnessMatrices;
-#ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-  deviceFluxLocalAllKernelPrototype_.plusFluxMatrices = global.onDevice->plusFluxMatrices;
-#else
-  deviceLocalFluxKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-  deviceFluxLocalAllKernelPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceFluxLocalAllKernelPrototype_.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
-#endif
+  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceFluxLocalAllKernelPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -70,9 +46,9 @@ void Local::computeIntegral(
     real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
-  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
 #endif
 
   alignas(Alignment) real Qext[tensor::Qext::size()];
@@ -92,8 +68,8 @@ void Local::computeIntegral(
 
   volKrnl.execute();
 
-  const auto* cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
-  const auto& materialData = data.get<LTS::MaterialData>();
+  const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
+  const auto& materialData = data.get<LTS::Material>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
