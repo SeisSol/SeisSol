@@ -75,6 +75,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      ${FACTORED_STAR_PARAM}
      ${MATERIAL_NODAL_PARAM}
      "--material_operator" ${MATERIAL_OPERATOR}
+     "--material_projection" ${MATERIAL_PROJECTION}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"

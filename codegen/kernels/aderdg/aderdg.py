@@ -379,7 +379,35 @@ class ADERDGBase(ABC):
         points = material.tensors(self._matricesDir, self, kwargs["material_points"])
         self.materialEval = points["materialEval"]
         self.materialProject = points["materialProject"]
-        npoints = self.materialEval.shape()[0]
+        # the samples a cell carries its coefficients at
+        samples = self.materialEval.shape()[0]
+        # and the points the operator is formed at, with the matrices that read
+        # a field there and project what is formed back to the modes; where the
+        # two differ, the coefficients are carried to the operator's points
+        # once per kernel
+        (
+            self.operatorEval,
+            self.operatorProject,
+            self.materialToOperator,
+        ) = material.operatorTensors(
+            self._matricesDir,
+            self,
+            kwargs["material_points"],
+            kwargs.get("material_projection", material.PROJECTIONS[0]),
+        )
+        npoints = self.operatorEval.shape()[0]
+        # the same three under their own names in every nodal build, for the
+        # host to read whichever way the kernels form the operator
+        self.operatorExports = (
+            (self.operatorEval, self.operatorProject, self.materialToOperator)
+            if self.materialToOperator is not None
+            else material.operatorExports(
+                self._matricesDir,
+                self,
+                kwargs["material_points"],
+                kwargs.get("material_projection", material.PROJECTIONS[0]),
+            )
+        )
 
         # one structure per coefficient, written into the kernel as before
         perCoefficient = [
@@ -413,8 +441,11 @@ class ADERDGBase(ABC):
             for dim in range(3)
         ]
         self.nodalCoefficients = [
-            Tensor(f"nodalCoefficients({a})", (npoints,)) for a in range(count)
+            Tensor(f"nodalCoefficients({a})", (samples,)) for a in range(count)
         ]
+        self.nodalCoefficientsAtOperator = self.atOperatorPoints(
+            self.nodalCoefficients, "nodalCoefficientsAtOperator"
+        )
         quantities = starSpp.shape[0]
         self.nodalOperatorAssembled = (
             kwargs.get("material_operator", coefficients.OPERATOR_FORMS[0])
@@ -481,11 +512,12 @@ class ADERDGBase(ABC):
             )
             for a in range(count)
         ]
-        npoints = self.materialEval.shape()[0]
+        samples = self.materialEval.shape()[0]
+        npoints = self.operatorEval.shape()[0]
         self.sourceCoefficients = [
-            Tensor(f"sourceCoefficients({a})", (npoints,)) for a in range(count)
+            Tensor(f"sourceCoefficients({a})", (samples,)) for a in range(count)
         ]
-        # the field at the sample points, in whatever indices the source term
+        # the field at the operator's points, in whatever indices the source term
         # sums over -- the quantities, and the mechanisms where there are any --
         # and what the source makes of it. The second one is the source's own:
         # a solver may write fewer quantities here than its operator does, and
@@ -497,7 +529,7 @@ class ADERDGBase(ABC):
             "nodalSourceProduct", (npoints, shape[-1])
         )
         self.sourceDeviation = [
-            Tensor(f"sourceDeviation({a})", (npoints,))
+            Tensor(f"sourceDeviation({a})", (samples,))
             for a in range(self.sourceDeviationCount())
         ]
 
@@ -721,6 +753,13 @@ class ADERDGBase(ABC):
         if not getattr(self, "_singleDefinitions", False):
             return prototype
         self._definitionCount = getattr(self, "_definitionCount", 0) + 1
+        if not isinstance(prototype, OptionalDimTensor):
+            # per cell, so shared by the simulations a build bundles
+            return Tensor(
+                f"{prototype.name()}Once{self._definitionCount}",
+                prototype.shape(),
+                temporary=True,
+            )
         shape = tuple(
             extent
             for position, extent in enumerate(prototype.shape())
@@ -735,6 +774,28 @@ class ADERDGBase(ABC):
             temporary=True,
         )
 
+    def atOperatorPoints(self, samples, name):
+        """The temporaries that hold what `samples` says at the points the
+        operator is formed at, or `samples` itself where those are the sample
+        points."""
+        if self.materialToOperator is None:
+            return samples
+        points = self.operatorEval.shape()[0]
+        return [
+            Tensor(f"{name}({a})", (points,), temporary=True)
+            for a in range(len(samples))
+        ]
+
+    def interpolateToOperator(self, samples, targets):
+        """The statements that carry coefficients from the samples to the
+        points the operator is formed at; none where those coincide."""
+        if self.materialToOperator is None:
+            return []
+        return [
+            target["q"] <= self.materialToOperator["qn"] * sample["n"]
+            for sample, target in zip(samples, targets)
+        ]
+
     def nodalAssembly(self):
         """Folds the Jacobian rows into the structure, once per kernel.
 
@@ -746,7 +807,10 @@ class ADERDGBase(ABC):
         """
         if not self.nodalMaterial:
             return []
-        statements = [
+        statements = self.interpolateToOperator(
+            self.nodalCoefficients, self.nodalCoefficientsAtOperator
+        )
+        statements += [
             self.structureFolded[dim][a]["qp"]
             <= self.referenceGradients[dim]["j"] * self.coefficientStructure[a]["jqp"]
             for dim in range(3)
@@ -755,7 +819,7 @@ class ADERDGBase(ABC):
         if self.nodalOperatorAssembled:
             for dim in range(3):
                 folded = None
-                for a, coefficient in enumerate(self.nodalCoefficients):
+                for a, coefficient in enumerate(self.nodalCoefficientsAtOperator):
                     term = coefficient["n"] * self.structureFolded[dim][a]["qp"]
                     folded = term if folded is None else folded + term
                 statements.append(self.starAtPoint[dim]["nqp"] <= folded)
@@ -794,7 +858,7 @@ class ADERDGBase(ABC):
             values = self.definedOnce(valuesPrototype)
             statements.append(
                 values["nq" + spectator]
-                <= self.materialEval["nk"]
+                <= self.operatorEval["nk"]
                 * operators[dim][self.t("kl")]
                 * source["lq" + spectator]
             )
@@ -805,7 +869,7 @@ class ADERDGBase(ABC):
                     coefficient["n"]
                     * values["nq" + spectator]
                     * self.structureFolded[dim][a]["qp"]
-                    for a, coefficient in enumerate(self.nodalCoefficients)
+                    for a, coefficient in enumerate(self.nodalCoefficientsAtOperator)
                 ]
             for term in terms:
                 statements.append(
@@ -813,7 +877,7 @@ class ADERDGBase(ABC):
                     <= (term if first else product["np" + spectator] + term)
                 )
                 first = False
-        projected = self.materialProject["kn"] * product["np" + spectator]
+        projected = self.operatorProject["kn"] * product["np" + spectator]
         if scalar is not None:
             projected = scalar * projected
         statements.append(
@@ -862,9 +926,18 @@ class ADERDGBase(ABC):
         )
         values = self.definedOnce(values)
         product = self.definedOnce(product)
-        statements = [
+        # the coefficients at the operator's points, where those are not the
+        # samples: carried there at every call, since the scalars of a source
+        # term are few against what the term itself costs
+        atOperator = [
+            self.definedOnce(point)
+            for point in self.atOperatorPoints(coefficients, "sourceAtOperator")
+        ]
+        statements = self.interpolateToOperator(coefficients, atOperator)
+        coefficients = atOperator
+        statements += [
             values[contract + spectator]
-            <= self.materialEval["nk"] * source["k" + contract[1:] + spectator]
+            <= self.operatorEval["nk"] * source["k" + contract[1:] + spectator]
         ]
         first = True
         for a, coefficient in enumerate(coefficients):
@@ -878,7 +951,7 @@ class ADERDGBase(ABC):
                 <= (term if first else product["np" + spectator] + term)
             )
             first = False
-        projected = self.materialProject["kn"] * product["np" + spectator]
+        projected = self.operatorProject["kn"] * product["np" + spectator]
         if scalar is not None:
             projected = scalar * projected
         statements.append(
@@ -1124,6 +1197,9 @@ class ADERDGBase(ABC):
         # against, in every build, so it has to reach the generated code.
         for orientation in self.db.fP.values():
             include_tensors.add(orientation)
+        if self.nodalMaterial:
+            for tensor in self.operatorExports:
+                include_tensors.add(tensor)
         if self.nodalFaceFlux:
             include_tensors.add(self.db.M2)
             # the nodal flux is checked against the matrix form, which is

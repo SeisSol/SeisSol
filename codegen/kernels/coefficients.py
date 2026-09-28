@@ -619,6 +619,7 @@ def generate(
     solver_source_count: int = None,
     solver_source_deviations: int = None,
     material_samples: int = 1,
+    material_interpolates: bool = False,
     face_permutations=(),
     flux_blocks=(),
     flux_diagonal=None,
@@ -740,6 +741,10 @@ def generate(
         "// how many samples of the material a cell carries. One, where the\n",
         "// material does not vary inside a cell.\n",
         f"inline constexpr std::size_t MaterialSampleCount = {material_samples};\n",
+        "// whether the operator is formed at points other than the samples, which\n",
+        "// the samples then interpolate to\n",
+        "inline constexpr bool MaterialInterpolatesToOperator = "
+        f"{'true' if material_interpolates else 'false'};\n",
         "\n",
     ]
 

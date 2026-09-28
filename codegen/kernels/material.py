@@ -16,6 +16,7 @@ linear; the conical-product set integrates far beyond that and has no point on
 a face at all.
 """
 
+import numpy as np
 from kernels.multsim import OptionalDimTensor
 from yateto import Tensor, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
@@ -60,6 +61,91 @@ def tensors(matricesDir, aderdg, pointSet):
             ("materialProject", db.vInv),
         )
     }
+
+
+#: How the operator formed from the samples is projected back to the modes:
+#: at the sample points themselves (the interpolation through them), or at the
+#: points of a quadrature rule with its weights (the Galerkin projection).
+PROJECTIONS = ("quadrature", "collocation")
+
+
+def operatorPointSet(pointSet, projection):
+    """The point set the operator is formed at.
+
+    The conical-product set is a quadrature rule, so projecting from it is the
+    Galerkin projection whichever way it is asked for. The nodal set is not:
+    projecting from it interpolates the product of material and field through
+    the nodes, and for a material that varies inside the cell that product
+    has a degree the nodes cannot hold, so what falls outside aliases onto what
+    they can -- the scheme gains energy it should not. With the quadrature
+    projection the operator is formed at the conical-product points instead,
+    from the material the nodal samples interpolate there.
+    """
+    if projection not in PROJECTIONS:
+        raise ValueError(f"unknown material projection {projection}")
+    return "ip" if projection == "quadrature" else pointSet
+
+
+def operatorTensors(matricesDir, aderdg, pointSet, projection):
+    """The matrices the operator is formed and projected back with, and the
+    interpolation that takes the samples there where the two sets differ.
+
+    Where they coincide these are the sample set's own tensors, so nothing
+    changes for a build that forms the operator where it samples.
+    """
+    operatorSet = operatorPointSet(pointSet, projection)
+    if operatorSet == pointSet:
+        mats = tensors(matricesDir, aderdg, pointSet)
+        return mats["materialEval"], mats["materialProject"], None
+    return operatorExports(matricesDir, aderdg, pointSet, projection)
+
+
+def operatorExports(matricesDir, aderdg, pointSet, projection):
+    """The operator's matrices and the interpolation to its points, under
+    their own names in every build, so that the host can read them whether
+    or not the kernels do: where the operator is formed at the samples, they
+    are copies of the sample set's matrices and the identity."""
+    operatorSet = operatorPointSet(pointSet, projection)
+
+    ops = _db(matricesDir, operatorSet, aderdg.order, aderdg.alignStride)
+    samples = _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride)
+
+    def renamed(name, source):
+        return Tensor(
+            name,
+            source.shape(),
+            spp=dict(source.values()),
+            alignStride=aderdg.alignStride(name),
+        )
+
+    def dense(source):
+        matrix = np.zeros(source.shape())
+        for index, value in source.values().items():
+            matrix[index] = float(value)
+        return matrix
+
+    # the samples give a modal field, and the field has a value at every point;
+    # at the samples themselves that is the samples again
+    if operatorSet == pointSet:
+        interpolation = np.eye(samples.vNodes.shape()[0])
+    else:
+        interpolation = dense(ops.v) @ dense(samples.vInv)
+    interpolation[np.abs(interpolation) < 1e-14] = 0.0
+    toOperator = Tensor(
+        "materialToOperator",
+        interpolation.shape,
+        spp={
+            index: repr(float(value))
+            for index, value in np.ndenumerate(interpolation)
+            if value != 0.0
+        },
+        alignStride=aderdg.alignStride("materialToOperator"),
+    )
+    return (
+        renamed("operatorEval", ops.v),
+        renamed("operatorProject", ops.vInv),
+        toOperator,
+    )
 
 
 def pointCount(matricesDir, aderdg, pointSet):

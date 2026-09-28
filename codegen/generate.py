@@ -68,6 +68,12 @@ def main():
     )
     cmdLineParser.add_argument("--material_nodal", action="store_true", default=False)
     cmdLineParser.add_argument(
+        "--material_projection",
+        type=str,
+        choices=list(kernels.material.PROJECTIONS),
+        default=kernels.material.PROJECTIONS[0],
+    )
+    cmdLineParser.add_argument(
         "--material_operator",
         type=str,
         choices=list(kernels.coefficients.OPERATOR_FORMS),
@@ -274,6 +280,7 @@ def main():
         # the resolved point set, not the raw command line value
         cmdArgsDict["material_points"] = materialPoints
         cmdArgsDict["material_operator"] = cmdLineArgs.material_operator
+        cmdArgsDict["material_projection"] = cmdLineArgs.material_projection
 
         equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
 
@@ -455,6 +462,8 @@ def main():
             solver_source_count=solverSourceCoefficientCount,
             solver_source_deviations=solverSourceDeviationCount,
             material_samples=materialSampleCount,
+            material_interpolates=adgForTables.nodalMaterial
+            and getattr(adgForTables, "materialToOperator", None) is not None,
             face_permutations=kernels.material.faceOrientationPermutations(
                 cmdLineArgs.matricesDir, adgForTables
             ),
