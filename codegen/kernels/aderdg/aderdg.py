@@ -243,6 +243,13 @@ class ADERDGBase(ABC):
         shape = (self.numQuantities(), self.numQuantities())
         return np.ones(shape, dtype=bool)
 
+    def rusanovDiagonal(self):
+        """The quantities the Rusanov form puts its penalty on: the diagonal of
+        the Godunov state. A solver that folds the relaxation into its
+        quantities states the Godunov state over the elastic rows alone."""
+        spp = self.godunov_spp()
+        return [q for q in range(min(spp.shape)) if spp[q, q]]
+
     def flux_solver_spp(self):
         shape = (self.numQuantities(), self.numExtendedQuantities())
         return np.ones(shape, dtype=bool)
@@ -538,9 +545,9 @@ class ADERDGBase(ABC):
         extended = self.numExtendedQuantities()
         weights = voigt_weights(self.quantityBlocks())
 
-        # the Rusanov diagonal spans the square part of the Godunov state
+        # the Rusanov penalty sits on the diagonal the Godunov state stores
         names, self.fluxSources, entries = coefficients.flux_decomposition(
-            self.extendedBlocks(), self.QgodLocal.shape()[0]
+            self.extendedBlocks(), self.rusanovDiagonal()
         )
         count = len(names)
         self._fluxCoefficientCount = count

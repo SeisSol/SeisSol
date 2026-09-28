@@ -179,9 +179,13 @@ void fluxScalarsOfNode(const MaterialT& local,
   if (flux == parameters::NumericalFlux::Rusanov) {
     godLocal.setZero();
     godNeighbor.setZero();
+    // the diagonal the Godunov state has: a solver that folds the relaxation
+    // into its quantities keeps only the elastic rows of the state
     for (std::size_t i = 0; i < Diagonal; ++i) {
-      godLocal(i, i) = 0.5;
-      godNeighbor(i, i) = 0.5;
+      if (godLocal.isInRange(i, i)) {
+        godLocal(i, i) = 0.5;
+        godNeighbor(i, i) = 0.5;
+      }
     }
     correction = std::max(local.getMaxWaveSpeed(), neighbor.getMaxWaveSpeed()) * 0.5;
   } else {
@@ -199,7 +203,8 @@ void fluxScalarsOfNode(const MaterialT& local,
             value += g * a;
           }
           // Qcorr is the diagonal the Rusanov form adds, and zero otherwise
-          if (source.row == source.column && source.row < Diagonal) {
+          if (source.row == source.column && source.row < Diagonal &&
+              godunov.isInRange(source.row, source.row)) {
             value += correctionSign * correction;
           }
           target[c] = fluxScale * value;
@@ -416,11 +421,20 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
           auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
           auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
+          // Only the diagonal the Godunov state stores: a solver that folds the
+          // relaxation into its quantities keeps the elastic rows alone, and
+          // the views are that narrow.
           for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
                i++) {
-            centralFluxView(i, i) = 0.5;
-            rusanovPlusView(i, i) = wavespeed * 0.5;
-            rusanovMinusView(i, i) = -wavespeed * 0.5;
+            if (centralFluxView.isInRange(i, i)) {
+              centralFluxView(i, i) = 0.5;
+            }
+            if (rusanovPlusView.isInRange(i, i)) {
+              rusanovPlusView(i, i) = wavespeed * 0.5;
+            }
+            if (rusanovMinusView.isInRange(i, i)) {
+              rusanovMinusView(i, i) = -wavespeed * 0.5;
+            }
           }
 
           // check if we're on a face that has an adjacent cell with DR face

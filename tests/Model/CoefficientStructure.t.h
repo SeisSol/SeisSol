@@ -599,11 +599,21 @@ TEST_CASE("Flux decomposition") {
   const auto rusanovOperator = [&](const Material& local, const Material& neighbor, bool plus) {
     Matrix coefficientMatrix = Matrix::Zero();
     seissol::model::getTransposedCoefficientMatrix(local, 0, coefficientMatrix);
-    Matrix result = 0.5 * coefficientMatrix;
+    // the central state and the penalty cover the diagonal the Godunov state
+    // stores, which is the elastic rows alone where a solver folds the
+    // relaxation into its quantities
+    alignas(Alignment) std::array<real, seissol::tensor::QgodLocal::size()> stateData{};
+    const auto state = seissol::init::QgodLocal::view::create(stateData.data());
+    Square central = Square::Zero();
+    Matrix result = Matrix::Zero();
     const double penalty = 0.5 * std::max(local.getMaxWaveSpeed(), neighbor.getMaxWaveSpeed());
     for (std::size_t i = 0; i < std::min(N, Columns); ++i) {
-      result(i, i) += plus ? penalty : -penalty;
+      if (state.isInRange(i, i)) {
+        central(i, i) = 0.5;
+        result(i, i) += plus ? penalty : -penalty;
+      }
     }
+    result += central * coefficientMatrix;
     return result;
   };
 

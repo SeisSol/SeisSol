@@ -172,8 +172,8 @@ def flux_decomposition(blocks, diagonal=None):
     Coefficients that end up with no entry are dropped, so a layout gets exactly
     the scalars it has positions for.
 
-    The Rusanov form adds a penalty on the whole diagonal of the operator, up
-    to ``diagonal`` quantities -- including the ones the Godunov state never
+    The Rusanov form adds a penalty on the diagonal of the Godunov state --
+    ``diagonal`` names its positions -- including the ones the Godunov state never
     reads, the transverse stresses of a face say, which no scalar above has a
     position for. With ``diagonal`` given, those positions get one scalar of
     their own. It is zero for the Godunov flux, and the penalty for the
@@ -248,7 +248,7 @@ def flux_decomposition(blocks, diagonal=None):
         groups.append(
             (
                 "penalty",
-                tuple((q, q) for q in range(diagonal) if q not in covered),
+                tuple((q, q) for q in diagonal if q not in covered),
             )
         )
 
