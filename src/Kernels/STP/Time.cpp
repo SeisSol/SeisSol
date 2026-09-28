@@ -172,12 +172,11 @@ void Spacetime::computeBatchedAder(
 
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      krnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    // the operator in whichever shape the cells carry it
+    kernels::bindStarOperandsBatched(
+        krnl,
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.G);
     for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
