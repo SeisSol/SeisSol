@@ -361,11 +361,14 @@ class ADERDGBase(ABC):
             return
         # The nodal chain contracts the derivative matrices over the modes
         # that carry a derivative at all. At the lowest orders that range
-        # starts past the first stored row, where a CSC layout cannot be
-        # sliced; a layout by pattern can. It is not aligned: the kernels
-        # unroll the pattern, and the view the C++ side reads it through
-        # strides by the tensor's own rows, not by an aligned extent.
-        for derivative in self.db.kDivM.values():
+        # starts past the first stored row, or ends before the rows an aligned
+        # CSC layout pads to, and a CSC layout can be sliced at neither; a
+        # layout by pattern can. It is not aligned: the kernels unroll the
+        # pattern, and the view the C++ side reads it through strides by the
+        # tensor's own rows, not by an aligned extent. Both the derivative
+        # matrices and their transposes go that way, since the chain reads
+        # either depending on the solver.
+        for derivative in list(self.db.kDivM.values()) + list(self.db.kDivMT.values()):
             derivative.setMemoryLayout(PatternMemoryLayout, alignStride=False)
         # A face carries its operator as scalars only where that operator is
         # those scalars. Where it is not, the material still varies inside the
