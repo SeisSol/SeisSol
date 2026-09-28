@@ -17,7 +17,6 @@
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Instance/Geometry/Typedefs.h"
@@ -30,6 +29,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -497,15 +497,21 @@ void OutputManager::initPickpointOutput() {
                                      static_cast<std::uint32_t>(receiver.gpIndex),
                                      static_cast<real>(0.0));
 
-                seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+                constexpr auto Variant = kernels::RuntimeVariant;
+                const auto& face = outputData->topology.faces[faceId];
+                runtime::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
                 alignAlongDipAndStrikeKernel.stressRotationMatrix =
-                    outputData->topology.faces[faceId].stressGlbToDipStrikeAligned.data();
+                    runtime::init::stressRotationMatrix::view(
+                        Variant, face.stressGlbToDipStrikeAligned.data());
                 alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-                    outputData->topology.faces[faceId].stressFaceAlignedToGlb.data();
+                    runtime::init::reducedFaceAlignedMatrix::view(
+                        Variant, face.stressFaceAlignedToGlb.data());
 
-                alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
-                alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
-                alignAlongDipAndStrikeKernel.execute();
+                alignAlongDipAndStrikeKernel.initialStress =
+                    runtime::init::initialStress::view(Variant, unrotatedInitialStress.data());
+                alignAlongDipAndStrikeKernel.rotatedStress =
+                    runtime::init::rotatedStress::view(Variant, rotatedInitialStress.data());
+                alignAlongDipAndStrikeKernel.execute(Variant);
               }
 
               {
