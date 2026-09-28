@@ -82,7 +82,7 @@ void Neighbor::computeNeighborsIntegral(
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Vectorsize == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
-      drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
+      kernels::bindFaultFluxOperands(drKrnl, cellDrMapping[face].fluxSolver);
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Qext = Qext;
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
@@ -205,14 +205,30 @@ void Neighbor::computeBatchedNeighborsIntegral(
               const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
               drKrnl.numElements = numElements;
 
-              drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+              kernels::bindFaultFluxOperandsBatched(
+                  drKrnl,
+                  const_cast<const real**>(
+                      (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr()));
               drKrnl.QInterpolated = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
               drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
+              // the lift keeps a temporary where the face carries it per point
+              real* tmpMem = nullptr;
+              if constexpr (seissol::dynamicRupture::kernel::gpu_nodalFlux::
+                                TmpMaxMemRequiredInBytes > 0) {
+                tmpMem = reinterpret_cast<real*>(device.api->allocMemAsync(
+                    seissol::dynamicRupture::kernel::gpu_nodalFlux::TmpMaxMemRequiredInBytes *
+                        numElements,
+                    stream));
+                drKrnl.linearAllocator.initialize(tmpMem);
+              }
+
               drKrnl.streamPtr = stream;
               (drKrnl.*seissol::dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs[faceRelation])();
+              if (tmpMem != nullptr) {
+                device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+              }
             }
           }
         });

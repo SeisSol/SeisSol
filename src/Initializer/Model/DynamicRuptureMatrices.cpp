@@ -24,6 +24,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
+#include "Initializer/Model/FaultFlux.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
@@ -705,18 +706,32 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
-      dynamicRupture::kernel::rotateFluxMatrix krnl;
-      krnl.T = matTData;
+      const double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
+      const double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
+      if constexpr (NodalFaultFlux) {
+        // the lift of every point from the material there, as the impedances are
+        setPointwiseFaultFlux(
+            fluxSolverPlus[ltsFace], matTData, fluxScalePlus, plusAtPoints, *plusMaterial, bond);
+        setPointwiseFaultFlux(fluxSolverMinus[ltsFace],
+                              matTData,
+                              fluxScaleMinus,
+                              minusAtPoints,
+                              *minusMaterial,
+                              bond);
+      } else {
+        dynamicRupture::kernel::rotateFluxMatrix krnl;
+        krnl.T = matTData;
 
-      krnl.fluxSolver = fluxSolverPlus[ltsFace];
-      krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
-      krnl.star(0) = matAPlusData;
-      krnl.execute();
+        krnl.fluxSolver = fluxSolverPlus[ltsFace];
+        krnl.fluxScaleDR = fluxScalePlus;
+        krnl.star(0) = matAPlusData;
+        krnl.execute();
 
-      krnl.fluxSolver = fluxSolverMinus[ltsFace];
-      krnl.fluxScaleDR = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
-      krnl.star(0) = matAMinusData;
-      krnl.execute();
+        krnl.fluxSolver = fluxSolverMinus[ltsFace];
+        krnl.fluxScaleDR = fluxScaleMinus;
+        krnl.star(0) = matAMinusData;
+        krnl.execute();
+      }
     }
   }
 }

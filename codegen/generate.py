@@ -474,6 +474,7 @@ def main():
             flux_blocks=adgForTables.extendedBlocks(),
             flux_diagonal=adgForTables.rusanovDiagonal(),
             flux_decomposes=adgForTables.fluxDecomposes(),
+            fault_flux_indices=adgForTables.faultFluxCoefficients(),
         )
 
         forward_files("init.h")

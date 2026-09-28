@@ -13,6 +13,7 @@ from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
+from yateto.type import AddressingMode
 
 # The face relation index of a dynamic rupture face: 0 selects the plus side, 1 the minus side.
 # The minus side carries the face orientation index of the shared face, which the canonical
@@ -192,24 +193,32 @@ def addKernels(
             target=target,
         )
 
-    nodalFluxGenerator = (
-        lambda i, h: aderdg.extendedQTensor()["kp"]
-        <= aderdg.extendedQTensor()["kp"]
-        + db.V3mTo2nTWDivM[i, h][aderdg.t("kl")]
-        * QInterpolated["lq"]
-        * fluxSolver["qp"]
-    )
+    faultFlux = faultFluxTensors(aderdg, numPoints)
+    if faultFlux is None:
+        nodalFluxGenerator = (
+            lambda i, h: aderdg.extendedQTensor()["kp"]
+            <= aderdg.extendedQTensor()["kp"]
+            + db.V3mTo2nTWDivM[i, h][aderdg.t("kl")]
+            * QInterpolated["lq"]
+            * fluxSolver["qp"]
+        )
+    else:
+        nodalFluxGenerator = lambda i, h: pointwiseLift(
+            aderdg, faultFlux, QInterpolated, db.V3mTo2nTWDivM[i, h][aderdg.t("kl")]
+        )
     nodalFluxPrefetch = lambda i, h: aderdg.I
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        generator.addFamily(
-            f"{name_prefix}nodalFlux",
-            simpleParameterSpace(4, NumFaceRelations),
-            nodalFluxGenerator,
-            nodalFluxPrefetch if target == "cpu" else None,
-            target=target,
-        )
+        # a device kernel writes each temporary once, see singleDefinitions
+        with aderdg.singleDefinitions(target == "gpu"):
+            generator.addFamily(
+                f"{name_prefix}nodalFlux",
+                simpleParameterSpace(4, NumFaceRelations),
+                nodalFluxGenerator,
+                nodalFluxPrefetch if target == "cpu" else None,
+                target=target,
+            )
 
     # Energy output
     # Minus and plus refer to the original implementation of Christian Pelties,
@@ -380,6 +389,76 @@ def addKernels(
     )
 
     return {db.resample, db.quadpoints, db.quadweights}
+
+
+def faultFluxTensors(aderdg, numPoints):
+    """The operands of the lift where a fault face carries it per point.
+
+    The lift turns the imposed state of a side, given in the coordinates of the
+    face at its quadrature points, into what that side's cell receives: the
+    coefficient matrix of the fault normal applied to it, rotated back, and
+    projected into the cell. In face coordinates the matrix is the star of the
+    first direction, which is a handful of scalars times fixed entries -- the
+    decomposition the volume operator already reads. So a face carries those
+    scalars at each point, together with its rotation, instead of one matrix
+    per side that the rotation is folded into. Stored as scalars, a material
+    that varies along the face costs a few numbers per point, where a matrix
+    per point would cost the whole operator.
+
+    None where the face keeps the one matrix per side, which is wherever the
+    material does not vary inside a cell.
+    """
+    indices = aderdg.faultFluxCoefficients()
+    if not indices:
+        return None
+    starShape = aderdg.starMatrixSetup(0).shape()
+    structures = []
+    for position, coefficient in enumerate(indices):
+        values = {}
+        for entry in aderdg.solverCoefficientEntries():
+            if entry.dim == 0 and entry.coefficient == coefficient:
+                index = (entry.row, entry.column)
+                values[index] = values.get(index, 0.0) + entry.factor
+        structures.append(
+            Tensor(
+                f"faultFluxStructure({position})",
+                starShape,
+                spp={index: repr(float(value)) for index, value in values.items()},
+                addressing=AddressingMode.IMMEDIATE,
+            )
+        )
+    coefficients = [
+        Tensor(f"faultFluxCoefficients({position})", (numPoints,))
+        for position in range(len(indices))
+    ]
+    product = aderdg.nodalTemporary("faultFluxProduct", (numPoints, starShape[1]))
+    return {
+        "structures": structures,
+        "coefficients": coefficients,
+        "product": product,
+    }
+
+
+def pointwiseLift(aderdg, faultFlux, imposedState, lift):
+    """The statements of the lift where a face carries its scalars per point:
+    the operator at each point, in face coordinates, then the rotation back
+    and the projection into the cell."""
+    product = aderdg.definedOnce(faultFlux["product"])
+    statements = []
+    for position, coefficient in enumerate(faultFlux["coefficients"]):
+        term = (
+            coefficient["l"]
+            * imposedState["lq"]
+            * faultFlux["structures"][position]["qk"]
+        )
+        statements.append(
+            product["lk"] <= (term if position == 0 else product["lk"] + term)
+        )
+    target = aderdg.extendedQTensor()
+    statements.append(
+        target["kp"] <= target["kp"] + lift * product["lq"] * aderdg.T["pq"]
+    )
+    return statements
 
 
 def addKernelsGeneral(generator):

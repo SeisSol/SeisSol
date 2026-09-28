@@ -54,8 +54,9 @@ struct DynamicRupture {
   struct ImposedStatePlus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
   struct ImposedStateMinus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
   struct GodunovData : public initializer::Variable<DRGodunovData> {};
-  struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
-  struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
+  /// the lift of each side into its cell, see dr::FaultFluxLayout
+  struct FluxSolverPlus : public initializer::Variable<real[dr::FaultFluxLayout::Size]> {};
+  struct FluxSolverMinus : public initializer::Variable<real[dr::FaultFluxLayout::Size]> {};
   struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
   struct WaveSpeedsPlus : public initializer::Variable<seissol::dr::WaveSpeeds> {};
   struct WaveSpeedsMinus : public initializer::Variable<seissol::dr::WaveSpeeds> {};

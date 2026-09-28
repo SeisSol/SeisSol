@@ -320,6 +320,7 @@ class ADERDGBase(ABC):
         )
         self._solverCoefficientCount = count
         self._solverCoefficientOrigins = origins
+        self._solverCoefficientEntries = entries
         # a solver that keeps the mechanism index in a dimension of its own
         # carries a narrower star than the quantity count suggests, so take the
         # extents from the star itself
@@ -707,6 +708,33 @@ class ADERDGBase(ABC):
     def solverCoefficientOrigins(self):
         """Where each of those scalars comes from -- the material, or the run."""
         return getattr(self, "_solverCoefficientOrigins", [])
+
+    def solverCoefficientEntries(self):
+        """Where each of those scalars sits, per direction."""
+        return getattr(self, "_solverCoefficientEntries", [])
+
+    def faultFluxCoefficients(self):
+        """The scalars the lift of a fault face reads at each of its points.
+
+        The lift applies the coefficient matrix of the fault normal to the
+        imposed state, which the fault states in its own coordinates; there the
+        normal is the first direction, so the matrix is the star of that
+        direction, and the scalars are the ones with an entry in it. Where the
+        material varies inside a cell it varies along a fault too, and a face
+        then carries these scalars at its points in place of the one matrix per
+        side. Empty where the material does not vary, and the face keeps the
+        matrix. Given as indices into the scalars the solver's operator is
+        linear in.
+        """
+        if not getattr(self, "nodalMaterial", False):
+            return []
+        return sorted(
+            {
+                entry.coefficient
+                for entry in self.solverCoefficientEntries()
+                if entry.dim == 0
+            }
+        )
 
     def nodalTemporary(self, name, shape):
         """A temporary of the nodal path.

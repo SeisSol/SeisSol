@@ -9,20 +9,26 @@
 #define SEISSOL_TESTS_MODEL_FAULTFLUX_T_H_
 
 // The lift of a fault face takes the imposed state of a side, given in the coordinates of the
-// face, into the side's cell. Checked here: that the operator it applies is the flux of the fault
-// normal, whatever the orientation of the face and whatever the material.
+// face, into the side's cell. Two things are checked here: that the operator it applies is the
+// flux of the fault normal, whatever the orientation of the face and whatever the material; and
+// that where a face carries it per point, a material that does not vary gives back exactly what
+// the one matrix per side gives.
 
 #include <doctest.h>
 
 // the material builders live with the decomposition they were written for
 #include "CoefficientStructure.t.h" // IWYU pragma: keep
+#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/Model/FaultFlux.h"
 #include "Kernels/Precision.h"
+#include "Kernels/StarOperands.h"
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
@@ -163,9 +169,108 @@ inline void liftIsNormalFlux() {
   }
 }
 
+/// Makes the kernel operands dependent on a template parameter, so that a build whose face keeps
+/// one matrix per side never instantiates a body that names the operands of the pointwise form.
+template <bool Enabled>
+void pointwiseAgainstMatrix() {
+  if constexpr (Enabled && multisim::NumSimulations == 1) {
+    using Material = seissol::model::MaterialT;
+    constexpr std::size_t Basis = tensor::Q::Shape[0];
+    constexpr std::size_t Points = dr::misc::NumBoundaryGaussPoints;
+    constexpr std::size_t Quantities = tensor::QInterpolated::Shape[1];
+    constexpr std::size_t Written = tensor::fluxSolver::Shape[1];
+
+    std::mt19937 rng(20260929);
+    std::uniform_real_distribution<double> positive(0.4, 2.5);
+    std::normal_distribution<double> gauss(0.0, 1.0);
+
+    for (std::size_t sample = 0; sample < 4; ++sample) {
+      const auto material = coefficients::configuredMaterial<Material>(rng);
+      const auto frame = randomFrame(rng);
+
+      alignas(Alignment) std::array<real, tensor::T::size()> matT{};
+      alignas(Alignment) std::array<real, tensor::Tinv::size()> matTinv{};
+      auto viewT = init::T::view::create(matT.data());
+      auto viewTinv = init::Tinv::view::create(matTinv.data());
+      seissol::model::getFaceRotationMatrix(
+          frame.normal, frame.tangent1, frame.tangent2, viewT, viewTinv);
+      std::array<double, 36> bond{};
+      seissol::model::getBondMatrix(frame.normal, frame.tangent1, frame.tangent2, bond);
+
+      const double fluxScale = -0.37 * positive(rng);
+      const Eigen::MatrixXd lift = matrixForm(material, bond, matT.data(), fluxScale);
+
+      // the same material at every point
+      std::array<Material, dr::ImpedancePoints> atPoints{};
+      atPoints.fill(material);
+      alignas(Alignment) std::array<real, dr::FaultFluxLayout::Size> pointwise{};
+      seissol::initializer::setPointwiseFaultFlux(
+          pointwise.data(), matT.data(), fluxScale, atPoints, material, bond);
+
+      alignas(Alignment) std::array<real, tensor::QInterpolated::size()> imposed{};
+      for (auto& value : imposed) {
+        value = static_cast<real>(gauss(rng));
+      }
+      const auto viewImposed = init::QInterpolated::view::create(imposed.data());
+      Eigen::MatrixXd state = Eigen::MatrixXd::Zero(Points, Quantities);
+      for (std::size_t point = 0; point < Points; ++point) {
+        for (std::size_t quantity = 0; quantity < Quantities; ++quantity) {
+          state(point, quantity) = viewImposed(point, quantity);
+        }
+      }
+
+      const auto checkSide = [&](auto sideTag, auto relationTag) {
+        constexpr unsigned Side = decltype(sideTag)::value;
+        constexpr unsigned Relation = decltype(relationTag)::value;
+
+        alignas(Alignment) std::array<real, tensor::Q::size()> dofs{};
+        dynamicRupture::kernel::nodalFlux krnl{};
+        krnl.bindGlobals(seissol::Pool::host());
+        kernels::bindFaultFluxOperands(krnl, pointwise.data());
+        krnl.QInterpolated = imposed.data();
+        krnl.Q = dofs.data();
+        krnl.execute(Side, Relation);
+
+        constexpr auto Index = tensor::V3mTo2nTWDivM::index(Side, Relation);
+        const auto viewLift =
+            init::V3mTo2nTWDivM::view<Side, Relation>::create(init::V3mTo2nTWDivM::Values[Index]);
+        Eigen::MatrixXd project = Eigen::MatrixXd::Zero(Basis, Points);
+        for (std::size_t row = 0; row < Basis; ++row) {
+          for (std::size_t column = 0; column < Points; ++column) {
+            project(row, column) = viewLift(row, column);
+          }
+        }
+        const Eigen::MatrixXd expected = project * state * lift;
+
+        const auto viewDofs = init::Q::view::create(dofs.data());
+        constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
+        for (std::size_t column = 0; column < Written; ++column) {
+          const double scale = std::max(1.0, expected.col(column).cwiseAbs().maxCoeff());
+          for (std::size_t row = 0; row < Basis; ++row) {
+            REQUIRE(viewDofs(row, column) ==
+                    doctest::Approx(expected(row, column)).epsilon(Tolerance).scale(scale));
+          }
+        }
+      };
+      const auto forRelations = [&](auto sideTag) {
+        checkSide(sideTag, std::integral_constant<unsigned, 0>{});
+        checkSide(sideTag, std::integral_constant<unsigned, 1>{});
+      };
+      forRelations(std::integral_constant<unsigned, 0>{});
+      forRelations(std::integral_constant<unsigned, 1>{});
+      forRelations(std::integral_constant<unsigned, 2>{});
+      forRelations(std::integral_constant<unsigned, 3>{});
+    }
+  }
+}
+
 } // namespace faultflux
 
 TEST_CASE("The lift of a fault face is the flux of its normal") { faultflux::liftIsNormalFlux(); }
+
+TEST_CASE("Pointwise fault lift against the matrix form") {
+  faultflux::pointwiseAgainstMatrix<NodalFaultFlux>();
+}
 
 } // namespace seissol::unit_test
 

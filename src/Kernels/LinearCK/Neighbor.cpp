@@ -101,7 +101,7 @@ void Neighbor::computeNeighborsIntegral(
       assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Vectorsize == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
-      drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
+      kernels::bindFaultFluxOperands(drKrnl, cellDrMapping[face].fluxSolver);
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Q = data.get<LTS::Dofs>();
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
@@ -178,8 +178,10 @@ void Neighbor::computeBatchedNeighborsIntegral(
               const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
               drKrnl.numElements = numElements;
 
-              drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+              kernels::bindFaultFluxOperandsBatched(
+                  drKrnl,
+                  const_cast<const real**>(
+                      (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr()));
               drKrnl.QInterpolated = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
               drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();

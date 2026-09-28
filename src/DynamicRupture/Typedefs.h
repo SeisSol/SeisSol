@@ -100,6 +100,46 @@ struct WaveSpeedsOf {
 
 using WaveSpeeds = WaveSpeedsOf<PointwiseImpedances>;
 
+namespace internal {
+/// A count of reals rounded up to the vector width.
+constexpr std::size_t paddedToVector(std::size_t count) {
+  constexpr std::size_t Width = Alignment / sizeof(real);
+  return (count + Width - 1) / Width * Width;
+}
+} // namespace internal
+
+/**
+ * How a fault face stores the lift of one side: the operator that takes the imposed state of that
+ * side, given in the coordinates of the face at its quadrature points, into the side's cell.
+ *
+ * Where the material does not vary inside a cell, that is one matrix, fluxSolver, with the scale
+ * of the side and the rotation back to global coordinates folded in. Where it does, the operator
+ * differs from point to point; the face then stores its rotation once and, for every point, the
+ * scalars the coefficient matrix of the fault normal is linear in, scaled. Each block starts at a
+ * multiple of the vector width.
+ */
+struct FaultFluxLayout {
+  /// Where the rotation starts, in reals.
+  static constexpr std::size_t RotationOffset = 0;
+
+  /// Where the scalars of the first coefficient start.
+  static constexpr std::size_t CoefficientsOffset = internal::paddedToVector(tensor::T::size());
+
+  /// How far apart the scalars of two coefficients are.
+  static constexpr std::size_t CoefficientStride =
+      internal::paddedToVector(misc::NumBoundaryGaussPoints);
+
+  /// Where the scalars of one coefficient start, one per quadrature point of the face.
+  static constexpr std::size_t coefficientOffset(std::size_t coefficient) {
+    return CoefficientsOffset + coefficient * CoefficientStride;
+  }
+
+  /// How many reals the lift of one side takes.
+  static constexpr std::size_t Size =
+      NodalFaultFlux ? CoefficientsOffset + FaultFluxCoefficientCount * CoefficientStride
+                     : tensor::fluxSolver::size();
+};
+
 /**
  * One matrix of the Riemann problem, read at a point of the fault. The
  * counterpart of PointScalar for the quantities that are not scalars; a point

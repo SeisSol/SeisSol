@@ -63,6 +63,14 @@ constexpr std::size_t FluxFaceNodes = generated::FaceNodes;
 /// face keeps the one operator per side that is built from the cell's material.
 constexpr bool NodalFlux = NodalMaterial && FluxCoefficientCount > 0;
 
+/// How many scalars the lift of a fault face reads at each quadrature point of
+/// it, and whether it does. The lift is the coefficient matrix of the fault
+/// normal, which is a handful of scalars of the face in its own coordinates
+/// for every material, so where the material varies inside a cell a fault face
+/// carries those at its points; otherwise it carries one matrix per side.
+constexpr std::size_t FaultFluxCoefficientCount = generated::FaultFluxNumCoefficients;
+constexpr bool NodalFaultFlux = NodalMaterial && FaultFluxCoefficientCount > 0;
+
 } // namespace seissol
 
 #endif // SEISSOL_SRC_MODEL_OPERATORLAYOUT_H_

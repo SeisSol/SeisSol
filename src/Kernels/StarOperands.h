@@ -10,6 +10,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Offset.h"
+#include "DynamicRupture/Typedefs.h"
 #include "Equations/Setup.h"
 #include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/tensor.h"
@@ -278,6 +279,38 @@ void bindNeighborFluxOperandsBatched(KernelT& krnl,
     SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
     krnl.AminusT = neighboringIntegrationPtrs;
     krnl.extraOffset_AminusT = SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+  }
+}
+
+/// Hands the lift of a fault face the operator of one side, in whichever of the two shapes the
+/// face stores it (see dr::FaultFluxLayout): the rotation of the face together with the scalars
+/// at its points, or the matrix the two fold into.
+template <typename KernelT>
+void bindFaultFluxOperands(KernelT& krnl, const real* fluxSolver) {
+  if constexpr (NodalFaultFlux) {
+    krnl.T = fluxSolver + dr::FaultFluxLayout::RotationOffset;
+    for (std::size_t coefficient = 0; coefficient < FaultFluxCoefficientCount; ++coefficient) {
+      krnl.faultFluxCoefficients(coefficient) =
+          fluxSolver + dr::FaultFluxLayout::coefficientOffset(coefficient);
+    }
+  } else {
+    krnl.fluxSolver = fluxSolver;
+  }
+}
+
+/// The same for a batch, where the operands are offsets into what each face stores.
+template <typename KernelT>
+void bindFaultFluxOperandsBatched(KernelT& krnl, const real** fluxSolvers) {
+  if constexpr (NodalFaultFlux) {
+    krnl.T = fluxSolvers;
+    krnl.extraOffset_T = dr::FaultFluxLayout::RotationOffset;
+    for (std::size_t coefficient = 0; coefficient < FaultFluxCoefficientCount; ++coefficient) {
+      krnl.faultFluxCoefficients(coefficient) = fluxSolvers;
+      krnl.extraOffset_faultFluxCoefficients(coefficient) =
+          dr::FaultFluxLayout::coefficientOffset(coefficient);
+    }
+  } else {
+    krnl.fluxSolver = fluxSolvers;
   }
 }
 

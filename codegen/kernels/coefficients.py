@@ -624,6 +624,7 @@ def generate(
     flux_blocks=(),
     flux_diagonal=None,
     flux_decomposes: bool = True,
+    fault_flux_indices=(),
 ) -> None:
     """Write the declarations of every material into a C++ header.
 
@@ -736,6 +737,24 @@ def generate(
             for name in flux_names
         ],
     )
+
+    lines += [
+        "// the scalars the lift of a fault face reads at each of its points, as\n",
+        "// indices into the scalars the solver's operator is linear in. None,\n",
+        "// where a fault face carries one matrix per side instead.\n",
+        "inline constexpr std::size_t FaultFluxNumCoefficients = "
+        f"{len(fault_flux_indices)};\n",
+    ]
+    if fault_flux_indices:
+        lines += _table(
+            "std::size_t",
+            "FaultFluxCoefficientIndices",
+            [str(index) for index in fault_flux_indices],
+        )
+    else:
+        lines.append(
+            "inline constexpr std::array<std::size_t, 0> FaultFluxCoefficientIndices{};\n\n"
+        )
 
     lines += [
         "// how many samples of the material a cell carries. One, where the\n",
