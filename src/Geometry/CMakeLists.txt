@@ -7,6 +7,7 @@
 
 add_library(seissol-geometry OBJECT
     CellTransform.cpp
+    FaceTransform.cpp
     MeshReader.cpp
     MeshTools.cpp
     PartitioningLib.cpp
