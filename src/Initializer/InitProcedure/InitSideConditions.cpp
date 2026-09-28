@@ -57,7 +57,6 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
     logInfo() << "Loading the initial condition from the easi file" << initConditionParams.filename;
     seissol::initializer::projectEasiInitialField({initConditionParams.filename},
-                                                  *memoryManager.globalData().onHost,
                                                   seissolInstance.meshReader(),
                                                   memoryManager.ltsStorage(),
                                                   initConditionParams.hasTime);
@@ -65,10 +64,8 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
     auto initConditions = buildInitialConditionList(seissolInstance);
     if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero &&
         !initConditionParams.avoidIC) {
-      seissol::initializer::projectInitialField(initConditions,
-                                                *memoryManager.globalData().onHost,
-                                                seissolInstance.meshReader(),
-                                                memoryManager.ltsStorage());
+      seissol::initializer::projectInitialField(
+          initConditions, seissolInstance.meshReader(), memoryManager.ltsStorage());
     }
     memoryManager.setInitialConditions(std::move(initConditions));
   }

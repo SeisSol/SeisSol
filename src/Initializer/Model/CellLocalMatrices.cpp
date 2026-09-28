@@ -13,8 +13,6 @@
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
-#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -27,6 +25,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
@@ -71,6 +70,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  const parameters::ModelParameters& modelParameters) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
+  constexpr auto Variant = kernels::RuntimeVariant;
 
   static_assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0],
                 "Shape mismatch for flux matrices");
@@ -239,65 +239,71 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
-          kernel::computeFluxSolverLocal localKrnl;
+          runtime::kernel::computeFluxSolverLocal localKrnl;
           localKrnl.fluxScale = fluxScale;
-          localKrnl.AplusT = localIntegration[cell].nApNm1[side];
+          localKrnl.AplusT =
+              runtime::init::AplusT::view(Variant, localIntegration[cell].nApNm1[side]);
           if (cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture) {
             localKrnl.fluxScale = 0;
           }
           if (flux == parameters::NumericalFlux::Rusanov) {
-            localKrnl.QgodLocal = centralFluxData;
-            localKrnl.QcorrLocal = rusanovPlusData;
+            localKrnl.QgodLocal = runtime::init::QgodLocal::view(Variant, centralFluxData);
+            localKrnl.QcorrLocal = runtime::init::QcorrLocal::view(Variant, rusanovPlusData);
           } else {
-            localKrnl.QgodLocal = qGodLocalData;
-            localKrnl.QcorrLocal = rusanovPlusNull;
+            localKrnl.QgodLocal = runtime::init::QgodLocal::view(Variant, qGodLocalData);
+            localKrnl.QcorrLocal = runtime::init::QcorrLocal::view(Variant, rusanovPlusNull);
           }
-          localKrnl.T = matTData;
-          localKrnl.Tinv = matTinvData;
-          localKrnl.star(0) = matATtildeData;
-          localKrnl.execute();
+          localKrnl.T = runtime::init::T::view(Variant, matTData);
+          localKrnl.Tinv = runtime::init::Tinv::view(Variant, matTinvData);
+          localKrnl.star(0) = runtime::init::star::view(Variant, 0, matATtildeData);
+          localKrnl.execute(Variant);
 
-          kernel::computeFluxSolverNeighbor neighKrnl;
+          runtime::kernel::computeFluxSolverNeighbor neighKrnl;
           neighKrnl.fluxScale = fluxScale;
-          neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+          neighKrnl.AminusT =
+              runtime::init::AminusT::view(Variant, neighboringIntegration[cell].nAmNm1[side]);
           if (flux == parameters::NumericalFlux::Rusanov) {
-            neighKrnl.QgodNeighbor = centralFluxData;
-            neighKrnl.QcorrNeighbor = rusanovMinusData;
+            neighKrnl.QgodNeighbor = runtime::init::QgodNeighbor::view(Variant, centralFluxData);
+            neighKrnl.QcorrNeighbor = runtime::init::QcorrNeighbor::view(Variant, rusanovMinusData);
           } else {
-            neighKrnl.QgodNeighbor = qGodNeighborData;
-            neighKrnl.QcorrNeighbor = rusanovMinusNull;
+            neighKrnl.QgodNeighbor = runtime::init::QgodNeighbor::view(Variant, qGodNeighborData);
+            neighKrnl.QcorrNeighbor = runtime::init::QcorrNeighbor::view(Variant, rusanovMinusNull);
           }
-          neighKrnl.T = matTData;
-          neighKrnl.Tinv = matTinvData;
-          neighKrnl.star(0) = matATtildeData;
+          neighKrnl.T = runtime::init::T::view(Variant, matTData);
+          neighKrnl.Tinv = runtime::init::Tinv::view(Variant, matTinvData);
+          neighKrnl.star(0) = runtime::init::star::view(Variant, 0, matATtildeData);
           if (boundaryProperties(cellInformation[cell].faceTypes[side]).usesFaceAlignedGhostState) {
-            neighKrnl.Tinv = init::identityT::Values;
+            // the identity, in the layout it has as a tensor of its own
+            neighKrnl.Tinv = runtime::init::identityT::view(Variant, init::identityT::Values);
           }
-          neighKrnl.execute();
+          neighKrnl.execute(Variant);
 
           if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
             // the Dirichlet map is constant over the face, so it becomes part of
             // the local flux solver; what is left of the boundary condition is
             // the constant offset
-            kernel::foldDirichlet foldKrnl;
-            foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
-            foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-            foldKrnl.Tinv = matTinvData;
-            foldKrnl.dirichletMap = boundaryMapping[cell][side].dirichletMap;
-            foldKrnl.execute();
+            runtime::kernel::foldDirichlet foldKrnl;
+            foldKrnl.AplusT =
+                runtime::init::AplusT::view(Variant, localIntegration[cell].nApNm1[side]);
+            foldKrnl.AminusT =
+                runtime::init::AminusT::view(Variant, neighboringIntegration[cell].nAmNm1[side]);
+            foldKrnl.Tinv = runtime::init::Tinv::view(Variant, matTinvData);
+            foldKrnl.dirichletMap = runtime::init::dirichletMap::view(
+                Variant, boundaryMapping[cell][side].dirichletMap);
+            foldKrnl.execute(Variant);
           }
 
           if (cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
             // the free-surface-gravity map is constant over the face, so it becomes
             // part of the local flux solver; what is left of the boundary condition
             // is the displacement-driven offset
-            kernel::foldFreeSurfaceGravity foldKrnl;
-            // fsgMap is a constant; only the pool holds it
-            foldKrnl.bindGlobals(seissol::Pool::host());
-            foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
-            foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-            foldKrnl.Tinv = matTinvData;
-            foldKrnl.execute();
+            runtime::kernel::foldFreeSurfaceGravity foldKrnl;
+            foldKrnl.AplusT =
+                runtime::init::AplusT::view(Variant, localIntegration[cell].nApNm1[side]);
+            foldKrnl.AminusT =
+                runtime::init::AminusT::view(Variant, neighboringIntegration[cell].nAmNm1[side]);
+            foldKrnl.Tinv = runtime::init::Tinv::view(Variant, matTinvData);
+            foldKrnl.execute(Variant);
           }
         }
 
