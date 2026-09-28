@@ -31,6 +31,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -42,6 +43,8 @@ TEST_CASE("Material at the points of a fault") {
   constexpr std::size_t Modes = tensor::materialProject::Shape[0];
   // one matrix per side and face relation of a dynamic rupture face
   constexpr std::size_t Groups = Cell::NumFaces * dr::misc::NumFaceRelations;
+  // what the folds may be off by, which follows the precision they are stored in
+  constexpr double Tolerance = std::is_same_v<real, double> ? 1e-12 : 1e-5;
 
   // The folds below are stated in the orientation the mathematics has. A build
   // that bundles simulations stores whatever comes from a matrix file the other
@@ -106,7 +109,7 @@ TEST_CASE("Material at the points of a fault") {
           }
           const double scale = std::max(1.0, std::abs(expected));
           REQUIRE(folded[point * Samples + sample] ==
-                  doctest::Approx(expected).epsilon(1e-12).scale(scale));
+                  doctest::Approx(expected).epsilon(Tolerance).scale(scale));
         }
       }
     }
@@ -137,7 +140,7 @@ TEST_CASE("Material at the points of a fault") {
         atFault.fill(0.0);
         krnl.execute(side, relation);
         for (std::size_t point = 0; point < FaultPoints * multisim::NumSimulations; ++point) {
-          REQUIRE(atFault[point] == doctest::Approx(Value).epsilon(1e-12));
+          REQUIRE(atFault[point] == doctest::Approx(Value).epsilon(Tolerance));
         }
       }
     }

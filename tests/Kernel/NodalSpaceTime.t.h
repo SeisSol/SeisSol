@@ -41,6 +41,7 @@
 #include <cmath>
 #include <cstddef>
 #include <random>
+#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -317,7 +318,7 @@ TEST_CASE("Space time predictor at the material samples" * doctest::test_suite("
       // block sweep it replaces and it is exact. One that varies leaves what it
       // has not caught up with, and every step of the iteration carries one
       // more factor of how far the samples are from the cell.
-      const double bar = variation > 0.0 ? 1e-4 : 1e-12;
+      const double bar = variation > 0.0 ? 1e-4 : (std::is_same_v<real, double> ? 1e-12 : 1e-5);
       INFO("variation " << variation << ", relative residual " << relative << ", deviation term "
                         << deviationRelative);
       REQUIRE(relative < bar);

@@ -19,6 +19,7 @@
 #include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/ModelParameters.h"
+#include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/OperatorLayout.h"
@@ -35,6 +36,12 @@
 namespace seissol::unit_test {
 
 namespace coefficients {
+
+/// The bar a comparison of values that went through `real` can be held to:
+/// the given one where real is double, and one fit for float otherwise.
+constexpr double tolerance(double inDouble) {
+  return std::is_same_v<real, double> ? inDouble : 1e-5;
+}
 
 /// The coefficient matrix as the declared decomposition builds it.
 template <typename MaterialT, std::size_t N>
@@ -565,8 +572,8 @@ TEST_CASE("Flux decomposition") {
                                const Material& neighbor,
                                bool plus,
                                seissol::FaceType faceType) {
-    alignas(Alignment) std::array<double, seissol::tensor::QgodLocal::size()> localData{};
-    alignas(Alignment) std::array<double, seissol::tensor::QgodNeighbor::size()> neighborData{};
+    alignas(Alignment) std::array<real, seissol::tensor::QgodLocal::size()> localData{};
+    alignas(Alignment) std::array<real, seissol::tensor::QgodNeighbor::size()> neighborData{};
     auto godLocal = seissol::init::QgodLocal::view::create(localData.data());
     auto godNeighbor = seissol::init::QgodNeighbor::view::create(neighborData.data());
     seissol::model::getTransposedGodunovState(local, neighbor, faceType, godLocal, godNeighbor);
@@ -613,8 +620,9 @@ TEST_CASE("Flux decomposition") {
         const double scale = std::max(1.0, reference.cwiseAbs().maxCoeff());
         for (std::size_t row = 0; row < N; ++row) {
           for (std::size_t column = 0; column < Columns; ++column) {
-            REQUIRE(candidate(row, column) ==
-                    doctest::Approx(reference(row, column)).epsilon(1e-14).scale(scale));
+            REQUIRE(candidate(row, column) == doctest::Approx(reference(row, column))
+                                                  .epsilon(coefficients::tolerance(1e-14))
+                                                  .scale(scale));
           }
         }
       }
@@ -656,23 +664,20 @@ TEST_CASE("Face orientation renumbering") {
     return matrix;
   };
 
-  const auto nodalToModal = dense(seissol::nodal::init::MV2nTo2m::view::create(
-                                      const_cast<double*>(seissol::nodal::init::MV2nTo2m::Values)),
-                                  Nodes,
-                                  Nodes);
+  const auto nodalToModal =
+      dense(seissol::nodal::init::MV2nTo2m::view::create(seissol::nodal::init::MV2nTo2m::Values),
+            Nodes,
+            Nodes);
   // the way back is its inverse; only the one direction is generated
   const Eigen::MatrixXd modalToNodal = nodalToModal.inverse();
   const auto massInverse =
-      dense(seissol::init::M2inv::view::create(const_cast<double*>(seissol::init::M2inv::Values)),
-            Nodes,
-            Nodes);
+      dense(seissol::init::M2inv::view::create(seissol::init::M2inv::Values), Nodes, Nodes);
 
   REQUIRE(seissol::generated::FaceOrientations == 3);
   const auto check = [&](auto tag) {
     constexpr unsigned Orientation = decltype(tag)::value;
     const auto facePermutation =
-        dense(seissol::init::fP::view<Orientation>::create(
-                  const_cast<double*>(seissol::init::fP::Values[Orientation])),
+        dense(seissol::init::fP::view<Orientation>::create(seissol::init::fP::Values[Orientation]),
               Nodes,
               Nodes);
     const std::size_t orientation = Orientation;
@@ -689,7 +694,8 @@ TEST_CASE("Face orientation renumbering") {
     for (std::size_t row = 0; row < Nodes; ++row) {
       for (std::size_t column = 0; column < Nodes; ++column) {
         INFO("orientation " << orientation << " at (" << row << "," << column << ")");
-        REQUIRE(atNodes(row, column) == doctest::Approx(expected(row, column)).epsilon(1e-10));
+        REQUIRE(atNodes(row, column) ==
+                doctest::Approx(expected(row, column)).epsilon(coefficients::tolerance(1e-10)));
       }
     }
   };
@@ -726,8 +732,9 @@ TEST_CASE("Source assembly from coefficients") {
 
       const double scale = std::max(1.0, coefficients::largest(referenceData));
       for (std::size_t i = 0; i < referenceData.size(); ++i) {
-        REQUIRE(candidateData.at(i) ==
-                doctest::Approx(referenceData.at(i)).epsilon(1e-13).scale(scale));
+        REQUIRE(candidateData.at(i) == doctest::Approx(referenceData.at(i))
+                                           .epsilon(coefficients::tolerance(1e-13))
+                                           .scale(scale));
       }
     }
   }
@@ -746,14 +753,14 @@ TEST_CASE("Star assembly from coefficients") {
 
       // what CellLocalMatrices builds today: the three directional matrices,
       // each scaled by its row of the Jacobian
-      std::array<std::array<double, seissol::tensor::star::size(0)>, 3> directional{};
+      std::array<std::array<real, seissol::tensor::star::size(0)>, 3> directional{};
       for (unsigned dim = 0; dim < 3; ++dim) {
         auto view = seissol::init::star::view<0>::create(directional.at(dim).data());
         seissol::model::MaterialSetup<
             seissol::model::ElasticMaterial>::getTransposedCoefficientMatrix(material, dim, view);
       }
 
-      std::array<double, seissol::tensor::star::size(0)> assembledData{};
+      std::array<real, seissol::tensor::star::size(0)> assembledData{};
       auto view = seissol::init::star::view<0>::create(assembledData.data());
       const auto coefficients = seissol::model::getStarCoefficients(material);
       seissol::model::assembleStarMatrix<seissol::model::ElasticMaterial>(
@@ -764,7 +771,8 @@ TEST_CASE("Star assembly from coefficients") {
                                  gradient[1] * directional[1].at(idx) +
                                  gradient[2] * directional[2].at(idx);
         const double scale = std::max(1.0, std::abs(reference));
-        REQUIRE(assembledData.at(idx) == doctest::Approx(reference).epsilon(1e-13).scale(scale));
+        REQUIRE(assembledData.at(idx) ==
+                doctest::Approx(reference).epsilon(coefficients::tolerance(1e-13)).scale(scale));
       }
     }
   }
@@ -799,8 +807,8 @@ TEST_CASE("Face rotation structure") {
     const VrtxCoords tangent1{frame(0, 1), frame(1, 1), frame(2, 1)};
     const VrtxCoords tangent2{frame(0, 2), frame(1, 2), frame(2, 2)};
 
-    alignas(Alignment) std::array<double, seissol::tensor::T::size()> forwardData{};
-    alignas(Alignment) std::array<double, seissol::tensor::Tinv::size()> inverseData{};
+    alignas(Alignment) std::array<real, seissol::tensor::T::size()> forwardData{};
+    alignas(Alignment) std::array<real, seissol::tensor::Tinv::size()> inverseData{};
     auto forwardView = seissol::init::T::view::create(forwardData.data());
     auto inverseView = seissol::init::Tinv::view::create(inverseData.data());
     seissol::model::getFaceRotationMatrix<Material>(
@@ -844,7 +852,7 @@ TEST_CASE("Face rotation structure") {
     for (std::size_t row = 0; row < inverted; ++row) {
       for (std::size_t column = 0; column < inverted; ++column) {
         const double expected = (row == column) ? 1.0 : 0.0;
-        REQUIRE(std::abs(product(row, column) - expected) < 1e-12);
+        REQUIRE(std::abs(product(row, column) - expected) < coefficients::tolerance(1e-12));
       }
     }
 

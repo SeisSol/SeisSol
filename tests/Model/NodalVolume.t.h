@@ -35,6 +35,7 @@
 #include <array>
 #include <cstddef>
 #include <random>
+#include <type_traits>
 #include <vector>
 
 // The anelastic solver writes its volume contribution into the extended
@@ -178,7 +179,9 @@ void compareAgainstModal() {
             // entry may be off by follows the size of the update, not its own
             const double scale = std::max(1.0, expected.cwiseAbs().maxCoeff());
             REQUIRE(slicedQ(row, column) ==
-                    doctest::Approx(expected(row, column)).epsilon(1e-11).scale(scale));
+                    doctest::Approx(expected(row, column))
+                        .epsilon(std::is_same_v<real, double> ? 1e-11 : 1e-4)
+                        .scale(scale));
           }
         }
       }
