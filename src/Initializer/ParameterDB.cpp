@@ -702,8 +702,9 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
 DirichletCondition::DirichletCondition(const std::string& fileName)
     : model_(loadEasiModel(fileName)) {}
 
+// the model is owned by one condition at a time, and the one moved from no longer deletes it
 DirichletCondition::DirichletCondition(DirichletCondition&& other) noexcept
-    : model_(other.model_) {}
+    : model_(std::exchange(other.model_, nullptr)) {}
 
 DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) noexcept {
   std::swap(model_, other.model_);
