@@ -381,8 +381,10 @@ __global__ void kernelextractRotationMatrices(real** displacementToFaceNormalPtr
     const int i = threadIdx.x;
     const int j = threadIdx.y;
 
-    displacementToFaceNormal[i + j * LdDisplacement] = tinv[(i + 6) + (j + 6) * LdTinv];
-    displacementToGlobalData[i + j * LdDisplacement] = t[(i + 6) + (j + 6) * LdT];
+    // the velocity block of T and Tinv, as on the host (GravitationalFreeSurfaceBC.h)
+    constexpr int UIdx = model::MaterialT::VelocityOffset;
+    displacementToFaceNormal[i + j * LdDisplacement] = tinv[(i + UIdx) + (j + UIdx) * LdTinv];
+    displacementToGlobalData[i + j * LdDisplacement] = t[(i + UIdx) + (j + UIdx) * LdT];
   }
 }
 

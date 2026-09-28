@@ -483,8 +483,9 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {
             auto& entry = dataTable[key];
-            // NOTE: integrated velocities have been computed implicitly, i.e
-            // it is 6th, 7the and 8th columns of integrated dofs
+            // NOTE: the integrated velocities are not stored separately; the recorded pointers
+            // point into the integrated dofs, at the first velocity column
+            // (model::MaterialT::VelocityOffset).
 
             kernel::gpu_addVelocity displacementKrnl;
             displacementKrnl.faceDisplacement =

@@ -338,8 +338,10 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
       const int i = item.get_local_id(0) % 3;
       const int j = item.get_local_id(0) / 3;
 
-      displacementToFaceNormal[i + j * ldDisplacement] = Tinv[(i + 6) + (j + 6) * ldTinv];
-      displacementToGlobalData[i + j * ldDisplacement] = T[(i + 6) + (j + 6) * ldT];
+      // the velocity block of T and Tinv, as on the host (GravitationalFreeSurfaceBC.h)
+      constexpr int uIdx = model::MaterialT::VelocityOffset;
+      displacementToFaceNormal[i + j * ldDisplacement] = Tinv[(i + uIdx) + (j + uIdx) * ldTinv];
+      displacementToGlobalData[i + j * ldDisplacement] = T[(i + uIdx) + (j + uIdx) * ldT];
     }
   });
 }
