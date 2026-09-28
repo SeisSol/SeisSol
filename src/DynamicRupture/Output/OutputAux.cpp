@@ -29,7 +29,6 @@
 #include <limits>
 #include <tuple>
 #include <utility>
-#include <utils/logger.h>
 #include <vector>
 
 namespace {

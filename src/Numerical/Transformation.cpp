@@ -13,15 +13,9 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include <array>
 #include <cassert>
 #include <cstdint>
-#include <utils/logger.h>
 #include <yateto.h>
-
-#ifndef NDEBUG
-#include <cmath>
-#endif
 
 namespace seissol::transformations {
 

@@ -127,7 +127,8 @@ void ReceiverBasedOutputBuilder::initTopology() {
       auto& bucket = faceBuckets.emplace_back();
       bucket.faultFaceIndex = receiver.faultFaceIndex.value();
       bucket.elementIndex = receiver.elementIndex.value();
-      bucket.localFaceSideId = static_cast<std::size_t>(receiver.localFaceSideId.value());
+      bucket.localFaceSideId =
+          static_cast<std::size_t>(static_cast<std::uint8_t>(receiver.localFaceSideId.value()));
     }
     auto& faceBucket = faceBuckets[faceIds.at(faceKey)];
 

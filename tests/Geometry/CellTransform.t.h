@@ -17,9 +17,8 @@
 #include <random>
 #include <vector>
 
-namespace seissol::unit_test {
+namespace seissol::unit_test::celltransform {
 
-namespace {
 using seissol::geometry::AffineTransform;
 using seissol::geometry::CellTransform;
 using VectorT = CellTransform::VectorEigenT;
@@ -44,7 +43,7 @@ class QuadraticTransform : public CellTransform {
   }
 };
 
-auto randomTetrahedron(std::mt19937& rng, double scale, const VectorT& shift)
+inline auto randomTetrahedron(std::mt19937& rng, double scale, const VectorT& shift)
     -> std::array<VectorT, Cell::NumVertices> {
   std::uniform_real_distribution<double> dist(0.0, 1.0);
   std::array<VectorT, Cell::NumVertices> vertices{};
@@ -61,10 +60,10 @@ auto randomTetrahedron(std::mt19937& rng, double scale, const VectorT& shift)
     }
   }
 }
-} // namespace
 
 TEST_CASE("Affine cell transform" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-12;
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng(20260928);
 
   SUBCASE("Maps the reference vertices onto the cell vertices") {
@@ -181,4 +180,4 @@ TEST_CASE("Generic cell transform inversion" * doctest::test_suite("geometry")) 
   }
 }
 
-} // namespace seissol::unit_test
+} // namespace seissol::unit_test::celltransform

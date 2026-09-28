@@ -19,9 +19,8 @@
 #include <random>
 #include <vector>
 
-namespace seissol::unit_test {
+namespace seissol::unit_test::facetransform {
 
-namespace {
 using seissol::geometry::AffineFaceTransform;
 using seissol::geometry::AffineTransform;
 using seissol::geometry::FaceOrientation;
@@ -36,11 +35,11 @@ constexpr std::array<FaceOrientation, 4> AllOrientations{FaceOrientation::Local,
                                                          FaceOrientation::Rotate2};
 
 /// the reference tetrahedron, which the reference face maps have to be consistent with
-auto referenceCellVertices() -> std::array<CellVectorT, Cell::NumVertices> {
+inline auto referenceCellVertices() -> std::array<CellVectorT, Cell::NumVertices> {
   return {CellVectorT(0, 0, 0), CellVectorT(1, 0, 0), CellVectorT(0, 1, 0), CellVectorT(0, 0, 1)};
 }
 
-auto samplePointsOnReferenceFace(std::mt19937& rng, int count) -> std::vector<FaceVectorT> {
+inline auto samplePointsOnReferenceFace(std::mt19937& rng, int count) -> std::vector<FaceVectorT> {
   std::uniform_real_distribution<double> dist(0.0, 1.0);
   std::vector<FaceVectorT> points;
   points.reserve(count);
@@ -55,10 +54,10 @@ auto samplePointsOnReferenceFace(std::mt19937& rng, int count) -> std::vector<Fa
   }
   return points;
 }
-} // namespace
 
 TEST_CASE("Reference face map" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-14;
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng(20260928);
   const auto points = samplePointsOnReferenceFace(rng, 200);
 
@@ -107,8 +106,8 @@ TEST_CASE("Reference face map" * doctest::test_suite("geometry")) {
 
 TEST_CASE("Affine face transform" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-12;
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng(20260929);
-  std::uniform_real_distribution<double> dist(0.0, 1.0);
 
   // a well-shaped tetrahedron, so that the geometric quantities below are not dominated by
   // conditioning
@@ -202,4 +201,4 @@ TEST_CASE("Affine face transform" * doctest::test_suite("geometry")) {
   }
 }
 
-} // namespace seissol::unit_test
+} // namespace seissol::unit_test::facetransform

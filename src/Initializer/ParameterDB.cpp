@@ -21,7 +21,6 @@
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshTools.h"
 #include "Geometry/PUMLReader.h"
 #include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
