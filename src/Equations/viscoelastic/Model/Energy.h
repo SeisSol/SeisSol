@@ -66,6 +66,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   static_assert(ViscousDissipationIdx < EnergyCount,
                 "ViscousDissipation missing from the descriptor list");
 
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
   /**
    * Cell moments involving the anelastic variables, see codegen kernels
    * `momentQaneQaneCompute` and `momentQQaneCompute`.
@@ -93,6 +94,15 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
 
     return moments;
   }
+#else
+  /**
+   * The fused solver keeps the anelastic variables in Q, after the elastic quantities, so
+   * momentQQ already holds all their moments.
+   */
+  struct Moments {};
+
+  static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
+#endif
 
   static typename ViscoMaterial::EnergyData initEnergyData(const ViscoMaterial& /*material*/) {
     return {};
@@ -138,8 +148,8 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
                       const typename ViscoMaterial::EnergyData& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
-                      const Moments& moments,
-                      std::size_t sim) {
+                      [[maybe_unused]] const Moments& moments,
+                      [[maybe_unused]] std::size_t sim) {
     std::array<double, EnergyCount> output{};
 
     constexpr auto UIdx = ViscoMaterial::VelocityOffset;
@@ -159,10 +169,26 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     output[MomentumYIdx] = rho * v;
     output[MomentumZIdx] = rho * w;
 
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
     const auto aneFused = init::momentQaneQane::view::create(moments.ane);
     const auto crossFused = init::momentQQane::view::create(moments.cross);
     const auto ane = multisim::simtensor(aneFused, sim);
     const auto cross = multisim::simtensor(crossFused, sim);
+#else
+    static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension + 1] ==
+                      ViscoMaterial::NumQuantities,
+                  "the fused solver keeps the anelastic variables in Q");
+    // quantity j of mechanism m, in the order of Qane(j, m) of the split solver
+    const auto aneIdx = [](std::size_t j, std::size_t m) {
+      return ViscoMaterial::NumElasticQuantities + (m * ViscoMaterial::NumberPerMechanism) + j;
+    };
+    const auto ane = [&](std::size_t i, std::size_t j, std::size_t m, std::size_t n) {
+      return quadSub(aneIdx(i, m), aneIdx(j, n));
+    };
+    const auto cross = [&](std::size_t i, std::size_t j, std::size_t m) {
+      return quadSub(i, aneIdx(j, m));
+    };
+#endif
 
     // Voigt order (xx, yy, zz, xy, yz, xz). The anelastic variables carry tensor
     // components, so a double contraction weights the off-diagonals by two.
