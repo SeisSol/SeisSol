@@ -7,6 +7,7 @@
 # SPDX-FileContributor: Carsten Uphoff
 
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 
 import numpy as np
 from kernels import coefficients, material
@@ -618,25 +619,23 @@ class ADERDGBase(ABC):
         applies more than one face and needs one per face.
         """
         rotation = self.T if rotation is None else rotation
+        faceValues = self.definedOnce(self.faceValues)
+        faceRotated = self.definedOnce(self.faceRotated)
+        faceProduct = self.definedOnce(self.faceProduct)
+        faceBack = self.definedOnce(self.faceBack)
         statements = [
-            self.faceValues["nq"]
-            <= toFace * source["lk"] * self.inverseVoigtWeights["kq"],
-            self.faceRotated["nk"] <= self.faceValues["nq"] * rotation["qk"],
+            faceValues["nq"] <= toFace * source["lk"] * self.inverseVoigtWeights["kq"],
+            faceRotated["nk"] <= faceValues["nq"] * rotation["qk"],
         ]
         first = True
         for a, coefficient in enumerate(coefficientsOfFace):
-            term = (
-                coefficient["n"] * self.faceRotated["nk"] * self.fluxStructure[a]["kl"]
-            )
+            term = coefficient["n"] * faceRotated["nk"] * self.fluxStructure[a]["kl"]
             statements.append(
-                self.faceProduct["nl"]
-                <= (term if first else self.faceProduct["nl"] + term)
+                faceProduct["nl"] <= (term if first else faceProduct["nl"] + term)
             )
             first = False
-        statements.append(
-            self.faceBack["np"] <= self.faceProduct["nl"] * rotation["pl"]
-        )
-        statements.append(target["kp"] <= target["kp"] + lift * self.faceBack["np"])
+        statements.append(faceBack["np"] <= faceProduct["nl"] * rotation["pl"])
+        statements.append(target["kp"] <= target["kp"] + lift * faceBack["np"])
         return statements
 
     def nodalLocalFluxAll(self, source, target):
@@ -678,6 +677,50 @@ class ADERDGBase(ABC):
             self.Q.optName(),
             self.Q.optSize(),
             self.Q.optPos(),
+            shape,
+            temporary=True,
+        )
+
+    @contextmanager
+    def singleDefinitions(self, enabled=True):
+        """Lets every nodal temporary a kernel writes be written once.
+
+        The nodal forms write their temporaries again and again inside one
+        kernel: the field at the samples once per direction, the product once
+        per application of the operator, the values at a face once per face.
+        The write that starts each round covers only what that round has in
+        its sparsity pattern -- the samples a direction reaches, the columns
+        of the first coefficient of a face -- and leaves the rest to be zero.
+        The host generator clears that rest at every such write. The device
+        generator clears what no operation of the kernel writes, judged over
+        the whole kernel, so a round reads what an earlier round, or another
+        temporary sharing the buffer, left there. Inside this block every
+        round writes a temporary of its own, once, which the device generator
+        clears for what that one write leaves out.
+        """
+        previous = getattr(self, "_singleDefinitions", False)
+        self._singleDefinitions = enabled
+        try:
+            yield
+        finally:
+            self._singleDefinitions = previous
+
+    def definedOnce(self, prototype):
+        """`prototype`, or a temporary of its shape that nothing else writes,
+        where the kernel being built defines each temporary once."""
+        if not getattr(self, "_singleDefinitions", False):
+            return prototype
+        self._definitionCount = getattr(self, "_definitionCount", 0) + 1
+        shape = tuple(
+            extent
+            for position, extent in enumerate(prototype.shape())
+            if not (prototype.hasOptDim() and position == prototype.optPos())
+        )
+        return OptionalDimTensor(
+            f"{prototype.name()}Once{self._definitionCount}",
+            prototype.optName(),
+            prototype.optSize(),
+            prototype.optPos(),
             shape,
             temporary=True,
         )
@@ -729,14 +772,16 @@ class ADERDGBase(ABC):
         temporaries those indices widen. `scalar` scales the result, and
         `accumulate` adds it to what the target holds instead of replacing it.
         """
-        values, product = (
+        valuesPrototype, product = (
             temporaries
             if temporaries is not None
             else (self.nodalValues, self.nodalProduct)
         )
+        product = self.definedOnce(product)
         statements = []
         first = True
         for dim in range(3):
+            values = self.definedOnce(valuesPrototype)
             statements.append(
                 values["nq" + spectator]
                 <= self.materialEval["nk"]
@@ -805,6 +850,8 @@ class ADERDGBase(ABC):
             if temporaries is not None
             else (self.nodalSourceValues, self.nodalSourceProduct)
         )
+        values = self.definedOnce(values)
+        product = self.definedOnce(product)
         statements = [
             values[contract + spectator]
             <= self.materialEval["nk"] * source["k" + contract[1:] + spectator]
