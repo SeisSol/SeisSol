@@ -24,6 +24,7 @@ Design notes:
 import importlib.util  # noqa: F401
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -44,6 +45,7 @@ def _invoke_generate(
     multi_sims=1,
     mechanisms=0,
     mode="codegen",
+    solver=None,
 ):
     """Run generate.py with the given config. Returns CompletedProcess.
 
@@ -84,6 +86,7 @@ def _invoke_generate(
             "none",
             "--mode",
             mode,
+            *(["--solver", solver] if solver is not None else []),
         ],
         env={**os.environ, "PYTHONHASHSEED": "0"},
         cwd=str(CODEGEN_DIR),
@@ -285,6 +288,59 @@ class TestRuntime:
         assert (
             not missing
         ), f"collect lists files that codegen does not write: {missing}"
+
+    @staticmethod
+    def _runtime_kernels(outdir):
+        """The kernels runtime.h declares, in any namespace."""
+        content = (outdir / "runtime.h").read_text()
+        blocks = re.findall(
+            r"namespace kernel \{(.*?)\} // namespace kernel", content, re.S
+        )
+        return {
+            name
+            for block in blocks
+            for name in re.findall(r"^\s*struct (\w+) \{", block, re.M)
+        }
+
+    def test_kernels_of_setup_and_output_take_views(self, generated_elastic_o3):
+        """The kernels only setup and output run are reached through runtime.h,
+        the ones of the time step are not: they keep their operands as pointers
+        (see kernels.common.cold_kernel_attrs)."""
+        outdir, _ = generated_elastic_o3
+        kernels = self._runtime_kernels(outdir)
+        for name in [
+            "computeFluxSolverLocal",
+            "foldDirichlet",
+            "projectIniCond",
+            "transformNRF",
+            "evaluateDOFSAtPoint",
+            "evalAtQP",
+            "momentQQCompute",
+            "plProject",
+            "projectNodalToVtkFace",
+            "rotateFluxMatrix",
+            "evaluateFaceAlignedDOFSAtPoint",
+            "accumulateStaticFrictionalWork",
+        ]:
+            assert name in kernels, f"Expected kernel '{name}' in runtime.h"
+        for name in [
+            "volume",
+            "localFlux",
+            "neighboringFlux",
+            "derivative",
+            "evaluateAndRotateQAtInterpolationPoints",
+        ]:
+            assert name not in kernels, f"Kernel '{name}' of the time step in runtime.h"
+
+    def test_anelastic_moments_take_views(self, tmp_path):
+        """The energy output of the viscoelastic material runs the moments of
+        the anelastic unknowns through runtime.h."""
+        result = _invoke_generate(
+            tmp_path, equation="viscoelastic", mechanisms=3, solver="linearckanelastic"
+        )
+        assert result.returncode == 0, result.stderr[-1000:]
+        kernels = self._runtime_kernels(tmp_path)
+        assert {"momentQaneQaneCompute", "momentQQaneCompute"} <= kernels
 
 
 # =============================================================================

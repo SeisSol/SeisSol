@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from yateto import Tensor, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 
@@ -81,12 +81,14 @@ def addKernels(generator, aderdg, PlasticityMethod, matricesDir, targets=["cpu"]
             simpleParameterSpace(rangeLimit),
             lambda i: xv[i]["p"] <= collvv[i]["pb"] * simselect["s"] * qb["sb"],
             target=target,
+            attrs=cold_kernel_attrs(target),
         )
         generator.addFamily(
             f"{name_prefix}projectNodalToVtkVolume",
             simpleParameterSpace(rangeLimit),
             lambda i: xv[i]["p"] <= collnv[i]["pn"] * simselect["s"] * qn["sn"],
             target=target,
+            attrs=cold_kernel_attrs(target),
         )
         generator.addFamily(
             f"{name_prefix}projectBasisToVtkFace",
@@ -99,12 +101,14 @@ def addKernels(generator, aderdg, PlasticityMethod, matricesDir, targets=["cpu"]
             simpleParameterSpace(rangeLimit),
             lambda i: xf[i]["p"] <= collnf[i]["pn"] * simselect["s"] * pn["sn"],
             target=target,
+            attrs=cold_kernel_attrs(target),
         )
         generator.addFamily(
             f"{name_prefix}projectBasisToVtkFaceFromVolume",
             simpleParameterSpace(rangeLimit),
             lambda i: xf[i]["p"] <= collvf[i]["pb"] * simselect["s"] * qb["sb"],
             target=target,
+            attrs=cold_kernel_attrs(target),
         )
 
 

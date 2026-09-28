@@ -6,7 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Tensor
 from yateto.input import parseJSONMatrixFile
@@ -135,12 +135,17 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     # end for the "old" output
 
     if QEtaNodal.shape() == QEtaNodalProject.shape():
-        generator.add("plProject", QEtaNodalProject["l"] <= QEtaNodal["l"])
+        generator.add(
+            "plProject",
+            QEtaNodalProject["l"] <= QEtaNodal["l"],
+            attrs=cold_kernel_attrs(),
+        )
     else:
         generator.add(
             "plProject",
             QEtaNodalProject["p"]
             <= aderdg.db.evalAtQP[aderdg.t("pk")] * db.vInv["kl"] * QEtaNodal["l"],
+            attrs=cold_kernel_attrs(),
         )
 
     for target in targets:

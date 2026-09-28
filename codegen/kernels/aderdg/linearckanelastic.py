@@ -7,7 +7,7 @@
 # SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import layout, total_extent
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
@@ -194,10 +194,15 @@ class LinearCKAnelastic(ADERDGBase):
             self.Qane["kpm"]
             <= self.db.projectQP[self.t("kl")] * iniCond["lq"] * selectAneFull["qpm"]
         )
-        generator.add("projectIniCond", [projectIniCondEla, projectIniCondAne])
+        generator.add(
+            "projectIniCond",
+            [projectIniCondEla, projectIniCondAne],
+            attrs=cold_kernel_attrs(),
+        )
         generator.add(
             "evalAtQP",
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
+            attrs=cold_kernel_attrs(),
         )
 
         self.addAnelasticEnergyProducts(generator)
@@ -235,6 +240,7 @@ class LinearCKAnelastic(ADERDGBase):
             "momentQaneQaneCompute",
             momentQaneQane["IJmn"]
             <= self.db.M3["ij"] * self.Qane["iIm"] * self.Qane["jJn"],
+            attrs=cold_kernel_attrs(),
         )
 
         momentQQane = OptionalDimTensor(
@@ -251,6 +257,7 @@ class LinearCKAnelastic(ADERDGBase):
         generator.add(
             "momentQQaneCompute",
             momentQQane["IJm"] <= self.db.M3["ij"] * self.Q["iI"] * self.Qane["jJm"],
+            attrs=cold_kernel_attrs(),
         )
 
     def addLocal(self, generator, targets):

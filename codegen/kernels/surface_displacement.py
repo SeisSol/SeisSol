@@ -6,7 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
 
@@ -165,6 +165,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
             * faceDisplacementModal["in"]
             * faceDisplacementModal["jn"],
         ],
+        attrs=cold_kernel_attrs(),
     )
 
     if "gpu" in targets:
