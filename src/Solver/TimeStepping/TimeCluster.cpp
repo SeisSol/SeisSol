@@ -472,13 +472,6 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
         localKernel_.computeBatchedIntegral(
             dataTable, materialTable, indicesTable, timeStepWidth, streamRuntime);
 
-        localKernel_.evaluateBatchedTimeDependentBc(dataTable,
-                                                    indicesTable,
-                                                    *clusterData_,
-                                                    ct_.correctionTime,
-                                                    timeStepWidth,
-                                                    streamRuntime);
-
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {
@@ -525,6 +518,12 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
           }
         }
       });
+
+  // outside of the graph: the boundary values are computed by a host function at the current time,
+  // which a replay would not update; also, on HIP, host functions synchronize the stream (which is
+  // not allowed during a capture)
+  localKernel_.evaluateBatchedTimeDependentBc(
+      dataTable, indicesTable, *clusterData_, ct_.correctionTime, timeStepWidth, streamRuntime_);
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
   device_.api->popLastProfilingMark();
