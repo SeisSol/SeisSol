@@ -15,6 +15,7 @@
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 #include "Numerical/Eigenvalues.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -36,6 +37,54 @@
 // FIXME: the following line is absolutely necessary for the plain-wave operator to work correctly
 // (template specializations for the equations).
 #include "Equations/Setup.h" // IWYU pragma: keep
+
+namespace seissol::physics {
+namespace {
+/// Writes the stress of a fluid: `value` on the normal stresses, no shear. The acoustic equations
+/// carry this isotropic stress as their single traction quantity, with the sign of a normal
+/// stress, i.e. -p.
+void setIsotropicStress(yateto::DenseTensorView<2, real, unsigned>& dofsQp,
+                        std::size_t point,
+                        double value) {
+  constexpr auto NormalComponents = model::traceComponents(
+      model::roleKind(model::MaterialT::PrimaryGroups, model::FaceRole::Traction));
+  for (std::size_t j = 0; j < model::MaterialT::TractionComponents; ++j) {
+    dofsQp(point, j) = j < NormalComponents ? value : 0.0;
+  }
+}
+} // namespace
+
+bool isInitialConditionSupported(initializer::parameters::InitializationType type) {
+  using initializer::parameters::InitializationType;
+  constexpr auto Type = model::MaterialT::Type;
+  // A fluid: mu = 0 cells of the elastic equations, or the acoustic equations themselves. The
+  // closed-form solutions are lossless, so the attenuating equations are left out.
+  constexpr bool HasFluid =
+      Type == model::MaterialType::Elastic || Type == model::MaterialType::Acoustic;
+  switch (type) {
+  case InitializationType::Zero:
+  case InitializationType::Planarwave:
+  case InitializationType::SuperimposedPlanarwave:
+  case InitializationType::Easi:
+    // built from the eigenvectors (or the quantity names) of the build's own equations
+    return true;
+  case InitializationType::Travelling:
+    return model::MaterialT::Mechanisms == 0;
+  case InitializationType::AcousticTravellingWithITM:
+  case InitializationType::Ocean0:
+  case InitializationType::Ocean1:
+  case InitializationType::Ocean2:
+    return HasFluid;
+  case InitializationType::Scholte:
+  case InitializationType::Snell:
+    // couple a solid to a fluid; only the elastic equations hold both
+    return Type == model::MaterialType::Elastic;
+  case InitializationType::PressureInjection:
+    return Type == model::MaterialType::Poroelastic;
+  }
+  return false;
+}
+} // namespace seissol::physics
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
@@ -208,7 +257,9 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
     std::size_t count,
     const CellMaterialData& /*materialData*/,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
+  // transverse velocity, shear stress and memory variables (if any) stay zero
   dofsQP.setZero();
+  constexpr auto UIdx = model::MaterialT::VelocityOffset;
   double pressure = 0.0;
   for (size_t i = 0; i < count; ++i) {
     const auto& coordinates = points[i];
@@ -216,34 +267,20 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
     const auto t = time;
     if (t <= tITMMinus_) {
       pressure = c0_ * rho0_ * std::cos(k_ * x - c0_ * k_ * t);
-      dofsQP(i, 0) = -pressure;                       // sigma_xx
-      dofsQP(i, 1) = -pressure;                       // sigma_yy
-      dofsQP(i, 2) = -pressure;                       // sigma_zz
-      dofsQP(i, 3) = 0.0;                             // sigma_xy
-      dofsQP(i, 4) = 0.0;                             // sigma_yz
-      dofsQP(i, 5) = 0.0;                             // sigma_xz
-      dofsQP(i, 6) = std::cos(k_ * x - c0_ * k_ * t); // u
-      dofsQP(i, 7) = 0.0;                             // v
-      dofsQP(i, 8) = 0.0;                             // w
+      setIsotropicStress(dofsQP, i, -pressure);
+      dofsQP(i, UIdx) = std::cos(k_ * x - c0_ * k_ * t); // u
     } else if (t <= tITMPlus_) {
       pressure =
           -0.5 * (n_ - 1) * c0_ * rho0_ *
               std::cos(k_ * x + c0_ * k_ * n_ * t - (c0_ * k_ * n_ + c0_ * k_) * tITMMinus_) +
           0.5 * (n_ + 1) * c0_ * rho0_ *
               std::cos(k_ * x - c0_ * k_ * n_ * t + (c0_ * k_ * n_ - c0_ * k_) * tITMMinus_);
-      dofsQP(i, 0) = -pressure; // sigma_xx
-      dofsQP(i, 1) = -pressure; // sigma_yy
-      dofsQP(i, 2) = -pressure; // sigma_zz
-      dofsQP(i, 3) = 0.0;       // sigma_xy
-      dofsQP(i, 4) = 0.0;       // sigma_yz
-      dofsQP(i, 5) = 0.0;       // sigma_xz
-      dofsQP(i, 6) =
+      setIsotropicStress(dofsQP, i, -pressure);
+      dofsQP(i, UIdx) =
           0.5 * (n_ - 1) *
               std::cos(k_ * x + c0_ * k_ * n_ * t - (c0_ * k_ * n_ + c0_ * k_) * tITMMinus_) +
           0.5 * (n_ + 1) *
               std::cos(k_ * x - c0_ * k_ * n_ * t + (c0_ * k_ * n_ - c0_ * k_) * tITMMinus_); // u
-      dofsQP(i, 7) = 0.0;                                                                     // v
-      dofsQP(i, 8) = 0.0;                                                                     // w
     } else {
       pressure = -0.25 * (1 / n_) * c0_ * rho0_ *
                  ((-n_ * n_ + 1) * std::cos(k_ * x + c0_ * k_ * t - 2.0 * c0_ * k_ * tITMMinus_ -
@@ -254,23 +291,17 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
                       std::cos(k_ * x - c0_ * k_ * t + (c0_ * k_ * n_ + c0_ * k_) * tau_) +
                   (-n_ * n_ - 2 * n_ - 1) *
                       std::cos(k_ * x - c0_ * k_ * t - (c0_ * k_ * n_ - c0_ * k_) * tau_));
-      dofsQP(i, 0) = -pressure; // sigma_xx
-      dofsQP(i, 1) = -pressure; // sigma_yy
-      dofsQP(i, 2) = -pressure; // sigma_zz
-      dofsQP(i, 3) = 0.0;       // sigma_xy
-      dofsQP(i, 4) = 0.0;       // sigma_yz
-      dofsQP(i, 5) = 0.0;       // sigma_xz
-      dofsQP(i, 6) = (-0.25 / n_) *
-                     ((n_ * n_ - 1) * std::cos(k_ * x + c0_ * k_ * t - 2 * c0_ * k_ * tITMMinus_ -
-                                               (c0_ * k_ * n_ + c0_ * k_) * tau_) +
-                      (-n_ * n_ + 1) * std::cos(k_ * x + c0_ * k_ * t - 2 * c0_ * k_ * tITMMinus_ +
-                                                (c0_ * k_ * n_ - c0_ * k_) * tau_) +
-                      (n_ * n_ - 2 * n_ + 1) *
-                          std::cos(k_ * x - c0_ * k_ * t + (c0_ * k_ * n_ + c0_ * k_) * tau_) +
-                      (-n_ * n_ - 2 * n_ - 1) *
-                          std::cos(k_ * x - c0_ * k_ * t - (c0_ * k_ * n_ - c0_ * k_) * tau_)); // u
-      dofsQP(i, 7) = 0.0;                                                                       // v
-      dofsQP(i, 8) = 0.0;                                                                       // w
+      setIsotropicStress(dofsQP, i, -pressure);
+      dofsQP(i, UIdx) =
+          (-0.25 / n_) *
+          ((n_ * n_ - 1) * std::cos(k_ * x + c0_ * k_ * t - 2 * c0_ * k_ * tITMMinus_ -
+                                    (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+           (-n_ * n_ + 1) * std::cos(k_ * x + c0_ * k_ * t - 2 * c0_ * k_ * tITMMinus_ +
+                                     (c0_ * k_ * n_ - c0_ * k_) * tau_) +
+           (n_ * n_ - 2 * n_ + 1) *
+               std::cos(k_ * x - c0_ * k_ * t + (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+           (-n_ * n_ - 2 * n_ - 1) *
+               std::cos(k_ * x - c0_ * k_ * t - (c0_ * k_ * n_ - c0_ * k_) * tau_)); // u
     }
   }
 }
@@ -334,7 +365,7 @@ void seissol::physics::PressureInjection::evaluate(
     const auto rSquared = std::pow(x1 - o1, 2) + std::pow(x2 - o2, 2) + std::pow(x3 - o3, 2);
     dofsQp(i, 0) = 0.0;                                     // sigma_xx
     dofsQp(i, 1) = 0.0;                                     // sigma_yy
-    dofsQp(i, 2) = 0.0;                                     // sigma_yy
+    dofsQp(i, 2) = 0.0;                                     // sigma_zz
     dofsQp(i, 3) = 0.0;                                     // sigma_xy
     dofsQp(i, 4) = 0.0;                                     // sigma_yz
     dofsQp(i, 5) = 0.0;                                     // sigma_xz
@@ -569,21 +600,6 @@ void seissol::physics::Ocean::evaluate(double time,
     const auto b = g * kStar / (omega * omega);
     constexpr auto ScalingFactor = 1;
 
-    const auto setStresses = [&](double value) {
-      if constexpr (model::MaterialT::Type == model::MaterialType::Elastic) {
-        dofsQp(i, 0) = value;
-        dofsQp(i, 1) = value;
-        dofsQp(i, 2) = value;
-
-        // Shear stresses are zero for elastic
-        dofsQp(i, 3) = 0.0;
-        dofsQp(i, 4) = 0.0;
-        dofsQp(i, 5) = 0.0;
-      } else {
-        dofsQp(i, 0) = value;
-      }
-    };
-
     constexpr auto UIdx = model::MaterialT::VelocityOffset;
     constexpr auto VIdx = model::MaterialT::VelocityOffset + 1;
     constexpr auto WIdx = model::MaterialT::VelocityOffset + 2;
@@ -593,7 +609,7 @@ void seissol::physics::Ocean::evaluate(double time,
       const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
                             (std::sinh(kStar * z) + b * std::cosh(kStar * z));
 
-      setStresses(ScalingFactor * pressure);
+      setIsotropicStress(dofsQp, i, ScalingFactor * pressure);
 
       dofsQp(i, UIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
                         std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
@@ -607,7 +623,7 @@ void seissol::physics::Ocean::evaluate(double time,
       const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
                             (std::sin(kStar * z) + b * std::cos(kStar * z));
 
-      setStresses(ScalingFactor * pressure);
+      setIsotropicStress(dofsQp, i, ScalingFactor * pressure);
 
       dofsQp(i, UIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
                         std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));

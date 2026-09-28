@@ -73,6 +73,7 @@ A planar wave for convergence tests.
 The inital values are computed such that a planar wave in a unit cube is imposed.
 For elastic, anisotropic and viscoelastic materials, we impose a P and an S wave travelling in opposite directions.
 For poroelastic materials, we impose a slow P and an S wave travelling in one direction and a fast P wave travelling in opposite direction.
+For acoustic and viscoacoustic materials, we impose a P wave.
 This scenario needs periodic boundary conditions to make sense.
 This is the only case where the old netcdf mesh format is prefered.
 After the simulation is finished the errors between the analytic solution and the numerical one are plotted in the :math:`L^1`-,  :math:`L^2`- and :math:`L^\infty`-norm.
@@ -113,20 +114,31 @@ The Travelling wave can be configured in the parameter file (in the ``IniConditi
   The entries of :math:`k` are ``-P -S -S N N N +S +S +P``.
   In this example, we impose a P wave travelling in the opposite direction as :math:`k` with relative amplitude :math:`2` and an S wave travelling towards the same direction as :math:`k` with relative amplitude :math:`1`.
 
+The travelling wave is not available for viscoelastic and viscoacoustic materials.
+
 Scholte (``Scholte``)
 ---------------------
 
-A Scholte wave to test elastic-acoustic coupling
+A Scholte wave to test elastic-acoustic coupling.
+It needs a solid next to a fluid, i.e. the elastic equations with an acoustic (:math:`\mu = 0`) region; other equations reject it.
 
 Snell (``Snell``)
 -----------------
 
-Snells law to test elastic-acoustic coupling
+Snells law to test elastic-acoustic coupling.
+It needs a solid next to a fluid, i.e. the elastic equations with an acoustic (:math:`\mu = 0`) region; other equations reject it.
 
-Ocean (``Ocean``)
------------------
+Ocean (``Ocean_0``, ``Ocean_1``, ``Ocean_2``)
+---------------------------------------------
 
-An uncoupled ocean test case for acoustic equations
+An uncoupled ocean test case for acoustic equations, in one of three modes; ``Ocean_0`` is the gravity mode.
+It needs a fluid: the elastic equations with :math:`\mu = 0`, or the acoustic equations.
+
+Pressure injection (``PressureInjection``)
+------------------------------------------
+
+A Gaussian perturbation of the fluid pressure, :math:`p = m \exp(-w \|x - x_0\|^2)`, for poroelastic materials only.
+It is configured by ``origin`` (:math:`x_0`), ``magnitude`` (:math:`m`) and ``width`` (:math:`w`) in the ``IniCondition`` section.
 
 How to implement a new hard-coded initial condition?
 ----------------------------------------------------
@@ -150,7 +162,10 @@ and implement the method
                   yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
 
 Here :code:`dofsQP(i,j)` is the value of the :math:`j^\text{th}` quantity at the :code:`points[i]`.
+The quantities are those of the equations SeisSol was built for; e.g. the velocity starts at :code:`model::MaterialT::VelocityOffset`.
 
 Furthermore, you will also need to add the new initial condition to the paraemter file parser
 in ``src/Initializer/Parameters/InitializationParameters.cpp`` and the initial condition initialization
 under ``src/Initializer/InitProcedure/InitSideConditions.cpp`` as well.
+Finally, state for which equations it is meaningful in ``seissol::physics::isInitialConditionSupported``
+(``src/Physics/InitialField.cpp``); SeisSol rejects it for all others.

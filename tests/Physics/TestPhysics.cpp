@@ -7,4 +7,5 @@
 
 #include <doctest.h>
 
+#include "InitialField.t.h"
 #include "InstantaneousTimeMirror.t.h"

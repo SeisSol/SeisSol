@@ -40,11 +40,13 @@ cICType = 'Zero'                  ! Initial Condition
 !Possible values are
 !Zero        All zero - the standard case to work with point source or dynamic rupture
 !Planarwave  A planar wave for convergence tests, needs periodic boundary conditions
+!SuperimposedPlanarwave Three superimposed planar waves for convergence tests, needs periodic boundary conditions
 !Travelling  A planar wave travelling wave (one period of a plane wave), needs more parameters to be specified
 !AcousticTravellingwithITM A travelling acoustic wave with ITM
 !Scholte     A Scholte wave to test elastic-acoustic coupling
 !Snell       Snells law to test elastic-acoustic coupling
-!Ocean       An uncoupled ocean test case for acoustic equations
+!Ocean_0, Ocean_1, Ocean_2 An uncoupled ocean test case for acoustic equations (three modes)
+!PressureInjection A Gaussian perturbation of the fluid pressure (poroelastic materials only)
 !easi        Use an easi file for the input condition
 
 !The following parameters are only needed for the travelling wave IC:

@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 
 #include "GeneratedCode/init.h"
+#include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
@@ -121,6 +122,8 @@ class TravellingWave : public Planarwave {
   Eigen::Vector3d origin_;
 };
 
+// An acoustic plane wave travelling in x-direction, continued through an instantaneous time
+// mirror. Written for a fluid: mu = 0 cells of the elastic equations, or the acoustic equations.
 class AcousticTravellingWaveITM : public InitialField {
   public:
   AcousticTravellingWaveITM(
@@ -184,6 +187,11 @@ class Ocean : public InitialField {
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 };
+
+/// Whether the hard-coded initial condition `type` has a meaning for the equations of this build.
+/// The analytical scenarios are written for particular media; elsewhere they have no solution, or
+/// would address quantities the build does not have.
+bool isInitialConditionSupported(initializer::parameters::InitializationType type);
 } // namespace seissol::physics
 
 #endif // SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
