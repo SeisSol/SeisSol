@@ -24,13 +24,13 @@ from kernels.quantities import (
     well_formed,
 )
 from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.type import AddressingMode
 from yateto.input import (
     memoryLayoutFromFile,
     parseJSONMatrixFile,
     parseXMLMatrixFile,
 )
 from yateto.memory import CSCMemoryLayout
+from yateto.type import AddressingMode
 from yateto.util import (
     tensor_collection_from_constant_expression,
     tensor_from_constant_expression,
@@ -1002,11 +1002,11 @@ class ADERDGBase(ABC):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
         include_tensors.add(self.db.ET)
+        # the reparametrisation of a shared face. The neighbour flux reads it
+        # folded into fPrT and the nodal flux as a renumbering of the face
+        # nodes, so no kernel names it; it is what the renumbering is checked
+        # against, in every build, so it has to reach the generated code.
+        for orientation in self.db.fP.values():
+            include_tensors.add(orientation)
         if self.nodalFaceFlux:
-            # the reparametrisation of a shared face, which the folded form the
-            # nodal flux uses stands in for. It is what that fold is checked
-            # against, so it has to reach the generated code even though no
-            # kernel names it any more.
-            for orientation in self.db.fP.values():
-                include_tensors.add(orientation)
             include_tensors.add(self.db.M2)
