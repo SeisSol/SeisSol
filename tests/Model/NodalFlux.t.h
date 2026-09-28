@@ -25,6 +25,7 @@
 #include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
@@ -169,10 +170,9 @@ void compareAgainstModal(FaceType faceType) {
         krnl.I = dofs.data();
         krnl.Q = nodal.data();
         krnl.T = matT.data();
-        for (std::size_t face = 0; face < 4; ++face) {
-          krnl.V3mTo2nFace(face) = nodal::init::V3mTo2nFace::Values[face];
-          krnl.project2nFaceTo3m(face) = init::project2nFaceTo3m::Values[face];
-        }
+        // the constants in the arrangement the kernel was generated against,
+        // which only the pool holds
+        krnl.bindGlobals(seissol::Pool::host());
         for (std::size_t c = 0; c < Coefficients; ++c) {
           krnl.fluxCoefficientsLocal(c) = scalars[c].data();
         }
