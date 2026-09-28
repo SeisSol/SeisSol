@@ -26,7 +26,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -39,6 +38,30 @@
 #include <vector>
 
 namespace seissol::initializer {
+
+void computeBoundaryNodes(const std::array<const double*, Cell::NumVertices>& vertices,
+                          std::size_t side,
+                          real* nodes) {
+  const auto nodesReference = nodal::init::nodes2D::view::create(nodal::init::nodes2D::Values);
+  for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+    // The bounding box of the generated tensor can leave out the node at the origin.
+    double nodeReference[2]{};
+    for (std::size_t d = 0; d < 2; ++d) {
+      if (nodesReference.isInRange(i, d)) {
+        nodeReference[d] = nodesReference(i, d);
+      }
+    }
+    // Compute the global coordinates for the nodal points.
+    double xiEtaZeta[3]{};
+    double xyz[3]{};
+    seissol::transformations::chiTau2XiEtaZeta(side, nodeReference, xiEtaZeta);
+    seissol::transformations::tetrahedronReferenceToGlobal(
+        vertices[0], vertices[1], vertices[2], vertices[3], xiEtaZeta, xyz);
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      nodes[i * Cell::Dim + d] = xyz[d];
+    }
+  }
+}
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const std::optional<EasiBoundary>& easiBoundary,
@@ -54,7 +77,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
-      const double* coords[Cell::NumVertices];
+      std::array<const double*, Cell::NumVertices> coords{};
       for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
         coords[v] = vertices[element.vertices[v]].coords;
       }
@@ -65,27 +88,9 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           continue;
         }
         // Compute nodal points in global coordinates for each side.
-        real nodesReferenceData[nodal::tensor::nodes2D::Size];
-        std::copy_n(nodal::init::nodes2D::Values, nodal::tensor::nodes2D::Size, nodesReferenceData);
-        auto nodesReference = nodal::init::nodes2D::view::create(nodesReferenceData);
         auto* nodes = boundary[cell][side].nodes;
         assert(nodes != nullptr);
-        auto offset = 0;
-        for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
-             ++i) {
-          double nodeReference[2];
-          nodeReference[0] = nodesReference(i, 0);
-          nodeReference[1] = nodesReference(i, 1);
-          // Compute the global coordinates for the nodal points.
-          double xiEtaZeta[3];
-          double xyz[3];
-          seissol::transformations::chiTau2XiEtaZeta(side, nodeReference, xiEtaZeta);
-          seissol::transformations::tetrahedronReferenceToGlobal(
-              coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
-          nodes[offset++] = xyz[0];
-          nodes[offset++] = xyz[1];
-          nodes[offset++] = xyz[2];
-        }
+        computeBoundaryNodes(coords, side, nodes);
 
         // Compute map that rotates to normal aligned coordinate system.
         real* matTData = boundary[cell][side].dataT;

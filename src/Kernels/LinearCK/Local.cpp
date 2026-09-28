@@ -176,9 +176,7 @@ void Local::computeIntegral(
               auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
               auto slicedDisplacement = multisim::simtensor(displacement, s);
 
-              for (std::size_t i = 0;
-                   i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
-                   ++i) {
+              for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
                 const double rho = materialData.local->getDensity();
                 assert(localG > 0);
                 const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);

@@ -23,8 +23,7 @@ PerformanceEstimate GravitationalFreeSurfaceBc::metrics(int8_t face, FaceType /*
   PerformanceEstimate estimate;
 
   constexpr std::uint64_t NumberOfNodes =
-      static_cast<std::uint64_t>(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]) *
-      multisim::NumSimulations;
+      static_cast<std::uint64_t>(nodal::tensor::nodes2D::Shape[0]) * multisim::NumSimulations;
 
   // initialize integral of displacement
   estimate.hardwareFlop += 1 * NumberOfNodes;

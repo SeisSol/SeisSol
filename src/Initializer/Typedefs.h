@@ -20,7 +20,6 @@
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "Kernels/Data.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
 #include <complex>
@@ -264,7 +263,7 @@ struct CellDRMapping {
 
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3]{};
   real dataT[seissol::tensor::T::size()]{};
   real dataTinv[seissol::tensor::Tinv::size()]{};
   real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};

@@ -123,6 +123,10 @@ class ADERDGBase(ABC):
             spp={(i,): "1.0" for i in range(self.Q.optSize())},
         )
 
+        # Only the face projections enter the kernels through self.t(...). The
+        # other nodal matrices are contracted as stored (V2nTo2m, MV2nTo2m) or
+        # read by the C++ code (nodes2D), so they keep their layout for fused
+        # simulations, too.
         self.db.update(
             parseJSONMatrixFile(
                 "{}/nodal/nodalBoundary_matrices_{}.json".format(
@@ -130,7 +134,7 @@ class ADERDGBase(ABC):
                 ),
                 {},
                 alignStride=self.alignStride,
-                transpose=self.transpose,
+                transpose=lambda name: transpose and name.startswith("V3mTo2nFace"),
                 namespace="nodal",
             )
         )

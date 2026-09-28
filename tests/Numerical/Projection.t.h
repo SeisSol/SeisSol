@@ -16,7 +16,6 @@
 #include "Numerical/Functions.h"
 #include "Numerical/Projection.h"
 #include "Numerical/Transformation.h"
-#include "Solver/MultipleSimulations.h"
 #include "TestHelper.h"
 
 #include <algorithm>
@@ -36,13 +35,6 @@ constexpr double Tolerance = 1e-10;
 // cannot be tighter than that.
 constexpr double GeneratedTolerance =
     std::max(Tolerance, 10.0 * std::numeric_limits<real>::epsilon());
-
-// For fused simulations the code generator transposes everything in the `nodal` namespace
-// (cf. kernels/aderdg.py); detect that from a matrix whose shape is not square.
-inline bool nodalTransposed() {
-  return static_cast<std::size_t>(nodal::tensor::nodes2D::Shape[0]) !=
-         projection::modalSize(2, ConvergenceOrder);
-}
 
 // The nodal point set of the volume follows the PLASTICITY_METHOD build option: "nb" ships a
 // unisolvent warp&blend set, "ip" the conical-product quadrature points.
@@ -153,12 +145,10 @@ TEST_CASE("Numerical/Projection: nodal point sets match the generated ones") {
   SUBCASE("2D face nodes vs. nodes2D") {
     const auto points = projection::nodalPoints2D(ConvergenceOrder);
     const auto nodes = nodal::init::nodes2D::view::create(nodal::init::nodes2D::Values);
-    const auto transposed = nodalTransposed();
+    REQUIRE(points.size() == static_cast<std::size_t>(nodal::tensor::nodes2D::Shape[0]));
     for (std::size_t p = 0; p < points.size(); ++p) {
       for (std::size_t d = 0; d < 2; ++d) {
-        const auto i = transposed ? d : p;
-        const auto j = transposed ? p : d;
-        const auto reference = nodes.isInRange(i, j) ? nodes(i, j) : 0.0;
+        const auto reference = nodes.isInRange(p, d) ? nodes(p, d) : 0.0;
         REQUIRE(points[p][d] ==
                 AbsApprox(reference).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
       }
@@ -185,12 +175,9 @@ TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated o
     const auto matrix =
         projection::nodalToModal<2>(ConvergenceOrder, projection::NodalSet::WarpBlend);
     const auto reference = nodal::init::MV2nTo2m::view::create(nodal::init::MV2nTo2m::Values);
-    const auto transposed = nodalTransposed();
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
       for (std::size_t n = 0; n < matrix.cols(); ++n) {
-        const auto i = transposed ? n : b;
-        const auto j = transposed ? b : n;
-        const auto expected = reference.isInRange(i, j) ? reference(i, j) : 0.0;
+        const auto expected = reference.isInRange(b, n) ? reference(b, n) : 0.0;
         REQUIRE(matrix(b, n) ==
                 AbsApprox(expected).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
       }

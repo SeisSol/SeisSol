@@ -12,7 +12,6 @@ from kernels.multsim import OptionalDimTensor
 from kernels.quantities import layout, total_extent
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
-from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
 
@@ -82,18 +81,6 @@ class LinearCKAnelastic(ADERDGBase):
             (self.numMechanisms, self.numMechanisms),
             spp=np.eye(self.numMechanisms, dtype=bool),
             memoryLayoutClass=CSCMemoryLayout,
-        )
-
-        self.db.update(
-            parseJSONMatrixFile(
-                "{}/nodal/nodalBoundary_matrices_{}.json".format(
-                    matricesDir, self.order
-                ),
-                {},
-                alignStride=self.alignStride,
-                transpose=self.transpose,
-                namespace="nodal",
-            )
         )
 
         self.kwargs = kwargs
