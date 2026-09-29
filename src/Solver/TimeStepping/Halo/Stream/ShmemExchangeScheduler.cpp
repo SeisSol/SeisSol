@@ -11,9 +11,7 @@
 #include "Solver/TimeStepping/Halo/Stream/StreamExchangeScheduler.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <utils/logger.h>
-#include <vector>
 
 #if defined(ACL_DEVICE) && defined(USE_SHMEM)
 
@@ -23,7 +21,9 @@
 
 #include <Device/device.h>
 #include <algorithm>
+#include <cstdint>
 #include <mpi.h>
+#include <vector>
 
 #ifdef SHMEM_NVSHMEM
 #include <nvshmem_host.h>
@@ -44,12 +44,17 @@ namespace {
 // the operations the protocol needs, for each library
 
 #ifdef SHMEM_NVSHMEM
+// Only the host library: nvshmemx_init_attr() and nvshmem_finalize() live in the static device
+// library, whose device code would need a device link step, and none of it is needed here; all
+// operations below are host calls that enqueue on streams.
 void shmemInit(MPI_Comm comm) {
   nvshmemx_init_attr_t attr{};
   nvshmemx_set_attr_mpi_comm_args(&comm, &attr);
-  nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
+  if (nvshmemx_hostlib_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr) != 0) {
+    logError() << "Could not initialize NVSHMEM.";
+  }
 }
-void shmemFinalize() { nvshmem_finalize(); }
+void shmemFinalize() { nvshmemx_hostlib_finalize(); }
 int shmemPe() { return nvshmem_my_pe(); }
 void* shmemMalloc(std::size_t bytes) { return nvshmem_malloc(bytes); }
 void shmemFree(void* pointer) { nvshmem_free(pointer); }
