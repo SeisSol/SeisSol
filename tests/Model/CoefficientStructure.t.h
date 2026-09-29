@@ -864,14 +864,22 @@ TEST_CASE("Face rotation structure") {
         densify(inverseView, inverseView.shape(0), inverseView.shape(1));
 
     // One dense block per quantity group, and nothing outside them -- not
-    // merely numerically zero, but absent from the storage.
+    // merely numerically zero, but absent from the storage. A GPU build served
+    // by gemmforge/chainforge keeps the rotation as a full square, since those
+    // read their operands as dense; there the rest has to be zero.
+    constexpr bool Packed =
+        seissol::tensor::T::size() < seissol::tensor::T::Shape[0] * seissol::tensor::T::Shape[1];
     std::size_t offset = 0;
     for (const auto& group : Material::RotationGroups) {
       const std::size_t extent = group.extent();
       for (std::size_t row = 0; row < forwardView.shape(0); ++row) {
         for (std::size_t column = offset; column < offset + extent; ++column) {
           const bool inBlock = row >= offset && row < offset + extent;
-          REQUIRE(forwardView.isInRange(row, column) == inBlock);
+          if (Packed) {
+            REQUIRE(forwardView.isInRange(row, column) == inBlock);
+          } else if (!inBlock) {
+            REQUIRE(forward(row, column) == 0.0);
+          }
         }
       }
       offset += extent;
