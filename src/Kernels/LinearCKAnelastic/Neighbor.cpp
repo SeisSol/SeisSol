@@ -145,21 +145,21 @@ void Neighbor::computeBatchedNeighborsIntegral(
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     if (table.find(key) != table.end()) {
       auto& entry = table[key];
-      device.algorithms.setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
-                                   static_cast<real>(0.0),
-                                   tensor::Qext::Size,
-                                   (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
-                                   runtime.stream());
+      device.algorithms().setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
+                                     static_cast<real>(0.0),
+                                     tensor::Qext::Size,
+                                     (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
+                                     runtime.stream());
     }
   }
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     runtime.envMany(
-        (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
+        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace), [&](void* stream, size_t i) {
           // regular and periodic
-          if (i < (*FaceRelations::Count)) {
+          if (i < (*FaceRelations::PerFace)) {
             // regular and periodic
-            const auto faceRelation = i;
+            const auto faceRelation = i + (*FaceRelations::PerFace) * face;
 
             ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
@@ -184,7 +184,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
             }
           } else {
             // Dynamic Rupture
-            const auto faceRelation = i - (*FaceRelations::Count);
+            // the side is the minor index here, cf. the NeighIntegrationRecorder
+            const auto faceRelation = face + Cell::NumFaces * (i - (*FaceRelations::PerFace));
 
             ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);

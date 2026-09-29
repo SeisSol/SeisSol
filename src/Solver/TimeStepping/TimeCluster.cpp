@@ -189,7 +189,7 @@ void TimeCluster::writeReceivers() {
 
 void TimeCluster::computeSources() {
 #ifdef ACL_DEVICE
-  device_.api->putProfilingMark("computeSources", device::ProfilingColors::Blue);
+  device_.api().putProfilingMark("computeSources", device::ProfilingColors::Blue);
 #endif
   SCOREP_USER_REGION("computeSources", SCOREP_USER_REGION_TYPE_FUNCTION)
 
@@ -211,7 +211,7 @@ void TimeCluster::computeSources() {
     loopStatistics_->end(regionComputePointSources_, pointSourceCluster->size(), profilingId_);
   }
 #ifdef ACL_DEVICE
-  device_.api->popLastProfilingMark();
+  device_.api().popLastProfilingMark();
 #endif
 }
 
@@ -293,7 +293,7 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
     const auto timestep = timeStepSize();
 
     const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
-    device_.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
+    device_.api().putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     auto computeGraphKey = initializer::GraphKey(graphType, timestep);
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
@@ -303,18 +303,20 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
     const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
     const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
-    streamRuntime_.runGraph(computeGraphKey,
-                            layerData,
-                            [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
-                              dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
-                                  table, pointsCollocate.data(), streamRuntime_);
-                            });
-    device_.api->popLastProfilingMark();
+    streamRuntime_.runGraph(
+        computeGraphKey,
+        layerData,
+        [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
+          dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
+              table, pointsCollocate.data(), streamRuntime_);
+        },
+        isRecurringTimestep(timestep));
+    device_.api().popLastProfilingMark();
 
     auto& solver =
         &layerData == dynRupInteriorData_ ? frictionSolverDevice_ : frictionSolverCopyDevice_;
 
-    device_.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
+    device_.api().putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     if (solver->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedPlus>(
           initializer::AllocationPlace::Host, streamRuntime_.stream());
@@ -334,7 +336,7 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
       solver->evaluate(ct_.correctionTime, frictionTime, timeWeights.data(), streamRuntime_);
     }
 
-    device_.api->popLastProfilingMark();
+    device_.api().popLastProfilingMark();
   }
   loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
 #else
@@ -436,7 +438,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   using namespace seissol::recording;
 
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
-  device_.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
+  device_.api().putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
   loopStatistics_->begin(regionComputeLocalIntegration_);
 
@@ -448,6 +450,16 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   const double timeStepWidth = timeStepSize();
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+
+  // The analytical boundary conditions are evaluated in a host function that is handed the
+  // current time. A graph keeps the host functions it recorded as they were, so replaying it
+  // would evaluate them at the time of the step that recorded it.
+  bool timeDependentBc = false;
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    const ConditionalKey analyticalKey(
+        *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
+    timeDependentBc = timeDependentBc || indicesTable.find(analyticalKey) != indicesTable.end();
+  }
 
   const ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
@@ -502,7 +514,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
           auto& entry = dataTable[key];
 
           if (resetBuffers) {
-            device_.algorithms.streamBatchedData(
+            device_.algorithms().streamBatchedData(
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
                 (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
@@ -510,7 +522,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime_.stream());
           } else {
-            device_.algorithms.accumulateBatchedData(
+            device_.algorithms().accumulateBatchedData(
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
                 (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
@@ -519,10 +531,11 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 streamRuntime_.stream());
           }
         }
-      });
+      },
+      isRecurringTimestep(timeStepWidth) && !timeDependentBc);
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
-  device_.api->popLastProfilingMark();
+  device_.api().popLastProfilingMark();
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
@@ -549,7 +562,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
 
   using namespace seissol::recording;
 
-  device_.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
+  device_.api().putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   loopStatistics_->begin(regionComputeNeighboringIntegration_);
 
@@ -567,11 +580,13 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);
 
-  streamRuntime_.runGraph(computeGraphKey,
-                          *clusterData_,
-                          [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-                            neighborKernel_.computeBatchedNeighborsIntegral(table, streamRuntime);
-                          });
+  streamRuntime_.runGraph(
+      computeGraphKey,
+      *clusterData_,
+      [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+        neighborKernel_.computeBatchedNeighborsIntegral(table, streamRuntime);
+      },
+      true);
 
   if (settings_.plasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
@@ -579,19 +594,21 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
         clusterData_->var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
         clusterData_->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
-    streamRuntime_.runGraph(plasticityGraphKey,
-                            *clusterData_,
-                            [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-                              seissol::kernels::Plasticity::computePlasticityBatched(
-                                  timeStepWidth,
-                                  seissolInstance_.parameters().model.tv,
-                                  globalData_.onDevice,
-                                  table,
-                                  plasticity,
-                                  conditionalCounterDevice_.data(),
-                                  isAdjustableVector,
-                                  streamRuntime);
-                            });
+    streamRuntime_.runGraph(
+        plasticityGraphKey,
+        *clusterData_,
+        [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+          seissol::kernels::Plasticity::computePlasticityBatched(
+              timeStepWidth,
+              seissolInstance_.parameters().model.tv,
+              globalData_.onDevice,
+              table,
+              plasticity,
+              conditionalCounterDevice_.data(),
+              isAdjustableVector,
+              streamRuntime);
+        },
+        isRecurringTimestep(timeStepWidth));
 
     seissolInstance_.flopCounter().incrementMetric(
         perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)],
@@ -602,7 +619,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
     ConditionalKey key = ConditionalKey(*KernelNames::Time);
     if (table.find(key) != table.end()) {
       auto entry = table.at(key);
-      device_.algorithms.accumulateBatchedData(
+      device_.algorithms().accumulateBatchedData(
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
           (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
           tensor::Q::Size,
@@ -611,7 +628,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
     }
   }
 
-  device_.api->popLastProfilingMark();
+  device_.api().popLastProfilingMark();
   loopStatistics_->end(regionComputeNeighboringIntegration_, clusterData_->size(), profilingId_);
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";

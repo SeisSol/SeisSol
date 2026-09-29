@@ -129,21 +129,20 @@ struct DualMemoryContainer {
       if (place == AllocationPlace::Host) {
         // do not copy back constant data (we ignore the other direction for now)
         if (!constant) {
-          device::DeviceInstance::getInstance().api->copyFromAsync(
+          device::DeviceInstance::instance().api().copyFromAsync(
               host, device, allocationSize, stream);
         }
       } else {
-        device::DeviceInstance::getInstance().api->copyToAsync(
-            device, host, allocationSize, stream);
+        device::DeviceInstance::instance().api().copyToAsync(device, host, allocationSize, stream);
       }
     }
     if (allocationMode == AllocationMode::HostDeviceUnified) {
       // currently broken (?)
       if (place == AllocationPlace::Host) {
-        // device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::Host,
+        // device::DeviceInstance::instance().api().prefetchUnifiedMemTo(device::Destination::Host,
         // host, allocationSize, stream);
       } else {
-        // device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::CurrentDevice,
+        // device::DeviceInstance::instance().api().prefetchUnifiedMemTo(device::Destination::CurrentDevice,
         // device, allocationSize, stream);
       }
     }

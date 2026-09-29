@@ -123,10 +123,10 @@ void Neighbor::computeBatchedNeighborsIntegral(
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     runtime.envMany(
-        (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
-          if (i < (*FaceRelations::Count)) {
+        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace), [&](void* stream, size_t i) {
+          if (i < (*FaceRelations::PerFace)) {
             // regular and periodic
-            const auto faceRelation = i;
+            const auto faceRelation = i + (*FaceRelations::PerFace) * face;
 
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
@@ -147,17 +147,18 @@ void Neighbor::computeBatchedNeighborsIntegral(
               neighFluxKrnl.extraOffset_AminusT =
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
-              real* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+              real* tmpMem = reinterpret_cast<real*>(device_.api().allocMemAsync(
                   seissol::kernel::gpu_neighboringFlux::TmpMaxMemRequiredInBytes * numElements,
                   stream));
               neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
               neighFluxKrnl.streamPtr = stream;
               (neighFluxKrnl.*seissol::kernel::gpu_neighboringFlux::ExecutePtrs[faceRelation])();
-              device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+              device_.api().freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           } else {
-            const auto faceRelation = i - (*FaceRelations::Count);
+            // the side is the minor index here, cf. the NeighIntegrationRecorder
+            const auto faceRelation = face + Cell::NumFaces * (i - (*FaceRelations::PerFace));
 
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
@@ -174,7 +175,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
               drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
-              real* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
+              real* tmpMem = reinterpret_cast<real*>(device_.api().allocMemAsync(
                   seissol::dynamicRupture::kernel::gpu_nodalFlux::TmpMaxMemRequiredInBytes *
                       numElements,
                   stream));
@@ -182,7 +183,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
 
               drKrnl.streamPtr = stream;
               (drKrnl.*seissol::dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs[faceRelation])();
-              device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+              device_.api().freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           }
         });

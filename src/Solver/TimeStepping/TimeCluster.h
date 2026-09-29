@@ -83,7 +83,7 @@ class TimeCluster : public AbstractTimeCluster {
   //! global data structures
   CompoundGlobalData globalData_;
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 
   /*
@@ -288,6 +288,15 @@ class TimeCluster : public AbstractTimeCluster {
   void finishPhase() override;
 
   [[nodiscard]] std::string description() const override;
+
+  /**
+   * A time step that equals the cluster's own step size recurs for the whole run, so a compute
+   * graph recorded for it pays off. The truncated step taken right before a synchronization
+   * point does not recur: caching it would add one graph per synchronization point.
+   */
+  [[nodiscard]] bool isRecurringTimestep(double timestep) const {
+    return timestep == ct_.maxTimeStepSize;
+  }
 };
 
 } // namespace seissol::time_stepping

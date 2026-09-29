@@ -66,7 +66,7 @@ class Local : public LocalKernel {
   kernel::gpu_localFlux deviceLocalFluxKernelPrototype_;
   kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype_;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 
   kernel::gpu_fsgFlux deviceFsgFlux_;
   kernel::gpu_dirichletFlux deviceDirichletFlux_;

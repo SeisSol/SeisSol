@@ -83,9 +83,9 @@ int main(int argc, char* argv[]) {
 
 #ifdef ACL_DEVICE
   using DeviceType = ::device::DeviceInstance;
-  auto& device = DeviceType::getInstance();
-  device.api->setDevice(0);
-  device.api->initialize();
+  auto& device = DeviceType::instance();
+  device.api().setDevice(0);
+  device.api().initialize();
 #endif
   print_hostname();
 

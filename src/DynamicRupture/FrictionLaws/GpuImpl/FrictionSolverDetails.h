@@ -29,7 +29,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
     {
 #ifdef ACL_DEVICE
       data_ = reinterpret_cast<FrictionLawData*>(
-          device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(FrictionLawData)));
+          device::DeviceInstance::instance().api().allocGlobMem(sizeof(FrictionLawData)));
 #endif
     }
 
@@ -44,10 +44,10 @@ class FrictionSolverDetails : public FrictionSolverInterface {
     // matrices. Per solver rather than per process: they live and die with
     // the device allocation they sit next to, and are rebuilt whenever it is.
     const auto upload = [](const auto& source) {
-      auto& device = device::DeviceInstance::getInstance();
+      auto& device = device::DeviceInstance::instance();
       const std::size_t bytes = source.data().size() * sizeof(real);
-      auto* target = reinterpret_cast<real*>(device.api->allocGlobMem(bytes));
-      device.api->copyTo(target, source.data().data(), bytes);
+      auto* target = reinterpret_cast<real*>(device.api().allocGlobMem(bytes));
+      device.api().copyTo(target, source.data().data(), bytes);
       return target;
     };
     devTpGridPoints_ = upload(tp::GridPoints<misc::NumTpGridPoints>());
