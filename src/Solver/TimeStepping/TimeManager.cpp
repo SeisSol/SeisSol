@@ -622,12 +622,8 @@ void TimeManager::followPlan() {
   }
 
   long largestRate = 1;
-  long lastTick = 0;
-  long fullUntil = std::numeric_limits<long>::max();
   for (const auto& cluster : planned) {
     largestRate = std::max(largestRate, cluster.timeStepRate);
-    lastTick = std::max(lastTick, cluster.stepsUntilSync);
-    fullUntil = std::min(fullUntil, cluster.stepsUntilSync);
   }
   const auto plan = planTimeSteps(planned);
 
@@ -648,40 +644,29 @@ void TimeManager::followPlan() {
     }
   }
 
-  // the super-timestep an action falls into, by the first tick it covers; along the plan, the
-  // actions of a super-timestep come one after another
-  const auto superStepOf = [&](const PlannedAction& step) {
-    return step.step * planned[step.cluster].timeStepRate / largestRate;
-  };
-
-  std::size_t begin = 0;
-  while (begin < plan.size()) {
-    const auto superStep = superStepOf(plan[begin]);
-    std::vector<long> steps(clusters_.size(), 0);
-    auto end = begin;
-    while (end < plan.size() && superStepOf(plan[end]) == superStep) {
-      if (plan[end].action == ActorAction::Predict) {
-        ++steps[plan[end].cluster];
-      }
-      ++end;
-    }
-    assert(end == plan.size() || superStepOf(plan[end]) > superStep);
+  for (const auto& superTimestep : superTimesteps(planned, plan)) {
+    const auto begin = superTimestep.begin;
+    const auto end = superTimestep.end;
+    const auto superStep = superTimestep.index;
+    const auto& steps = superTimestep.steps;
 
     // decide on the super-timestep before any of its host parts has run
     bool outputsAhead = false;
     bool hostWork = false;
+    // a replay repeats the step sizes of its recording, which the key stands for
+    bool regularSteps = true;
     SuperStepRecorder::Key key;
     for (std::size_t cluster = 0; cluster < clusters_.size(); ++cluster) {
       outputsAhead = outputsAhead || clusters_[cluster]->outputsAhead(steps[cluster]);
       hostWork = hostWork || clusters_[cluster]->hostWork();
+      regularSteps = regularSteps && clusters_[cluster]->regularStepsAhead(steps[cluster]);
       key.push_back(clusters_[cluster]->nextTimeStepSize());
     }
     for (auto* ghost : ghosts) {
       key.push_back(ghost->nextTimeStepSize());
     }
-    const bool full = (superStep + 1) * largestRate <= lastTick;
-    const bool replayable =
-        replay_ && (superStep + 1) * largestRate <= fullUntil && !outputsAhead && !hostWork;
+    const bool full = superTimestep.beforeSync;
+    const bool replayable = replay_ && full && regularSteps && !outputsAhead && !hostWork;
 
     StepWork work;
     const auto superStepEnd = (superStep + 1) * largestRate;
@@ -751,7 +736,6 @@ void TimeManager::followPlan() {
       outputFreeSuperSteps_ += work.outputs ? 0 : 1;
       regularSuperSteps_ += work.irregular() ? 0 : 1;
     }
-    begin = end;
   }
 }
 

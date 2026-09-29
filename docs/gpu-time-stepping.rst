@@ -128,7 +128,9 @@ Recording super-timesteps
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 With ``SEISSOL_SUPERSTEP_GRAPHS=1``, the time manager takes the plan one super-timestep at a time.
-A super-timestep can be recorded if it is complete up to the synchronization point and no cluster computes on the host.
+A super-timestep can be recorded if it ends before the next synchronization point and no cluster computes on the host.
+(The super-timestep that reaches the synchronization point takes the last steps of the clusters, which end exactly there;
+their sizes change from one synchronization interval to the next.)
 Two such super-timesteps do the same GPU work if all clusters have the same step sizes.
 The first super-timestep of a kind runs as usual, the second one gets recorded into a graph,
 and all further ones replay it, while the clusters only keep their books on the host.
@@ -153,8 +155,8 @@ both have to agree.
 With a transfer mode on GPU streams, it also reports how many events of the halo exchange were referenced at once at most,
 and how many events their pool has; an event is reused once nobody waits for it any more, so both stay small.
 With ``SEISSOL_TIMESTEPPING_PLAN=1``, it also reports the super-timesteps:
-how many there were, how many ended early at a synchronization point,
-how many full ones were free of output samples and of host work, and how many were recorded and replayed.
+how many there were, how many reached a synchronization point (one per synchronization interval and process),
+how many of the others (the full ones) were free of output samples and of host work, and how many were recorded and replayed.
 
 Status
 ~~~~~~

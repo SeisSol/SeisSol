@@ -49,6 +49,37 @@ struct PlannedAction {
  */
 std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clusters);
 
+/**
+ * A super-timestep of a plan: the step of the largest cluster that covers the ticks from
+ * `index * largestRate` on, and the actions of the plan that fall into it.
+ */
+struct SuperTimestep {
+  long index{0};
+
+  /// the actions [begin, end) of the plan
+  std::size_t begin{0};
+  std::size_t end{0};
+
+  /// the number of steps each cluster starts in it
+  std::vector<long> steps;
+
+  /**
+   * Whether it ends before the synchronization point. The one that reaches the synchronization
+   * point takes the last steps of the clusters, which end there: they are cut short in time even
+   * where their ticks come out complete (e.g. 64 ticks for 63.5 steps of the smallest cluster), and
+   * their sizes differ in the last bits from one synchronization interval to the next.
+   */
+  bool beforeSync{false};
+};
+
+/**
+ * Splits a plan of the clusters into its super-timesteps. An action falls into the super-timestep
+ * of the first tick it covers; along the plan, the actions of a super-timestep come one after
+ * another.
+ */
+std::vector<SuperTimestep> superTimesteps(const std::vector<PlannedCluster>& clusters,
+                                          const std::vector<PlannedAction>& plan);
+
 } // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_TIMESTEPPINGPLAN_H_

@@ -10,8 +10,11 @@
 #include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
+#include <limits>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 namespace seissol::solver {
@@ -62,6 +65,41 @@ std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clus
     plan.push_back(action);
   }
   return plan;
+}
+
+std::vector<SuperTimestep> superTimesteps(const std::vector<PlannedCluster>& clusters,
+                                          const std::vector<PlannedAction>& plan) {
+  long largestRate = 1;
+  long stepsUntilSync = std::numeric_limits<long>::max();
+  for (const auto& cluster : clusters) {
+    largestRate = std::max(largestRate, cluster.timeStepRate);
+    stepsUntilSync = std::min(stepsUntilSync, cluster.stepsUntilSync);
+  }
+  const auto superStepOf = [&](const PlannedAction& action) {
+    return action.step * clusters[action.cluster].timeStepRate / largestRate;
+  };
+
+  std::vector<SuperTimestep> superSteps;
+  std::size_t begin = 0;
+  while (begin < plan.size()) {
+    SuperTimestep superStep;
+    superStep.index = superStepOf(plan[begin]);
+    superStep.begin = begin;
+    superStep.steps.resize(clusters.size(), 0);
+    auto end = begin;
+    while (end < plan.size() && superStepOf(plan[end]) == superStep.index) {
+      if (plan[end].action == ActorAction::Predict) {
+        ++superStep.steps[plan[end].cluster];
+      }
+      ++end;
+    }
+    assert(end == plan.size() || superStepOf(plan[end]) > superStep.index);
+    superStep.end = end;
+    superStep.beforeSync = (superStep.index + 1) * largestRate < stepsUntilSync;
+    superSteps.push_back(std::move(superStep));
+    begin = end;
+  }
+  return superSteps;
 }
 
 } // namespace seissol::solver

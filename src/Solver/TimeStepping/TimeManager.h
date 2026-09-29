@@ -68,9 +68,9 @@ class TimeManager {
   //! take the steps along the time stepping plan
   bool followPlan_{false};
 
-  //! along the plan: all super-timesteps (steps of the largest cluster), those that end early at a
-  //! synchronization point, the full ones without output samples, and the full ones in which no
-  //! cluster takes an irregular step
+  //! along the plan: all super-timesteps (steps of the largest cluster), those that reach a
+  //! synchronization point (one per interval), the full ones (all others) without output samples,
+  //! and the full ones in which no cluster takes an irregular step
   std::size_t superSteps_{0};
   std::size_t shortenedSuperSteps_{0};
   std::size_t outputFreeSuperSteps_{0};

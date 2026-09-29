@@ -295,6 +295,19 @@ long AbstractTimeCluster::getTimeStepRate() const { return timeStepRate_; }
 
 long AbstractTimeCluster::getStepsUntilSync() const { return ct_.stepsUntilSync; }
 
+bool AbstractTimeCluster::regularStepsAhead(long steps) const {
+  double time = ct_.correctionTime;
+  for (long step = 0; step < steps; ++step) {
+    const double size =
+        ct_.timeStepSize(time, ct_.stepsSinceLastSync + step * ct_.timeStepRate, syncTime_);
+    if (size != ct_.maxTimeStepSize) {
+      return false;
+    }
+    time += size;
+  }
+  return true;
+}
+
 void AbstractTimeCluster::finalize() {
   // the event may belong to a stream runtime that goes away with the cluster
   progress_.publishEvent({});

@@ -42,12 +42,16 @@ class SyncTestCluster : public AbstractTimeCluster {
   //! steps before the last one of an interval that are shorter than the maximum
   std::size_t shortSteps{0};
 
+  //! steps of other than the maximum size
+  std::size_t irregularSteps{0};
+
   protected:
   void start() override {}
   void predict() override {
     const auto size = timeStepSize();
     emptySteps += size > 0 ? 0 : 1;
     shortSteps += ct_.isLastStep(ct_.stepsSinceLastSync) || size == ct_.maxTimeStepSize ? 0 : 1;
+    irregularSteps += size == ct_.maxTimeStepSize ? 0 : 1;
   }
   void correct() override {}
   void handleNeighborPrediction(const NeighborCluster& /*neighbor*/) override {}
@@ -122,6 +126,59 @@ struct Ladder {
       if (!acted) {
         return false;
       }
+    }
+    return true;
+  }
+
+  [[nodiscard]] std::size_t irregularSteps() const {
+    std::size_t steps = 0;
+    for (const auto& cluster : clusters) {
+      steps += cluster->irregularSteps;
+    }
+    return steps;
+  }
+
+  /**
+   * Takes the steps along the time stepping plan one super-timestep at a time, like the time
+   * manager does. Counts the super-timesteps that do not end before the synchronization point, and
+   * the ones that do, but in which a cluster takes a step of other than the maximum size, or is
+   * expected to.
+   */
+  bool runSuperSteps(std::size_t& reachingSync, std::size_t& irregularBeforeSync) {
+    std::vector<PlannedCluster> planned;
+    for (auto& cluster : clusters) {
+      REQUIRE(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
+      cluster->act();
+      planned.push_back({cluster->getTimeStepRate(),
+                         cluster->getStepsUntilSync(),
+                         cluster->dataReadiness(),
+                         cluster->getPriority()});
+    }
+    const auto plan = planTimeSteps(planned);
+    for (const auto& superStep : superTimesteps(planned, plan)) {
+      bool regular = true;
+      for (std::size_t cluster = 0; cluster < clusters.size(); ++cluster) {
+        regular = regular && clusters[cluster]->regularStepsAhead(superStep.steps[cluster]);
+      }
+      const auto irregularBefore = irregularSteps();
+      for (auto index = superStep.begin; index < superStep.end; ++index) {
+        auto& cluster = *clusters[plan[index].cluster];
+        if (cluster.getNextLegalAction() != plan[index].action) {
+          return false;
+        }
+        cluster.act();
+      }
+      if (!superStep.beforeSync) {
+        ++reachingSync;
+      } else if (!regular || irregularSteps() != irregularBefore) {
+        ++irregularBeforeSync;
+      }
+    }
+    for (auto& cluster : clusters) {
+      if (cluster->getNextLegalAction() != ActorAction::Sync) {
+        return false;
+      }
+      cluster->act();
     }
     return true;
   }
@@ -232,7 +289,53 @@ void checkIntervals(
 constexpr double BaseRelease = 1.4412823797093819e-03;
 constexpr double BaseDebug = 1.4412823797093841e-03;
 
+/**
+ * Runs the clusters super-timestep by super-timestep through the synchronization points of an
+ * output interval. Checks that exactly one super-timestep per interval reaches the synchronization
+ * point, and that all others only take steps of the maximum size (which a replay would repeat).
+ */
+void checkSuperSteps(
+    double baseTimeStepSize, long ratio, std::size_t levels, double interval, double endTime) {
+  Ladder ladder(baseTimeStepSize, ratio, levels);
+  const double tolerance = ClusterTimes::TickTolerance * baseTimeStepSize;
+  double current = 0;
+  double next = interval;
+  std::size_t intervals = 0;
+  std::size_t reachingSync = 0;
+  std::size_t irregularBeforeSync = 0;
+  while (endTime > current + tolerance) {
+    const double syncTime = std::min(endTime, next);
+    for (auto& cluster : ladder.clusters) {
+      cluster->setSyncTime(syncTime);
+      // dereference first due to a clang-tidy recommendation
+      (*cluster).reset();
+    }
+    ++intervals;
+    REQUIRE(ladder.runSuperSteps(reachingSync, irregularBeforeSync));
+    current = syncTime;
+    if (std::abs(current - next) < tolerance) {
+      next += interval;
+    }
+  }
+  CAPTURE(intervals);
+  CHECK(reachingSync == intervals);
+  CHECK(irregularBeforeSync == 0);
+}
+
 } // namespace
+
+TEST_CASE("Only the super-timestep that reaches a synchronization point has irregular steps" *
+          doctest::test_suite("solver")) {
+  // Intervals of 63.5 and 64 base steps with a largest cluster of 32 base steps: the second
+  // super-timestep of an interval of 63.5 base steps counted 32 full ticks, but its last steps
+  // got cut short at the synchronization point, and it was replayed from the recording of an
+  // earlier interval with other step sizes in the last bits.
+  checkSuperSteps(BaseRelease, 2, 6, 0.0915214311, 1.0);
+  checkSuperSteps(BaseRelease, 2, 6, 0.091521, 2.0);
+  checkSuperSteps(BaseRelease, 2, 6, 64 * BaseRelease, 1.0);
+  checkSuperSteps(BaseDebug, 2, 6, 0.1, 1.0);
+  checkSuperSteps(BaseRelease, 3, 4, 0.05, 0.5);
+}
 
 TEST_CASE("The clusters agree on the steps until a synchronization point at a multiple of the "
           "time step" *

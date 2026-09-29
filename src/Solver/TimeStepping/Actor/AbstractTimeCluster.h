@@ -215,6 +215,11 @@ class AbstractTimeCluster {
   [[nodiscard]] virtual bool outputsAhead(long /*steps*/) const { return false; }
 
   /**
+   * Whether the next `steps` steps of this cluster all take its maximum time step size.
+   */
+  [[nodiscard]] bool regularStepsAhead(long steps) const;
+
+  /**
    * Whether this cluster computes on the host, or exchanges data with clusters that do.
    */
   [[nodiscard]] virtual bool hostWork() const { return false; }
