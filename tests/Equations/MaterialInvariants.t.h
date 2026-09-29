@@ -13,7 +13,7 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace materialinvariants {
 
 /// The mechanism-dependent assertions live in a template so that `if
 /// constexpr` actually discards the branch that does not apply; in a plain
@@ -45,12 +45,14 @@ void checkRelaxationIsInert(const MaterialT& material) {
   }
 }
 
-} // namespace
+} // namespace materialinvariants
 
 /// Whatever this build was configured with, these have to hold. Checking them
 /// against the configured material rather than a fixed one means every
 /// configuration the CI builds gets them.
 TEST_CASE("Configured material is self consistent" * doctest::test_suite("equations")) {
+  using namespace materialinvariants;
+
   using MaterialT = model::MaterialT;
 
   SUBCASE("the quantity groups account for the whole layout") {

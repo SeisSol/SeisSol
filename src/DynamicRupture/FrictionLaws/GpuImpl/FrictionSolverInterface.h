@@ -23,8 +23,7 @@ struct FrictionLawData {
   /// Null unless the impedance of a face belongs to its nodes.
   const NodalImpedanceParameters* __restrict nodalImpedanceParams{};
   // CS = coordinate system
-  real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  const real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
+  const real (*__restrict stressSourceInFaultCS)[6][misc::NumPaddedPoints]{};
   const real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -42,8 +41,9 @@ struct FrictionLawData {
   real (*__restrict imposedStateMinus)[tensor::QInterpolated::size()]{};
   DREnergyOutput* __restrict energyData{};
   const DRGodunovData* __restrict godunovData{};
-  real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  const real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
+  const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints]{};
+  const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints]{};
+  const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
@@ -109,9 +109,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     if constexpr (NodalImpedance) {
       data->nodalImpedanceParams = layerData.var<DynamicRupture::NodalImpedanceParams>(place);
     }
-    data->initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(place);
-    data->nucleationStressInFaultCS =
-        layerData.var<DynamicRupture::NucleationStressInFaultCS>(place);
+    data->stressSourceInFaultCS = layerData.var<DynamicRupture::StressSourceInFaultCS>(place);
     data->mu = layerData.var<DynamicRupture::Mu>(place);
     data->accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(place);
     data->slip1 = layerData.var<DynamicRupture::Slip1>(place);
@@ -132,8 +130,9 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     data->dynStressTimePending = layerData.var<DynamicRupture::DynStressTimePending>(place);
     data->qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(place);
     data->qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(place);
-    data->initialPressure = layerData.var<DynamicRupture::InitialPressure>(place);
-    data->nucleationPressure = layerData.var<DynamicRupture::NucleationPressure>(place);
+    data->stressSourcePressure = layerData.var<DynamicRupture::StressSourcePressure>(place);
+    data->stressSourceOnset = layerData.var<DynamicRupture::StressSourceOnset>(place);
+    data->stressSourceRiseTime = layerData.var<DynamicRupture::StressSourceRiseTime>(place);
   }
 
   protected:

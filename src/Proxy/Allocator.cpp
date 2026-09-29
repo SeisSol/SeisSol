@@ -65,7 +65,6 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
-  std::uniform_int_distribution<unsigned> orientationDist(0, 2);
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -77,7 +76,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
-      cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
+      cellInformation[cell].faceRelations[f][1] = 0;
 
       const auto neighbor = cellDist(rng);
       secondaryInformation[cell].faceNeighbors[f].global = neighbor;
@@ -125,10 +124,10 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 #endif
 
 #ifdef ACL_DEVICE
-  const auto& device = device::DeviceInstance::getInstance();
+  const auto& device = device::DeviceInstance::instance();
   layer.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                      device.api->getDefaultStream());
-  device.api->syncDefaultStreamWithHost();
+                      device.api().getDefaultStream());
+  device.api().syncDefaultStreamWithHost();
 #endif
 }
 } // namespace
@@ -215,10 +214,10 @@ void ProxyData::initDataStructures(bool enableDR) {
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
         seissol::memory::Memkind::DeviceGlobalMemory));
-    const auto& device = ::device::DeviceInstance::getInstance();
-    device.api->copyTo(fakeDerivatives,
-                       fakeDerivativesHost,
-                       cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
+    const auto& device = ::device::DeviceInstance::instance();
+    device.api().copyTo(fakeDerivatives,
+                        fakeDerivativesHost,
+                        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
 #else
     fakeDerivatives = fakeDerivativesHost;
 #endif
@@ -253,7 +252,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     std::mt19937 rng(cellCount);
     std::uniform_int_distribution<unsigned> sideDist(0, 3);
-    std::uniform_int_distribution<unsigned> orientationDist(0, 2);
+    std::uniform_int_distribution<unsigned> orientationDist(0, 1);
     std::uniform_int_distribution<std::size_t> drDist(0, interior.size() - 1);
     std::uniform_int_distribution<std::size_t> cellDist(0, cellCount - 1);
 
@@ -261,10 +260,10 @@ void ProxyData::initDataStructures(bool enableDR) {
     for (std::size_t cell = 0; cell < cellCount; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
-        const auto side = sideDist(rng);
         const auto orientation = orientationDist(rng);
         const auto drFace = drDist(rng);
-        drm.side = side;
+        // as in the solver, the mapping of a face addresses that face
+        drm.side = face;
         drm.faceRelation = orientation;
         drm.godunov = imposedStatePlus[drFace];
         drm.fluxSolver = fluxSolverPlus[drFace];
@@ -286,17 +285,18 @@ void ProxyData::initDataStructures(bool enableDR) {
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);
-      faceInformation[face].faceRelation = orientationDist(rng);
+      // a fault face always addresses the minus side here
+      faceInformation[face].faceRelation = 1;
     }
   }
 }
 
 void ProxyData::initDataStructuresOnDevice(bool enableDR) {
 #ifdef ACL_DEVICE
-  const auto& device = ::device::DeviceInstance::getInstance();
+  const auto& device = ::device::DeviceInstance::instance();
   ltsStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                           device.api->getDefaultStream());
-  device.api->syncDefaultStreamWithHost();
+                           device.api().getDefaultStream());
+  device.api().syncDefaultStreamWithHost();
 
   auto& layer = ltsStorage.layer(layerId);
 
@@ -304,15 +304,15 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   ltsStorage.allocateScratchPads();
 
   seissol::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-  recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder);
+  recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder(9.81));
   recorder.addRecorder(new seissol::recording::NeighIntegrationRecorder);
 
   recorder.addRecorder(new seissol::recording::PlasticityRecorder);
   recorder.record(layer);
   if (enableDR) {
     drStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                            device.api->getDefaultStream());
-    device.api->syncDefaultStreamWithHost();
+                            device.api().getDefaultStream());
+    device.api().syncDefaultStreamWithHost();
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
     drStorage.allocateScratchPads();
 

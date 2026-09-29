@@ -14,7 +14,8 @@ namespace seissol::initializer::internal {
 
 void setupRecorders(LTS::Storage& ltsStorage,
                     DynamicRupture::Storage& drStorage,
-                    bool usePlasticity);
+                    bool usePlasticity,
+                    double g);
 
 } // namespace seissol::initializer::internal
 #endif // SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_RECORDING_H_

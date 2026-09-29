@@ -16,6 +16,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <iterator>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE
@@ -23,6 +24,12 @@
 #endif
 
 namespace seissol::kernels::solver::linearckanelastic {
+
+// The neighbouring flux family is indexed by the neighbouring side and the own face. The face
+// orientation index is not part of it, since the canonical vertex numbering pins it to zero on
+// every interior face.
+static_assert(std::size(seissol::kernel::neighborFluxExt::ExecutePtrs) ==
+              Cell::NumFaces * Cell::NumFaces);
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   nfKrnlPrototype_.bindGlobals(*global.onHost);
@@ -42,7 +49,7 @@ void Neighbor::computeNeighborsIntegral(
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
     // alignment of the time integrated dofs (only for linear interior)
     if (data.get<LTS::CellInformation>().faceTypes[neighbor] == FaceType::Regular) {
-      assert((reinterpret_cast<uintptr_t>(timeIntegrated[neighbor])) % Alignment == 0);
+      assert((reinterpret_cast<uintptr_t>(timeIntegrated[neighbor])) % Vectorsize == 0);
     }
   }
 #endif
@@ -50,7 +57,7 @@ void Neighbor::computeNeighborsIntegral(
   const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
   // alignment of the degrees of freedom
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
 
   alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
 
@@ -62,16 +69,14 @@ void Neighbor::computeNeighborsIntegral(
     // neighboring cell contribution only for interior faces
     if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::Regular) {
       assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
-             data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
+             data.get<LTS::CellInformation>().faceRelations[face][1] == 0);
 
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
-                     data.get<LTS::CellInformation>().faceRelations[face][0],
-                     face);
+      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][0], face);
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
-      assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
+      assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Vectorsize == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
@@ -102,10 +107,10 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // neighboring cell contribution only for interior faces
     if (faceTypes[face] == FaceType::Regular) {
-      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
+      assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] == 0);
 
       regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt>(
-          neighboringIndices[face][1], neighboringIndices[face][0], face);
+          neighboringIndices[face][0], face);
     } else if (faceTypes[face] == FaceType::DynamicRupture) {
       dr += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux>(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
@@ -140,21 +145,21 @@ void Neighbor::computeBatchedNeighborsIntegral(
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     if (table.find(key) != table.end()) {
       auto& entry = table[key];
-      device.algorithms.setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
-                                   static_cast<real>(0.0),
-                                   tensor::Qext::Size,
-                                   (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
-                                   runtime.stream());
+      device.algorithms().setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
+                                     static_cast<real>(0.0),
+                                     tensor::Qext::Size,
+                                     (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
+                                     runtime.stream());
     }
   }
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     runtime.envMany(
-        (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
+        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace), [&](void* stream, size_t i) {
           // regular and periodic
-          if (i < (*FaceRelations::Count)) {
+          if (i < (*FaceRelations::PerFace)) {
             // regular and periodic
-            const auto faceRelation = i;
+            const auto faceRelation = i + (*FaceRelations::PerFace) * face;
 
             ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
@@ -179,7 +184,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
             }
           } else {
             // Dynamic Rupture
-            const auto faceRelation = i - (*FaceRelations::Count);
+            // the side is the minor index here, cf. the NeighIntegrationRecorder
+            const auto faceRelation = face + Cell::NumFaces * (i - (*FaceRelations::PerFace));
 
             ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);

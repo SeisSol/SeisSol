@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SOLVER_H_
 
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Kernels/TimeCoefficients.h"
 #include "Numerical/TimeBasis.h"
 
@@ -60,6 +61,11 @@ struct Solver {
   static constexpr bool RequiresTimeQuadrature = false;
 
   static constexpr bool FluxSolverFromTable = false;
+
+  static constexpr FaceTypeSupport implementsFaceType(FaceType /*faceType*/) {
+    return faceTypeSupported();
+  }
+
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
 

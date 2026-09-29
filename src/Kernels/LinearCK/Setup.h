@@ -58,6 +58,14 @@ struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
                                     matATtilde);
   }
 
+  static void foldBoundaryIntoFaceFlux(FaceType faceType,
+                                       real* aPlusT,
+                                       real* aMinusT,
+                                       const real* matTinv,
+                                       const real* dirichletMap) {
+    detail::foldBoundaryIntoFaceFlux(faceType, aPlusT, aMinusT, matTinv, dirichletMap);
+  }
+
   /// One anelastic block per mechanism, each weighted by its own relaxation
   /// frequency, because the memory variables share the quantity axis.
   template <typename T>

@@ -63,6 +63,7 @@ struct FrictionLawContext {
   void* item{nullptr};
 
   FaultStresses<Executor::Device> faultStresses{};
+  FaultStresses<Executor::Device> initialStress{};
   TractionResults<Executor::Device> tractionResults{};
   real stateVariableBuffer{};
   real strengthBuffer{};
@@ -178,21 +179,16 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         common::initializeTractionResults<GpuRangeType>(
             ctx.faultStresses, ctx.tractionResults, ctx.pointIndex);
 
-        for (uint32_t i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
-          common::adjustInitialStress<GpuRangeType>(
-              ctx.data->initialStressInFaultCS[ctx.ltsFace],
-              ctx.data
-                  ->nucleationStressInFaultCS[ctx.ltsFace * ctx.data->drParameters.nucleationCount +
-                                              i],
-              ctx.data->initialPressure[ctx.ltsFace],
-              ctx.data
-                  ->nucleationPressure[ctx.ltsFace * ctx.data->drParameters.nucleationCount + i],
-              updateTime,
-              ctx.data->drParameters.t0[i],
-              ctx.data->drParameters.s0[i],
-              dt,
-              ctx.pointIndex);
-        }
+        const auto sourceCount = ctx.data->drParameters.sourceCount;
+        common::computeInitialStress<GpuRangeType>(
+            ctx.initialStress,
+            &ctx.data->stressSourceInFaultCS[ctx.ltsFace * sourceCount],
+            &ctx.data->stressSourcePressure[ctx.ltsFace * sourceCount],
+            &ctx.data->stressSourceOnset[ctx.ltsFace * sourceCount],
+            &ctx.data->stressSourceRiseTime[ctx.ltsFace * sourceCount],
+            sourceCount,
+            updateTime,
+            ctx.pointIndex);
 
         Derived::updateFrictionAndSlip(ctx, timeIndex);
 
@@ -263,7 +259,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     FrictionSolverInterface::copyStorageToLocal(&dataHost_, layerData);
     Derived::copySpecificStorageDataToLocal(&dataHost_, layerData);
     dataHost_.drParameters = this->drParameters_;
-    device::DeviceInstance::getInstance().api->copyToAsync(
+    device::DeviceInstance::instance().api().copyToAsync(
         data_, &dataHost_, sizeof(FrictionLawData), runtime.stream());
   }
 

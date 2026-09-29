@@ -10,6 +10,7 @@
 
 #include "GeneratedCode/quantities.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/TimeCoefficients.h"
 #include "Numerical/TimeBasis.h"
@@ -81,6 +82,34 @@ struct Solver {
   static constexpr bool RequiresTimeQuadrature = true;
 
   static constexpr bool FluxSolverFromTable = true;
+
+  /// Which boundary conditions this solver's kernels implement.
+  ///
+  /// A face without a neighbor needs a ghost rule that folds into the pair of
+  /// flux matrices, and for a transported tensor that means a mirror of the
+  /// transported quantities: outflow needs none, a free surface has one, and a
+  /// fault carries the flux its friction imposes. The conditions that impose a
+  /// value instead act on the quantities of the Riemann problem, which is a
+  /// narrower thing than what this solver transports -- so their kernels are
+  /// not generated for this layout at all (`codegen/kernels/nodalbc.py`), and
+  /// `Setup.h` has no rule to build the pair from. Stating it here is what
+  /// turns that into a rejection at startup with the reason, rather than an
+  /// error once the setup reaches the offending face.
+  static constexpr FaceTypeSupport implementsFaceType(FaceType faceType) {
+    if (faceType == FaceType::FreeSurfaceGravity) {
+      return faceTypeUnsupported("the surface elevation is imposed on the quantities of the "
+                                 "Riemann problem, which is not what this solver transports");
+    }
+    if (faceType == FaceType::Dirichlet) {
+      return faceTypeUnsupported("the Dirichlet datum is folded into the rows of the local flux "
+                                 "solver, and a transported tensor has more than those rows");
+    }
+    if (faceType == FaceType::Analytical) {
+      return faceTypeUnsupported("this predictor evaluates no time-dependent boundary condition");
+    }
+    return faceTypeSupported();
+  }
+
   static constexpr std::size_t IntegralsSize = tensor::I::size();
 
   /// The expansion of the state, and behind it the expansion of what the cell

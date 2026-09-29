@@ -84,7 +84,7 @@ void MemoryManager::synchronizeTo(AllocationPlace place) {
   void* defaultStream = nullptr;
 
 #ifdef ACL_DEVICE
-  defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  defaultStream = device::DeviceInstance::instance().api().getDefaultStream();
 #endif
   ltsStorage_.synchronizeTo(place, defaultStream);
   drStorage_.synchronizeTo(place, defaultStream);
@@ -92,7 +92,7 @@ void MemoryManager::synchronizeTo(AllocationPlace place) {
   surfaceStorage_.synchronizeTo(place, defaultStream);
 
 #ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
 #endif
 }
 

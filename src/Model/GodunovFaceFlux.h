@@ -10,6 +10,7 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Kernels/Precision.h"
 
@@ -73,6 +74,40 @@ inline void assembleGodunovFaceFlux(bool rusanov,
     neighKrnl.Tinv = init::identityT::Values;
   }
   neighKrnl.execute();
+}
+
+/// The boundary conditions a face folds into the pair it applies.
+///
+/// A Dirichlet datum and the free surface with gravity are constant over the
+/// face, so what they impose is a map on the ghost state and becomes part of
+/// the local flux solver; what is left of either condition is the offset the
+/// local kernel adds. Here for the same two reasons as the assembly above: the
+/// three solvers that fold do it word for word, and the kernels are generated
+/// only where the pair's ghost-state index runs over the quantities of the
+/// Riemann problem.
+inline void foldBoundaryIntoFaceFlux(FaceType faceType,
+                                     real* aPlusT,
+                                     real* aMinusT,
+                                     const real* matTinvData,
+                                     const real* dirichletMap) {
+  if (faceType == FaceType::Dirichlet) {
+    kernel::foldDirichlet foldKrnl;
+    foldKrnl.AplusT = aPlusT;
+    foldKrnl.AminusT = aMinusT;
+    foldKrnl.Tinv = matTinvData;
+    foldKrnl.dirichletMap = dirichletMap;
+    foldKrnl.execute();
+  }
+
+  if (faceType == FaceType::FreeSurfaceGravity) {
+    kernel::foldFreeSurfaceGravity foldKrnl;
+    // fsgMap is a constant; only the pool holds it
+    foldKrnl.bindGlobals(seissol::Pool::host());
+    foldKrnl.AplusT = aPlusT;
+    foldKrnl.AminusT = aMinusT;
+    foldKrnl.Tinv = matTinvData;
+    foldKrnl.execute();
+  }
 }
 
 } // namespace seissol::model::detail

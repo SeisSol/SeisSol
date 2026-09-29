@@ -53,7 +53,6 @@ class Local : public LocalKernel {
                        double timeStepWidth) override;
 
   void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                              recording::ConditionalMaterialTable& materialTable,
                               recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
@@ -73,7 +72,7 @@ class Local : public LocalKernel {
 
 #ifdef ACL_DEVICE
   kernel::gpu_damageCellIntegral deviceCellIntegral_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };
 

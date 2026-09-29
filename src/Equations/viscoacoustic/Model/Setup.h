@@ -36,9 +36,9 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
   /// on top -- once per mechanism weighted by its relaxation frequency, or
   /// once with the frequency held elsewhere -- is the solver's decision.
   template <typename T>
-  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
+  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
     MaterialSetup<AcousticMaterial>::getTransposedCoefficientMatrix(
-        dynamic_cast<const AcousticMaterial&>(material), dim, AT);
+        dynamic_cast<const AcousticMaterial&>(material), dim, matM);
   }
 
   /**
@@ -48,7 +48,7 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
    * business, so it is handed a writer rather than a matrix.
    */
   template <typename F>
-  static void forEachSourceEntry(const MaterialT& material, std::size_t mech, F&& write) {
+  static void forEachSourceEntry(const MaterialT& material, std::size_t mech, const F& write) {
     write(0, 0, material.theta[mech][0]);
   }
 
@@ -67,19 +67,22 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
   static void getTransposedAnelasticCoefficientMatrix(double omega,
                                                       std::size_t dim,
                                                       std::size_t mech,
-                                                      T& M) {
+                                                      T& matM) {
     const auto col = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
     switch (dim) {
     case 0:
-      M(1, col) = -omega;
+      matM(1, col) = -omega;
       break;
 
     case 1:
-      M(2, col) = -omega;
+      matM(2, col) = -omega;
       break;
 
     case 2:
-      M(3, col) = -omega;
+      matM(3, col) = -omega;
+      break;
+
+    default:
       break;
     }
   }

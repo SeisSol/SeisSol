@@ -17,6 +17,10 @@ namespace seissol::unit_test {
 TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
+  // the acoustic and the viscoacoustic material carry a single isotropic stress, the pressure,
+  // so only the first diagonal entry of the moment tensor makes it into the source
+  constexpr bool ScalarStress = model::MaterialT::TractionComponents == 1;
+
   // strike = dip = rake = pi / 3
   double strike = M_PI / 3.0;
   double dip = M_PI / 3.0;
@@ -45,7 +49,7 @@ TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
 
   // Compare to hand-computed reference solution
   CHECK(momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
-  if (model::MaterialT::Type != model::MaterialType::Acoustic) {
+  if (!ScalarStress) {
     CHECK(momentTensor[1] == AbsApprox(-7.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
     CHECK(momentTensor[2] == AbsApprox(3.0 * std::sqrt(3.0) / 8.0).epsilon(Epsilon));
     CHECK(momentTensor[3] == AbsApprox(19.0 / 32.0).epsilon(Epsilon));
@@ -83,7 +87,7 @@ TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
 
   // Compare to hand-computed reference solution
   CHECK(momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(Epsilon));
-  if (model::MaterialT::Type != model::MaterialType::Acoustic) {
+  if (!ScalarStress) {
     CHECK(momentTensor[1] == AbsApprox(0.648994284092410).epsilon(Epsilon));
     CHECK(momentTensor[2] == AbsApprox(3.061692966762920).epsilon(Epsilon));
     CHECK(momentTensor[3] == AbsApprox(1.909053142737053).epsilon(Epsilon));

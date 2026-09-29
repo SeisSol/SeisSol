@@ -11,6 +11,12 @@ from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
+from yateto.memory import CSCMemoryLayout
+
+# The face relation index of a dynamic rupture face: 0 selects the plus side, 1 the minus side.
+# The minus side carries the face orientation index of the shared face, which the canonical
+# vertex numbering pins to zero.
+NumFaceRelations = 2
 
 
 def addKernels(
@@ -56,6 +62,13 @@ def addKernels(
     # is the rotation it always was.
     trans_inv_spp_T = aderdg.transportTransformationInvSpp().transpose()
     TinvT = Tensor("TinvT", trans_inv_spp_T.shape, spp=trans_inv_spp_T)
+    # The face rotation is block diagonal -- one block per quantity group -- so
+    # most of TinvT is structurally zero, and it is stored once per fault face.
+    # Storing only the pattern shrinks that and lets the two projections below
+    # skip the empty blocks. The old GPU interface (gemmforge/chainforge) reads
+    # its operands as dense, so it keeps the dense layout.
+    if not (isOldGpuInterface and "gpu" in targets):
+        TinvT.setMemoryLayout(CSCMemoryLayout)
     flux_solver_spp = aderdg.flux_solver_spp()
     fluxSolver = Tensor("fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp)
 
@@ -110,9 +123,6 @@ def addKernels(
     if True:
         generator.add("resampleParameter", resampleKernel)
 
-    if True:
-        generator.add("transposeTinv", TinvT["ij"] <= aderdg.transportTinv()["ji"])
-
     fluxScale = Scalar("fluxScaleDR")
     drFluxSolver = aderdg.drFluxSolverStatements(fluxScale, fluxSolver)
     generator.add(
@@ -157,14 +167,13 @@ def addKernels(
     interpolateQPrefetch = lambda i, h: QInterpolated
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        if True:
-            generator.addFamily(
-                f"{name_prefix}evaluateAndRotateQAtInterpolationPoints",
-                simpleParameterSpace(4, 4),
-                interpolateQGenerator,
-                interpolateQPrefetch if target == "cpu" else None,
-                target=target,
-            )
+        generator.addFamily(
+            f"{name_prefix}evaluateAndRotateQAtInterpolationPoints",
+            simpleParameterSpace(4, NumFaceRelations),
+            interpolateQGenerator,
+            interpolateQPrefetch if target == "cpu" else None,
+            target=target,
+        )
 
     steps = aderdg.order
     extraScalars = [
@@ -220,14 +229,13 @@ def addKernels(
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        if True:
-            generator.addFamily(
-                f"{name_prefix}projectToDR",
-                simpleParameterSpace(4, 4),
-                multiInterpolateQ,
-                None,
-                target=target,
-            )
+        generator.addFamily(
+            f"{name_prefix}projectToDR",
+            simpleParameterSpace(4, NumFaceRelations),
+            multiInterpolateQ,
+            None,
+            target=target,
+        )
 
     nodalFluxGenerator = (
         lambda i, h: aderdg.extendedQTensor()["kp"]
@@ -240,14 +248,13 @@ def addKernels(
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        if True:
-            generator.addFamily(
-                f"{name_prefix}nodalFlux",
-                simpleParameterSpace(4, 4),
-                nodalFluxGenerator,
-                nodalFluxPrefetch if target == "cpu" else None,
-                target=target,
-            )
+        generator.addFamily(
+            f"{name_prefix}nodalFlux",
+            simpleParameterSpace(4, NumFaceRelations),
+            nodalFluxGenerator,
+            nodalFluxPrefetch if target == "cpu" else None,
+            target=target,
+        )
 
     # Energy output
     # Minus and plus refer to the original implementation of Christian Pelties,
@@ -416,7 +423,11 @@ def addKernels(
         generator.add("computeImposedStateM", computeImposedStateM)
         generator.add("computeImposedStateP", computeImposedStateP)
 
-    declared = {db.resample, db.quadpoints, db.quadweights}
+    # Nothing is generated against transportTinv: TinvT is stored to its
+    # sparsity pattern, and a generated copy cannot write a packed
+    # destination, so the dense rotation is transposed into TinvT through the
+    # view instead. Declared so that the code doing that has a name for it.
+    declared = {db.resample, db.quadpoints, db.quadweights, aderdg.transportTinv()}
     if skipStateShaped:
         # Nothing was generated, so nothing pulls these in by use. The code
         # that reads and writes a fault names them, and it is compiled

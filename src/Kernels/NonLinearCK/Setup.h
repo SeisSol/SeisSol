@@ -134,9 +134,9 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
   /// the damaged ones, and rho c^2 of the undamaged material is what turns
   /// them back into the reciprocal the strain rows want. That is exact in the
   /// elastic limit and errs towards more dissipation away from it.
-  static void writeUpwindDissipation(const double* normal,
-                                     const double* tangent1,
-                                     const double* tangent2,
+  static void writeUpwindDissipation(const CoordinateT& normal,
+                                     const CoordinateT& tangent1,
+                                     const CoordinateT& tangent2,
                                      double scale,
                                      const MaterialT& material,
                                      ProjectorView& pressure,
@@ -212,9 +212,9 @@ struct SolverSetup<kernels::solver::nonlinearck::Solver, MaterialT>
                                         std::size_t /*side*/,
                                         double surface,
                                         double volume,
-                                        const double* normal,
-                                        const double* tangent1,
-                                        const double* tangent2,
+                                        const CoordinateT& normal,
+                                        const CoordinateT& tangent1,
+                                        const CoordinateT& tangent2,
                                         const MaterialT& materialLocal,
                                         real* aPlusT,
                                         real* aMinusT,

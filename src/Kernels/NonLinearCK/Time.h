@@ -55,7 +55,6 @@ class Spacetime : public SpacetimeKernel {
                           LTS::Layer& layer,
                           LocalTmp& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
-                          recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
@@ -70,7 +69,7 @@ class Spacetime : public SpacetimeKernel {
   kernel::gpu_derivative deviceDerivative_;
   kernel::gpu_damageTransport deviceTransport_;
   kernel::gpu_damageStep deviceStep_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };
 

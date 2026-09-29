@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 
+#include "Initializer/BasicTypedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/TimeCoefficients.h"
 #include "Numerical/TimeBasis.h"
@@ -66,6 +67,16 @@ struct Solver {
   static constexpr bool RequiresTimeQuadrature = false;
 
   static constexpr bool FluxSolverFromTable = false;
+
+  static constexpr FaceTypeSupport implementsFaceType(FaceType faceType) {
+    if (faceType == FaceType::FreeSurfaceGravity) {
+      // The surface elevation is built up from the Taylor derivative family dQ, which the
+      // space-time predictor does not produce.
+      return faceTypeUnsupported("the space-time predictor provides no Taylor derivatives");
+    }
+    return faceTypeSupported();
+  }
+
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor>();
 

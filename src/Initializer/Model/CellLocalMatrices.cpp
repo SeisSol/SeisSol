@@ -14,13 +14,15 @@
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
-#include "GeneratedCode/quantities.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BoundaryHelper.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -30,7 +32,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
-#include "Numerical/Transformation.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -67,6 +68,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
 
 #pragma omp parallel
     {
@@ -99,33 +101,36 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         // NOLINTNEXTLINE
         auto& materialLocal = materialData[cell];
 
-        double x[Cell::NumVertices];
-        double y[Cell::NumVertices];
-        double z[Cell::NumVertices];
-        double gradXi[3];
-        double gradEta[3];
-        double gradZeta[3];
+        std::array<double, Cell::Dim> gradXi{};
+        std::array<double, Cell::Dim> gradEta{};
+        std::array<double, Cell::Dim> gradZeta{};
 
-        // Iterate over all 4 vertices of the tetrahedron
-        for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
-          const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
-          x[vertex] = coords[0];
-          y[vertex] = coords[1];
-          z[vertex] = coords[2];
+        const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
+
+        // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
+        // hence, you may use an AffineTransform with an arbitrary point here; but nothing more.
+        const auto grad = transform.refToSpaceJacobianInverse(
+            seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
+
+        for (std::size_t i = 0; i < Cell::Dim; ++i) {
+          gradXi[i] = grad(0, i);
+          gradEta[i] = grad(1, i);
+          gradZeta[i] = grad(2, i);
         }
 
-        seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-            x, y, z, gradXi, gradEta, gradZeta);
-
         seissol::model::MaterialSetup<seissol::model::MaterialT>::fillStarMatrices(
-            materialLocal, gradXi, gradEta, gradZeta, localIntegration[cell].starMatrices);
+            materialLocal,
+            gradXi.data(),
+            gradEta.data(),
+            gradZeta.data(),
+            localIntegration[cell].starMatrices);
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-          VrtxCoords normal;
-          VrtxCoords tangent1;
-          VrtxCoords tangent2;
+          CoordinateT normal{};
+          CoordinateT tangent1{};
+          CoordinateT tangent2{};
           MeshTools::normalAndTangents(
               elements[meshId], side, vertices, normal, tangent1, tangent2);
           const double surface = MeshTools::surface(normal);
@@ -217,17 +222,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             rusanovMinusView(i, i) = -wavespeed * 0.5;
           }
 
-          // exclude boundary conditions
-          static const std::vector<FaceType> GodunovBoundaryConditions = {
-              FaceType::FreeSurface,
-              FaceType::FreeSurfaceGravity,
-              FaceType::Analytical,
-              FaceType::Outflow};
-
-          const auto enforceGodunovBc = std::any_of(
-              GodunovBoundaryConditions.begin(),
-              GodunovBoundaryConditions.end(),
-              [&](auto condition) { return condition == cellInformation[cell].faceTypes[side]; });
+          const auto enforceGodunovBc =
+              boundaryProperties(cellInformation[cell].faceTypes[side]).enforcesGodunovFlux;
 
           const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
 
@@ -251,6 +247,20 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                       matTData,
                                       matTinvData,
                                       matATtildeData);
+
+          // A boundary condition that is constant over the face folds into the
+          // pair; what is left of it is the offset the local kernel adds. Asked
+          // of the solver, because the kernels that fold are not generated for
+          // one whose transport is wider than the quantities of the Riemann
+          // problem -- and such a solver implements neither condition
+          // (`Solver::implementsFaceType`), so a mesh that uses one is turned
+          // away at startup.
+          seissol::model::SolverSetup<model::MaterialT::Solver, model::MaterialT>::
+              foldBoundaryIntoFaceFlux(cellInformation[cell].faceTypes[side],
+                                       localIntegration[cell].nApNm1[side],
+                                       neighboringIntegration[cell].nAmNm1[side],
+                                       matTinvData,
+                                       boundaryMapping[cell][side].dirichletMap);
         }
 
         seissol::model::initializeSpecificLocalData(

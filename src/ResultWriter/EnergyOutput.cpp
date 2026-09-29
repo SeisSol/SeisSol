@@ -13,14 +13,15 @@
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
 #include "Equations/EnergyBase.h"
+#include "Equations/anisotropic/Model/Impedance.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
+#include "IO/Writer/File/RunFiles.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
-#include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
@@ -29,6 +30,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/Quadrature.h"
@@ -42,10 +44,9 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <iomanip>
-#include <ios>
 #include <limits>
 #include <map>
 #include <mpi.h>
@@ -137,7 +138,7 @@ std::array<real, multisim::NumSimulations>
 // their descriptors carry no label.
 
 constexpr std::string_view PlasticMoment = "plastic_moment";
-constexpr std::string_view GravitationalEnergy = "gravitational_energy";
+constexpr std::string_view GravitationalPotentialEnergy = "gravitational_potential_energy";
 constexpr std::string_view SeismicMoment = "seismic_moment";
 constexpr std::string_view TotalFrictionalWork = "total_frictional_work";
 constexpr std::string_view StaticFrictionalWork = "static_frictional_work";
@@ -145,10 +146,10 @@ constexpr std::string_view Potency = "potency";
 
 constexpr std::array GlobalEnergies{
     model::EnergyDescriptor{PlasticMoment, model::EnergyUnit::Moment, {}, {}, {}},
-    model::EnergyDescriptor{GravitationalEnergy,
+    model::EnergyDescriptor{GravitationalPotentialEnergy,
                             model::EnergyUnit::Energy,
                             "gravitational",
-                            "Gravitational energy:",
+                            "Gravitational potential energy:",
                             {}},
     model::EnergyDescriptor{SeismicMoment, model::EnergyUnit::Moment, {}, {}, {}},
     model::EnergyDescriptor{TotalFrictionalWork, model::EnergyUnit::Energy, {}, {}, {}},
@@ -332,10 +333,19 @@ void EnergyOutput::syncPoint(double time) {
 
 void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
   if (isFileOutputEnabled_) {
-    out_.open(outputFileName_);
-    out_ << std::scientific;
-    out_ << std::setprecision(std::numeric_limits<double>::max_digits10);
-    writeHeader();
+    // a run resuming from a checkpoint keeps the energies up to it, as the other outputs do
+    if (checkpointTime.has_value()) {
+      io::writer::file::backUpFile(outputFileName_);
+    }
+    std::size_t nameWidth = 0;
+    for (const auto& descriptor : energiesStorage_.descriptors()) {
+      nameWidth = std::max(nameWidth, descriptor.name.size());
+    }
+    table_.emplace("energy");
+    table_->addColumn<double>("time");
+    table_->addTextColumn("variable", nameWidth);
+    table_->addColumn<std::uint64_t>("simulation_index");
+    table_->addColumn<double>("measurement");
   }
   syncPoint(checkpointTime.value_or(0));
 }
@@ -412,9 +422,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             const auto admittance = [](const real* data) {
               return Eigen::Map<const Eigen::Matrix<real, 3, 3>>(data).cast<double>();
             };
-            const auto gammaPlus = seissol::initializer::model::christoffelFromAdmittance(
+            using AnisotropicImpedance = model::ImpedanceCompute<model::AnisotropicMaterial>;
+            const auto gammaPlus = AnisotropicImpedance::christoffelFromAdmittance(
                 admittance(impedanceMatrices[i].impedance), waveSpeedsPlus[i].density);
-            const auto gammaMinus = seissol::initializer::model::christoffelFromAdmittance(
+            const auto gammaMinus = AnisotropicImpedance::christoffelFromAdmittance(
                 admittance(impedanceMatrices[i].impedanceNeig), waveSpeedsMinus[i].density);
 
             const auto* slip = reinterpret_cast<const real(*)[seissol::dr::misc::NumPaddedPoints]>(
@@ -516,10 +527,8 @@ void EnergyOutput::computeVolumeEnergies() {
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  double quadraturePointsTet[NumQuadraturePointsTet][3]{};
-  double quadratureWeightsTet[NumQuadraturePointsTet]{};
-  seissol::quadrature::TetrahedronQuadrature(
-      quadraturePointsTet, quadratureWeightsTet, QuadPolyDegree);
+  const auto quadratureTet = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
+  const auto& quadratureWeightsTet = quadratureTet.second;
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
@@ -542,12 +551,14 @@ void EnergyOutput::computeVolumeEnergies() {
 
     double energyValues[EnergyCount]{};
     double localPlasticMoment[SimCount]{};
-    double localGravitationalEnergy[SimCount]{};
+    double localGravitationalPotentialEnergy[SimCount]{};
 
 #if !NVHPC_AVOID_OMP
-#pragma omp parallel for schedule(static) reduction(+ : localGravitationalEnergy[ : SimCount],     \
-                                                        energyValues[ : EnergyCount],              \
-                                                        localPlasticMoment[ : SimCount])
+#pragma omp parallel for schedule(static)                                                          \
+    reduction(+ : localGravitationalPotentialEnergy[ : SimCount],                                  \
+                  energyValues[ : EnergyCount],                                                    \
+                  localPlasticMoment[ : SimCount])                                                 \
+    shared(elements, vertices, global_, quadratureWeightsTet)
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate > 0) {
@@ -617,7 +628,7 @@ void EnergyOutput::computeVolumeEnergies() {
       }
 
       const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
-          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr);
+          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr, *global_);
 
       for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
 
@@ -638,7 +649,7 @@ void EnergyOutput::computeVolumeEnergies() {
       constexpr auto UIdx = model::MaterialT::VelocityOffset;
 
       const auto& boundaryMappings = boundaryMappingData[cell];
-      // Compute gravitational energy
+      // Compute the gravitational potential energy
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity) {
           continue;
@@ -672,8 +683,8 @@ void EnergyOutput::computeVolumeEnergies() {
             faceDisplacementSquared{};
         {
           seissol::kernel::faceDisplacementSquaredCompute evalKrnl;
-          evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
           evalKrnl.bindGlobals(*global_);
+          evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
           evalKrnl.faceDisplacementSquared = faceDisplacementSquared.data();
           evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
           evalKrnl.execute();
@@ -689,7 +700,7 @@ void EnergyOutput::computeVolumeEnergies() {
           const auto squaredView = multisim::simtensor(squaredViewFused, sim);
 
           // contains an elided 0.5 * 2.0 (1/2 due to energy; 2 due to surface)
-          localGravitationalEnergy[sim] += rho * g * surface * squaredView(0);
+          localGravitationalPotentialEnergy[sim] += rho * g * surface * squaredView(0);
         }
       }
 
@@ -709,17 +720,18 @@ void EnergyOutput::computeVolumeEnergies() {
         krnl.QEtaNodalProject = qEtaQuad;
         krnl.execute();
 
-        // C-style array due to OpenMP
-        double pMoment[multisim::NumSimulations]{};
-
-#pragma omp simd reduction(+ : pMoment[ : multisim::NumSimulations])
-        for (size_t qp = 0; qp < tensor::QEtaNodalProject::size(); ++qp) {
-          pMoment[qp % multisim::NumSimulations] +=
-              quadratureWeightsTet[qp / multisim::NumSimulations] * qEtaQuad[qp];
-        }
-
+        // go through the view: QEtaNodalProject is padded (at order 6, its 343 points take up 344
+        // entries), and for fused simulations the simulation index leads and may be padded as well
+        static_assert(tensor::QEtaNodalProject::Shape[multisim::BasisFunctionDimension] ==
+                      NumQuadraturePointsTet);
+        auto qEtaQuadView = init::QEtaNodalProject::view::create(qEtaQuad);
         for (size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
-          localPlasticMoment[sim] += mu * jacobiDet * pMoment[sim];
+          const auto qEtaQuadSim = multisim::simtensor(qEtaQuadView, sim);
+          double pMoment = 0;
+          for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
+            pMoment += quadratureWeightsTet[qp] * qEtaQuadSim(qp);
+          }
+          localPlasticMoment[sim] += mu * jacobiDet * pMoment;
         }
       }
     }
@@ -732,7 +744,8 @@ void EnergyOutput::computeVolumeEnergies() {
       }
 
       energiesStorage_.energy(PlasticMoment, sim) += localPlasticMoment[sim];
-      energiesStorage_.energy(GravitationalEnergy, sim) += localGravitationalEnergy[sim];
+      energiesStorage_.energy(GravitationalPotentialEnergy, sim) +=
+          localGravitationalPotentialEnergy[sim];
     }
   }
 }
@@ -915,21 +928,19 @@ void EnergyOutput::checkAbortCriterion(
   }
 }
 
-void EnergyOutput::writeHeader() {
-  out_ << "time,variable,simulation_index,measurement" << std::endl;
-}
-
 void EnergyOutput::writeEnergies(double time) {
   // iterate the descriptors, not the name->handle map: the map is ordered
   // alphabetically, the descriptors in registration order
   const auto& descriptors = energiesStorage_.descriptors();
   for (std::size_t handle = 0; handle < descriptors.size(); ++handle) {
     for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-      out_ << time << "," << descriptors[handle].name << "," << sim << ","
-           << energiesStorage_.energy(handle, sim) << '\n';
+      table_->addCell<double>(time);
+      table_->addText(std::string(descriptors[handle].name));
+      table_->addCell<std::uint64_t>(sim);
+      table_->addCell<double>(energiesStorage_.energy(handle, sim));
     }
   }
-  out_.flush();
+  table_->appendFile(outputFileName_);
 }
 
 bool EnergyOutput::shouldComputeVolumeEnergies() const {

@@ -61,12 +61,23 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
                                     matATtilde);
   }
 
+  static void foldBoundaryIntoFaceFlux(FaceType faceType,
+                                       real* aPlusT,
+                                       real* aMinusT,
+                                       const real* matTinv,
+                                       const real* dirichletMap) {
+    detail::foldBoundaryIntoFaceFlux(faceType, aPlusT, aMinusT, matTinv, dirichletMap);
+  }
+
   /// A single anelastic block with unit weight: the relaxation frequencies
-  /// are held in w, not folded into the flux.
+  /// are held in w, not folded into the flux. A material without relaxation
+  /// (e.g. when the impedance of another material is computed) has none.
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
     MaterialSetup<MaterialT>::getTransposedCoefficientMatrix(material, dim, matM);
-    MaterialSetup<MaterialT>::getTransposedAnelasticCoefficientMatrix(1.0, dim, 0, matM);
+    if constexpr (MaterialT::Mechanisms > 0) {
+      MaterialSetup<MaterialT>::getTransposedAnelasticCoefficientMatrix(1.0, dim, 0, matM);
+    }
   }
 
   /// E(i, mech, j): the prototype in its own tensor dimension, with the

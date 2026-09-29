@@ -129,21 +129,20 @@ struct DualMemoryContainer {
       if (place == AllocationPlace::Host) {
         // do not copy back constant data (we ignore the other direction for now)
         if (!constant) {
-          device::DeviceInstance::getInstance().api->copyFromAsync(
+          device::DeviceInstance::instance().api().copyFromAsync(
               host, device, allocationSize, stream);
         }
       } else {
-        device::DeviceInstance::getInstance().api->copyToAsync(
-            device, host, allocationSize, stream);
+        device::DeviceInstance::instance().api().copyToAsync(device, host, allocationSize, stream);
       }
     }
     if (allocationMode == AllocationMode::HostDeviceUnified) {
       // currently broken (?)
       if (place == AllocationPlace::Host) {
-        // device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::Host,
+        // device::DeviceInstance::instance().api().prefetchUnifiedMemTo(device::Destination::Host,
         // host, allocationSize, stream);
       } else {
-        // device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::CurrentDevice,
+        // device::DeviceInstance::instance().api().prefetchUnifiedMemTo(device::Destination::CurrentDevice,
         // device, allocationSize, stream);
       }
     }
@@ -348,7 +347,6 @@ class Layer {
 
   recording::ConditionalPointersToRealsTable conditionalPointersToRealsTable_;
   recording::DrConditionalPointersToRealsTable drConditionalPointersToRealsTable_;
-  recording::ConditionalMaterialTable conditionalMaterialTable_;
   recording::ConditionalIndicesTable conditionalIndicesTable_;
 
   public:
@@ -692,10 +690,6 @@ private:
       return drConditionalPointersToRealsTable_;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
-      return conditionalMaterialTable_;
-    }
-
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
       return conditionalIndicesTable_;
     }
@@ -709,10 +703,6 @@ private:
 
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
       return drConditionalPointersToRealsTable_;
-    }
-
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
-      return conditionalMaterialTable_;
     }
 
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {

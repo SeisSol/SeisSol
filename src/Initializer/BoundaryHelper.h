@@ -42,10 +42,5 @@ constexpr bool requiresDisplacement(CellLocalInformation cellLocalInformation,
          isAtElasticAcousticInterface(material, face);
 }
 
-constexpr bool requiresNodalFlux(FaceType f) {
-  return (f == FaceType::FreeSurfaceGravity || f == FaceType::Dirichlet ||
-          f == FaceType::Analytical);
-}
-
 } // namespace seissol
 #endif // SEISSOL_SRC_INITIALIZER_BOUNDARYHELPER_H_

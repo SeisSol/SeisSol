@@ -111,12 +111,12 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
       *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.parameters().model);
 
 #ifdef ACL_DEVICE
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  void* stream = device::DeviceInstance::instance().api().getDefaultStream();
   ltsStorage_->varSynchronizeTo<LTS::LocalIntegration>(
       seissol::initializer::AllocationPlace::Device, stream);
   ltsStorage_->varSynchronizeTo<LTS::NeighboringIntegration>(
       seissol::initializer::AllocationPlace::Device, stream);
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
 #endif
 
   logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor_;

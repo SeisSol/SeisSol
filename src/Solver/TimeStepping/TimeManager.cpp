@@ -17,6 +17,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ClusteringWriter.h"
@@ -72,7 +73,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
 
-  auto clusteringWriter = writer::ClusteringWriter(seissolInstance_.parameters().output.prefix);
+  // written in initIO, once the output directory exists
+  auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix);
 
   std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
 
@@ -231,8 +233,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
-  clusteringWriter.write();
-
   // Sort clusters by time step size in increasing order
   auto rateSorter = [](const auto& a, const auto& b) {
     return a->getTimeStepRate() < b->getTimeStepRate();
@@ -271,6 +271,12 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 }
 
+void TimeManager::writeClustering() const {
+  if (clusteringWriter_.has_value()) {
+    clusteringWriter_->write();
+  }
+}
+
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
   this->faultOutputManager_ = faultOutputManager;
   for (auto& cluster : clusters_) {
@@ -297,8 +303,8 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
+  device::DeviceInstance& device = device::DeviceInstance::instance();
+  device.api().putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
   // Move all clusters from RestartAfterSync to Corrected
@@ -351,7 +357,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     finished &= communicationManager_->checkIfFinished();
   }
 #ifdef ACL_DEVICE
-  device.api->popLastProfilingMark();
+  device.api().popLastProfilingMark();
 #endif
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
@@ -410,11 +416,11 @@ void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
   if (sameExecutor) {
     seissolInstance_.memoryManager().synchronizeTo(place);
   } else {
-    auto* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    auto* stream = device::DeviceInstance::instance().api().getDefaultStream();
     for (auto& cluster : clusters_) {
       cluster->synchronizeTo(place, stream);
     }
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
   }
 #endif
 }

@@ -25,6 +25,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <iterator>
 #include <stdint.h>
 #include <utils/logger.h>
 #include <yateto.h>
@@ -42,8 +43,46 @@
 #endif
 
 GENERATE_HAS_MEMBER(I)
+GENERATE_HAS_MEMBER(transportDer)
 
 namespace seissol::kernels {
+
+namespace {
+/// Binds the expansion of what a cell carries beyond its state, which sits
+/// behind the expansion of the state in the same buffer. A fault reads both:
+/// the state's columns from the Taylor sum, everything else from this one.
+/// Only a solver that transports more than its state has this family; for the
+/// rest the tensor is never generated and the kernel has no operand for it, so
+/// both the family's measurements and the operand stay behind a guard.
+template <typename KernelT>
+void bindTransportDerivatives(KernelT& krnl, const real** derivatives) {
+  if constexpr (has_transportDer<KernelT>::value) {
+    std::size_t offset = yateto::computeFamilySize<tensor::dQ>();
+    for (std::size_t p = 0; p < kernels::familyMembers<tensor::transportDer>(); ++p) {
+      krnl.transportDer(p) = derivatives;
+      krnl.extraOffset_transportDer(p) = offset;
+      offset += kernels::size<tensor::transportDer>(p);
+    }
+  }
+}
+} // namespace
+
+// The dynamic rupture families are indexed by the side and the face relation. Relation 0
+// addresses the plus side, relation 1 the minus side at a zero face orientation index, which the
+// canonical vertex numbering guarantees on every interior face.
+static_assert(std::size(dynamicRupture::kernel::nodalFlux::ExecutePtrs) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(
+    std::size(dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::ExecutePtrs) ==
+    Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2n::Size) == Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2nTWDivM::Size) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+
+#ifdef ACL_DEVICE
+static_assert(*seissol::recording::DrFaceRelations::Count ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+#endif
 
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
@@ -70,10 +109,10 @@ void DynamicRupture::spaceTimeInterpolation(
   // assert alignments
   assert(timeDerivativePlus != nullptr);
   assert(timeDerivativeMinus != nullptr);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Vectorsize == 0);
   // What a fault reads of a cell is what the cell transported, evaluated at a
   // point in time -- so these buffers are of that tensor, and the two are the
   // same size wherever a solver's flux is linear. They used to be of the
@@ -117,9 +156,9 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
   // interpolate all timesteps in a single kernel
 
-  runtime.envMany(16, [&](void* stream, size_t i) {
-    const auto side = i / 4;
-    const auto faceRelation = i % 4;
+  runtime.envMany(Cell::NumFaces * dr::misc::NumFaceRelations, [&](void* stream, size_t i) {
+    const auto side = i / dr::misc::NumFaceRelations;
+    const auto faceRelation = i % dr::misc::NumFaceRelations;
 
     ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
     if (table.find(minusSideKey) != table.end()) {
@@ -128,7 +167,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
       auto krnl = gpuCombinedKrnlPrototype_;
       real* tmpMem = reinterpret_cast<real*>(
-          device_.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
+          device_.api().allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
       krnl.linearAllocator.initialize(tmpMem);
       krnl.streamPtr = stream;
       krnl.numElements = numElements;
@@ -148,19 +187,13 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
         offsetDQ += tensor::dQ::size(p);
       }
 
-      // What the cell carries beyond its state, behind the expansion of the
-      // state in the same buffer. A fault reads both -- the state's columns
-      // from the Taylor sum and the rest from this -- and the coefficients for
-      // the second are set below whether or not there is anything to apply
-      // them to, so leaving this unbound sums one expansion and dereferences
-      // nothing for the other.
-      std::size_t offsetTransport = yateto::computeFamilySize<tensor::dQ>();
-      for (std::size_t p = 0; p < yateto::numFamilyMembers<tensor::transportDer>(); ++p) {
-        krnl.transportDer(p) = const_cast<const real**>(
-            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
-        krnl.extraOffset_transportDer(p) = offsetTransport;
-        offsetTransport += tensor::transportDer::size(p);
-      }
+      // The coefficients of the carried expansion are set below whether or not
+      // there is anything to apply them to, so leaving it unbound sums one
+      // expansion and dereferences nothing for the other.
+      bindTransportDerivatives(
+          krnl,
+          const_cast<const real**>(
+              (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr()));
 
       for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
         for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
@@ -175,7 +208,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
       krnl.execute(side, faceRelation);
 
-      device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+      device_.api().freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
     }
   });
 #else
@@ -209,8 +242,7 @@ PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) c
     // the one and everything else from the other.
     estimate.bytes =
         (tensor::TinvT::size() + tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
-         (yateto::computeFamilySize<tensor::dQ>() +
-          yateto::computeFamilySize<tensor::transportDer>()) *
+         (yateto::computeFamilySize<tensor::dQ>() + kernels::familySize<tensor::transportDer>()) *
              2) *
         sizeof(real);
 

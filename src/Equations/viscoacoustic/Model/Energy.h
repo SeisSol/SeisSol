@@ -12,6 +12,7 @@
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Solver/MultipleSimulations.h"
@@ -36,19 +37,22 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
   static constexpr auto MomentumXIdx = detail::indexOf(Energies, "momentumX");
   static constexpr auto MomentumYIdx = detail::indexOf(Energies, "momentumY");
   static constexpr auto MomentumZIdx = detail::indexOf(Energies, "momentumZ");
-  static constexpr auto AcousticEnergyIdx = detail::indexOf(Energies, "acoustic_energy");
+  static constexpr auto AcousticPotentialIdx =
+      detail::indexOf(Energies, "acoustic_potential_energy");
   static constexpr auto AcousticKineticIdx = detail::indexOf(Energies, "acoustic_kinetic_energy");
-  static constexpr auto ViscoacousticEnergyIdx = detail::indexOf(Energies, "viscoacoustic_energy");
+  static constexpr auto AnelasticPotentialIdx =
+      detail::indexOf(Energies, "anelastic_potential_energy");
   static constexpr auto ViscousDissipationIdx =
       detail::indexOf(Energies, "viscous_dissipation_rate");
   static_assert(MomentumXIdx < EnergyCount, "MomentumX missing from the descriptor list");
   static_assert(MomentumYIdx < EnergyCount, "MomentumY missing from the descriptor list");
   static_assert(MomentumZIdx < EnergyCount, "MomentumZ missing from the descriptor list");
-  static_assert(AcousticEnergyIdx < EnergyCount, "AcousticEnergy missing from the descriptor list");
+  static_assert(AcousticPotentialIdx < EnergyCount,
+                "AcousticPotential missing from the descriptor list");
   static_assert(AcousticKineticIdx < EnergyCount,
                 "AcousticKinetic missing from the descriptor list");
-  static_assert(ViscoacousticEnergyIdx < EnergyCount,
-                "ViscoacousticEnergy missing from the descriptor list");
+  static_assert(AnelasticPotentialIdx < EnergyCount,
+                "AnelasticPotential missing from the descriptor list");
   static_assert(ViscousDissipationIdx < EnergyCount,
                 "ViscousDissipation missing from the descriptor list");
 
@@ -61,17 +65,17 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
     alignas(Alignment) real cross[tensor::momentQQane::size()]{};
   };
 
-  static Moments computeMoments(const real* dofs, const real* dofsAne) {
+  static Moments computeMoments(const real* dofs, const real* dofsAne, const seissol::Pool& pool) {
     Moments moments{};
 
     kernel::momentQaneQaneCompute aneKrnl;
-    aneKrnl.M3 = init::M3::Values;
+    aneKrnl.bindGlobals(pool);
     aneKrnl.Qane = dofsAne;
     aneKrnl.momentQaneQane = moments.ane;
     aneKrnl.execute();
 
     kernel::momentQQaneCompute crossKrnl;
-    crossKrnl.M3 = init::M3::Values;
+    crossKrnl.bindGlobals(pool);
     crossKrnl.Q = dofs;
     crossKrnl.Qane = dofsAne;
     crossKrnl.momentQQane = moments.cross;
@@ -195,13 +199,13 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
       dissipationRate += material.omega[m] * quadratic;
     }
 
-    output[ViscoacousticEnergyIdx] = branchEnergy;
+    output[AnelasticPotentialIdx] = branchEnergy;
     output[ViscousDissipationIdx] = dissipationRate;
 
     // No shear branch survives (dMu_m = mu_u * beta_m vanishes with mu_u), so
     // only the volumetric part contributes.
     const auto bulkRelaxed = material.getBulkRelaxed();
-    output[AcousticEnergyIdx] = traceSigmaRSq / (18.0 * bulkRelaxed);
+    output[AcousticPotentialIdx] = traceSigmaRSq / (18.0 * bulkRelaxed);
     output[AcousticKineticIdx] = curKineticEnergy;
 
     return output;

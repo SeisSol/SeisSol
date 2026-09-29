@@ -66,7 +66,6 @@ class SpacetimeKernel : public Kernel {
                                   LTS::Layer& layer,
                                   LocalTmp& tmp,
                                   recording::ConditionalPointersToRealsTable& dataTable,
-                                  recording::ConditionalMaterialTable& materialTable,
                                   bool updateDisplacement,
                                   seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 

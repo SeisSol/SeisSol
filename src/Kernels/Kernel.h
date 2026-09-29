@@ -19,7 +19,7 @@ class Kernel {
   virtual ~Kernel() = default;
 
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device = device::DeviceInstance::instance();
 #endif
 };
 

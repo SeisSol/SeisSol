@@ -16,6 +16,9 @@
 
 #include <PUML/PUML.h>
 #include <PUML/Topology.h>
+#include <array>
+#include <cstdint>
+#include <vector>
 
 namespace seissol::initializer {
 class Clustering;
@@ -45,6 +48,19 @@ inline uint32_t decodeBoundary(const void* data,
     return 0;
   }
 }
+
+/// The local vertex order of a cell: entry k is the slot, in the vertex list of the cell as the
+/// mesh file gives it, of the vertex that SeisSol uses as local vertex k.
+using VertexOrder = std::array<std::uint8_t, Cell::NumVertices>;
+
+/**
+ * The canonical local vertex order of every local cell of the two meshes, which have to
+ * correspond cell by cell and slot by slot (as they do from reading until getMesh(),
+ * partitioning included). It needs no communication: the sort key is the global vertex id from
+ * the file.
+ */
+std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
+                                               const PumlMesh& meshGeometry);
 
 class PUMLReader : public seissol::geometry::MeshReader {
   public:
@@ -77,6 +93,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
   static void partition(PumlMesh& meshTopology,
                         PumlMesh& meshGeometry,
                         const initializer::ClusteringResult* clustering,
+                        const std::vector<VertexOrder>& vertexOrders,
                         initializer::VertexWeightModel* weightModel,
                         double tpwgt,
                         const std::string& partitioningLib);
@@ -93,8 +110,10 @@ class PUMLReader : public seissol::geometry::MeshReader {
                const FaceMap& faceMap,
                seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
-  void
-      addMPINeighor(const PumlMesh& meshTopology, int rank, const std::vector<unsigned int>& faces);
+  void addMPINeighor(const PumlMesh& meshTopology,
+                     int rank,
+                     const std::vector<unsigned int>& faces,
+                     const std::vector<std::array<std::uint8_t, Cell::NumFaces>>& pumlFaceMaps);
 };
 
 } // namespace seissol::geometry

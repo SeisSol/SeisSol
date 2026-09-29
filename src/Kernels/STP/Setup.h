@@ -114,6 +114,14 @@ struct SolverSetup<kernels::solver::stp::Solver, MaterialT>
                                     matATtilde);
   }
 
+  static void foldBoundaryIntoFaceFlux(FaceType faceType,
+                                       real* aPlusT,
+                                       real* aMinusT,
+                                       const real* matTinv,
+                                       const real* dirichletMap) {
+    detail::foldBoundaryIntoFaceFlux(faceType, aPlusT, aMinusT, matTinv, dirichletMap);
+  }
+
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
                                           typename MaterialT::Solver::LocalData* localData) {

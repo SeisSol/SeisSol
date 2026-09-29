@@ -52,13 +52,13 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
-  projectDerivativeToNodalBoundaryRotated_.bindGlobals(*global.onHost);
+  fsgKernelPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
   deviceKrnlPrototype_.bindGlobals(*global.onDevice);
-  deviceDerivativeToNodalBoundaryRotated_.bindGlobals(*global.onDevice);
+  deviceFsgKernelPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -70,10 +70,10 @@ void Spacetime::computeAder(const TimeStepCoefficients& coeffs,
                             real* timeDerivatives,
                             bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Vectorsize == 0);
   assert(timeDerivatives == nullptr ||
-         reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
+         reinterpret_cast<uintptr_t>(timeDerivatives) % Vectorsize == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &= [&]() {
@@ -125,15 +125,14 @@ void Spacetime::computeAder(const TimeStepCoefficients& coeffs,
       if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
           data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
-                    projectDerivativeToNodalBoundaryRotated_,
+                    fsgKernelPrototype_,
                     data.get<LTS::BoundaryMapping>()[face],
                     data.get<LTS::FaceDisplacements>()[face],
                     tmp.nodalAvgDisplacements[face].data(),
-                    *this,
                     derivativesBuffer,
+                    coeffs,
                     timeStepWidth,
-                    data.get<LTS::Material>(),
-                    data.get<LTS::CellInformation>().faceTypes[face]);
+                    data.get<LTS::Material>());
       }
     }
   }
@@ -145,7 +144,6 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM LocalTmp& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
@@ -201,14 +199,8 @@ void Spacetime::computeBatchedAder(
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      bc.evaluateOnDevice(face,
-                          deviceDerivativeToNodalBoundaryRotated_,
-                          *this,
-                          dataTable,
-                          materialTable,
-                          timeStepWidth,
-                          device_,
-                          runtime);
+      bc.evaluateOnDevice(
+          face, deviceFsgKernelPrototype_, dataTable, timeStepWidth, device_, runtime);
     }
   }
 #else
@@ -240,8 +232,8 @@ void Time::evaluate(const TimeCoefficients& coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Vectorsize == 0);
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 

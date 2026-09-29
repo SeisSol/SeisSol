@@ -14,6 +14,7 @@
 #include "Equations/Energy.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
+#include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
 #include "Initializer/InitProcedure/Internal/Recording.h"
 #include "Initializer/InitProcedure/Internal/Scratchpads.h"
 #include "Initializer/MemoryManager.h"
@@ -32,6 +33,7 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/Plasticity.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
@@ -218,6 +220,15 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   auto& meshReader = seissolInstance.meshReader();
   auto& memoryManager = seissolInstance.memoryManager();
 
+  std::optional<DirichletCondition> dirichletCondition;
+  if (seissolParams.model.hasBoundaryFile) {
+    dirichletCondition = DirichletCondition(seissolParams.model.boundaryFileName);
+  }
+
+  // the boundary mappings carry the Dirichlet map, which the flux solvers absorb
+  seissol::initializer::initializeBoundaryMappings(
+      meshReader, dirichletCondition, memoryManager.ltsStorage());
+
   seissol::initializer::initializeCellLocalMatrices(
       meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
 
@@ -239,16 +250,10 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
   memoryManager.initFrictionData();
 
-  std::optional<EasiBoundary> boundaryScript;
-  if (seissolParams.model.hasBoundaryFile) {
-    boundaryScript = EasiBoundary(seissolParams.model.boundaryFileName);
-  }
-
-  seissol::initializer::initializeBoundaryMappings(
-      meshReader, boundaryScript, memoryManager.ltsStorage());
-
-  internal::setupRecorders(
-      memoryManager.ltsStorage(), memoryManager.drStorage(), seissolParams.model.plasticity);
+  internal::setupRecorders(memoryManager.ltsStorage(),
+                           memoryManager.drStorage(),
+                           seissolParams.model.plasticity,
+                           seissolInstance.gravitationSetup().acceleration);
 
   auto itmParameters = seissolInstance.parameters().model.itmParameters;
 
@@ -321,16 +326,9 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
   auto& mm = seissolInstance.memoryManager();
 
-  int refinement = 0;
-  const auto& outputParams = seissolInstance.parameters().output;
-  if (outputParams.freeSurfaceParameters.enabled &&
-      outputParams.freeSurfaceParameters.vtkorder < 0) {
-    refinement = outputParams.freeSurfaceParameters.refinement;
-  }
-
   internal::initBoundaryStorage(mm.boundaryStorage(), mm.ltsStorage());
   internal::initSurfaceStorage(
-      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator(), refinement);
+      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator());
 }
 
 } // namespace
@@ -357,6 +355,9 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
   logInfo() << "Flux near fault:"
             << parameters::fluxToString(seissolInstance.parameters().model.fluxNearFault).c_str();
+
+  internal::checkFaceTypeSupport(seissolInstance.memoryManager().ltsStorage(),
+                                 seissolInstance.parameters().initialization.type);
 
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)

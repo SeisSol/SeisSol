@@ -36,9 +36,9 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
   /// on top -- once per mechanism weighted by its relaxation frequency, or
   /// once with the frequency held elsewhere -- is the solver's decision.
   template <typename T>
-  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& AT) {
+  static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
     MaterialSetup<ElasticMaterial>::getTransposedCoefficientMatrix(
-        dynamic_cast<const ElasticMaterial&>(material), dim, AT);
+        dynamic_cast<const ElasticMaterial&>(material), dim, matM);
   }
 
   /**
@@ -48,7 +48,7 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
    * business, so it is handed a writer rather than a matrix.
    */
   template <typename F>
-  static void forEachSourceEntry(const MaterialT& material, std::size_t mech, F&& write) {
+  static void forEachSourceEntry(const MaterialT& material, std::size_t mech, const F& write) {
     const double* theta = material.theta[mech];
     write(0, 0, theta[0]);
     write(1, 0, theta[1]);
@@ -79,25 +79,28 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
   static void getTransposedAnelasticCoefficientMatrix(double omega,
                                                       std::size_t dim,
                                                       std::size_t mech,
-                                                      T& M) {
+                                                      T& matM) {
     const auto col = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
     switch (dim) {
     case 0:
-      M(6, col) = -omega;
-      M(7, col + 3) = -0.5 * omega;
-      M(8, col + 5) = -0.5 * omega;
+      matM(6, col) = -omega;
+      matM(7, col + 3) = -0.5 * omega;
+      matM(8, col + 5) = -0.5 * omega;
       break;
 
     case 1:
-      M(7, col + 1) = -omega;
-      M(6, col + 3) = -0.5 * omega;
-      M(8, col + 4) = -0.5 * omega;
+      matM(7, col + 1) = -omega;
+      matM(6, col + 3) = -0.5 * omega;
+      matM(8, col + 4) = -0.5 * omega;
       break;
 
     case 2:
-      M(8, col + 2) = -omega;
-      M(7, col + 4) = -0.5 * omega;
-      M(6, col + 5) = -0.5 * omega;
+      matM(8, col + 2) = -omega;
+      matM(7, col + 4) = -0.5 * omega;
+      matM(6, col + 5) = -0.5 * omega;
+      break;
+
+    default:
       break;
     }
   }

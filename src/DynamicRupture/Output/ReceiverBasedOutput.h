@@ -37,10 +37,18 @@ class ReceiverOutput {
   void setDrParameters(const seissol::initializer::parameters::DRParameters* userDrParameters) {
     drParameters_ = userDrParameters;
   }
+  /**
+   * @param stateTime the time the stored friction state belongs to, which is the end of the dynamic
+   *                  rupture time step that computed it; the stress sources are evaluated there,
+   *                  where the friction law evaluated them last, so that the tractions rebuilt
+   *                  here are consistent with the state they are rebuilt from
+   * @param time the time the output is recorded under
+   */
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
+                       double stateTime,
                        double time = 0.0,
                        double dt = 1.0,
                        double indt = 0.0);
@@ -75,6 +83,7 @@ class ReceiverOutput {
     bool* printWarning{nullptr};
 
     std::size_t index{};
+    std::size_t faceId{};
     std::size_t fusedIndex{};
 
     real iniTraction1{};
@@ -127,7 +136,7 @@ class ReceiverOutput {
     const auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<const std::remove_extent_t<typename StorageT::Type>*>(
-          devVar->second->get(local.state->deviceIndices[local.index]));
+          devVar->second->get(local.faceId));
     } else {
       return local.layer->var<StorageT>()[local.ltsId];
     }

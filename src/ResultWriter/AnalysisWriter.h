@@ -17,38 +17,12 @@
 
 #include <array>
 #include <cmath>
-#include <fstream>
-#include <iostream>
 
 namespace seissol {
 class SeisSol;
 } // namespace seissol
 
 namespace seissol::writer {
-class CsvAnalysisWriter {
-  public:
-  explicit CsvAnalysisWriter(std::string fileName);
-
-  void writeHeader();
-
-  void addObservation(std::string_view variable, std::string_view normType, real error);
-
-  void enable();
-
-  ~CsvAnalysisWriter();
-
-  CsvAnalysisWriter(const CsvAnalysisWriter&) = delete;
-  auto operator=(const CsvAnalysisWriter&) = delete;
-
-  CsvAnalysisWriter(CsvAnalysisWriter&&) = delete;
-  auto operator=(CsvAnalysisWriter&&) = delete;
-
-  private:
-  std::ofstream out_;
-  bool isEnabled_{false};
-  std::string fileName_;
-};
-
 class AnalysisWriter {
   private:
   seissol::SeisSol& seissolInstance_;

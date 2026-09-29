@@ -11,6 +11,7 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -28,12 +29,12 @@ class FrictionSolverDetails : public FrictionSolverInterface {
     {
 #ifdef ACL_DEVICE
       data_ = reinterpret_cast<FrictionLawData*>(
-          device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(FrictionLawData)));
+          device::DeviceInstance::instance().api().allocGlobMem(sizeof(FrictionLawData)));
 #endif
     }
 
-    resampleMatrix_ = globalData->resample;
-    devSpaceWeights_ = globalData->quadweights;
+    resampleMatrix_ = globalData->*init::resample::PoolMember;
+    devSpaceWeights_ = globalData->*init::quadweights::PoolMember;
 
 #ifdef ACL_DEVICE
     // The thermal-pressurization tables are functions of the grid alone, and
@@ -43,10 +44,10 @@ class FrictionSolverDetails : public FrictionSolverInterface {
     // matrices. Per solver rather than per process: they live and die with
     // the device allocation they sit next to, and are rebuilt whenever it is.
     const auto upload = [](const auto& source) {
-      auto& device = device::DeviceInstance::getInstance();
+      auto& device = device::DeviceInstance::instance();
       const std::size_t bytes = source.data().size() * sizeof(real);
-      auto* target = reinterpret_cast<real*>(device.api->allocGlobMem(bytes));
-      device.api->copyTo(target, source.data().data(), bytes);
+      auto* target = reinterpret_cast<real*>(device.api().allocGlobMem(bytes));
+      device.api().copyTo(target, source.data().data(), bytes);
       return target;
     };
     devTpGridPoints_ = upload(tp::GridPoints<misc::NumTpGridPoints>());

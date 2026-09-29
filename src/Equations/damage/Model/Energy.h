@@ -9,6 +9,7 @@
 
 #include "Equations/EnergyBase.h"
 #include "Equations/damage/Model/Datastructures.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/quantities.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
@@ -73,10 +74,13 @@ struct EnergyCompute<DamageMaterial> {
   /// strain in the free energy.
   static constexpr std::size_t WeightColumn = generated::TransportInternalOffset;
 
-  /// No anelastic variables. The argument is accepted uniformly so that
+  /// No anelastic variables. The arguments are accepted uniformly so that
   /// EnergyOutput does not have to branch on the material.
   struct Moments {};
-  static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
+  static Moments
+      computeMoments(const real* /*dofs*/, const real* /*dofsAne*/, const seissol::Pool& /*pool*/) {
+    return {};
+  }
 
   static DamageMaterial::EnergyData initEnergyData(const DamageMaterial& /*material*/) {
     return {};
@@ -115,10 +119,10 @@ struct EnergyCompute<DamageMaterial> {
     output[MomentumXIdx] = rho * linSub(0, VelocityIdx + 0);
     output[MomentumYIdx] = rho * linSub(0, VelocityIdx + 1);
     output[MomentumZIdx] = rho * linSub(0, VelocityIdx + 2);
-    output[KineticIdx] = 0.5 * rho *
-                         (quadSub(VelocityIdx + 0, VelocityIdx + 0) +
-                          quadSub(VelocityIdx + 1, VelocityIdx + 1) +
-                          quadSub(VelocityIdx + 2, VelocityIdx + 2));
+    output[KineticIdx] =
+        0.5 * rho *
+        (quadSub(VelocityIdx + 0, VelocityIdx + 0) + quadSub(VelocityIdx + 1, VelocityIdx + 1) +
+         quadSub(VelocityIdx + 2, VelocityIdx + 2));
 
     // 1/2 \int sigma : (eps + eps_0)
     double stressStrain = 0.0;
@@ -144,9 +148,8 @@ struct EnergyCompute<DamageMaterial> {
     double secondWeighted = 0.0;
     for (std::size_t c = 0; c < 6; ++c) {
       const auto eps = StrainIdx + c;
-      secondTotal +=
-          Weight[c] * (quadSub(eps, eps) + 2.0 * initial[c] * linSub(0, eps) +
-                       initial[c] * initial[c] * ReferenceVolume);
+      secondTotal += Weight[c] * (quadSub(eps, eps) + 2.0 * initial[c] * linSub(0, eps) +
+                                  initial[c] * initial[c] * ReferenceVolume);
       // the same with the damage as a weight, which is the trilinear moment
       secondWeighted +=
           Weight[c] * (weightedSub(eps, eps) + 2.0 * initial[c] * quadSub(AlphaIdx, eps) +

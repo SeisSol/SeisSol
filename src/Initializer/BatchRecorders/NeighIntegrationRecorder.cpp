@@ -191,8 +191,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBufferPtr != nullptr) {
           const auto faceRelation =
-              dataHost.get<LTS::CellInformation>().faceRelations[face][1] +
-              3 * dataHost.get<LTS::CellInformation>().faceRelations[face][0] + 12 * face;
+              dataHost.get<LTS::CellInformation>().faceRelations[face][0] + 4 * face;
 
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
@@ -216,10 +215,12 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         break;
       }
       case FaceType::DynamicRupture: {
-        const auto faceRelation =
+        const std::size_t faceRelation =
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
+        assert(drMappingDevice[cell][face].side == face &&
+               "the batched neighbor integral only visits the side of the face itself");
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);

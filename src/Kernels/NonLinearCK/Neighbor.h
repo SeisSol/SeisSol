@@ -63,7 +63,7 @@ class Neighbor : public NeighborKernel {
   kernel::gpu_damageLocalFlux deviceLocalFlux_;
   kernel::gpu_damageNeighborFlux deviceNeighborFlux_;
   dynamicRupture::kernel::gpu_nodalFlux deviceDrFlux_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };
 

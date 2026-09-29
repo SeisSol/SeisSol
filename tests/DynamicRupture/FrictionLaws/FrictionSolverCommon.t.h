@@ -18,7 +18,10 @@ using namespace seissol;
 using namespace seissol::dr;
 
 TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
-  if constexpr (model::MaterialT::SupportsDR) {
+  // Every expectation below is written for an impedance that belongs to the face: the scalars of
+  // ImpedancesAndEta, and the matrices assembled from them once for all of its nodes. Where the
+  // impedance follows the state of a node instead, none of them is the value to compare against.
+  if constexpr (model::MaterialT::SupportsDR && !NodalImpedance) {
     FaultStresses<Executor::Host> faultStresses{};
     TractionResults<Executor::Host> tractionResults{};
     ImposedState<Executor::Host> imposedState{};
@@ -67,6 +70,10 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     impedanceNeigView(1, 1) = impAndEta.invZsNeig;
     impedanceNeigView(2, 2) = impAndEta.invZsNeig;
 
+    // Zeroed, and never read: the precomputation takes this up only where the impedance follows
+    // the state of a node, which the guard above excludes.
+    NodalImpedanceParameters nodalImpedanceParams{};
+
     auto qP = [](size_t o, size_t q, size_t p) { return static_cast<real>(o + q + p); };
     auto qM = [](size_t o, size_t q, size_t p) { return static_cast<real>(2 * (o + q + p)); };
     auto t1 = [](size_t o, size_t p) { return static_cast<real>(o + p); };
@@ -111,8 +118,14 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
 
     SUBCASE("Precompute Stress") {
       for (size_t o = 0; o < misc::TimeSteps; o++) {
-        friction_law::common::precomputeStressFromQInterpolated(
-            faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0, o);
+        friction_law::common::precomputeStressFromQInterpolated(faultStresses,
+                                                                impAndEta,
+                                                                impMats,
+                                                                &nodalImpedanceParams,
+                                                                qInterpolatedPlus,
+                                                                qInterpolatedMinus,
+                                                                1.0,
+                                                                o);
 
         // Assure that the faultstresses of *this* step were computed correctly. Since the struct
         // holds a single slice, a step index that is ignored somewhere would show up right here.
@@ -140,8 +153,14 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
       // trial stress of the current step catches a seed that is left over from an earlier one
       for (size_t o = 0; o < misc::TimeSteps; o++) {
         seedTractionResults(o);
-        friction_law::common::precomputeStressFromQInterpolated(
-            faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0, o);
+        friction_law::common::precomputeStressFromQInterpolated(faultStresses,
+                                                                impAndEta,
+                                                                impMats,
+                                                                &nodalImpedanceParams,
+                                                                qInterpolatedPlus,
+                                                                qInterpolatedMinus,
+                                                                1.0,
+                                                                o);
         friction_law::common::initializeTractionResults(faultStresses, tractionResults);
 
         for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
@@ -233,7 +252,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     }
 
     SUBCASE("Device Range Matches Host Range") {
-      // The device specialisations collapse every point-indexed array to a scalar and address the
+      // The device specializations collapse every point-indexed array to a scalar and address the
       // padded point through startIndex instead. Instantiating them for RangeType::GPU on the host
       // is the only coverage that path gets in a CPU build, and it pins down the host/device index
       // handling that the single-slice rework touches.
@@ -243,8 +262,14 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
       auto* dSMinus = reinterpret_cast<ImposedStateShapeT>(deviceImposedStateMinus);
 
       for (size_t o = 0; o < misc::TimeSteps; o++) {
-        friction_law::common::precomputeStressFromQInterpolated(
-            faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0, o);
+        friction_law::common::precomputeStressFromQInterpolated(faultStresses,
+                                                                impAndEta,
+                                                                impMats,
+                                                                &nodalImpedanceParams,
+                                                                qInterpolatedPlus,
+                                                                qInterpolatedMinus,
+                                                                1.0,
+                                                                o);
         friction_law::common::initializeTractionResults(faultStresses, tractionResults);
         for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
           tractionResults.traction1[p] = t1(o, p);
@@ -271,6 +296,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
           friction_law::common::precomputeStressFromQInterpolated<GpuRange>(deviceFaultStresses,
                                                                             impAndEta,
                                                                             impMats,
+                                                                            &nodalImpedanceParams,
                                                                             qInterpolatedPlus,
                                                                             qInterpolatedMinus,
                                                                             1.0,

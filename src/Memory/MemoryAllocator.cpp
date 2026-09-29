@@ -76,17 +76,17 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
 #endif
   } else if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size);
+    ptrBuffer = device::DeviceInstance::instance().api().allocGlobMem(size);
 #endif
   } else if (memkind == Memkind::DeviceUnifiedMemory) {
 #ifdef ACL_DEVICE
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocUnifiedMem(size);
+    ptrBuffer = device::DeviceInstance::instance().api().allocUnifiedMem(size);
 #endif
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
+    ptrBuffer = device::DeviceInstance::instance().api().allocPinnedMem(size);
   } else if (memkind == Memkind::DeviceGlobalCompressed) {
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
+    ptrBuffer = device::DeviceInstance::instance().api().allocGlobMem(size, true);
 #endif
   } else {
     logError() << "unknown memkind type used ("
@@ -120,17 +120,17 @@ void free(void* pointer, Memkind memkind) {
 #endif
   } else if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
+    device::DeviceInstance::instance().api().freeGlobMem(pointer);
 #endif
   } else if (memkind == Memkind::DeviceUnifiedMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->freeUnifiedMem(pointer);
+    device::DeviceInstance::instance().api().freeUnifiedMem(pointer);
 #endif
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
+    device::DeviceInstance::instance().api().freePinnedMem(pointer);
   } else if (memkind == Memkind::DeviceGlobalCompressed) {
-    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
+    device::DeviceInstance::instance().api().freeGlobMem(pointer);
 #endif
   } else {
     logError() << "unknown memkind type used ("
@@ -142,17 +142,17 @@ void free(void* pointer, Memkind memkind) {
 void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, Memkind srcMemkind) {
   if (dstMemkind == Memkind::DeviceGlobalMemory && srcMemkind != Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->copyTo(dst, src, size);
+    device::DeviceInstance::instance().api().copyTo(dst, src, size);
 #endif
   } else if (dstMemkind != Memkind::DeviceGlobalMemory &&
              srcMemkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->copyFrom(dst, src, size);
+    device::DeviceInstance::instance().api().copyFrom(dst, src, size);
 #endif
   } else if (dstMemkind == Memkind::DeviceGlobalMemory &&
              srcMemkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->copyBetween(dst, src, size);
+    device::DeviceInstance::instance().api().copyBetween(dst, src, size);
 #endif
   } else {
     std::memcpy(dst, src, size);
@@ -162,10 +162,10 @@ void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, M
 void memzero(void* dst, std::size_t size, enum Memkind memkind) {
   if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    auto* defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
-    device::DeviceInstance::getInstance().algorithms.fillArray(
+    auto* defaultStream = device::DeviceInstance::instance().api().getDefaultStream();
+    device::DeviceInstance::instance().algorithms().fillArray(
         reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
 #else
     assert(false);
 #endif
@@ -180,7 +180,7 @@ void* hostToDevicePointer(void* host, enum Memkind memkind) {
   }
   if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
-    return device::DeviceInstance::getInstance().api->devicePointer(host);
+    return device::DeviceInstance::instance().api().devicePointer(host);
 #else
     return host;
 #endif

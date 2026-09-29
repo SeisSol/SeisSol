@@ -78,6 +78,48 @@ static_assert(detail::kindsMatch(MaterialT::TransportGroups,
                                  generated::TransportRotationGroupKinds),
               "the material's transported quantity groups disagree with the generated layout");
 
+/**
+ * The face types that are defined for a material model as soon as it supplies a Godunov state
+ * and a nodal ghost state -- which every material model does.
+ *
+ * The free surface with gravity is the exception: its surface elevation ODE closes over a
+ * single pressure and the scalar impedance sqrt(K rho), both of which exist only when the
+ * shear modulus vanishes. A material model that carries shear waves would need a different
+ * closure, and one with a second pressure (poroelastic) a second equation.
+ */
+constexpr FaceTypeSupport genericFaceTypeSupport(FaceType faceType) {
+  if (faceType == FaceType::FreeSurfaceGravity) {
+    return faceTypeUnsupported(
+        "the surface elevation ODE is closed with a single pressure and a scalar acoustic "
+        "impedance");
+  }
+  return faceTypeSupported();
+}
+
+template <typename MaterialT>
+constexpr FaceTypeSupport faceTypeSupport(FaceType faceType) {
+  return MaterialSetup<MaterialT>::supportsFaceType(faceType);
+}
+
+/**
+ * Some boundary conditions are defined for a material model only where the cell behind the face
+ * meets an additional requirement. The requirement is stated without a cell, so that it can be
+ * reported on ranks that hold no offending cell themselves.
+ */
+constexpr FaceTypeSupport genericFaceTypeCellRequirement(FaceType /*faceType*/) {
+  return faceTypeSupported();
+}
+
+template <typename MaterialT>
+constexpr FaceTypeSupport faceTypeCellRequirement(FaceType faceType) {
+  return MaterialSetup<MaterialT>::cellRequirementForFaceType(faceType);
+}
+
+template <typename MaterialT>
+bool faceTypeCellAdmissible(FaceType faceType, const MaterialT& material) {
+  return MaterialSetup<MaterialT>::cellMeetsFaceType(faceType, material);
+}
+
 template <typename T>
 constexpr bool testIfAcoustic(T mu) {
   return std::abs(mu) <= std::numeric_limits<T>::epsilon();
@@ -157,7 +199,7 @@ void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
 }
 
 template <typename Tmaterial>
-seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
+seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
     getEigenDecomposition(const Tmaterial& material, double zeroThreshold = 1e-7);
 
 template <typename Tmaterial, typename Tloc, typename Tneigh>
@@ -220,31 +262,19 @@ void bindFaultTimeCoefficient(KernelT& krnl,
  * c.f. 10.1111/j.1365-246X.2007.03381.x
  * This method is not needed for isotropic materials.
  */
-void getBondMatrix(const VrtxCoords normal,
-                   const VrtxCoords tangent1,
-                   const VrtxCoords tangent2,
+void getBondMatrix(const CoordinateT& normal,
+                   const CoordinateT& tangent1,
+                   const CoordinateT& tangent2,
                    std::array<double, 36>& matN);
-
-template <typename MaterialT = seissol::model::MaterialT>
-void getFaceRotationMatrix(const Eigen::Vector3d& normal,
-                           const Eigen::Vector3d& tangent1,
-                           const Eigen::Vector3d& tangent2,
-                           init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv) {
-  const VrtxCoords n = {normal(0), normal(1), normal(2)};
-  const VrtxCoords s = {tangent1(0), tangent1(1), tangent1(2)};
-  const VrtxCoords t = {tangent2(0), tangent2(1), tangent2(2)};
-  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
-}
 
 namespace detail {
 
 /// Writes one diagonal block per group, sized and shaped by its kind.
 template <bool Inverse, typename View, std::size_t N>
 void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
-                         const VrtxCoords normal,
-                         const VrtxCoords tangent1,
-                         const VrtxCoords tangent2,
+                         const CoordinateT& normal,
+                         const CoordinateT& tangent1,
+                         const CoordinateT& tangent2,
                          View& matrix) {
   matrix.setZero();
   std::size_t offset = 0;
@@ -294,14 +324,26 @@ void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
  * Voigt weights differ, so each kind supplies a forward and an inverse writer.
  */
 template <typename MaterialT = seissol::model::MaterialT>
-void getFaceRotationMatrix(const VrtxCoords normal,
-                           const VrtxCoords tangent1,
-                           const VrtxCoords tangent2,
+void getFaceRotationMatrix(const CoordinateT& normal,
+                           const CoordinateT& tangent1,
+                           const CoordinateT& tangent2,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv) {
   detail::writeRotationBlocks<false>(MaterialT::RotationGroups, normal, tangent1, tangent2, matT);
   detail::writeRotationBlocks<true>(
       MaterialT::InverseRotationGroups, normal, tangent1, tangent2, matTinv);
+}
+
+template <typename MaterialT = seissol::model::MaterialT>
+void getFaceRotationMatrix(const Eigen::Vector3d& normal,
+                           const Eigen::Vector3d& tangent1,
+                           const Eigen::Vector3d& tangent2,
+                           init::T::view::type& matT,
+                           init::Tinv::view::type& matTinv) {
+  const CoordinateT n = {normal(0), normal(1), normal(2)};
+  const CoordinateT s = {tangent1(0), tangent1(1), tangent1(2)};
+  const CoordinateT t = {tangent2(0), tangent2(1), tangent2(2)};
+  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
 }
 
 template <typename MaterialT>
@@ -380,6 +422,20 @@ struct MaterialSetupDefaults {
     setStarMatrix(matATData, matBTData, matCTData, gradEta, starMatrices[1]);
     setStarMatrix(matATData, matBTData, matCTData, gradZeta, starMatrices[2]);
   }
+
+  /// The face types every material model supports; cf. genericFaceTypeSupport.
+  static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
+    return genericFaceTypeSupport(faceType);
+  }
+
+  /// No requirement on the cell behind a face beyond the material model itself.
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType /*faceType*/, const MaterialT& /*material*/) {
+    return true;
+  }
 };
 
 /**
@@ -421,15 +477,26 @@ struct SolverSetupDefaults {
                                       const real* /*matTinv*/,
                                       const real* /*matATtilde*/) {}
 
+  /// What a boundary condition folds into that pair, where it is constant
+  /// over the face. Empty here for the reason the assembly is: the kernels
+  /// that fold are generated only for a solver whose transport is its state,
+  /// and this function is called from a plain function, where the branch not
+  /// taken is compiled all the same.
+  static void foldBoundaryIntoFaceFlux(FaceType /*faceType*/,
+                                       real* /*aPlusT*/,
+                                       real* /*aMinusT*/,
+                                       const real* /*matTinv*/,
+                                       const real* /*dirichletMap*/) {}
+
   /// The same pair, where the solver builds it from the flux of the face
   /// normal instead. Empty here for the same reason.
   static void assembleTabulatedFaceFlux(FaceType /*faceType*/,
                                         std::size_t /*side*/,
                                         double /*surface*/,
                                         double /*volume*/,
-                                        const double* /*normal*/,
-                                        const double* /*tangent1*/,
-                                        const double* /*tangent2*/,
+                                        const CoordinateT& /*normal*/,
+                                        const CoordinateT& /*tangent1*/,
+                                        const CoordinateT& /*tangent2*/,
                                         const MaterialT& /*material*/,
                                         real* /*aPlusT*/,
                                         real* /*aMinusT*/,
@@ -530,27 +597,20 @@ void setBlocks(T qGodLocal, Tmatrix mS, Tarray1 tractionIndices, Tarray2 velocit
 }
 
 template <typename Tmaterial>
-seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
+seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
     seissol::model::getEigenDecomposition(const Tmaterial& material, double zeroThreshold) {
-  std::array<std::complex<double>,
-             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
-      dataAT;
+  std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> dataAT;
   auto viewAT = yateto::DenseTensorView<2, std::complex<double>>(
-      dataAT.data(),
-      {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
+      dataAT.data(), {Tmaterial::NumQuantities, Tmaterial::NumQuantities});
   getTransposedCoefficientMatrix(material, 0, viewAT);
-  std::array<std::complex<double>,
-             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
-      dataA;
+  std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> dataA;
   // transpose dataAT to get dataA
-  for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-    for (std::size_t j = 0; j < seissol::model::MaterialT::NumQuantities; j++) {
-      dataA[i + seissol::model::MaterialT::NumQuantities * j] =
-          dataAT[seissol::model::MaterialT::NumQuantities * i + j];
+  for (std::size_t i = 0; i < Tmaterial::NumQuantities; i++) {
+    for (std::size_t j = 0; j < Tmaterial::NumQuantities; j++) {
+      dataA[i + Tmaterial::NumQuantities * j] = dataAT[Tmaterial::NumQuantities * i + j];
     }
   }
-  seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
-      eigenpair;
+  seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities> eigenpair;
 
   seissol::eigenvalues::computeEigenvalues(dataA, eigenpair);
 
@@ -559,17 +619,16 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
   orthonormalizeDegenerateEigenvectors(eigenpair, zeroThreshold);
 
 #ifndef NDEBUG
-  using CMatrix = Eigen::Matrix<std::complex<double>,
-                                seissol::model::MaterialT::NumQuantities,
-                                seissol::model::MaterialT::NumQuantities>;
-  using CVector = Eigen::Matrix<std::complex<double>, seissol::model::MaterialT::NumQuantities, 1>;
+  using CMatrix =
+      Eigen::Matrix<std::complex<double>, Tmaterial::NumQuantities, Tmaterial::NumQuantities>;
+  using CVector = Eigen::Matrix<std::complex<double>, Tmaterial::NumQuantities, 1>;
   const CMatrix eigenvectors = CMatrix(eigenpair.vectors.data());
   const CVector eigenvalues = CVector(eigenpair.values.data());
   // check number of eigenvalues
   // also check that the imaginary parts are zero
   int evNeg = 0;
   int evPos = 0;
-  for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+  for (std::size_t i = 0; i < Tmaterial::NumQuantities; ++i) {
     assert(std::abs(eigenvalues(i).imag()) < zeroThreshold);
     if (eigenvalues(i).real() < -zeroThreshold) {
       ++evNeg;
@@ -585,7 +644,7 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
   const CMatrix coeff(dataA.data());
   const CMatrix matrixMult = coeff * eigenvectors;
   CMatrix eigenvalueMatrix = CMatrix::Zero();
-  for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+  for (std::size_t i = 0; i < Tmaterial::NumQuantities; i++) {
     eigenvalueMatrix(i, i) = eigenvalues(i);
   }
   const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;

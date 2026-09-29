@@ -335,36 +335,51 @@ class LinearCKAnelastic(ADERDGBase):
                 target=target,
             )
 
+        # The analytical boundary adds its flux where the local flux lands, in
+        # the extended DOFs; only the CPU path evaluates that boundary.
+        localFluxNodal = (
+            lambda i: self.Qext["kp"]
+            <= self.Qext["kp"]
+            + self.db.project2nFaceTo3m[i]["kn"]
+            * self.INodal["no"]
+            * self.AminusT["op"]
+        )
+        generator.addFamily(
+            "localFluxNodal",
+            simpleParameterSpace(4),
+            localFluxNodal,
+            target="cpu",
+        )
+
     def addNeighbor(self, generator, targets):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
             minusFluxMatrixAccessor = (
-                lambda h, j, i: self.db.rDivM[i][self.t("km")]
-                * self.db.fP[h][self.t("mn")]
-                * self.db.rT[j][self.t("nl")]
+                lambda j, i: self.db.rDivM[i][self.t("km")]
+                * self.db.fPrT[j][self.t("ml")]
             )
             if self.kwargs["enable_premultiply_flux"] and target == "gpu":
                 contractionResult = tensor_collection_from_constant_expression(
                     "minusFluxMatrices",
                     minusFluxMatrixAccessor,
-                    simpleParameterSpace(3, 4, 4),
+                    simpleParameterSpace(4, 4),
                     target_indices="kl",
                 )
                 self.db.update(contractionResult)
-                minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[
-                    h, j, i
-                ]["kl"]
+                minusFluxMatrixAccessor = lambda j, i: self.db.minusFluxMatrices[j, i][
+                    "kl"
+                ]
 
             neighborFluxExt = (
-                lambda h, j, i: self.Qext["kp"]
+                lambda j, i: self.Qext["kp"]
                 <= self.Qext["kp"]
-                + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT["qp"]
+                + minusFluxMatrixAccessor(j, i) * self.I["lq"] * self.AminusT["qp"]
             )
-            neighborFluxExtPrefetch = lambda h, j, i: self.I
+            neighborFluxExtPrefetch = lambda j, i: self.I
             generator.addFamily(
                 f"{name_prefix}neighborFluxExt",
-                simpleParameterSpace(3, 4, 4),
+                simpleParameterSpace(4, 4),
                 neighborFluxExt,
                 neighborFluxExtPrefetch,
                 target=target,
@@ -508,5 +523,5 @@ class LinearCKAnelastic(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
-        # Nodal flux kernel uses this matrix but is not supported by visco2
+        # The nodal flux kernel (localFluxNodal, CPU only) uses this matrix
         include_tensors.update([self.db.project2nFaceTo3m[i] for i in range(4)])

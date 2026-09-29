@@ -24,9 +24,7 @@
 #include "Equations/anisotropic/Model/Energy.h"
 #include "Equations/damage/Model/Energy.h"
 #include "Equations/elastic/Model/Energy.h"
-#ifdef SEISSOL_KERNELS_STP
 #include "Equations/poroelastic/Model/Energy.h"
-#endif
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
 #include "Equations/viscoacoustic/Model/Energy.h"
 #include "Equations/viscoelastic/Model/Energy.h"

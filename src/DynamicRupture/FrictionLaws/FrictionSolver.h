@@ -10,6 +10,7 @@
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
+#include "GeneratedCode/init.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -55,7 +56,7 @@ class FrictionSolver {
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   virtual void allocateAuxiliaryMemory(GlobalData* globalData) {
-    spaceWeights_ = globalData->quadweights;
+    spaceWeights_ = globalData->*init::quadweights::PoolMember;
   }
 
   virtual seissol::initializer::AllocationPlace allocationPlace() {
@@ -78,8 +79,7 @@ class FrictionSolver {
   const NodalImpedanceParameters* __restrict nodalImpedanceParams_{};
   real fullUpdateTime_{};
   // CS = coordinate system
-  real (*__restrict initialStressInFaultCS_)[6][misc::NumPaddedPoints]{};
-  real (*__restrict nucleationStressInFaultCS_)[6][misc::NumPaddedPoints]{};
+  real (*__restrict stressSourceInFaultCS_)[6][misc::NumPaddedPoints]{};
   real (*__restrict cohesion_)[misc::NumPaddedPoints]{};
   real (*__restrict mu_)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude_)[misc::NumPaddedPoints]{};
@@ -98,8 +98,9 @@ class FrictionSolver {
   const real* __restrict spaceWeights_{};
   DREnergyOutput* __restrict energyData_{};
   DRGodunovData* __restrict godunovData_{};
-  real (*__restrict initialPressure_)[misc::NumPaddedPoints]{};
-  real (*__restrict nucleationPressure_)[misc::NumPaddedPoints]{};
+  real (*__restrict stressSourcePressure_)[misc::NumPaddedPoints]{};
+  real (*__restrict stressSourceOnset_)[misc::NumPaddedPoints]{};
+  real (*__restrict stressSourceRiseTime_)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime_)[misc::NumPaddedPoints]{};

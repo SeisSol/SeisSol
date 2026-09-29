@@ -11,7 +11,9 @@
 
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
-#include "Equations/Setup.h"          // IWYU pragma: keep
+#include "Equations/Impedance.h"      // IWYU pragma: keep
+#include "Equations/ImpedanceBase.h"
+#include "Equations/Setup.h" // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
@@ -53,9 +55,9 @@ void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
   const std::vector<Vertex>& vertices = meshReader.getVertices();
   const std::vector<Element>& elements = meshReader.getElements();
 
-  VrtxCoords normal;
-  VrtxCoords tangent1;
-  VrtxCoords tangent2;
+  CoordinateT normal{};
+  CoordinateT tangent1{};
+  CoordinateT tangent2{};
   MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
 
   *volume = MeshTools::volume(elements[meshId], vertices);
@@ -108,31 +110,138 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   }
 }
 
-constexpr size_t N = model::DrImpedanceDim;
-
 /**
  * Quantity indices the traction components live at, i.e. the rows of the traction averaging
- * matrices. Poroelasticity carries the fluid pressure as a fourth one; it has to match the
- * sparsity pattern the code generator builds for tractionPlusMatrix.
+ * matrices of a material whose Riemann problem decouples into scalar impedances. They have to
+ * match the sparsity pattern the code generator builds for tractionPlusMatrix.
  *
  * The rows are those of what a cell transports, which is where the stress is only at the front
  * of the layout for a material that keeps it in its state. One that derives it carries it
  * further along, and then so does the map from the interpolated state onto the traction of a
- * face. No material combines that with poroelasticity, whose fourth row is its pressure.
+ * face.
  */
 constexpr auto tractionRowIndices() {
   constexpr auto Offset = generated::TransportTractionOffset;
-  if constexpr (::seissol::model::MaterialT::Type == ::seissol::model::MaterialType::Poroelastic) {
-    return std::array<std::size_t, 4>{Offset + ::seissol::model::SymTensor2Traction[0],
-                                      Offset + ::seissol::model::SymTensor2Traction[1],
-                                      Offset + ::seissol::model::SymTensor2Traction[2],
-                                      Offset + 9};
-  } else {
-    std::array<std::size_t, 3> rows{};
-    for (std::size_t i = 0; i < rows.size(); ++i) {
-      rows[i] = Offset + ::seissol::model::SymTensor2Traction[i];
+  std::array<std::size_t, 3> rows{};
+  for (std::size_t i = 0; i < rows.size(); ++i) {
+    rows[i] = Offset + ::seissol::model::SymTensor2Traction[i];
+  }
+  return rows;
+}
+
+/**
+ * The "general" material case: impedance, eta and traction averaging matrices of a face whose
+ * admittance is a full matrix, from the admittances of both sides.
+ *
+ * A template, so that the `if constexpr` below depends on MaterialT: every build instantiates it
+ * with its own material, but the body is only compiled for the materials that take this path.
+ * Their code generator gives the traction averaging matrices the full pattern, and their Riemann
+ * problem couples the traction components. Everything else, isotropic elastic and viscoelastic
+ * included, uses the scalar impedances.
+ */
+template <typename MaterialT>
+void initializeFaultImpedance(const Fault& fault,
+                              std::size_t meshFace,
+                              const MaterialT& plusMaterial,
+                              const MaterialT& minusMaterial,
+                              seissol::dr::ImpedanceMatrices& impedanceMatrices,
+                              DRGodunovData& godunovData,
+                              seissol::dr::ImpedancesAndEta& impAndEta) {
+  if constexpr (MaterialT::Type == seissol::model::MaterialType::Anisotropic ||
+                MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
+    using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
+    constexpr std::size_t N = ImpedanceCompute::Dim;
+    // Zplus, Zminus and eta all share this dimension in the code generator
+    static_assert(N == tensor::Zminus::Shape[0],
+                  "The impedance tensors of the code generator do not match the material.");
+
+    // the normal/tangent vectors are already normalized
+    std::array<double, 36> bond{};
+    seissol::model::getBondMatrix(fault.normal, fault.tangent1, fault.tangent2, bond);
+
+    const auto plusLocal = seissol::model::getRotatedMaterialCoefficients(bond, plusMaterial);
+    const auto minusLocal = seissol::model::getRotatedMaterialCoefficients(bond, minusMaterial);
+
+    // Zplus/Zminus hold the *admittance* Y (traction -> velocity); eta is
+    // (Y+ + Y-)^-1. For anisotropic materials Y is obtained in closed form
+    // from the Christoffel matrix, which is exact also when qS1 and qS2 are
+    // degenerate; for poroelasticity it comes from the Biot mass and stiffness
+    // blocks in the same closed form.
+    const auto faultImpedance =
+        seissol::initializer::model::computeFaultImpedance(plusLocal, minusLocal);
+
+    // The finite and consistency checks are a handful of flops per face and run in every
+    // build: a material that is not positive definite produces NaN admittances right here,
+    // and without the check the run only fails much later and somewhere else. Only the
+    // self-adjointness and definiteness part costs an eigensolve, so that one stays behind
+    // NDEBUG.
+#ifdef NDEBUG
+    constexpr bool CheckSelfAdjoint = false;
+#else
+    constexpr bool CheckSelfAdjoint = true;
+#endif
+    if (const auto violation =
+            seissol::initializer::model::checkFaultImpedance(faultImpedance, CheckSelfAdjoint);
+        violation.has_value()) {
+      logError() << "Invalid dynamic rupture impedance at fault face" << meshFace << ":"
+                 << violation.value();
     }
-    return rows;
+
+    const auto& impedanceMatrix = faultImpedance.admittancePlus;
+    const auto& impedanceNeigMatrix = faultImpedance.admittanceMinus;
+    const auto& etaMatrix = faultImpedance.eta;
+    // the kernel contracts Q["kq"] * tractionMatrix["qp"], i.e. it applies
+    // the transpose -- and b = eta * Y is not symmetric for a bimaterial
+    // anisotropic interface (a few percent for realistic contrasts).
+    const Eigen::Matrix<double, N, N> bMatrix = faultImpedance.bPlus.transpose();
+    const Eigen::Matrix<double, N, N> bNeigMatrix = faultImpedance.bMinus.transpose();
+
+    auto impedanceView = init::Zplus::view::create(impedanceMatrices.impedance);
+    auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices.impedanceNeig);
+    auto etaView = init::eta::view::create(impedanceMatrices.eta);
+    auto tractionPlusMatrix =
+        init::tractionPlusMatrix::view::create(godunovData.tractionPlusMatrix);
+    auto tractionMinusMatrix =
+        init::tractionMinusMatrix::view::create(godunovData.tractionMinusMatrix);
+
+    copyEigenToYateto(impedanceMatrix, impedanceView);
+    copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
+    copyEigenToYateto(etaMatrix, etaView);
+    // the rows of the traction averaging matrices; they have to match the sparsity pattern the
+    // code generator builds for tractionPlusMatrix. A material on this path keeps its stress in
+    // its state, so the rows of the state are the rows of what the cell transports as well, and
+    // no transport offset enters here.
+    constexpr auto TractionRows = ImpedanceCompute::TractionIndices;
+    copyEigenToYateto(bMatrix, tractionPlusMatrix, TractionRows);
+    copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, TractionRows);
+
+    // reconstruction of the stress components outside of the Riemann problem; only needed by
+    // the fault receiver output, which evaluates them on the plus side
+    for (std::size_t col = 0; col < N; ++col) {
+      for (std::size_t row = 0; row < 3; ++row) {
+        impedanceMatrices.lateralStress[col * 3 + row] =
+            static_cast<real>(faultImpedance.lateralStressPlus(row, col));
+      }
+    }
+
+    if constexpr (MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
+      // The solid frame is isotropic, so the shear rows of the Biot admittance decouple from
+      // the fault-normal/fluid block and carry the same entry twice. A scalar impedance is
+      // therefore exact here, and taking it from the admittance is what keeps the paths that
+      // read ImpedancesAndEta -- the friction update, the slip accumulation and the receiver
+      // output -- on the same Z_s = sqrt(mu * rho1) as the Riemann solver. Note that rho1 is
+      // the statically condensed density, not the density of the solid grains.
+      const double invZs = faultImpedance.admittancePlus(1, 1);
+      const double invZsNeig = faultImpedance.admittanceMinus(1, 1);
+      const double etaS = faultImpedance.eta(1, 1);
+
+      impAndEta.zs = 1.0 / invZs;
+      impAndEta.zsNeig = 1.0 / invZsNeig;
+      impAndEta.invZs = invZs;
+      impAndEta.invZsNeig = invZsNeig;
+      impAndEta.etaS = etaS;
+      impAndEta.invEtaS = 1.0 / etaS;
+    }
   }
 }
 
@@ -150,7 +259,13 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   real matAMinusData[Setup::CoefficientSize]{};
 
   const auto& fault = meshReader.getFault();
-  const auto& elements = meshReader.getElements();
+
+  const auto getDupOpt = [&](const auto& elem, std::size_t duplicate) {
+    if (elem.hasValue()) {
+      return backmap.getDup(elem.value(), duplicate);
+    }
+    return std::optional<StoragePosition>();
+  };
 
   for (auto& layer : drStorage.leaves(Ghost)) {
     auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>();
@@ -187,34 +302,27 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     schedule(static)
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       const std::size_t meshFace = faceInformation[ltsFace].meshFace;
-      assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
+      assert(fault[meshFace].element.hasValue() || fault[meshFace].neighborElement.hasValue());
 
       /// Face information
       // already set: faceInformation[ltsFace].meshFace = meshFace;
       faceInformation[ltsFace].plusSide = fault[meshFace].side;
       faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
-      if (fault[meshFace].element >= 0) {
-        faceInformation[ltsFace].faceRelation =
-            elements[fault[meshFace].element].sideOrientations[fault[meshFace].side] + 1;
-        faceInformation[ltsFace].plusSideOnThisRank = true;
-      } else {
-        /// \todo check if this is correct
-        faceInformation[ltsFace].faceRelation =
-            elements[fault[meshFace].neighborElement]
-                .sideOrientations[fault[meshFace].neighborSide] +
-            1;
-        faceInformation[ltsFace].plusSideOnThisRank = false;
-      }
+      // Face relation 1 addresses the minus side at a zero face orientation index, which the
+      // canonical vertex numbering guarantees on every interior face. Both sides of an MPI
+      // split fault face therefore agree on it without exchanging anything.
+      faceInformation[ltsFace].faceRelation = 1;
+      faceInformation[ltsFace].plusSideOnThisRank = fault[meshFace].element.hasValue();
 
       /// Look for time derivative mapping in all duplicates
-      // TODO: change datatype after #1420
-      int derivativesMeshId = 0;
-      std::uint8_t derivativesSide = 0;
-      if (fault[meshFace].element >= 0) {
-        derivativesMeshId = fault[meshFace].element;
+      std::size_t derivativesMeshId = 0;
+      std::int8_t derivativesSide = 0;
+      if (fault[meshFace].element.hasValue()) {
+        derivativesMeshId = fault[meshFace].element.value();
         derivativesSide = faceInformation[ltsFace].plusSide;
       } else {
-        derivativesMeshId = fault[meshFace].neighborElement;
+        assert(fault[meshFace].neighborElement.hasValue());
+        derivativesMeshId = fault[meshFace].neighborElement.value();
         derivativesSide = faceInformation[ltsFace].minusSide;
       }
       real* timeDofs1 = nullptr;
@@ -265,7 +373,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       assert(timeDerivative1 != nullptr && timeDerivative2 != nullptr);
 
-      if (fault[meshFace].element >= 0) {
+      if (fault[meshFace].element.hasValue()) {
         timeDofsPlus[ltsFace] = timeDofs1;
         timeDofsMinus[ltsFace] = timeDofs2;
         solverLocalDataPlus[ltsFace] = localData1;
@@ -289,12 +397,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       /// DR mapping for elements
       for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-        const auto plusLtsId = (fault[meshFace].element >= 0)
-                                   ? backmap.getDup(fault[meshFace].element, duplicate)
-                                   : std::optional<StoragePosition>();
-        const auto minusLtsId = (fault[meshFace].neighborElement >= 0)
-                                    ? backmap.getDup(fault[meshFace].neighborElement, duplicate)
-                                    : std::optional<StoragePosition>();
+        const auto plusLtsId = getDupOpt(fault[meshFace].element, duplicate);
+        const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, duplicate);
 
         assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -348,12 +452,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Materials
       const seissol::model::MaterialT* plusMaterial = nullptr;
       const seissol::model::MaterialT* minusMaterial = nullptr;
-      const auto plusLtsId = (fault[meshFace].element >= 0)
-                                 ? backmap.getDup(fault[meshFace].element, 0)
-                                 : std::optional<StoragePosition>();
-      const auto minusLtsId = (fault[meshFace].neighborElement >= 0)
-                                  ? backmap.getDup(fault[meshFace].neighborElement, 0)
-                                  : std::optional<StoragePosition>();
+      const auto plusLtsId = getDupOpt(fault[meshFace].element, 0);
+      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, 0);
 
       assert(plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -423,102 +523,17 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
       seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
 
-      // Where the traction sits in what a cell transports.
-      constexpr auto TractionRows = tractionRowIndices();
-
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Anisotropic:
         [[fallthrough]];
       case seissol::model::MaterialType::Poroelastic: {
-        // the "general" material case.
-
-        // the normal/tangent vectors are already normalized
-        std::array<double, 36> bond{};
-        seissol::model::getBondMatrix(
-            fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, bond);
-
-        const auto plusLocal = seissol::model::getRotatedMaterialCoefficients(bond, *plusMaterial);
-        const auto minusLocal =
-            seissol::model::getRotatedMaterialCoefficients(bond, *minusMaterial);
-
-        // Zplus/Zminus hold the *admittance* Y (traction -> velocity); eta is
-        // (Y+ + Y-)^-1. For anisotropic materials Y is obtained in closed form
-        // from the Christoffel matrix, which is exact also when qS1 and qS2 are
-        // degenerate; for poroelasticity it comes from the Biot mass and stiffness
-        // blocks in the same closed form.
-        const auto faultImpedance =
-            seissol::initializer::model::computeFaultImpedance(plusLocal, minusLocal);
-
-        // The finite and consistency checks are a handful of flops per face and run in every
-        // build: a material that is not positive definite produces NaN admittances right here,
-        // and without the check the run only fails much later and somewhere else. Only the
-        // self-adjointness and definiteness part costs an eigensolve, so that one stays behind
-        // NDEBUG.
-#ifdef NDEBUG
-        constexpr bool CheckSelfAdjoint = false;
-#else
-        constexpr bool CheckSelfAdjoint = true;
-#endif
-        if (const auto violation =
-                seissol::initializer::model::checkFaultImpedance(faultImpedance, CheckSelfAdjoint);
-            violation.has_value()) {
-          logError() << "Invalid dynamic rupture impedance at fault face" << meshFace << ":"
-                     << violation.value();
-        }
-
-        const auto& impedanceMatrix = faultImpedance.admittancePlus;
-        const auto& impedanceNeigMatrix = faultImpedance.admittanceMinus;
-        const auto& etaMatrix = faultImpedance.eta;
-        // the kernel contracts Q["kq"] * tractionMatrix["qp"], i.e. it applies
-        // the transpose -- and b = eta * Y is not symmetric for a bimaterial
-        // anisotropic interface (a few percent for realistic contrasts).
-        const Eigen::Matrix<double, N, N> bMatrix = faultImpedance.bPlus.transpose();
-        const Eigen::Matrix<double, N, N> bNeigMatrix = faultImpedance.bMinus.transpose();
-
-        auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
-        auto impedanceNeigView =
-            init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig);
-        auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta);
-        auto tractionPlusMatrix =
-            init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
-        auto tractionMinusMatrix =
-            init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
-
-        copyEigenToYateto(impedanceMatrix, impedanceView);
-        copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
-        copyEigenToYateto(etaMatrix, etaView);
-        copyEigenToYateto(bMatrix, tractionPlusMatrix, TractionRows);
-        copyEigenToYateto(bNeigMatrix, tractionMinusMatrix, TractionRows);
-
-        // reconstruction of the stress components outside of the Riemann problem; only needed by
-        // the fault receiver output, which evaluates them on the plus side
-        for (std::size_t col = 0; col < N; ++col) {
-          for (std::size_t row = 0; row < 3; ++row) {
-            impedanceMatrices[ltsFace].lateralStress[col * 3 + row] =
-                static_cast<real>(faultImpedance.lateralStressPlus(row, col));
-          }
-        }
-
-        if constexpr (seissol::model::MaterialT::Type ==
-                      seissol::model::MaterialType::Poroelastic) {
-          // The solid frame is isotropic, so the shear rows of the Biot admittance decouple from
-          // the fault-normal/fluid block and carry the same entry twice. A scalar impedance is
-          // therefore exact here, and taking it from the admittance is what keeps the paths that
-          // read ImpedancesAndEta -- the friction update, the slip accumulation and the receiver
-          // output -- on the same Z_s = sqrt(mu * rho1) as the Riemann solver. Note that rho1 is
-          // the statically condensed density, not the density of the solid grains.
-          const double invZs = faultImpedance.admittancePlus(1, 1);
-          const double invZsNeig = faultImpedance.admittanceMinus(1, 1);
-          const double etaS = faultImpedance.eta(1, 1);
-
-          impAndEta[ltsFace].zs = 1.0 / invZs;
-          impAndEta[ltsFace].zsNeig = 1.0 / invZsNeig;
-          impAndEta[ltsFace].invZs = invZs;
-          impAndEta[ltsFace].invZsNeig = invZsNeig;
-          impAndEta[ltsFace].etaS = etaS;
-          impAndEta[ltsFace].invEtaS = 1.0 / etaS;
-        }
-
+        initializeFaultImpedance(fault[meshFace],
+                                 meshFace,
+                                 *plusMaterial,
+                                 *minusMaterial,
+                                 impedanceMatrices[ltsFace],
+                                 godunovData[ltsFace],
+                                 impAndEta[ltsFace]);
         break;
       }
       default: {
@@ -548,6 +563,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         const double etaP = cZpP * cZpM / (cZpP + cZpM);
         const double etaS = cZsP * cZsM / (cZsP + cZsM);
 
+        // Where the traction sits in what a cell transports.
+        constexpr auto TractionRows = tractionRowIndices();
+
         tractionPlusMatrix.setZero();
         tractionPlusMatrix(TractionRows[0], 0) = etaP / cZpP;
         tractionPlusMatrix(TractionRows[1], 1) = etaS / cZsP;
@@ -561,10 +579,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       }
 
-      /// Transpose matTinv
+      /// Transposed inverse rotation
       // A face rotates what crosses it, which is the transported tensor --
       // the state wherever the flux is linear, and wider where it is not.
-      dynamicRupture::kernel::transposeTinv ttKrnl;
       real transportTinvData[tensor::transportTinv::size()]{};
       auto transportTinv = init::transportTinv::view::create(transportTinvData);
       transportTinv.setZero();
@@ -573,18 +590,26 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                                         fault[meshFace].tangent1,
                                                         fault[meshFace].tangent2,
                                                         transportTinv);
-      ttKrnl.transportTinv = transportTinvData;
-      ttKrnl.TinvT = godunovData[ltsFace].dataTinvT;
-      ttKrnl.execute();
+      // Transposed through the view rather than through a kernel, because TinvT
+      // is stored in whichever layout the projections read it from -- packed to
+      // its sparsity pattern where the build can take a packed operand -- and a
+      // packed destination is not something the generated copy can write.
+      // forall visits the entries the view actually stores, so the same line
+      // fills a dense and a packed TinvT, and the entries a packed one leaves
+      // out are the ones the rotation has no value for anyway.
+      auto tinvT = init::TinvT::view::create(godunovData[ltsFace].dataTinvT);
+      tinvT.forall([&transportTinv](const auto* entry, auto& value) {
+        value = transportTinv(entry[1], entry[0]);
+      });
 
       double plusSurfaceArea = 0;
       double plusVolume = 0;
       double minusSurfaceArea = 0;
       double minusVolume = 0;
       double surfaceArea = 0;
-      if (fault[meshFace].element >= 0) {
+      if (fault[meshFace].element.hasValue()) {
         surfaceAreaAndVolume(meshReader,
-                             fault[meshFace].element,
+                             fault[meshFace].element.value(),
                              fault[meshFace].side,
                              &plusSurfaceArea,
                              &plusVolume);
@@ -594,9 +619,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         plusSurfaceArea = 1.e99;
         plusVolume = 1.0;
       }
-      if (fault[meshFace].neighborElement >= 0) {
+      if (fault[meshFace].neighborElement.hasValue()) {
         surfaceAreaAndVolume(meshReader,
-                             fault[meshFace].neighborElement,
+                             fault[meshFace].neighborElement.value(),
                              fault[meshFace].neighborSide,
                              &minusSurfaceArea,
                              &minusVolume);
