@@ -10,12 +10,13 @@
 #include "TimeManager.h"
 
 #include "Common/Iterator.h"
-#include "CommunicationManager.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
+#include "Kernels/Common.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
@@ -24,14 +25,20 @@
 #include "ResultWriter/ReceiverWriter.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
-#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
-#include "Solver/TimeStepping/AbstractTimeCluster.h"
-#include "Solver/TimeStepping/ActorState.h"
-#include "Solver/TimeStepping/GhostTimeClusterFactory.h"
-#include "Solver/TimeStepping/HaloCommunication.h"
-#include "Solver/TimeStepping/TimeCluster.h"
+#include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/Actor/ActorState.h"
+#include "Solver/TimeStepping/Compute/CellCluster.h"
+#include "Solver/TimeStepping/Compute/DynamicRuptureCluster.h"
+#include "Solver/TimeStepping/Halo/CommunicationManager.h"
+#include "Solver/TimeStepping/Halo/GhostCluster.h"
+#include "Solver/TimeStepping/Halo/HaloCommunication.h"
+#include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
+#include "Solver/TimeStepping/HaloTransportFactory.h"
+#include "Solver/TimeStepping/Plan/SuperStepRecorder.h"
+#include "Solver/TimeStepping/Plan/TimeSteppingPlan.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -39,8 +46,10 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
+#include <set>
 #include <string>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 #ifdef ACL_DEVICE
@@ -48,7 +57,7 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol::time_stepping {
+namespace seissol::solver {
 
 TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
     : seissolInstance_(seissolInstance), actorStateStatisticsManager_(loopStatistics_) {
@@ -63,12 +72,75 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
 
 TimeManager::~TimeManager() = default;
 
+namespace {
+
+/**
+ * Compares the connections between the clusters with the dependencies that the face neighbors of
+ * the cells impose: each cell layer is connected to every local layer of a time cluster differing
+ * by at most one, and a copy layer additionally to one ghost cluster per ghost layer it exchanges
+ * data with. Dependencies without a connection are an error; connections without a dependency
+ * only cost synchronization.
+ */
+void reportClusterDependencies(initializer::MemoryManager& memoryManager,
+                               const HaloCommunication& haloStructure) {
+  const auto& colorMap = memoryManager.ltsStorage().getColorMap();
+
+  std::size_t connections = 0;
+  std::size_t dependencies = 0;
+  std::size_t missing = 0;
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    std::vector<bool> connected(colorMap.size(), false);
+    for (const auto& other : memoryManager.ltsStorage().leaves(Ghost)) {
+      const auto lts1 = static_cast<int64_t>(layer.getIdentifier().lts);
+      const auto lts2 = static_cast<int64_t>(other.getIdentifier().lts);
+      connected[other.id()] = other.id() != layer.id() && std::abs(lts1 - lts2) <= 1;
+    }
+    if (layer.getIdentifier().halo == HaloType::Copy) {
+      for (const auto [color, halo] : common::enumerate(haloStructure.at(layer.id()))) {
+        connected[color] = connected[color] || !halo.copy.empty() || !halo.ghost.empty();
+      }
+    }
+
+    std::vector<bool> needed(colorMap.size(), false);
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (const auto& neighbor : secondaryInformation[cell].faceNeighbors) {
+        if (neighbor.color < colorMap.size() && neighbor.color != layer.id()) {
+          needed[neighbor.color] = true;
+        }
+      }
+    }
+
+    for (std::size_t color = 0; color < colorMap.size(); ++color) {
+      connections += connected[color] ? 1 : 0;
+      dependencies += needed[color] ? 1 : 0;
+      missing += (needed[color] && !connected[color]) ? 1 : 0;
+    }
+  }
+
+  std::array<std::size_t, 3> counts{connections, dependencies, missing};
+  MPI_Allreduce(MPI_IN_PLACE,
+                counts.data(),
+                counts.size(),
+                Mpi::castToMpiType<std::size_t>(),
+                MPI_SUM,
+                Mpi::mpi.comm());
+
+  logInfo() << "Cell cluster connections:" << counts[0]
+            << "; needed by face neighbors:" << counts[1] << "(summed over all ranks)";
+  if (counts[2] > 0) {
+    logError() << counts[2] << "dependencies between cell layers have no connection.";
+  }
+}
+
+} // namespace
+
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
-                              const solver::HaloCommunication& haloStructure,
+                              const HaloCommunication& haloStructure,
                               initializer::MemoryManager& memoryManager,
                               const SimulationSettings& settings) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
-  std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
+  std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
 
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
@@ -101,18 +173,12 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
-  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
-    dynamicRuptureSchedulers_.emplace_back(
-        std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep));
-  }
-
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
       memoryManager.ltsStorage().getColorMap().size());
 
-  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
+  const auto haloId = [&](const auto& id, HaloType halo) {
     auto cloned = id;
     cloned.halo = halo;
-    cloned.lts += offset;
     return memoryManager.ltsStorage().getColorMap().colorId(cloned);
   };
 
@@ -132,13 +198,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                (layer.getIdentifier().halo == HaloType::Interior);
     const auto profilingId = layer.id();
 
-    auto* dynRupInteriorData =
-        &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Interior, 0));
-    auto* dynRupCopyData =
-        &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
-
-    auto& cluster = clusters_.emplace_back(
-        std::make_unique<TimeCluster>(clusterId,
+    auto& cluster = cellClusters_.emplace_back(
+        std::make_unique<CellCluster>(clusterId,
                                       clusterId,
                                       profilingId,
                                       settings,
@@ -146,14 +207,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                       timeStepSize,
                                       timeStepRate,
                                       printProgress,
-                                      dynamicRuptureSchedulers_[clusterId].get(),
                                       globalData,
                                       &layer,
-                                      dynRupInteriorData,
-                                      dynRupCopyData,
-                                      memoryManager.frictionLaw(),
-                                      memoryManager.frictionLawDevice(),
-                                      memoryManager.faultOutputManager(),
                                       seissolInstance_,
                                       &loopStatistics_,
                                       &actorStateStatisticsManager_.addCluster(profilingId)));
@@ -192,9 +247,56 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
+  // The dynamic rupture faces are laid out along the same colors as the cells, and both sides of a
+  // fault face lie in the same time cluster. The faces of an interior layer lie between interior or
+  // copy cells; the faces of a copy layer between copy and ghost cells.
+  std::vector<DynamicRuptureCluster*> faceClusterBackmap(
+      memoryManager.drStorage().getColorMap().size(), nullptr);
+  for (auto& layer : memoryManager.drStorage().leaves(Ghost)) {
+    if (layer.size() == 0) {
+      continue;
+    }
+
+    const auto clusterId = layer.getIdentifier().lts;
+    const auto profilingId = layer.id();
+    auto* cellCluster = cellClusterBackmap[layer.id()];
+
+    auto& cluster = faceClusters_.emplace_back(std::make_unique<DynamicRuptureCluster>(
+        clusterLayout.timestepRate(clusterId),
+        clusterLayout.clusterRate(clusterId),
+        cellCluster->getExecutor(),
+        profilingId,
+        drOutputTimestep,
+        memoryManager.globalData(),
+        &layer,
+        memoryManager.frictionLaw(),
+        memoryManager.frictionLawDevice(),
+        memoryManager.faultOutputManager(),
+        seissolInstance_,
+        &loopStatistics_,
+        &actorStateStatisticsManager_.addCluster(profilingId)));
+
+    cluster->setPriority(cellCluster->getPriority());
+
+    cluster->connect(*cellClusterBackmap[haloId(layer.getIdentifier(), HaloType::Copy)]);
+    if (layer.getIdentifier().halo == HaloType::Interior) {
+      cluster->connect(*cellClusterBackmap[haloId(layer.getIdentifier(), HaloType::Interior)]);
+    }
+
+    faceClusterBackmap[layer.id()] = cluster.get();
+  }
+
   // Create ghost time clusters for MPI
-  const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
-  const auto persistent = usePersistentMpi(seissolInstance_.env());
+  followPlan_ = useTimeSteppingPlan(seissolInstance_.env());
+  if (followPlan_) {
+    logInfo() << "The clusters take their steps along the time stepping plan.";
+  }
+
+  haloTransports_ =
+      std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
+                                             usePersistentMpi(seissolInstance_.env()),
+                                             useExchangePerDirection(seissolInstance_.env()),
+                                             clusterLayout.globalClusterCount);
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
@@ -216,40 +318,60 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
         const auto otherDisplayName = "ghost-" + std::to_string(other.lts);
 
-        auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
-                                                         otherTimeStepRate,
-                                                         layer.id(),
-                                                         i,
-                                                         displayName,
-                                                         otherDisplayName,
-                                                         haloStructure,
-                                                         preferredDataTransferMode,
-                                                         persistent);
-        ghostClusters.push_back(std::move(ghostCluster));
+        const auto& regions = haloStructure.at(layer.id()).at(i);
+        ghostClusters.push_back(std::make_unique<GhostCluster>(
+            otherTimeStepSize,
+            otherTimeStepRate,
+            displayName,
+            otherDisplayName,
+            regions,
+            haloTransports_->create(regions, layer.getIdentifier().lts, other.lts)));
 
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*cellClusterBackmap[layer.id()]);
+
+        // the dynamic rupture faces of the copy layer read the ghost cells of their own cluster
+        auto* faceCluster = faceClusterBackmap[layer.id()];
+        if (faceCluster != nullptr && other.lts == layer.getIdentifier().lts) {
+          faceCluster->observe(*ghostClusters.back());
+        }
       }
     }
   }
+
+  reportClusterDependencies(memoryManager, haloStructure);
 
   // Sort clusters by time step size in increasing order
   auto rateSorter = [](const auto& a, const auto& b) {
     return a->getTimeStepRate() < b->getTimeStepRate();
   };
-  std::sort(clusters_.begin(), clusters_.end(), rateSorter);
+  std::sort(cellClusters_.begin(), cellClusters_.end(), rateSorter);
 
-  for (const auto& cluster : clusters_) {
+  for (const auto& cluster : cellClusters_) {
+    clusters_.emplace_back(cluster.get());
+  }
+  for (const auto& cluster : faceClusters_) {
+    clusters_.emplace_back(cluster.get());
+  }
+  std::stable_sort(clusters_.begin(), clusters_.end(), rateSorter);
+
+  for (auto* cluster : clusters_) {
     if (cluster->getPriority() == ActorPriority::High) {
-      highPrioClusters_.emplace_back(cluster.get());
+      highPrioClusters_.emplace_back(cluster);
     } else {
-      lowPrioClusters_.emplace_back(cluster.get());
+      lowPrioClusters_.emplace_back(cluster);
     }
   }
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-  if (seissol::useCommThread(Mpi::mpi, seissolInstance_.env())) {
+  // the library of the halo exchange knows all transports now; collective over all processes
+  if (haloTransports_->scheduler() != nullptr) {
+    haloTransports_->scheduler()->prepare();
+  }
+
+  commThread_ = seissol::useCommThread(Mpi::mpi, seissolInstance_.env());
+  if (commThread_) {
     communicationManager_ = std::make_unique<ThreadedCommunicationManager>(
         std::move(ghostClusters), &seissolInstance_.pinning());
   } else {
@@ -258,9 +380,59 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   auto* ghostClusterPointer = communicationManager_->getGhostClusters();
 
+  concurrent_ = isDeviceOn() && useConcurrentClusters(seissolInstance_.env());
+  if (concurrent_) {
+    logInfo() << "The clusters run concurrently on the device.";
+    for (auto* cluster : clusters_) {
+      cluster->setConcurrent(true);
+    }
+    for (auto& cluster : *ghostClusterPointer) {
+      cluster->setConcurrent(true);
+    }
+    auto* scheduler = haloTransports_->scheduler();
+    if (scheduler != nullptr && scheduler->launchOrder() == LaunchOrder::Global) {
+      scheduler->setStreamOrdered(true);
+      logInfo() << "The halo exchange is ordered on the device.";
+    }
+  }
+
+  if (useSuperStepGraphs(seissolInstance_.env())) {
+    if (!followPlan_ || !concurrent_) {
+      logWarning() << "Recording super-timesteps needs a device, SEISSOL_TIMESTEPPING_PLAN=1 and"
+                   << "SEISSOL_CONCURRENT_CLUSTERS=1.";
+    } else if (!ghostClusterPointer->empty() &&
+               (haloTransports_->scheduler() == nullptr ||
+                !haloTransports_->scheduler()->streamOrdered() || commThread_)) {
+      logWarning() << "Recording super-timesteps with halo exchange needs a transfer mode on device"
+                   << "streams (ccl, stream-mpi or shmem) in its global order, and no"
+                   << "communication thread.";
+    } else if (!ghostClusterPointer->empty() && !haloTransports_->scheduler()->recordable()) {
+      logWarning() << "The halo exchange of this transfer mode cannot be replayed from a recording"
+                   << "of super-timesteps (stream-mpi, and shmem with ROCSHMEM or Intel SHMEM);"
+                   << "use ccl, or shmem with NVSHMEM.";
+    } else if (!SuperStepRecorder::available()) {
+      logWarning() << "This device cannot record super-timesteps.";
+    } else {
+      replay_ = true;
+      recorder_ = std::make_unique<SuperStepRecorder>();
+      logInfo() << "Regular super-timesteps get recorded and replayed.";
+
+      // the outputs must not stand in the way of a recording
+      runTimeOutputs_ = true;
+      for (auto* cluster : clusters_) {
+        cluster->setRunTimeOutputs(true);
+      }
+      logInfo() << "The outputs decide about their samples when the work of a step runs.";
+      if (std::any_of(clusters_.begin(), clusters_.end(), [](auto* c) { return c->hostWork(); })) {
+        logWarning() << "Some clusters compute on the host (see SEISSOL_DEVICE_HOST_SWITCH), or"
+                     << "exchange data with clusters that do; no super-timestep gets recorded.";
+      }
+    }
+  }
+
   std::vector<AbstractTimeCluster*> allClusters(clusters_.size() + ghostClusterPointer->size());
   for (std::size_t i = 0; i < clusters_.size(); ++i) {
-    allClusters[i] = clusters_[i].get();
+    allClusters[i] = clusters_[i];
   }
   for (std::size_t i = 0; i < ghostClusterPointer->size(); ++i) {
     allClusters[i + clusters_.size()] = ghostClusterPointer->at(i).get();
@@ -279,7 +451,7 @@ void TimeManager::writeClustering() const {
 
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
   this->faultOutputManager_ = faultOutputManager;
-  for (auto& cluster : clusters_) {
+  for (auto& cluster : faceClusters_) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
 }
@@ -292,6 +464,11 @@ seissol::dr::output::OutputManager* TimeManager::faultOutputManager() {
 void TimeManager::advanceInTime(const double& synchronizationTime) {
   SCOREP_USER_REGION("advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION)
 
+  if (runTimeOutputs_ && faultOutputManager_ != nullptr) {
+    // the fault receivers of different layers count their output steps on different threads
+    faultOutputManager_->prepareRunTimeOutput();
+  }
+
   for (auto& cluster : clusters_) {
     cluster->setSyncTime(synchronizationTime);
 
@@ -300,6 +477,17 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   }
 
   communicationManager_->reset(synchronizationTime);
+
+  // clusters that disagree on the number of ticks until the synchronization point would wait for
+  // each other forever
+  const auto ticks = clusters_.empty() ? 0 : clusters_.front()->getStepsUntilSync();
+  const auto agrees = [&](const auto& cluster) { return cluster->getStepsUntilSync() == ticks; };
+  const auto& ghostClusters = *communicationManager_->getGhostClusters();
+  if (!std::all_of(clusters_.begin(), clusters_.end(), agrees) ||
+      !std::all_of(ghostClusters.begin(), ghostClusters.end(), agrees)) {
+    logError() << "The clusters disagree on the number of steps until the synchronization point at"
+               << synchronizationTime << "s.";
+  }
 
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 #ifdef ACL_DEVICE
@@ -315,6 +503,11 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     assert(cluster->getState() == ActorState::Corrected);
   }
 
+  if (followPlan_) {
+    followPlan();
+  }
+
+  // Also completes the synchronization after following the plan.
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     communicationManager_->progression();
@@ -355,12 +548,198 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     }
     finished = std::all_of(clusters_.begin(), clusters_.end(), [](auto& c) { return c->synced(); });
     finished &= communicationManager_->checkIfFinished();
+    watchProgress();
   }
 #ifdef ACL_DEVICE
+  if (concurrent_) {
+    // the clusters have only enqueued their work
+    device.api().syncDevice();
+  }
   device.api().popLastProfilingMark();
 #endif
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
+  }
+}
+
+void TimeManager::watchProgress() {
+  // taking the time costs more than a pass through the loop, and the timeout is in minutes
+  constexpr std::size_t PassesPerCheck = 1024;
+  if (++waitingPasses_ % PassesPerCheck == 0) {
+    for (auto* cluster : clusters_) {
+      if (!cluster->synced()) {
+        cluster->checkProgress();
+      }
+    }
+  }
+}
+
+void TimeManager::completeExchanges(long end) {
+  auto* scheduler = haloTransports_->scheduler();
+  if (scheduler == nullptr) {
+    return;
+  }
+  // the ghost clusters start the remaining exchanges whose data is complete within the
+  // super-timestep
+  std::size_t attempts = 0;
+  while (!scheduler->launchedBefore(end)) {
+    communicationManager_->progression();
+    if (++attempts > 100000000) {
+      logError() << "The halo exchanges of a super-timestep did not all start.";
+    }
+  }
+}
+
+StepWork TimeManager::takeSteps(const std::vector<PlannedAction>& plan,
+                                std::size_t begin,
+                                std::size_t end) {
+  StepWork work;
+  for (auto index = begin; index < end; ++index) {
+    const auto& step = plan[index];
+    auto* cluster = clusters_[step.cluster];
+    // along the plan, a cluster can only have to wait for the halo exchange
+    auto action = cluster->getNextLegalAction();
+    while (action == ActorAction::Nothing) {
+      communicationManager_->progression();
+      watchProgress();
+      action = cluster->getNextLegalAction();
+    }
+    if (action != step.action) {
+      logError() << "The cluster" << cluster->identifier() << "is not ready for step" << step.step
+                 << "of the time stepping plan.";
+    }
+    cluster->act();
+    work.outputs = work.outputs || cluster->lastStepWork().outputs;
+    work.hostWork = work.hostWork || cluster->lastStepWork().hostWork;
+  }
+  return work;
+}
+
+void TimeManager::followPlan() {
+  std::vector<PlannedCluster> planned;
+  planned.reserve(clusters_.size());
+  for (auto* cluster : clusters_) {
+    planned.push_back({cluster->getTimeStepRate(),
+                       cluster->getStepsUntilSync(),
+                       cluster->dataReadiness(),
+                       cluster->getPriority()});
+  }
+
+  long largestRate = 1;
+  for (const auto& cluster : planned) {
+    largestRate = std::max(largestRate, cluster.timeStepRate);
+  }
+  const auto plan = planTimeSteps(planned);
+
+  // what a recording of a super-timestep comprises besides the cell and face clusters
+  auto* scheduler = haloTransports_->scheduler();
+  std::vector<AbstractTimeCluster*> ghosts;
+  for (auto& ghost : *communicationManager_->getGhostClusters()) {
+    ghosts.push_back(ghost.get());
+  }
+  std::vector<AbstractTimeCluster*> participants(clusters_.begin(), clusters_.end());
+  participants.insert(participants.end(), ghosts.begin(), ghosts.end());
+  auto streams = scheduler != nullptr ? scheduler->streams() : std::vector<void*>{};
+  // the outputs take their samples on streams of their own, which a recording has to comprise
+  for (auto* cluster : clusters_) {
+    auto* stream = cluster->outputStream();
+    if (stream != nullptr && std::find(streams.begin(), streams.end(), stream) == streams.end()) {
+      streams.push_back(stream);
+    }
+  }
+
+  for (const auto& superTimestep : superTimesteps(planned, plan)) {
+    const auto begin = superTimestep.begin;
+    const auto end = superTimestep.end;
+    const auto superStep = superTimestep.index;
+    const auto& steps = superTimestep.steps;
+
+    // decide on the super-timestep before any of its host parts has run
+    bool outputsAhead = false;
+    bool hostWork = false;
+    // a replay repeats the step sizes of its recording, which the key stands for
+    bool regularSteps = true;
+    SuperStepRecorder::Key key;
+    for (std::size_t cluster = 0; cluster < clusters_.size(); ++cluster) {
+      outputsAhead = outputsAhead || clusters_[cluster]->outputsAhead(steps[cluster]);
+      hostWork = hostWork || clusters_[cluster]->hostWork();
+      regularSteps = regularSteps && clusters_[cluster]->regularStepsAhead(steps[cluster]);
+      key.push_back(clusters_[cluster]->nextTimeStepSize());
+    }
+    for (auto* ghost : ghosts) {
+      key.push_back(ghost->nextTimeStepSize());
+    }
+    const bool full = superTimestep.beforeSync;
+    const bool replayable = replay_ && full && regularSteps && !outputsAhead && !hostWork;
+
+    StepWork work;
+    const auto superStepEnd = (superStep + 1) * largestRate;
+    if (replay_ && scheduler != nullptr) {
+      // each super-timestep launches exactly the exchanges whose data it completes, so that
+      // recordings and replays comprise the same ones
+      scheduler->setHorizon(superStepEnd);
+    }
+    if (replayable && recorder_->has(key)) {
+      recorder_->beginReplay(participants, streams);
+      for (auto* cluster : clusters_) {
+        cluster->setDeviceWork(false);
+      }
+      if (scheduler != nullptr) {
+        scheduler->setLaunching(false);
+      }
+      work = takeSteps(plan, begin, end);
+      completeExchanges(superStepEnd);
+      if (scheduler != nullptr) {
+        scheduler->setLaunching(true);
+      }
+      for (auto* cluster : clusters_) {
+        cluster->setDeviceWork(true);
+      }
+      recorder_->replay(key, participants, streams);
+      if (scheduler != nullptr) {
+        scheduler->setLatestEvent(recorder_->lastEvent());
+      }
+      ++replayedSuperSteps_;
+    } else if (replayable && seenSuperSteps_.count(key) > 0) {
+      auto fork = recorder_->beginRecording(participants, streams);
+      if (scheduler != nullptr) {
+        // the recording must not wait for events from before it: neither for those of the pending
+        // operations, nor for the latest group, which its ghost cluster may acknowledge only inside
+        // the recording (e.g. one launched by setHorizon() above)
+        scheduler->restartAfter(std::move(fork));
+      }
+      work = takeSteps(plan, begin, end);
+      completeExchanges(superStepEnd);
+      recorder_->endRecording(key, participants, streams);
+      recorder_->replay(key, participants, streams);
+      if (scheduler != nullptr) {
+        // nothing after the recording may wait for an event recorded inside of it; the streams of
+        // the scheduler wait for the replay instead
+        scheduler->restartAfter(recorder_->lastEvent());
+      }
+      ++recordedSuperSteps_;
+    } else {
+      work = takeSteps(plan, begin, end);
+      if (replay_) {
+        completeExchanges(superStepEnd);
+      }
+      if (replayable) {
+        seenSuperSteps_.insert(key);
+      }
+    }
+
+    // the decision in advance has to match what the host parts have decided
+    if (work.outputs != outputsAhead) {
+      ++mispredictedSuperSteps_;
+    }
+
+    ++superSteps_;
+    if (!full) {
+      ++shortenedSuperSteps_;
+    } else {
+      outputFreeSuperSteps_ += work.outputs ? 0 : 1;
+      regularSuperSteps_ += work.irregular() ? 0 : 1;
+    }
   }
 }
 
@@ -372,18 +751,19 @@ void TimeManager::printComputationTime(const std::string& outputPrefix,
 }
 
 double TimeManager::getTimeTolerance() const {
-  return 1E-5 * clusterLayout_.value().minimumTimestep;
+  // the same tolerance as the clusters count their steps with
+  return ClusterTimes::TickTolerance * clusterLayout_.value().minimumTimestep;
 }
 
 void TimeManager::setPointSourcesForClusters(
     std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters) {
-  for (auto& cluster : clusters_) {
+  for (auto& cluster : cellClusters_) {
     cluster->setPointSources(std::move(sourceClusters[cluster->layerId()]));
   }
 }
 
 void TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter) {
-  for (auto& cluster : clusters_) {
+  for (auto& cluster : cellClusters_) {
     cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->layerId()));
   }
 }
@@ -400,18 +780,94 @@ void TimeManager::setInitialTimes(double time) {
 }
 
 void TimeManager::freeDynamicResources() {
+  // Nothing may refer to an event of a pool that goes away. The halo exchange holds events of the
+  // clusters and of the recorder; the ghost clusters hold events of the halo exchange, of the copy
+  // layers and of the recorder; all clusters hold events of the recorder. So they let go of them in
+  // this order, before the clusters, the recorder and the halo exchange dispose of their pools.
+  auto* scheduler = haloTransports_->scheduler();
+  if (scheduler != nullptr) {
+    scheduler->forgetEvents();
+  }
+
+  // every message sent has to be received somewhere
+  std::array<std::size_t, 2> messages{0, 0};
+  for (auto& cluster : *communicationManager_->getGhostClusters()) {
+    messages[0] += cluster->sentMessages();
+    messages[1] += cluster->receivedMessages();
+    cluster->finalize();
+  }
   for (auto& cluster : clusters_) {
     cluster->finalize();
   }
+
+  MPI_Allreduce(MPI_IN_PLACE,
+                messages.data(),
+                messages.size(),
+                Mpi::castToMpiType<std::size_t>(),
+                MPI_SUM,
+                Mpi::mpi.comm());
+  logInfo() << "Halo exchange:" << messages[0] << "messages sent," << messages[1]
+            << "received (summed over all ranks)";
+
+  if (scheduler != nullptr) {
+    // the events of the halo exchange get reused once nobody waits for them any more
+    const auto usage = scheduler->eventUsage();
+    std::array<std::size_t, 2> events{usage.pool, usage.peak};
+    MPI_Allreduce(MPI_IN_PLACE,
+                  events.data(),
+                  events.size(),
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_MAX,
+                  Mpi::mpi.comm());
+    if (events[0] > 0) {
+      logInfo() << "Halo exchange events: at most" << events[1] << "of a pool of" << events[0]
+                << "referenced at once (maximum over all ranks)";
+    }
+  }
+
+  if (followPlan_) {
+    std::array<std::size_t, 7> superSteps{superSteps_,
+                                          shortenedSuperSteps_,
+                                          outputFreeSuperSteps_,
+                                          regularSuperSteps_,
+                                          recordedSuperSteps_,
+                                          replayedSuperSteps_,
+                                          mispredictedSuperSteps_};
+    MPI_Allreduce(MPI_IN_PLACE,
+                  superSteps.data(),
+                  superSteps.size(),
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_SUM,
+                  Mpi::mpi.comm());
+    logInfo() << "Super-timesteps:" << superSteps[0]
+              << "; ending at a synchronization point:" << superSteps[1]
+              << "; full ones without output samples:" << superSteps[2]
+              << "; full ones without output samples or host work:" << superSteps[3]
+              << "; recorded:" << superSteps[4] << "; replayed:" << superSteps[5]
+              << "(summed over all ranks)";
+    if (superSteps[6] > 0) {
+      logError() << "For" << superSteps[6]
+                 << "super-timesteps, the output samples were not decided correctly in advance.";
+    }
+  }
+  if (messages[0] != messages[1]) {
+    logWarning() << "The halo exchange sent and received a different number of messages.";
+  }
+
+  // The recordings go before the halo exchange: a graph that has captured operations of its
+  // library keeps them in use, e.g. ncclCommDestroy waits until such graphs are destroyed.
+  if (recorder_ != nullptr) {
+    recorder_->dispose();
+  }
   communicationManager_.reset(nullptr);
+  haloTransports_.reset(nullptr);
 }
 
 void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #ifdef ACL_DEVICE
-  const auto exec = clusters_[0]->getExecutor();
   bool sameExecutor = true;
   for (auto& cluster : clusters_) {
-    sameExecutor &= exec == cluster->getExecutor();
+    sameExecutor &= clusters_.front()->getExecutor() == cluster->getExecutor();
   }
   if (sameExecutor) {
     seissolInstance_.memoryManager().synchronizeTo(place);
@@ -425,4 +881,4 @@ void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #endif
 }
 
-} // namespace seissol::time_stepping
+} // namespace seissol::solver

@@ -8,6 +8,10 @@
 
 #include "Receiver.h"
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
@@ -124,23 +128,126 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
   receivers_.emplace_back(pointId, point, transform, reserved);
 }
 
-double ReceiverCluster::calcReceivers(double time,
-                                      double expansionPoint,
-                                      double timeStepWidth,
-                                      Executor executor,
-                                      parallel::runtime::StreamRuntime& runtime) {
-
-  double outReceiverTime = time;
-  std::size_t samplingSteps = 0;
-  while (outReceiverTime < expansionPoint + timeStepWidth) {
-    outReceiverTime += samplingInterval_;
-    ++samplingSteps;
+ReceiverCluster::Sampling
+    ReceiverCluster::planSampling(double time, double expansionPoint, double timeStepWidth) const {
+  Sampling sampling;
+  sampling.time = time;
+  sampling.nextTime = time;
+  while (sampling.nextTime < expansionPoint + timeStepWidth) {
+    sampling.nextTime += samplingInterval_;
+    ++sampling.steps;
   }
+  sampling.due =
+      !receivers_.empty() && time >= expansionPoint && time < expansionPoint + timeStepWidth;
+  return sampling;
+}
+
+void ReceiverCluster::sampleReceiver(
+    std::size_t cell, double time, double expansionPoint, double timeStepWidth, Executor executor) {
+  const auto timeBasis = seissol::kernels::timeBasis();
+  alignas(Alignment) real timeEvaluated[tensor::Q::size()]{};
+  alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()]{};
+  alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()]{};
+  alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize]{};
+
+  kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
+
+  kernel::evaluateDOFSAtPoint krnl;
+  krnl.QAtPoint = timeEvaluatedAtPoint;
+  krnl.Q = timeEvaluated;
+  kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
+  derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+  derivativeKrnl.Q = timeEvaluated;
+
+  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
+  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
+
+  auto& receiverCell = receiverCells_[cell];
+
+  // Use device pointers where required.
+  auto tmpReceiverData{receiverCell.dataHost};
+
+  if (executor == Executor::Device) {
+    tmpReceiverData.setPointer<LTS::Dofs>(
+        reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
+            deviceCollector_->get(cell)));
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      tmpReceiverData.setPointer<LTS::DofsAne>(
+          reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::DofsAne>())>(
+              deviceCollectorAne_->get(cell)));
+    }
+  }
+
+  const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+  spacetimeKernel_.computeAder(integrationCoeffs.data(),
+                               timeStepWidth,
+                               tmpReceiverData,
+                               tmp,
+                               timeEvaluated, // useless but the interface requires it
+                               timeDerivatives);
+
+  double receiverTime = time;
+  while (receiverTime < expansionPoint + timeStepWidth) {
+    const auto coeffs = timeBasis.point(receiverTime - expansionPoint, timeStepWidth);
+
+    timeKernel_.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
+
+    for (const auto& receiverId : receiverCell.receiverIds) {
+
+      auto& receiver = receivers_[receiverId];
+
+      krnl.basisFunctionsAtPoint = receiver.basisFunctions.data().data();
+      derivativeKrnl.basisFunctionDerivativesAtPoint =
+          receiver.basisFunctionDerivatives.data().data();
+
+      krnl.execute();
+      derivativeKrnl.execute();
+
+      // note: necessary receiver space is reserved in advance
+      receiver.output.push_back(receiverTime);
+      for (auto sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
+           ++sim) {
+        for (auto quantity : quantities_) {
+          if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
+            logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
+                       << receiver.position[1] << "," << receiver.position[2] << " in simulation"
+                       << sim << "."
+                       << "Aborting.";
+          }
+          receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
+        }
+        for (const auto& derived : derivedQuantities_) {
+          derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
+        }
+      }
+    }
+
+    receiverTime += samplingInterval_;
+  }
+}
+
+void ReceiverCluster::countSamples(std::size_t samplingSteps) {
+  const auto cellCount = receiverCells_.size();
+  const auto recvCount = receivers_.size();
+  seissolInstance_.flopCounter().incrementMetric(
+      perfHandle_,
+      estimatePerCell_ * cellCount + estimatePerCellStep_ * cellCount * samplingSteps +
+          estimatePerPoint_ * recvCount * samplingSteps);
+}
+
+void ReceiverCluster::sample(const Sampling& sampling,
+                             double expansionPoint,
+                             double timeStepWidth,
+                             Executor executor,
+                             parallel::runtime::StreamRuntime& runtime) {
+  if (!sampling.due) {
+    return;
+  }
+  const double time = sampling.time;
 
   // copy dofs from the device to the host.
   if (executor == Executor::Device) {
     // we need to sync with the new data copy (the rest can continue to run asynchronously)
-
     if (extraRuntime_.has_value()) {
       runtime.eventSync(extraRuntime_->eventRecord());
     }
@@ -153,118 +260,94 @@ double ReceiverCluster::calcReceivers(double time,
     }
   }
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const std::size_t cellCount = receiverCells_.size();
+  const auto receiverHandler =
+      [this, timeStepWidth, time, expansionPoint, executor](std::size_t cell) {
+        sampleReceiver(cell, time, expansionPoint, timeStepWidth, executor);
+      };
 
-  if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    const std::size_t cellCount = receiverCells_.size();
-    const auto receiverHandler = [this, timeBasis, timeStepWidth, time, expansionPoint, executor](
-                                     std::size_t i) {
-      alignas(Alignment) real timeEvaluated[tensor::Q::size()]{};
-      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()]{};
-      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()]{};
-      alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize]{};
-
-      kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
-
-      kernel::evaluateDOFSAtPoint krnl;
-      krnl.QAtPoint = timeEvaluatedAtPoint;
-      krnl.Q = timeEvaluated;
-      kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
-      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-      derivativeKrnl.Q = timeEvaluated;
-
-      auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
-      auto qDerivativeAtPoint =
-          init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
-
-      auto& receiverCell = receiverCells_[i];
-
-      // Use device pointers where required.
-      auto tmpReceiverData{receiverCell.dataHost};
-
-      if (executor == Executor::Device) {
-        tmpReceiverData.setPointer<LTS::Dofs>(
-            reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
-                deviceCollector_->get(i)));
-        if constexpr (kernels::size<tensor::Qane>() > 0) {
-          tmpReceiverData.setPointer<LTS::DofsAne>(
-              reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::DofsAne>())>(
-                  deviceCollectorAne_->get(i)));
-        }
-      }
-
-      const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
-      spacetimeKernel_.computeAder(integrationCoeffs.data(),
-                                   timeStepWidth,
-                                   tmpReceiverData,
-                                   tmp,
-                                   timeEvaluated, // useless but the interface requires it
-                                   timeDerivatives);
-
-      double receiverTime = time;
-      while (receiverTime < expansionPoint + timeStepWidth) {
-        const auto coeffs = timeBasis.point(receiverTime - expansionPoint, timeStepWidth);
-
-        timeKernel_.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
-
-        for (const auto& receiverId : receiverCell.receiverIds) {
-
-          auto& receiver = receivers_[receiverId];
-
-          krnl.basisFunctionsAtPoint = receiver.basisFunctions.data().data();
-          derivativeKrnl.basisFunctionDerivativesAtPoint =
-              receiver.basisFunctionDerivatives.data().data();
-
-          krnl.execute();
-          derivativeKrnl.execute();
-
-          // note: necessary receiver space is reserved in advance
-          receiver.output.push_back(receiverTime);
-          for (auto sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
-               ++sim) {
-            for (auto quantity : quantities_) {
-              if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
-                logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0]
-                           << "," << receiver.position[1] << "," << receiver.position[2]
-                           << " in simulation" << sim << "."
-                           << "Aborting.";
-              }
-              receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
-            }
-            for (const auto& derived : derivedQuantities_) {
-              derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
-            }
-          }
-        }
-
-        receiverTime += samplingInterval_;
-      }
-    };
-
-    if (executor == Executor::Host) {
-      // A cluster that runs on the host goes on to integrate right after this and overwrites the
-      // DOFs the sampling reads, so it samples right here. (On CUDA and SYCL, enqueueLoop would
-      // leave the sampling to a host function on a stream.)
+  if (executor == Executor::Host) {
+    // A cluster that runs on the host goes on to integrate right after this and overwrites the
+    // DOFs the sampling reads, so it samples right here. (On CUDA and SYCL, enqueueLoop would
+    // leave the sampling to a host function on a stream.)
 #pragma omp parallel for schedule(static)
-      for (std::size_t i = 0; i < cellCount; ++i) {
-        receiverHandler(i);
-      }
-    } else {
-      auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
-      callRuntime.enqueueLoop(cellCount, receiverHandler);
+    for (std::size_t cell = 0; cell < cellCount; ++cell) {
+      receiverHandler(cell);
     }
-
-    const auto recvCount = receivers_.size();
-
-    seissolInstance_.flopCounter().incrementMetric(
-        perfHandle_,
-        estimatePerCell_ * cellCount + estimatePerCellStep_ * cellCount * samplingSteps +
-            estimatePerPoint_ * recvCount * samplingSteps);
+  } else {
+    auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
+    callRuntime.enqueueLoop(cellCount, receiverHandler);
   }
-  return outReceiverTime;
+
+  countSamples(sampling.steps);
+}
+
+void ReceiverCluster::sampleAtRunTime([[maybe_unused]] const double* deviceClock,
+                                      double hostTime,
+                                      double timeStepWidth,
+                                      Executor executor,
+                                      parallel::runtime::StreamRuntime& runtime) {
+  if (receivers_.empty()) {
+    return;
+  }
+
+  const auto sampleStep = [this, timeStepWidth, executor]() {
+    const double expansionPoint = *stepStart_;
+    const auto sampling = planSampling(nextSampleTime_, expansionPoint, timeStepWidth);
+    nextSampleTime_ = sampling.nextTime;
+    if (sampling.due) {
+      const std::size_t cellCount = receiverCells_.size();
+#pragma omp parallel for schedule(static)
+      for (std::size_t cell = 0; cell < cellCount; ++cell) {
+        sampleReceiver(cell, sampling.time, expansionPoint, timeStepWidth, executor);
+      }
+      countSamples(sampling.steps);
+    }
+  };
+
+  if (executor == Executor::Host) {
+    // A cluster that runs on the host goes on to integrate right after this and overwrites the
+    // DOFs the sampling reads, so it samples right here, like sample() does.
+    *stepStart_ = hostTime;
+    sampleStep();
+    return;
+  }
+
+#ifdef ACL_DEVICE
+  // wait until the samples of the last step have been taken
+  if (extraRuntime_.has_value()) {
+    runtime.eventSync(extraRuntime_->eventRecord());
+  }
+  device::DeviceInstance::instance().api().copyFromAsync(
+      stepStart_, deviceClock, sizeof(double), runtime.stream());
+  deviceCollector_->gatherToHost(runtime.stream());
+  if constexpr (kernels::size<tensor::Qane>() > 0) {
+    deviceCollectorAne_->gatherToHost(runtime.stream());
+  }
+  if (extraRuntime_.has_value()) {
+    extraRuntime_->eventSync(runtime.eventRecord());
+  }
+#endif
+
+  auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
+  callRuntime.enqueueHost(sampleStep);
+}
+
+void* ReceiverCluster::sampleStream() {
+  if (extraRuntime_.has_value()) {
+    return extraRuntime_->stream();
+  }
+  return nullptr;
 }
 
 void ReceiverCluster::allocateData() {
+#ifdef ACL_DEVICE
+  if (stepStart_ == &stepStartHost_) {
+    stepStart_ = static_cast<double*>(
+        device::DeviceInstance::instance().api().allocPinnedMem(sizeof(double)));
+  }
+#endif
+
   // Visit the cells in storage order, so that both the host loop and the device gather read the
   // DOFs sequentially instead of in the order the receivers happened to appear in the parameter
   // file. This is only safe because a receiver does not refer back to its cell.
@@ -307,18 +390,24 @@ void ReceiverCluster::allocateData() {
   meshToReceiverCell_ = {};
 }
 void ReceiverCluster::freeData() {
-  // a handler still running would read the collector and write the outputs
+  // a handler still running would read the collector, the step start, and write the outputs
   waitForSamples();
   deviceCollector_.reset(nullptr);
   deviceCollectorAne_.reset(nullptr);
   extraRuntime_.reset();
+#ifdef ACL_DEVICE
+  if (stepStart_ != &stepStartHost_) {
+    device::DeviceInstance::instance().api().freePinnedMem(stepStart_);
+    stepStart_ = &stepStartHost_;
+  }
+#endif
 }
 
 void ReceiverCluster::waitForSamples() {
-  // On CUDA and SYCL, calcReceivers leaves the sampling of a device cluster to a host function on a
-  // stream, which appends to the output of the receivers once the gathered DOFs are there. Nothing
-  // in the time stepping waits for the one enqueued last before a synchronization point, so whoever
-  // reads the output has to.
+  // On CUDA and SYCL, sample() and sampleAtRunTime() leave the sampling of a device cluster to a
+  // host function on a stream, which appends to the output of the receivers once the gathered DOFs
+  // are there. Nothing in the time stepping waits for the one enqueued last before a
+  // synchronization point, so whoever reads the output has to.
   if (extraRuntime_.has_value()) {
     extraRuntime_->wait();
   }

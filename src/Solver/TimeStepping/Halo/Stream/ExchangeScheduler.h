@@ -1,0 +1,288 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_EXCHANGESCHEDULER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_EXCHANGESCHEDULER_H_
+
+#include "Solver/TimeStepping/Actor/ActorState.h"
+#include "Solver/TimeStepping/Halo/HaloCommunication.h"
+#include "Solver/TimeStepping/Halo/HaloTransport.h"
+
+#include <cstddef>
+#include <deque>
+#include <limits>
+#include <tuple>
+#include <utility>
+#include <vector>
+
+namespace seissol::solver {
+
+class ScheduledTransport;
+
+/**
+ * In which order the groups of the different directions go out.
+ */
+enum class LaunchOrder {
+  /// each direction on a stream of its own, independently of the others
+  PerDirection,
+  /// all directions on one stream, in an order that is the same on all processes
+  Global
+};
+
+/**
+ * Launches the halo exchanges of one process for libraries whose point-to-point operations occupy
+ * the stream they run on until the peers have posted their counterparts, as NCCL, RCCL and oneCCL
+ * do.
+ *
+ * A direction of exchange goes from the copy layers of one time cluster to the ghost layers of
+ * another one. A process can take part in a direction both as sender (with its copy layer of the
+ * first cluster) and as receiver (into its ghost layer next to its copy layer of the second
+ * cluster). For each exchange, the scheduler waits until the process is ready for all of its
+ * operations in that direction, and launches them as one group. Consequently, all processes
+ * launch the groups of a direction in the same order.
+ *
+ * With `LaunchOrder::PerDirection`, each direction needs a stream of its own. With
+ * `LaunchOrder::Global`, the groups of all directions go out on one stream, ordered by the point
+ * in logical time at which their data is complete: the start of the prediction of the sending
+ * cluster that completes it, counted in steps of the smallest cluster since the synchronization
+ * point. Ties go by the clusters of the direction. Every process thus launches its groups in the
+ * same order, and every step waits only for groups that come before the ones its own data goes
+ * out with.
+ */
+class ExchangeScheduler {
+  public:
+  using Ticket = std::size_t;
+
+  ExchangeScheduler(std::size_t clusterCount, LaunchOrder order);
+  virtual ~ExchangeScheduler() = default;
+
+  ExchangeScheduler(const ExchangeScheduler&) = delete;
+  ExchangeScheduler(ExchangeScheduler&&) = delete;
+  ExchangeScheduler& operator=(const ExchangeScheduler&) = delete;
+  ExchangeScheduler& operator=(ExchangeScheduler&&) = delete;
+
+  /**
+   * Makes the transport the sender from its cluster to its other cluster, and the receiver in the
+   * opposite direction. Each direction has at most one sender and one receiver per process.
+   */
+  void add(ScheduledTransport& transport);
+
+  /**
+   * Announces the exchanges of the transport up to the next synchronization point. With
+   * `LaunchOrder::Global`, nothing goes out until all transports have announced them.
+   */
+  void startInterval(const ScheduledTransport& transport, const ExchangeInterval& interval);
+
+  /**
+   * Marks the next send of the transport as ready, once the work behind the event has completed
+   * on the device; returns the index of its exchange. The event is kept until its group goes out.
+   */
+  std::size_t readySend(const ScheduledTransport& transport, const ActorEvent& after = {});
+
+  /**
+   * Marks the next receive of the transport as ready, once the work behind the event has
+   * completed on the device; returns the index of its exchange. The event is kept until its group
+   * goes out.
+   */
+  std::size_t readyReceive(const ScheduledTransport& transport, const ActorEvent& after = {});
+
+  /**
+   * Makes the event stand for all groups launched so far (see setLatestEvent()), and forgets the
+   * events that the ready operations which have not gone out yet wait for. Only for an event that
+   * all streams of the scheduler and all clusters wait for, and that comes after all work behind
+   * the forgotten events and all groups launched so far: e.g. the one that starts a recording,
+   * whose work must not wait for events from before it, and the one that completes its replay,
+   * after which no event from inside of it may be waited for. A ghost cluster may acknowledge a
+   * group launched before such an event only after it, and then passes on the latest event.
+   */
+  void restartAfter(ActorEvent event);
+
+  /**
+   * Lets go of all events: the latest one, and those that the ready operations which have not gone
+   * out yet wait for. Before the pools of these events go away, e.g. at the end.
+   */
+  void forgetEvents();
+
+  /**
+   * Orders the groups on the device: a group starts after the events its operations were made
+   * ready with, and counts as done for the host as soon as it has been launched; the work that
+   * depends on it waits for latestEvent(). Only with `LaunchOrder::Global`, for clusters that wait
+   * for each other on the device.
+   */
+  void setStreamOrdered(bool streamOrdered);
+  [[nodiscard]] bool streamOrdered() const { return streamOrdered_; }
+
+  /**
+   * Without launching, the groups only count as launched; their operations come from elsewhere,
+   * e.g. a recording.
+   */
+  void setLaunching(bool launching) { launching_ = launching; }
+
+  /**
+   * Launches only the groups whose data is complete before the given point in logical time of the
+   * current interval (with `LaunchOrder::Global`); the others wait until the horizon moves on.
+   * Launches everything once it is back at its default.
+   */
+  void setHorizon(long time);
+
+  /**
+   * Whether all groups whose data is complete before the given point in logical time of the
+   * current interval have been launched (with `LaunchOrder::Global`).
+   */
+  [[nodiscard]] bool launchedBefore(long time) const;
+
+  /**
+   * The event that completes with all groups launched so far, when ordered on the device; empty if
+   * there is none. It stays reserved while the copy is held, so it can be handed on to whoever
+   * waits for the groups (see ActorEvent).
+   */
+  [[nodiscard]] ActorEvent latestEvent() const { return latestEvent_; }
+
+  /**
+   * Makes the given event stand for all groups launched so far, e.g. once they have run as part of
+   * a replayed recording.
+   */
+  void setLatestEvent(ActorEvent event) { latestEvent_ = std::move(event); }
+
+  /**
+   * Sets up what needs all transports; collective over all processes, after all transports have
+   * been added.
+   */
+  virtual void prepare() {}
+
+  /**
+   * The streams the groups run on.
+   */
+  [[nodiscard]] virtual std::vector<void*> streams() const { return {}; }
+
+  /**
+   * Whether the groups can be part of a recording of super-timesteps, i.e. whether a replay of the
+   * operations they have enqueued does the same as launching the groups anew.
+   */
+  [[nodiscard]] virtual bool recordable() const { return true; }
+
+  /**
+   * How many events the groups have needed: the size of the pool they come from, and the largest
+   * number of them that were referenced at once; zero without events.
+   */
+  struct EventUsage {
+    std::size_t pool{0};
+    std::size_t peak{0};
+  };
+  [[nodiscard]] virtual EventUsage eventUsage() const { return {}; }
+
+  [[nodiscard]] bool sendCompleted(const ScheduledTransport& transport, std::size_t exchange);
+  [[nodiscard]] bool receiveCompleted(const ScheduledTransport& transport, std::size_t exchange);
+
+  [[nodiscard]] LaunchOrder launchOrder() const { return order_; }
+
+  protected:
+  /**
+   * Called once a transport has been added.
+   */
+  virtual void added(const ScheduledTransport& /*transport*/) {}
+
+  /**
+   * Launches the group of operations of the given exchange (counted per direction) from cluster
+   * `from` to cluster `to`: the sends of `sender` and the receives of `receiver`, either of which
+   * may be null, once the work behind the events `after` has completed.
+   */
+  virtual Ticket launch(std::size_t from,
+                        std::size_t to,
+                        std::size_t exchange,
+                        const ScheduledTransport* sender,
+                        const ScheduledTransport* receiver,
+                        const std::vector<void*>& after) = 0;
+
+  /**
+   * Whether the group behind the ticket has completed.
+   */
+  virtual bool completed(Ticket ticket) = 0;
+
+  private:
+  struct Direction {
+    const ScheduledTransport* sender{nullptr};
+    const ScheduledTransport* receiver{nullptr};
+    std::size_t readySends{0};
+    std::size_t readyReceives{0};
+    std::vector<Ticket> groups;
+
+    // the events each ready operation waits for, in the order of the exchanges
+    std::deque<ActorEvent> sendsAfter;
+    std::deque<ActorEvent> receivesAfter;
+
+    // the sending cluster of the current interval
+    long sendRate{1};
+    long sendSteps{0};
+    long exchangePeriod{1};
+  };
+
+  Direction& direction(std::size_t from, std::size_t to);
+  [[nodiscard]] static bool ready(const Direction& direction);
+  void launchReady(std::size_t from, std::size_t to);
+  void launchNext(std::size_t from, std::size_t to);
+  void launchInOrder();
+  void orderInterval();
+  bool groupCompleted(Direction& direction, std::size_t exchange);
+  void forgetPendingEvents();
+
+  std::size_t clusterCount_;
+  LaunchOrder order_;
+  std::vector<Direction> directions_;
+  std::size_t transports_{0};
+
+  // for LaunchOrder::Global: the groups of the current interval (time, from, to), in order
+  std::size_t announced_{0};
+  std::vector<std::tuple<long, std::size_t, std::size_t>> sequence_;
+  std::size_t launched_{0};
+
+  bool streamOrdered_{false};
+  bool launching_{true};
+  long horizon_{std::numeric_limits<long>::max()};
+
+  ActorEvent latestEvent_;
+};
+
+/**
+ * The transport between a copy layer and one ghost layer, as seen by an `ExchangeScheduler`: it
+ * only marks its sends and receives as ready, the scheduler decides when they go out.
+ */
+class ScheduledTransport : public HaloTransport {
+  public:
+  ScheduledTransport(ExchangeScheduler& scheduler,
+                     const RemoteClusterPair& regions,
+                     std::size_t cluster,
+                     std::size_t otherCluster);
+
+  void startInterval(const ExchangeInterval& interval) override;
+  [[nodiscard]] bool streamOrdered() const override { return scheduler_.streamOrdered(); }
+  [[nodiscard]] ActorEvent latestEvent() const override { return scheduler_.latestEvent(); }
+  void startSendAfter(const ActorEvent& event) override;
+  void startReceiveAfter(const ActorEvent& event) override;
+  void startSend() override;
+  bool testSend() override;
+  void startReceive() override;
+  bool testReceive() override;
+
+  [[nodiscard]] const RemoteClusterPair& regions() const { return regions_; }
+  [[nodiscard]] std::size_t cluster() const { return cluster_; }
+  [[nodiscard]] std::size_t otherCluster() const { return otherCluster_; }
+
+  private:
+  ExchangeScheduler& scheduler_;
+  RemoteClusterPair regions_;
+  std::size_t cluster_;
+  std::size_t otherCluster_;
+  bool sending_{false};
+  bool receiving_{false};
+  std::size_t sendExchange_{0};
+  std::size_t receiveExchange_{0};
+};
+
+} // namespace seissol::solver
+
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_EXCHANGESCHEDULER_H_

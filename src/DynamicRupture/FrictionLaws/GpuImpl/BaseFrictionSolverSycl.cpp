@@ -41,6 +41,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
   std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
   args.fullUpdateTime = fullUpdateTime;
+  args.clock = this->clock_;
 
   sycl::nd_range rng{{this->currLayerSize_ * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
   queue->submit([&](sycl::handler& cgh) {
@@ -53,6 +54,8 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
       ctx.item = reinterpret_cast<void*>(&item);
       ctx.data = args.data;
       ctx.args = &args;
+      ctx.fullUpdateTime =
+          args.clock != nullptr ? static_cast<real>(*args.clock) : args.fullUpdateTime;
 
       const auto ltsFace = item.get_group().get_group_id(0);
       const auto pointIndex = item.get_local_id(0);

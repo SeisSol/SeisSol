@@ -51,6 +51,9 @@ struct FrictionLawArgs {
   real timeWeights[misc::TimeSteps]{};
   real deltaT[misc::TimeSteps]{};
   real fullUpdateTime{};
+
+  // if not null, the time at the start of the step, read on the device instead of fullUpdateTime
+  const double* __restrict clock{nullptr};
 };
 
 struct FrictionLawContext {
@@ -58,6 +61,9 @@ struct FrictionLawContext {
   std::uint32_t pointIndex{0};
   const FrictionLawData* __restrict data{nullptr};
   const FrictionLawArgs* __restrict args{nullptr};
+
+  /// the time at the start of the step
+  real fullUpdateTime{};
 
   real* __restrict sharedMemory{nullptr};
   void* item{nullptr};
@@ -144,7 +150,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     if constexpr (model::MaterialT::SupportsDR) {
       constexpr common::RangeType GpuRangeType{common::RangeType::GPU};
 
-      const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.args->fullUpdateTime
+      const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.fullUpdateTime
                                 ? ctx.data->drParameters.etaDamp
                                 : static_cast<real>(1.0);
 
@@ -157,7 +163,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       Derived::preHook(ctx);
 
       real startTime = 0;
-      real updateTime = ctx.args->fullUpdateTime;
+      real updateTime = ctx.fullUpdateTime;
 
       for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps; ++timeIndex) {
         const real dt = ctx.args->deltaT[timeIndex];

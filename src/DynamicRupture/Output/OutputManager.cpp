@@ -7,6 +7,10 @@
 
 #include "DynamicRupture/Output/OutputManager.h"
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
@@ -557,67 +561,138 @@ void OutputManager::initFaceToLtsMap() {
   impl_->setFaceToLtsMap(&faceToLtsMap_);
 }
 
-bool OutputManager::isAtPickpoint(double time, double dt) {
+std::size_t OutputManager::pickpointIteration(std::size_t layerId) const {
+  const auto found = iterationSteps_.find(layerId);
+  return found == iterationSteps_.end() ? 0 : found->second;
+}
+
+bool OutputManager::pickpointDue(std::size_t layerId,
+                                 std::size_t iteration,
+                                 double time,
+                                 double dt) const {
+  return this->ppOutputBuilder_ && ppOutputData_.find(layerId) != ppOutputData_.end() &&
+         isOutputIteration(iteration, time, dt);
+}
+
+bool OutputManager::isOutputIteration(std::size_t iterationStep, double time, double dt) const {
   const auto& seissolParameters = seissolInstance_.parameters();
-  const bool isFirstStep = iterationStep_ == 0;
+  const bool isFirstStep = iterationStep == 0;
   const double abortTime = seissolParameters.timeStepping.endTime;
   const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
 
   const int printTimeInterval = seissolParameters.output.pickpointParameters.printTimeInterval;
-  const bool isOutputIteration = iterationStep_ % printTimeInterval == 0;
+  const bool isIntervalStep = iterationStep % printTimeInterval == 0;
 
-  return (isFirstStep || isOutputIteration || isCloseToTimeOut);
+  return (isFirstStep || isIntervalStep || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(std::size_t layerId,
-                                         double stateTime,
-                                         double time,
-                                         double dt,
-                                         double meshDt,
-                                         double meshInDt,
-                                         parallel::runtime::StreamRuntime& runtime) {
-  const auto& seissolParameters = seissolInstance_.parameters();
-  if (this->ppOutputBuilder_) {
-    if (this->isAtPickpoint(time, dt)) {
-      const auto findResult = ppOutputData_.find(layerId);
-      if (findResult != ppOutputData_.end()) {
-        const auto& outputData = findResult->second;
-
-        if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
-          // our calculation was off (maybe due to many intermediate sync points), so resize
-
-          // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream,
-          // which runs once the friction law is done, and stores into whatever memory the cache
-          // has at that time. Growing the cache moves it, and a sample stored into the old memory
-          // while it is being moved is lost. Hence, all samples taken so far have to be in first.
-          auto& sampleRuntime =
-              outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-          sampleRuntime.wait();
-
-          outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
-          const auto newCacheLevel = outputData->maxCacheLevel;
-          outputData->cachedTime.resize(newCacheLevel);
-          misc::forEach(outputData->vars,
-                        [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
-        }
-
-        impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
-                               seissolParameters.drParameters.slipRateOutputType,
-                               outputData,
-                               runtime,
-                               stateTime,
-                               time,
-                               meshDt,
-                               meshInDt);
-      }
-    }
-    ++iterationStep_;
+bool OutputManager::beginPickpointStep(std::size_t layerId, double time, double dt) {
+  if (!this->ppOutputBuilder_) {
+    return false;
   }
+  const bool due = pickpointDue(layerId, pickpointIteration(layerId), time, dt);
+  ++iterationSteps_[layerId];
+  return due;
+}
+
+void OutputManager::ensureCacheLevel(ReceiverOutputData& outputData) {
+  if (outputData.currentCacheLevel >= outputData.maxCacheLevel) {
+    // our calculation was off (maybe due to many intermediate sync points), so resize
+
+    outputData.maxCacheLevel = outputData.currentCacheLevel + 1;
+    const auto newCacheLevel = outputData.maxCacheLevel;
+    outputData.cachedTime.resize(newCacheLevel);
+    misc::forEach(outputData.vars,
+                  [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
+  }
+}
+
+bool OutputManager::hasPickpoints(std::size_t layerId) const {
+  return this->ppOutputBuilder_ && ppOutputData_.find(layerId) != ppOutputData_.end();
+}
+
+void* OutputManager::pickpointStream(std::size_t layerId) {
+  auto& outputData = ppOutputData_.at(layerId);
+  return outputData->extraRuntime.has_value() ? outputData->extraRuntime->stream() : nullptr;
+}
+
+void OutputManager::prepareRunTimeOutput() {
+  for (const auto& [layerId, _] : ppOutputData_) {
+    iterationSteps_.try_emplace(layerId, 0);
+  }
+}
+
+parallel::runtime::StreamRuntime&
+    OutputManager::gatherPickpointData(std::size_t layerId,
+                                       [[maybe_unused]] const double* deviceClock,
+                                       double* stepStart,
+                                       double hostTime,
+                                       parallel::runtime::StreamRuntime& runtime) {
+  const auto& outputData = ppOutputData_.at(layerId);
+#ifdef ACL_DEVICE
+  if (outputData->extraRuntime.has_value()) {
+    runtime.eventSync(outputData->extraRuntime->eventRecord());
+  }
+  device::DeviceInstance::instance().api().copyFromAsync(
+      stepStart, deviceClock, sizeof(double), runtime.stream());
+  ReceiverOutput::gatherFaultOutput(outputData, runtime);
+  if (outputData->extraRuntime.has_value()) {
+    outputData->extraRuntime->eventSync(runtime.eventRecord());
+  }
+#else
+  *stepStart = hostTime;
+#endif
+  return outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+}
+
+void OutputManager::evaluatePickpointOutput(
+    std::size_t layerId, double stateTime, double time, double meshDt, double meshInDt) {
+  const auto& seissolParameters = seissolInstance_.parameters();
+  const auto& outputData = ppOutputData_.at(layerId);
+  ensureCacheLevel(*outputData);
+  impl_->evaluateFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
+                             seissolParameters.drParameters.slipRateOutputType,
+                             outputData,
+                             stateTime,
+                             time,
+                             meshDt,
+                             meshInDt);
+}
+
+void OutputManager::recordPickpointOutput(std::size_t layerId,
+                                          double stateTime,
+                                          double time,
+                                          double meshDt,
+                                          double meshInDt,
+                                          parallel::runtime::StreamRuntime& runtime) {
+  const auto& seissolParameters = seissolInstance_.parameters();
+  const auto& outputData = ppOutputData_.at(layerId);
+  if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
+    // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream, which
+    // runs once the friction law is done, and stores into whatever memory the cache has at that
+    // time. Growing the cache moves it, and a sample stored into the old memory while it is being
+    // moved is lost. Hence, all samples taken so far have to be in first.
+    auto& sampleRuntime =
+        outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+    sampleRuntime.wait();
+  }
+  ensureCacheLevel(*outputData);
+
+  impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
+                         seissolParameters.drParameters.slipRateOutputType,
+                         outputData,
+                         runtime,
+                         stateTime,
+                         time,
+                         meshDt,
+                         meshInDt);
 }
 
 void OutputManager::writePickpointOutput(double time, double dt) {
   for (const auto& [id, _] : ppOutputData_) {
-    writePickpointOutput(id, time, time, dt, 0, 1, runtime_);
+    if (beginPickpointStep(id, time, dt)) {
+      recordPickpointOutput(id, time, time, 0, 1, runtime_);
+    }
   }
 }
 

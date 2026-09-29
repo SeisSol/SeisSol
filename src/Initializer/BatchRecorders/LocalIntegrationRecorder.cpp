@@ -415,11 +415,14 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
 
       for (std::size_t face = 0; face < 4; ++face) {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Analytical) {
+          // the host part of Local::evaluateBatchedTimeDependentBc fills the scratchpad face by
+          // face, in the order of the cells of the face; it has one entry per analytical face
+          analytical[face].push_back(analyticScratch +
+                                     cellIndices[face].size() * tensor::INodal::size());
           cellIndices[face].push_back(cell);
           dofsPtrs[face].push_back(data.get<LTS::Dofs>());
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-          analytical[face].push_back(analyticScratch + cell * tensor::INodal::size());
         }
       }
     }

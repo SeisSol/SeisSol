@@ -40,6 +40,45 @@ bool useCommThread(const T& mpiBasic, utils::Env& env) {
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
 /**
+ * Whether the transfer modes that run on device streams (ccl, stream-mpi) use a stream per
+ * direction between two time clusters, instead of one for all exchanges in a global order.
+ */
+inline bool useExchangePerDirection(utils::Env& env) {
+  return env.get<bool>("EXCHANGE_PER_DIRECTION", env.get<bool>("CCL_PER_DIRECTION", false));
+}
+
+/**
+ * Whether the clusters on the device only enqueue their work and wait for each other on the device,
+ * instead of waiting for the completion of each of their steps. Implies scratchpads per layer.
+ */
+inline bool useConcurrentClusters(utils::Env& env) {
+  return env.get<bool>("CONCURRENT_CLUSTERS", false);
+}
+
+/**
+ * Whether the device work of regular super-timesteps gets recorded into graphs and replayed.
+ * Requires the time stepping plan and concurrent clusters.
+ */
+inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTEP_GRAPHS", false); }
+
+/**
+ * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
+ * they are ready.
+ */
+inline bool useTimeSteppingPlan(utils::Env& env) {
+  return env.get<bool>("TIMESTEPPING_PLAN", false);
+}
+
+/**
+ * Whether each layer gets scratchpads of its own, instead of all layers of a storage sharing one
+ * set. Needed as soon as several layers are updated concurrently; costs the sum instead of the
+ * maximum of the scratchpad demands.
+ */
+inline bool useScratchpadPerLayer(utils::Env& env) {
+  return env.get<bool>("SCRATCHPAD_PER_LAYER", false);
+}
+
+/**
  * Kill switch for explicit graph node construction. When off, graphs that would be built node
  * by node fall back to whole-stream capture, which is what every graph used before.
  */
@@ -55,6 +94,27 @@ inline bool useGraphNodes(SEISSOL_GPU_PARAM utils::Env& env) {
 inline bool useGraphNodes() {
   utils::Env env("SEISSOL_");
   return useGraphNodes(env);
+}
+
+/**
+ * Reports how the compute graphs get built on a device; and the options that only concern devices
+ * when there is none.
+ */
+inline void printDeviceOptionInfo(utils::Env& env) {
+#ifdef ACL_DEVICE
+  if (useGraphNodes(env)) {
+    logInfo() << "Building compute graphs node by node where possible.";
+  } else {
+    logInfo() << "Capturing all compute graphs from streams.";
+  }
+#else
+  if (useConcurrentClusters(env)) {
+    logWarning() << "SEISSOL_CONCURRENT_CLUSTERS has no effect without a device.";
+  }
+  if (useScratchpadPerLayer(env)) {
+    logWarning() << "SEISSOL_SCRATCHPAD_PER_LAYER has no effect without a device.";
+  }
+#endif
 }
 
 inline void printPersistentMpiInfo(utils::Env& env) {

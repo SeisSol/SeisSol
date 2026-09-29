@@ -26,7 +26,8 @@ constexpr auto PerBlock = Blocksize / SubBlock;
 __launch_bounds__(Blocksize) __global__ void launchKernel(
     std::size_t numElements,
     double from,
-    double to,
+    double timeStepSize,
+    const double* __restrict clock,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
         AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
@@ -39,10 +40,12 @@ __launch_bounds__(Blocksize) __global__ void launchKernel(
     const real* __restrict sample) {
   const auto index = threadIdx.y + PerBlock * blockIdx.x;
   if (index < numElements) {
+    const double start = clock == nullptr ? from : *clock;
+    const double end = start + timeStepSize;
     pointSourceKernelDevice<SubBlock>(threadIdx.x,
                                       index,
-                                      from,
-                                      to,
+                                      start,
+                                      end,
                                       mappingPtr,
                                       mInvJInvPhisAtSources,
                                       simulationIndex,
@@ -60,7 +63,8 @@ __launch_bounds__(Blocksize) __global__ void launchKernel(
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        sourceterm::PointSources& sources,
                        double from,
-                       double to,
+                       double timeStepSize,
+                       const double* clock,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& mapping = clusterMapping.cellToSources;
   auto* __restrict mappingPtr = mapping.data();
@@ -92,7 +96,8 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
 
     launchKernel<<<grid, block, 0, stream>>>(mapping.size(),
                                              from,
-                                             to,
+                                             timeStepSize,
+                                             clock,
                                              mappingPtr,
                                              mInvJInvPhisAtSources,
                                              simulationIndex,

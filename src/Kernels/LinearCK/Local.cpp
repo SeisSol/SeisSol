@@ -310,7 +310,7 @@ void Local::evaluateBatchedTimeDependentBc(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM double time,
+    SEISSOL_GPU_PARAM const double* time,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 
@@ -321,6 +321,7 @@ void Local::evaluateBatchedTimeDependentBc(
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
+      // the host function below runs only once the stream reaches it; it refers to the table
       const auto& cellIds =
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
@@ -341,7 +342,7 @@ void Local::evaluateBatchedTimeDependentBc(
             analyticalBoundary_.evaluate(data.get<LTS::BoundaryMapping>()[face],
                                          applyAnalyticalSolution,
                                          dofsFaceBoundaryNodal,
-                                         time,
+                                         *time,
                                          timeStepWidth);
 
             std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));

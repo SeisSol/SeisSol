@@ -1,0 +1,178 @@
+..
+  SPDX-FileCopyrightText: 2026 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+.. _gpu-time-stepping:
+
+Time stepping and halo exchange on GPUs
+=======================================
+
+By default, SeisSol advances its time clusters whenever they are ready,
+waits for the GPU after each step of a cluster,
+and exchanges the halo data between processes with (GPU-aware) MPI.
+The options on this page change how the steps get ordered, how the GPU work of the clusters gets enqueued,
+and which library exchanges the halo data.
+All of them are experimental; the results are meant to stay bitwise identical to the default.
+
+Concepts
+~~~~~~~~
+
+Each process runs a set of *clusters*, each taking steps of its own size (local time stepping):
+
+- a *cell cluster* integrates the cells of one time cluster and one layer (interior or copy);
+- a *face cluster* computes the dynamic rupture faces of one time cluster and layer;
+- a *ghost cluster* stands in for one time cluster of the neighboring processes next to a copy layer,
+  and decides when the halo data gets sent and received.
+
+A step consists of a prediction and a correction.
+A cluster may take a step once its neighbors have provided the data it needs,
+and have read the data it overwrites.
+Between two synchronization points (e.g. outputs), the steps are counted in *ticks*,
+the steps of the smallest time cluster.
+All clusters count the ticks between the two synchronization times the same way,
+rounding up, but ignoring a remainder below :math:`10^{-5}` ticks (the tolerance with which SeisSol compares times);
+the last step of each cluster ends exactly at the synchronization point.
+The steps of the largest time cluster form the *super-timesteps*.
+
+Options
+~~~~~~~
+
+The options are environment variables.
+In a build without a GPU, the log warns about the GPU-only options that are set.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Variable
+     - Meaning
+   * - ``SEISSOL_TIMESTEPPING_PLAN=1``
+     - Take the steps in a fixed order: by logical time (corrections at the end of their step,
+       everything else at its start), corrections before predictions before face work.
+       A cluster can then only wait for the halo exchange.
+   * - ``SEISSOL_CONCURRENT_CLUSTERS=1``
+     - GPU builds only. The clusters only enqueue their GPU work and wait for each other on the GPU (via events),
+       instead of waiting for each of their steps. Needs separate scratchpads per layer, which it enables.
+   * - ``SEISSOL_SUPERSTEP_GRAPHS=1``
+     - Record the GPU work of a super-timestep into a graph, and replay it for all further super-timesteps of the same kind
+       (see below). Needs ``SEISSOL_TIMESTEPPING_PLAN=1`` and ``SEISSOL_CONCURRENT_CLUSTERS=1``.
+   * - ``SEISSOL_TRANSFER_MODE``
+     - How the halo data gets exchanged: ``direct`` (default), ``host``, ``ccl``, ``stream-mpi``, ``shmem``.
+       The name ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`` is accepted as well.
+   * - ``SEISSOL_EXCHANGE_PER_DIRECTION=1``
+     - For ``ccl`` and ``stream-mpi``: one GPU stream per direction between two time clusters,
+       instead of one stream for all exchanges in a global order (see below).
+       ``SEISSOL_CCL_PER_DIRECTION`` is accepted as well.
+   * - ``SEISSOL_SCRATCHPAD_PER_LAYER=1``
+     - GPU builds only. Give each layer scratchpads of its own, instead of sharing them between all layers.
+       The log shows the memory needed either way.
+   * - ``SEISSOL_DEVICE_GRAPH_NODES=0``
+     - GPU builds only. Capture all compute graphs from streams, instead of building them node by node where the device allows it.
+       The log says which way the graphs get built.
+   * - ``SEISSOL_MPI_PERSISTENT=0``
+     - Start new MPI requests for each exchange, instead of restarting persistent ones.
+
+Transfer modes
+~~~~~~~~~~~~~~
+
+``direct`` and ``host`` exchange the halo data with MPI, from the GPU buffers directly,
+or through buffers in host memory for MPI libraries that are not GPU-aware.
+The host starts the sends and receives, and tests for their completion.
+
+The remaining modes run the exchange on GPU streams. They need to be enabled at build time:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 25 60
+
+   * - Mode
+     - Build option
+     - Libraries
+   * - ``ccl``
+     - ``-DCCL=ON``
+     - NCCL (CUDA), RCCL (HIP), oneCCL with its C API (oneAPI)
+   * - ``stream-mpi``
+     - ``-DSTREAM_MPI=MPICH`` or ``-DSTREAM_MPI=CRAY``
+     - MPICH 4.1 or newer (``MPIX_Stream``, CUDA and HIP), or the stream-triggered operations of HPE Cray MPICH (``MPIX_Queue``)
+   * - ``shmem``
+     - ``-DSHMEM=ON``
+     - NVSHMEM (CUDA), ROCSHMEM (HIP), Intel SHMEM (oneAPI)
+
+These modes launch the operations of an exchange as one group.
+Operations that occupy their stream until the peer has posted the counterpart could wait for each other in a cycle
+if every process launched them in its own order.
+Hence, by default, all exchanges of a process go through one stream,
+ordered by the point in logical time at which their data is complete, which is the same on all processes.
+With ``SEISSOL_EXCHANGE_PER_DIRECTION=1``, each direction gets a stream of its own instead;
+the groups of different directions may then run at the same time.
+With ``ccl``, each direction then also gets a communicator of its own. The first operation towards a peer on a
+communicator blocks the process until the peer has joined, to connect them; so all communicators get connected
+at the start, one after the other in the same order on all processes, with one exchange of each direction.
+
+``shmem`` puts the data into a staging window of the receiving process in symmetric memory
+(as large as the ghost layers of the process with the largest ones),
+signals its arrival, and waits until the receiver has cleared the window for the next exchange;
+the receiver copies the data from there into its ghost layers.
+It always uses the global order.
+The signals count the exchanges of each direction. With NVSHMEM, the count of the current exchange is kept on the GPU:
+each exchange advances it, and small kernels signal and wait with the device API of NVSHMEM, reading it when they run.
+This needs relocatable device code linked with the static device library of NVSHMEM, which ``-DSHMEM=ON`` sets up.
+ROCSHMEM and Intel SHMEM get the counts from the host when the operations are enqueued.
+
+With ``SEISSOL_CONCURRENT_CLUSTERS=1``, the exchange is ordered on the GPU as well:
+the groups wait for the GPU work that produces or last reads their data,
+and the clusters wait for the groups they need, all via events.
+The host then never waits for the GPU during a super-timestep.
+
+Recording super-timesteps
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+With ``SEISSOL_SUPERSTEP_GRAPHS=1``, the time manager takes the plan one super-timestep at a time.
+A super-timestep can be recorded if it ends before the next synchronization point and no cluster computes on the host.
+(The super-timestep that reaches the synchronization point takes the last steps of the clusters, which end exactly there;
+their sizes change from one synchronization interval to the next.)
+Two such super-timesteps do the same GPU work if all clusters have the same step sizes.
+The first super-timestep of a kind runs as usual, the second one gets recorded into a graph,
+and all further ones replay it, while the clusters only keep their books on the host.
+All values that change from step to step are read on the GPU: the current time from a clock of each cluster,
+the exchange counts of ``shmem`` with NVSHMEM,
+and the outputs decide about their samples when their work runs.
+Hence, the receivers and fault receivers copy their data to the host in every step in this mode.
+
+Recording needs a GPU that can record graphs, and either no halo exchange (a single process),
+or ``ccl`` or ``shmem`` with NVSHMEM in the global order and ``SEISSOL_CONCURRENT_CLUSTERS=1``,
+without a communication thread.
+``stream-mpi`` cannot be recorded: MPICH creates the requests of an enqueued operation on the host
+and releases its state in host functions on the stream, which a replay would run again.
+Neither can ``shmem`` with ROCSHMEM or Intel SHMEM: a replay would signal and wait for the counts of the recorded exchanges.
+If a requirement is missing, a warning says which one, and the super-timesteps (and outputs) run as usual.
+Clusters that compute on the host (``SEISSOL_DEVICE_HOST_SWITCH``) keep all super-timesteps from getting recorded;
+a warning says so. (Clusters without cells stay on the GPU with any switch point.)
+
+Diagnostics
+~~~~~~~~~~~
+
+At the end of a run, the log reports the number of halo messages sent and received, summed over all processes;
+both have to agree.
+With a transfer mode on GPU streams, it also reports how many events of the halo exchange were referenced at once at most,
+and how many events their pool has; an event is reused once nobody waits for it any more, so both stay small.
+With ``SEISSOL_TIMESTEPPING_PLAN=1``, it also reports the super-timesteps:
+how many there were, how many reached a synchronization point (one per synchronization interval and process),
+how many of the others (the full ones) were free of output samples and of host work, and how many were recorded and replayed.
+If a cluster has not taken any action for 15 minutes, the log reports its state and step counts,
+and the steps until the synchronization point that it assumes for itself and each of its neighbors.
+
+Status
+~~~~~~
+
+The ordering and the decisions of the options above are checked by unit tests,
+including simulations of devices and networks that run the enqueued work in any admissible order.
+On GPUs, these options have not been validated yet;
+compare the results of a run bitwise to the default before relying on them.
+The paths for ROCSHMEM and Intel SHMEM have only been compiled against the headers of these libraries
+(rocSHMEM from its development branch of September 2026, Intel SHMEM 1.5.2), not linked or run;
+the path for HPE Cray MPICH has not been compiled yet.

@@ -33,7 +33,8 @@ PointSourceClusterOnHost::PointSourceClusterOnHost(
     : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
 void PointSourceClusterOnHost::addTimeIntegratedPointSources(
-    double from, double to, seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
+    double from, double timeStepSize, seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
+  const double to = from + timeStepSize;
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
 

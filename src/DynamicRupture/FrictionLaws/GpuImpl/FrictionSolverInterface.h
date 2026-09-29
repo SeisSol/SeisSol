@@ -99,6 +99,8 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     return seissol::initializer::AllocationPlace::Device;
   }
 
+  void setClock(const double* deviceClock) override { clock_ = deviceClock; }
+
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     const seissol::initializer::AllocationPlace place =
         seissol::initializer::AllocationPlace::Device;
@@ -132,6 +134,9 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
 
   protected:
   FrictionLawData dataHost_;
+
+  // the time at the start of each step on the device; null to take the time passed to evaluate()
+  const double* clock_{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

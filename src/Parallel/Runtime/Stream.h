@@ -10,10 +10,10 @@
 
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
+#include "Parallel/Runtime/EventPool.h"
 
 #include <algorithm>
-#include <atomic>
-#include <cstdint>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -63,92 +63,15 @@ class ManagedStream {
   void* streamPtr_{nullptr};
 };
 
-class ManagedEvent {
-  public:
-  ManagedEvent();
-
-  ManagedEvent(const ManagedEvent&) = delete;
-  auto operator=(const ManagedEvent&) = delete;
-
-  ManagedEvent(ManagedEvent&& old) noexcept : eventPtr_(std::exchange(old.eventPtr_, nullptr)) {}
-
-  auto operator=(ManagedEvent&& old) noexcept -> ManagedEvent&;
-
-  [[nodiscard]] void* get() const { return eventPtr_; }
-
-  ~ManagedEvent();
-
-  private:
-  void* eventPtr_{nullptr};
-};
-
-namespace internal {
-struct EventSlot {
-  ManagedEvent event;
-  std::atomic<std::uint32_t> refs{0};
-};
-} // namespace internal
-
 /**
- * Reference to an event from a StreamRuntime's pool.
- *
- * The pool hands out a slot only while nobody refers to it, so an event cannot be re-recorded
- * underneath code that still intends to wait on it. Completion is not the criterion and cannot
- * be: an event may well have been reached and still be needed, and asking the device whether it
- * has been reached is not even allowed while a graph is being recorded - the query invalidates
- * the capture.
- *
- * Hold a reference from recording the event until the wait on it has been enqueued. After that
- * the wait no longer depends on the event, because both CUDA and HIP take the event's state at
- * the time the wait is issued.
+ * Whether the calling thread records a graph that spans several stream runtimes (e.g. a whole
+ * super-timestep). The graphs of single actions then run their work directly, so that it becomes
+ * part of it.
  */
-class EventRef {
-  public:
-  EventRef() = default;
-  explicit EventRef(internal::EventSlot* slot) : slot_(slot) { acquire(); }
-
-  EventRef(const EventRef& other) : slot_(other.slot_) { acquire(); }
-  EventRef(EventRef&& other) noexcept : slot_(std::exchange(other.slot_, nullptr)) {}
-
-  auto operator=(const EventRef& other) -> EventRef& {
-    if (this != &other) {
-      release();
-      slot_ = other.slot_;
-      acquire();
-    }
-    return *this;
-  }
-
-  auto operator=(EventRef&& other) noexcept -> EventRef& {
-    if (this != &other) {
-      release();
-      slot_ = std::exchange(other.slot_, nullptr);
-    }
-    return *this;
-  }
-
-  ~EventRef() { release(); }
-
-  [[nodiscard]] bool isValid() const { return slot_ != nullptr; }
-
-  [[nodiscard]] void* get() const { return slot_ == nullptr ? nullptr : slot_->event.get(); }
-
-  private:
-  void acquire() {
-    if (slot_ != nullptr) {
-      slot_->refs.fetch_add(1, std::memory_order_relaxed);
-    }
-  }
-
-  void release() {
-    if (slot_ != nullptr) {
-      slot_->refs.fetch_sub(1, std::memory_order_release);
-      slot_ = nullptr;
-    }
-  }
-
-  internal::EventSlot* slot_{nullptr};
-};
+inline bool& recordingOuterGraph() {
+  static thread_local bool recording = false;
+  return recording;
+}
 
 class StreamRuntime {
 #ifdef ACL_DEVICE
@@ -156,20 +79,12 @@ class StreamRuntime {
   static device::DeviceInstance& device() { return device::DeviceInstance::instance(); }
 
   public:
-  static constexpr size_t EventPoolSize = 100;
-  static constexpr size_t EventPoolGrowth = 100;
-  static constexpr size_t MaxEventPoolSize = 100000;
-
   StreamRuntime() : StreamRuntime(0) {}
 
   explicit StreamRuntime(size_t ringbufferSize)
       : ringbufferSize_(ringbufferSize), disposed_(false) {
     streamPtr_.emplace();
     ringbufferPtr_.resize(ringbufferSize);
-    events_.reserve(EventPoolSize);
-    for (std::size_t i = 0; i < EventPoolSize; ++i) {
-      events_.emplace_back(std::make_unique<internal::EventSlot>());
-    }
 
     allStreams_.resize(ringbufferSize + 1);
     allStreams_[0] = streamPtr_->get();
@@ -182,7 +97,7 @@ class StreamRuntime {
     if (!disposed_) {
       streamPtr_.reset();
       ringbufferPtr_.clear();
-      events_.clear();
+      events_.dispose();
       disposed_ = true;
     }
   }
@@ -217,8 +132,10 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueHost(F&& handler) {
-    // a graph that is being recorded cannot be waited for, but it takes the host function over
-    if (Backend != DeviceBackend::Hip || buildGraph_.isInitialized() || capturing_) {
+    // A graph that is being recorded cannot be waited for, but it takes the host function over.
+    // That includes a graph spanning several stream runtimes that the calling thread records.
+    if (Backend != DeviceBackend::Hip || buildGraph_.isInitialized() || capturing_ ||
+        recordingOuterGraph()) {
       device().api().streamHostFunction(stream(), std::forward<F>(handler));
     } else {
       // if the stream host function call isn't implemented or slow, we'll need to synchronize
@@ -237,20 +154,7 @@ class StreamRuntime {
     });
   }
 
-  EventRef nextEvent() {
-    for (std::size_t probe = 0; probe < this->events_.size(); ++probe) {
-      auto* slot = this->events_[this->eventpos_].get();
-      this->eventpos_ = (this->eventpos_ + 1) % this->events_.size();
-
-      if (slot->refs.load(std::memory_order_acquire) == 0) {
-        return EventRef(slot);
-      }
-    }
-
-    // every slot is still spoken for
-    growEventPool();
-    return nextEvent();
-  }
+  EventRef nextEvent() { return events_.next(); }
 
   template <typename F>
   void envMany(size_t count, F&& handler) {
@@ -306,7 +210,7 @@ class StreamRuntime {
   }
 
   void wait() {
-    if (buildGraph_.isInitialized() || capturing_) {
+    if (buildGraph_.isInitialized() || capturing_ || recordingOuterGraph()) {
       logError() << "Cannot synchronize a stream while a compute graph is being recorded on it.";
     }
     device().api().syncStreamWithHost(streamPtr_->get());
@@ -335,6 +239,12 @@ class StreamRuntime {
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle,
                        F&& handler,
                        GraphMode mode = GraphMode::Nodes) {
+    if (recordingOuterGraph()) {
+      // the work becomes part of the graph being recorded; neither building nor capturing a graph
+      // of its own may start on a stream that is being captured already
+      std::invoke(std::forward<F>(handler), *this);
+      return;
+    }
     if (!computeGraphHandle.isInitialized()) {
       if (mode == GraphMode::Nodes && seissol::useGraphNodes()) {
         computeGraphHandle = device().api().graphCreate();
@@ -417,24 +327,6 @@ class StreamRuntime {
     device().api().syncStreamWithEvent(stream(), event.get());
   }
 
-  private:
-  void growEventPool() {
-    const auto oldSize = this->events_.size();
-    if (oldSize >= MaxEventPoolSize) {
-      logError() << "Ran out of device events (" << oldSize
-                 << " referenced at once). This points at event references being kept alive "
-                    "past the wait they belong to.";
-    }
-
-    const auto newSize = std::min(oldSize + EventPoolGrowth, MaxEventPoolSize);
-    this->events_.reserve(newSize);
-    for (auto i = oldSize; i < newSize; ++i) {
-      this->events_.emplace_back(std::make_unique<internal::EventSlot>());
-    }
-    this->eventpos_ = oldSize;
-  }
-
-  public:
   EventRef eventRecord() {
     auto event = nextEvent();
     device().api().recordEventOnStream(event.get(), stream());
@@ -486,10 +378,7 @@ class StreamRuntime {
   std::optional<ManagedStream> streamPtr_;
   std::vector<ManagedStream> ringbufferPtr_;
   std::vector<void*> allStreams_;
-  // slots are held indirectly so that their addresses survive the pool growing; an EventRef
-  // points straight at its slot
-  std::vector<std::unique_ptr<internal::EventSlot>> events_;
-  std::size_t eventpos_{0};
+  EventPool events_;
 #else
   public:
   StreamRuntime() : StreamRuntime(0) {}

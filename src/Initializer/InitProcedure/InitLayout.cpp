@@ -23,8 +23,10 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include "Solver/Estimator.h"
 #include "Solver/Settings.h"
 
 #include <algorithm>
@@ -36,8 +38,10 @@
 #include <map>
 #include <mpi.h>
 #include <numeric>
+#include <string>
 #include <unordered_map>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::initializer::initprocedure {
@@ -365,7 +369,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   if constexpr (isDeviceOn()) {
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
-    drStorage.allocateScratchPads();
+    drStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env()) ||
+                                          useConcurrentClusters(seissolInstance.env())
+                                      ? initializer::ScratchpadSharing::PerLayer
+                                      : initializer::ScratchpadSharing::Shared);
   }
 
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
@@ -379,10 +386,45 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   seissolInstance.dofSync().setup(meshLayout, &ltsStorage);
 }
 
+/**
+ * Decides which clusters run on the host; before the clusters get set up, which fix their executor.
+ */
+void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
+  if constexpr (isDeviceOn()) {
+    logInfo() << "Determine Host-Device switchpoint";
+
+    const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
+    bool hdenabled = false;
+    if (hdswitch == "none") {
+      hdenabled = false;
+      logInfo() << "No host-device switching. Everything runs on the GPU.";
+    } else if (hdswitch == "auto") {
+      hdenabled = true;
+      logInfo() << "Automatic host-device switchpoint detection.";
+      const auto hdswitchInt = solver::hostDeviceSwitch();
+      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
+    } else {
+      hdenabled = true;
+      const auto hdswitchInt = utils::StringUtils::parse<int>(hdswitch);
+      logInfo() << "Manual host-device cutoff set to" << hdswitchInt << ".";
+      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
+    }
+
+    const bool usmDefault = useUSM();
+
+    if (!usmDefault && hdenabled) {
+      logWarning() << "Using the host-device execution on non-USM systems is not fully supported "
+                      "yet. Expect incorrect results.";
+    }
+  }
+}
+
 } // namespace
 
 void initLayout(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init layout.";
+
+  hostDeviceCoexecution(seissolInstance);
 
   setupMemory(seissolInstance);
 

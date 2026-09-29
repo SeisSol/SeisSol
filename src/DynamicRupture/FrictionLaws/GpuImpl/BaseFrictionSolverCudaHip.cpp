@@ -60,6 +60,7 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
 
   ctx.data = args.data;
   ctx.args = &args;
+  ctx.fullUpdateTime = args.clock != nullptr ? static_cast<real>(*args.clock) : args.fullUpdateTime;
 
   __shared__ real shm[PaddedMultiple * seissol::dr::misc::NumPaddedPoints];
   ctx.sharedMemory = &shm[threadIdx.z * seissol::dr::misc::NumPaddedPoints];
@@ -99,6 +100,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
   std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
   args.fullUpdateTime = fullUpdateTime;
+  args.clock = this->clock_;
 
   flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize_, args);
 }
