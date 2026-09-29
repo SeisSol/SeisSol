@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Typedefs.h"
 
 #include <cmath>
@@ -81,10 +82,13 @@ TEST_CASE("ImpedancesAndEta equal impedances" * doctest::test_suite("dynamicrupt
 
 TEST_CASE("Receiver defaults" * doctest::test_suite("dynamicrupture")) {
   Receiver rp;
-  CHECK(rp.faultFaceIndex == -1);
-  CHECK(rp.localFaceSideId == -1);
-  CHECK(rp.elementIndex == -1);
-  CHECK(rp.globalReceiverIndex == -1);
+  CHECK_FALSE(rp.faultFaceIndex.hasValue());
+  CHECK_FALSE(rp.localFaceSideId.hasValue());
+  CHECK_FALSE(rp.localNeighborFaceSideId.hasValue());
+  CHECK_FALSE(rp.elementIndex.hasValue());
+  CHECK_FALSE(rp.elementGlobalIndex.hasValue());
+  CHECK_FALSE(rp.elementNeighborGlobalIndex.hasValue());
+  CHECK_FALSE(rp.globalReceiverIndex.hasValue());
   CHECK(rp.isInside == false);
   CHECK(rp.nearestGpIndex == -1);
   CHECK(rp.faultTag == -1);

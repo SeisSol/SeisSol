@@ -41,12 +41,10 @@ MemoryManager::MemoryManager(seissol::SeisSol& instance) : seissolInstance_(inst
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  const auto tpGridPoints = seissolInstance_.parameters().drParameters.tpGridPoints;
-  GlobalDataInitializerOnHost::init(
-      globalDataOnHost_, memoryAllocator_, memory::Memkind::Standard, tpGridPoints);
+  GlobalDataInitializerOnHost::init(globalDataOnHost_, memoryAllocator_, memory::Memkind::Standard);
   if constexpr (seissol::isDeviceOn()) {
     GlobalDataInitializerOnDevice::init(
-        globalDataOnDevice_, memoryAllocator_, memory::Memkind::DeviceGlobalMemory, tpGridPoints);
+        globalDataOnDevice_, memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
   }
 }
 

@@ -11,6 +11,7 @@
 
 #include "Common/Executor.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Initializer/Typedefs.h"
@@ -30,14 +31,13 @@
 #include <vector>
 
 namespace seissol {
-struct GlobalData;
 class SeisSol;
 
 namespace kernels {
 struct Receiver {
   Receiver(std::size_t pointId,
            Eigen::Vector3d position,
-           const double* elementCoords[4],
+           const seissol::geometry::CellTransform& transform,
            size_t reserved);
   std::size_t pointId;
   Eigen::Vector3d position;
@@ -119,9 +119,15 @@ class ReceiverCluster {
   void allocateData();
   void freeData();
 
+  //! @brief Waits for the samples taken so far to be in the output of the receivers.
+  void waitForSamples();
+
   private:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};
+  // anelastic DOFs (LinearCKAnelastic only); their host copy is stale between sync points or,
+  // with USM, written by the device concurrently
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollectorAne_{nullptr};
   std::vector<Receiver> receivers_;
   std::vector<ReceiverCell> receiverCells_;
   std::unordered_map<std::size_t, std::size_t> meshToReceiverCell_;

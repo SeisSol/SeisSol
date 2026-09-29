@@ -10,7 +10,6 @@
 #include "Neighbor.h"
 
 #include "Common/Marker.h"
-#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "Monitoring/Metric.h"
 
@@ -33,40 +32,12 @@ static_assert(std::size(seissol::kernel::neighborFluxExt::ExecutePtrs) ==
               Cell::NumFaces * Cell::NumFaces);
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
-#ifndef NDEBUG
-  for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(neighbor))) %
-               Vectorsize ==
-           0);
-    assert((reinterpret_cast<uintptr_t>(
-               global.onHost->localChangeOfBasisMatricesTransposed(neighbor))) %
-               Vectorsize ==
-           0);
-    assert((reinterpret_cast<uintptr_t>(
-               global.onHost->neighborChangeOfBasisMatricesTransposed(neighbor))) %
-               Vectorsize ==
-           0);
-  }
-
-  for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-    for (std::size_t h = 0; h < dr::misc::NumFaceRelations; ++h) {
-      assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Vectorsize ==
-             0);
-    }
-  }
-#endif
-  nfKrnlPrototype_.rDivM = global.onHost->changeOfBasisMatrices;
-  nfKrnlPrototype_.fPrT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  drKrnlPrototype_.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  nfKrnlPrototype_.bindGlobals(*global.onHost);
+  drKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-#ifdef USE_PREMULTIPLY_FLUX
-  deviceNfKrnlPrototype_.minusFluxMatrices = global.onDevice->minusFluxMatrices;
-#else
-  deviceNfKrnlPrototype_.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype_.fPrT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-#endif
-  deviceDrKrnlPrototype_.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceNfKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceDrKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 

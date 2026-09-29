@@ -8,18 +8,21 @@
 #include "LinearSlipWeakening.h"
 
 #include "DynamicRupture/Misc.h"
-#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::friction_law::cpu {
 
+void NoSpecialization::allocateAuxiliaryMemory(GlobalData* globalData) {
+  resampleKrnlPrototype_.bindGlobals(*globalData);
+}
+
 void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-    const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
-  dynamicRupture::kernel::resampleParameter resampleKrnl;
-  resampleKrnl.resample = init::resample::Values;
+    const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) const {
+  auto resampleKrnl = resampleKrnlPrototype_;
   resampleKrnl.originalQ = slipRateMagnitude;
   resampleKrnl.resampledQ = resampledSlipRate;
   resampleKrnl.execute();

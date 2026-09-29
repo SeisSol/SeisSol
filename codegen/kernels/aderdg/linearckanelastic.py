@@ -10,8 +10,8 @@ import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import layout, total_extent
-from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
@@ -257,7 +257,7 @@ class LinearCKAnelastic(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            volumeSum = Add()
+            volumeSum = Accumulate(ops.Add())
             for i in range(3):
                 volumeSum += (
                     self.db.kDivM[i][self.t("kl")]
@@ -334,6 +334,22 @@ class LinearCKAnelastic(ADERDGBase):
                 flux_ops + local_ops,
                 target=target,
             )
+
+        # The analytical boundary adds its flux where the local flux lands, in
+        # the extended DOFs; only the CPU path evaluates that boundary.
+        localFluxNodal = (
+            lambda i: self.Qext["kp"]
+            <= self.Qext["kp"]
+            + self.db.project2nFaceTo3m[i]["kn"]
+            * self.INodal["no"]
+            * self.AminusT["op"]
+        )
+        generator.addFamily(
+            "localFluxNodal",
+            simpleParameterSpace(4),
+            localFluxNodal,
+            target="cpu",
+        )
 
     def addNeighbor(self, generator, targets):
         for target in targets:
@@ -429,8 +445,8 @@ class LinearCKAnelastic(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            derivativeTaylorExpansionEla = Add()
-            # derivativeTaylorExpansionAne = Add()
+            derivativeTaylorExpansionEla = Accumulate(ops.Add())
+            # derivativeTaylorExpansionAne = Accumulate(ops.Add())
             for d in range(0, self.order):
                 derivativeTaylorExpansionEla += powers[d] * dQ[d]["kp"]
                 # derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
@@ -440,7 +456,7 @@ class LinearCKAnelastic(ADERDGBase):
             # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
             def derivative(kthDer):
-                derivativeSum = Add()
+                derivativeSum = Accumulate(ops.Add())
                 for j in range(3):
                     derivativeSum += (
                         self.db.kDivMT[j][self.t("kl")]
@@ -507,5 +523,5 @@ class LinearCKAnelastic(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
-        # Nodal flux kernel uses this matrix but is not supported by visco2
+        # The nodal flux kernel (localFluxNodal, CPU only) uses this matrix
         include_tensors.update([self.db.project2nFaceTo3m[i] for i in range(4)])

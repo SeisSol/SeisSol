@@ -14,6 +14,8 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Instance/Geometry/Points.h"
@@ -29,8 +31,8 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Numerical/Projection.h"
-#include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
+#include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/MultipleSimulations.h"
@@ -101,13 +103,13 @@ std::size_t projectionStride(std::size_t degree) {
 seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
   const std::array<std::array<double, 2>, 3> corners = {
       std::array<double, 2>{0, 0}, std::array<double, 2>{1, 0}, std::array<double, 2>{0, 1}};
+  const auto faceMap = seissol::geometry::ReferenceFaceMap(side);
   std::vector<std::array<double, 3>> vertices;
   vertices.reserve(corners.size());
   for (const auto& chiTau : corners) {
-    std::array<double, 3> xez{};
-    seissol::transformations::chiTau2XiEtaZeta(
-        static_cast<std::uint32_t>(side), chiTau.data(), xez.data());
-    vertices.push_back(xez);
+    const auto xez =
+        faceMap.faceToCell(seissol::geometry::ReferenceFaceMap::FaceVectorT(chiTau.data()));
+    vertices.push_back({xez(0), xez(1), xez(2)});
   }
   return seissol::numerical::AffineMap<2, 3>::fromVertices(vertices);
 }
@@ -342,17 +344,12 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         subcells.size(),
 
         [=](double* target, std::size_t index, std::size_t subcell) {
-          const auto& element = meshReader.getElements()[cellIndices[index]];
-          const auto& vertexArray = meshReader.getVertices();
+          const auto transform =
+              seissol::geometry::AffineTransform::fromMeshCell(cellIndices[index], meshReader);
 
           for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
-            seissol::transformations::tetrahedronReferenceToGlobal(
-                vertexArray[element.vertices[0]].coords,
-                vertexArray[element.vertices[1]].coords,
-                vertexArray[element.vertices[2]].coords,
-                vertexArray[element.vertices[3]].coords,
-                truePoints[subcell][i].data(),
-                &target[i * 3]);
+            const auto xyz = transform.refToSpace(truePoints[subcell][i]);
+            std::copy_n(xyz.begin(), Cell::Dim, &target[i * 3]);
           }
         });
 
@@ -407,31 +404,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         projectVolume(dataY.data(), dofsSingleQuantity, (*projD[1])(subcell, ConvergenceOrder));
         projectVolume(dataZ.data(), dofsSingleQuantity, (*projD[2])(subcell, ConvergenceOrder));
 
-        const auto& element = meshReader.getElements()[cellIndices[index]];
-        const auto& vertexArray = meshReader.getVertices();
+        const auto transform =
+            seissol::geometry::AffineTransform::fromMeshCell(cellIndices[index], meshReader);
 
-        std::array<double, Cell::NumVertices> coordsX{};
-        std::array<double, Cell::NumVertices> coordsY{};
-        std::array<double, Cell::NumVertices> coordsZ{};
-        std::array<double, Cell::Dim> gradXi{};
-        std::array<double, Cell::Dim> gradEta{};
-        std::array<double, Cell::Dim> gradZeta{};
-
-        for (std::size_t i = 0; i < Cell::NumVertices; ++i) {
-          coordsX[i] = vertexArray[element.vertices[i]].coords[0];
-          coordsY[i] = vertexArray[element.vertices[i]].coords[1];
-          coordsZ[i] = vertexArray[element.vertices[i]].coords[2];
-        }
-
-        seissol::transformations::tetrahedronGlobalToReferenceJacobian(coordsX.data(),
-                                                                       coordsY.data(),
-                                                                       coordsZ.data(),
-                                                                       gradXi.data(),
-                                                                       gradEta.data(),
-                                                                       gradZeta.data());
+        // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
+        // (the rows of the inverse Jacobian are grad xi, grad eta, grad zeta)
+        const auto grad = transform.refToSpaceJacobianInverse(
+            seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
 
         for (std::size_t i = 0; i < dataBase.size(); ++i) {
-          target[i] = dataX[i] * gradXi[dir] + dataY[i] * gradEta[dir] + dataZ[i] * gradZeta[dir];
+          target[i] = dataX[i] * grad(0, dir) + dataY[i] * grad(1, dir) + dataZ[i] * grad(2, dir);
         }
       };
 
@@ -629,19 +611,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         [=, &freeSurfaceIntegrator](double* target, std::size_t index, std::size_t subcell) {
           auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
           auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-          const auto& element = meshReader.getElements()[meshId];
-          const auto& vertexArray = meshReader.getVertices();
+          const auto face =
+              seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, meshReader);
 
-          double xez[3]{};
           for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
-            seissol::transformations::chiTau2XiEtaZeta(side, truePoints[subcell][i].data(), xez);
-            seissol::transformations::tetrahedronReferenceToGlobal(
-                vertexArray[element.vertices[0]].coords,
-                vertexArray[element.vertices[1]].coords,
-                vertexArray[element.vertices[2]].coords,
-                vertexArray[element.vertices[3]].coords,
-                xez,
-                &target[i * 3]);
+            const auto xyz = face.refToSpace(
+                seissol::geometry::FaceTransform::FaceVectorT(truePoints[subcell][i].data()));
+            for (std::size_t d = 0; d < Cell::Dim; ++d) {
+              target[i * 3 + d] = xyz(d);
+            }
           }
         });
 
@@ -847,6 +825,11 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
     }
   }
   seissol::Mpi::barrier(Mpi::mpi.comm());
+
+  // recorded while reading the mesh and laying out the clusters, before there was a directory to
+  // write them to
+  seissolInstance.miniSeisSolWriter().write(seissolParams.output.prefix);
+  seissolInstance.timeManager().writeClustering();
 
   enableFreeSurfaceOutput(seissolInstance);
   initFaultOutputManager(seissolInstance);

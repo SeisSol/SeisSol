@@ -30,7 +30,7 @@ struct Wp {
     Derivatives,
     Godunov,
     FluxSolver,
-    Ivelocities, // 6th, 7the and 8th columns of Idofs
+    Ivelocities, // Idofs at the first velocity column (model::MaterialT::VelocityOffset)
     FaceDisplacement,
     NodalStressTensor,
     Pstrains,
@@ -38,8 +38,9 @@ struct Wp {
     NodalAvgDisplacements,
     T,
     Tinv,
-    EasiBoundaryMap,
-    EasiBoundaryConstant,
+    FSGData,
+    Rhos,
+    DirichletOffset,
     ZinvExtra,
     IdofsAne,
     DofsAne,
@@ -47,12 +48,7 @@ struct Wp {
     DerivativesAne,
     DerivativesExt,
     Analytical,
-    RotateDisplacementToFaceNormal,
-    RotateDisplacementToGlobal,
-    RotatedFaceDisplacement,
-    DofsFaceNodal,
-    PrevCoefficients,
-    DofsFaceBoundaryNodal,
+    QEtaNodal,
     Integrals,
     Count
   };
@@ -74,11 +70,6 @@ struct Dr {
     TinvT,
     Count
   };
-};
-
-struct Material {
-  using DataType = double;
-  enum struct Id : size_t { Rho = 0, Lambda, InvImpedances, Count };
 };
 
 struct Indices {

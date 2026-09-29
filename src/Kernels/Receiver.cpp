@@ -14,6 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
@@ -24,7 +25,6 @@
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
 #include "Parallel/Runtime/Stream.h"
@@ -48,18 +48,18 @@ namespace seissol::kernels {
 
 Receiver::Receiver(std::size_t pointId,
                    Eigen::Vector3d position,
-                   const double* elementCoords[4],
+                   const seissol::geometry::CellTransform& transform,
                    size_t reserved)
     : pointId(pointId), position(std::move(position)) {
   output.reserve(reserved);
 
-  auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
-      elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], this->position);
+  const auto xiEtaZeta = transform.spaceToRef(this->position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-  basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
+  basisFunctionDerivatives.transformToGlobalCoordinates(
+      transform, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
 }
 
 ReceiverCell::ReceiverCell(std::size_t meshId, LTS::Ref dataHost, LTS::Ref dataDevice)
@@ -94,13 +94,7 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
                                   const LTS::Backmap& backmap) {
-  const auto& elements = mesh.getElements();
-  const auto& vertices = mesh.getVertices();
-
-  const double* coords[Cell::NumVertices];
-  for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-    coords[v] = vertices[elements[meshId].vertices[v]].coords;
-  }
+  const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
 
   if (!extraRuntime_.has_value()) {
     // use an extra stream if we have receivers
@@ -127,7 +121,7 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
 
   receiverCells_[meshToReceiverCell_.at(meshId)].receiverIds.emplace_back(receivers_.size());
 
-  receivers_.emplace_back(pointId, point, coords, reserved);
+  receivers_.emplace_back(pointId, point, transform, reserved);
 }
 
 double ReceiverCluster::calcReceivers(double time,
@@ -151,6 +145,9 @@ double ReceiverCluster::calcReceivers(double time,
       runtime.eventSync(extraRuntime_->eventRecord());
     }
     deviceCollector_->gatherToHost(runtime.stream());
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      deviceCollectorAne_->gatherToHost(runtime.stream());
+    }
     if (extraRuntime_.has_value()) {
       extraRuntime_->eventSync(runtime.eventRecord());
     }
@@ -189,6 +186,11 @@ double ReceiverCluster::calcReceivers(double time,
         tmpReceiverData.setPointer<LTS::Dofs>(
             reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
                 deviceCollector_->get(i)));
+        if constexpr (kernels::size<tensor::Qane>() > 0) {
+          tmpReceiverData.setPointer<LTS::DofsAne>(
+              reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::DofsAne>())>(
+                  deviceCollectorAne_->get(i)));
+        }
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -239,8 +241,18 @@ double ReceiverCluster::calcReceivers(double time,
       }
     };
 
-    auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
-    callRuntime.enqueueLoop(cellCount, receiverHandler);
+    if (executor == Executor::Host) {
+      // A cluster that runs on the host goes on to integrate right after this and overwrites the
+      // DOFs the sampling reads, so it samples right here. (On CUDA and SYCL, enqueueLoop would
+      // leave the sampling to a host function on a stream.)
+#pragma omp parallel for schedule(static)
+      for (std::size_t i = 0; i < cellCount; ++i) {
+        receiverHandler(i);
+      }
+    } else {
+      auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
+      callRuntime.enqueueLoop(cellCount, receiverHandler);
+    }
 
     const auto recvCount = receivers_.size();
 
@@ -280,13 +292,36 @@ void ReceiverCluster::allocateData() {
     const bool hostAccessible = useUSM() && !extraRuntime_.has_value();
     deviceCollector_ = std::make_unique<seissol::parallel::DataCollector<real>>(
         dofs, tensor::Q::size(), hostAccessible);
+
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      std::vector<real*> dofsAne;
+      dofsAne.reserve(receiverCells_.size());
+      for (auto& receiverCell : receiverCells_) {
+        dofsAne.push_back(receiverCell.dataDevice.get<LTS::DofsAne>());
+      }
+      deviceCollectorAne_ = std::make_unique<seissol::parallel::DataCollector<real>>(
+          dofsAne, kernels::size<tensor::Qane>(), hostAccessible);
+    }
   }
 
   meshToReceiverCell_ = {};
 }
 void ReceiverCluster::freeData() {
+  // a handler still running would read the collector and write the outputs
+  waitForSamples();
   deviceCollector_.reset(nullptr);
+  deviceCollectorAne_.reset(nullptr);
   extraRuntime_.reset();
+}
+
+void ReceiverCluster::waitForSamples() {
+  // On CUDA and SYCL, calcReceivers leaves the sampling of a device cluster to a host function on a
+  // stream, which appends to the output of the receivers once the gathered DOFs are there. Nothing
+  // in the time stepping waits for the one enqueued last before a synchronization point, so whoever
+  // reads the output has to.
+  if (extraRuntime_.has_value()) {
+    extraRuntime_->wait();
+  }
 }
 
 size_t ReceiverCluster::ncols() const {

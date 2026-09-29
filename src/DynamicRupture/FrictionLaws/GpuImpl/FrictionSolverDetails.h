@@ -9,7 +9,9 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -31,18 +33,35 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 #endif
     }
 
-    resampleMatrix_ = globalData->resampleMatrix;
-    devSpaceWeights_ = globalData->spaceWeights;
-    devTpInverseFourierCoefficients_ = globalData->tpInverseFourierCoefficients;
-    devHeatSource_ = globalData->heatSource;
-    devTpGridPoints_ = globalData->tpGridPoints;
+    resampleMatrix_ = globalData->*init::resample::PoolMember;
+    devSpaceWeights_ = globalData->*init::quadweights::PoolMember;
+
+#ifdef ACL_DEVICE
+    // The thermal-pressurization tables are functions of the grid alone, and
+    // only the device path reads them -- the CPU friction law holds its own
+    // copies. So they are built and uploaded here, alongside this solver's
+    // other device memory, rather than travelling through the global
+    // matrices. Per solver rather than per process: they live and die with
+    // the device allocation they sit next to, and are rebuilt whenever it is.
+    // The grid has the tp_gridpoints the kernels loop over.
+    const auto upload = [](const auto& source) {
+      auto& device = device::DeviceInstance::getInstance();
+      const std::size_t bytes = source.data().size() * sizeof(real);
+      auto* target = reinterpret_cast<real*>(device.api->allocGlobMem(bytes));
+      device.api->copyTo(target, source.data().data(), bytes);
+      return target;
+    };
+    const std::size_t tpGridPoints = drParameters_.tpGridPoints;
+    devTpGridPoints_ = upload(tp::GridPoints<real>(tpGridPoints));
+    devTpInverseFourierCoefficients_ = upload(tp::InverseFourierCoefficients<real>(tpGridPoints));
+    devHeatSource_ = upload(tp::GaussianHeatSource<real>(tpGridPoints));
+#endif
   }
 
-  protected:
   size_t currLayerSize_{};
 
-  real* resampleMatrix_{nullptr};
-  real* devSpaceWeights_{nullptr};
+  const real* resampleMatrix_{nullptr};
+  const real* devSpaceWeights_{nullptr};
   real* devTpInverseFourierCoefficients_{nullptr};
   real* devTpGridPoints_{nullptr};
   real* devHeatSource_{nullptr};

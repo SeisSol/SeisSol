@@ -12,6 +12,7 @@
 // of coordinates are no longer exact. Neither the partition nor anything SeisSol makes of a cell
 // may depend on the order in which a cell lists its vertices.
 
+#include "Common/CompactOptional.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/PUMLReader.h"
 #include "Geometry/PartitioningLib.h"
@@ -90,9 +91,9 @@ inline const std::vector<std::string> PartitioningLibs = {"Parmetis",
                                                           "ParHIPUltrafastSocial",
                                                           "ParHIPFastSocial"};
 
-// a neighbor on this rank (and not the number of elements, which stands for none)
-inline bool isLocal(LocalElemId neighbor, std::size_t elementCount) {
-  return neighbor >= 0 && static_cast<std::size_t>(neighbor) < elementCount;
+// a neighbor on this rank (an empty optional stands for none)
+inline bool isLocal(const OptionalSize& neighbor, std::size_t elementCount) {
+  return neighbor.hasValue() && neighbor.value() < elementCount;
 }
 
 } // namespace vertexorderinvariancetest
@@ -229,12 +230,15 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
           CAPTURE(k);
           const auto& coords = vertices[element.vertices[k]].coords;
           const auto& coordsPermuted = verticesPermuted[elementPermuted.vertices[k]].coords;
-          CHECK(std::equal(coords, coords + Cell::Dim, coordsPermuted));
+          CHECK(coords == coordsPermuted);
         }
         for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
           CAPTURE(j);
-          CHECK(element.neighborSides[j] == elementPermuted.neighborSides[j]);
-          CHECK(element.sideOrientations[j] == elementPermuted.sideOrientations[j]);
+          // as int, so that a failure prints numbers rather than characters
+          CHECK(static_cast<int>(element.neighborSides[j]) ==
+                static_cast<int>(elementPermuted.neighborSides[j]));
+          CHECK(static_cast<int>(element.sideOrientations[j]) ==
+                static_cast<int>(elementPermuted.sideOrientations[j]));
           CHECK(element.boundaries[j] == elementPermuted.boundaries[j]);
           CHECK(element.neighborRanks[j] == elementPermuted.neighborRanks[j]);
           CHECK(element.faultTags[j] == elementPermuted.faultTags[j]);
@@ -242,8 +246,8 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
           const bool localPermuted = isLocal(elementPermuted.neighbors[j], elementsPermuted.size());
           CHECK(local == localPermuted);
           if (local && localPermuted) {
-            CHECK(elements[element.neighbors[j]].globalId ==
-                  elementsPermuted[elementPermuted.neighbors[j]].globalId);
+            CHECK(elements[element.neighbors[j].value()].globalId ==
+                  elementsPermuted[elementPermuted.neighbors[j].value()].globalId);
           }
         }
       }

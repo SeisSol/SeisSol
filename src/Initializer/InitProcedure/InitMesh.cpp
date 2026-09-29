@@ -74,9 +74,9 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.linearizeGhostlayer();
 
   const auto& drParameters = seissolInstance.parameters().drParameters;
-  const VrtxCoords center{drParameters.referencePoint[0],
-                          drParameters.referencePoint[1],
-                          drParameters.referencePoint[2]};
+  const CoordinateT center{drParameters.referencePoint[0],
+                           drParameters.referencePoint[1],
+                           drParameters.referencePoint[2]};
   if (!drParameters.isDynamicRuptureEnabled) {
     logInfo() << "The Dynamic Rupture component has been disabled for this simulation.";
     meshReader.disableDR();
@@ -126,8 +126,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
                 << " min =" << summary.min << " median =" << summary.median
                 << " max =" << summary.max;
 
-      writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
-      writer.write(elapsedTime, nodeWeight);
+      // written in initIO, once the output directory exists
+      seissolInstance.miniSeisSolWriter().record(elapsedTime, nodeWeight);
     } else {
       logInfo() << "Skipping mini SeisSol (SeisSol is used with a single rank only).";
     }

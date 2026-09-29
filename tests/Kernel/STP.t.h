@@ -10,12 +10,14 @@
 #include "Equations/poroelastic/Model/Setup.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Kernels/Common.h"
 #include "Kernels/STP/Setup.h"
 #include "Model/Common.h"
-#include "Numerical/Transformation.h"
 
+#include <array>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -35,8 +37,11 @@ class SpaceTimePredictorTestFixture {
   real sourceMatrix[tensor::ET::size()];
   real zMatrix[seissol::model::MaterialT::NumQuantities][tensor::Zinv::size(0)];
 
-  void setStarMatrix(
-      const real* at, const real* bt, const real* ct, const double grad[3], real* starMatrix) {
+  void setStarMatrix(const real* at,
+                     const real* bt,
+                     const real* ct,
+                     const std::array<double, Cell::Dim>& grad,
+                     real* starMatrix) {
     for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
       starMatrix[idx] = grad[0] * at[idx];
     }
@@ -59,23 +64,23 @@ class SpaceTimePredictorTestFixture {
     // NOLINTNEXTLINE (-cert-dcl59-cpp)
     std::mt19937 generator(20210109); // Standard mersenne_twister_engine seeded with today's date
     std::uniform_real_distribution<real> distribution(0, 1);
-    double x[] = {distribution(generator),
-                  distribution(generator),
-                  distribution(generator),
-                  distribution(generator)};
-    double y[] = {distribution(generator),
-                  distribution(generator),
-                  distribution(generator),
-                  distribution(generator)};
-    double z[] = {distribution(generator),
-                  distribution(generator),
-                  distribution(generator),
-                  distribution(generator)};
-    double gradXi[3];
-    double gradEta[3];
-    double gradZeta[3];
+    std::array<CoordinateT, Cell::NumVertices> vertices{};
+    for (auto& vertex : vertices) {
+      vertex =
+          CoordinateT{distribution(generator), distribution(generator), distribution(generator)};
+    }
 
-    transformations::tetrahedronGlobalToReferenceJacobian(x, y, z, gradXi, gradEta, gradZeta);
+    const auto grad = seissol::geometry::AffineTransform(vertices).refToSpaceJacobianInverse(
+        seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
+
+    std::array<double, Cell::Dim> gradXi{};
+    std::array<double, Cell::Dim> gradEta{};
+    std::array<double, Cell::Dim> gradZeta{};
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
+      gradXi[i] = grad(0, i);
+      gradEta[i] = grad(1, i);
+      gradZeta[i] = grad(2, i);
+    }
 
     // prepare starmatrices
     real atData[tensor::star::size(0)];
@@ -125,24 +130,15 @@ class SpaceTimePredictorTestFixture {
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor& krnlPrototype) {
-    krnlPrototype.timeInt = seissol::init::timeInt::Values;
-    krnlPrototype.wHat = seissol::init::wHat::Values;
-    for (size_t i = 0; i < 3; i++) {
-      krnlPrototype.kDivMT(i) = seissol::init::kDivMT::Values[seissol::init::kDivMT::index(i)];
-    }
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareLHS(seissol::kernel::stpTestLhs& krnlPrototype) {
-    krnlPrototype.Z = seissol::init::Z::Values;
-    krnlPrototype.deltaLarge = seissol::init::deltaLarge::Values;
-    krnlPrototype.deltaSmall = seissol::init::deltaSmall::Values;
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareRHS(seissol::kernel::stpTestRhs& krnlPrototype) {
-    for (size_t i = 0; i < 3; i++) {
-      krnlPrototype.kDivMT(i) = seissol::init::kDivMT::Values[seissol::init::kDivMT::index(i)];
-    }
-    krnlPrototype.wHat = seissol::init::wHat::Values;
+    krnlPrototype.bindGlobals(seissol::Pool::host());
   }
 
   void prepareQ(real* qData) {
@@ -171,12 +167,13 @@ class SpaceTimePredictorTestFixture {
     real bValues[seissol::tensor::star::size(0)] = {0};
     real cValues[seissol::tensor::star::size(0)] = {0};
 
-    // IMPORTANT: we need to take -Dt instead of Dt here, since kDivMT isn't negated
-    // (that's normally taken care of in the GlobalData structs in the main exe)
+    // Scaled by Dt, as Spacetime::executeSTP does. The minus sign of the flux term is not
+    // applied here: kDivMT carries it, negated at code generation (negateFamily in
+    // codegen/kernels/aderdg/aderdg.py).
     for (size_t i = 0; i < seissol::tensor::star::size(0); i++) {
-      aValues[i] = starMatrices0[i] * -Dt;
-      bValues[i] = starMatrices1[i] * -Dt;
-      cValues[i] = starMatrices2[i] * -Dt;
+      aValues[i] = starMatrices0[i] * Dt;
+      bValues[i] = starMatrices1[i] * Dt;
+      cValues[i] = starMatrices2[i] * Dt;
     }
 
     krnl.star(0) = aValues;
@@ -218,7 +215,8 @@ class SpaceTimePredictorTestFixture {
     testRhsKrnl.star(1) = starMatrices1;
     testRhsKrnl.star(2) = starMatrices2;
     testRhsKrnl.spaceTimePredictor = stp;
-    testRhsKrnl.minus = -Dt;
+    // The flux term is -Dt * star * K^T; kDivMT already is -K^T, so its factor here is +Dt.
+    testRhsKrnl.minus = Dt;
     testRhsKrnl.testRhs = rhs;
     testRhsKrnl.execute();
   };

@@ -266,14 +266,14 @@ void OutputManager::initElementwiseOutput() {
           for (std::size_t i = 0; i < pointCount; ++i) {
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
               target[i * Cell::Dim + j] =
-                  receivers[(pointCount * index + i) * multisim::NumSimulations].global.coords[j];
+                  receivers[(pointCount * index + i) * multisim::NumSimulations].global[j];
             }
           }
         } else {
           const auto& triangle = receivers[index * multisim::NumSimulations].globalTriangle;
           for (std::size_t i = 0; i < pointCount; ++i) {
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
-              target[i * Cell::Dim + j] = triangle.point(i).coords[j];
+              target[i * Cell::Dim + j] = triangle.point(i)[j];
             }
           }
         }
@@ -372,7 +372,7 @@ void OutputManager::initPickpointOutput() {
       std::unordered_map<std::size_t, std::vector<std::size_t>> globalIndexMap;
       for (size_t i = 0; i < outputData->topology.pointCount(); ++i) {
         const auto& receiver = outputData->receivers[outputData->topology.representative(i)];
-        globalIndexMap[receiver.globalReceiverIndex].push_back(i);
+        globalIndexMap[receiver.globalReceiverIndex.value()].push_back(i);
       }
 
       files.resize(globalIndexMap.size());
@@ -438,7 +438,7 @@ void OutputManager::initPickpointOutput() {
           for (const auto& gIdx : ppfile.indices) {
             for (const auto receiverId : outputData->topology.receiversOf(gIdx)) {
               const auto& receiver = outputData->receivers[receiverId];
-              const size_t globalIndex = receiver.globalReceiverIndex + 1;
+              const size_t globalIndex = receiver.globalReceiverIndex.value() + 1;
               const size_t simIndex = receiver.simIndex + 1;
               title << " " << globalIndex << "," << simIndex << ";";
             }
@@ -456,7 +456,7 @@ void OutputManager::initPickpointOutput() {
             const auto faceId = outputData->topology.points[gIdx].faceId;
             for (const auto receiverId : outputData->topology.receiversOf(gIdx)) {
               const auto& receiver = outputData->receivers[receiverId];
-              const size_t globalIndex = receiver.globalReceiverIndex + 1;
+              const size_t globalIndex = receiver.globalReceiverIndex.value() + 1;
               const size_t simIndex = receiver.simIndex + 1;
               const auto& point = receiver.global;
 
@@ -467,16 +467,20 @@ void OutputManager::initPickpointOutput() {
                 file << "# x2\t" << makeFormatted(point[1]) << '\n';
                 file << "# x3\t" << makeFormatted(point[2]) << '\n';
                 file << "# face-global-id\t" << receiver.globalFaultFaceId() << '\n';
-                file << "# plus-cell-global-id\t" << receiver.elementGlobalIndex << '\n';
-                file << "# plus-face-side\t" << receiver.localFaceSideId << '\n';
-                file << "# minus-cell-global-id\t" << receiver.elementNeighborGlobalIndex << '\n';
-                file << "# minus-face-side\t" << receiver.localNeighborFaceSideId << '\n';
+                file << "# plus-cell-global-id\t" << receiver.elementGlobalIndex.value() << '\n';
+                // sides are int8_t; print them as numbers, not as characters
+                file << "# plus-face-side\t" << static_cast<int>(receiver.localFaceSideId.value())
+                     << '\n';
+                file << "# minus-cell-global-id\t" << receiver.elementNeighborGlobalIndex.value()
+                     << '\n';
+                file << "# minus-face-side\t"
+                     << static_cast<int>(receiver.localNeighborFaceSideId.value()) << '\n';
               }
 
               // stress info
               std::array<real, 6> rotatedInitialStress{};
               {
-                const auto position = faceToLtsMap_.get(receiver.faultFaceIndex);
+                const auto position = faceToLtsMap_.get(receiver.faultFaceIndex.value());
 
                 // the stress the fault starts out under, which is every source in effect then
                 const auto sourceCount =
@@ -582,6 +586,14 @@ void OutputManager::writePickpointOutput(std::size_t layerId,
         if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
           // our calculation was off (maybe due to many intermediate sync points), so resize
 
+          // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream,
+          // which runs once the friction law is done, and stores into whatever memory the cache
+          // has at that time. Growing the cache moves it, and a sample stored into the old memory
+          // while it is being moved is lost. Hence, all samples taken so far have to be in first.
+          auto& sampleRuntime =
+              outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+          sampleRuntime.wait();
+
           outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
           const auto newCacheLevel = outputData->maxCacheLevel;
           outputData->cachedTime.resize(newCacheLevel);
@@ -642,8 +654,8 @@ void OutputManager::initPickpointTable() {
   std::sort(ppTableRows_.begin(), ppTableRows_.end(), [this](const auto& a, const auto& b) {
     const auto& left = ppOutputData_.at(a.first)->receivers[a.second];
     const auto& right = ppOutputData_.at(b.first)->receivers[b.second];
-    return std::tie(left.globalReceiverIndex, left.simIndex) <
-           std::tie(right.globalReceiverIndex, right.simIndex);
+    return std::make_tuple(left.globalReceiverIndex.value(), left.simIndex) <
+           std::make_tuple(right.globalReceiverIndex.value(), right.simIndex);
   });
 
   const std::vector<std::vector<io::instance::point::TableQuantity>> pointQuantities(
@@ -665,15 +677,15 @@ void OutputManager::initPickpointTable() {
   std::vector<double> coordinates;
   for (const auto& [layerId, point] : ppTableRows_) {
     const auto& receiver = ppOutputData_.at(layerId)->receivers[point];
-    receiverIds.push_back(static_cast<std::uint64_t>(receiver.globalReceiverIndex));
+    receiverIds.push_back(static_cast<std::uint64_t>(receiver.globalReceiverIndex.value()));
     simulations.push_back(static_cast<std::uint64_t>(receiver.simIndex));
     faceIds.push_back(static_cast<std::uint64_t>(receiver.globalFaultFaceId()));
-    plusCells.push_back(static_cast<std::int64_t>(receiver.elementGlobalIndex));
-    plusSides.push_back(receiver.localFaceSideId);
-    minusCells.push_back(static_cast<std::int64_t>(receiver.elementNeighborGlobalIndex));
-    minusSides.push_back(receiver.localNeighborFaceSideId);
+    plusCells.push_back(static_cast<std::int64_t>(receiver.elementGlobalIndex.value()));
+    plusSides.push_back(receiver.localFaceSideId.value());
+    minusCells.push_back(static_cast<std::int64_t>(receiver.elementNeighborGlobalIndex.value()));
+    minusSides.push_back(receiver.localNeighborFaceSideId.value());
     for (std::size_t dimension = 0; dimension < Cell::Dim; ++dimension) {
-      coordinates.push_back(receiver.global.coords[dimension]);
+      coordinates.push_back(receiver.global[dimension]);
     }
   }
   ppTable_->addPointData("ReceiverId", {}, receiverIds);

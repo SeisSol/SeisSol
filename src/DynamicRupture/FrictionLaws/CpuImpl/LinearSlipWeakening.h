@@ -9,6 +9,8 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "BaseFrictionLaw.h"
+#include "GeneratedCode/kernel.h"
+#include "Initializer/Typedefs.h"
 
 #include <utils/logger.h>
 
@@ -24,6 +26,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   explicit LinearSlipWeakeningLaw(const FrictionLawParameters& drParameters)
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization_(drParameters) {}
+
+  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+    BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>::allocateAuxiliaryMemory(globalData);
+    specialization_.allocateAuxiliaryMemory(globalData);
+  }
 
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                              const FaultStresses<Executor::Host>& initialStress,
@@ -289,8 +296,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
 class NoSpecialization {
   public:
-  explicit NoSpecialization(const FrictionLawParameters& parameters) {};
+  explicit NoSpecialization(const FrictionLawParameters& /*parameters*/) {};
 
+  void allocateAuxiliaryMemory(GlobalData* globalData);
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
@@ -298,8 +306,8 @@ class NoSpecialization {
    * the reference triangle with degree less or equal than ConvergenceOrder-1, and then evaluates
    * the polynomial at the quadrature points
    */
-  static void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                               const real (&slipRate)[dr::misc::NumPaddedPoints]);
+  void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
+                        const real (&slipRate)[dr::misc::NumPaddedPoints]) const;
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
@@ -332,6 +340,9 @@ class NoSpecialization {
                                 std::uint32_t /*pointIndex*/) {
     return static_cast<real>(1.0);
   };
+
+  private:
+  dynamicRupture::kernel::resampleParameter resampleKrnlPrototype_;
 };
 
 /**
@@ -342,6 +353,7 @@ class BiMaterialFault {
   explicit BiMaterialFault(const FrictionLawParameters& parameters)
       : vStar_(parameters.vStar), prakashLength_(parameters.prakashLength) {};
 
+  void allocateAuxiliaryMemory(GlobalData* /*globalData*/) {}
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
@@ -412,6 +424,7 @@ class TPApprox {
   explicit TPApprox(const FrictionLawParameters& parameters)
       : tpProxyExponent_(parameters.tpProxyExponent) {};
 
+  void allocateAuxiliaryMemory(GlobalData* /*globalData*/) {}
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
   /**
    * Use a simple copy for now, maybe use proper resampling later

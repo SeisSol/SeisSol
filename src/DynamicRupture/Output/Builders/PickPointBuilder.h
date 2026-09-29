@@ -10,6 +10,9 @@
 
 #include "Common/Iterator.h"
 #include "DynamicRupture/Output/DataTypes.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
+#include "Geometry/MeshDefinition.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
@@ -79,8 +82,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       convertStringToMask(line, coords);
 
       Receiver point{};
-      for (int i = 0; i < 3; ++i) {
-        point.global.coords[i] = coords[i];
+      for (std::size_t i = 0; i < coords.size(); ++i) {
+        point.global[i] = coords[i];
       }
 
       potentialReceivers_.push_back(point);
@@ -92,7 +95,6 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     const auto numReceivers = potentialReceivers_.size();
 
     const auto& meshElements = meshReader_->getElements();
-    const auto& meshVertices = meshReader_->getVertices();
     const auto& faultInfos = meshReader_->getFault();
 
     std::vector<short> contained(potentialReceivers_.size());
@@ -106,9 +108,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
         if (closest.has_value()) {
           const auto& faultItem = faultInfos.at(closest.value());
-          const auto& element = meshElements.at(faultItem.element);
 
-          receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
+          assert(faultItem.element.hasValue());
+          const auto& element = meshElements.at(faultItem.element.value());
+
+          const auto faceTransform = seissol::geometry::AffineFaceTransform::fromMeshCell(
+              faultItem.element.value(), faultItem.side, *meshReader_);
+          receiver.globalTriangle = toExtTriangle(faceTransform);
           projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
 
           contained[receiverIdx] = 1;
@@ -121,12 +127,10 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           receiver.localNeighborFaceSideId = faultItem.neighborSide;
           receiver.elementNeighborGlobalIndex = faultItem.neighborGlobalId;
 
-          receiver.reference = transformations::tetrahedronGlobalToReference(
-              meshVertices[element.vertices[0]].coords,
-              meshVertices[element.vertices[1]].coords,
-              meshVertices[element.vertices[2]].coords,
-              meshVertices[element.vertices[3]].coords,
-              receiver.global.getAsEigen3LibVector());
+          const auto point = seissol::geometry::AffineTransform::fromMeshCell(
+                                 faultItem.element.value(), *meshReader_)
+                                 .spaceToRef(Eigen::Vector3d(receiver.global.data()));
+          std::copy(point.begin(), point.end(), receiver.reference.begin());
         }
       } catch (const std::exception& error) {
         logError() << "An error occurred while trying to find an on-fault receiver point:"
@@ -141,7 +145,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           auto singleReceiver = receiver;
           singleReceiver.simIndex = i;
 
-          const auto layerId = faceToLtsMap_->get(receiver.faultFaceIndex).color;
+          const auto layerId = faceToLtsMap_->get(receiver.faultFaceIndex.value()).color;
           if (outputDataPerCluster[layerId] == nullptr) {
             outputDataPerCluster[layerId] = std::make_shared<ReceiverOutputData>();
           }
@@ -151,18 +155,16 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
   }
 
-  std::optional<size_t> findClosestFaultIndex(const ExtVrtxCoords& point) {
-    const auto& meshElements = meshReader_->getElements();
-    const auto& meshVertices = meshReader_->getVertices();
+  std::optional<size_t> findClosestFaultIndex(const CoordinateT& point) {
     const auto& fault = meshReader_->getFault();
 
     auto minDistance = std::numeric_limits<double>::max();
     auto closest = std::optional<std::size_t>();
 
     for (auto [faceIdx, faultItem] : seissol::common::enumerate(fault)) {
-      if (faultItem.element >= 0) {
-        const auto face =
-            getGlobalTriangle(faultItem.side, meshElements.at(faultItem.element), meshVertices);
+      if (faultItem.element.hasValue()) {
+        const auto face = toExtTriangle(seissol::geometry::AffineFaceTransform::fromMeshCell(
+            faultItem.element.value(), faultItem.side, *meshReader_));
         const auto insideQuantifier = isInsideFace(point, face, faultItem.normal);
 
         if (insideQuantifier > -1e-12) {

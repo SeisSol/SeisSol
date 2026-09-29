@@ -348,7 +348,6 @@ class Layer {
 
   recording::ConditionalPointersToRealsTable conditionalPointersToRealsTable_;
   recording::DrConditionalPointersToRealsTable drConditionalPointersToRealsTable_;
-  recording::ConditionalMaterialTable conditionalMaterialTable_;
   recording::ConditionalIndicesTable conditionalIndicesTable_;
 
   public:
@@ -692,10 +691,6 @@ private:
       return drConditionalPointersToRealsTable_;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
-      return conditionalMaterialTable_;
-    }
-
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
       return conditionalIndicesTable_;
     }
@@ -709,10 +704,6 @@ private:
 
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
       return drConditionalPointersToRealsTable_;
-    }
-
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
-      return conditionalMaterialTable_;
     }
 
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {

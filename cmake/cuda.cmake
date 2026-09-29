@@ -7,6 +7,8 @@
 
 enable_language(CUDA)
 
+find_package(CUDAToolkit REQUIRED)
+
 function(make_device_lib NAME FILES)
 
     add_library(${NAME} ${DEVICE_LIBTYPE} ${FILES})
@@ -44,5 +46,18 @@ function(make_device_lib NAME FILES)
                 --compiler-options ${EXTRA_CXX_FLAGS}
                 >)
     endif()
+
+endfunction()
+
+function(make_device_hostapi_lib NAME FILES)
+
+    add_library(${NAME} OBJECT ${FILES})
+
+    set_target_properties(${NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+    target_compile_features(${NAME} PRIVATE cxx_std_17)
+    target_compile_options(${NAME} PRIVATE ${EXTRA_CXX_FLAGS})
+
+    target_link_libraries(${NAME} PRIVATE CUDA::cudart)
 
 endfunction()
