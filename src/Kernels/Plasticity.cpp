@@ -124,7 +124,9 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
     // Compute yield := (t_c / tau - 1) r for every node,
     // where r = 1 - exp(-timeStepWidth / tV)
     const auto doesYield = tau[ip] > taulim[ip];
-    adjust = doesYield ? 1 : 0;
+    // once a node yields, the cell is adjusted; a later node that does not
+    // yield must not take that back
+    adjust = doesYield ? 1 : adjust;
     const auto ifYield =
         (taulim[ip] / tau[ip] - static_cast<real>(1.0)) * oneMinusIntegratingFactor;
     yieldFactor[ip] = doesYield ? ifYield : 0;
