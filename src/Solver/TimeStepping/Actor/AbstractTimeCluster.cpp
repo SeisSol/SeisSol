@@ -15,6 +15,7 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <utils/logger.h>
 #include <vector>
@@ -70,6 +71,9 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     break;
   case ActorAction::Correct:
     assert(state_ == ActorState::Predicted);
+    // every step advances the time; a step count too large for the synchronization point would
+    // leave a step of size 0
+    assert(timeStepSize() > 0);
     stepWork_ = prepare(ActorAction::Correct);
     if (deviceWork_) {
       waitForNeighbors();
@@ -85,6 +89,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     break;
   case ActorAction::Predict:
     assert(state_ == ActorState::Corrected);
+    assert(timeStepSize() > 0);
     stepWork_ = prepare(ActorAction::Predict);
     if (deviceWork_) {
       waitForNeighbors();
@@ -99,6 +104,10 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     break;
   case ActorAction::Sync:
     assert(state_ == ActorState::Corrected);
+    // the last step has ended at the synchronization point
+    assert(std::abs(ct_.correctionTime - syncTime_) <= ClusterTimes::TickTolerance *
+                                                           ct_.maxTimeStepSize /
+                                                           static_cast<double>(ct_.timeStepRate));
     logDebug() << "synced at" << syncTime_ << ", corrTime =" << ct_.correctionTime
                << "stepsSinceLastSync" << ct_.stepsSinceLastSync << "stepsUntilLastSync"
                << ct_.stepsUntilSync << std::endl;
@@ -171,17 +180,21 @@ void AbstractTimeCluster::refreshNeighbors() {
     const auto corrections = neighbor.progress->stepsSinceLastSync.load(std::memory_order_acquire);
 
     // a cluster corrects a step only after it has predicted it; the correction thus concerns an
-    // older step and is handled first
+    // older step and is handled first. The times of a neighbor grow with its steps; but a time read
+    // here may belong to a later step than the count read before it, so the time read with the
+    // next count may be the same.
     if (corrections > neighbor.ct.stepsSinceLastSync) {
+      const auto correctionTime = neighbor.progress->correctionTime.load(std::memory_order_relaxed);
+      assert(correctionTime >= neighbor.ct.correctionTime);
       neighbor.ct.stepsSinceLastSync = corrections;
-      neighbor.ct.correctionTime =
-          neighbor.progress->correctionTime.load(std::memory_order_relaxed);
+      neighbor.ct.correctionTime = correctionTime;
       handleNeighborCorrection(neighbor);
     }
     if (predictions > neighbor.ct.predictionsSinceLastSync) {
+      const auto predictionTime = neighbor.progress->predictionTime.load(std::memory_order_relaxed);
+      assert(predictionTime >= neighbor.ct.predictionTime);
       neighbor.ct.predictionsSinceLastSync = predictions;
-      neighbor.ct.predictionTime =
-          neighbor.progress->predictionTime.load(std::memory_order_relaxed);
+      neighbor.ct.predictionTime = predictionTime;
       handleNeighborPrediction(neighbor);
     }
   }
@@ -233,6 +246,7 @@ DataReadiness AbstractTimeCluster::dataReadiness() const { return DataReadiness:
 void AbstractTimeCluster::setSyncTime(double newSyncTime) {
   assert(newSyncTime > syncTime_);
   assert(state_ == ActorState::Synced);
+  lastSyncTime_ = syncTime_;
   syncTime_ = newSyncTime;
 }
 
@@ -242,11 +256,11 @@ void AbstractTimeCluster::reset() {
 
   ct_.stepsSinceLastSync = 0;
   ct_.predictionsSinceLastSync = 0;
-  ct_.stepsUntilSync = ct_.computeStepsUntilSyncTime(ct_.correctionTime, syncTime_);
+  // between the synchronization times, not from the own time: each neighbor counts the same way
+  ct_.stepsUntilSync = ct_.computeStepsUntilSyncTime(lastSyncTime_, syncTime_);
 
   for (auto& neighbor : neighbors_) {
-    neighbor.ct.stepsUntilSync =
-        neighbor.ct.computeStepsUntilSyncTime(ct_.correctionTime, syncTime_);
+    neighbor.ct.stepsUntilSync = neighbor.ct.computeStepsUntilSyncTime(lastSyncTime_, syncTime_);
     neighbor.ct.stepsSinceLastSync = 0;
     neighbor.ct.predictionsSinceLastSync = 0;
   }
@@ -263,6 +277,10 @@ void AbstractTimeCluster::setPriority(ActorPriority newPriority) { this->priorit
 ActorState AbstractTimeCluster::getState() const { return state_; }
 
 void AbstractTimeCluster::setTime(double time) {
+  assert(state_ == ActorState::Synced);
+  // the steps until the next synchronization point count from here
+  syncTime_ = time;
+  lastSyncTime_ = time;
   ct_.predictionTime = time;
   ct_.correctionTime = time;
   for (auto& neighbor : neighbors_) {

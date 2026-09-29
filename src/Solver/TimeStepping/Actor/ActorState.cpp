@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 #include <string>
 
 namespace seissol::solver {
@@ -36,13 +35,25 @@ long ClusterTimes::nextCorrectionSteps() const {
   return std::min(stepsSinceLastSync + timeStepRate, stepsUntilSync);
 }
 
+double ClusterTimes::timeStepSize(double time, long steps, double syncTime) const {
+  if (isLastStep(steps)) {
+    // may exceed the maximum by the tolerance of the step count
+    return syncTime - time;
+  }
+  return std::min(syncTime - time, maxTimeStepSize);
+}
+
 double ClusterTimes::timeStepSize(double syncTime) const {
-  return std::min(syncTime - correctionTime, maxTimeStepSize);
+  return timeStepSize(correctionTime, stepsSinceLastSync, syncTime);
 }
 
 long ClusterTimes::computeStepsUntilSyncTime(double oldSyncTime, double newSyncTime) const {
   const double timeDiff = newSyncTime - oldSyncTime;
-  return static_cast<long>(std::ceil(timeStepRate * timeDiff / maxTimeStepSize));
+  if (timeDiff <= 0) {
+    return 0;
+  }
+  const double ticks = timeStepRate * timeDiff / maxTimeStepSize;
+  return std::max(1L, static_cast<long>(std::ceil(ticks - TickTolerance)));
 }
 
 NeighborCluster::NeighborCluster(double maxTimeStepSize,

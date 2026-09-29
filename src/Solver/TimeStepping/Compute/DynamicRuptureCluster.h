@@ -97,8 +97,9 @@ class DynamicRuptureCluster : public FaceCluster {
   void planPickpointOutput(const StepParams& params);
   void writePickpointOutput(const StepParams& params);
 
-  /// decides about the output steps of the step that starts at `stepTime`, and records them
-  void recordPickpointsNow(double stepTime);
+  /// decides about the output steps of the step that starts at `stepTime`, and records them;
+  /// `lastStep` tells whether it is the last step before the synchronization point
+  void recordPickpointsNow(double stepTime, bool lastStep);
 
   //! the fault receivers decide about their output steps when the work of a step runs
   bool runTimeOutputs_{false};

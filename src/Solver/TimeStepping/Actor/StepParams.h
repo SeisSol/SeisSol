@@ -52,7 +52,7 @@ struct StepParams {
   /// Start time of the step.
   double time{0};
 
-  /// Size of the step; the last step before the synchronization time is cut off there.
+  /// Size of the step; the last step before the synchronization time ends there.
   double timeStepSize{0};
 
   /// Start of the step relative to the start of the enclosing step of the next-larger neighbor;

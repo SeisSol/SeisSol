@@ -127,6 +127,7 @@ TEST_CASE("computeStepContext" * doctest::test_suite("solver")) {
 TEST_CASE("computeStepParams" * doctest::test_suite("solver")) {
   SUBCASE("Without a larger neighbor, every step starts anew") {
     auto times = clusterTimes(0.5, 1);
+    times.stepsUntilSync = 20;
     const StepContext context{0, 0.5};
     for (long step = 0; step < 4; ++step) {
       times.stepsSinceLastSync = step;
@@ -142,6 +143,7 @@ TEST_CASE("computeStepParams" * doctest::test_suite("solver")) {
 
   SUBCASE("Position inside the step of a neighbor with rate ratio 3") {
     auto times = clusterTimes(0.25, 2);
+    times.stepsUntilSync = 80;
     const StepContext context{6, 0.75};
     for (long step = 0; step < 7; ++step) {
       times.stepsSinceLastSync = 2 * step;
@@ -157,6 +159,7 @@ TEST_CASE("computeStepParams" * doctest::test_suite("solver")) {
     auto times = clusterTimes(1.0, 1);
     times.correctionTime = 6.5;
     times.stepsSinceLastSync = 1;
+    times.stepsUntilSync = 2;
     const auto params = computeStepParams(times, 7.0, StepContext{2, 2.0});
     CHECK(params.timeStepSize == doctest::Approx(0.5));
     CHECK(params.subTimeStart == 1.0);

@@ -474,6 +474,17 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   communicationManager_->reset(synchronizationTime);
 
+  // clusters that disagree on the number of ticks until the synchronization point would wait for
+  // each other forever
+  const auto ticks = clusters_.empty() ? 0 : clusters_.front()->getStepsUntilSync();
+  const auto agrees = [&](const auto& cluster) { return cluster->getStepsUntilSync() == ticks; };
+  const auto& ghostClusters = *communicationManager_->getGhostClusters();
+  if (!std::all_of(clusters_.begin(), clusters_.end(), agrees) ||
+      !std::all_of(ghostClusters.begin(), ghostClusters.end(), agrees)) {
+    logError() << "The clusters disagree on the number of steps until the synchronization point at"
+               << synchronizationTime << "s.";
+  }
+
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::instance();
@@ -752,7 +763,8 @@ void TimeManager::printComputationTime(const std::string& outputPrefix,
 }
 
 double TimeManager::getTimeTolerance() const {
-  return 1E-5 * clusterLayout_.value().minimumTimestep;
+  // the same tolerance as the clusters count their steps with
+  return ClusterTimes::TickTolerance * clusterLayout_.value().minimumTimestep;
 }
 
 void TimeManager::setPointSourcesForClusters(

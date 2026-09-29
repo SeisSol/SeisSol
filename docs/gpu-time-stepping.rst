@@ -33,6 +33,9 @@ A cluster may take a step once its neighbors have provided the data it needs,
 and have read the data it overwrites.
 Between two synchronization points (e.g. outputs), the steps are counted in *ticks*,
 the steps of the smallest time cluster.
+All clusters count the ticks between the two synchronization times the same way,
+rounding up, but ignoring a remainder below :math:`10^{-5}` ticks (the tolerance with which SeisSol compares times);
+the last step of each cluster ends exactly at the synchronization point.
 The steps of the largest time cluster form the *super-timesteps*.
 
 Options

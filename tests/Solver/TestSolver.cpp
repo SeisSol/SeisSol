@@ -13,6 +13,7 @@
 #include "TimeStepping/Actor/ActorState.t.h"
 #include "TimeStepping/Actor/ConcurrentClusters.t.h"
 #include "TimeStepping/Actor/StepParams.t.h"
+#include "TimeStepping/Actor/SyncPoints.t.h"
 #include "TimeStepping/Compute/ClusterClock.t.h"
 #include "TimeStepping/Halo/GhostCluster.t.h"
 #include "TimeStepping/Halo/Stream/ExchangeScheduler.t.h"

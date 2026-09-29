@@ -87,6 +87,8 @@ class AbstractTimeCluster {
   ClusterTimes ct_;
   std::vector<NeighborCluster> neighbors_;
   double syncTime_ = 0.0;
+  //! the synchronization point before syncTime_, or the time the cluster started with
+  double lastSyncTime_ = 0.0;
   StepContext stepContext_;
 
   [[nodiscard]] double timeStepSize() const;

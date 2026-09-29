@@ -44,7 +44,6 @@
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -523,7 +522,8 @@ bool CellCluster::outputsAhead(long steps) const {
   double time = ct_.correctionTime;
   double receiverTime = receiverTime_;
   for (long step = 0; step < steps; ++step) {
-    const double timeStepSize = std::min(syncTime_ - time, ct_.maxTimeStepSize);
+    const double timeStepSize =
+        ct_.timeStepSize(time, ct_.stepsSinceLastSync + step * ct_.timeStepRate, syncTime_);
     const auto sampling = receiverCluster_->planSampling(receiverTime, time, timeStepSize);
     if (sampling.due) {
       return true;

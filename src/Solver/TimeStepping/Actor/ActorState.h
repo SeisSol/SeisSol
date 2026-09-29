@@ -96,6 +96,14 @@ enum class ActorAction { Nothing, Correct, Predict, Sync, RestartAfterSync };
 std::string actorStateToString(ActorState state);
 
 struct ClusterTimes {
+  /**
+   * The tolerance, in ticks (steps of the smallest time cluster), below which a remainder of time
+   * before a synchronization point does not count as a tick of its own: the step before ends at the
+   * synchronization point instead. It matches the tolerance with which the simulator compares its
+   * times (TimeManager::getTimeTolerance()), and covers the rounding in the times of the clusters.
+   */
+  static constexpr double TickTolerance = 1e-5;
+
   double predictionTime = 0.0;
   double correctionTime = 0.0;
   double maxTimeStepSize = std::numeric_limits<double>::infinity();
@@ -110,9 +118,27 @@ struct ClusterTimes {
 
   [[nodiscard]] long nextCorrectionSteps() const;
 
-  //! Returns time step s.t. we won't miss the sync point
+  /**
+   * Whether the step that starts `steps` ticks after the last synchronization point is the last
+   * one before the next.
+   */
+  [[nodiscard]] bool isLastStep(long steps) const { return steps + timeStepRate >= stepsUntilSync; }
+
+  /**
+   * The size of the step that starts at `time`, `steps` ticks after the last synchronization point.
+   * The step counts decide which step is the last one before the synchronization point; that one
+   * ends exactly there, all others are the maximum time step size.
+   */
+  [[nodiscard]] double timeStepSize(double time, long steps, double syncTime) const;
+
+  //! The size of the step that starts at the correction time.
   [[nodiscard]] double timeStepSize(double syncTime) const;
 
+  /**
+   * The number of ticks from one synchronization point to the next, rounded up, but within the
+   * tolerance (TickTolerance). All clusters count between the same synchronization times, not from
+   * their own times, which may differ from them in the last bits: so they all agree on the number.
+   */
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime, double newSyncTime) const;
 
   //  [[nodiscard]] double& getTimeStepSize();

@@ -267,12 +267,14 @@ void DynamicRuptureCluster::setRunTimeOutputs(bool runTimeOutputs) {
 #endif
 }
 
-void DynamicRuptureCluster::recordPickpointsNow(double stepTime) {
+void DynamicRuptureCluster::recordPickpointsNow(double stepTime, bool lastStep) {
   // the same output steps as planPickpointOutput() and writePickpointOutput(), for the step that
   // starts at stepTime
   const auto layerId = layerData_->id();
   const double meshDt = ct_.getTimeStepSize();
-  const double stateTime = stepTime + std::min(syncTime_ - stepTime, ct_.maxTimeStepSize);
+  const double stateTime =
+      stepTime +
+      (lastStep ? syncTime_ - stepTime : std::min(syncTime_ - stepTime, ct_.maxTimeStepSize));
   double time = stepTime;
   do {
     const auto oldTime = time;
@@ -291,7 +293,11 @@ void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
     if (faultOutputManager_->hasPickpoints(layerId)) {
       auto& callRuntime = faultOutputManager_->gatherPickpointData(
           layerId, clock_.device(), pickpointStepStart_, params.time, streamRuntime_);
-      callRuntime.enqueueHost([this]() { recordPickpointsNow(*pickpointStepStart_); });
+      // a recording that gets replayed ends before the synchronization point, so the last step
+      // before it is never replayed
+      const bool lastStep = ct_.isLastStep(ct_.stepsSinceLastSync);
+      callRuntime.enqueueHost(
+          [this, lastStep]() { recordPickpointsNow(*pickpointStepStart_, lastStep); });
     }
     return;
   }
@@ -336,7 +342,8 @@ bool DynamicRuptureCluster::outputsAhead(long steps) const {
       }
       ++iteration;
     } while (time * (1 + 1e-8) < stepTime + ct_.maxTimeStepSize && time < syncTime_);
-    stepTime += std::min(syncTime_ - stepTime, ct_.maxTimeStepSize);
+    stepTime +=
+        ct_.timeStepSize(stepTime, ct_.stepsSinceLastSync + step * ct_.timeStepRate, syncTime_);
   }
   return false;
 }
