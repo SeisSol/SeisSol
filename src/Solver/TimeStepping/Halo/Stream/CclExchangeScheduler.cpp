@@ -80,7 +80,8 @@ CCL(DataType_t) datatype(RealType type) {
 
 CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
     : StreamExchangeScheduler(clusterCount, order),
-      communicators_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr) {
+      communicators_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr),
+      senders_(communicators_.size(), nullptr), receivers_(communicators_.size(), nullptr) {
   const auto slots = usedSlots();
 
   std::vector<CCL(UniqueId)> ids(slots.size());
@@ -117,7 +118,9 @@ CclExchangeScheduler::~CclExchangeScheduler() {
   }
 }
 
-void CclExchangeScheduler::added([[maybe_unused]] const ScheduledTransport& transport) {
+void CclExchangeScheduler::added(const ScheduledTransport& transport) {
+  senders_[slot(transport.cluster(), transport.otherCluster())] = &transport;
+  receivers_[slot(transport.otherCluster(), transport.cluster())] = &transport;
 #ifdef USE_CCL_REGISTER
   // the copy regions go out in the direction towards the other cluster, the ghost regions come in
   // from it
@@ -137,6 +140,24 @@ void CclExchangeScheduler::added([[maybe_unused]] const ScheduledTransport& tran
   registerRegions(transport.regions().copy, transport.cluster(), transport.otherCluster());
   registerRegions(transport.regions().ghost, transport.otherCluster(), transport.cluster());
 #endif
+}
+
+void CclExchangeScheduler::prepare() {
+  if (launchOrder() != LaunchOrder::PerDirection) {
+    return;
+  }
+  // The first group towards a peer on a communicator blocks the host until the peer has joined it
+  // there, to set up the connection. With a communicator per direction, two processes could each
+  // launch the first group of a different direction and wait for each other forever: e.g. if each
+  // of them only receives in one of the two directions between two clusters, it launches that
+  // group right at the start. So all communicators get their connections here, one after the other
+  // in the same order on all processes, with one group of each direction as it comes later. Its
+  // data does not matter; the first exchange overwrites the ghost layers before anything reads
+  // them.
+  for (const auto current : usedSlots()) {
+    enqueueGroup(current, 0, 0, 0, senders_[current], receivers_[current]);
+  }
+  synchronize();
 }
 
 void CclExchangeScheduler::enqueueGroup(std::size_t slot,
@@ -186,6 +207,8 @@ CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder
 }
 
 CclExchangeScheduler::~CclExchangeScheduler() = default;
+
+void CclExchangeScheduler::prepare() {}
 
 void CclExchangeScheduler::added(const ScheduledTransport& /*transport*/) {}
 

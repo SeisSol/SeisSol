@@ -102,6 +102,9 @@ Hence, by default, all exchanges of a process go through one stream,
 ordered by the point in logical time at which their data is complete, which is the same on all processes.
 With ``SEISSOL_EXCHANGE_PER_DIRECTION=1``, each direction gets a stream of its own instead;
 the groups of different directions may then run at the same time.
+With ``ccl``, each direction then also gets a communicator of its own. The first operation towards a peer on a
+communicator blocks the process until the peer has joined, to connect them; so all communicators get connected
+at the start, one after the other in the same order on all processes, with one exchange of each direction.
 
 ``shmem`` puts the data into a staging window of the receiving process in symmetric memory
 (as large as the ghost layers of the process with the largest ones),

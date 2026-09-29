@@ -35,6 +35,12 @@ class CclExchangeScheduler : public StreamExchangeScheduler {
   CclExchangeScheduler& operator=(const CclExchangeScheduler&) = delete;
   CclExchangeScheduler& operator=(CclExchangeScheduler&&) = delete;
 
+  /**
+   * With `LaunchOrder::PerDirection`, sets up the connections of all communicators, one after the
+   * other in the same order on all processes; collective over all processes.
+   */
+  void prepare() override;
+
   protected:
   void added(const ScheduledTransport& transport) override;
   void enqueueGroup(std::size_t slot,
@@ -47,6 +53,9 @@ class CclExchangeScheduler : public StreamExchangeScheduler {
   private:
   std::vector<void*> communicators_;
   std::vector<std::pair<void*, void*>> registrations_;
+  // for each slot: the transport that sends, and the one that receives in its direction
+  std::vector<const ScheduledTransport*> senders_;
+  std::vector<const ScheduledTransport*> receivers_;
 };
 
 } // namespace seissol::solver
