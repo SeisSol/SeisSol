@@ -184,8 +184,10 @@ void setIsotropicImpedance(seissol::dr::ImpedancesAndEta& impAndEta,
   impAndEta.etaS.set(point, 1.0 / (1.0 / zs + 1.0 / zsNeig));
 }
 
-/// The density and the wave speeds of one side of a fault face, at one point of it. Each is
-/// asked of the material once per point and side; the scalar impedances are formed from them.
+/// The density and the wave speeds of one side of a fault face, at one point of it. The scalar
+/// impedances are formed from them rather than from the material again, which for a poroelastic
+/// one would solve its eigenproblem once more; the traction averaging of an isotropic material,
+/// where that costs nothing, still reads the material itself.
 template <typename MaterialT>
 void setWaveSpeeds(seissol::dr::WaveSpeeds& waveSpeeds,
                    std::size_t point,

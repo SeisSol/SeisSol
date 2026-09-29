@@ -38,7 +38,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <limits>
 #include <random>
 #include <type_traits>
 #include <vector>
@@ -148,18 +147,38 @@ inline void liftIsNormalFlux() {
                    (transposed[dim].cwiseAbs().transpose() * rotation.cwiseAbs()).transpose();
     }
 
-    // The rows are orders of magnitude apart -- a face stress enters the velocities with the
-    // inverse density, a face velocity the stresses with the moduli -- so every row is measured
-    // against the size of its own terms, and a small entry is not hidden behind the largest one
-    // of the matrix. The terms rather than the entries, since a row may cancel to zero exactly in
-    // one form and to roundoff in the other.
+    // The entries are orders of magnitude apart -- a face stress enters the velocities with the
+    // inverse density, a face velocity the stresses with the moduli and the memory variables with
+    // a weight of one -- so every entry is measured against the size of the terms of its row
+    // within the quantity group of its column, and a small entry is not hidden behind a large
+    // one. The terms rather than the entries, since a row may cancel to zero exactly in one form
+    // and to roundoff in the other; an entry without any terms has to vanish exactly.
+    std::array<std::size_t, Columns> groupOf{};
+    std::size_t groups = 0;
+    std::size_t covered = 0;
+    for (const auto& group : Material::RotationGroups) {
+      for (std::size_t i = 0; i < group.extent() && covered < Columns; ++i) {
+        groupOf[covered++] = groups;
+      }
+      ++groups;
+    }
+    REQUIRE(covered == Columns);
+
     constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
     for (std::size_t row = 0; row < Rows; ++row) {
-      const double scale =
-          std::max(magnitude.row(row).maxCoeff(), std::numeric_limits<double>::min());
+      std::vector<double> scaleOfGroup(groups, 0.0);
       for (std::size_t column = 0; column < Columns; ++column) {
-        REQUIRE(lift(row, column) ==
-                doctest::Approx(expected(row, column)).epsilon(Tolerance).scale(scale));
+        scaleOfGroup[groupOf[column]] =
+            std::max(scaleOfGroup[groupOf[column]], magnitude(row, column));
+      }
+      for (std::size_t column = 0; column < Columns; ++column) {
+        const double scale = scaleOfGroup[groupOf[column]];
+        if (scale == 0.0) {
+          REQUIRE(lift(row, column) == expected(row, column));
+        } else {
+          REQUIRE(lift(row, column) ==
+                  doctest::Approx(expected(row, column)).epsilon(Tolerance).scale(scale));
+        }
       }
     }
   }
@@ -295,11 +314,14 @@ void pointwiseAgainstMatrix() {
           // every quantity against its own size, as in the matrix check above
           constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
           for (std::size_t column = 0; column < Written; ++column) {
-            const double scale =
-                std::max(magnitude.col(column).maxCoeff(), std::numeric_limits<double>::min());
+            const double scale = magnitude.col(column).maxCoeff();
             for (std::size_t row = 0; row < Basis; ++row) {
-              REQUIRE(dofsOfSim(row, column) ==
-                      doctest::Approx(expected(row, column)).epsilon(Tolerance).scale(scale));
+              if (scale == 0.0) {
+                REQUIRE(dofsOfSim(row, column) == expected(row, column));
+              } else {
+                REQUIRE(dofsOfSim(row, column) ==
+                        doctest::Approx(expected(row, column)).epsilon(Tolerance).scale(scale));
+              }
             }
           }
         }
