@@ -45,6 +45,23 @@ using Energy = seissol::model::EnergyCompute<Material>;
 using Quadrature = seissol::writer::EnergyQuadrature<Material>;
 
 constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
+/// What a material interpolated to a point may be off by, which follows the
+/// precision the interpolation is stored in.
+constexpr double MaterialTolerance = std::is_same_v<real, double> ? 1e-10 : 1e-5;
+
+/// A point of a set given as a points x 3 matrix. A row that is zero, such as
+/// a vertex at the origin, may be left out of the storage, so every entry is
+/// read through the range of the view.
+template <typename ViewT>
+std::array<double, 3> pointOf(const ViewT& view, std::size_t row) {
+  std::array<double, 3> point{};
+  for (std::size_t j = 0; j < 3; ++j) {
+    if (view.isInRange(row, j)) {
+      point[j] = view(row, j);
+    }
+  }
+  return point;
+}
 
 /// Random degrees of freedom, and the anelastic ones where the build has them.
 struct Dofs {
@@ -131,7 +148,7 @@ TEST_CASE("Nodal energies of a material that does not vary") {
       REQUIRE(actual[i] == doctest::Approx(expected[i]).epsilon(Tolerance));
     }
     for (const auto modulus : shearModulus) {
-      REQUIRE(modulus == doctest::Approx(material.getMuBar()).epsilon(1e-12));
+      REQUIRE(modulus == doctest::Approx(material.getMuBar()).epsilon(MaterialTolerance));
     }
   }
 }
@@ -145,9 +162,12 @@ TEST_CASE("Nodal energies read the material where they integrate") {
     std::mt19937 rng(20260929);
     const Quadrature quadrature;
 
-    // a field of degree two, which every sample set carries exactly
-    const auto field = [](const double* point) {
-      return 1.0 + 0.3 * point[0] - 0.2 * point[1] + 0.5 * point[2] + 0.4 * point[0] * point[2];
+    // a field of degree two, or one where the basis does not reach that,
+    // which every sample set carries exactly
+    constexpr double Quadratic = ConvergenceOrder > 2 ? 1.0 : 0.0;
+    const auto field = [&](const double* point) {
+      return 1.0 + 0.3 * point[0] - 0.2 * point[1] + 0.5 * point[2] +
+             Quadratic * 0.4 * point[0] * point[2];
     };
     const bool hasShearModulus = Material::ParameterMap.count("mu") > 0;
 
@@ -155,11 +175,11 @@ TEST_CASE("Nodal energies read the material where they integrate") {
     std::array<Material, LTS::MaterialNodes> samples;
     const auto nodes = init::materialNodes::view::create(init::materialNodes::Values);
     for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
-      const double point[3] = {nodes(node, 0), nodes(node, 1), nodes(node, 2)};
+      const auto point = pointOf(nodes, node);
       samples[node] = material;
-      samples[node].rho = material.rho * field(point);
+      samples[node].rho = material.rho * field(point.data());
       if (hasShearModulus) {
-        samples[node].*Material::ParameterMap.at("mu") = material.getMuBar() * field(point);
+        samples[node].*Material::ParameterMap.at("mu") = material.getMuBar() * field(point.data());
       }
     }
     const Dofs dofs(rng);
@@ -214,8 +234,9 @@ TEST_CASE("Nodal energies read the material where they integrate") {
 
     if (hasShearModulus) {
       for (std::size_t point = 0; point < Quadrature::Points; ++point) {
-        REQUIRE(shearModulus[point] ==
-                doctest::Approx(material.getMuBar() * field(points[point])).epsilon(1e-10));
+        REQUIRE(
+            shearModulus[point] ==
+            doctest::Approx(material.getMuBar() * field(points[point])).epsilon(MaterialTolerance));
       }
     }
   }

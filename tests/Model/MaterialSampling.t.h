@@ -162,11 +162,22 @@ TEST_CASE("Material at the points of the plastic strain and of the volume quadra
            Quadratic * (0.4 * point[0] * point[2] - 0.1 * point[1] * point[1]);
   };
 
+  // A row that is zero, such as a vertex at the origin, may be left out of the
+  // storage of a point set, so every coordinate is read through its range.
+  const auto pointOf = [](const auto& view, std::size_t row) {
+    std::array<double, 3> point{};
+    for (std::size_t j = 0; j < 3; ++j) {
+      if (view.isInRange(row, j)) {
+        point[j] = view(row, j);
+      }
+    }
+    return point;
+  };
+
   const auto nodes = init::materialNodes::view::create(init::materialNodes::Values);
   std::vector<double> sampled(Samples);
   for (std::size_t sample = 0; sample < Samples; ++sample) {
-    const double point[3] = {nodes(sample, 0), nodes(sample, 1), nodes(sample, 2)};
-    sampled[sample] = field(point);
+    sampled[sample] = field(pointOf(nodes, sample).data());
   }
 
   const auto check = [&](const auto& interpolation, std::size_t points, const auto& pointAt) {
@@ -189,10 +200,7 @@ TEST_CASE("Material at the points of the plastic strain and of the volume quadra
     const auto plasticity = init::vNodes::view::create(init::vNodes::Values);
     check(init::materialToPlasticity::view::create(init::materialToPlasticity::Values),
           Points,
-          [&](std::size_t point) {
-            return std::array<double, 3>{
-                plasticity(point, 0), plasticity(point, 1), plasticity(point, 2)};
-          });
+          [&](std::size_t point) { return pointOf(plasticity, point); });
   }
 
   SUBCASE("where the energies are integrated") {
