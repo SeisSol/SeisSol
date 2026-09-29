@@ -163,6 +163,8 @@ and how many events their pool has; an event is reused once nobody waits for it 
 With ``SEISSOL_TIMESTEPPING_PLAN=1``, it also reports the super-timesteps:
 how many there were, how many reached a synchronization point (one per synchronization interval and process),
 how many of the others (the full ones) were free of output samples and of host work, and how many were recorded and replayed.
+If a cluster has not taken any action for 15 minutes, the log reports its state and step counts,
+and the steps until the synchronization point that it assumes for itself and each of its neighbors.
 
 Status
 ~~~~~~
