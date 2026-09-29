@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_ANALYTICALBOUNDARY_H_
 #define SEISSOL_SRC_KERNELS_ANALYTICALBOUNDARY_H_
 
+#include "Common/Constants.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -70,7 +71,9 @@ struct ApplyAnalyticalSolution {
  */
 class AnalyticalBoundary {
   public:
-  AnalyticalBoundary() { quadrature::GaussLegendre(quadPoints_, quadWeights_, ConvergenceOrder); }
+  AnalyticalBoundary() {
+    quadrature::GaussLegendre(quadPoints_.data(), quadWeights_.data(), ConvergenceOrder);
+  }
 
   template <typename Func>
   void evaluate(const CellBoundaryMapping& boundaryMapping,
@@ -115,8 +118,8 @@ class AnalyticalBoundary {
   }
 
   private:
-  double quadPoints_[ConvergenceOrder]{};
-  double quadWeights_[ConvergenceOrder]{};
+  std::array<double, ConvergenceOrder> quadPoints_{};
+  std::array<double, ConvergenceOrder> quadWeights_{};
 };
 
 } // namespace seissol::kernels

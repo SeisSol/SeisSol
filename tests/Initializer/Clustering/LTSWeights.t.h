@@ -442,10 +442,10 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
       if (element.neighborRanks[f] != rank) {
         continue; // ghost neighbor, not resolvable from the local element list
       }
-      const auto neighbor = static_cast<std::size_t>(element.neighbors[f]);
-      if (neighbor >= elements.size()) {
-        continue; // domain boundary sentinel
+      if (!element.neighbors[f].hasValue()) {
+        continue; // domain boundary
       }
+      const auto neighbor = element.neighbors[f].value();
       CAPTURE(element.globalId);
       const auto difference = element.clusterId > elements[neighbor].clusterId
                                   ? element.clusterId - elements[neighbor].clusterId

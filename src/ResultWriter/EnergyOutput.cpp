@@ -515,10 +515,8 @@ void EnergyOutput::computeVolumeEnergies() {
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadraturePointsTet = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  double quadraturePointsTet[NumQuadraturePointsTet][3]{};
-  double quadratureWeightsTet[NumQuadraturePointsTet]{};
-  seissol::quadrature::TetrahedronQuadrature(
-      quadraturePointsTet, quadratureWeightsTet, QuadPolyDegree);
+  const auto quadratureTet = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
+  const auto& quadratureWeightsTet = quadratureTet.second;
 
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
@@ -546,7 +544,8 @@ void EnergyOutput::computeVolumeEnergies() {
 #pragma omp parallel for schedule(static)                                                          \
     reduction(+ : localGravitationalPotentialEnergy[ : SimCount],                                  \
                   energyValues[ : EnergyCount],                                                    \
-                  localPlasticMoment[ : SimCount]) shared(elements, vertices, global_)
+                  localPlasticMoment[ : SimCount])                                                 \
+    shared(elements, vertices, global_, quadratureWeightsTet)
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate > 0) {

@@ -7,5 +7,7 @@
 
 #include <doctest.h>
 
+#include "CellTransform.t.h"
+#include "FaceTransform.t.h"
 #include "MeshReader.t.h"
 #include "VertexOrderInvariance.t.h"

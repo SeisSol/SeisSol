@@ -246,31 +246,19 @@ void initializeSpecificNeighborData(const T& material,
  * c.f. 10.1111/j.1365-246X.2007.03381.x
  * This method is not needed for isotropic materials.
  */
-void getBondMatrix(const VrtxCoords normal,
-                   const VrtxCoords tangent1,
-                   const VrtxCoords tangent2,
+void getBondMatrix(const CoordinateT& normal,
+                   const CoordinateT& tangent1,
+                   const CoordinateT& tangent2,
                    std::array<double, 36>& matN);
-
-template <typename MaterialT = seissol::model::MaterialT>
-void getFaceRotationMatrix(const Eigen::Vector3d& normal,
-                           const Eigen::Vector3d& tangent1,
-                           const Eigen::Vector3d& tangent2,
-                           init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv) {
-  const VrtxCoords n = {normal(0), normal(1), normal(2)};
-  const VrtxCoords s = {tangent1(0), tangent1(1), tangent1(2)};
-  const VrtxCoords t = {tangent2(0), tangent2(1), tangent2(2)};
-  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
-}
 
 namespace detail {
 
 /// Writes one diagonal block per group, sized and shaped by its kind.
 template <bool Inverse, typename View, std::size_t N>
 void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
-                         const VrtxCoords normal,
-                         const VrtxCoords tangent1,
-                         const VrtxCoords tangent2,
+                         const CoordinateT& normal,
+                         const CoordinateT& tangent1,
+                         const CoordinateT& tangent2,
                          View& matrix) {
   matrix.setZero();
   std::size_t offset = 0;
@@ -319,14 +307,26 @@ void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
  * Voigt weights differ, so each kind supplies a forward and an inverse writer.
  */
 template <typename MaterialT = seissol::model::MaterialT>
-void getFaceRotationMatrix(const VrtxCoords normal,
-                           const VrtxCoords tangent1,
-                           const VrtxCoords tangent2,
+void getFaceRotationMatrix(const CoordinateT& normal,
+                           const CoordinateT& tangent1,
+                           const CoordinateT& tangent2,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv) {
   detail::writeRotationBlocks<false>(MaterialT::RotationGroups, normal, tangent1, tangent2, matT);
   detail::writeRotationBlocks<true>(
       MaterialT::InverseRotationGroups, normal, tangent1, tangent2, matTinv);
+}
+
+template <typename MaterialT = seissol::model::MaterialT>
+void getFaceRotationMatrix(const Eigen::Vector3d& normal,
+                           const Eigen::Vector3d& tangent1,
+                           const Eigen::Vector3d& tangent2,
+                           init::T::view::type& matT,
+                           init::Tinv::view::type& matTinv) {
+  const CoordinateT n = {normal(0), normal(1), normal(2)};
+  const CoordinateT s = {tangent1(0), tangent1(1), tangent1(2)};
+  const CoordinateT t = {tangent2(0), tangent2(1), tangent2(2)};
+  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
 }
 
 template <typename MaterialT>
