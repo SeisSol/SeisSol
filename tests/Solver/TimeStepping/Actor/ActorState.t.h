@@ -7,16 +7,17 @@
 
 #include <doctest.h>
 
+#include "Parallel/Runtime/EventPool.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <cmath>
+#include <cstddef>
+#include <deque>
 #include <limits>
 #include <variant>
 
 #ifdef ACL_DEVICE
 #include "Parallel/Runtime/Stream.h"
-
-#include <cstddef>
 #endif
 
 namespace seissol::unit_test {
@@ -155,16 +156,32 @@ TEST_CASE("A published event stays reserved while it is held" * doctest::test_su
   progress.publishEvent(ActorEvent(&ownedElsewhere));
   CHECK(progress.event().get() == &ownedElsewhere);
 
+  // An event of a pool is not handed out again while the progress, or a copy of it that someone
+  // keeps for waiting later, refers to it; however many events the pool hands out meanwhile.
+  std::deque<char> events;
+  parallel::runtime::EventPool pool([&]() -> void* { return &events.emplace_back(); },
+                                    [](void* /*event*/) {});
+  progress.publishEvent(ActorEvent(pool.next()));
+  {
+    const auto kept = progress.event();
+    REQUIRE(kept);
+    progress.publishEvent(ActorEvent());
+    for (std::size_t i = 0; i < 3 * parallel::runtime::EventPool::InitialSize; ++i) {
+      const auto event = pool.next();
+      REQUIRE(event.get() != kept.get());
+    }
+    CHECK(pool.size() == parallel::runtime::EventPool::InitialSize);
+  }
+  CHECK(pool.referenced() == 0);
+
 #ifdef ACL_DEVICE
-  // An event of the pool of a stream runtime is not handed out again while the progress, or a
-  // copy of it that someone keeps for waiting later, refers to it; however many events the runtime
-  // records meanwhile.
+  // the same with the events a stream runtime records
   parallel::runtime::StreamRuntime runtime;
   progress.publishEvent(ActorEvent(runtime.eventRecord()));
   const auto kept = progress.event();
   REQUIRE(kept);
   progress.publishEvent(ActorEvent());
-  for (std::size_t i = 0; i < 3 * parallel::runtime::StreamRuntime::EventPoolSize; ++i) {
+  for (std::size_t i = 0; i < 3 * parallel::runtime::EventPool::InitialSize; ++i) {
     const auto event = runtime.eventRecord();
     REQUIRE(event.get() != kept.get());
   }

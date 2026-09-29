@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ACTORSTATE_H_
 
 #include "Common/Executor.h"
-#include "Parallel/Runtime/Stream.h"
+#include "Parallel/Runtime/EventPool.h"
 
 #include <atomic>
 #include <limits>
@@ -23,12 +23,12 @@ namespace seissol::solver {
  * An event that completes with the device work of an action, as it gets handed from a cluster to
  * the ones that wait for it.
  *
- * While it is held, an event from the pool of a stream runtime stays reserved: the pool does not
- * hand it out to be recorded anew (see parallel::runtime::EventRef). So whoever keeps an event to
- * wait for it later -- a halo exchange that starts once the data is there, or a replay that has to
- * come after the work before it -- keeps the event itself. An event owned elsewhere (e.g. by the
- * halo exchange or by the recorder of super-timesteps) is not reserved; its owner keeps it until
- * nobody waits for it any more.
+ * While it is held, an event from an event pool (e.g. the one of a stream runtime) stays reserved:
+ * the pool does not hand it out to be recorded anew (see parallel::runtime::EventRef). So whoever
+ * keeps an event to wait for it later -- a halo exchange that starts once the data is there, or a
+ * replay that has to come after the work before it -- keeps the event itself. An event owned
+ * elsewhere (e.g. by the halo exchange or by the recorder of super-timesteps) is not reserved; its
+ * owner keeps it until nobody waits for it any more.
  */
 class ActorEvent {
   public:
@@ -37,7 +37,7 @@ class ActorEvent {
   /// an event owned elsewhere
   explicit ActorEvent(void* event) : event_(event) {}
 
-  /// an event from the pool of a stream runtime; reserved while held
+  /// an event from an event pool; reserved while held
   explicit ActorEvent(parallel::runtime::EventRef event)
       : event_(event.get()), reference_(std::move(event)) {}
 

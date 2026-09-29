@@ -8,3 +8,4 @@
 #include <doctest.h>
 
 #include "PinTest.t.h"
+#include "Runtime/EventPool.t.h"
