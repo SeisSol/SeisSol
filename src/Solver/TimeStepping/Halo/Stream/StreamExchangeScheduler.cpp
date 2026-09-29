@@ -7,7 +7,6 @@
 
 #include "StreamExchangeScheduler.h"
 
-#include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
 
 #include <algorithm>
@@ -16,7 +15,10 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
+#include "Solver/TimeStepping/Actor/ActorState.h"
+
 #include <Device/device.h>
+#include <utility>
 #endif
 
 namespace seissol::solver {
