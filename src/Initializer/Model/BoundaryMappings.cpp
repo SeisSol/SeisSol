@@ -18,6 +18,7 @@
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/Precision.h"
@@ -38,7 +39,7 @@
 namespace seissol::initializer {
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
-                                const std::optional<EasiBoundary>& easiBoundary,
+                                const std::optional<DirichletCondition>& dirichletCondition,
                                 LTS::Storage& ltsStorage) {
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -49,9 +50,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto meshId = secondaryInformation[cell].meshId;
       for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-        if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
-            cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
-            cellInformation[cell].faceTypes[side] != FaceType::Analytical) {
+        if (!boundaryProperties(cellInformation[cell].faceTypes[side]).requiresFaceData) {
           continue;
         }
 
@@ -88,23 +87,42 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
             basis[0].normalized(), basis[1].normalized(), basis[2].normalized(), matT, matTinv);
 
         // Evaluate easi boundary condition matrices if needed
-        real* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;
-        real* easiBoundaryConstant = boundary[cell][side].easiBoundaryConstant;
-        assert(easiBoundaryMap != nullptr);
-        assert(easiBoundaryConstant != nullptr);
+        real* dirichletMap = boundary[cell][side].dirichletMap;
+        real* dirichletOffset = boundary[cell][side].dirichletOffset;
+        assert(dirichletMap != nullptr);
+        assert(dirichletOffset != nullptr);
         if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
-          if (easiBoundary.has_value()) {
-            easiBoundary->query(nodes, easiBoundaryMap, easiBoundaryConstant);
+          if (dirichletCondition.has_value()) {
+            const auto faceBarycenter = face.center();
+
+            real globalMapData[tensor::dirichletMapGlobal::size()];
+            real globalConstantData[tensor::dirichletOffsetGlobal::size()];
+            const auto frame =
+                dirichletCondition->query(faceBarycenter.data(), globalMapData, globalConstantData);
+
+            if (frame == BoundaryFrame::FaceAligned) {
+              std::copy_n(globalMapData, tensor::dirichletMap::size(), dirichletMap);
+              std::copy_n(globalConstantData, tensor::dirichletOffset::size(), dirichletOffset);
+            } else {
+              kernel::rotateBoundaryCondition rotateKrnl;
+              rotateKrnl.dirichletMapGlobal = globalMapData;
+              rotateKrnl.dirichletOffsetGlobal = globalConstantData;
+              rotateKrnl.dirichletMap = dirichletMap;
+              rotateKrnl.dirichletOffset = dirichletOffset;
+              rotateKrnl.T = matTData;
+              rotateKrnl.Tinv = matTinvData;
+              rotateKrnl.execute();
+            }
           } else {
             logError() << "Dirichlet face found, but no boundary condition definition given.";
           }
         } else {
           // Boundary should not be evaluated
-          std::fill_n(easiBoundaryMap,
-                      seissol::tensor::easiBoundaryMap::size(),
+          std::fill_n(dirichletMap,
+                      seissol::tensor::dirichletMap::size(),
                       std::numeric_limits<real>::signaling_NaN());
-          std::fill_n(easiBoundaryConstant,
-                      seissol::tensor::easiBoundaryConstant::size(),
+          std::fill_n(dirichletOffset,
+                      seissol::tensor::dirichletOffset::size(),
                       std::numeric_limits<real>::signaling_NaN());
         }
       }

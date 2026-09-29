@@ -56,6 +56,15 @@ the equations block, e.g.
   MaterialFileName = 'material.yaml'
   /
 
+When using a :doc:`Dirichlet boundary <boundary-conditions>`, add the parameter
+``BoundaryFileName`` to the equations block, e.g.
+
+.. code-block:: Fortran
+
+  &equations
+  BoundaryFileName = 'boundary.yaml'
+  /
+
 When using :doc:`dynamic-rupture`, add the parameter ``ModelFileName`` to
 the ``DynamicRupture`` block, e.g.
 

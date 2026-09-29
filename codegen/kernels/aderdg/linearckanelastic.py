@@ -335,6 +335,22 @@ class LinearCKAnelastic(ADERDGBase):
                 target=target,
             )
 
+        # The analytical boundary adds its flux where the local flux lands, in
+        # the extended DOFs; only the CPU path evaluates that boundary.
+        localFluxNodal = (
+            lambda i: self.Qext["kp"]
+            <= self.Qext["kp"]
+            + self.db.project2nFaceTo3m[i]["kn"]
+            * self.INodal["no"]
+            * self.AminusT["op"]
+        )
+        generator.addFamily(
+            "localFluxNodal",
+            simpleParameterSpace(4),
+            localFluxNodal,
+            target="cpu",
+        )
+
     def addNeighbor(self, generator, targets):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
@@ -507,5 +523,5 @@ class LinearCKAnelastic(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
-        # Nodal flux kernel uses this matrix but is not supported by visco2
+        # The nodal flux kernel (localFluxNodal, CPU only) uses this matrix
         include_tensors.update([self.db.project2nFaceTo3m[i] for i in range(4)])

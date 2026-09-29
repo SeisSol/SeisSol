@@ -25,6 +25,7 @@ add_library(seissol-initializer OBJECT
     InitProcedure/InitSideConditions.cpp
     InitProcedure/Internal/Boundary.cpp
     InitProcedure/Internal/Buckets.cpp
+    InitProcedure/Internal/FaceTypeCheck.cpp
     InitProcedure/Internal/LtsSetup.cpp
     InitProcedure/Internal/MeshLayout.cpp
     InitProcedure/Internal/Recording.cpp

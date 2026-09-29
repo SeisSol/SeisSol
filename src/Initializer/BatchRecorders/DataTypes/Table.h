@@ -66,7 +66,6 @@ struct GenericTable {
 
 using PointersToRealsTable = GenericTable<inner_keys::Wp>;
 using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
-using MaterialTable = GenericTable<inner_keys::Material>;
 using IndicesTable = GenericTable<inner_keys::Indices>;
 
 } // namespace seissol::recording
