@@ -144,7 +144,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
       auto krnl = gpuCombinedKrnlPrototype_;
       real* tmpMem = reinterpret_cast<real*>(
-          device_.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
+          device_.api().allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
       krnl.linearAllocator.initialize(tmpMem);
       krnl.streamPtr = stream;
       krnl.numElements = numElements;
@@ -176,7 +176,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
       krnl.execute(side, faceRelation);
 
-      device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+      device_.api().freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
     }
   });
 #else

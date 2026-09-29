@@ -20,18 +20,18 @@ namespace seissol {
 void AcceleratorDevice::bindNativeDevice(int deviceId) {
   deviceId_ = deviceId;
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device = device::DeviceInstance::instance();
   {
     std::ostringstream info;
-    info << "Device API: " << device.api->getApiName();
+    info << "Device API: " << device.api().getApiName();
     infoMessages_.push_back(info.str());
   }
   {
     std::ostringstream info;
-    info << "Device (rank=0): " << device.api->getDeviceName(deviceId);
+    info << "Device (rank=0): " << device.api().getDeviceName(deviceId);
     infoMessages_.push_back(info.str());
   }
-  device.api->setDevice(deviceId);
+  device.api().setDevice(deviceId);
 #endif
 }
 

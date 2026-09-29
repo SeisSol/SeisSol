@@ -275,11 +275,11 @@ class GravitationalFreeSurfaceBc {
         factorEvaluated *= deltaT / (1.0 * order);
         factorInt *= deltaTInt / (order + 1.0);
 
-        device.algorithms.setToValue(dofsFaceNodalPtrs,
-                                     static_cast<real>(0.0),
-                                     tensor::INodal::size(),
-                                     numElements,
-                                     deviceStream);
+        device.algorithms().setToValue(dofsFaceNodalPtrs,
+                                       static_cast<real>(0.0),
+                                       tensor::INodal::size(),
+                                       numElements,
+                                       deviceStream);
 
         auto projectKernel = projectKernelPrototype;
         projectKernel.numElements = numElements;

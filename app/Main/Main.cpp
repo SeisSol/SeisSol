@@ -60,8 +60,8 @@ int main(int argc, char* argv[]) {
   try {
 #ifdef ACL_DEVICE
     seissol::Mpi::mpi.bindAcceleratorDevice();
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    device.api->initialize();
+    device::DeviceInstance& device = device::DeviceInstance::instance();
+    device.api().initialize();
 #endif // ACL_DEVICE
 
     utils::Env env("SEISSOL_");
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
     }
 
 #ifdef ACL_DEVICE
-    device.api->finalize();
+    device.api().finalize();
 #endif
     return 0;
   } catch (const std::exception& error) {

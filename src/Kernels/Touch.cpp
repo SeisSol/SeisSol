@@ -51,12 +51,12 @@ void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevic
   };
 #ifdef ACL_DEVICE
   if (onDevice) {
-    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    void* stream = device::DeviceInstance::instance().api().getDefaultStream();
 
-    device::DeviceInstance::getInstance().algorithms.fillArray<real>(
+    device::DeviceInstance::instance().algorithms().fillArray<real>(
         buffer, static_cast<real>(2531011.0 / 65536.0), nValues, stream);
 
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
     return;
   }
 #endif

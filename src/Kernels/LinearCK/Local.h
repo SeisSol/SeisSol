@@ -70,7 +70,7 @@ class Local : public LocalKernel {
   kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype_;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
   kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };
 

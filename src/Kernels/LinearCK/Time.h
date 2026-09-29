@@ -52,7 +52,7 @@ class Spacetime : public SpacetimeKernel {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype_;
   kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };
 

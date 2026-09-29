@@ -145,11 +145,11 @@ void Neighbor::computeBatchedNeighborsIntegral(
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     if (table.find(key) != table.end()) {
       auto& entry = table[key];
-      device.algorithms.setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
-                                   static_cast<real>(0.0),
-                                   tensor::Qext::Size,
-                                   (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
-                                   runtime.stream());
+      device.algorithms().setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
+                                     static_cast<real>(0.0),
+                                     tensor::Qext::Size,
+                                     (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
+                                     runtime.stream());
     }
   }
 

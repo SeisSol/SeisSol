@@ -46,7 +46,7 @@ inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSIS
 inline bool useGraphNodes(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
   return env.get<bool>("DEVICE_GRAPH_NODES", true) &&
-         device::DeviceInstance::getInstance().api->isCapableOfGraphNodes();
+         device::DeviceInstance::instance().api().isCapableOfGraphNodes();
 #else
   return false;
 #endif
@@ -67,7 +67,7 @@ inline void printPersistentMpiInfo(utils::Env& env) {
 
 inline bool useUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
-  return env.get<bool>("USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+  return env.get<bool>("USM", device::DeviceInstance::instance().api().isUnifiedMemoryDefault());
 #else
   return true;
 #endif
@@ -89,7 +89,7 @@ inline void printUSMInfo(utils::Env& env) {
 inline bool useMPIUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
   return env.get<bool>("USM_MPI",
-                       device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+                       device::DeviceInstance::instance().api().isUnifiedMemoryDefault());
 #else
   return true;
 #endif

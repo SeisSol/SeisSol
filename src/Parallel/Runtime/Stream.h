@@ -153,7 +153,7 @@ class EventRef {
 class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
-  static device::DeviceInstance& device() { return device::DeviceInstance::getInstance(); }
+  static device::DeviceInstance& device() { return device::DeviceInstance::instance(); }
 
   public:
   static constexpr size_t EventPoolSize = 100;
@@ -219,7 +219,7 @@ class StreamRuntime {
   void enqueueHost(F&& handler) {
     // a graph that is being recorded cannot be waited for, but it takes the host function over
     if (Backend != DeviceBackend::Hip || buildGraph_.isInitialized() || capturing_) {
-      device().api->streamHostFunction(stream(), std::forward<F>(handler));
+      device().api().streamHostFunction(stream(), std::forward<F>(handler));
     } else {
       // if the stream host function call isn't implemented or slow, we'll need to synchronize
       wait();
@@ -286,17 +286,17 @@ class StreamRuntime {
 
     if (Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
       const auto forkEvent = nextEvent();
-      device().api->recordEventOnStream(forkEvent.get(), streamPtr_->get());
+      device().api().recordEventOnStream(forkEvent.get(), streamPtr_->get());
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
-        device().api->syncStreamWithEvent(ringbufferPtr_[i].get(), forkEvent.get());
+        device().api().syncStreamWithEvent(ringbufferPtr_[i].get(), forkEvent.get());
       }
       for (size_t i = 0; i < count; ++i) {
         std::invoke(handler, ringbufferPtr_[i % ringbufferPtr_.size()].get(), i);
       }
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
         const auto joinEvent = nextEvent();
-        device().api->recordEventOnStream(joinEvent.get(), ringbufferPtr_[i].get());
-        device().api->syncStreamWithEvent(streamPtr_->get(), joinEvent.get());
+        device().api().recordEventOnStream(joinEvent.get(), ringbufferPtr_[i].get());
+        device().api().syncStreamWithEvent(streamPtr_->get(), joinEvent.get());
       }
     } else {
       for (size_t i = 0; i < count; ++i) {
@@ -309,7 +309,7 @@ class StreamRuntime {
     if (buildGraph_.isInitialized() || capturing_) {
       logError() << "Cannot synchronize a stream while a compute graph is being recorded on it.";
     }
-    device().api->syncStreamWithHost(streamPtr_->get());
+    device().api().syncStreamWithHost(streamPtr_->get());
   }
 
   /**
@@ -337,7 +337,7 @@ class StreamRuntime {
                        GraphMode mode = GraphMode::Nodes) {
     if (!computeGraphHandle.isInitialized()) {
       if (mode == GraphMode::Nodes && seissol::useGraphNodes()) {
-        computeGraphHandle = device().api->graphCreate();
+        computeGraphHandle = device().api().graphCreate();
 
         buildGraph_ = computeGraphHandle;
         lastNode_ = device::DeviceGraphNodeHandle();
@@ -346,9 +346,9 @@ class StreamRuntime {
 
         closeImplicitNode();
         buildGraph_.reset();
-        device().api->graphInstantiate(computeGraphHandle);
+        device().api().graphInstantiate(computeGraphHandle);
       } else {
-        computeGraphHandle = device().api->streamBeginCapture(allStreams_);
+        computeGraphHandle = device().api().streamBeginCapture(allStreams_);
 
         // a backend without graph support hands back an empty handle and captures nothing; the
         // handler then simply runs, and may synchronize like it does outside of graphs
@@ -357,13 +357,13 @@ class StreamRuntime {
         capturing_ = false;
 
         if (computeGraphHandle.isInitialized()) {
-          device().api->streamEndCapture(computeGraphHandle);
+          device().api().streamEndCapture(computeGraphHandle);
         }
       }
     }
 
     if (computeGraphHandle.isInitialized()) {
-      device().api->launchGraph(computeGraphHandle, streamPtr_->get());
+      device().api().launchGraph(computeGraphHandle, streamPtr_->get());
     }
   }
 
@@ -400,12 +400,12 @@ class StreamRuntime {
 
   template <typename T>
   T* allocMemory(std::size_t count) {
-    return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), stream()));
+    return reinterpret_cast<T*>(device().api().allocMemAsync(count * sizeof(T), stream()));
   }
 
   template <typename T>
   void freeMemory(T* ptr) {
-    device().api->freeMemAsync(ptr, stream());
+    device().api().freeMemAsync(ptr, stream());
   }
 
   template <typename T>
@@ -414,7 +414,7 @@ class StreamRuntime {
   }
 
   void eventSync(const EventRef& event) {
-    device().api->syncStreamWithEvent(stream(), event.get());
+    device().api().syncStreamWithEvent(stream(), event.get());
   }
 
   private:
@@ -437,7 +437,7 @@ class StreamRuntime {
   public:
   EventRef eventRecord() {
     auto event = nextEvent();
-    device().api->recordEventOnStream(event.get(), stream());
+    device().api().recordEventOnStream(event.get(), stream());
     return event;
   }
 
@@ -450,7 +450,7 @@ class StreamRuntime {
     void* previousRecordingStream = recordingStream_;
     recordingStream_ = streamPtr;
     auto node =
-        device().api->graphAddNode(buildGraph_, dependencies, streamPtr, [&](void* recorded) {
+        device().api().graphAddNode(buildGraph_, dependencies, streamPtr, [&](void* recorded) {
           std::invoke(std::forward<F>(handler), recorded);
         });
     recordingStream_ = previousRecordingStream;
@@ -463,14 +463,14 @@ class StreamRuntime {
       if (lastNode_.isInitialized()) {
         dependencies.push_back(lastNode_);
       }
-      device().api->graphBeginNode(buildGraph_, dependencies, streamPtr_->get());
+      device().api().graphBeginNode(buildGraph_, dependencies, streamPtr_->get());
       implicitNodeOpen_ = true;
     }
   }
 
   void closeImplicitNode() {
     if (implicitNodeOpen_) {
-      lastNode_ = device().api->graphEndNode(buildGraph_, streamPtr_->get());
+      lastNode_ = device().api().graphEndNode(buildGraph_, streamPtr_->get());
       implicitNodeOpen_ = false;
     }
   }

@@ -124,10 +124,10 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 #endif
 
 #ifdef ACL_DEVICE
-  const auto& device = device::DeviceInstance::getInstance();
+  const auto& device = device::DeviceInstance::instance();
   layer.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                      device.api->getDefaultStream());
-  device.api->syncDefaultStreamWithHost();
+                      device.api().getDefaultStream());
+  device.api().syncDefaultStreamWithHost();
 #endif
 }
 } // namespace
@@ -214,10 +214,10 @@ void ProxyData::initDataStructures(bool enableDR) {
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
         seissol::memory::Memkind::DeviceGlobalMemory));
-    const auto& device = ::device::DeviceInstance::getInstance();
-    device.api->copyTo(fakeDerivatives,
-                       fakeDerivativesHost,
-                       cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
+    const auto& device = ::device::DeviceInstance::instance();
+    device.api().copyTo(fakeDerivatives,
+                        fakeDerivativesHost,
+                        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
 #else
     fakeDerivatives = fakeDerivativesHost;
 #endif
@@ -293,10 +293,10 @@ void ProxyData::initDataStructures(bool enableDR) {
 
 void ProxyData::initDataStructuresOnDevice(bool enableDR) {
 #ifdef ACL_DEVICE
-  const auto& device = ::device::DeviceInstance::getInstance();
+  const auto& device = ::device::DeviceInstance::instance();
   ltsStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                           device.api->getDefaultStream());
-  device.api->syncDefaultStreamWithHost();
+                           device.api().getDefaultStream());
+  device.api().syncDefaultStreamWithHost();
 
   auto& layer = ltsStorage.layer(layerId);
 
@@ -311,8 +311,8 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   recorder.record(layer);
   if (enableDR) {
     drStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                            device.api->getDefaultStream());
-    device.api->syncDefaultStreamWithHost();
+                            device.api().getDefaultStream());
+    device.api().syncDefaultStreamWithHost();
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
     drStorage.allocateScratchPads();
 

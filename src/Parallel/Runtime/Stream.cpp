@@ -14,7 +14,7 @@
 
 namespace {
 #ifdef ACL_DEVICE
-device::DeviceInstance& dev() { return device::DeviceInstance::getInstance(); }
+device::DeviceInstance& dev() { return device::DeviceInstance::instance(); }
 #endif
 } // namespace
 
@@ -22,7 +22,7 @@ namespace seissol::parallel::runtime {
 
 ManagedStream::ManagedStream() {
 #ifdef ACL_DEVICE
-  streamPtr_ = dev().api->createStream();
+  streamPtr_ = dev().api().createStream();
 #endif
 }
 
@@ -30,7 +30,7 @@ auto ManagedStream::operator=(ManagedStream&& old) noexcept -> ManagedStream& {
   if (this != &old) {
 #ifdef ACL_DEVICE
     if (streamPtr_ != nullptr) {
-      dev().api->destroyGenericStream(streamPtr_);
+      dev().api().destroyGenericStream(streamPtr_);
     }
 #endif
     streamPtr_ = std::exchange(old.streamPtr_, nullptr);
@@ -41,14 +41,14 @@ auto ManagedStream::operator=(ManagedStream&& old) noexcept -> ManagedStream& {
 ManagedStream::~ManagedStream() {
 #ifdef ACL_DEVICE
   if (streamPtr_ != nullptr) {
-    dev().api->destroyGenericStream(streamPtr_);
+    dev().api().destroyGenericStream(streamPtr_);
   }
 #endif
 }
 
 ManagedEvent::ManagedEvent() {
 #ifdef ACL_DEVICE
-  eventPtr_ = dev().api->createEvent();
+  eventPtr_ = dev().api().createEvent();
 #endif
 }
 
@@ -56,7 +56,7 @@ auto ManagedEvent::operator=(ManagedEvent&& old) noexcept -> ManagedEvent& {
   if (this != &old) {
 #ifdef ACL_DEVICE
     if (eventPtr_ != nullptr) {
-      dev().api->destroyEvent(eventPtr_);
+      dev().api().destroyEvent(eventPtr_);
     }
 #endif
     eventPtr_ = std::exchange(old.eventPtr_, nullptr);
@@ -67,7 +67,7 @@ auto ManagedEvent::operator=(ManagedEvent&& old) noexcept -> ManagedEvent& {
 ManagedEvent::~ManagedEvent() {
 #ifdef ACL_DEVICE
   if (eventPtr_ != nullptr) {
-    dev().api->destroyEvent(eventPtr_);
+    dev().api().destroyEvent(eventPtr_);
   }
 #endif
 }
