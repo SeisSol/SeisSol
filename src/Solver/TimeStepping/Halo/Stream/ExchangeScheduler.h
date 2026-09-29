@@ -91,6 +91,17 @@ class ExchangeScheduler {
   std::size_t readyReceive(const ScheduledTransport& transport, const ActorEvent& after = {});
 
   /**
+   * Makes the event stand for all groups launched so far (see setLatestEvent()), and forgets the
+   * events that the ready operations which have not gone out yet wait for. Only for an event that
+   * all streams of the scheduler and all clusters wait for, and that comes after all work behind
+   * the forgotten events and all groups launched so far: e.g. the one that starts a recording,
+   * whose work must not wait for events from before it, and the one that completes its replay,
+   * after which no event from inside of it may be waited for. A ghost cluster may acknowledge a
+   * group launched before such an event only after it, and then passes on the latest event.
+   */
+  void restartAfter(void* event);
+
+  /**
    * Orders the groups on the device: a group starts after the events its operations were made
    * ready with, and counts as done for the host as soon as it has been launched; the work that
    * depends on it waits for latestEvent(). Only with `LaunchOrder::Global`, for clusters that wait
@@ -199,6 +210,7 @@ class ExchangeScheduler {
   void launchInOrder();
   void orderInterval();
   bool groupCompleted(Direction& direction, std::size_t exchange);
+  void forgetPendingEvents();
 
   std::size_t clusterCount_;
   LaunchOrder order_;

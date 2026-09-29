@@ -685,13 +685,21 @@ void TimeManager::followPlan() {
       }
       ++replayedSuperSteps_;
     } else if (replayable && seenSuperSteps_.count(key) > 0) {
-      recorder_->beginRecording(participants, streams);
+      auto* fork = recorder_->beginRecording(participants, streams);
+      if (scheduler != nullptr) {
+        // the recording must not wait for events from before it: neither for those of the pending
+        // operations, nor for the latest group, which its ghost cluster may acknowledge only inside
+        // the recording (e.g. one launched by setHorizon() above)
+        scheduler->restartAfter(fork);
+      }
       work = takeSteps(plan, begin, end);
       completeExchanges(superStepEnd);
       recorder_->endRecording(key, participants, streams);
       recorder_->replay(key, participants, streams);
       if (scheduler != nullptr) {
-        scheduler->setLatestEvent(recorder_->lastEvent());
+        // nothing after the recording may wait for an event recorded inside of it; the streams of
+        // the scheduler wait for the replay instead
+        scheduler->restartAfter(recorder_->lastEvent());
       }
       ++recordedSuperSteps_;
     } else {

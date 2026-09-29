@@ -53,10 +53,12 @@ class SuperStepRecorder {
   [[nodiscard]] bool has(const Key& key) const;
 
   /**
-   * Starts recording the work the clusters enqueue from now on.
+   * Starts recording the work the clusters enqueue from now on. Returns the event that starts the
+   * recording: all clusters and streams wait for it, and, once replayed, it comes after all work
+   * before the recording. It stays valid until the next recording starts.
    */
-  void beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
-                      const std::vector<void*>& streams);
+  void* beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
+                       const std::vector<void*>& streams);
 
   /**
    * Ends the recording, and keeps it for the key. It still needs to be replayed once to run.
@@ -98,6 +100,8 @@ class SuperStepRecorder {
   void* stream_{nullptr};
   // completes with the latest replay
   ActorEvent lastEvent_;
+  // starts the latest recording
+  ActorEvent fork_;
   // the latest work before the super-timestep, until the replay has been enqueued after it
   std::vector<ActorEvent> waitFor_;
   device::DeviceGraphHandle recording_;

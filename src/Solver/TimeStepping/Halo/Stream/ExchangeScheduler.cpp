@@ -176,6 +176,23 @@ void ExchangeScheduler::launchReady(std::size_t from, std::size_t to) {
   }
 }
 
+void ExchangeScheduler::forgetPendingEvents() {
+  for (auto& current : directions_) {
+    for (auto* queue : {&current.sendsAfter, &current.receivesAfter}) {
+      for (auto& event : *queue) {
+        event = ActorEvent();
+      }
+    }
+  }
+}
+
+void ExchangeScheduler::restartAfter(void* event) {
+  forgetPendingEvents();
+  // otherwise, a ghost cluster that acknowledges a group launched before the event would pass on
+  // an older one
+  setLatestEvent(event);
+}
+
 void ExchangeScheduler::launchNext(std::size_t from, std::size_t to) {
   auto& current = direction(from, to);
   // the events stay reserved until the group has been launched, i.e. its waits are enqueued

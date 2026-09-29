@@ -213,6 +213,39 @@ class SimulatedScheduler : public ExchangeScheduler {
 };
 
 /**
+ * An exchange scheduler that only notes what its groups wait for, and gives each group an event.
+ */
+class WaitRecordingScheduler : public ExchangeScheduler {
+  public:
+  explicit WaitRecordingScheduler(std::size_t clusterCount)
+      : ExchangeScheduler(clusterCount, LaunchOrder::Global) {}
+
+  std::vector<std::vector<void*>> waits;
+  // a deque keeps the addresses of its events stable
+  std::deque<int> events;
+
+  [[nodiscard]] void* latestEvent() const override { return latest_; }
+  void setLatestEvent(void* event) override { latest_ = event; }
+
+  protected:
+  Ticket launch(std::size_t /*from*/,
+                std::size_t /*to*/,
+                std::size_t /*exchange*/,
+                const ScheduledTransport* /*sender*/,
+                const ScheduledTransport* /*receiver*/,
+                const std::vector<void*>& after) override {
+    waits.push_back(after);
+    latest_ = &events.emplace_back();
+    return waits.size();
+  }
+
+  bool completed(Ticket /*ticket*/) override { return true; }
+
+  private:
+  void* latest_{nullptr};
+};
+
+/**
  * A transport on the simulated network that launches everything right away.
  */
 class ImmediateTransport : public HaloTransport {
@@ -463,6 +496,58 @@ TEST_CASE("Launching receives right away gets stuck" * doctest::test_suite("solv
       simulate(Transport::Immediate, Launching::PerDirection, 2, 1, {{0, 1, 0, 0}}, {8}, random));
   CHECK(simulate(Transport::Scheduled, Launching::PerDirection, 2, 1, {{0, 1, 0, 0}}, {8}, random));
   CHECK(simulate(Transport::Scheduled, Launching::Global, 2, 1, {{0, 1, 0, 0}}, {8}, random));
+}
+
+TEST_CASE("A group waits for the events its operations were made ready with, unless forgotten" *
+          doctest::test_suite("solver")) {
+  // one cluster that exchanges with the same cluster of another process: one group per exchange
+  WaitRecordingScheduler scheduler(1);
+  const RemoteClusterPair regions;
+  ScheduledTransport transport(scheduler, regions, 0, 0);
+  transport.startInterval({1, 3, 1, 3, 1});
+
+  int written = 0;
+  int read = 0;
+  int started = 0;
+  int writtenLater = 0;
+  int startedLater = 0;
+
+  // nothing goes out before the horizon
+  scheduler.setHorizon(0);
+  transport.startSendAfter(ActorEvent(&written));
+  transport.startReceiveAfter(ActorEvent(&read));
+  CHECK(scheduler.waits.empty());
+
+  // e.g. a recording starts after the work behind the events, and must not wait for them
+  scheduler.restartAfter(&started);
+  CHECK(scheduler.latestEvent() == &started);
+  scheduler.setHorizon(1);
+  REQUIRE(scheduler.waits.size() == 1);
+  CHECK(scheduler.waits[0].empty());
+  CHECK(scheduler.latestEvent() == &scheduler.events[0]);
+  CHECK(transport.testSend());
+  CHECK(transport.testReceive());
+
+  // the events are kept until the group goes out
+  transport.startSendAfter(ActorEvent(&writtenLater));
+  transport.startReceiveAfter(ActorEvent());
+  CHECK(scheduler.waits.size() == 1);
+  scheduler.setHorizon(2);
+  REQUIRE(scheduler.waits.size() == 2);
+  CHECK(scheduler.waits[1] == std::vector<void*>{&writtenLater});
+  CHECK(transport.testSend());
+  CHECK(transport.testReceive());
+
+  // a group that went out before the restart is not what comes latest afterwards, even if it gets
+  // acknowledged only then
+  transport.startSendAfter(ActorEvent(&written));
+  transport.startReceiveAfter(ActorEvent(&read));
+  scheduler.setHorizon(3);
+  REQUIRE(scheduler.waits.size() == 3);
+  scheduler.restartAfter(&startedLater);
+  CHECK(transport.testSend());
+  CHECK(transport.testReceive());
+  CHECK(scheduler.latestEvent() == &startedLater);
 }
 
 } // namespace seissol::unit_test
