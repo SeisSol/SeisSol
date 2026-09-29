@@ -405,7 +405,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             // moment tensor C_ijkl (n_k d_l + n_l d_k) / 2 with the source geometry. Both the
             // orientation of the fault and the rake enter, so the modulus varies from point to
             // point and cannot be pulled out of the quadrature sum.
-            static_assert(tensor::Zplus::size() == 9 && tensor::Zminus::size() == 9);
+
+            static_assert(model::MaterialT::Type != model::MaterialType::Anisotropic ||
+                          (tensor::Zplus::size() == 9 && tensor::Zminus::size() == 9));
+
             const auto admittance = [](const real* data) {
               return Eigen::Map<const Eigen::Matrix<real, 3, 3>>(data).cast<double>();
             };
@@ -567,8 +570,7 @@ void EnergyOutput::computeVolumeEnergies() {
       // transports a stress it evaluates has the stress there and nowhere else.
       alignas(Alignment) real transported[tensor::I::size()];
       kernels::Time timeKernel;
-      timeKernel.stateToTransport(
-          dofsData[cell], localIntegrationData[cell].specific, transported);
+      timeKernel.stateToTransport(dofsData[cell], localIntegrationData[cell].specific, transported);
 
       alignas(Alignment) real linData[tensor::momentQ::size()];
       auto lin = init::momentQ::view::create(linData);

@@ -15,21 +15,14 @@ class AnisotropicADERDG(ElasticADERDG):
     def name(self):
         return "anisotropic"
 
-    def extractTractions(self):
-        # The pattern is dense across the traction triple here, because an
-        # anisotropic face couples all three of them; only the width follows
-        # the layout.
-        extractTractionsSPP = np.zeros((3, self.numTransportQuantities()))
-        extractTractionsSPP[0, 0] = 1
-        extractTractionsSPP[1, 0] = 1
-        extractTractionsSPP[2, 0] = 1
-        extractTractionsSPP[0, 3] = 1
-        extractTractionsSPP[1, 3] = 1
-        extractTractionsSPP[2, 3] = 1
-        extractTractionsSPP[0, 5] = 1
-        extractTractionsSPP[1, 5] = 1
-        extractTractionsSPP[2, 5] = 1
-        return extractTractionsSPP
+    def tractionMatrixSpp(self):
+        # b = eta * Y is dense for an anisotropic impedance, so every traction row carries all
+        # three columns. The pattern's shape is the layout's; only the rows it fills are this
+        # material's.
+        pattern = np.zeros_like(self.extractTractions().T[:, :3])
+        for row in (0, 3, 5):
+            pattern[row, :] = 1
+        return pattern
 
 
 def kernel_class(**kwargs):

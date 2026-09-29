@@ -148,6 +148,33 @@ Results of poroelastic dynamic rupture simulations change accordingly; how much 
 porosity and the tortuosity. For the material values of the poroelastic test cases the impedance
 drops by 5 to 15 percent.
 
+Frictional Energy of a Bimaterial Fault
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+The interface traction the frictional energy is integrated with is :math:`\tau^* = b^+ \tau^+ +
+b^- \tau^-`, with :math:`b^\pm = \eta Y^\pm`. The energy computation paired :math:`b^+` with the
+traction of the *minus* side and vice versa, which disagreed with both the Riemann solver and the
+:code:`computeTractionInterpolated` kernel the fault output uses.
+
+The two coefficients are equal for a fault with the same material on both sides, so only
+bimaterial faults are affected. The frictional energy in the energy output changes there; the
+simulation itself does not.
+
+Anisotropic Eigenbasis
+~~~~~~~~~~~~~~~~~~~~~~
+
+(unreleased)
+
+One entry of the eigenbasis an anisotropic material is transformed with carried :math:`c_{46}`
+where the derivation asks for :math:`c_{56}`, i.e. the coupling of :math:`\sigma_{xy}` to
+:math:`u_z` instead of the intended one.
+
+The matrix enters the boundary conditions, so anisotropic simulations with a free surface or an
+absorbing boundary change. Materials for which both coefficients vanish -- isotropy, VTI with the
+symmetry axis along a coordinate axis -- are unaffected.
+
 Potency and Seismic Moment Quadrature
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

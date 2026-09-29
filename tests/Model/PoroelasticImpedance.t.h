@@ -12,12 +12,18 @@
 
 #include <doctest.h>
 
+#include "Alignment.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
+#include "Kernels/Precision.h"
 
 #include <Eigen/Dense>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -141,6 +147,37 @@ TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicr
     // ... while sigma_nn and the pore pressure do
     CHECK(std::abs(lateral(0, 0)) > 1e-3 * scale);
     CHECK(std::abs(lateral(0, 3)) > 1e-3 * scale);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The traction averaging matrices map all four interface tractions to the three components the
+// frictional work is computed with, so their sparsity pattern has to hold the fluid pressure row.
+// Writing a four row matrix into a pattern that only has three leaves the pattern and silently
+// overwrites a neighboring entry, which is what this pins down.
+// ---------------------------------------------------------------------------
+TEST_CASE("Poroelastic traction matrix pattern" * doctest::test_suite("dynamicrupture")) {
+  constexpr std::array<std::size_t, 4> StoredRows{0, 3, 5, 9};
+  constexpr std::size_t Rows = StoredRows.size();
+  constexpr std::size_t Columns = 3;
+
+  REQUIRE(tensor::tractionPlusMatrix::size() == Rows * Columns);
+  REQUIRE(tensor::tractionMinusMatrix::size() == Rows * Columns);
+
+  alignas(Alignment) real data[tensor::tractionPlusMatrix::size()]{};
+  auto view = init::tractionPlusMatrix::view::create(data);
+  view.setZero();
+  for (std::size_t col = 0; col < Columns; ++col) {
+    for (std::size_t row = 0; row < Rows; ++row) {
+      view(StoredRows[row], col) = static_cast<real>(10 * col + row);
+    }
+  }
+
+  // column major within the stored rows, the layout the friction energy indexing relies on
+  for (std::size_t col = 0; col < Columns; ++col) {
+    for (std::size_t row = 0; row < Rows; ++row) {
+      CHECK(data[Rows * col + row] == doctest::Approx(10.0 * col + row));
+    }
   }
 }
 

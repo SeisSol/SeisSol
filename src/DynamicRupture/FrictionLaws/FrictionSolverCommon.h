@@ -899,11 +899,12 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     // the anisotropic block is always 3x3 (no fluid pressure component)
     constexpr std::uint32_t Count = 3;
 
+    // eta is a dense, column-major tensor: eta[col * Count + row]
     const real w1 =
-        impedanceMatrices.eta[Count * 1 + 1] * v1 + impedanceMatrices.eta[Count * 1 + 2] * v2;
+        impedanceMatrices.eta[Count * 1 + 1] * v1 + impedanceMatrices.eta[Count * 2 + 1] * v2;
 
     const real w2 =
-        impedanceMatrices.eta[Count * 2 + 1] * v1 + impedanceMatrices.eta[Count * 2 + 2] * v2;
+        impedanceMatrices.eta[Count * 1 + 2] * v1 + impedanceMatrices.eta[Count * 2 + 2] * v2;
 
     return {w1, w2};
   } else {
@@ -1051,7 +1052,10 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
   real slipRate{};
   real etaEff{};
 
-  constexpr std::uint32_t DirectionSweeps = 2;
+  // the sweep can only move the direction where the shear block of eta is not a multiple of the
+  // identity, so one pass is the exact closed form for every other material
+  constexpr std::uint32_t DirectionSweeps =
+      model::MaterialT::Type == model::MaterialType::Anisotropic ? 2 : 1;
   for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
     // S(V) = S0 + slope * (eta * n)_n * V is exact, so the closed form survives
     etaEff = eta + strengthSlope * etaNormal;

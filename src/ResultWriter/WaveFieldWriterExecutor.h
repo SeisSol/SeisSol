@@ -116,8 +116,8 @@ class WaveFieldWriterExecutor {
 
     // Split the communicator into two - those containing vertices and those
     //  not containing any vertices.
-    const int commColour = (info.bufferSize(param.bufferIds[Cells]) == 0) ? 0 : 1;
-    MPI_Comm_split(seissol::Mpi::mpi.comm(), commColour, rank, &comm_);
+    const int commColor = (info.bufferSize(param.bufferIds[Cells]) == 0) ? 0 : 1;
+    MPI_Comm_split(seissol::Mpi::mpi.comm(), commColor, rank, &comm_);
     // Start the if statement
     if (info.bufferSize(param.bufferIds[Cells]) != 0) {
       // Get the new rank

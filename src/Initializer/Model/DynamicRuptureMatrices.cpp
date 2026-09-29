@@ -89,21 +89,52 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
                        const std::array<size_t, Dim1t>& rowIdx) {
   // NOTE: shape(0) is the number of *logical* rows of the sparse matrix
   // (NumQuantities), not the number of stored ones. Only the row indices we
-  // actually write have to be in range.
-  assert(Dim1t == static_cast<size_t>(Dim1));
+  // actually write have to be in range; they are ascending, so the last one
+  // bounds them all.
+  // (the dim parameters need to be int due to Eigen)
+  static_assert(Dim1t == static_cast<size_t>(Dim1),
+                "One target row index per row of the source matrix is required.");
   assert(rowIdx[Dim1t - 1] < tensorView.shape(0));
-  assert(tensorView.shape(1) == Dim2);
-  // (the dim praameters need to be int due to Eigen)
+  // the target may be narrower than the source: the traction averaging matrices only carry the
+  // components the frictional work is computed with, while the source also maps to the fluid
+  // pressure. Writing past the pattern corrupts the neighboring entry.
+  assert(tensorView.shape(1) <= static_cast<unsigned>(Dim2));
 
   tensorView.setZero();
   for (size_t row = 0; row < Dim1t; ++row) {
-    for (size_t col = 0; col < Dim2; ++col) {
+    for (size_t col = 0; col < tensorView.shape(1); ++col) {
       tensorView(rowIdx[row], col) = static_cast<S>(matrix(row, col));
     }
   }
 }
 
 constexpr size_t N = model::DrImpedanceDim;
+
+/**
+ * Quantity indices the traction components live at, i.e. the rows of the traction averaging
+ * matrices. Poroelasticity carries the fluid pressure as a fourth one; it has to match the
+ * sparsity pattern the code generator builds for tractionPlusMatrix.
+ *
+ * The rows are those of what a cell transports, which is where the stress is only at the front
+ * of the layout for a material that keeps it in its state. One that derives it carries it
+ * further along, and then so does the map from the interpolated state onto the traction of a
+ * face. No material combines that with poroelasticity, whose fourth row is its pressure.
+ */
+constexpr auto tractionRowIndices() {
+  constexpr auto Offset = generated::TransportTractionOffset;
+  if constexpr (::seissol::model::MaterialT::Type == ::seissol::model::MaterialType::Poroelastic) {
+    return std::array<std::size_t, 4>{Offset + ::seissol::model::SymTensor2Traction[0],
+                                      Offset + ::seissol::model::SymTensor2Traction[1],
+                                      Offset + ::seissol::model::SymTensor2Traction[2],
+                                      Offset + 9};
+  } else {
+    std::array<std::size_t, 3> rows{};
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+      rows[i] = Offset + ::seissol::model::SymTensor2Traction[i];
+    }
+    return rows;
+  }
+}
 
 } // namespace
 
@@ -392,19 +423,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
       seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
 
-      // Where the traction sits in what a cell transports. It is the first, the
-      // fourth and the sixth of the stress components, but the stress is only
-      // the front of the layout for a material that has it in its state -- one
-      // that derives it carries it further along, and then so does the map from
-      // the interpolated state to the traction of the face.
-      constexpr auto TractionRows = []() {
-        constexpr auto Offset = generated::TransportTractionOffset;
-        std::array<std::size_t, 3> rows{};
-        for (std::size_t i = 0; i < rows.size(); ++i) {
-          rows[i] = Offset + seissol::model::SymTensor2Traction[i];
-        }
-        return rows;
-      }();
+      // Where the traction sits in what a cell transports.
+      constexpr auto TractionRows = tractionRowIndices();
 
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Anisotropic:
@@ -429,13 +449,22 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         const auto faultImpedance =
             seissol::initializer::model::computeFaultImpedance(plusLocal, minusLocal);
 
-#ifndef NDEBUG
-        if (const auto violation = seissol::initializer::model::checkFaultImpedance(faultImpedance);
+        // The finite and consistency checks are a handful of flops per face and run in every
+        // build: a material that is not positive definite produces NaN admittances right here,
+        // and without the check the run only fails much later and somewhere else. Only the
+        // self-adjointness and definiteness part costs an eigensolve, so that one stays behind
+        // NDEBUG.
+#ifdef NDEBUG
+        constexpr bool CheckSelfAdjoint = false;
+#else
+        constexpr bool CheckSelfAdjoint = true;
+#endif
+        if (const auto violation =
+                seissol::initializer::model::checkFaultImpedance(faultImpedance, CheckSelfAdjoint);
             violation.has_value()) {
           logError() << "Invalid dynamic rupture impedance at fault face" << meshFace << ":"
                      << violation.value();
         }
-#endif
 
         const auto& impedanceMatrix = faultImpedance.admittancePlus;
         const auto& impedanceNeigMatrix = faultImpedance.admittanceMinus;

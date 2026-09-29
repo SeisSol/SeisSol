@@ -342,6 +342,8 @@ FaultImpedance computeFaultImpedance(const MaterialT& plusLocal, const MaterialT
  *
  * Self-adjointness is checked against the signature matrix, so it also applies to poroelastic,
  * where the stored fourth traction component is +p while its energy conjugate partner is -p.
+ * That part costs an eigendecomposition per call, everything before it a few matrix products --
+ * hence the switch, so that the cheap half can run in release builds as well.
  */
 inline std::optional<std::string> checkFaultImpedance(const FaultImpedance& impedance,
                                                       bool expectSelfAdjoint = true,
