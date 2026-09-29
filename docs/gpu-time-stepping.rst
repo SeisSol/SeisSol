@@ -42,6 +42,7 @@ Options
 ~~~~~~~
 
 The options are environment variables.
+In a build without a GPU, the log warns about the GPU-only options that are set.
 
 .. list-table::
    :header-rows: 1
@@ -67,8 +68,11 @@ The options are environment variables.
        instead of one stream for all exchanges in a global order (see below).
        ``SEISSOL_CCL_PER_DIRECTION`` is accepted as well.
    * - ``SEISSOL_SCRATCHPAD_PER_LAYER=1``
-     - Give each layer scratchpads of its own, instead of sharing them between all layers.
+     - GPU builds only. Give each layer scratchpads of its own, instead of sharing them between all layers.
        The log shows the memory needed either way.
+   * - ``SEISSOL_DEVICE_GRAPH_NODES=0``
+     - GPU builds only. Capture all compute graphs from streams, instead of building them node by node where the device allows it.
+       The log says which way the graphs get built.
    * - ``SEISSOL_MPI_PERSISTENT=0``
      - Start new MPI requests for each exchange, instead of restarting persistent ones.
 

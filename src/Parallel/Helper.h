@@ -96,6 +96,27 @@ inline bool useGraphNodes() {
   return useGraphNodes(env);
 }
 
+/**
+ * Reports how the compute graphs get built on a device; and the options that only concern devices
+ * when there is none.
+ */
+inline void printDeviceOptionInfo(utils::Env& env) {
+#ifdef ACL_DEVICE
+  if (useGraphNodes(env)) {
+    logInfo() << "Building compute graphs node by node where possible.";
+  } else {
+    logInfo() << "Capturing all compute graphs from streams.";
+  }
+#else
+  if (useConcurrentClusters(env)) {
+    logWarning() << "SEISSOL_CONCURRENT_CLUSTERS has no effect without a device.";
+  }
+  if (useScratchpadPerLayer(env)) {
+    logWarning() << "SEISSOL_SCRATCHPAD_PER_LAYER has no effect without a device.";
+  }
+#endif
+}
+
 inline void printPersistentMpiInfo(utils::Env& env) {
   if (usePersistentMpi(env)) {
     logInfo() << "Using persistent MPI routines.";
