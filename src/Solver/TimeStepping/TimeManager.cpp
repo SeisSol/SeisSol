@@ -397,13 +397,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   if (useSuperStepGraphs(seissolInstance_.env())) {
-    // the outputs must not stand in the way of a recording
-    runTimeOutputs_ = true;
-    for (auto* cluster : clusters_) {
-      cluster->setRunTimeOutputs(true);
-    }
-    logInfo() << "The outputs decide about their samples when the work of a step runs.";
-
     if (!followPlan_ || !concurrent_) {
       logWarning() << "Recording super-timesteps needs a device, SEISSOL_TIMESTEPPING_PLAN=1 and"
                    << "SEISSOL_CONCURRENT_CLUSTERS=1.";
@@ -423,6 +416,13 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       replay_ = true;
       recorder_ = std::make_unique<SuperStepRecorder>();
       logInfo() << "Regular super-timesteps get recorded and replayed.";
+
+      // the outputs must not stand in the way of a recording
+      runTimeOutputs_ = true;
+      for (auto* cluster : clusters_) {
+        cluster->setRunTimeOutputs(true);
+      }
+      logInfo() << "The outputs decide about their samples when the work of a step runs.";
       if (std::any_of(clusters_.begin(), clusters_.end(), [](auto* c) { return c->hostWork(); })) {
         logWarning() << "Some clusters compute on the host (see SEISSOL_DEVICE_HOST_SWITCH), or"
                      << "exchange data with clusters that do; no super-timestep gets recorded.";
