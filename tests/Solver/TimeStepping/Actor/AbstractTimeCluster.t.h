@@ -8,6 +8,7 @@
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "TestHelper.h"
 
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -32,6 +33,10 @@ class MockTimeCluster : public solver::AbstractTimeCluster {
   MAKE_MOCK1(handleNeighborCorrection, void(const NeighborCluster&), override);
   // NOLINTNEXTLINE
   MAKE_MOCK1(printTimeoutMessage, void(std::chrono::seconds), override);
+
+  void setProgressTimeout(std::chrono::steady_clock::duration timeout) {
+    progressTimeout_ = timeout;
+  }
 };
 
 TEST_CASE("TimeCluster" * doctest::test_suite("solver")) {
@@ -56,6 +61,58 @@ TEST_CASE("TimeCluster" * doctest::test_suite("solver")) {
     result = cluster.act();
     CHECK(result.isStateChanged);
     CHECK(cluster.getState() == ActorState::Predicted);
+  }
+}
+
+TEST_CASE("A cluster without an action to take reports when its progress is checked" *
+          doctest::test_suite("solver")) {
+  // In a deadlock, no cluster has an action to take, so none gets acted on and could notice by
+  // itself; the time manager checks on them instead.
+  auto cluster = MockTimeCluster(1.0, 1);
+  auto neighbor = MockTimeCluster(1.0, 1);
+  cluster.connect(neighbor);
+  cluster.setSyncTime(10);
+  cluster.reset();
+  neighbor.setSyncTime(10);
+  neighbor.reset();
+
+  ALLOW_CALL(cluster, handleNeighborCorrection(ANY(NeighborCluster)));
+  ALLOW_CALL(cluster, handleNeighborPrediction(ANY(NeighborCluster)));
+  {
+    REQUIRE_CALL(cluster, start());
+    cluster.act();
+    REQUIRE_CALL(cluster, predict());
+    cluster.act();
+  }
+  // the neighbor never predicts, so the cluster cannot correct
+  REQUIRE(cluster.getNextLegalAction() == ActorAction::Nothing);
+
+  SUBCASE("Not before the timeout") {
+    FORBID_CALL(cluster, printTimeoutMessage(ANY(std::chrono::seconds)));
+    cluster.checkProgress();
+  }
+
+  SUBCASE("Once after the timeout, and again after the next stall") {
+    // a timeout that has always expired
+    cluster.setProgressTimeout(-std::chrono::hours(1));
+    {
+      REQUIRE_CALL(cluster, printTimeoutMessage(ANY(std::chrono::seconds)));
+      cluster.checkProgress();
+    }
+    // reported already
+    cluster.checkProgress();
+
+    // progress resets the report
+    ALLOW_CALL(neighbor, handleNeighborCorrection(ANY(NeighborCluster)));
+    ALLOW_CALL(neighbor, handleNeighborPrediction(ANY(NeighborCluster)));
+    REQUIRE_CALL(neighbor, start());
+    neighbor.act();
+    REQUIRE_CALL(neighbor, predict());
+    neighbor.act();
+    REQUIRE_CALL(cluster, correct());
+    CHECK(cluster.act().isStateChanged);
+    REQUIRE_CALL(cluster, printTimeoutMessage(ANY(std::chrono::seconds)));
+    cluster.checkProgress();
   }
 }
 

@@ -104,6 +104,16 @@ class TimeManager {
   //! the clusters only enqueue their device work
   bool concurrent_{false};
 
+  //! the passes through the loops that wait for the clusters, for watchProgress()
+  std::size_t waitingPasses_{0};
+
+  /**
+   * Called on each pass through a loop that waits for the clusters. Now and then, reports the
+   * clusters that have not changed their state for too long: a cluster that has no action to take
+   * does not get acted on, and would not report by itself.
+   */
+  void watchProgress();
+
   /**
    * Takes all steps of the cell and face clusters up to the synchronization point in the order of
    * the time stepping plan.

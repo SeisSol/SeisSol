@@ -129,7 +129,7 @@ void AbstractTimeCluster::trackProgress(bool progressed) {
   const auto currentTime = std::chrono::steady_clock::now();
   if (!progressed) {
     const auto timeSinceLastUpdate = currentTime - timeOfLastStageChange_;
-    if (timeSinceLastUpdate > timeout && !alreadyPrintedTimeOut_) {
+    if (timeSinceLastUpdate > progressTimeout_ && !alreadyPrintedTimeOut_) {
       alreadyPrintedTimeOut_ = true;
       printTimeoutMessage(std::chrono::duration_cast<std::chrono::seconds>(timeSinceLastUpdate));
     }
@@ -305,13 +305,17 @@ void AbstractTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLast
                    << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
                    << " mayCorrect = " << mayCorrect()
                    << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
-                   << " maySync = " << maySync();
+                   << " maySync = " << maySync()
+                   << " predictionsSinceSync = " << ct_.predictionsSinceLastSync
+                   << " correctionsSinceSync = " << ct_.stepsSinceLastSync
+                   << " stepsUntilSync = " << ct_.stepsUntilSync;
   for (auto& neighbor : neighbors_) {
     logWarning(true) << "Neighbor with rate = " << neighbor.ct.timeStepRate
                      << "PredTime = " << neighbor.ct.predictionTime
                      << "CorrTime = " << neighbor.ct.correctionTime
                      << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
-                     << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
+                     << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync
+                     << "stepsUntilSync = " << neighbor.ct.stepsUntilSync;
   }
   if (timeoutFail()) {
     logError() << "Cluster" << description() << "timed out. Aborting simulation.";

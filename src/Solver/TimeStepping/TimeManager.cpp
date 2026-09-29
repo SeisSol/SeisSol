@@ -533,6 +533,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     }
     finished = std::all_of(clusters_.begin(), clusters_.end(), [](auto& c) { return c->synced(); });
     finished &= communicationManager_->checkIfFinished();
+    watchProgress();
   }
 #ifdef ACL_DEVICE
   if (concurrent_) {
@@ -543,6 +544,18 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 #endif
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
+  }
+}
+
+void TimeManager::watchProgress() {
+  // taking the time costs more than a pass through the loop, and the timeout is in minutes
+  constexpr std::size_t PassesPerCheck = 1024;
+  if (++waitingPasses_ % PassesPerCheck == 0) {
+    for (auto* cluster : clusters_) {
+      if (!cluster->synced()) {
+        cluster->checkProgress();
+      }
+    }
   }
 }
 
@@ -573,6 +586,7 @@ StepWork TimeManager::takeSteps(const std::vector<PlannedAction>& plan,
     auto action = cluster->getNextLegalAction();
     while (action == ActorAction::Nothing) {
       communicationManager_->progression();
+      watchProgress();
       action = cluster->getNextLegalAction();
     }
     if (action != step.action) {

@@ -24,13 +24,15 @@ class AbstractTimeCluster {
   private:
   ActorPriority priority_ = ActorPriority::Low;
   std::chrono::steady_clock::time_point timeOfLastStageChange_;
-  const std::chrono::seconds timeout = std::chrono::minutes(15);
   bool alreadyPrintedTimeOut_ = false;
 
   //! the progress this cluster shows to the clusters waiting for it
   ActorProgress progress_;
 
   protected:
+  //! how long the cluster may go without changing its state before it reports (see trackProgress)
+  std::chrono::steady_clock::duration progressTimeout_{std::chrono::minutes(15)};
+
   /**
    * Makes the current times of this cluster visible to the clusters waiting for it.
    */
@@ -157,6 +159,13 @@ class AbstractTimeCluster {
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
   virtual void finalize();
+
+  /**
+   * Reports when this cluster has not changed its state for too long, like act() does. For a
+   * cluster that is not acted on since it has no action to take: in a deadlock, that holds for
+   * all clusters.
+   */
+  void checkProgress() { trackProgress(false); }
 
   ///* Returns the priority of the cluster. Larger numbers indicate a higher priority.
   ///* Can be used e.g. to always update copy clusters before interior ones.
