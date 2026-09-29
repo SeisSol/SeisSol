@@ -15,6 +15,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::solver {
@@ -57,9 +58,9 @@ class AbstractTimeCluster {
   void publishEvent();
 
   /**
-   * Returns an event that completes with the device work enqueued so far; null if there is none.
+   * Returns an event that completes with the device work enqueued so far; empty if there is none.
    */
-  virtual void* recordActionEvent() { return nullptr; }
+  virtual ActorEvent recordActionEvent() { return {}; }
 
   /**
    * Makes the work enqueued from now on wait for the event.
@@ -87,6 +88,15 @@ class AbstractTimeCluster {
   StepContext stepContext_;
 
   [[nodiscard]] double timeStepSize() const;
+
+  /**
+   * A time step that equals the cluster's own step size recurs for the whole run, so a compute
+   * graph recorded for it pays off. The truncated step taken right before a synchronization
+   * point does not recur: caching it would add one graph per synchronization point.
+   */
+  [[nodiscard]] bool isRecurringTimestep(double timestep) const {
+    return timestep == ct_.maxTimeStepSize;
+  }
 
   /**
    * Parameters of the step that starts at the current correction time. Valid between reset() and
@@ -216,16 +226,14 @@ class AbstractTimeCluster {
   void joinEvent(void* event) { waitForEvent(event); }
 
   /**
-   * Returns an event that completes with the work enqueued so far; null if there is none.
+   * Returns an event that completes with the work enqueued so far; empty if there is none.
    */
-  void* markEvent() { return recordActionEvent(); }
+  ActorEvent markEvent() { return recordActionEvent(); }
 
   /**
-   * The event that completes with the work of the latest action; null if there is none.
+   * The event that completes with the work of the latest action; empty if there is none.
    */
-  [[nodiscard]] void* latestEvent() const {
-    return progress_.event.load(std::memory_order_relaxed);
-  }
+  [[nodiscard]] ActorEvent latestEvent() const { return progress_.event(); }
 
   /**
    * The size of the next step of this cluster.
@@ -235,7 +243,7 @@ class AbstractTimeCluster {
   /**
    * Publishes the given event as the one that completes with the work of the latest action.
    */
-  void publishEvent(void* event) { progress_.event.store(event, std::memory_order_relaxed); }
+  void publishEvent(ActorEvent event) { progress_.publishEvent(std::move(event)); }
 
   /**
    * The number of steps of the smallest time cluster until the synchronization point; set by

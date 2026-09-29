@@ -13,6 +13,12 @@
 #include <limits>
 #include <variant>
 
+#ifdef ACL_DEVICE
+#include "Parallel/Runtime/Stream.h"
+
+#include <cstddef>
+#endif
+
 namespace seissol::unit_test {
 using namespace seissol::solver;
 
@@ -134,6 +140,39 @@ TEST_CASE("NeighborCluster construction" * doctest::test_suite("solver")) {
   CHECK(nc.executor == Executor::Host);
   CHECK(nc.progress == nullptr);
   CHECK(nc.dataReadiness == DataReadiness::AfterPrediction);
+}
+
+// ---------------------------------------------------------------------------
+// ActorEvent
+// ---------------------------------------------------------------------------
+
+TEST_CASE("A published event stays reserved while it is held" * doctest::test_suite("solver")) {
+  int ownedElsewhere = 0;
+  ActorProgress progress;
+  CHECK_FALSE(progress.event());
+
+  // an event owned elsewhere only gets passed on
+  progress.publishEvent(ActorEvent(&ownedElsewhere));
+  CHECK(progress.event().get() == &ownedElsewhere);
+
+#ifdef ACL_DEVICE
+  // An event of the pool of a stream runtime is not handed out again while the progress, or a
+  // copy of it that someone keeps for waiting later, refers to it; however many events the runtime
+  // records meanwhile.
+  parallel::runtime::StreamRuntime runtime;
+  progress.publishEvent(ActorEvent(runtime.eventRecord()));
+  const auto kept = progress.event();
+  REQUIRE(kept);
+  progress.publishEvent(ActorEvent());
+  for (std::size_t i = 0; i < 3 * parallel::runtime::StreamRuntime::EventPoolSize; ++i) {
+    const auto event = runtime.eventRecord();
+    REQUIRE(event.get() != kept.get());
+  }
+  runtime.wait();
+#endif
+
+  progress.publishEvent(ActorEvent());
+  CHECK_FALSE(progress.event());
 }
 
 } // namespace seissol::unit_test

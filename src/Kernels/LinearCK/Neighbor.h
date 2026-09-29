@@ -19,10 +19,6 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
-
 namespace seissol::kernels::solver::linearck {
 
 class Neighbor : public NeighborKernel {
@@ -49,7 +45,7 @@ class Neighbor : public NeighborKernel {
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux deviceNfKrnlPrototype_;
   dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };
 

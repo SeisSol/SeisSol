@@ -150,7 +150,7 @@ void putSignalOnStream(void* destination,
 void quietOnStream(void* stream) { ishmemx_quiet_on_queue(queue(stream)); }
 #endif
 
-device::DeviceInstance& deviceInstance() { return device::DeviceInstance::getInstance(); }
+device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instance(); }
 
 std::size_t bytesOf(const RemoteCluster& region) {
   return region.size * sizeOfRealType(region.datatype);
@@ -218,8 +218,8 @@ void ShmemExchangeScheduler::prepare() {
     logError() << "Could not allocate the symmetric memory for the halo exchange.";
   }
   const std::vector<std::uint64_t> zeros(signalCount, 0);
-  deviceInstance().api->copyTo(clearToSend_, zeros.data(), signalCount * sizeof(std::uint64_t));
-  deviceInstance().api->copyTo(arrived_, zeros.data(), signalCount * sizeof(std::uint64_t));
+  deviceInstance().api().copyTo(clearToSend_, zeros.data(), signalCount * sizeof(std::uint64_t));
+  deviceInstance().api().copyTo(arrived_, zeros.data(), signalCount * sizeof(std::uint64_t));
   shmemBarrierAll();
 
   // the receivers tell the senders where to put their data, matched as the data would be
@@ -299,7 +299,7 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
       waitOnStream(&arrived_[signalIndex(from, to, peer)], count * regionsFromPeer, current);
     }
     for (std::size_t i = 0; i < regions.size(); ++i) {
-      deviceInstance().api->copyBetweenAsync(
+      deviceInstance().api().copyBetweenAsync(
           regions[i].data, window_ + offsets[i], bytesOf(regions[i]), current);
     }
   }

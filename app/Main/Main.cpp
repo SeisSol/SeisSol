@@ -60,8 +60,8 @@ int main(int argc, char* argv[]) {
   try {
 #ifdef ACL_DEVICE
     seissol::Mpi::mpi.bindAcceleratorDevice();
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    device.api->initialize();
+    device::DeviceInstance& device = device::DeviceInstance::instance();
+    device.api().initialize();
 #endif // ACL_DEVICE
 
     utils::Env env("SEISSOL_");
@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
         ConfigString + ") was built with the following properties:\n" + ConfigDescriptor);
     args.addAdditionalOption("parameterfile", "The parameter file", false);
     args.addOption(
-        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
+        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
     switch (args.parse(argc, argv)) {
     case utils::Args::Help: {
       [[fallthrough]];
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
     }
 
 #ifdef ACL_DEVICE
-    device.api->finalize();
+    device.api().finalize();
 #endif
     return 0;
   } catch (const std::exception& error) {

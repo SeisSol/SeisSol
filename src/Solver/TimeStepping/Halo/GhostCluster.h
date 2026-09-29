@@ -70,8 +70,8 @@ class GhostCluster : public AbstractTimeCluster {
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   private:
-  void sendCopyLayer(long target, void* after = nullptr);
-  void receiveGhostLayer(long target, void* after = nullptr);
+  void sendCopyLayer(long target, const ActorEvent& after = {});
+  void receiveGhostLayer(long target, const ActorEvent& after = {});
 
   /// ordered on the device: publishes the event of the latest exchange for the copy layer
   void publishTransportEvent();
@@ -116,8 +116,8 @@ class GhostCluster : public AbstractTimeCluster {
   bool receiveDeferred_{false};
   long deferredSendTarget_{0};
   long deferredReceiveTarget_{0};
-  void* deferredSendEvent_{nullptr};
-  void* deferredReceiveEvent_{nullptr};
+  ActorEvent deferredSendEvent_;
+  ActorEvent deferredReceiveEvent_;
 };
 
 } // namespace seissol::solver

@@ -11,6 +11,7 @@
 
 #include "Common/Executor.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Initializer/Typedefs.h"
@@ -26,27 +27,36 @@
 
 #include <Eigen/Dense>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol {
-struct GlobalData;
 class SeisSol;
 
 namespace kernels {
 struct Receiver {
   Receiver(std::size_t pointId,
            Eigen::Vector3d position,
-           const double* elementCoords[4],
-           LTS::Ref dataHost,
-           LTS::Ref dataDevice,
+           const seissol::geometry::CellTransform& transform,
            size_t reserved);
   std::size_t pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
+  std::vector<real> output;
+};
+
+/**
+  A cell carrying at least one receiver. The time evaluation runs once per cell, and only the
+  point evaluation is repeated for each receiver in it.
+ */
+struct ReceiverCell {
+  ReceiverCell(std::size_t meshId, LTS::Ref dataHost, LTS::Ref dataDevice);
+  std::size_t meshId{};
+  std::size_t ltsPosition{};
   LTS::Ref dataHost;
   LTS::Ref dataDevice;
-  std::vector<real> output;
+  std::vector<std::size_t> receiverIds;
 };
 
 struct DerivedReceiverQuantity {
@@ -150,20 +160,39 @@ class ReceiverCluster {
   void allocateData();
   void freeData();
 
+  //! @brief Waits for the samples taken so far to be in the output of the receivers.
+  void waitForSamples();
+
   private:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};
-  std::vector<size_t> deviceIndices_;
+  // anelastic DOFs (LinearCKAnelastic only); their host copy is stale between sync points or,
+  // with USM, written by the device concurrently
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollectorAne_{nullptr};
   std::vector<Receiver> receivers_;
+  std::vector<ReceiverCell> receiverCells_;
+  std::unordered_map<std::size_t, std::size_t> meshToReceiverCell_;
   seissol::kernels::Spacetime spacetimeKernel_;
   seissol::kernels::Time timeKernel_;
   std::vector<std::size_t> quantities_;
-  PerformanceEstimate estimate_{};
+  PerformanceEstimate estimatePerCell_{};
+  PerformanceEstimate estimatePerCellStep_{};
+  PerformanceEstimate estimatePerPoint_{};
   std::size_t perfHandle_{};
   double samplingInterval_;
 
-  void sampleReceiver(
-      std::size_t i, double time, double expansionPoint, double timeStepWidth, Executor executor);
+  /**
+   * Samples the receivers of one receiver cell in the step that starts at `expansionPoint`, from
+   * the sample time `time` on.
+   */
+  void sampleReceiver(std::size_t cell,
+                      double time,
+                      double expansionPoint,
+                      double timeStepWidth,
+                      Executor executor);
+
+  /// counts the operations of sampling all receiver cells in `samplingSteps` sample times
+  void countSamples(std::size_t samplingSteps);
 
   // for sampleAtRunTime(): the next sample time, and the start of the step the samples are taken in
   double nextSampleTime_{0};

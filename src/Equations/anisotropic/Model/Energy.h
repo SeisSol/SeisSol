@@ -11,6 +11,7 @@
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/pool.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 
@@ -44,10 +45,13 @@ struct EnergyCompute<AnisotropicMaterial> {
   static_assert(ElasticKineticIdx < EnergyCount, "ElasticKinetic missing from the descriptor list");
 
   /// No anelastic variables. See the viscoelastic specialization for the
-  /// non-trivial case; the argument is accepted uniformly so that
+  /// non-trivial case; the arguments are accepted uniformly so that
   /// EnergyOutput does not need to branch on the material.
   struct Moments {};
-  static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
+  static Moments
+      computeMoments(const real* /*dofs*/, const real* /*dofsAne*/, const seissol::Pool& /*pool*/) {
+    return {};
+  }
 
   static AnisotropicMaterial::EnergyData initEnergyData(const AnisotropicMaterial& material) {
     // The c_IJ follow *standard* Voigt numbering (1=xx, 2=yy, 3=zz, 4=yz, 5=xz,

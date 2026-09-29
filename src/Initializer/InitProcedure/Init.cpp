@@ -36,22 +36,22 @@ namespace {
 
 void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  if (device.api->getCurrentlyOccupiedMem() > device.api->getMaxAvailableMem()) {
+  device::DeviceInstance& device = device::DeviceInstance::instance();
+  if (device.api().getCurrentlyOccupiedMem() > device.api().getMaxAvailableMem()) {
     std::stringstream stream;
 
     stream << "Memory of the device is overloaded." << std::endl
            << "Totally allocated device memory: "
-           << UnitByte.formatPrefix(device.api->getCurrentlyOccupiedMem()) << std::endl
+           << UnitByte.formatPrefix(device.api().getCurrentlyOccupiedMem()) << std::endl
            << "Allocated unified memory: "
-           << UnitByte.formatPrefix(device.api->getCurrentlyOccupiedUnifiedMem()) << std::endl
+           << UnitByte.formatPrefix(device.api().getCurrentlyOccupiedUnifiedMem()) << std::endl
            << "Memory capacity of device: "
-           << UnitByte.formatPrefix(device.api->getMaxAvailableMem());
+           << UnitByte.formatPrefix(device.api().getMaxAvailableMem());
 
     logError() << stream.str();
   } else {
-    const double fraction = device.api->getCurrentlyOccupiedMem() /
-                            static_cast<double>(device.api->getMaxAvailableMem());
+    const double fraction = device.api().getCurrentlyOccupiedMem() /
+                            static_cast<double>(device.api().getMaxAvailableMem());
     const auto summary = seissol::statistics::parallelSummary(fraction * 100.0);
     logInfo() << "occupied memory on devices (%):"
               << " mean =" << summary.mean << " std =" << summary.std << " min =" << summary.min
@@ -91,11 +91,7 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {
-  logInfo() << "Closing IO.";
-  // cleanup IO
-  seissolInstance.waveFieldWriter().close();
-  seissolInstance.faultWriter().close();
-  seissolInstance.freeSurfaceWriter().close();
+  logInfo() << "Cleaning up memory.";
 
   // deallocate memory manager
   seissolInstance.deleteMemoryManager();

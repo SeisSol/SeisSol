@@ -62,9 +62,9 @@ inline FaultFrame makeFaultFrame(const Eigen::Vector3d& rawNormal) {
 /// initializeDynamicRuptureMatrices does.
 inline model::AnisotropicMaterial rotateToFault(const model::AnisotropicMaterial& material,
                                                 const FaultFrame& frame) {
-  const VrtxCoords normal{frame.normal.x(), frame.normal.y(), frame.normal.z()};
-  const VrtxCoords tangent1{frame.tangent1.x(), frame.tangent1.y(), frame.tangent1.z()};
-  const VrtxCoords tangent2{frame.tangent2.x(), frame.tangent2.y(), frame.tangent2.z()};
+  const CoordinateT normal{frame.normal.x(), frame.normal.y(), frame.normal.z()};
+  const CoordinateT tangent1{frame.tangent1.x(), frame.tangent1.y(), frame.tangent1.z()};
+  const CoordinateT tangent2{frame.tangent2.x(), frame.tangent2.y(), frame.tangent2.z()};
   std::array<double, 36> bond{};
   model::getBondMatrix(normal, tangent1, tangent2, bond);
   return model::getRotatedMaterialCoefficients(bond, material);
@@ -95,9 +95,9 @@ inline model::AnisotropicMaterial tiltedVti(double tiltDegrees) {
   const Eigen::Vector3d axis1(std::cos(angle), 0.0, -std::sin(angle));
   const Eigen::Vector3d axis2(0.0, 1.0, 0.0);
   const Eigen::Vector3d axis3(std::sin(angle), 0.0, std::cos(angle));
-  const VrtxCoords a1{axis1.x(), axis1.y(), axis1.z()};
-  const VrtxCoords a2{axis2.x(), axis2.y(), axis2.z()};
-  const VrtxCoords a3{axis3.x(), axis3.y(), axis3.z()};
+  const CoordinateT a1{axis1.x(), axis1.y(), axis1.z()};
+  const CoordinateT a2{axis2.x(), axis2.y(), axis2.z()};
+  const CoordinateT a3{axis3.x(), axis3.y(), axis3.z()};
   std::array<double, 36> bond{};
   model::getBondMatrix(a1, a2, a3, bond);
   return model::getRotatedMaterialCoefficients(bond, vti);

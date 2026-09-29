@@ -38,11 +38,11 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
-#include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
+#include "Solver/TimeStepping/Actor/StepParams.h"
 
 #include <algorithm>
 #include <array>
@@ -79,8 +79,7 @@ CellCluster::CellCluster(unsigned int clusterId,
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
       settings_(settings), seissolInstance_(seissolInstance), streamRuntime_(4),
-      globalDataOnHost_(globalData.onHost), globalDataOnDevice_(globalData.onDevice),
-      clusterData_(clusterData),
+      globalData_(globalData), clusterData_(clusterData),
       sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics_(loopStatistics), actorStateStatistics_(actorStateStatistics),
@@ -92,9 +91,9 @@ CellCluster::CellCluster(unsigned int clusterId,
       globalClusterId_(globalClusterId), profilingId_(profilingId) {
   // assert all pointers are valid
   assert(clusterData_ != nullptr);
-  assert(globalDataOnHost_ != nullptr);
+  assert(globalData_.onHost != nullptr);
   if constexpr (seissol::isDeviceOn()) {
-    assert(globalDataOnDevice_ != nullptr);
+    assert(globalData_.onDevice != nullptr);
   }
 
   // set timings to zero
@@ -159,7 +158,7 @@ void CellCluster::writeReceivers(const StepParams& params) {
 
 void CellCluster::computeSources(const StepParams& params) {
 #ifdef ACL_DEVICE
-  device_.api->putProfilingMark("computeSources", device::ProfilingColors::Blue);
+  device_.api().putProfilingMark("computeSources", device::ProfilingColors::Blue);
 #endif
   SCOREP_USER_REGION("computeSources", SCOREP_USER_REGION_TYPE_FUNCTION)
 
@@ -180,7 +179,7 @@ void CellCluster::computeSources(const StepParams& params) {
     loopStatistics_->end(regionComputePointSources_, pointSourceCluster->size(), profilingId_);
   }
 #ifdef ACL_DEVICE
-  device_.api->popLastProfilingMark();
+  device_.api().popLastProfilingMark();
 #endif
 }
 
@@ -235,8 +234,7 @@ void CellCluster::computeLocalIntegration(const StepParams& params) {
           data.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
-        addVelocityKrnl.V3mTo2nFace = globalDataOnHost_->v3mTo2nFace;
-        addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
+        addVelocityKrnl.bindGlobals(*globalData_.onHost);
         addVelocityKrnl.faceDisplacement = data.get<LTS::FaceDisplacements>()[face];
         addVelocityKrnl.I = bufferPointer;
         addVelocityKrnl.execute(face);
@@ -269,12 +267,11 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
   using namespace seissol::recording;
 
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
-  device_.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
+  device_.api().putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
   loopStatistics_->begin(regionComputeLocalIntegration_);
 
   auto& dataTable = clusterData_->getConditionalTable<inner_keys::Wp>();
-  auto& materialTable = clusterData_->getConditionalTable<inner_keys::Material>();
   auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
 
   kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
@@ -296,26 +293,25 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
                                             *clusterData_,
                                             tmp,
                                             dataTable,
-                                            materialTable,
                                             true,
                                             streamRuntime);
 
-        localKernel_.computeBatchedIntegral(
-            dataTable, materialTable, indicesTable, timeStepWidth, streamRuntime);
+        localKernel_.computeBatchedIntegral(dataTable, indicesTable, timeStepWidth, streamRuntime);
 
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {
             auto& entry = dataTable[key];
-            // NOTE: integrated velocities have been computed implicitly, i.e
-            // it is 6th, 7the and 8th columns of integrated dofs
+            // NOTE: the integrated velocities are not stored separately; the recorded pointers
+            // point into the integrated dofs, at the first velocity column
+            // (model::MaterialT::VelocityOffset).
 
             kernel::gpu_addVelocity displacementKrnl;
             displacementKrnl.faceDisplacement =
                 entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
                 entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtr());
-            displacementKrnl.V3mTo2nFace = globalDataOnDevice_->v3mTo2nFace;
+            displacementKrnl.bindGlobals(*globalData_.onDevice);
 
             // Note: this kernel doesn't require tmp. memory
             displacementKrnl.numElements =
@@ -331,7 +327,7 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
           auto& entry = dataTable[key];
 
           if (resetBuffers) {
-            device_.algorithms.streamBatchedData(
+            device_.algorithms().streamBatchedData(
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
                 (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
@@ -339,7 +335,7 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime_.stream());
           } else {
-            device_.algorithms.accumulateBatchedData(
+            device_.algorithms().accumulateBatchedData(
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
                 (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
@@ -348,7 +344,8 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
                 streamRuntime_.stream());
           }
         }
-      });
+      },
+      isRecurringTimestep(timeStepWidth));
 
   // depends on the current time, and therefore cannot be replayed from the graph above; it neither
   // reads nor writes what the graph computes after the local integral
@@ -356,7 +353,7 @@ void CellCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const StepPara
       dataTable, indicesTable, *clusterData_, clock_.host(), timeStepWidth, streamRuntime_);
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
-  device_.api->popLastProfilingMark();
+  device_.api().popLastProfilingMark();
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
@@ -383,7 +380,7 @@ void CellCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const St
 
   using namespace seissol::recording;
 
-  device_.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
+  device_.api().putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   loopStatistics_->begin(regionComputeNeighboringIntegration_);
 
@@ -401,11 +398,13 @@ void CellCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const St
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);
 
-  streamRuntime_.runGraph(computeGraphKey,
-                          *clusterData_,
-                          [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-                            neighborKernel_.computeBatchedNeighborsIntegral(table, streamRuntime);
-                          });
+  streamRuntime_.runGraph(
+      computeGraphKey,
+      *clusterData_,
+      [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+        neighborKernel_.computeBatchedNeighborsIntegral(table, streamRuntime);
+      },
+      true);
 
   if (settings_.plasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
@@ -413,19 +412,21 @@ void CellCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const St
         clusterData_->var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
         clusterData_->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
-    streamRuntime_.runGraph(plasticityGraphKey,
-                            *clusterData_,
-                            [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-                              seissol::kernels::Plasticity::computePlasticityBatched(
-                                  timeStepWidth,
-                                  seissolInstance_.parameters().model.tv,
-                                  globalDataOnDevice_,
-                                  table,
-                                  plasticity,
-                                  conditionalCounterDevice_.data(),
-                                  isAdjustableVector,
-                                  streamRuntime);
-                            });
+    streamRuntime_.runGraph(
+        plasticityGraphKey,
+        *clusterData_,
+        [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+          seissol::kernels::Plasticity::computePlasticityBatched(
+              timeStepWidth,
+              seissolInstance_.parameters().model.tv,
+              globalData_.onDevice,
+              table,
+              plasticity,
+              conditionalCounterDevice_.data(),
+              isAdjustableVector,
+              streamRuntime);
+        },
+        isRecurringTimestep(timeStepWidth));
 
     seissolInstance_.flopCounter().incrementMetric(
         perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)],
@@ -436,7 +437,7 @@ void CellCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const St
     ConditionalKey key = ConditionalKey(*KernelNames::Time);
     if (table.find(key) != table.end()) {
       auto entry = table.at(key);
-      device_.algorithms.accumulateBatchedData(
+      device_.algorithms().accumulateBatchedData(
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
           (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
           tensor::Q::Size,
@@ -445,7 +446,7 @@ void CellCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const St
     }
   }
 
-  device_.api->popLastProfilingMark();
+  device_.api().popLastProfilingMark();
   loopStatistics_->end(regionComputeNeighboringIntegration_, clusterData_->size(), profilingId_);
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
@@ -464,8 +465,7 @@ void CellCluster::computeLocalIntegrationFlops() {
     // Contribution from displacement/integrated displacement
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
-        estimate +=
-            GravitationalFreeSurfaceBc::metrics(face, cellInformation[cell].faceTypes[face]);
+        estimate += GravitationalFreeSurfaceBc::metrics(face);
       }
     }
   }
@@ -618,15 +618,15 @@ void CellCluster::correct() {
 
 void CellCluster::timeSet(double time) { clock_.set(time, streamRuntime_); }
 
-void* CellCluster::recordActionEvent() { return streamRuntime_.eventRecord(); }
+ActorEvent CellCluster::recordActionEvent() { return ActorEvent(streamRuntime_.eventRecord()); }
 
 void CellCluster::waitForEvent(SEISSOL_GPU_PARAM void* event) {
 #ifdef ACL_DEVICE
   if (executor_ == Executor::Host) {
     // the host kernels run right away, so the host has to wait
-    device_.api->syncEventWithHost(event);
+    device_.api().syncEventWithHost(event);
   } else {
-    streamRuntime_.eventSync(event);
+    device_.api().syncStreamWithEvent(streamRuntime_.stream(), event);
   }
 #endif
 }
@@ -656,6 +656,7 @@ void CellCluster::setRunTimeOutputs(bool runTimeOutputs) { runTimeOutputs_ = run
 void CellCluster::finalize() {
   sourceCluster_.host.reset(nullptr);
   sourceCluster_.device.reset(nullptr);
+  AbstractTimeCluster::finalize();
   clock_.dispose();
   streamRuntime_.dispose();
 
@@ -712,11 +713,13 @@ void CellCluster::computeNeighboringIntegrationImplementation(const StepParams& 
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = clusterData_->cellRef(cell);
 
+    // Scratch for the neighbours whose time integral has to be computed here.
+    // Written before it is read, so it needs no initialisation; the frame
+    // holds it for the whole loop, one copy per thread.
+    alignas(Alignment) real integrationBuffer[Cell::NumFaces][kernels::Solver::IntegralsSize];
     std::array<real*, Cell::NumFaces> integrationBuffers{};
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-      integrationBuffers[i] =
-          &globalDataOnHost_->integrationBufferLTS[(OpenMP::threadId() * Cell::NumFaces + i) *
-                                                   kernels::Solver::IntegralsSize];
+      integrationBuffers[i] = integrationBuffer[i];
     }
 
     seissol::kernels::TimeCommon::computeIntegrals(timeKernel_,
@@ -756,7 +759,7 @@ void CellCluster::computeNeighboringIntegrationImplementation(const StepParams& 
             seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
                                                             timestep,
                                                             tV,
-                                                            globalDataOnHost_,
+                                                            globalData_.onHost,
                                                             &plasticity[cell],
                                                             data.get<LTS::Dofs>(),
                                                             pstrain[cell]);

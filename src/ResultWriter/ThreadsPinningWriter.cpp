@@ -8,16 +8,18 @@
 #include "ResultWriter/ThreadsPinningWriter.h"
 
 #include "Common/Filesystem.h"
+#include "IO/Instance/Point/Csv.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
-#include <fstream>
-#include <ios>
+#include <algorithm>
+#include <cstddef>
 #include <sched.h>
 #include <sstream>
 #include <string>
 #include <utils/env.h>
+#include <vector>
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>
@@ -97,25 +99,46 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
   auto numNProcs = seissol::Mpi::mpi.collect(get_nprocs());
 
   if (seissol::Mpi::mpi.rank() == 0) {
-    seissol::filesystem::path path(outputDirectory_);
-    path += seissol::filesystem::path("-threadPinning.csv");
-
-    std::fstream fileStream(path, std::ios::out);
-    fileStream << "hostname,device,rank,localRank,workermask,workernuma,commthread_mask,commthread_"
-                  "numa,nproc\n";
-
     const auto& hostNames = seissol::Mpi::mpi.getHostNames();
     const auto& pcis = seissol::Mpi::mpi.getPCIAddresses();
     const std::string nullstring;
+
+    // the masks are a list of the cores a rank runs on, so how wide they get is a property of the
+    // machine rather than something to guess at
+    const auto widest = [](const std::vector<std::string>& values) {
+      std::size_t width = 1;
+      for (const auto& value : values) {
+        width = std::max(width, value.size());
+      }
+      return width;
+    };
+
+    seissol::io::instance::point::Csv table("threadPinning");
+    table.addTextColumn("hostname", widest(hostNames));
+    table.addTextColumn("device", widest(pcis));
+    table.addColumn<int>("rank");
+    table.addColumn<int>("localRank");
+    table.addTextColumn("workermask", widest(workerThreads));
+    table.addTextColumn("workernuma", widest(workerNumas));
+    table.addTextColumn("commthread_mask", widest(commThreads));
+    table.addTextColumn("commthread_numa", widest(commNumas));
+    table.addColumn<int>("nproc");
+
     for (int rank = 0; rank < seissol::Mpi::mpi.size(); ++rank) {
-      const auto& pci = pcis.empty() ? nullstring : pcis[rank];
-      fileStream << "\"" << hostNames[rank] << "\",\"" << pci << "\"," << rank << ','
-                 << localRanks[rank] << ",\"" << workerThreads[rank] << "\",\"" << workerNumas[rank]
-                 << "\",\"" << commThreads[rank] << "\",\"" << commNumas[rank] << "\","
-                 << numNProcs[rank] << "\n";
+      table.addText(hostNames[rank]);
+      table.addText(pcis.empty() ? nullstring : pcis[rank]);
+      table.addCell<int>(rank);
+      table.addCell<int>(localRanks[rank]);
+      table.addText(workerThreads[rank]);
+      table.addText(workerNumas[rank]);
+      table.addText(commThreads[rank]);
+      table.addText(commNumas[rank]);
+      table.addCell<int>(numNProcs[rank]);
     }
 
-    fileStream.close();
+    seissol::filesystem::path path(outputDirectory_);
+    path += seissol::filesystem::path("-threadPinning.csv");
+    table.writeFile(path.string());
   }
 #else
   logWarning() << "ThreadsPinningWriter is not supported on MacOS.";

@@ -7,7 +7,9 @@
 
 #include "ExchangeScheduler.h"
 
+#include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
+#include "Solver/TimeStepping/Halo/HaloTransport.h"
 
 #include <algorithm>
 #include <cassert>
@@ -16,6 +18,7 @@
 #include <tuple>
 #include <utility>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::solver {
 
@@ -138,7 +141,8 @@ bool ExchangeScheduler::launchedBefore(long time) const {
   return launched_ >= static_cast<std::size_t>(std::distance(sequence_.begin(), first));
 }
 
-std::size_t ExchangeScheduler::readySend(const ScheduledTransport& transport, void* after) {
+std::size_t ExchangeScheduler::readySend(const ScheduledTransport& transport,
+                                         const ActorEvent& after) {
   auto& outgoing = direction(transport.cluster(), transport.otherCluster());
   assert(outgoing.sender == &transport);
   outgoing.sendsAfter.push_back(after);
@@ -147,7 +151,8 @@ std::size_t ExchangeScheduler::readySend(const ScheduledTransport& transport, vo
   return exchange;
 }
 
-std::size_t ExchangeScheduler::readyReceive(const ScheduledTransport& transport, void* after) {
+std::size_t ExchangeScheduler::readyReceive(const ScheduledTransport& transport,
+                                            const ActorEvent& after) {
   auto& incoming = direction(transport.otherCluster(), transport.cluster());
   assert(incoming.receiver == &transport);
   incoming.receivesAfter.push_back(after);
@@ -173,11 +178,14 @@ void ExchangeScheduler::launchReady(std::size_t from, std::size_t to) {
 
 void ExchangeScheduler::launchNext(std::size_t from, std::size_t to) {
   auto& current = direction(from, to);
+  // the events stay reserved until the group has been launched, i.e. its waits are enqueued
+  std::vector<ActorEvent> held;
   std::vector<void*> after;
   for (auto* queue : {&current.sendsAfter, &current.receivesAfter}) {
     if (!queue->empty()) {
-      if (queue->front() != nullptr) {
-        after.push_back(queue->front());
+      if (queue->front()) {
+        after.push_back(queue->front().get());
+        held.push_back(std::move(queue->front()));
       }
       queue->pop_front();
     }
@@ -234,13 +242,13 @@ void ScheduledTransport::startInterval(const ExchangeInterval& interval) {
   scheduler_.startInterval(*this, interval);
 }
 
-void ScheduledTransport::startSendAfter(void* event) {
+void ScheduledTransport::startSendAfter(const ActorEvent& event) {
   assert(!sending_);
   sending_ = true;
   sendExchange_ = scheduler_.readySend(*this, event);
 }
 
-void ScheduledTransport::startReceiveAfter(void* event) {
+void ScheduledTransport::startReceiveAfter(const ActorEvent& event) {
   assert(!receiving_);
   receiving_ = true;
   receiveExchange_ = scheduler_.readyReceive(*this, event);

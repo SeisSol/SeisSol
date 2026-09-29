@@ -31,7 +31,7 @@
 #endif
 
 namespace seissol::solver {
-void GhostCluster::sendCopyLayer(long target, void* after) {
+void GhostCluster::sendCopyLayer(long target, const ActorEvent& after) {
   SCOREP_USER_REGION("sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(!sending_);
   sending_ = true;
@@ -40,7 +40,7 @@ void GhostCluster::sendCopyLayer(long target, void* after) {
   sentMessages_ += copyRegionCount_;
 }
 
-void GhostCluster::receiveGhostLayer(long target, void* after) {
+void GhostCluster::receiveGhostLayer(long target, const ActorEvent& after) {
   SCOREP_USER_REGION("receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION)
   assert(!receiving_);
   receiving_ = true;
@@ -93,7 +93,7 @@ void GhostCluster::advanceSent(long target) {
 void GhostCluster::publishTransportEvent() {
   if (transport_->streamOrdered()) {
     // the copy layer waits for the exchanges on the device
-    publishEvent(transport_->latestEvent());
+    publishEvent(ActorEvent(transport_->latestEvent()));
   }
 }
 
@@ -137,26 +137,27 @@ ActResult GhostCluster::act() {
 }
 
 void GhostCluster::startDeferred() {
-  const auto completed = [](void* event) {
+  const auto completed = []([[maybe_unused]] const ActorEvent& event) {
 #ifdef ACL_DEVICE
-    return event == nullptr || device::DeviceInstance::getInstance().api->isEventCompleted(event);
+    return !event || device::DeviceInstance::instance().api().isEventCompleted(event.get());
 #else
     return true;
 #endif
   };
   if (sendDeferred_ && completed(deferredSendEvent_)) {
     sendDeferred_ = false;
+    deferredSendEvent_ = ActorEvent();
     sendCopyLayer(deferredSendTarget_);
   }
   if (receiveDeferred_ && completed(deferredReceiveEvent_)) {
     receiveDeferred_ = false;
+    deferredReceiveEvent_ = ActorEvent();
     receiveGhostLayer(deferredReceiveTarget_);
   }
 }
 
 void GhostCluster::start() {
-  receiveGhostLayer(std::min(exchangePeriod(), finalSteps()),
-                    neighbors_.front().progress->event.load(std::memory_order_relaxed));
+  receiveGhostLayer(std::min(exchangePeriod(), finalSteps()), neighbors_.front().progress->event());
 }
 
 void GhostCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
@@ -170,12 +171,12 @@ void GhostCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
     const auto target = std::min((predictions + rate - 1) / rate * rate, finalSteps());
     if (transport_->streamOrdered()) {
       // the send waits on the device until the copy layer has written the data
-      sendCopyLayer(target, neighbor.progress->event.load(std::memory_order_relaxed));
+      sendCopyLayer(target, neighbor.progress->event());
     } else if (concurrent()) {
       assert(!sendDeferred_);
       sendDeferred_ = true;
       deferredSendTarget_ = target;
-      deferredSendEvent_ = neighbor.progress->event.load(std::memory_order_relaxed);
+      deferredSendEvent_ = neighbor.progress->event();
     } else {
       sendCopyLayer(target);
     }
@@ -200,12 +201,12 @@ void GhostCluster::handleNeighborCorrection(const NeighborCluster& neighbor) {
     const auto target = std::min(ct_.predictionsSinceLastSync + exchangePeriod(), finalSteps);
     if (transport_->streamOrdered()) {
       // the receive waits on the device until the copy layer has read the last ghost data
-      receiveGhostLayer(target, neighbor.progress->event.load(std::memory_order_relaxed));
+      receiveGhostLayer(target, neighbor.progress->event());
     } else if (concurrent()) {
       assert(!receiveDeferred_);
       receiveDeferred_ = true;
       deferredReceiveTarget_ = target;
-      deferredReceiveEvent_ = neighbor.progress->event.load(std::memory_order_relaxed);
+      deferredReceiveEvent_ = neighbor.progress->event();
     } else {
       receiveGhostLayer(target);
     }
@@ -255,7 +256,10 @@ void GhostCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate)
   AbstractTimeCluster::printTimeoutMessage(timeSinceLastUpdate);
 }
 
-void GhostCluster::finalize() { transport_->finalize(); }
+void GhostCluster::finalize() {
+  AbstractTimeCluster::finalize();
+  transport_->finalize();
+}
 
 std::size_t GhostCluster::sentMessages() const { return sentMessages_; }
 

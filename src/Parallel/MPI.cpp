@@ -72,8 +72,8 @@ void seissol::Mpi::printAcceleratorDeviceInfo() {
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.printInfo();
 
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const auto pci = device.api->getPciAddress(0);
+  device::DeviceInstance& device = device::DeviceInstance::instance();
+  const auto pci = device.api().getPciAddress(0);
   const auto pcisNode = collectContainer(pci, sharedMemComm_);
   pcis_ = collectContainer(pci);
   logInfo() << "Device PCI address (rank=0): " << pci;

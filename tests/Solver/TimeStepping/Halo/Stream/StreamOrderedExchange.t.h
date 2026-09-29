@@ -261,11 +261,11 @@ class StreamCopyCluster : public AbstractTimeCluster {
   void handleNeighborCorrection(const NeighborCluster& /*neighbor*/) override {}
   void printTimeoutMessage(std::chrono::seconds /*timeSinceLastUpdate*/) override {}
 
-  void* recordActionEvent() override {
+  ActorEvent recordActionEvent() override {
     devices_.work(actor_, actor_, action_);
     const auto event = devices_.newEvent();
     devices_.record(actor_, event);
-    return reinterpret_cast<void*>(event);
+    return ActorEvent(reinterpret_cast<void*>(event));
   }
 
   void waitForEvent(void* event) override {

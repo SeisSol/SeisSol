@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_HALOTRANSPORT_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_HALOTRANSPORT_H_
 
+#include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
 namespace seissol::solver {
@@ -80,15 +81,15 @@ class HaloTransport {
 
   /**
    * Starts sending once the work behind the event has completed on the device (for stream-ordered
-   * transports; the others start right away).
+   * transports, which keep the event until then; the others start right away).
    */
-  virtual void startSendAfter(void* /*event*/) { startSend(); }
+  virtual void startSendAfter(const ActorEvent& /*event*/) { startSend(); }
 
   /**
    * Starts receiving once the work behind the event has completed on the device (for
-   * stream-ordered transports; the others start right away).
+   * stream-ordered transports, which keep the event until then; the others start right away).
    */
-  virtual void startReceiveAfter(void* /*event*/) { startReceive(); }
+  virtual void startReceiveAfter(const ActorEvent& /*event*/) { startReceive(); }
 
   /**
    * Announces the exchanges up to the next synchronization point, before the first of them.

@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_EXCHANGESCHEDULER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_EXCHANGESCHEDULER_H_
 
+#include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 
@@ -78,15 +79,16 @@ class ExchangeScheduler {
 
   /**
    * Marks the next send of the transport as ready, once the work behind the event has completed
-   * on the device; returns the index of its exchange.
+   * on the device; returns the index of its exchange. The event is kept until its group goes out.
    */
-  std::size_t readySend(const ScheduledTransport& transport, void* after = nullptr);
+  std::size_t readySend(const ScheduledTransport& transport, const ActorEvent& after = {});
 
   /**
    * Marks the next receive of the transport as ready, once the work behind the event has
-   * completed on the device; returns the index of its exchange.
+   * completed on the device; returns the index of its exchange. The event is kept until its group
+   * goes out.
    */
-  std::size_t readyReceive(const ScheduledTransport& transport, void* after = nullptr);
+  std::size_t readyReceive(const ScheduledTransport& transport, const ActorEvent& after = {});
 
   /**
    * Orders the groups on the device: a group starts after the events its operations were made
@@ -181,8 +183,8 @@ class ExchangeScheduler {
     std::vector<Ticket> groups;
 
     // the events each ready operation waits for, in the order of the exchanges
-    std::deque<void*> sendsAfter;
-    std::deque<void*> receivesAfter;
+    std::deque<ActorEvent> sendsAfter;
+    std::deque<ActorEvent> receivesAfter;
 
     // the sending cluster of the current interval
     long sendRate{1};
@@ -227,8 +229,8 @@ class ScheduledTransport : public HaloTransport {
   void startInterval(const ExchangeInterval& interval) override;
   [[nodiscard]] bool streamOrdered() const override { return scheduler_.streamOrdered(); }
   [[nodiscard]] void* latestEvent() const override { return scheduler_.latestEvent(); }
-  void startSendAfter(void* event) override;
-  void startReceiveAfter(void* event) override;
+  void startSendAfter(const ActorEvent& event) override;
+  void startReceiveAfter(const ActorEvent& event) override;
   void startSend() override;
   bool testSend() override;
   void startReceive() override;

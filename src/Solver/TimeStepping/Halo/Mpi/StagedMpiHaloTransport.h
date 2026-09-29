@@ -54,7 +54,7 @@ class StagedMpiHaloTransport : public HaloTransport {
   std::vector<void*> copyStreams_;
   std::vector<void*> ghostStreams_;
   std::vector<ReceiveState> receiveStates_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 };
 
 } // namespace seissol::solver

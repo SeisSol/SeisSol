@@ -8,10 +8,15 @@
 
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
+
+# The face relation index of a dynamic rupture face: 0 selects the plus side, 1 the minus side.
+# The minus side carries the face orientation index of the shared face, which the canonical
+# vertex numbering pins to zero.
+NumFaceRelations = 2
 
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInterface):
@@ -122,7 +127,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         name_prefix = generate_kernel_name_prefix(target)
         generator.addFamily(
             f"{name_prefix}evaluateAndRotateQAtInterpolationPoints",
-            simpleParameterSpace(4, 4),
+            simpleParameterSpace(4, NumFaceRelations),
             interpolateQGenerator,
             interpolateQPrefetch if target == "cpu" else None,
             target=target,
@@ -150,7 +155,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
 
         calc = []
         for c in range(steps):
-            interm = Add()
+            interm = Accumulate(ops.Add())
 
             # the same for all equations right now (incl. visco2 and poro)
             # if not, you'll need to generalize within the equation class(es)
@@ -171,7 +176,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         name_prefix = generate_kernel_name_prefix(target)
         generator.addFamily(
             f"{name_prefix}projectToDR",
-            simpleParameterSpace(4, 4),
+            simpleParameterSpace(4, NumFaceRelations),
             multiInterpolateQ,
             None,
             target=target,
@@ -190,7 +195,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         name_prefix = generate_kernel_name_prefix(target)
         generator.addFamily(
             f"{name_prefix}nodalFlux",
-            simpleParameterSpace(4, 4),
+            simpleParameterSpace(4, NumFaceRelations),
             nodalFluxGenerator,
             nodalFluxPrefetch if target == "cpu" else None,
             target=target,
@@ -241,7 +246,6 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         alignStride=True,
     )
     minusSurfaceArea = Scalar("minusSurfaceArea")
-    spaceWeights = Tensor("spaceWeights", (numPoints, 1), alignStride=True)
 
     computeTractionInterpolated = (
         tractionInterpolated["kp"]
@@ -256,7 +260,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         + minusSurfaceArea
         * tractionInterpolated["kp"]
         * slipInterpolated["kp"]
-        * spaceWeights["kl"]
+        * db.quadweights["k"]
     )
     generator.add("accumulateStaticFrictionalWork", accumulateStaticFrictionalWork)
 

@@ -13,6 +13,7 @@
 #include "GaussianNucleation.t.h"
 #include "ODEInt.t.h"
 #include "PhiFunctions.t.h"
+#include "Projection.t.h"
 #include "Quadrature.t.h"
 #include "RegularizedYoffe.t.h"
 #include "TimeBasis.t.h"

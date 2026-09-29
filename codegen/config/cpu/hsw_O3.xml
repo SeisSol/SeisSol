@@ -8,11 +8,11 @@
   <matrix name="star" sparse="True"/>
   <matrix name="kDivM(2)" sparse="True"/>
   <matrix name="rDivM(1)" sparse="True"/>
-  <matrix name="rT(3)" sparse="True"/>
+  <matrix name="fPrT(3)" sparse="True"/>
   <matrix name="kDivM(1)" sparse="True"/>
-  <matrix name="rT(0)" sparse="True"/>
-  <matrix name="rT(2)" sparse="True"/>
-  <matrix name="rT(1)" sparse="True"/>
+  <matrix name="fPrT(0)" sparse="True"/>
+  <matrix name="fPrT(2)" sparse="True"/>
+  <matrix name="fPrT(1)" sparse="True"/>
   <matrix name="kDivM(0)" sparse="True"/>
   <matrix name="fMrT(0)" sparse="True"/>
 </memory_layouts>

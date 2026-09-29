@@ -15,8 +15,28 @@ configure_file(
     COPYONLY
 )
 configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/mesh-permuted.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh-permuted.h5
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/mesh-offgrid.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh-offgrid.h5
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/mesh-offgrid-permuted.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh-offgrid-permuted.h5
+    COPYONLY
+)
+configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/material.yaml
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/material-graded.yaml
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material-graded.yaml
     COPYONLY
 )
 configure_file(
@@ -171,6 +191,14 @@ seissol_add_mpi_test_module(mpi 4
     Parallel/TestParallelMPI.cpp
 )
 
+seissol_add_mpi_test_module(iompi 4
+    IO/TestIOMPI.cpp
+)
+
+seissol_add_mpi_test_module(geometrympi 4
+    Geometry/TestGeometryMPI.cpp
+)
+
 # =============================================================================
 # Handle TESTING_GENERATED kernel sources
 # =============================================================================
@@ -184,7 +212,7 @@ if (TESTING_GENERATED)
 
     foreach(_TGT IN LISTS _GENERATED_KERNEL_TARGETS)
         if (WITH_GPU)
-            make_device_lib(${_TGT}-device ${SEISSOL_CODEGEN_TESTS})
+            make_device_hostapi_lib(${_TGT}-device ${SEISSOL_CODEGEN_TESTS})
             target_link_libraries(${_TGT}-device PRIVATE seissol-kernel-lib)
             target_link_libraries(${_TGT}-device PRIVATE seissol-external)
             target_include_directories(${_TGT}-device PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

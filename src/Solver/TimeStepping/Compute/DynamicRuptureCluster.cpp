@@ -63,24 +63,23 @@ DynamicRuptureCluster::DynamicRuptureCluster(
     LoopStatistics* loopStatistics,
     ActorStateStatistics* actorStateStatistics)
     : FaceCluster(maxTimeStepSize, timeStepRate, executor), seissolInstance_(seissolInstance),
-      streamRuntime_(4), globalDataOnHost_(globalData.onHost),
-      globalDataOnDevice_(globalData.onDevice), layerData_(layerData),
+      streamRuntime_(4), globalData_(globalData), layerData_(layerData),
       frictionSolver_(frictionSolverTemplate->clone()),
       frictionSolverDevice_(frictionSolverTemplateDevice->clone()),
       faultOutputManager_(faultOutputManager), outputTimestep_(outputTimestep),
       loopStatistics_(loopStatistics), actorStateStatistics_(actorStateStatistics),
       profilingId_(profilingId) {
   assert(layerData_ != nullptr);
-  assert(globalDataOnHost_ != nullptr);
+  assert(globalData_.onHost != nullptr);
   if constexpr (seissol::isDeviceOn()) {
-    assert(globalDataOnDevice_ != nullptr);
+    assert(globalData_.onDevice != nullptr);
   }
 
   dynamicRuptureKernel_.setGlobalData(globalData);
 
-  frictionSolver_->allocateAuxiliaryMemory(globalDataOnHost_);
+  frictionSolver_->allocateAuxiliaryMemory(globalData_.onHost);
   if constexpr (seissol::isDeviceOn()) {
-    frictionSolverDevice_->allocateAuxiliaryMemory(globalDataOnDevice_);
+    frictionSolverDevice_->allocateAuxiliaryMemory(globalData_.onDevice);
     frictionSolverDevice_->setClock(clock_.device());
   }
 
@@ -178,7 +177,7 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice(
     const auto timestep = params.timeStepSize;
 
     const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
-    device_.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
+    device_.api().putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     auto computeGraphKey = initializer::GraphKey(graphType, timestep);
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
@@ -188,17 +187,19 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice(
     const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
     const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
-    streamRuntime_.runGraph(computeGraphKey,
-                            layerData,
-                            [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
-                              dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
-                                  table, pointsCollocate.data(), streamRuntime_);
-                            });
-    device_.api->popLastProfilingMark();
+    streamRuntime_.runGraph(
+        computeGraphKey,
+        layerData,
+        [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
+          dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
+              table, pointsCollocate.data(), streamRuntime_);
+        },
+        isRecurringTimestep(timestep));
+    device_.api().popLastProfilingMark();
 
     auto& solver = frictionSolverDevice_;
 
-    device_.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
+    device_.api().putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     if (solver->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedPlus>(
           initializer::AllocationPlace::Host, streamRuntime_.stream());
@@ -218,7 +219,7 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice(
       solver->evaluate(params.time, frictionTime, timeWeights.data(), streamRuntime_);
     }
 
-    device_.api->popLastProfilingMark();
+    device_.api().popLastProfilingMark();
   }
   loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
 #else
@@ -261,7 +262,7 @@ void DynamicRuptureCluster::setRunTimeOutputs(bool runTimeOutputs) {
   runTimeOutputs_ = runTimeOutputs;
 #ifdef ACL_DEVICE
   if (runTimeOutputs_ && pickpointStepStart_ == &pickpointStepStartHost_) {
-    pickpointStepStart_ = static_cast<double*>(device_.api->allocPinnedMem(sizeof(double)));
+    pickpointStepStart_ = static_cast<double*>(device_.api().allocPinnedMem(sizeof(double)));
   }
 #endif
 }
@@ -385,15 +386,17 @@ void DynamicRuptureCluster::interact(const StepParams& params) {
   }
 }
 
-void* DynamicRuptureCluster::recordActionEvent() { return streamRuntime_.eventRecord(); }
+ActorEvent DynamicRuptureCluster::recordActionEvent() {
+  return ActorEvent(streamRuntime_.eventRecord());
+}
 
 void DynamicRuptureCluster::waitForEvent(SEISSOL_GPU_PARAM void* event) {
 #ifdef ACL_DEVICE
   if (executor_ == Executor::Host) {
     // the host kernels run right away, so the host has to wait
-    device_.api->syncEventWithHost(event);
+    device_.api().syncEventWithHost(event);
   } else {
-    streamRuntime_.eventSync(event);
+    device_.api().syncStreamWithEvent(streamRuntime_.stream(), event);
   }
 #endif
 }
@@ -408,10 +411,11 @@ ActResult DynamicRuptureCluster::act() {
 void DynamicRuptureCluster::finalize() {
 #ifdef ACL_DEVICE
   if (pickpointStepStart_ != &pickpointStepStartHost_) {
-    device_.api->freePinnedMem(pickpointStepStart_);
+    device_.api().freePinnedMem(pickpointStepStart_);
     pickpointStepStart_ = &pickpointStepStartHost_;
   }
 #endif
+  AbstractTimeCluster::finalize();
   clock_.dispose();
   streamRuntime_.dispose();
 }

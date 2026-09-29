@@ -151,11 +151,11 @@ class EnqueueingCluster : public AbstractTimeCluster {
   void handleNeighborCorrection(const NeighborCluster& /*neighbor*/) override {}
   void printTimeoutMessage(std::chrono::seconds /*timeSinceLastUpdate*/) override {}
 
-  void* recordActionEvent() override {
+  ActorEvent recordActionEvent() override {
     const auto event = nextEvent_++;
     device_.enqueue(index_, action_, waits_, event);
     waits_.clear();
-    return reinterpret_cast<void*>(event);
+    return ActorEvent(reinterpret_cast<void*>(event));
   }
 
   void waitForEvent(void* event) override {

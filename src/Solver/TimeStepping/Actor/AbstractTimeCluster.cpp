@@ -143,9 +143,8 @@ void AbstractTimeCluster::waitForNeighbors() {
   if (concurrent_) {
     // everything a neighbor did before this action has been enqueued before it
     for (const auto& neighbor : neighbors_) {
-      if (auto* event = neighbor.progress->event.load(std::memory_order_relaxed);
-          event != nullptr) {
-        waitForEvent(event);
+      if (const auto event = neighbor.progress->event()) {
+        waitForEvent(event.get());
       }
     }
   }
@@ -153,7 +152,7 @@ void AbstractTimeCluster::waitForNeighbors() {
 
 void AbstractTimeCluster::publishEvent() {
   if (concurrent_) {
-    progress_.event.store(recordActionEvent(), std::memory_order_relaxed);
+    progress_.publishEvent(recordActionEvent());
   }
 }
 
@@ -278,7 +277,10 @@ long AbstractTimeCluster::getTimeStepRate() const { return timeStepRate_; }
 
 long AbstractTimeCluster::getStepsUntilSync() const { return ct_.stepsUntilSync; }
 
-void AbstractTimeCluster::finalize() {}
+void AbstractTimeCluster::finalize() {
+  // the event may belong to a stream runtime that goes away with the cluster
+  progress_.publishEvent({});
+}
 
 double AbstractTimeCluster::getClusterTimes() { return ct_.getTimeStepSize(); }
 

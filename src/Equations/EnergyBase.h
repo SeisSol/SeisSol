@@ -220,7 +220,8 @@ inline constexpr std::array DarcyEnergies{
  *   EnergyData     -- per-cell data, see below
  *   Moments        -- per-cell moments beyond the ones EnergyOutput supplies
  *   initEnergyData -- builds EnergyData once, at setup
- *   computeMoments -- builds Moments for one cell
+ *   computeMoments -- builds Moments for one cell; its kernels bind their
+ *                     constants from the (host) pool that is passed in
  *   computeEnergies-- evaluates the energies for one cell and one simulation
  *
  * Output positions are looked up by name with detail::indexOf rather than

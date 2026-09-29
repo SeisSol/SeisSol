@@ -40,28 +40,28 @@ std::vector<std::size_t> StreamExchangeScheduler::usedSlots() const {
 #ifdef ACL_DEVICE
 
 namespace {
-device::DeviceInstance& deviceInstance() { return device::DeviceInstance::getInstance(); }
+device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instance(); }
 } // namespace
 
 StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
     : ExchangeScheduler(clusterCount, order), clusterCount_(clusterCount),
       streams_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr) {
   for (const auto current : usedSlots()) {
-    streams_[current] = deviceInstance().api->createStream();
+    streams_[current] = deviceInstance().api().createStream();
   }
 }
 
 StreamExchangeScheduler::~StreamExchangeScheduler() {
   synchronize();
   for (const auto& [ticket, event] : pendingEvents_) {
-    deviceInstance().api->destroyEvent(event);
+    deviceInstance().api().destroyEvent(event);
   }
   for (auto* event : launchedEvents_) {
-    deviceInstance().api->destroyEvent(event);
+    deviceInstance().api().destroyEvent(event);
   }
   for (auto* stream : streams_) {
     if (stream != nullptr) {
-      deviceInstance().api->destroyGenericStream(stream);
+      deviceInstance().api().destroyGenericStream(stream);
     }
   }
 }
@@ -69,7 +69,7 @@ StreamExchangeScheduler::~StreamExchangeScheduler() {
 void StreamExchangeScheduler::synchronize() {
   for (auto* stream : streams_) {
     if (stream != nullptr) {
-      deviceInstance().api->syncStreamWithHost(stream);
+      deviceInstance().api().syncStreamWithHost(stream);
     }
   }
 }
@@ -87,13 +87,13 @@ ExchangeScheduler::Ticket StreamExchangeScheduler::launch(std::size_t from,
                << to;
   }
   for (auto* event : after) {
-    deviceInstance().api->syncStreamWithEvent(stream, event);
+    deviceInstance().api().syncStreamWithEvent(stream, event);
   }
 
   enqueueGroup(current, from, to, exchange, sender, receiver);
 
-  auto* event = deviceInstance().api->createEvent();
-  deviceInstance().api->recordEventOnStream(event, stream);
+  auto* event = deviceInstance().api().createEvent();
+  deviceInstance().api().recordEventOnStream(event, stream);
   const auto ticket = nextTicket_++;
   if (streamOrdered()) {
     // the dependent work waits for the event on the device; it stays until the device has completed
@@ -111,8 +111,8 @@ bool StreamExchangeScheduler::completed(Ticket ticket) {
     // tickets are handed out in increasing order; only completed ones are forgotten
     return ticket < nextTicket_;
   }
-  if (deviceInstance().api->isEventCompleted(pending->second)) {
-    deviceInstance().api->destroyEvent(pending->second);
+  if (deviceInstance().api().isEventCompleted(pending->second)) {
+    deviceInstance().api().destroyEvent(pending->second);
     pendingEvents_.erase(pending);
     return true;
   }
@@ -133,7 +133,7 @@ void StreamExchangeScheduler::releaseEvents() {
   bool ownsLatest = false;
   for (auto* event : launchedEvents_) {
     if (event != latestEvent_) {
-      deviceInstance().api->destroyEvent(event);
+      deviceInstance().api().destroyEvent(event);
     } else {
       ownsLatest = true;
     }

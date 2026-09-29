@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_
 
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <cstddef>
 #include <map>
@@ -94,7 +95,9 @@ class SuperStepRecorder {
   std::vector<void*> events_;
   std::size_t eventIndex_{0};
   void* lastEvent_{nullptr};
-  std::vector<void*> waitFor_;
+  // the latest work before the super-timestep, until the replay has been enqueued after it; an
+  // event of a cluster stays reserved while it is held
+  std::vector<ActorEvent> waitFor_;
   device::DeviceGraphHandle recording_;
   std::map<Key, device::DeviceGraphHandle> graphs_;
 #endif

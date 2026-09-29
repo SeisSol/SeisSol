@@ -10,6 +10,7 @@
 
 #include "Equations/Energy.h"
 #include "Geometry/MeshReader.h"
+#include "IO/Instance/Point/Csv.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -22,9 +23,9 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
-#include <fstream>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -108,13 +109,11 @@ class EnergyOutput : public Module {
   void checkAbortCriterion(const std::array<double, multisim::NumSimulations>& timeSinceThreshold,
                            const std::string& prefixMessage);
 
-  void writeHeader();
-
   void writeEnergies(double time);
 
   seissol::SeisSol& seissolInstance_;
 
-  bool shouldComputeVolumeEnergies() const;
+  [[nodiscard]] bool shouldComputeVolumeEnergies() const;
 
   bool isEnabled_ = false;
   bool isTerminalOutputEnabled_ = false;
@@ -126,7 +125,8 @@ class EnergyOutput : public Module {
   int outputId_ = 0;
 
   std::string outputFileName_;
-  std::ofstream out_;
+  //! The energies of every output, held by the rank that writes them.
+  std::optional<io::instance::point::Csv> table_;
 
   const GlobalData* global_ = nullptr;
   const DynamicRupture::Storage* drStorage_ = nullptr;

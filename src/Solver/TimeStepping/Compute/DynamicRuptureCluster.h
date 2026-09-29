@@ -78,7 +78,7 @@ class DynamicRuptureCluster : public FaceCluster {
 
   protected:
   void interact(const StepParams& params) override;
-  void* recordActionEvent() override;
+  ActorEvent recordActionEvent() override;
   void waitForEvent(void* event) override;
   void timeSet(double time) override;
   StepWork prepare(ActorAction action) override;
@@ -116,10 +116,9 @@ class DynamicRuptureCluster : public FaceCluster {
   ClusterClock clock_;
   kernels::DynamicRupture dynamicRuptureKernel_;
 
-  GlobalData* globalDataOnHost_{nullptr};
-  GlobalData* globalDataOnDevice_{nullptr};
+  CompoundGlobalData globalData_;
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 
   DynamicRupture::Layer* layerData_;

@@ -78,6 +78,24 @@ inline bool useScratchpadPerLayer(utils::Env& env) {
   return env.get<bool>("SCRATCHPAD_PER_LAYER", false);
 }
 
+/**
+ * Kill switch for explicit graph node construction. When off, graphs that would be built node
+ * by node fall back to whole-stream capture, which is what every graph used before.
+ */
+inline bool useGraphNodes(SEISSOL_GPU_PARAM utils::Env& env) {
+#ifdef ACL_DEVICE
+  return env.get<bool>("DEVICE_GRAPH_NODES", true) &&
+         device::DeviceInstance::instance().api().isCapableOfGraphNodes();
+#else
+  return false;
+#endif
+}
+
+inline bool useGraphNodes() {
+  utils::Env env("SEISSOL_");
+  return useGraphNodes(env);
+}
+
 inline void printPersistentMpiInfo(utils::Env& env) {
   if (usePersistentMpi(env)) {
     logInfo() << "Using persistent MPI routines.";
@@ -88,7 +106,7 @@ inline void printPersistentMpiInfo(utils::Env& env) {
 
 inline bool useUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
-  return env.get<bool>("USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+  return env.get<bool>("USM", device::DeviceInstance::instance().api().isUnifiedMemoryDefault());
 #else
   return true;
 #endif
@@ -110,7 +128,7 @@ inline void printUSMInfo(utils::Env& env) {
 inline bool useMPIUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
   return env.get<bool>("USM_MPI",
-                       device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+                       device::DeviceInstance::instance().api().isUnifiedMemoryDefault());
 #else
   return true;
 #endif

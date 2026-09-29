@@ -9,12 +9,46 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ACTORSTATE_H_
 
 #include "Common/Executor.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <atomic>
 #include <limits>
+#include <mutex>
 #include <string>
+#include <utility>
 
 namespace seissol::solver {
+
+/**
+ * An event that completes with the device work of an action, as it gets handed from a cluster to
+ * the ones that wait for it.
+ *
+ * While it is held, an event from the pool of a stream runtime stays reserved: the pool does not
+ * hand it out to be recorded anew (see parallel::runtime::EventRef). So whoever keeps an event to
+ * wait for it later -- a halo exchange that starts once the data is there, or a replay that has to
+ * come after the work before it -- keeps the event itself. An event owned elsewhere (e.g. by the
+ * halo exchange or by the recorder of super-timesteps) is not reserved; its owner keeps it until
+ * nobody waits for it any more.
+ */
+class ActorEvent {
+  public:
+  ActorEvent() = default;
+
+  /// an event owned elsewhere
+  explicit ActorEvent(void* event) : event_(event) {}
+
+  /// an event from the pool of a stream runtime; reserved while held
+  explicit ActorEvent(parallel::runtime::EventRef event)
+      : event_(event.get()), reference_(std::move(event)) {}
+
+  [[nodiscard]] void* get() const { return event_; }
+
+  explicit operator bool() const { return event_ != nullptr; }
+
+  private:
+  void* event_{nullptr};
+  parallel::runtime::EventRef reference_;
+};
 
 /**
  * The progress of a cluster since the last synchronization point, as seen by the other clusters.
@@ -30,8 +64,28 @@ struct ActorProgress {
   std::atomic<double> predictionTime{0.0};
   std::atomic<double> correctionTime{0.0};
 
-  /// Completes with the device work of the latest action; null without concurrent clusters.
-  std::atomic<void*> event{nullptr};
+  /**
+   * Makes `event` the one that completes with the device work of the latest action. Before the
+   * step counters of the action, so that a neighbor which has seen the action also sees its event
+   * (or a later one).
+   */
+  void publishEvent(ActorEvent event) {
+    const std::scoped_lock lock(eventMutex_);
+    event_ = std::move(event);
+  }
+
+  /**
+   * The event that completes with the device work of the latest action; empty without concurrent
+   * clusters. The copy keeps the event reserved while it is held.
+   */
+  [[nodiscard]] ActorEvent event() const {
+    const std::scoped_lock lock(eventMutex_);
+    return event_;
+  }
+
+  private:
+  mutable std::mutex eventMutex_;
+  ActorEvent event_;
 };
 
 enum class ActorState { Corrected, Predicted, Synced };

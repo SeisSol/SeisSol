@@ -12,9 +12,11 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "IO/Instance/Point/Csv.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/PreProcessorMacros.h"
@@ -23,7 +25,6 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
-#include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
 #include "Physics/InitialField.h"
@@ -35,44 +36,13 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
 #include <string>
-#include <string_view>
-#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol::writer {
-
-CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) : fileName_(std::move(fileName)) {}
-
-void CsvAnalysisWriter::writeHeader() {
-  if (isEnabled_) {
-    out_ << "variable,norm,error\n";
-  }
-}
-
-void CsvAnalysisWriter::addObservation(std::string_view variable,
-                                       std::string_view normType,
-                                       real error) {
-  if (isEnabled_) {
-    out_ << variable << "," << normType << "," << error << "\n";
-  }
-}
-
-void CsvAnalysisWriter::enable() {
-  isEnabled_ = true;
-  out_.open(fileName_);
-}
-
-CsvAnalysisWriter::~CsvAnalysisWriter() {
-  if (isEnabled_) {
-    out_.close();
-    if (!out_) {
-      logError() << "Error when writing analysis output to file";
-    }
-  }
-}
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::Mpi::mpi;
@@ -113,9 +83,9 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                           seissolInstance_.parameters().initialization.hasTime);
   }
 
-  double quadraturePoints[NumQuadPoints][3];
-  double quadratureWeights[NumQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+  const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
+  const auto& quadraturePoints = rule.first;
+  const auto& quadratureWeights = rule.second;
 
   for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
@@ -192,18 +162,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
         if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
           // Compute global position of quadrature points.
-          const double* elementCoords[Cell::NumVertices];
-          for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-            elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
-          }
-          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-            seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                                   elementCoords[1],
-                                                                   elementCoords[2],
-                                                                   elementCoords[3],
-                                                                   quadraturePoints[i],
-                                                                   quadraturePointsXyz[i].data());
-          }
+          const auto transform =
+              seissol::geometry::AffineTransform::fromMeshCell(meshId, *meshReader_);
+
+          transform.refToSpace(
+              quadraturePoints.data(), quadraturePointsXyz.data(), quadraturePoints.size());
 
           // Evaluate analytical solution at quad. nodes
           const CellMaterialData& material = materialData[cell];
@@ -223,7 +186,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP krnl;
-        krnl.evalAtQP = globalData->evalAtQPMatrix;
+        krnl.bindGlobals(*globalData);
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();
@@ -268,7 +231,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
     for (std::size_t i = 0; i < NumQuantities; ++i) {
       // Find position of element with lowest LInf error.
-      VrtxCoords center;
+      CoordinateT center;
       MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
     }
 
@@ -319,27 +282,33 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                0,
                comm);
 
-    auto csvWriter = CsvAnalysisWriter(fileName_);
-
-    if (mpi.rank() == 0) {
-      csvWriter.enable();
-      csvWriter.writeHeader();
-    }
+    // the errors, gathered on rank 0 as they are printed; "LInf_rel" is the longest norm name
+    seissol::io::instance::point::Csv table("analysis");
+    table.addColumn<std::int32_t>("variable");
+    table.addTextColumn("norm", 8);
+    table.addColumn<double>("error");
+    const auto addObservation =
+        [&table](std::size_t variable, const std::string& norm, double error) {
+          table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
+          table.addText(norm);
+          table.addCell<double>(error);
+        };
 
     for (std::size_t i = 0; i < NumQuantities; ++i) {
-      VrtxCoords centerSend{};
+      CoordinateT centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
 
       if (mpi.rank() == errLInfRecv[i].rank && errLInfRecv[i].rank != 0) {
-        MPI_Send(centerSend, 3, MPI_DOUBLE, 0, i, comm);
+        MPI_Send(centerSend.data(), 3, MPI_DOUBLE, 0, i, comm);
       }
 
       if (mpi.rank() == 0) {
-        VrtxCoords centerRecv{};
+        CoordinateT centerRecv{};
         if (errLInfRecv[i].rank == 0) {
-          std::copy_n(centerSend, 3, centerRecv);
+          std::copy_n(centerSend.begin(), 3, centerRecv.begin());
         } else {
-          MPI_Recv(centerRecv, 3, MPI_DOUBLE, errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
+          MPI_Recv(
+              centerRecv.data(), 3, MPI_DOUBLE, errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
         }
 
         const auto errL1 = errL1MPI[i];
@@ -353,13 +322,17 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "at rank "
                   << errLInfRecv[i].rank << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1]
                   << ",\t" << centerRecv[2] << "\t]";
-        csvWriter.addObservation(std::to_string(i), "L1", errL1);
-        csvWriter.addObservation(std::to_string(i), "L2", errL2);
-        csvWriter.addObservation(std::to_string(i), "LInf", errLInf);
-        csvWriter.addObservation(std::to_string(i), "L1_rel", errL1Rel);
-        csvWriter.addObservation(std::to_string(i), "L2_rel", errL2Rel);
-        csvWriter.addObservation(std::to_string(i), "LInf_rel", errLInfRel);
+        addObservation(i, "L1", errL1);
+        addObservation(i, "L2", errL2);
+        addObservation(i, "LInf", errLInf);
+        addObservation(i, "L1_rel", errL1Rel);
+        addObservation(i, "L2_rel", errL2Rel);
+        addObservation(i, "LInf_rel", errLInfRel);
       }
+    }
+
+    if (mpi.rank() == 0) {
+      table.writeFile(fileName_);
     }
   }
 }

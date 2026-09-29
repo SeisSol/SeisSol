@@ -18,48 +18,48 @@ namespace seissol::solver {
 #ifdef ACL_DEVICE
 
 namespace {
-device::DeviceInstance& deviceInstance() { return device::DeviceInstance::getInstance(); }
+device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instance(); }
 } // namespace
 
 ClusterClock::ClusterClock() {
-  host_ = static_cast<double*>(deviceInstance().api->allocPinnedMem(sizeof(double)));
-  device_ = static_cast<double*>(deviceInstance().api->allocGlobMem(sizeof(double)));
-  deviceStep_ = static_cast<double*>(deviceInstance().api->allocGlobMem(sizeof(double)));
-  stepTable_ = static_cast<const double**>(deviceInstance().api->allocGlobMem(sizeof(double*)));
-  clockTable_ = static_cast<double**>(deviceInstance().api->allocGlobMem(sizeof(double*)));
+  host_ = static_cast<double*>(deviceInstance().api().allocPinnedMem(sizeof(double)));
+  device_ = static_cast<double*>(deviceInstance().api().allocGlobMem(sizeof(double)));
+  deviceStep_ = static_cast<double*>(deviceInstance().api().allocGlobMem(sizeof(double)));
+  stepTable_ = static_cast<const double**>(deviceInstance().api().allocGlobMem(sizeof(double*)));
+  clockTable_ = static_cast<double**>(deviceInstance().api().allocGlobMem(sizeof(double*)));
 
   *host_ = 0;
   const double zero = 0;
-  deviceInstance().api->copyTo(device_, &zero, sizeof(double));
-  deviceInstance().api->copyTo(deviceStep_, &zero, sizeof(double));
-  deviceInstance().api->copyTo(stepTable_, &deviceStep_, sizeof(double*));
-  deviceInstance().api->copyTo(clockTable_, &device_, sizeof(double*));
+  deviceInstance().api().copyTo(device_, &zero, sizeof(double));
+  deviceInstance().api().copyTo(deviceStep_, &zero, sizeof(double));
+  deviceInstance().api().copyTo(stepTable_, &deviceStep_, sizeof(double*));
+  deviceInstance().api().copyTo(clockTable_, &device_, sizeof(double*));
 }
 
 ClusterClock::~ClusterClock() { dispose(); }
 
 void ClusterClock::dispose() {
   if (host_ != nullptr) {
-    deviceInstance().api->freeGlobMem(clockTable_);
-    deviceInstance().api->freeGlobMem(stepTable_);
-    deviceInstance().api->freeGlobMem(deviceStep_);
-    deviceInstance().api->freeGlobMem(device_);
-    deviceInstance().api->freePinnedMem(host_);
+    deviceInstance().api().freeGlobMem(clockTable_);
+    deviceInstance().api().freeGlobMem(stepTable_);
+    deviceInstance().api().freeGlobMem(deviceStep_);
+    deviceInstance().api().freeGlobMem(device_);
+    deviceInstance().api().freePinnedMem(host_);
     host_ = nullptr;
     device_ = nullptr;
   }
 }
 
 void ClusterClock::set(double time, parallel::runtime::StreamRuntime& runtime) {
-  deviceInstance().algorithms.fillArray(device_, time, 1, runtime.stream());
-  deviceInstance().api->copyFromAsync(host_, device_, sizeof(double), runtime.stream());
+  deviceInstance().algorithms().fillArray(device_, time, 1, runtime.stream());
+  deviceInstance().api().copyFromAsync(host_, device_, sizeof(double), runtime.stream());
 }
 
 void ClusterClock::advance(double timeStepSize, parallel::runtime::StreamRuntime& runtime) {
-  deviceInstance().algorithms.fillArray(deviceStep_, timeStepSize, 1, runtime.stream());
-  deviceInstance().algorithms.accumulateBatchedData(
+  deviceInstance().algorithms().fillArray(deviceStep_, timeStepSize, 1, runtime.stream());
+  deviceInstance().algorithms().accumulateBatchedData(
       stepTable_, clockTable_, 1, 1, runtime.stream());
-  deviceInstance().api->copyFromAsync(host_, device_, sizeof(double), runtime.stream());
+  deviceInstance().api().copyFromAsync(host_, device_, sizeof(double), runtime.stream());
 }
 
 #else

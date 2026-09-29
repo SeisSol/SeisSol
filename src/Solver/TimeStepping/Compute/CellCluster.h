@@ -75,10 +75,9 @@ class CellCluster : public AbstractTimeCluster {
    * global data
    */
   //! global data structures
-  GlobalData* globalDataOnHost_{nullptr};
-  GlobalData* globalDataOnDevice_{nullptr};
+  CompoundGlobalData globalData_;
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 
   /*
@@ -241,7 +240,7 @@ class CellCluster : public AbstractTimeCluster {
   void setRunTimeOutputs(bool runTimeOutputs) override;
 
   protected:
-  void* recordActionEvent() override;
+  ActorEvent recordActionEvent() override;
   void waitForEvent(void* event) override;
   void timeSet(double time) override;
   StepWork prepare(ActorAction action) override;

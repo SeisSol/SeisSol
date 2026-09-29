@@ -12,6 +12,7 @@
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Solver/MultipleSimulations.h"
@@ -75,17 +76,17 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     alignas(Alignment) real cross[tensor::momentQQane::size()]{};
   };
 
-  static Moments computeMoments(const real* dofs, const real* dofsAne) {
+  static Moments computeMoments(const real* dofs, const real* dofsAne, const seissol::Pool& pool) {
     Moments moments{};
 
     kernel::momentQaneQaneCompute aneKrnl;
-    aneKrnl.M3 = init::M3::Values;
+    aneKrnl.bindGlobals(pool);
     aneKrnl.Qane = dofsAne;
     aneKrnl.momentQaneQane = moments.ane;
     aneKrnl.execute();
 
     kernel::momentQQaneCompute crossKrnl;
-    crossKrnl.M3 = init::M3::Values;
+    crossKrnl.bindGlobals(pool);
     crossKrnl.Q = dofs;
     crossKrnl.Qane = dofsAne;
     crossKrnl.momentQQane = moments.cross;

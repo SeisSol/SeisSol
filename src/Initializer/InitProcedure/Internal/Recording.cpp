@@ -16,15 +16,16 @@ namespace seissol::initializer::internal {
 
 void setupRecorders(LTS::Storage& ltsStorage,
                     DynamicRupture::Storage& drStorage,
-                    bool usePlasticity) {
+                    bool usePlasticity,
+                    double g) {
   // only run for GPUs
   if constexpr (isDeviceOn()) {
     recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-    recorder.addRecorder(new recording::LocalIntegrationRecorder);
-    recorder.addRecorder(new recording::NeighIntegrationRecorder);
+    recorder.addRecorder(new recording::LocalIntegrationRecorder(g));
+    recorder.addRecorder(new recording::NeighIntegrationRecorder());
 
     if (usePlasticity) {
-      recorder.addRecorder(new recording::PlasticityRecorder);
+      recorder.addRecorder(new recording::PlasticityRecorder());
     }
 
     for (auto& layer : ltsStorage.leaves(Ghost)) {
@@ -32,7 +33,7 @@ void setupRecorders(LTS::Storage& ltsStorage,
     }
 
     recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
-    drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
+    drRecorder.addRecorder(new recording::DynamicRuptureRecorder());
     for (auto& layer : drStorage.leaves(Ghost)) {
       drRecorder.record(layer);
     }
