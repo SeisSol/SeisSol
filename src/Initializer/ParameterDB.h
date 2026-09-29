@@ -107,15 +107,38 @@ class ElementAverageGenerator : public QueryGenerator {
   std::array<std::array<double, 3>, NumQuadpoints> quadraturePoints_{};
 };
 
-class PlasticityPointGenerator : public QueryGenerator {
+// samples at the nodal points of the volume basis (vNodes); with pointwise
+// disabled, it falls back to a single sample at the element barycenter
+class NodalPointGenerator : public QueryGenerator {
   public:
-  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
-      : cellToVertex_(cellToVertex), pointwise_(pointwise) {}
+  //! The points, in the coordinates of the reference tetrahedron. The
+  //! generated tensors are stored compressed, so the coordinates come through
+  //! an accessor that knows the layout rather than as a raw array.
+  struct PointSet {
+    std::function<std::array<double, Cell::Dim>(std::size_t)> point;
+    std::size_t count{0};
+  };
+
+  //! The set the plastic strain lives on (@c vNodes ).
+  static PointSet plasticityPoints();
+  //! The set the material is sampled at (@c materialNodes ), pulled towards the
+  //! barycentre by a tiny fraction of the cell so that no sample lies on a face.
+  //! The two sets coincide, but for that, unless the build asked for different
+  //! ones.
+  static PointSet materialPoints();
+
+  explicit NodalPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
+      : NodalPointGenerator(cellToVertex, plasticityPoints(), pointwise) {}
+  NodalPointGenerator(const CellToVertexArray& cellToVertex,
+                      const PointSet& points,
+                      bool pointwise = true)
+      : cellToVertex_(cellToVertex), points_(points), pointwise_(pointwise) {}
   [[nodiscard]] easi::Query generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
   CellToVertexArray cellToVertex_;
+  PointSet points_;
   bool pointwise_{true};
 };
 

@@ -107,8 +107,11 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   updateVelocities();
 
   logInfo() << "Updating CellLocalMatrices";
-  initializer::initializeCellLocalMatrices(
-      *meshReader_, *ltsStorage_, *clusterLayout_, seissolInstance_.parameters().model);
+  initializer::initializeCellLocalMatrices(*meshReader_,
+                                           *ltsStorage_,
+                                           *clusterLayout_,
+                                           seissolInstance_.parameters().model,
+                                           *seissolInstance_.memoryManager().globalData().onHost);
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::instance().api().getDefaultStream();

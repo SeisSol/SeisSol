@@ -12,6 +12,7 @@
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/Common.h"
 
+#include <array>
 #include <complex>
 #include <cstddef>
 #include <yateto.h>
@@ -28,6 +29,54 @@ namespace seissol::model {
 template <typename MaterialT>
 struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
     : public SolverSetupDefaults<kernels::solver::linearckanelastic::Solver, MaterialT> {
+  /// The material's coefficients, plus a trailing one that is always one: the
+  /// single coupling block enters with unit weight, since the relaxation
+  /// frequencies are held in w rather than in the flux.
+  static constexpr std::size_t NumCoefficients =
+      MaterialSetup<MaterialT>::NumCoefficients + (MaterialT::Mechanisms > 0 ? 1 : 0);
+
+  /// The material's are fields; the trailing unit weight is not a field at
+  /// all, so a cell does not have to carry it.
+  static constexpr std::array<CoefficientOrigin, NumCoefficients> CoefficientOrigins = [] {
+    std::array<CoefficientOrigin, NumCoefficients> origins{};
+    const auto base = materialCoefficientOrigins<MaterialT>();
+    for (std::size_t i = 0; i < base.size(); ++i) {
+      origins[i] = base[i];
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      origins[base.size()] = CoefficientOrigin::Global;
+    }
+    return origins;
+  }();
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    std::array<double, NumCoefficients> coefficients{};
+    const auto base = MaterialSetup<MaterialT>::getCoefficients(material);
+    for (std::size_t i = 0; i < base.size(); ++i) {
+      coefficients[i] = base[i];
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      coefficients[base.size()] = 1.0;
+    }
+    return coefficients;
+  }
+
+  template <typename F>
+  static void forEachCoefficientEntry(const F& write) {
+    for (const auto& entry : MaterialSetup<MaterialT>::CoefficientEntries) {
+      write(entry.coefficient, entry.dim, entry.row, entry.column, entry.factor);
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      for (const auto& entry : MaterialSetup<MaterialT>::AnelasticEntries) {
+        write(MaterialSetup<MaterialT>::NumCoefficients,
+              entry.dim,
+              entry.row,
+              MaterialT::NumElasticQuantities + entry.columnOffset,
+              entry.factor);
+      }
+    }
+  }
+
   /// A single anelastic block with unit weight: the relaxation frequencies
   /// are held in w, not folded into the flux. A material without relaxation
   /// (e.g. when the impedance of another material is computed) has none.
@@ -108,6 +157,38 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
       }
     }
   }
+  /// The source of every mechanism. The relaxation frequency is not among
+  /// them: this solver keeps it in w and W, outside the source term.
+  static constexpr std::size_t SourcePerMechanism = MaterialSetup<MaterialT>::NumSourceCoefficients;
+  static constexpr std::size_t NumSourceCoefficients = SourcePerMechanism * MaterialT::Mechanisms;
+
+  static std::array<double, NumSourceCoefficients>
+      getSourceCoefficients(const MaterialT& material) {
+    std::array<double, NumSourceCoefficients> coefficients{};
+    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+      const auto block = MaterialSetup<MaterialT>::getSourceCoefficients(material, mech);
+      for (std::size_t i = 0; i < block.size(); ++i) {
+        coefficients[mech * SourcePerMechanism + i] = block[i];
+      }
+    }
+    return coefficients;
+  }
+
+  /// The entries carry the mechanism as an index of its own, so the callback
+  /// takes one more than the folded form does.
+  template <typename F>
+  static void forEachSourceCoefficientEntry(const F& write) {
+    for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+      for (const auto& entry : MaterialSetup<MaterialT>::SourceEntries) {
+        write(mech * SourcePerMechanism + entry.coefficient,
+              entry.row,
+              mech,
+              entry.column,
+              entry.factor);
+      }
+    }
+  }
+
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
                                           typename MaterialT::Solver::LocalData* localData) {

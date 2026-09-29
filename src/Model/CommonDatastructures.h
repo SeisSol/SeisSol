@@ -13,11 +13,84 @@
 #include "Initializer/Parameters/ModelParameters.h"
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <vector>
 
 namespace seissol::model {
+
+/// One entry of a flux operator, as a scalar of the face times a constant
+/// factor. A face that carries these gives
+///
+///     AplusT(row, column) = sum_a coefficients[a] * factor
+///
+/// over the entries carrying that row and column.
+struct FluxCoefficientEntry {
+  std::size_t coefficient;
+  std::size_t row;
+  std::size_t column;
+  double factor;
+};
+
+/// Where a flux scalar is read off a computed operator. The scalars are not
+/// linear in either material -- the Riemann solver is not -- so they are taken
+/// from the operator rather than assembled from material parameters.
+struct FluxCoefficientSource {
+  std::size_t row;
+  std::size_t column;
+};
+
+/// Where a scalar coefficient of the operator gets its value, which is what
+/// decides whether a cell has to carry it.
+enum class CoefficientOrigin : std::uint8_t {
+  /// Read off the material. It varies from cell to cell, and within a cell
+  /// wherever the material is sampled at the nodal points.
+  Material,
+  /// One number for the whole domain, fixed once the run is set up. The
+  /// relaxation frequencies are the case: they follow the frequency band and
+  /// nothing else, so no material parameter moves them.
+  Global,
+};
+
+/// One entry of a transposed coefficient matrix, written as a scalar
+/// coefficient of the material times a constant factor. A material that
+/// declares these gives
+///
+///     A_dim(row, column) = sum_a coefficients[a] * factor
+///
+/// over the entries carrying that dim, row and column, so that the geometry
+/// and the material can be folded into the matrix separately.
+struct CoefficientEntry {
+  std::size_t coefficient;
+  std::size_t dim;
+  std::size_t row;
+  std::size_t column;
+  double factor;
+};
+
+/// The same for a source term, which has no direction. One relaxation
+/// mechanism contributes the whole table, so the mechanism is not an index
+/// here either: a caller walks the table once per mechanism with that
+/// mechanism's coefficients.
+/// One entry of a relaxation mechanism's coupling block, with the column
+/// given relative to that mechanism's block. It carries no coefficient index:
+/// the whole block is weighted by one scalar, and which one that is -- the
+/// relaxation frequency, or nothing at all -- is the solver's decision.
+struct AnelasticCoefficientEntry {
+  std::size_t dim;
+  std::size_t row;
+  std::size_t columnOffset;
+  double factor;
+};
+
+struct SourceCoefficientEntry {
+  std::size_t coefficient;
+  std::size_t row;
+  std::size_t column;
+  double factor;
+};
 enum class MaterialType {
   Solid,
   Acoustic,
@@ -115,11 +188,6 @@ inline const std::unordered_map<std::string, double Plasticity::*> Plasticity::P
     {"s_xz", &Plasticity::sXZ},
 };
 
-struct IsotropicWaveSpeeds {
-  double density;
-  double pWaveVelocity;
-  double sWaveVelocity;
-};
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_

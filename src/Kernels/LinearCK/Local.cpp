@@ -22,6 +22,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
+#include "Kernels/StarOperands.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Metric.h"
@@ -77,12 +78,11 @@ void Local::computeIntegral(
   kernel::volume volKrnl = volumeKernelPrototype_;
   volKrnl.Q = data.get<LTS::Dofs>();
   volKrnl.I = timeIntegratedDoFs;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
-  }
+  kernels::bindStarOperands(volKrnl, data.get<LTS::LocalIntegration>());
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
+  kernels::bindSourceOperands(volKrnl, data.get<LTS::LocalIntegration>());
 
   kernel::localFlux lfKrnl = localFluxKernelPrototype_;
   lfKrnl.Q = data.get<LTS::Dofs>();
@@ -95,7 +95,7 @@ void Local::computeIntegral(
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
-      lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
+      kernels::bindLocalFluxOperands(lfKrnl, data.get<LTS::LocalIntegration>(), face);
       lfKrnl.execute(face);
     }
 
@@ -190,11 +190,7 @@ void Local::computeBatchedIntegral(
     const auto** localIntegrationPtrs = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = localIntegrationPtrs;
-      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    kernels::bindStarOperandsBatched(volKrnl, localIntegrationPtrs);
 
     constexpr auto SourceMatrixOffset =
         offsetof(LocalIntegrationData, specific) +
@@ -204,6 +200,7 @@ void Local::computeBatchedIntegral(
 
     set_ET(volKrnl, localIntegrationPtrs);
     set_extraOffset_ET(volKrnl, SourceMatrixOffset / sizeof(real));
+    kernels::bindSourceOperandsBatched(volKrnl, localIntegrationPtrs);
 
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
@@ -216,13 +213,7 @@ void Local::computeBatchedIntegral(
     localFluxKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      localFluxKrnl.AplusTAll(face) = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localFluxKrnl.extraOffset_AplusTAll(face) =
-          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-    }
+    kernels::bindLocalFluxAllOperandsBatched(localFluxKrnl, localIntegrationPtrs);
     localFluxKrnl.linearAllocator.initialize(tmpMem.get());
     localFluxKrnl.streamPtr = runtime.stream();
     localFluxKrnl.execute();
@@ -241,11 +232,11 @@ void Local::computeBatchedIntegral(
       localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       localFluxKrnl.I =
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-
-      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
-      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+      kernels::bindLocalFluxOperandsBatched(
+          localFluxKrnl,
+          const_cast<const real**>(
+              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()),
+          face);
       localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);

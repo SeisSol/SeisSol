@@ -54,11 +54,12 @@ struct DynamicRupture {
   struct ImposedStatePlus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
   struct ImposedStateMinus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
   struct GodunovData : public initializer::Variable<DRGodunovData> {};
-  struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
-  struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
+  /// the lift of each side into its cell, see dr::FaultFluxLayout
+  struct FluxSolverPlus : public initializer::Variable<real[dr::FaultFluxLayout::Size]> {};
+  struct FluxSolverMinus : public initializer::Variable<real[dr::FaultFluxLayout::Size]> {};
   struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
-  struct WaveSpeedsPlus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
-  struct WaveSpeedsMinus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
+  struct WaveSpeedsPlus : public initializer::Variable<seissol::dr::WaveSpeeds> {};
+  struct WaveSpeedsMinus : public initializer::Variable<seissol::dr::WaveSpeeds> {};
   struct DREnergyOutputVar : public initializer::Variable<DREnergyOutput> {};
 
   struct ImpAndEta : public initializer::Variable<seissol::dr::ImpedancesAndEta> {};
@@ -123,8 +124,9 @@ struct DynamicRupture {
     storage.add<FluxSolverPlus>(mask, Alignment, allocationModeDR());
     storage.add<FluxSolverMinus>(mask, Alignment, allocationModeDR());
     storage.add<FaceInformation>(mask, Alignment, AllocationMode::HostOnly, true);
-    storage.add<WaveSpeedsPlus>(mask, Alignment, allocationModeDR(), true);
-    storage.add<WaveSpeedsMinus>(mask, Alignment, allocationModeDR(), true);
+    // only read on the host, by the energy and the receiver output; per point they are sizeable
+    storage.add<WaveSpeedsPlus>(mask, Alignment, AllocationMode::HostOnly, true);
+    storage.add<WaveSpeedsMinus>(mask, Alignment, AllocationMode::HostOnly, true);
     storage.add<DREnergyOutputVar>(mask, Alignment, allocationModeDR());
     storage.add<ImpAndEta>(mask, Alignment, allocationModeDR(), true);
     storage.add<ImpedanceMatrices>(mask, Alignment, allocationModeDR(), true);

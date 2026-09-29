@@ -25,6 +25,7 @@
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/MemoryOps.h"
 #include "Kernels/Precision.h"
+#include "Kernels/StarOperands.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Metric.h"
@@ -88,12 +89,11 @@ void Spacetime::computeAder(const real* coeffs,
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = krnlPrototype_;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
-  }
+  kernels::bindStarOperands(krnl, data.get<LTS::LocalIntegration>());
 
   // Optional source term
   set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
+  kernels::bindSourceOperands(krnl, data.get<LTS::LocalIntegration>());
 
   krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
   for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -161,12 +161,7 @@ void Spacetime::computeBatchedAder(
     const auto** localIntegrationPtrs = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      derivativesKrnl.star(i) = localIntegrationPtrs;
-      derivativesKrnl.extraOffset_star(i) =
-          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    kernels::bindStarOperandsBatched(derivativesKrnl, localIntegrationPtrs);
 
     constexpr auto SourceMatrixOffset =
         offsetof(LocalIntegrationData, specific) +
@@ -176,6 +171,7 @@ void Spacetime::computeBatchedAder(
 
     set_ET(derivativesKrnl, localIntegrationPtrs);
     set_extraOffset_ET(derivativesKrnl, SourceMatrixOffset / sizeof(real));
+    kernels::bindSourceOperandsBatched(derivativesKrnl, localIntegrationPtrs);
 
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();

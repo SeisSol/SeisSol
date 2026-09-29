@@ -11,6 +11,7 @@
 #include "Equations/elastic/Model/Setup.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -18,7 +19,9 @@
 #include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
+#include <array>
 #include <cassert>
+#include <cstddef>
 #include <yateto.h>
 
 namespace seissol::model {
@@ -27,6 +30,55 @@ namespace seissol::model {
 
 template <>
 struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroElasticMaterial> {
+  /// The frame is isotropic, so cBar holds three distinct values and alpha
+  /// one; the 6x6 and the 6-vector in AdditionalPoroelasticParameters are
+  /// therefore nine scalars, all of them derived. Deriving them once is
+  /// cheaper than carrying the primitives: there are ten of those, and the
+  /// derivation divides.
+  static constexpr std::size_t NumCoefficients = generated::PoroElasticNumCoefficients;
+
+  static std::array<double, NumCoefficients> getCoefficients(const PoroElasticMaterial& material) {
+    const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
+    return {params.cBar(0, 0),
+            params.cBar(1, 0),
+            params.cBar(3, 3),
+            params.M * params.alpha(0),
+            params.M,
+            1.0 / params.rho1,
+            1.0 / params.rho2,
+            params.beta1 / params.rho1,
+            params.beta2 / params.rho2};
+  }
+
+  static constexpr auto CoefficientEntries = generated::PoroElasticCoefficientEntries;
+
+  /// The two drag scalars of the Biot source, one per density.
+  static constexpr std::size_t NumSourceCoefficients = generated::PoroElasticNumSourceCoefficients;
+
+  static std::array<double, NumSourceCoefficients>
+      getSourceCoefficients(const PoroElasticMaterial& material, std::size_t /*mech*/ = 0) {
+    const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
+    const double drag = material.viscosity / material.permeability;
+    return {params.beta1 * drag / params.rho1, params.beta2 * drag / params.rho2};
+  }
+
+  static constexpr auto SourceEntries = generated::PoroElasticSourceEntries;
+
+  /// The source entries of one mechanism, which a poroelastic material has
+  /// exactly one of: the Biot drag between fluid and solid.
+  template <typename F>
+  static void forEachSourceEntry(const PoroElasticMaterial& material,
+                                 std::size_t /*mech*/,
+                                 const F& write) {
+    const auto coefficients = getSourceCoefficients(material);
+    write(10, 6, coefficients[0]);
+    write(11, 7, coefficients[0]);
+    write(12, 8, coefficients[0]);
+    write(10, 10, coefficients[1]);
+    write(11, 11, coefficients[1]);
+    write(12, 12, coefficients[1]);
+  }
+
   template <typename T>
   static void setToZero(T& AT) {
     AT.setZero();
@@ -176,18 +228,10 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
 
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const PoroElasticMaterial& material, T& ET) {
-    const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
-    const double e1 = params.beta1 * material.viscosity / (params.rho1 * material.permeability);
-    const double e2 = params.beta2 * material.viscosity / (params.rho2 * material.permeability);
-
     ET.setZero();
-    ET(10, 6) = e1;
-    ET(11, 7) = e1;
-    ET(12, 8) = e1;
-
-    ET(10, 10) = e2;
-    ET(11, 11) = e2;
-    ET(12, 12) = e2;
+    forEachSourceEntry(material, 0, [&ET](std::size_t row, std::size_t column, double value) {
+      ET(row, column) = value;
+    });
   }
 
   static void getTransposedGodunovState(const PoroElasticMaterial& local,

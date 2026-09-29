@@ -10,6 +10,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
 #include "Equations/EnergyBase.h"
@@ -34,6 +35,7 @@
 #include "Monitoring/Unit.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
+#include "ResultWriter/EnergyQuadrature.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -73,6 +75,7 @@ std::array<real, multisim::NumSimulations>
                       const real* degreesOfFreedomMinus,
                       const DRFaceInformation& faceInfo,
                       const DRGodunovData& godunovData,
+                      const dr::ImpedanceMatrices& impedanceMatrices,
                       const real slip[seissol::tensor::slipInterpolated::size()],
                       const GlobalData* global) {
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
@@ -100,13 +103,40 @@ std::array<real, multisim::NumSimulations>
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
-  dynamicRupture::kernel::computeTractionInterpolated trKrnl;
-  trKrnl.tractionPlusMatrix = godunovData.tractionPlusMatrix;
-  trKrnl.tractionMinusMatrix = godunovData.tractionMinusMatrix;
-  trKrnl.QInterpolatedPlus = qInterpolatedPlus;
-  trKrnl.QInterpolatedMinus = qInterpolatedMinus;
-  trKrnl.tractionInterpolated = tractionInterpolated;
-  trKrnl.execute();
+  if constexpr (dr::PointwiseImpedances) {
+    // the averaging weights are those of each point, so the contraction the kernel below does
+    // with one pair of matrices for the whole face is done point by point instead
+    auto traction = init::tractionInterpolated::view::create(tractionInterpolated);
+    auto plus = init::QInterpolatedPlus::view::create(qInterpolatedPlus);
+    auto minus = init::QInterpolatedMinus::view::create(qInterpolatedMinus);
+    traction.setZero();
+    for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+      auto tractionOfSim = multisim::simtensor(traction, sim);
+      const auto plusOfSim = multisim::simtensor(plus, sim);
+      const auto minusOfSim = multisim::simtensor(minus, sim);
+      for (std::size_t point = 0; point < dr::misc::NumBoundaryGaussPoints; ++point) {
+        const auto index = point * multisim::NumSimulations + sim;
+        const auto weightsPlus =
+            init::tractionPlusMatrix::view::create(impedanceMatrices.tractionPlus.at(index));
+        const auto weightsMinus =
+            init::tractionMinusMatrix::view::create(impedanceMatrices.tractionMinus.at(index));
+        weightsPlus.forall([&](const auto* entry, const auto& weight) {
+          tractionOfSim(point, entry[1]) += weight * plusOfSim(point, entry[0]);
+        });
+        weightsMinus.forall([&](const auto* entry, const auto& weight) {
+          tractionOfSim(point, entry[1]) += weight * minusOfSim(point, entry[0]);
+        });
+      }
+    }
+  } else {
+    dynamicRupture::kernel::computeTractionInterpolated trKrnl;
+    trKrnl.tractionPlusMatrix = impedanceMatrices.tractionPlus.at(0);
+    trKrnl.tractionMinusMatrix = impedanceMatrices.tractionMinus.at(0);
+    trKrnl.QInterpolatedPlus = qInterpolatedPlus;
+    trKrnl.QInterpolatedMinus = qInterpolatedMinus;
+    trKrnl.tractionInterpolated = tractionInterpolated;
+    trKrnl.execute();
+  }
 
   alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
 
@@ -383,6 +413,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                                     timeDofsMinus[i],
                                                                     faceInformation[i],
                                                                     godunovData[i],
+                                                                    impedanceMatrices[i],
                                                                     drEnergyOutput[i].slip,
                                                                     global_);
 
@@ -411,16 +442,21 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               return Eigen::Map<const Eigen::Matrix<real, 3, 3>>(data).cast<double>();
             };
             using AnisotropicImpedance = model::ImpedanceCompute<model::AnisotropicMaterial>;
-            const auto gammaPlus = AnisotropicImpedance::christoffelFromAdmittance(
-                admittance(impedanceMatrices[i].impedance), waveSpeedsPlus[i].density);
-            const auto gammaMinus = AnisotropicImpedance::christoffelFromAdmittance(
-                admittance(impedanceMatrices[i].impedanceNeig), waveSpeedsMinus[i].density);
 
             const auto* slip = reinterpret_cast<const real(*)[seissol::dr::misc::NumPaddedPoints]>(
                 drEnergyOutput[i].slip);
 
             for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
               const auto index = k * seissol::multisim::NumSimulations + sim;
+
+              // the admittance and the density are read at this point of the face, since a
+              // material varying along the fault gives a different Christoffel matrix there
+              const auto gammaPlus = AnisotropicImpedance::christoffelFromAdmittance(
+                  admittance(impedanceMatrices[i].impedance.at(index)),
+                  waveSpeedsPlus[i].density(index));
+              const auto gammaMinus = AnisotropicImpedance::christoffelFromAdmittance(
+                  admittance(impedanceMatrices[i].impedanceNeig.at(index)),
+                  waveSpeedsMinus[i].density(index));
 
               // the rake is taken from the net slip; it is the instantaneous one only as long as
               // the slip direction does not turn during rupture
@@ -447,18 +483,36 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           } else {
             // rho * cs^2 is the shear modulus of the frame for every material with an isotropic
             // one, poroelasticity included -- there the fluid carries no shear
-            const double muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
-                                  waveSpeedsPlus[i].sWaveVelocity;
-            const double muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
-                                   waveSpeedsMinus[i].sWaveVelocity;
-            const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
-            for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
-              potencyIncrease +=
-                  drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
-                  init::quadweights::Values[k];
+            const auto shearModulus = [&](std::size_t index) {
+              const double muPlus = waveSpeedsPlus[i].density(index) *
+                                    waveSpeedsPlus[i].sWaveVelocity(index) *
+                                    waveSpeedsPlus[i].sWaveVelocity(index);
+              const double muMinus = waveSpeedsMinus[i].density(index) *
+                                     waveSpeedsMinus[i].sWaveVelocity(index) *
+                                     waveSpeedsMinus[i].sWaveVelocity(index);
+              return 2.0 * muPlus * muMinus / (muPlus + muMinus);
+            };
+            if constexpr (seissol::dr::PointwiseImpedances) {
+              // the modulus of each point, where the material varies along the fault
+              for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+                const auto index = k * seissol::multisim::NumSimulations + sim;
+                const double slipIncrease =
+                    drEnergyOutput[i].accumulatedSlip[index] * init::quadweights::Values[k];
+                potencyIncrease += slipIncrease;
+                momentIncrease += slipIncrease * shearModulus(index);
+              }
+              potencyIncrease *= areaWeight;
+              momentIncrease *= areaWeight;
+            } else {
+              const double mu = shearModulus(0);
+              for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+                potencyIncrease +=
+                    drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
+                    init::quadweights::Values[k];
+              }
+              potencyIncrease *= areaWeight;
+              momentIncrease = potencyIncrease * mu;
             }
-            potencyIncrease *= areaWeight;
-            momentIncrease = potencyIncrease * mu;
           }
 
           potency[sim] += potencyIncrease;
@@ -518,6 +572,13 @@ void EnergyOutput::computeVolumeEnergies() {
   const auto quadratureTet = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
   const auto& quadratureWeightsTet = quadratureTet.second;
 
+  // where the material varies inside a cell, the energies are integrated point
+  // by point, at the points the plastic strain is read at below
+  using Quadrature = EnergyQuadrature<model::MaterialT>;
+  static_assert(Quadrature::Points == NumQuadraturePointsTet);
+  const auto energyQuadrature =
+      NodalMaterial ? std::optional<Quadrature>(std::in_place) : std::nullopt;
+
   // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
   // it
   for (const auto& layer : ltsStorage_->leaves(Ghost)) {
@@ -531,6 +592,8 @@ void EnergyOutput::computeVolumeEnergies() {
     const auto* energyData = layer.var<LTS::EnergyData>();
     // only allocated for materials with anelastic variables
     const auto* dofsAneData = layer.var<LTS::DofsAne>();
+    // only where the material varies inside a cell
+    const auto* nodalMaterialData = NodalMaterial ? layer.var<LTS::NodalMaterialData>() : nullptr;
 
     constexpr auto SimCount = multisim::NumSimulations;
     constexpr auto EnergyCountSingle = model::EnergyCompute<model::MaterialT>::EnergyCount;
@@ -563,39 +626,57 @@ void EnergyOutput::computeVolumeEnergies() {
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
 
-      alignas(Alignment) real linData[tensor::momentQ::size()];
-      auto lin = init::momentQ::view::create(linData);
-      // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
-      kernel::momentQCompute krnl;
-      krnl.bindGlobals(*global_);
-      krnl.momentQ = linData;
-      krnl.Q = dofsData[cell];
-      krnl.execute();
+      // the shear modulus the plastic strain is weighted with at each point of
+      // the quadrature, where the material varies inside the cell
+      std::array<double, NumQuadraturePointsTet> shearModulus{};
 
-      alignas(Alignment) real quadData[tensor::momentQQ::size()];
-      auto quad = init::momentQQ::view::create(quadData);
-      // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
-      kernel::momentQQCompute krnl2;
-      krnl2.bindGlobals(*global_);
-      krnl2.momentQQ = quadData;
-      krnl2.Q = dofsData[cell];
-      krnl2.execute();
+      if (nodalMaterialData != nullptr) {
+        // for a material that does not vary, this is what the moments below give
+        const auto values =
+            energyQuadrature->energies(nodalMaterialData[cell],
+                                       dofsData[cell],
+                                       dofsAneData != nullptr ? dofsAneData[cell] : nullptr,
+                                       *global_,
+                                       shearModulus);
+        for (std::size_t i = 0; i < values.size(); ++i) {
+          energyValues[i] += jacobiDet * values[i];
+        }
+      } else {
+        alignas(Alignment) real linData[tensor::momentQ::size()];
+        auto lin = init::momentQ::view::create(linData);
+        // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
+        kernel::momentQCompute krnl;
+        krnl.bindGlobals(*global_);
+        krnl.momentQ = linData;
+        krnl.Q = dofsData[cell];
+        krnl.execute();
 
-      const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
-          dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr, *global_);
+        alignas(Alignment) real quadData[tensor::momentQQ::size()];
+        auto quad = init::momentQQ::view::create(quadData);
+        // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
+        kernel::momentQQCompute krnl2;
+        krnl2.bindGlobals(*global_);
+        krnl2.momentQQ = quadData;
+        krnl2.Q = dofsData[cell];
+        krnl2.execute();
 
-      for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
+        const auto moments = model::EnergyCompute<model::MaterialT>::computeMoments(
+            dofsData[cell], dofsAneData != nullptr ? dofsAneData[cell] : nullptr, *global_);
 
-        auto linSub = multisim::simtensor(lin, sim);
-        auto quadSub = multisim::simtensor(quad, sim);
+        for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
 
-        // assume _constant_ material over a cell (will need adjustments for e.g. #1297)
+          auto linSub = multisim::simtensor(lin, sim);
+          auto quadSub = multisim::simtensor(quad, sim);
 
-        const auto localValues = model::EnergyCompute<model::MaterialT>::computeEnergies(
-            material, energyData[cell], linSub, quadSub, moments, sim);
+          // the material is constant over the cell; one that varies inside it
+          // is integrated point by point above
 
-        for (std::size_t i = 0; i < localValues.size(); ++i) {
-          energyValues[localValues.size() * sim + i] += jacobiDet * localValues[i];
+          const auto localValues = model::EnergyCompute<model::MaterialT>::computeEnergies(
+              material, energyData[cell], linSub, quadSub, moments, sim);
+
+          for (std::size_t i = 0; i < localValues.size(); ++i) {
+            energyValues[localValues.size() * sim + i] += jacobiDet * localValues[i];
+          }
         }
       }
 
@@ -647,6 +728,8 @@ void EnergyOutput::computeVolumeEnergies() {
             init::faceDisplacementSquared::view::create(faceDisplacementSquared.data());
 
         const auto surface = MeshTools::surface(elements[elementId], face, vertices);
+        // the density the boundary condition reads, which is the cell's also
+        // where the material varies inside it
         const auto rho = material.getDensity();
 
         for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
@@ -661,6 +744,7 @@ void EnergyOutput::computeVolumeEnergies() {
         // plastic moment
         const real* pstrainCell = pstrainData[cell];
         const double mu = material.getMuBar();
+        const bool pointwise = nodalMaterialData != nullptr;
 
         // integrating over all collocation points suffices
         const real* __restrict qEta = &pstrainCell[tensor::QStressNodal::size()];
@@ -682,9 +766,10 @@ void EnergyOutput::computeVolumeEnergies() {
           const auto qEtaQuadSim = multisim::simtensor(qEtaQuadView, sim);
           double pMoment = 0;
           for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
-            pMoment += quadratureWeightsTet[qp] * qEtaQuadSim(qp);
+            pMoment +=
+                quadratureWeightsTet[qp] * qEtaQuadSim(qp) * (pointwise ? shearModulus[qp] : 1.0);
           }
-          localPlasticMoment[sim] += mu * jacobiDet * pMoment;
+          localPlasticMoment[sim] += (pointwise ? 1.0 : mu) * jacobiDet * pMoment;
         }
       }
     }

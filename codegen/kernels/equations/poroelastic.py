@@ -8,7 +8,7 @@
 import numpy as np
 from kernels.aderdg.stp import STP
 from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
-from yateto.input import memoryLayoutFromFile, parseJSONMatrixFile
+from yateto.input import parseJSONMatrixFile
 
 
 def choose(n, k):
@@ -29,7 +29,7 @@ class PoroelasticADERDG(STP):
     ):
 
         super().__init__(
-            order, multipleSimulations, matricesDir, memLayout, numMechanisms
+            order, multipleSimulations, matricesDir, memLayout, numMechanisms, **kwargs
         )
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
@@ -39,9 +39,7 @@ class PoroelasticADERDG(STP):
         )
         self.db.update(parseJSONMatrixFile(f"{matricesDir}/stp_{order}.json", clones))
 
-        memoryLayoutFromFile(memLayout, self.db, clones)
-
-        self.kwargs = kwargs
+        self.finishConfigure(memLayout, clones, kwargs)
 
     def primaryGroups(self):
         return [
@@ -50,9 +48,6 @@ class PoroelasticADERDG(STP):
             QuantityGroup("p", QuantityKind.SCALAR, FaceRole.EXTRA_TRACTION),
             QuantityGroup("vf", QuantityKind.VECTOR, FaceRole.EXTRA_VELOCITY),
         ]
-
-    def starMatrix(self, dim):
-        return self.db.star[dim]
 
     def sourceMatrix(self):
         return self.db.ET

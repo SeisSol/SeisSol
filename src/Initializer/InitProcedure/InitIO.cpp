@@ -47,6 +47,7 @@
 #include <optional>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -519,6 +520,63 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
                   target[i] -= itarget[i];
                 }
+              });
+        }
+      }
+
+      if (seissolParams.output.waveFieldParameters.material) {
+        // a stable order across runs and builds, which the hash map the
+        // material binds its parameters with does not give
+        std::vector<std::pair<std::string, double model::MaterialT::*>> parameters(
+            model::MaterialT::ParameterMap.begin(), model::MaterialT::ParameterMap.end());
+        std::sort(parameters.begin(), parameters.end(), [](const auto& a, const auto& b) {
+          return a.first < b.first;
+        });
+
+        const bool nodal = seissolParams.model.materialNodal;
+        for (const auto& parameter : parameters) {
+          // a copy rather than a structured binding: a lambda may not capture
+          // one before C++20
+          const auto& parameterName = parameter.first;
+          const auto member = parameter.second;
+          writer.addGeometryOutput<real>(
+              namewrap(parameterName, sim),
+              {},
+              false,
+              [=, &ltsStorage, &backmap](real* target, std::size_t index, std::size_t subcell) {
+                const auto position = backmap.get(cellIndices[index]);
+
+                if (!nodal) {
+                  // the cell carries one value, so every output point of it
+                  // takes that value
+                  const auto& material = ltsStorage.lookup<LTS::MaterialData>(position);
+                  const auto value = static_cast<real>(material.*member);
+                  std::fill_n(target, tensor::vtk3d::Shape[order][1], value);
+                  return;
+                }
+
+                // through the modal basis rather than straight off the samples:
+                // that is the shape the operator carries the material in, and
+                // it does not care which point set the samples came from
+                const auto& sampled = ltsStorage.lookup<LTS::NodalMaterialData>(position);
+                alignas(Alignment) std::array<real, tensor::materialSamples::size()> values{};
+                for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+                  // the material is one field, so every fused simulation sees
+                  // the same sample at a point
+                  for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+                    values[s + multisim::NumSimulations * node] =
+                        static_cast<real>(sampled[node].*member);
+                  }
+                }
+
+                alignas(Alignment) std::array<real, tensor::modalVar::size()> modal{};
+                kernel::projectMaterialToModal toModal{};
+                toModal.bindGlobals(*globalData);
+                toModal.materialSamples = values.data();
+                toModal.modalVar = modal.data();
+                toModal.execute();
+
+                projectVolume(target, modal.data(), (*proj)(subcell, ConvergenceOrder));
               });
         }
       }

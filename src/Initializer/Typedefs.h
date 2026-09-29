@@ -14,13 +14,17 @@
 #include "Alignment.h"
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
+#include "Common/Constants.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "Kernels/Data.h"
+#include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
@@ -50,11 +54,41 @@ struct CompoundGlobalData {
 
 // data for the cell local integration
 struct alignas(Alignment) LocalIntegrationData {
-  // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)]{};
+  // star matrices, where the cell carries them assembled
+  real starMatrices[3][zeroGuard(FactoredStar ? 0 : seissol::tensor::star::size(0))]{};
 
-  // flux solver for element local contribution
+  // the rows of the Jacobian and the material coefficients, where it does not
+  real referenceGradients[3][zeroGuard(FactoredStar ? 3 : 0)]{};
+  // one per coefficient, and where the material varies inside the cell one per
+  // sample point of it. The sample index is the slower one, so that a
+  // coefficient's samples lie together the way the kernel reads them.
+  real materialCoefficients[zeroGuard(FactoredStar ? StarCoefficientCount : 0)]
+                           [zeroGuard(FactoredStar ? MaterialSampleCount : 0)]{};
+
+  // The scalars the source term is linear in, at the sample points, where a
+  // cell forms it from the material it carries rather than from one matrix.
+  real sourceCoefficients[zeroGuard(NodalSource ? SourceCoefficientCount : 0)]
+                         [zeroGuard(NodalSource ? MaterialSampleCount : 0)]{};
+  // What a sample point deviates from the source term the cell carries for
+  // itself, for a solver that factorises that term into a solve of its own.
+  real sourceDeviation[zeroGuard(NodalSourceDeviation ? SourceDeviationCount : 0)]
+                      [zeroGuard(NodalSourceDeviation ? MaterialSampleCount : 0)]{};
+
+  // flux solver for element local contribution. It is filled where the flux
+  // reads the material at the nodes of a face as well, although the flux
+  // kernels of such a build read the scalars below instead, on the host and on
+  // the device alike.
   real nApNm1[4][seissol::tensor::AplusT::size()]{};
+
+  // Where the material varies along a face, the flux operator does too, and a
+  // face carries the scalars it is built from at the nodes of that face rather
+  // than the matrix they fold into. The rotation into the face coordinates
+  // those scalars are stated in is the same for both sides, so a face keeps one
+  // of them; the inverse follows from it inside the kernel.
+  real fluxCoefficients[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
+      NodalFlux ? FluxCoefficientCount : 0)][zeroGuard(NodalFlux ? FluxFaceNodes : 0)]{};
+  real faceRotation[zeroGuard(NodalFlux ? Cell::NumFaces : 0)]
+                   [zeroGuard(NodalMaterial ? seissol::tensor::T::size() : 0)]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::LocalData specific;
@@ -64,6 +98,13 @@ struct alignas(Alignment) LocalIntegrationData {
 struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::tensor::AminusT::size()]{};
+
+  // the counterpart of LocalIntegrationData::fluxCoefficients for the operator
+  // the neighbour contributes. The matrix above stays: a boundary face takes
+  // its neighbour state from a nodal boundary condition, already at the nodes
+  // of the face and already rotated, and applies the matrix to it.
+  real fluxCoefficients[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
+      NodalFlux ? FluxCoefficientCount : 0)][zeroGuard(NodalFlux ? FluxFaceNodes : 0)]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::NeighborData specific;
@@ -85,8 +126,6 @@ struct DRFaceInformation {
 
 struct DRGodunovData {
   real dataTinvT[seissol::tensor::TinvT::size()]{};
-  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()]{};
-  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()]{};
   // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of

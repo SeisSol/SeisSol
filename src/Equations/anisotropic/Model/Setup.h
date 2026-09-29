@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_
 
 #include "Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
@@ -18,12 +19,28 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <array>
+#include <cstddef>
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
 template <>
 struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<AnisotropicMaterial> {
+  /// The 21 independent elastic constants, then 1/rho. Unlike the isotropic
+  /// case, the three directional matrices share their stress block, so folding
+  /// the Jacobian costs three products per entry there rather than one.
+  static constexpr std::size_t NumCoefficients = generated::AnisotropicNumCoefficients;
+
+  static std::array<double, NumCoefficients> getCoefficients(const AnisotropicMaterial& material) {
+    return {material.c11, material.c12, material.c13, material.c14,      material.c15, material.c16,
+            material.c22, material.c23, material.c24, material.c25,      material.c26, material.c33,
+            material.c34, material.c35, material.c36, material.c44,      material.c45, material.c46,
+            material.c55, material.c56, material.c66, 1.0 / material.rho};
+  }
+
+  static constexpr auto CoefficientEntries = generated::AnisotropicCoefficientEntries;
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& matM) {

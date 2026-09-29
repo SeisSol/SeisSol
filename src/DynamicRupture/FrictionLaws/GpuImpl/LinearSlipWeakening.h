@@ -63,6 +63,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
     const auto [eta, invEta] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                  ctx.pointIndex,
                                                   totalStress1,
                                                   totalStress2,
                                                   absoluteShearStress);
@@ -77,6 +78,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
       const auto solution = common::solveSlipRate(ctx.data->impAndEta[ctx.ltsFace],
                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                  ctx.pointIndex,
                                                   totalStress1,
                                                   totalStress2,
                                                   absoluteShearStress,
@@ -101,11 +103,13 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
     const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
                                               ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              ctx.pointIndex,
                                               ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
                                               ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 
     const auto tUN = common::matmulEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
                                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                                             ctx.pointIndex,
                                              ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
                                              ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 

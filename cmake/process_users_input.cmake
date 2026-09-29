@@ -55,6 +55,8 @@ set(ORDER_OPTIONS 2 3 4 5 6 7 8)
 set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
+option(FACTORED_STAR "Store the material coefficients and the Jacobian rows of a cell instead of its assembled star matrices" ON)
+option(MATERIAL_NODAL "Let the material vary inside a cell: sample it at MATERIAL_POINTS and form the operator there, instead of one operator per cell. A face carries its flux operator the same way where that operator is a handful of scalars of the face, which is where the medium is isotropic and one medium per cell; elsewhere the flux keeps the one operator per side built from the material of the two cells" OFF)
 
 set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined architecture vector length")
 set(OVERRIDE_ALIGNMENT 0 CACHE STRING "If not 0, it overrides the pre-defined architecture alignment")
@@ -109,6 +111,18 @@ set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 
+set(MATERIAL_POINTS "" CACHE STRING "Point set the material is sampled at inside a cell: nb (one point per basis function, its face traces are the two-dimensional nodal set) or ip (conical-product quadrature, integrates products far beyond nb but has no point on a face). Empty follows PLASTICITY_METHOD.")
+set(MATERIAL_POINTS_OPTIONS "" nb ip)
+set_property(CACHE MATERIAL_POINTS PROPERTY STRINGS ${MATERIAL_POINTS_OPTIONS})
+
+set(MATERIAL_OPERATOR "factored" CACHE STRING "Shape a MATERIAL_NODAL build applies the operator in: factored (the coefficients scale the fixed structures at every application) or assembled (they are folded into one operator per sample point beforehand, fewer operations against a larger temporary). Both compute the same thing; which one is faster depends on the kernel and the machine.")
+set(MATERIAL_OPERATOR_OPTIONS factored assembled)
+set_property(CACHE MATERIAL_OPERATOR PROPERTY STRINGS ${MATERIAL_OPERATOR_OPTIONS})
+
+set(MATERIAL_PROJECTION "quadrature" CACHE STRING "How a MATERIAL_NODAL build projects the operator it forms from the samples back to the modes: quadrature (at the points of the conical-product quadrature rule, with its weights, from the material the samples interpolate there: the Galerkin projection) or collocation (at the sample points themselves). For MATERIAL_POINTS=ip the two coincide. With the nodal set, collocation aliases a material that varies inside a cell and is not energy stable.")
+set(MATERIAL_PROJECTION_OPTIONS quadrature collocation)
+set_property(CACHE MATERIAL_PROJECTION PROPERTY STRINGS ${MATERIAL_PROJECTION_OPTIONS})
+
 set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
 set(DR_QUAD_RULE_OPTIONS stroud dunavant)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
@@ -159,7 +173,7 @@ set(CUSTOM_BINARY_SUFFIX "" CACHE STRING "Specifies an optional extra suffix for
 #-------------------------------------------------------------------------------
 function(check_parameter parameter_name value options)
 
-    list(FIND options ${value} INDEX)
+    list(FIND options "${value}" INDEX)
 
     set(WRONG_PARAMETER -1)
     if (${INDEX} EQUAL ${WRONG_PARAMETER})
@@ -208,6 +222,14 @@ endif()
 message(STATUS "Solver: ${SOLVER}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
+check_parameter("MATERIAL_POINTS" "${MATERIAL_POINTS}" "${MATERIAL_POINTS_OPTIONS}")
+check_parameter("MATERIAL_OPERATOR" "${MATERIAL_OPERATOR}" "${MATERIAL_OPERATOR_OPTIONS}")
+check_parameter("MATERIAL_PROJECTION" "${MATERIAL_PROJECTION}" "${MATERIAL_PROJECTION_OPTIONS}")
+if (MATERIAL_NODAL AND NOT FACTORED_STAR)
+  message(FATAL_ERROR
+    "MATERIAL_NODAL=ON needs FACTORED_STAR=ON: what varies inside a cell are the "
+    "coefficients of its operator, which only a factored build carries.")
+endif()
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
@@ -412,6 +434,31 @@ message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
 if (WITH_GPU)
     list(JOIN AUTO_DEVICE_CODEGEN "," DEVICE_CODEGEN)
     message(STATUS "DEVICE_CODEGEN are: ${DEVICE_CODEGEN}")
+
+    if (MATERIAL_NODAL AND NOT ("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN))
+        message(FATAL_ERROR
+            "MATERIAL_NODAL=ON on a GPU needs DEVICE_CODEGEN=tensorforge: the kernels that "
+            "form the operator at the samples have been generated and checked with "
+            "tensorforge only, and the explicit Taylor-sum kernel the other generators "
+            "enable assumes that every derivative is narrower than the last, which it is "
+            "not where the material varies inside a cell.")
+    endif()
+    if (MATERIAL_NODAL AND SOLVER STREQUAL "stp")
+        message(FATAL_ERROR
+            "MATERIAL_NODAL=ON is not available for SOLVER=stp on a GPU: the space-time "
+            "predictor at the samples keeps the whole space-time field of a cell at the "
+            "sample points, and tensorforge asks for more shared memory for it than a "
+            "block has (144 KiB against 99 KiB on sm_120, order 6, double precision).")
+    endif()
+    if (FACTORED_STAR AND NOT ("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN))
+        # the kernels and the host have to agree, so this has to happen before
+        # the code generator and the configuration header read it
+        message(STATUS
+            "FACTORED_STAR is switched off for DEVICE_CODEGEN=${DEVICE_CODEGEN}: a factored "
+            "build assembles the star matrices in its kernels as a product looped over the "
+            "material coefficients, which only tensorforge generates on a GPU.")
+        set(FACTORED_STAR OFF)
+    endif()
 
     # the premultiplication was only so far demonstrated to be efficient on AMD+NVIDIA HW; enable on others by demand
     option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${IS_NVIDIA_OR_AMD})

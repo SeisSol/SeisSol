@@ -47,6 +47,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
 
       const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
                                                 this->impedanceMatrices_[ltsFace],
+                                                pointIndex,
                                                 evalCardinal1,
                                                 evalCardinal2);
 
@@ -54,6 +55,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
       // the normal and the tangential directions (anisotropy); zero otherwise
       const auto tUN = common::matmulEtaNormal(this->impAndEta_[ltsFace],
                                                this->impedanceMatrices_[ltsFace],
+                                               pointIndex,
                                                evalCardinal1,
                                                evalCardinal2);
 

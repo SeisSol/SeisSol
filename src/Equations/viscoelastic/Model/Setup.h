@@ -11,11 +11,14 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_
 
 #include "Equations/viscoelastic/Model/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
 #include <yateto.h>
 
 namespace seissol::model {
@@ -31,6 +34,29 @@ template <std::size_t N>
 struct MaterialSetup<ViscoElasticMaterial<N>>
     : public MaterialSetupDefaults<ViscoElasticMaterial<N>> {
   using MaterialT = ViscoElasticMaterial<N>;
+
+  /// The flux is the base material's, and so is its decomposition.
+  static constexpr std::size_t NumCoefficients = MaterialSetup<ElasticMaterial>::NumCoefficients;
+  static constexpr auto CoefficientEntries = MaterialSetup<ElasticMaterial>::CoefficientEntries;
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    return MaterialSetup<ElasticMaterial>::getCoefficients(
+        dynamic_cast<const ElasticMaterial&>(material));
+  }
+
+  /// The coupling block one mechanism contributes, with its columns relative
+  /// to that mechanism's block. The weight is the solver's to supply.
+  static constexpr auto AnelasticEntries = generated::ViscoElasticAnelasticEntries;
+
+  /// The three theta values of one relaxation mechanism.
+  static constexpr std::size_t NumSourceCoefficients = generated::ViscoElasticNumSourceCoefficients;
+
+  static std::array<double, NumSourceCoefficients> getSourceCoefficients(const MaterialT& material,
+                                                                         std::size_t mech) {
+    return {material.theta[mech][0], material.theta[mech][1], material.theta[mech][2]};
+  }
+
+  static constexpr auto SourceEntries = generated::ViscoElasticSourceEntries;
 
   /// The flux of the base material alone. How the anelastic blocks are added
   /// on top -- once per mechanism weighted by its relaxation frequency, or

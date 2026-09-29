@@ -12,17 +12,30 @@
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_SETUP_H_
 
 #include "Equations/acoustic/Model/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
+
 namespace seissol::model {
 using Matrix44 = Eigen::Matrix<double, 4, 4>;
 
 template <>
 struct MaterialSetup<AcousticMaterial> : public MaterialSetupDefaults<AcousticMaterial> {
+  /// lambda and 1/rho.
+  static constexpr std::size_t NumCoefficients = generated::AcousticNumCoefficients;
+
+  static std::array<double, NumCoefficients> getCoefficients(const AcousticMaterial& material) {
+    return {material.lambda, 1.0 / material.rho};
+  }
+
+  static constexpr auto CoefficientEntries = generated::AcousticCoefficientEntries;
+
   static constexpr FaceTypeSupport supportsFaceType(FaceType /*faceType*/) {
     // The free surface with gravity is formulated for exactly this material: one pressure,
     // no shear waves, impedance sqrt(K rho).

@@ -58,6 +58,18 @@ struct EnergyCompute<PoroElasticMaterial> {
     return {};
   }
 
+  /// The same, point by point, for a material that varies inside the cell.
+  struct AnelasticAtPoints {};
+  static AnelasticAtPoints evaluateAnelastic(const real* /*dofsAne*/,
+                                             const seissol::Pool& /*pool*/) {
+    return {};
+  }
+  static Moments pointMoments(const real* /*dofsAtPoints*/,
+                              const AnelasticAtPoints& /*anelastic*/,
+                              std::size_t /*point*/) {
+    return {};
+  }
+
   static PoroElasticMaterial::EnergyData initEnergyData(const PoroElasticMaterial& /*material*/) {
     return {};
   }

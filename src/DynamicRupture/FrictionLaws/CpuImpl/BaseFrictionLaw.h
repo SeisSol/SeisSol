@@ -181,6 +181,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                         qInterpolatedPlus_[ltsFace],
                                         qInterpolatedMinus_[ltsFace],
                                         impAndEta_[ltsFace],
+                                        impedanceMatrices_[ltsFace],
                                         localTimeWeights.data(),
                                         spaceWeights_,
                                         godunovData_[ltsFace],

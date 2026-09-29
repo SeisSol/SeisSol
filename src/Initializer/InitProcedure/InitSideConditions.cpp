@@ -18,6 +18,9 @@
 #include "SeisSol.h"
 #include "SourceTerm/Manager.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
@@ -27,6 +30,20 @@
 namespace seissol::initializer::initprocedure {
 
 namespace {
+
+/// Whether the scenario takes its medium from the material of a cell, as
+/// opposed to stating its own or not needing one.
+bool builtFromCellMaterial(parameters::InitializationType type) {
+  switch (type) {
+  case parameters::InitializationType::Planarwave:
+  case parameters::InitializationType::SuperimposedPlanarwave:
+  case parameters::InitializationType::Travelling:
+  case parameters::InitializationType::AcousticTravellingWithITM:
+    return true;
+  default:
+    return false;
+  }
+}
 
 std::vector<std::unique_ptr<physics::InitialField>>
     buildInitialConditionList(seissol::SeisSol& seissolInstance) {
@@ -43,6 +60,32 @@ std::vector<std::unique_ptr<physics::InitialField>>
 
   const auto pos = memoryManager.backmap().get(0);
   const auto materialData = memoryManager.ltsStorage().lookup<LTS::Material>(pos);
+
+  // The scenarios built from the material of a cell are solutions of a
+  // homogeneous medium, and they take that medium from one cell. Where the
+  // material is allowed to vary inside a cell, that assumption is worth
+  // checking: the samples of this cell have to agree with each other, or the
+  // field is a solution of a medium that is not the one being simulated. This
+  // says nothing about the other cells, which the choice of a single cell has
+  // always assumed.
+  if constexpr (NodalMaterial) {
+    if (builtFromCellMaterial(type)) {
+      const auto& samples = memoryManager.ltsStorage().lookup<LTS::NodalMaterialData>(pos);
+      for (const auto& [name, member] : model::MaterialT::ParameterMap) {
+        const double reference = samples[0].*member;
+        const double scale = std::max(1.0, std::abs(reference));
+        for (std::size_t node = 1; node < LTS::MaterialNodes; ++node) {
+          if (std::abs(samples[node].*member - reference) > 1.0e-12 * scale) {
+            logError() << "The initial condition" << physics::scenario::name(type).data()
+                       << "is a solution of a homogeneous medium, but the material"
+                       << "varies inside the cell it was built from (" << name.c_str()
+                       << "). Use a material without sub-cell variation for this initial"
+                       << "condition.";
+          }
+        }
+      }
+    }
+  }
 
   logInfo() << "Using initial condition" << physics::scenario::name(type).data() << ".";
 

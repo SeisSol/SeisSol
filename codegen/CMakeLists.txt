@@ -14,7 +14,8 @@ set(GENERATED_FILES_FOR_SEISSOL "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/subro
                                 "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/gpulike_subroutine.cpp"
                                 "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/tensor.h"
                                 "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/init.h"
-                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/kernel.h")
+                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/kernel.h"
+                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/coefficients.h")
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/)
 
@@ -36,6 +37,24 @@ else()
   set(OVERRIDE_ALIGNMENT_PARAM "")
 endif()
 
+if (FACTORED_STAR)
+  set(FACTORED_STAR_PARAM "--factored_star")
+else()
+  set(FACTORED_STAR_PARAM "")
+endif()
+
+if (MATERIAL_NODAL)
+  set(MATERIAL_NODAL_PARAM "--material_nodal")
+else()
+  set(MATERIAL_NODAL_PARAM "")
+endif()
+
+if (MATERIAL_POINTS)
+  set(MATERIAL_POINTS_PARAM "--material_points=${MATERIAL_POINTS}")
+else()
+  set(MATERIAL_POINTS_PARAM "")
+endif()
+
 # common arguments between configure and build
 set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
@@ -52,6 +71,11 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
+     ${MATERIAL_POINTS_PARAM}
+     ${FACTORED_STAR_PARAM}
+     ${MATERIAL_NODAL_PARAM}
+     "--material_operator" ${MATERIAL_OPERATOR}
+     "--material_projection" ${MATERIAL_PROJECTION}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"

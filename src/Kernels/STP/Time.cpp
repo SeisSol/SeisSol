@@ -11,6 +11,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 #include "Kernels/STP/Setup.h"
+#include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
 
 #include <Eigen/Dense>
@@ -48,19 +49,10 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = krnlPrototype_;
 
-  // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
-  // star matrices with dt before we execute the kernel.
-  real A_values[init::star::size(0)];
-  real B_values[init::star::size(1)];
-  real C_values[init::star::size(2)];
-  for (std::size_t i = 0; i < init::star::size(0); i++) {
-    A_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[0][i];
-    B_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[1][i];
-    C_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[2][i];
-  }
-  krnl.star(0) = A_values;
-  krnl.star(1) = B_values;
-  krnl.star(2) = C_values;
+  // the timestep scales the operator, and the kernel applies it: a cell that
+  // carries coefficients rather than matrices has nothing to scale beforehand
+  kernels::bindStarOperands(krnl, data.get<LTS::LocalIntegration>());
+  kernels::bindSourceDeviationOperands(krnl, data.get<LTS::LocalIntegration>());
 
   for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
     krnl.G(i) = data.get<LTS::LocalIntegration>().specific.G[i] * timeStepWidth;
@@ -179,12 +171,15 @@ void Spacetime::computeBatchedAder(
 
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      krnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    // the operator in whichever shape the cells carry it
+    kernels::bindStarOperandsBatched(
+        krnl,
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
+    kernels::bindSourceDeviationOperandsBatched(
+        krnl,
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.G);
     for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {

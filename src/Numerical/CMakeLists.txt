@@ -11,7 +11,6 @@ add_library(seissol-numerical OBJECT
     ODEVector.cpp
     Projection.cpp
     Statistics.cpp
-    Transformation.cpp
 )
 
 target_link_libraries(seissol-numerical PUBLIC seissol-common-properties)

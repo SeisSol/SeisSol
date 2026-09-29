@@ -11,11 +11,14 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_SETUP_H_
 
 #include "Equations/viscoacoustic/Model/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
 #include <yateto.h>
 
 namespace seissol::model {
@@ -35,6 +38,30 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
   /// The flux of the base material alone. How the anelastic blocks are added
   /// on top -- once per mechanism weighted by its relaxation frequency, or
   /// once with the frequency held elsewhere -- is the solver's decision.
+  /// The flux is the base material's, and so is its decomposition.
+  static constexpr std::size_t NumCoefficients = MaterialSetup<AcousticMaterial>::NumCoefficients;
+  static constexpr auto CoefficientEntries = MaterialSetup<AcousticMaterial>::CoefficientEntries;
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    return MaterialSetup<AcousticMaterial>::getCoefficients(
+        dynamic_cast<const AcousticMaterial&>(material));
+  }
+
+  /// The coupling block one mechanism contributes, with its column relative
+  /// to that mechanism's block. The weight is the solver's to supply.
+  static constexpr auto AnelasticEntries = generated::ViscoAcousticAnelasticEntries;
+
+  /// The single theta value of one relaxation mechanism.
+  static constexpr std::size_t NumSourceCoefficients =
+      generated::ViscoAcousticNumSourceCoefficients;
+
+  static std::array<double, NumSourceCoefficients> getSourceCoefficients(const MaterialT& material,
+                                                                         std::size_t mech) {
+    return {material.theta[mech][0]};
+  }
+
+  static constexpr auto SourceEntries = generated::ViscoAcousticSourceEntries;
+
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, std::size_t dim, T& matM) {
     MaterialSetup<AcousticMaterial>::getTransposedCoefficientMatrix(

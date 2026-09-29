@@ -286,21 +286,66 @@ easi::Query ElementAverageGenerator::generate() const {
   return query;
 }
 
-std::size_t PlasticityPointGenerator::outputPerCell() const {
-  constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
-  return pointwise_ ? PlasticityPoints : 1;
+namespace {
+//! Reads a point set out of a generated tensor, whatever layout it is stored in.
+//!
+//! The set has as many points as the tensor has rows. Its stored extent may
+//! differ in both directions: an aligned layout pads the rows beyond the last
+//! point, and a layout that is not aligned starts at the first row holding a
+//! nonzero, which for the nodal set is not the point at the origin. A row
+//! outside the stored extent reads as zero, which is what it holds.
+template <typename InitT>
+NodalPointGenerator::PointSet pointsOf() {
+  const auto nodes = InitT::view::create(InitT::Values);
+  return {[nodes](std::size_t i) {
+            std::array<double, Cell::Dim> point{};
+            for (std::size_t j = 0; j < Cell::Dim; ++j) {
+              if (nodes.isInRange(i, j)) {
+                point[j] = nodes(i, j);
+              }
+            }
+            return point;
+          },
+          InitT::Shape[0]};
+}
+} // namespace
+
+NodalPointGenerator::PointSet NodalPointGenerator::plasticityPoints() {
+  return pointsOf<init::vNodes>();
 }
 
-easi::Query PlasticityPointGenerator::generate() const {
+NodalPointGenerator::PointSet NodalPointGenerator::materialPoints() {
+  // The nodal set has points on the faces and at the vertices of a cell. Where
+  // the material jumps across a face of the mesh -- a layer boundary the mesh
+  // follows, say -- a query there lands on the boundary itself, and which side
+  // easi then answers with is a matter of convention and of rounding, not of
+  // the cell. A cell would carry the other side's material at some of its
+  // samples, and the operator formed from them oscillates and grows. So the
+  // points are pulled towards the barycentre by a tiny fraction of the cell:
+  // every sample lies inside the cell and reads the material of its own side,
+  // while a smooth material moves by far less than the discretization sees.
+  constexpr double Shrink = 1e-6;
+  auto points = pointsOf<init::materialNodes>();
+  points.point = [nodes = points.point](std::size_t i) {
+    auto point = nodes(i);
+    for (auto& coordinate : point) {
+      coordinate = (1 - Shrink) * coordinate + Shrink * 0.25;
+    }
+    return point;
+  };
+  return points;
+}
+
+std::size_t NodalPointGenerator::outputPerCell() const { return pointwise_ ? points_.count : 1; }
+
+easi::Query NodalPointGenerator::generate() const {
 
   const auto pointsPerCell = outputPerCell();
 
-  // Generate query using quadrature points for each element
+  // Generate query using nodal points for each element
   easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
 
-  const auto nodes = init::vNodes::view::create(init::vNodes::Values);
-
-// Transform quadrature points to global coordinates for all elements
+// Transform nodal points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
 
@@ -312,11 +357,7 @@ easi::Query PlasticityPointGenerator::generate() const {
       std::array<double, Cell::Dim> point{};
 
       if (pointwise_) {
-        for (std::size_t j = 0; j < Cell::Dim; ++j) {
-          if (nodes.isInRange(i, j)) {
-            point[j] = nodes(i, j);
-          }
-        }
+        point = points_.point(i);
       } else {
         point = {1 / 4., 1 / 4., 1 / 4.};
       }

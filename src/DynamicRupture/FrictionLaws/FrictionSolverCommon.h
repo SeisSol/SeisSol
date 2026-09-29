@@ -128,13 +128,6 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
                 model::MaterialT::Type == model::MaterialType::Viscoelastic) {
-    const auto etaP = impAndEta.etaP * etaPDamp;
-    const auto etaS = impAndEta.etaS;
-    const auto invZp = impAndEta.invZp;
-    const auto invZs = impAndEta.invZs;
-    const auto invZpNeig = impAndEta.invZpNeig;
-    const auto invZsNeig = impAndEta.invZsNeig;
-
     using namespace dr::misc::quantity_indices;
 
     using Range = typename NumPoints<Type>::Range;
@@ -144,6 +137,14 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto i{startLoopIndex + index};
+      // read inside the loop, since a material varying along the face gives a
+      // different Riemann problem at every point of it
+      const auto etaP = impAndEta.etaP(i) * etaPDamp;
+      const auto etaS = impAndEta.etaS(i);
+      const auto invZp = impAndEta.invZp(i);
+      const auto invZs = impAndEta.invZs(i);
+      const auto invZpNeig = impAndEta.invZpNeig(i);
+      const auto invZsNeig = impAndEta.invZsNeig(i);
       VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
@@ -189,11 +190,14 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
       real strP[Count]{};
       real strM[Count]{};
+      const auto* __restrict impedance = impedanceMatrices.impedance.at(i);
+      const auto* __restrict impedanceNeig = impedanceMatrices.impedanceNeig.at(i);
+      const auto* __restrict eta = impedanceMatrices.eta.at(i);
       const auto rowCompute = [&](auto linear, auto qindex) {
 #pragma unroll
         for (std::uint32_t j = 0; j < Count; ++j) {
-          strP[j] += impedanceMatrices.impedance[linear * Count + j] * qIPlus[o][qindex][i];
-          strM[j] += impedanceMatrices.impedanceNeig[linear * Count + j] * qIMinus[o][qindex][i];
+          strP[j] += impedance[linear * Count + j] * qIPlus[o][qindex][i];
+          strM[j] += impedanceNeig[linear * Count + j] * qIMinus[o][qindex][i];
         }
       };
       rowCompute(0, N);
@@ -210,7 +214,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
       for (std::uint32_t k = 0; k < Count; ++k) {
 #pragma unroll
         for (std::uint32_t j = 0; j < Count; ++j) {
-          res[j] += impedanceMatrices.eta[k * Count + j] * (velDiff[k] + strP[k] + strM[k]);
+          res[j] += eta[k * Count + j] * (velDiff[k] + strP[k] + strM[k]);
         }
       }
 
@@ -293,11 +297,6 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 
   if constexpr (model::MaterialT::Type == model::MaterialType::Elastic ||
                 model::MaterialT::Type == model::MaterialType::Viscoelastic) {
-    const auto invZs = impAndEta.invZs;
-    const auto invZp = impAndEta.invZp;
-    const auto invZsNeig = impAndEta.invZsNeig;
-    const auto invZpNeig = impAndEta.invZpNeig;
-
     using namespace dr::misc::quantity_indices;
 
 #ifndef ACL_DEVICE
@@ -306,6 +305,10 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
          index += NumPointsRange::Step) {
       auto i{startIndex + index};
+      const auto invZs = impAndEta.invZs(i);
+      const auto invZp = impAndEta.invZp(i);
+      const auto invZsNeig = impAndEta.invZsNeig(i);
+      const auto invZpNeig = impAndEta.invZpNeig(i);
 
       const auto normalStress = Acc::index(tractionResults.normalStress, i);
       const auto traction1 = Acc::index(tractionResults.traction1, i);
@@ -386,8 +389,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
         }
       };
 
-      handleSide(state.minus, qIMinus, impedanceMatrices.impedanceNeig, -1);
-      handleSide(state.plus, qIPlus, impedanceMatrices.impedance, 1);
+      handleSide(state.minus, qIMinus, impedanceMatrices.impedanceNeig.at(i), -1);
+      handleSide(state.plus, qIPlus, impedanceMatrices.impedance.at(i), 1);
     }
   }
 }
@@ -591,6 +594,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
     const ImpedancesAndEta& __restrict impAndEta,
+    [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
     const real timeWeights[misc::TimeSteps],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
     const DRGodunovData& __restrict godunovData,
@@ -608,50 +612,6 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
-
-  real bPlus11{};
-  real bPlus12{};
-  real bPlus21{};
-  real bPlus22{};
-  real bMinus11{};
-  real bMinus12{};
-  real bMinus21{};
-  real bMinus22{};
-  // the fault-normal column: with an anisotropic impedance the normal traction contributes to the
-  // interpolated *shear* traction as well
-  real bPlus10{};
-  real bPlus20{};
-  real bMinus10{};
-  real bMinus20{};
-
-  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    constexpr auto Rows = 3;
-    bPlus10 = godunovData.tractionPlusMatrix[Rows * 1 + 0];
-    bPlus11 = godunovData.tractionPlusMatrix[Rows * 1 + 1];
-    bPlus12 = godunovData.tractionPlusMatrix[Rows * 1 + 2];
-    bPlus20 = godunovData.tractionPlusMatrix[Rows * 2 + 0];
-    bPlus21 = godunovData.tractionPlusMatrix[Rows * 2 + 1];
-    bPlus22 = godunovData.tractionPlusMatrix[Rows * 2 + 2];
-    bMinus10 = godunovData.tractionMinusMatrix[Rows * 1 + 0];
-    bMinus11 = godunovData.tractionMinusMatrix[Rows * 1 + 1];
-    bMinus12 = godunovData.tractionMinusMatrix[Rows * 1 + 2];
-    bMinus20 = godunovData.tractionMinusMatrix[Rows * 2 + 0];
-    bMinus21 = godunovData.tractionMinusMatrix[Rows * 2 + 1];
-    bMinus22 = godunovData.tractionMinusMatrix[Rows * 2 + 2];
-  } else {
-    bPlus10 = 0;
-    bPlus11 = impAndEta.etaS * impAndEta.invZs;
-    bPlus12 = 0;
-    bPlus20 = 0;
-    bPlus21 = 0;
-    bPlus22 = impAndEta.etaS * impAndEta.invZs;
-    bMinus10 = 0;
-    bMinus11 = impAndEta.etaS * impAndEta.invZsNeig;
-    bMinus12 = 0;
-    bMinus20 = 0;
-    bMinus21 = 0;
-    bMinus22 = impAndEta.etaS * impAndEta.invZsNeig;
-  }
 
   using Range = typename NumPoints<Type>::Range;
   real localAccumulatedSlip[Range::Size]{};
@@ -677,6 +637,54 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     for (size_t index = Range::Start; index < Range::End; index += Range::Step) {
 
       const size_t i{startIndex + index}; // startIndex is always 0 for CPU
+
+      real bPlus11{};
+      real bPlus12{};
+      real bPlus21{};
+      real bPlus22{};
+      real bMinus11{};
+      real bMinus12{};
+      real bMinus21{};
+      real bMinus22{};
+      // the fault-normal column: with an anisotropic impedance the normal traction contributes to
+      // the interpolated *shear* traction as well
+      real bPlus10{};
+      real bPlus20{};
+      real bMinus10{};
+      real bMinus20{};
+
+      if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+        // the weights of this point: they follow its impedances, which vary along the face
+        // wherever the material does
+        constexpr auto Rows = 3;
+        const auto* __restrict tractionPlus = impedanceMatrices.tractionPlus.at(i);
+        const auto* __restrict tractionMinus = impedanceMatrices.tractionMinus.at(i);
+        bPlus10 = tractionPlus[Rows * 1 + 0];
+        bPlus11 = tractionPlus[Rows * 1 + 1];
+        bPlus12 = tractionPlus[Rows * 1 + 2];
+        bPlus20 = tractionPlus[Rows * 2 + 0];
+        bPlus21 = tractionPlus[Rows * 2 + 1];
+        bPlus22 = tractionPlus[Rows * 2 + 2];
+        bMinus10 = tractionMinus[Rows * 1 + 0];
+        bMinus11 = tractionMinus[Rows * 1 + 1];
+        bMinus12 = tractionMinus[Rows * 1 + 2];
+        bMinus20 = tractionMinus[Rows * 2 + 0];
+        bMinus21 = tractionMinus[Rows * 2 + 1];
+        bMinus22 = tractionMinus[Rows * 2 + 2];
+      } else {
+        bPlus10 = 0;
+        bPlus11 = impAndEta.etaS(i) * impAndEta.invZs(i);
+        bPlus12 = 0;
+        bPlus20 = 0;
+        bPlus21 = 0;
+        bPlus22 = impAndEta.etaS(i) * impAndEta.invZs(i);
+        bMinus10 = 0;
+        bMinus11 = impAndEta.etaS(i) * impAndEta.invZsNeig(i);
+        bMinus12 = 0;
+        bMinus20 = 0;
+        bMinus21 = 0;
+        bMinus22 = impAndEta.etaS(i) * impAndEta.invZsNeig(i);
+      }
 
       const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
       const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
@@ -708,9 +716,10 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       const auto qIMinusT1 = qIMinus[o][T1][i];
       const auto qIMinusT2 = qIMinus[o][T2][i];
 
-      // tau* = b+ tau+ + b- tau-, i.e. b+ pairs with the *plus* side -- matching the
-      // computeTractionInterpolated kernel in EnergyOutput, which contracts tractionPlusMatrix
-      // with QInterpolatedPlus. Only relevant for a bimaterial interface, where b+ != b-.
+      // tau* = b+ tau+ + b- tau-, i.e. b+ pairs with the *plus* side -- matching computeStaticWork
+      // in EnergyOutput, which contracts tractionPlusMatrix with QInterpolatedPlus, per point
+      // where the weights vary along the face and with the computeTractionInterpolated kernel
+      // where they do not. Only relevant for a bimaterial interface, where b+ != b-.
       const real interpolatedTraction12 = bPlus10 * qIPlusN + bPlus11 * qIPlusT1 +
                                           bPlus12 * qIPlusT2 + bMinus10 * qIMinusN +
                                           bMinus11 * qIMinusT1 + bMinus12 * qIMinusT2;
@@ -745,6 +754,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
     projectEta(const ImpedancesAndEta& impAndEta,
                [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+               std::size_t point,
                [[maybe_unused]] real t1,
                [[maybe_unused]] real t2,
                [[maybe_unused]] real tmag) {
@@ -755,14 +765,13 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
     const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
 
-    const real etaProj = impedanceMatrices.eta[Count * 1 + 1] * n1 * n1 +
-                         impedanceMatrices.eta[Count * 1 + 2] * n1 * n2 +
-                         impedanceMatrices.eta[Count * 2 + 1] * n2 * n1 +
-                         impedanceMatrices.eta[Count * 2 + 2] * n2 * n2;
+    const auto* __restrict eta = impedanceMatrices.eta.at(point);
+    const real etaProj = eta[Count * 1 + 1] * n1 * n1 + eta[Count * 1 + 2] * n1 * n2 +
+                         eta[Count * 2 + 1] * n2 * n1 + eta[Count * 2 + 2] * n2 * n2;
 
     return {etaProj, static_cast<real>(1.0) / etaProj};
   } else {
-    return {impAndEta.etaS, impAndEta.invEtaS};
+    return {impAndEta.etaS(point), impAndEta.invEtaS(point)};
   }
 }
 
@@ -786,6 +795,7 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
 SEISSOL_HOSTDEVICE inline real
     projectEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
                      [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                     [[maybe_unused]] std::size_t point,
                      [[maybe_unused]] real t1,
                      [[maybe_unused]] real t2,
                      [[maybe_unused]] real tmag) {
@@ -797,7 +807,8 @@ SEISSOL_HOSTDEVICE inline real
     const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
 
     // eta is a dense, column-major tensor: eta[col * Count + row]
-    return impedanceMatrices.eta[Count * 1 + 0] * n1 + impedanceMatrices.eta[Count * 2 + 0] * n2;
+    const auto* __restrict eta = impedanceMatrices.eta.at(point);
+    return eta[Count * 1 + 0] * n1 + eta[Count * 2 + 0] * n2;
   } else {
     return static_cast<real>(0.0);
   }
@@ -812,6 +823,7 @@ SEISSOL_HOSTDEVICE inline real
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
     matmulEta(const ImpedancesAndEta& impAndEta,
               [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+              std::size_t point,
               real v1,
               real v2) {
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
@@ -819,15 +831,14 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     constexpr std::uint32_t Count = 3;
 
     // eta is a dense, column-major tensor: eta[col * Count + row]
-    const real w1 =
-        impedanceMatrices.eta[Count * 1 + 1] * v1 + impedanceMatrices.eta[Count * 2 + 1] * v2;
+    const auto* __restrict eta = impedanceMatrices.eta.at(point);
+    const real w1 = eta[Count * 1 + 1] * v1 + eta[Count * 2 + 1] * v2;
 
-    const real w2 =
-        impedanceMatrices.eta[Count * 1 + 2] * v1 + impedanceMatrices.eta[Count * 2 + 2] * v2;
+    const real w2 = eta[Count * 1 + 2] * v1 + eta[Count * 2 + 2] * v2;
 
     return {w1, w2};
   } else {
-    return {impAndEta.etaS * v1, impAndEta.etaS * v2};
+    return {impAndEta.etaS(point) * v1, impAndEta.etaS(point) * v2};
   }
 }
 
@@ -846,6 +857,7 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
 SEISSOL_HOSTDEVICE inline real
     matmulEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
                     [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                    [[maybe_unused]] std::size_t point,
                     [[maybe_unused]] real v1,
                     [[maybe_unused]] real v2) {
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
@@ -853,7 +865,8 @@ SEISSOL_HOSTDEVICE inline real
     constexpr std::uint32_t Count = 3;
 
     // eta is a dense, column-major tensor: eta[col * Count + row]
-    return impedanceMatrices.eta[Count * 1 + 0] * v1 + impedanceMatrices.eta[Count * 2 + 0] * v2;
+    const auto* __restrict eta = impedanceMatrices.eta.at(point);
+    return eta[Count * 1 + 0] * v1 + eta[Count * 2 + 0] * v2;
   } else {
     return static_cast<real>(0.0);
   }
@@ -885,6 +898,7 @@ SEISSOL_HOSTDEVICE inline real
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
     updateSlipDirection([[maybe_unused]] const ImpedancesAndEta& impAndEta,
                         [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                        [[maybe_unused]] std::size_t point,
                         [[maybe_unused]] real strength,
                         [[maybe_unused]] real slipRate,
                         real t1,
@@ -895,10 +909,11 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     constexpr std::uint32_t Count = 3;
 
     // the very same 2x2 block, in the same convention, that matmulEta and projectEta use
-    const real e11 = impedanceMatrices.eta[Count * 1 + 1];
-    const real e12 = impedanceMatrices.eta[Count * 1 + 2];
-    const real e21 = impedanceMatrices.eta[Count * 2 + 1];
-    const real e22 = impedanceMatrices.eta[Count * 2 + 2];
+    const auto* __restrict eta = impedanceMatrices.eta.at(point);
+    const real e11 = eta[Count * 1 + 1];
+    const real e12 = eta[Count * 1 + 2];
+    const real e21 = eta[Count * 2 + 1];
+    const real e22 = eta[Count * 2 + 2];
 
     // adjugate of (S * I + V * eta_ss), applied to tau0
     const real u1 = (strength + slipRate * e22) * t1 - slipRate * e12 * t2;
@@ -945,6 +960,7 @@ struct SlipRateSolution {
  */
 SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta& impAndEta,
                                                          const ImpedanceMatrices& impedanceMatrices,
+                                                         std::size_t point,
                                                          real traction1,
                                                          real traction2,
                                                          real tractionMagnitude,
@@ -956,9 +972,10 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
   real n2 = traction2 * invAbsolute;
   real projectedTraction = tractionMagnitude;
   real eta =
-      projectEta(impAndEta, impedanceMatrices, traction1, traction2, tractionMagnitude).first;
-  real etaNormal =
-      projectEtaNormal(impAndEta, impedanceMatrices, traction1, traction2, tractionMagnitude);
+      projectEta(impAndEta, impedanceMatrices, point, traction1, traction2, tractionMagnitude)
+          .first;
+  real etaNormal = projectEtaNormal(
+      impAndEta, impedanceMatrices, point, traction1, traction2, tractionMagnitude);
   real slipRate{};
   real etaEff{};
 
@@ -980,6 +997,7 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
     const real localStrength = projectedTraction - slipRate * eta;
     const auto [d1, d2] = updateSlipDirection(impAndEta,
                                               impedanceMatrices,
+                                              point,
                                               localStrength,
                                               slipRate,
                                               traction1,
@@ -988,8 +1006,9 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
     n1 = d1;
     n2 = d2;
     projectedTraction = n1 * traction1 + n2 * traction2;
-    eta = projectEta(impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0)).first;
-    etaNormal = projectEtaNormal(impAndEta, impedanceMatrices, n1, n2, static_cast<real>(1.0));
+    eta = projectEta(impAndEta, impedanceMatrices, point, n1, n2, static_cast<real>(1.0)).first;
+    etaNormal =
+        projectEtaNormal(impAndEta, impedanceMatrices, point, n1, n2, static_cast<real>(1.0));
   }
 
   return {slipRate, n1, n2, projectedTraction, etaEff};

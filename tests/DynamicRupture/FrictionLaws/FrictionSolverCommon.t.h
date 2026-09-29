@@ -42,30 +42,42 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     auto* iSPlus = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
     auto* iSMinus = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
-    impAndEta.zp = 10.0;
-    impAndEta.zs = 20.0;
-    impAndEta.zpNeig = 15.0;
-    impAndEta.zsNeig = 25.0;
-    impAndEta.etaP = impAndEta.zp * impAndEta.zpNeig / (impAndEta.zp + impAndEta.zpNeig);
-    impAndEta.etaS = impAndEta.zs * impAndEta.zsNeig / (impAndEta.zs + impAndEta.zsNeig);
-    impAndEta.invZp = 1.0 / impAndEta.zp;
-    impAndEta.invZs = 1.0 / impAndEta.zs;
-    impAndEta.invZpNeig = 1.0 / impAndEta.zpNeig;
-    impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
+    const real zp = 10.0;
+    const real zs = 20.0;
+    const real zpNeig = 15.0;
+    const real zsNeig = 25.0;
+    const real etaP = zp * zpNeig / (zp + zpNeig);
+    const real etaS = zs * zsNeig / (zs + zsNeig);
+    const real invZp = 1.0 / zp;
+    const real invZs = 1.0 / zs;
+    const real invZpNeig = 1.0 / zpNeig;
+    const real invZsNeig = 1.0 / zsNeig;
+    impAndEta.zp.fill(zp);
+    impAndEta.zs.fill(zs);
+    impAndEta.zpNeig.fill(zpNeig);
+    impAndEta.zsNeig.fill(zsNeig);
+    impAndEta.etaP.fill(etaP);
+    impAndEta.etaS.fill(etaS);
+    impAndEta.invZp.fill(invZp);
+    impAndEta.invZs.fill(invZs);
+    impAndEta.invZpNeig.fill(invZpNeig);
+    impAndEta.invZsNeig.fill(invZsNeig);
 
     ImpedanceMatrices impMats;
-    auto etaView = init::eta::view::create(impMats.eta);
-    etaView(0, 0) = impAndEta.etaP;
-    etaView(1, 1) = impAndEta.etaS;
-    etaView(2, 2) = impAndEta.etaS;
-    auto impedanceView = init::Zplus::view::create(impMats.impedance);
-    impedanceView(0, 0) = impAndEta.invZp;
-    impedanceView(1, 1) = impAndEta.invZs;
-    impedanceView(2, 2) = impAndEta.invZs;
-    auto impedanceNeigView = init::Zminus::view::create(impMats.impedanceNeig);
-    impedanceNeigView(0, 0) = impAndEta.invZpNeig;
-    impedanceNeigView(1, 1) = impAndEta.invZsNeig;
-    impedanceNeigView(2, 2) = impAndEta.invZsNeig;
+    for (std::size_t point = 0; point < ImpedancePoints; ++point) {
+      auto etaView = init::eta::view::create(impMats.eta.at(point));
+      etaView(0, 0) = etaP;
+      etaView(1, 1) = etaS;
+      etaView(2, 2) = etaS;
+      auto impedanceView = init::Zplus::view::create(impMats.impedance.at(point));
+      impedanceView(0, 0) = invZp;
+      impedanceView(1, 1) = invZs;
+      impedanceView(2, 2) = invZs;
+      auto impedanceNeigView = init::Zminus::view::create(impMats.impedanceNeig.at(point));
+      impedanceNeigView(0, 0) = invZpNeig;
+      impedanceNeigView(1, 1) = invZsNeig;
+      impedanceNeigView(2, 2) = invZsNeig;
+    }
 
     auto qP = [](size_t o, size_t q, size_t p) { return static_cast<real>(o + q + p); };
     auto qM = [](size_t o, size_t q, size_t p) { return static_cast<real>(2 * (o + q + p)); };
@@ -97,16 +109,13 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
 
     // the trial stresses precomputeStressFromQInterpolated is expected to produce for step o
     auto trialNormalStress = [&](size_t o, size_t p) {
-      return impAndEta.etaP * (qM(o, 6, p) - qP(o, 6, p) + impAndEta.invZp * qP(o, 0, p) +
-                               impAndEta.invZpNeig * qM(o, 0, p));
+      return etaP * (qM(o, 6, p) - qP(o, 6, p) + invZp * qP(o, 0, p) + invZpNeig * qM(o, 0, p));
     };
     auto trialTraction1 = [&](size_t o, size_t p) {
-      return impAndEta.etaS * (qM(o, 7, p) - qP(o, 7, p) + impAndEta.invZs * qP(o, 3, p) +
-                               impAndEta.invZsNeig * qM(o, 3, p));
+      return etaS * (qM(o, 7, p) - qP(o, 7, p) + invZs * qP(o, 3, p) + invZsNeig * qM(o, 3, p));
     };
     auto trialTraction2 = [&](size_t o, size_t p) {
-      return impAndEta.etaS * (qM(o, 8, p) - qP(o, 8, p) + impAndEta.invZs * qP(o, 5, p) +
-                               impAndEta.invZsNeig * qM(o, 5, p));
+      return etaS * (qM(o, 8, p) - qP(o, 8, p) + invZs * qP(o, 5, p) + invZsNeig * qM(o, 5, p));
     };
 
     SUBCASE("Precompute Stress") {
@@ -191,22 +200,16 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
           expectedNormalStress[0] += timeWeights[o] * tn(o, p);
           expectedTraction1[0] += timeWeights[o] * t1(o, p);
           expectedTraction2[0] += timeWeights[o] * t2(o, p);
-          expectedU[0] +=
-              timeWeights[o] * (qM(o, 6, p) - impAndEta.invZpNeig * (tn(o, p) - qM(o, 0, p)));
-          expectedV[0] +=
-              timeWeights[o] * (qM(o, 7, p) - impAndEta.invZsNeig * (t1(o, p) - qM(o, 3, p)));
-          expectedW[0] +=
-              timeWeights[o] * (qM(o, 8, p) - impAndEta.invZsNeig * (t2(o, p) - qM(o, 5, p)));
+          expectedU[0] += timeWeights[o] * (qM(o, 6, p) - invZpNeig * (tn(o, p) - qM(o, 0, p)));
+          expectedV[0] += timeWeights[o] * (qM(o, 7, p) - invZsNeig * (t1(o, p) - qM(o, 3, p)));
+          expectedW[0] += timeWeights[o] * (qM(o, 8, p) - invZsNeig * (t2(o, p) - qM(o, 5, p)));
 
           expectedNormalStress[1] += timeWeights[o] * tn(o, p);
           expectedTraction1[1] += timeWeights[o] * t1(o, p);
           expectedTraction2[1] += timeWeights[o] * t2(o, p);
-          expectedU[1] +=
-              timeWeights[o] * (qP(o, 6, p) + impAndEta.invZp * (tn(o, p) - qP(o, 0, p)));
-          expectedV[1] +=
-              timeWeights[o] * (qP(o, 7, p) + impAndEta.invZs * (t1(o, p) - qP(o, 3, p)));
-          expectedW[1] +=
-              timeWeights[o] * (qP(o, 8, p) + impAndEta.invZs * (t2(o, p) - qP(o, 5, p)));
+          expectedU[1] += timeWeights[o] * (qP(o, 6, p) + invZp * (tn(o, p) - qP(o, 0, p)));
+          expectedV[1] += timeWeights[o] * (qP(o, 7, p) + invZs * (t1(o, p) - qP(o, 3, p)));
+          expectedW[1] += timeWeights[o] * (qP(o, 8, p) + invZs * (t2(o, p) - qP(o, 5, p)));
         }
         CHECK(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(Epsilon));
         CHECK(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(Epsilon));

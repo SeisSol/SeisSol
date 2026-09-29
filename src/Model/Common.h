@@ -14,7 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/quantities.h"
 #include "Geometry/MeshTools.h"
-#include "Initializer/Typedefs.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 #include "Numerical/Eigenvalues.h"
@@ -189,6 +189,40 @@ void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tma
       material, dim, matM);
 }
 
+/// Builds the star matrix of one reference direction from the material's
+/// scalar coefficients and the corresponding row of the Jacobian, so that a
+/// cell can carry the two apart and put them together where the operator is
+/// applied.
+template <typename Tmaterial, typename Tcoefficient, typename Tgradient, typename Tmatrix>
+void assembleStarMatrix(const Tcoefficient* coefficients,
+                        const Tgradient* gradient,
+                        Tmatrix& starMatrix) {
+  using Setup = SolverSetup<typename Tmaterial::Solver, Tmaterial>;
+  static_assert(Setup::NumCoefficients > 0,
+                "the material does not declare its coefficient decomposition");
+  starMatrix.setZero();
+  Setup::forEachCoefficientEntry([&](std::size_t coefficient,
+                                     std::size_t dim,
+                                     std::size_t row,
+                                     std::size_t column,
+                                     double factor) {
+    starMatrix(row, column) += gradient[dim] * factor * coefficients[coefficient];
+  });
+}
+
+/// The coefficients of the operator a cell applies, as its solver composes
+/// them.
+template <typename Tmaterial>
+auto getStarCoefficients(const Tmaterial& material) {
+  return SolverSetup<typename Tmaterial::Solver, Tmaterial>::getCoefficients(material);
+}
+
+/// The same for the source term this cell's solver applies.
+template <typename Tmaterial>
+auto getSourceCoefficients(const Tmaterial& material) {
+  return SolverSetup<typename Tmaterial::Solver, Tmaterial>::getSourceCoefficients(material);
+}
+
 template <typename Tmaterial, typename T>
 void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
   SolverSetup<typename Tmaterial::Solver, Tmaterial>::getTransposedSourceCoefficientTensor(material,
@@ -343,6 +377,30 @@ MaterialT getRotatedMaterialCoefficients(const std::array<double, 36>& rotationP
  */
 template <typename MaterialT>
 struct MaterialSetupDefaults {
+  /// Number of scalar coefficients the transposed coefficient matrices of this
+  /// material are linear in. Zero where the material does not declare the
+  /// decomposition, in which case only getTransposedCoefficientMatrix is
+  /// available.
+  static constexpr std::size_t NumCoefficients = 0;
+
+  /// Number of scalar coefficients one relaxation mechanism's source entries
+  /// are linear in. Zero where the material has no source term, or does not
+  /// declare its decomposition.
+  static constexpr std::array<CoefficientEntry, 0> CoefficientEntries{};
+
+  /// Where each coefficient gets its value. A material reads all of its own
+  /// off itself, so they are all fields; only a solver adds anything else.
+  static constexpr std::array<CoefficientOrigin, 0> CoefficientOrigins{};
+
+  /// The coupling block one relaxation mechanism contributes. Empty where the
+  /// material has no relaxation.
+  static constexpr std::array<AnelasticCoefficientEntry, 0> AnelasticEntries{};
+
+  /// Number of scalar coefficients one relaxation mechanism's source entries
+  /// are linear in. Zero where the material has no source term, or does not
+  /// declare its decomposition.
+  static constexpr std::size_t NumSourceCoefficients = 0;
+
   static MaterialT
       getRotatedMaterialCoefficients(const std::array<double, 36>& /*rotationParameters*/,
                                      const MaterialT& material) {
@@ -368,6 +426,20 @@ struct MaterialSetupDefaults {
   }
 };
 
+/// A material reads every one of its coefficients off itself, so all of them
+/// are fields. Stated once here rather than in each material's declaration,
+/// which would repeat the same run of Material as many times as the material
+/// has coefficients.
+template <typename MaterialT>
+constexpr std::array<CoefficientOrigin, MaterialSetup<MaterialT>::NumCoefficients>
+    materialCoefficientOrigins() {
+  std::array<CoefficientOrigin, MaterialSetup<MaterialT>::NumCoefficients> origins{};
+  for (auto& origin : origins) {
+    origin = CoefficientOrigin::Material;
+  }
+  return origins;
+}
+
 /**
  * What a solver setup looks like when the solver needs nothing beyond the
  * material's own operators: the plane wave operator follows from the
@@ -376,6 +448,50 @@ struct MaterialSetupDefaults {
  */
 template <typename SolverT, typename MaterialT>
 struct SolverSetupDefaults {
+  /// The operator a solver applies is the material's unless the solver adds
+  /// to it, and so is its decomposition.
+  static constexpr std::size_t NumCoefficients = MaterialSetup<MaterialT>::NumCoefficients;
+  static constexpr auto CoefficientEntries = MaterialSetup<MaterialT>::CoefficientEntries;
+  static constexpr auto CoefficientOrigins = materialCoefficientOrigins<MaterialT>();
+
+  static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
+    return MaterialSetup<MaterialT>::getCoefficients(material);
+  }
+
+  /// Walks the entries of the operator this solver applies. A callback rather
+  /// than a table, because a solver that adds relaxation blocks composes its
+  /// entries from the material's and repeats a block per mechanism.
+  template <typename F>
+  static void forEachCoefficientEntry(const F& write) {
+    for (const auto& entry : MaterialSetup<MaterialT>::CoefficientEntries) {
+      write(entry.coefficient, entry.dim, entry.row, entry.column, entry.factor);
+    }
+  }
+
+  /// The same for the source term: how many scalars it is linear in, what they
+  /// are, and where they sit. A material without relaxation states its source
+  /// as one block, so the solver's decomposition is the material's.
+  static constexpr std::size_t NumSourceCoefficients =
+      MaterialSetup<MaterialT>::NumSourceCoefficients;
+
+  static std::array<double, NumSourceCoefficients>
+      getSourceCoefficients(const MaterialT& material) {
+    if constexpr (NumSourceCoefficients == 0) {
+      return {};
+    } else {
+      return MaterialSetup<MaterialT>::getSourceCoefficients(material, 0);
+    }
+  }
+
+  template <typename F>
+  static void forEachSourceCoefficientEntry(const F& write) {
+    if constexpr (NumSourceCoefficients > 0) {
+      for (const auto& entry : MaterialSetup<MaterialT>::SourceEntries) {
+        write(entry.coefficient, entry.row, entry.column, entry.factor);
+      }
+    }
+  }
+
   static void getPlaneWaveOperator(
       const MaterialT& material,
       const double n[3],

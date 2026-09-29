@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
+import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
@@ -260,6 +261,28 @@ def addKernels(generator, aderdg, include_tensors, targets):
 
     vidx = aderdg.velocityOffset()
 
+    # The series reads the normal stress row and the velocity rows of Tinv,
+    # and the displacement block of T. The face rotation may be stored by its
+    # pattern (CSC), which yateto can neither slice at a row offset nor check
+    # against a read that leaves out its first row. So each kernel gathers the
+    # first row and the velocity rows of both matrices into dense temporaries,
+    # through constant selection matrices, and slices those instead; the first
+    # row of T is gathered only to keep that check satisfied. The temporaries
+    # keep the pattern of the rows they hold, so that the products reading
+    # them skip the zeros the rotation has there.
+    def gatherRows(rotation, name):
+        values = np.zeros((4, rotation.shape()[0]))
+        values[0, 0] = 1.0
+        for j in range(3):
+            values[1 + j, vidx + j] = 1.0
+        select = Tensor(f"fsgSelect{name}", values.shape, values)
+        pattern = (values != 0).astype(int) @ rotation.spp().as_ndarray().astype(int)
+        rows = Tensor(f"fsg{name}", pattern.shape, spp=pattern != 0, temporary=True)
+        return rows, lambda: rows["qm"] <= select["qp"] * rotation["pm"]
+
+    TinvRows, gatherTinvRows = gatherRows(aderdg.Tinv, "TinvRows")
+    TRows, gatherTRows = gatherRows(aderdg.T, "TRows")
+
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
 
@@ -282,23 +305,21 @@ def addKernels(generator, aderdg, include_tensors, targets):
             # the latter is assembled in modal space and evaluated at the nodes
             # once, after the series is complete.
             kernel = [
+                gatherTinvRows(),
+                gatherTRows(),
                 faceDisplacementTmp["mp"]
                 <= faceDisplacement["mn"]
-                * aderdg.Tinv["pn"]
-                .subslice("p", vidx, vidx + 3)
-                .subslice("n", vidx, vidx + 3),
+                * TinvRows["pn"].subslice("p", 1, 4).subslice("n", vidx, vidx + 3),
                 Iprev["mp"] <= faceDisplacementTmp["mp"].subslice("p", 0, 1),
                 averageNormalDisplacement["mp"]
                 <= powers[0] * faceDisplacementTmp["mp"].subslice("p", 0, 1),
             ]
 
             for i in range(1, aderdg.order + 1):
-                velocitiesU = aderdg.dQs[i - 1]["lm"] * aderdg.Tinv["pm"].subslice(
-                    "p", vidx, vidx + 1
+                velocitiesU = aderdg.dQs[i - 1]["lm"] * TinvRows["pm"].subslice(
+                    "p", 1, 2
                 )
-                pressure = aderdg.dQs[i - 1]["lm"] * aderdg.Tinv["pm"].subslice(
-                    "p", 0, 1
-                )
+                pressure = aderdg.dQs[i - 1]["lm"] * TinvRows["pm"].subslice("p", 0, 1)
 
                 if i == 1:
                     kernel += [MPrev["lp"] <= velocitiesU - invImp[""] * pressure]
@@ -334,8 +355,8 @@ def addKernels(generator, aderdg, include_tensors, targets):
                 ]
 
                 if aderdg.velocityOffset() > 1:
-                    velocitiesVW = aderdg.dQs[i - 1]["lm"] * aderdg.Tinv["pm"].subslice(
-                        "p", vidx + 1, vidx + 3
+                    velocitiesVW = aderdg.dQs[i - 1]["lm"] * TinvRows["pm"].subslice(
+                        "p", 2, 4
                     )
                     if i == 1:
                         kernel += [
@@ -366,9 +387,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
             kernel += [
                 faceDisplacement["mp"]
                 <= faceDisplacementTmp["mn"]
-                * aderdg.T["pn"]
-                .subslice("p", vidx, vidx + 3)
-                .subslice("n", vidx, vidx + 3),
+                * TRows["pn"].subslice("p", 1, 4).subslice("n", vidx, vidx + 3),
             ]
 
             return kernel

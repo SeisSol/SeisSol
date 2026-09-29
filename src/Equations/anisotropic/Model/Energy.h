@@ -53,6 +53,18 @@ struct EnergyCompute<AnisotropicMaterial> {
     return {};
   }
 
+  /// The same, point by point, for a material that varies inside the cell.
+  struct AnelasticAtPoints {};
+  static AnelasticAtPoints evaluateAnelastic(const real* /*dofsAne*/,
+                                             const seissol::Pool& /*pool*/) {
+    return {};
+  }
+  static Moments pointMoments(const real* /*dofsAtPoints*/,
+                              const AnelasticAtPoints& /*anelastic*/,
+                              std::size_t /*point*/) {
+    return {};
+  }
+
   static AnisotropicMaterial::EnergyData initEnergyData(const AnisotropicMaterial& material) {
     // The c_IJ follow *standard* Voigt numbering (1=xx, 2=yy, 3=zz, 4=yz, 5=xz,
     // 6=xy), as can be read off getTransposedCoefficientMatrix in

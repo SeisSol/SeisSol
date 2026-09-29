@@ -150,7 +150,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                   seissolParams.output.waveFieldParameters.integrationMask.end(),
                   [](const auto& value) { return value; }) ||
       seissolParams.output.waveFieldParameters.computeStrain;
-  const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+  const auto settings = SimulationSettings(
+      seissolParams.model.plasticity, needsIntegration, seissolParams.model.materialNodal);
 
   logInfo() << "Creating mesh layout...";
 

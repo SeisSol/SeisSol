@@ -19,7 +19,11 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <limits>
+#include <memory>
 #include <mpi.h>
+#include <utils/logger.h>
 #include <vector>
 
 namespace {
@@ -55,9 +59,19 @@ GlobalTimestep
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::MaterialT;
 
-  const auto queryGen = seissol::initializer::getBestQueryGenerator(
-      seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
-  std::vector<Material> materials(cellToVertex.size);
+  const auto queryGen = [&]() -> std::shared_ptr<seissol::initializer::QueryGenerator> {
+    if (seissolParams.model.materialNodal) {
+      // the same points the material is sampled at, so that the timestep sees
+      // exactly the wave speeds the operator will carry
+      return std::make_shared<seissol::initializer::NodalPointGenerator>(
+          cellToVertex, seissol::initializer::NodalPointGenerator::materialPoints());
+    }
+    return seissol::initializer::getBestQueryGenerator(
+        seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
+  }();
+  const std::size_t pointsPerCell = queryGen->outputPerCell();
+
+  std::vector<Material> materials(cellToVertex.size * pointsPerCell);
   seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(seissolParams.model.materialFileName, *queryGen);
@@ -65,14 +79,36 @@ GlobalTimestep
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
 
+  // for the diagnostic below: the same timestep, but bounded by the mean wave
+  // speed of a cell instead of its maximum
+  double localMinMeanTimestep = std::numeric_limits<double>::max();
+  double localMaxContrast = 1.0;
+
   for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
-    const double pWaveVel = materials[cell].getMaxWaveSpeed();
+    // the wave speed bounds the cell from above, the material timestep from below
+    double pWaveVel = 0.0;
+    double pWaveVelSum = 0.0;
+    double materialMaxTimestep = std::numeric_limits<double>::max();
+    for (std::size_t point = 0; point < pointsPerCell; ++point) {
+      const auto& material = materials[cell * pointsPerCell + point];
+      const auto pointWaveVel = material.getMaxWaveSpeed();
+      pWaveVel = std::max(pWaveVel, pointWaveVel);
+      pWaveVelSum += pointWaveVel;
+      materialMaxTimestep = std::min(materialMaxTimestep, material.maximumTimestep());
+    }
+    const double pWaveVelMean = pWaveVelSum / static_cast<double>(pointsPerCell);
+
     const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
-    const auto materialMaxTimestep = materials[cell].maximumTimestep();
     const auto cellMaxTimestep =
         std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
     timestep.cellTimeStepWidths[cell] =
         computeCellTimestep(vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep);
+
+    localMaxContrast = std::max(localMaxContrast, pWaveVel / pWaveVelMean);
+    localMinMeanTimestep =
+        std::min(localMinMeanTimestep,
+                 computeCellTimestep(
+                     vertices, pWaveVelMean, seissolParams.timeStepping.cfl, cellMaxTimestep));
   }
 
   const auto minmaxCellPosition =
@@ -93,6 +129,26 @@ GlobalTimestep
                 MPI_DOUBLE,
                 MPI_MAX,
                 seissol::Mpi::mpi.comm());
+
+  if (pointsPerCell > 1) {
+    double globalMaxContrast = 0;
+    double globalMinMeanTimestep = 0;
+    MPI_Allreduce(
+        &localMaxContrast, &globalMaxContrast, 1, MPI_DOUBLE, MPI_MAX, seissol::Mpi::mpi.comm());
+    MPI_Allreduce(&localMinMeanTimestep,
+                  &globalMinMeanTimestep,
+                  1,
+                  MPI_DOUBLE,
+                  MPI_MIN,
+                  seissol::Mpi::mpi.comm());
+    logInfo() << "Material sampled at" << pointsPerCell
+              << "points per cell. Largest ratio between the maximum and the mean wave speed"
+                 " of a cell:"
+              << globalMaxContrast << "- the smallest timestep is"
+              << timestep.globalMinTimeStep / globalMinMeanTimestep
+              << "times the one the mean wave speeds would permit.";
+  }
+
   return timestep;
 }
 } // namespace seissol::initializer

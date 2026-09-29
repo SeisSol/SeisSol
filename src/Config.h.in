@@ -29,6 +29,8 @@ struct Config {
     static constexpr SolverType Solver = SolverType::@PARAMETER_SOLVER@;
     static constexpr DRQuadRuleType DRQuadRule = DRQuadRuleType::@PARAMETER_DRQUADRULE@;
     static constexpr std::size_t NumSimulations = @NUMBER_OF_FUSED_SIMULATIONS@;
+    static constexpr bool FactoredStar = @PARAMETER_FACTORED_STAR@;
+    static constexpr bool MaterialNodal = @PARAMETER_MATERIAL_NODAL@;
 };
 
 } // namespace seissol

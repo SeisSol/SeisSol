@@ -60,6 +60,8 @@ class GravitationalFreeSurfaceBc {
     assert(boundaryMapping.dataTinv != nullptr);
     assert(boundaryMapping.dataT != nullptr);
 
+    // the kernel reads the rotation in the layout it was generated for, so it
+    // takes the stored values rather than anything a view hands out
     kernel.T = boundaryMapping.dataT;
     kernel.Tinv = boundaryMapping.dataTinv;
     kernel.faceDisplacement = displacementNodalData;

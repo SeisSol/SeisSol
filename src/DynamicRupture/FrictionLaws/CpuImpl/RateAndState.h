@@ -184,6 +184,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       const auto [_, invEta] = common::projectEta(this->impAndEta_[ltsFace],
                                                   this->impedanceMatrices_[ltsFace],
+                                                  pointIndex,
                                                   totalTraction1,
                                                   totalTraction2,
                                                   absoluteTraction[pointIndex]);
@@ -192,6 +193,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       etaNormal[pointIndex] = common::projectEtaNormal(this->impAndEta_[ltsFace],
                                                        this->impedanceMatrices_[ltsFace],
+                                                       pointIndex,
                                                        totalTraction1,
                                                        totalTraction2,
                                                        absoluteTraction[pointIndex]);
@@ -256,6 +258,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         const auto [etaProj, unusedInv] = common::projectEta(this->impAndEta_[ltsFace],
                                                              this->impedanceMatrices_[ltsFace],
+                                                             pointIndex,
                                                              slipDirection1[pointIndex],
                                                              slipDirection2[pointIndex],
                                                              static_cast<real>(1.0));
@@ -264,6 +267,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         const auto [n1, n2] = common::updateSlipDirection(this->impAndEta_[ltsFace],
                                                           this->impedanceMatrices_[ltsFace],
+                                                          pointIndex,
                                                           strength,
                                                           slipRate,
                                                           totalTraction1,
@@ -276,12 +280,14 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         const auto [etaUnused, invEta] = common::projectEta(this->impAndEta_[ltsFace],
                                                             this->impedanceMatrices_[ltsFace],
+                                                            pointIndex,
                                                             n1,
                                                             n2,
                                                             static_cast<real>(1.0));
         etaInv[pointIndex] = invEta;
         etaNormal[pointIndex] = common::projectEtaNormal(this->impAndEta_[ltsFace],
                                                          this->impedanceMatrices_[ltsFace],
+                                                         pointIndex,
                                                          n1,
                                                          n2,
                                                          static_cast<real>(1.0));
@@ -444,6 +450,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       const auto [eta, _] = common::projectEta(this->impAndEta_[ltsFace],
                                                this->impedanceMatrices_[ltsFace],
+                                               pointIndex,
                                                slipDirection1[pointIndex],
                                                slipDirection2[pointIndex],
                                                static_cast<real>(1.0));
@@ -456,6 +463,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
                                                 this->impedanceMatrices_[ltsFace],
+                                                pointIndex,
                                                 this->slipRate1_[ltsFace][pointIndex],
                                                 this->slipRate2_[ltsFace][pointIndex]);
 

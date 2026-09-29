@@ -158,6 +158,10 @@ struct WaveFieldOutputParameters {
   std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask{};
   std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask{};
   std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask{};
+  /// Whether the material parameters are written alongside the quantities.
+  /// Where the material is sampled at the nodal points, they are written as
+  /// they vary inside the cell; otherwise as the one value the cell carries.
+  bool material{false};
   std::unordered_set<int> groups;
   bool computeRotation{false};
   bool computeStrain{false};

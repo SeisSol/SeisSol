@@ -12,6 +12,8 @@
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
@@ -110,6 +112,17 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   const auto queryGen = getBestQueryGenerator(ctv);
   auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
+  // a second sample set, at the nodal points of the volume basis. The
+  // homogenized material a cell carries is an effective medium and not the
+  // mean of these, so the two are asked for separately rather than derived
+  // from one another.
+  std::vector<MaterialT> nodalMaterialsDB;
+  if (seissolParams.model.materialNodal) {
+    nodalMaterialsDB = queryDB<MaterialT>(
+        std::make_shared<NodalPointGenerator>(ctv, NodalPointGenerator::materialPoints()),
+        seissolParams.model.materialFileName);
+  }
+
   // plasticity (if needed)
 
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
@@ -121,7 +134,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     // plasticity information is only needed on all interior+copy cells.
     for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
       plasticityDB[i] =
-          queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv, plasticityPointwise),
+          queryDB<Plasticity>(std::make_shared<NodalPointGenerator>(ctv, plasticityPointwise),
                               seissolParams.model.plasticityFileNames[i]);
     }
   }
@@ -130,6 +143,11 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
     cellMat.initialize(seissolParams.model);
+  }
+
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < nodalMaterialsDB.size(); ++i) {
+    nodalMaterialsDB[i].initialize(seissolParams.model);
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
@@ -156,9 +174,23 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         const auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
         const auto& localMaterial = materialsDB[materialGhostIdx + ghostOffset];
         initAssign(materialData, localMaterial);
+
+        if (!nodalMaterialsDB.empty()) {
+          // the samples of a ghost cell, for a fault face whose other side is
+          // on another rank; they come from the same query, which covers the
+          // ghost cells already
+          auto* nodalMaterialArray = layer.var<LTS::NodalMaterialData>();
+          const auto* sampled =
+              &nodalMaterialsDB[(materialGhostIdx + ghostOffset) * LTS::MaterialNodes];
+          for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+            initAssign(nodalMaterialArray[cell][node], sampled[node]);
+          }
+        }
       }
     } else {
       auto* materialArray = layer.var<LTS::Material>();
+      auto* nodalMaterialArray =
+          nodalMaterialsDB.empty() ? nullptr : layer.var<LTS::NodalMaterialData>();
       auto* plasticityArray =
           seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
       auto* energyDataArray = layer.var<LTS::EnergyData>();
@@ -177,6 +209,14 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
+
+        if (nodalMaterialArray != nullptr) {
+          const auto* sampled =
+              &nodalMaterialsDB[static_cast<std::size_t>(meshId) * LTS::MaterialNodes];
+          for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
+            initAssign(nodalMaterialArray[cell][node], sampled[node]);
+          }
+        }
 
         energyDataArray[cell] = model::EnergyCompute<MaterialT>::initEnergyData(materialData);
 
@@ -204,9 +244,30 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             const auto pointsPerCell = plasticityPointwise ? model::PlasticityData::PointCount : 1;
             localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
           }
-          initAssign(
-              plasticity,
-              seissol::model::PlasticityData(localPlasticity, material.local, plasticityPointwise));
+          constexpr auto NodeCount = model::PlasticityData::PointCount;
+          std::array<double, NodeCount> muBar{};
+          if (nodalMaterialArray == nullptr) {
+            muBar.fill(material.local->getMuBar());
+          } else {
+            // the samples themselves where the material is sampled at the
+            // points of the plastic strain, and what they interpolate there
+            // where it is not
+            static_assert(tensor::materialToPlasticity::Shape[0] == NodeCount);
+            static_assert(tensor::materialToPlasticity::Shape[1] == LTS::MaterialNodes);
+            const auto interpolation =
+                init::materialToPlasticity::view::create(init::materialToPlasticity::Values);
+            for (std::size_t node = 0; node < NodeCount; ++node) {
+              for (std::size_t sample = 0; sample < LTS::MaterialNodes; ++sample) {
+                if (interpolation.isInRange(node, sample)) {
+                  muBar[node] +=
+                      interpolation(node, sample) * nodalMaterialArray[cell][sample].getMuBar();
+                }
+              }
+            }
+          }
+
+          initAssign(plasticity,
+                     seissol::model::PlasticityData(localPlasticity, muBar, plasticityPointwise));
         }
       }
     }
@@ -229,8 +290,11 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initializeBoundaryMappings(
       meshReader, dirichletCondition, memoryManager.ltsStorage());
 
-  seissol::initializer::initializeCellLocalMatrices(
-      meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
+  seissol::initializer::initializeCellLocalMatrices(meshReader,
+                                                    memoryManager.ltsStorage(),
+                                                    memoryManager.clusterLayout(),
+                                                    seissolParams.model,
+                                                    *memoryManager.globalData().onHost);
 
   if (seissolParams.drParameters.etaDamp != 1.0) {
     logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp
@@ -241,8 +305,11 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                     "are (mostly) computed with \"eta damp\" = 1).";
   }
 
-  seissol::initializer::initializeDynamicRuptureMatrices(
-      meshReader, memoryManager.ltsStorage(), memoryManager.backmap(), memoryManager.drStorage());
+  seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
+                                                         memoryManager.ltsStorage(),
+                                                         memoryManager.backmap(),
+                                                         memoryManager.drStorage(),
+                                                         *memoryManager.globalData().onHost);
 
   memoryManager.initFrictionData();
 

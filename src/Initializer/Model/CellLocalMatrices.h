@@ -22,7 +22,8 @@ namespace seissol::initializer {
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,
-                                 const parameters::ModelParameters& modelParameters);
+                                 const parameters::ModelParameters& modelParameters,
+                                 const GlobalData& global);
 
 } // namespace seissol::initializer
 

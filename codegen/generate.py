@@ -17,8 +17,10 @@ import re
 import sys
 
 import kernels.arch
+import kernels.coefficients
 import kernels.dynamic_rupture
 import kernels.general
+import kernels.material
 import kernels.memlayout
 import kernels.nodalbc
 import kernels.plasticity
@@ -61,9 +63,26 @@ def main():
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)
     cmdLineParser.add_argument("--PlasticityMethod")
+    cmdLineParser.add_argument(
+        "--material_points", type=str, choices=list(kernels.material.SETS), default=None
+    )
+    cmdLineParser.add_argument("--material_nodal", action="store_true", default=False)
+    cmdLineParser.add_argument(
+        "--material_projection",
+        type=str,
+        choices=list(kernels.material.PROJECTIONS),
+        default=kernels.material.PROJECTIONS[0],
+    )
+    cmdLineParser.add_argument(
+        "--material_operator",
+        type=str,
+        choices=list(kernels.coefficients.OPERATOR_FORMS),
+        default=kernels.coefficients.OPERATOR_FORMS[0],
+    )
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
+    cmdLineParser.add_argument("--factored_star", action="store_true", default=False)
     cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
     cmdLineParser.add_argument(
         "--disable_premultiply_flux",
@@ -110,6 +129,10 @@ def main():
         return deriveArchitecture(host, device), host, device
 
     arch, host_arch, device_arch = deriveWith(cmdLineArgs.vectorsize)
+
+    # ohne eigene Angabe folgt das Material dem Satz der Plastizitaet, sodass
+    # beide dieselben Punkte sehen und nichts dazwischen interpoliert werden muss
+    materialPoints = cmdLineArgs.material_points or cmdLineArgs.PlasticityMethod
 
     # The simulation index is the leading dimension of every fused tensor, and a
     # leading dimension is padded to the vector size. Padded simulation lanes
@@ -205,6 +228,12 @@ def main():
             custom_routine_generators["gpu"] = tensorforge.get_routine_generator(yateto)
 
     subfolders = []
+    solverCoefficientCount = 0
+    solverCoefficientOrigins = []
+    solverSourceCoefficientCount = 0
+    solverSourceDeviationCount = 0
+    materialSampleCount = 1
+    adgForTables = None
 
     routine_cache = GlobalRoutineCache()
 
@@ -244,6 +273,14 @@ def main():
 
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
+        # which targets are being built, and whether the old GPU interface
+        # serves them -- the memory layouts depend on it
+        cmdArgsDict["targets"] = targets
+        cmdArgsDict["old_gpu_interface"] = isOldGpuInterface
+        # the resolved point set, not the raw command line value
+        cmdArgsDict["material_points"] = materialPoints
+        cmdArgsDict["material_operator"] = cmdLineArgs.material_operator
+        cmdArgsDict["material_projection"] = cmdLineArgs.material_projection
 
         equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
 
@@ -262,6 +299,19 @@ def main():
         generator = Generator(arch)
 
         # Equation-specific kernels
+        nonlocal solverCoefficientCount, solverCoefficientOrigins, materialSampleCount
+        nonlocal solverSourceCoefficientCount, solverSourceDeviationCount
+        nonlocal adgForTables
+        adgForTables = adg
+        solverCoefficientCount = adg.solverCoefficientCount()
+        solverCoefficientOrigins = adg.solverCoefficientOrigins()
+        solverSourceCoefficientCount = adg.sourceCoefficientCount()
+        solverSourceDeviationCount = adg.sourceDeviationCount()
+        if cmdLineArgs.material_nodal:
+            materialSampleCount = kernels.material.pointCount(
+                cmdLineArgs.matricesDir, adg, materialPoints
+            )
+
         adg.addInit(generator)
         adg.addLocal(generator, targets)
         adg.addNeighbor(generator, targets)
@@ -284,6 +334,7 @@ def main():
                 adg,
                 cmdLineArgs.matricesDir,
                 cmdLineArgs.drQuadRule,
+                materialPoints,
                 targets,
                 isOldGpuInterface,
             )
@@ -298,6 +349,23 @@ def main():
         )
         kernels.plasticity.includeTensors(
             cmdLineArgs.matricesDir, adg, cmdLineArgs.PlasticityMethod, include_tensors
+        )
+
+        kernels.material.addKernels(
+            generator, adg, cmdLineArgs.matricesDir, materialPoints
+        )
+        kernels.material.addFaceKernels(
+            generator, adg, cmdLineArgs.matricesDir, materialPoints
+        )
+        kernels.material.addNeighborFaceKernels(
+            generator, adg, cmdLineArgs.matricesDir, materialPoints
+        )
+        kernels.material.includeTensors(
+            cmdLineArgs.matricesDir,
+            adg,
+            materialPoints,
+            include_tensors,
+            cmdLineArgs.PlasticityMethod,
         )
 
         kernels.nodalbc.addKernels(
@@ -391,6 +459,24 @@ def main():
         routine_cache.generate(cmdLineArgs.outputDir, "seissol")
 
         # for now
+        kernels.coefficients.generate(
+            os.path.join(cmdLineArgs.outputDir, "coefficients.h"),
+            solver_count=solverCoefficientCount,
+            solver_origins=solverCoefficientOrigins,
+            solver_source_count=solverSourceCoefficientCount,
+            solver_source_deviations=solverSourceDeviationCount,
+            material_samples=materialSampleCount,
+            material_interpolates=adgForTables.nodalMaterial
+            and getattr(adgForTables, "materialToOperator", None) is not None,
+            face_permutations=kernels.material.faceOrientationPermutations(
+                cmdLineArgs.matricesDir, adgForTables
+            ),
+            flux_blocks=adgForTables.extendedBlocks(),
+            flux_diagonal=adgForTables.rusanovDiagonal(),
+            flux_decomposes=adgForTables.fluxDecomposes(),
+            fault_flux_indices=adgForTables.faultFluxCoefficients(),
+        )
+
         forward_files("init.h")
         forward_files("kernel.h")
         forward_files("pool.h")

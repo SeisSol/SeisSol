@@ -167,7 +167,7 @@ void ProxyData::initDataStructures(bool enableDR) {
       initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
 
   // init RNG
-  const auto nullSettings = SimulationSettings(false, false);
+  const auto nullSettings = SimulationSettings(false, false, false);
   LTS::addTo(ltsStorage, nullSettings);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();
@@ -238,8 +238,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     auto& interior = drStorage.layer(layerId);
     real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
         interior.var<DynamicRupture::ImposedStatePlus>(Place);
-    real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
-        interior.var<DynamicRupture::FluxSolverPlus>(Place);
+    auto* fluxSolverPlus = interior.var<DynamicRupture::FluxSolverPlus>(Place);
     real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>();
     real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>();
     real** timeDerivativePlus = isDeviceOn()

@@ -11,17 +11,38 @@
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 
+#include <array>
+#include <cstddef>
+
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
 template <>
 struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMaterial> {
+  /// lambda + 2 mu, lambda, mu, 1/rho, and the 1/rho that couples the shear
+  /// stresses. The latter is a coefficient of its own because it vanishes for
+  /// acoustic material while the first 1/rho does not, which keeps the
+  /// acoustic case inside the coefficients instead of inside the structure.
+  static constexpr std::size_t NumCoefficients = generated::ElasticNumCoefficients;
+
+  static std::array<double, NumCoefficients> getCoefficients(const ElasticMaterial& material) {
+    const auto rhoInv = 1.0 / material.rho;
+    return {material.lambda + 2.0 * material.mu,
+            material.lambda,
+            material.mu,
+            rhoInv,
+            testIfAcoustic(material.mu) ? 0.0 : rhoInv};
+  }
+
+  static constexpr auto CoefficientEntries = generated::ElasticCoefficientEntries;
+
   static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
     if (faceType == FaceType::FreeSurfaceGravity) {
       // the surface elevation ODE closes wherever the cell carries no shear, which is decided

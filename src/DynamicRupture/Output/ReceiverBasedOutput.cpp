@@ -431,6 +431,11 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     const auto& impedanceMatrices =
         ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
+    const auto* __restrict impedance = impedanceMatrices.impedance.at(local.gpIndex);
+    const auto* __restrict impedanceNeig = impedanceMatrices.impedanceNeig.at(local.gpIndex);
+    const auto* __restrict eta = impedanceMatrices.eta.at(local.gpIndex);
+    const auto* __restrict lateral = impedanceMatrices.lateralStress.at(local.gpIndex);
+
     constexpr std::size_t Count =
         model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
     constexpr auto StressIndices = []() {
@@ -455,10 +460,9 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     std::array<real, Count> admittedMinus{};
     for (std::size_t k = 0; k < Count; ++k) {
       for (std::size_t j = 0; j < Count; ++j) {
-        admittedPlus[j] += impedanceMatrices.impedance[k * Count + j] *
-                           local.faceAlignedValuesPlus[StressIndices[k]];
-        admittedMinus[j] += impedanceMatrices.impedanceNeig[k * Count + j] *
-                            local.faceAlignedValuesMinus[StressIndices[k]];
+        admittedPlus[j] += impedance[k * Count + j] * local.faceAlignedValuesPlus[StressIndices[k]];
+        admittedMinus[j] +=
+            impedanceNeig[k * Count + j] * local.faceAlignedValuesMinus[StressIndices[k]];
       }
     }
 
@@ -466,7 +470,7 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     for (std::size_t k = 0; k < Count; ++k) {
       const real rhs = diff(VelocityIndices[k]) + admittedPlus[k] + admittedMinus[k];
       for (std::size_t j = 0; j < Count; ++j) {
-        traction[j] += impedanceMatrices.eta[k * Count + j] * rhs;
+        traction[j] += eta[k * Count + j] * rhs;
       }
     }
 
@@ -482,9 +486,9 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     real normalVelocity = local.faceAlignedValuesPlus[QuantityIndices::U];
     std::array<real, 3> lateralStress{};
     for (std::size_t k = 0; k < Count; ++k) {
-      normalVelocity += impedanceMatrices.impedance[k * Count + 0] * tractionDiff[k];
+      normalVelocity += impedance[k * Count + 0] * tractionDiff[k];
       for (std::size_t j = 0; j < 3; ++j) {
-        lateralStress[j] += impedanceMatrices.lateralStress[k * 3 + j] * tractionDiff[k];
+        lateralStress[j] += lateral[k * 3 + j] * tractionDiff[k];
       }
     }
     local.faultNormalVelocity = normalVelocity;
@@ -495,34 +499,37 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ] + lateralStress[2];
   } else {
     const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-    const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
-    const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
+    const auto zp = impAndEta.zp(local.gpIndex);
+    const auto zs = impAndEta.zs(local.gpIndex);
+    const auto zpNeig = impAndEta.zpNeig(local.gpIndex);
+    const auto zsNeig = impAndEta.zsNeig(local.gpIndex);
+    const real normalDivisor = 1.0 / (zpNeig + zp);
+    const real shearDivisor = 1.0 / (zsNeig + zs);
 
     local.faceAlignedStress12 =
         local.faceAlignedValuesPlus[QuantityIndices::XY] +
-        ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
-            shearDivisor;
+        ((diff(QuantityIndices::XY) + zsNeig * diff(QuantityIndices::V)) * zs) * shearDivisor;
 
     local.faceAlignedStress13 =
         local.faceAlignedValuesPlus[QuantityIndices::XZ] +
-        ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
-            shearDivisor;
+        ((diff(QuantityIndices::XZ) + zsNeig * diff(QuantityIndices::W)) * zs) * shearDivisor;
 
     local.transientNormalTraction =
         local.faceAlignedValuesPlus[QuantityIndices::XX] +
-        ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
-            normalDivisor;
+        ((diff(QuantityIndices::XX) + zpNeig * diff(QuantityIndices::U)) * zp) * normalDivisor;
 
     local.faultNormalVelocity =
         local.faceAlignedValuesPlus[QuantityIndices::U] +
         (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
-            impAndEta.invZp;
+            impAndEta.invZp(local.gpIndex);
 
+    // lambda / (lambda + 2 mu) of the plus side, at this point of the face
     real missingSigmaValues =
         (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
-    missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
-                                                    local.waveSpeedsPlus->pWaveVelocity,
-                                                2));
+    missingSigmaValues *=
+        (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity(local.gpIndex) /
+                                  local.waveSpeedsPlus->pWaveVelocity(local.gpIndex),
+                              2));
 
     local.faceAlignedStress22 =
         local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
@@ -545,16 +552,29 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
     const auto& impedanceMatrices =
         ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
-    const auto solution = friction_law::common::solveSlipRate(
-        impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
+    const auto solution = friction_law::common::solveSlipRate(impAndEta,
+                                                              impedanceMatrices,
+                                                              local.gpIndex,
+                                                              component1,
+                                                              component2,
+                                                              tracEla,
+                                                              strength,
+                                                              strengthSlope);
 
     local.slipRateTangent1 = solution.slipRate * solution.direction1;
     local.slipRateTangent2 = solution.slipRate * solution.direction2;
 
-    const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-    const auto normalUpdate = friction_law::common::matmulEtaNormal(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
+    const auto [tractionUpdate1, tractionUpdate2] =
+        friction_law::common::matmulEta(impAndEta,
+                                        impedanceMatrices,
+                                        local.gpIndex,
+                                        local.slipRateTangent1,
+                                        local.slipRateTangent2);
+    const auto normalUpdate = friction_law::common::matmulEtaNormal(impAndEta,
+                                                                    impedanceMatrices,
+                                                                    local.gpIndex,
+                                                                    local.slipRateTangent1,
+                                                                    local.slipRateTangent2);
 
     local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
     local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
@@ -564,9 +584,10 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
     // state through the first row of Y+. The friction solve moves that traction, and with an
     // anisotropic admittance the two shear components move the fault-normal velocity as well.
     constexpr std::size_t Count = tensor::Zplus::Shape[0];
-    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
-                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
-                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
+    const auto* __restrict impedance = impedanceMatrices.impedance.at(local.gpIndex);
+    local.faultNormalVelocity -= impedance[0 * Count + 0] * normalUpdate +
+                                 impedance[1 * Count + 0] * tractionUpdate1 +
+                                 impedance[2 * Count + 0] * tractionUpdate2;
   } else {
     if (tracEla > std::abs(strength)) {
       local.updatedTraction1 =
@@ -622,10 +643,12 @@ void ReceiverOutput::computeSlipRate(
     // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
     // a scalar is exact and the order of scaling and rotation does not matter
     const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
-    local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
-                                                 rotatedStress[QuantityIndices::XY]);
-    local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
-                                              rotatedStress[QuantityIndices::XZ]);
+    local.slipRateStrike =
+        -impAndEta.invEtaS(local.gpIndex) *
+        (rotatedUpdatedStress[QuantityIndices::XY] - rotatedStress[QuantityIndices::XY]);
+    local.slipRateDip =
+        -impAndEta.invEtaS(local.gpIndex) *
+        (rotatedUpdatedStress[QuantityIndices::XZ] - rotatedStress[QuantityIndices::XZ]);
   }
 }
 

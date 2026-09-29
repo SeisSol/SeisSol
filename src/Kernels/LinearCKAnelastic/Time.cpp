@@ -11,7 +11,9 @@
 
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
+#include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
+#include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
 
 #include <algorithm>
@@ -28,6 +30,9 @@
 #ifndef NDEBUG
 extern long long libxsmm_num_total_flops;
 #endif
+
+GENERATE_HAS_MEMBER(E)
+GENERATE_HAS_MEMBER(extraOffset_E)
 
 namespace seissol::kernels::solver::linearckanelastic {
 
@@ -110,12 +115,14 @@ void Spacetime::computeAder(const real* coeffs,
   krnl.I = timeIntegrated;
   krnl.Iane = tmp.timeIntegratedAne;
 
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
-  }
+  kernels::bindStarOperands(krnl, data.get<LTS::LocalIntegration>());
   krnl.w = data.get<LTS::LocalIntegration>().specific.w;
   krnl.W = data.get<LTS::LocalIntegration>().specific.W;
-  krnl.E = data.get<LTS::LocalIntegration>().specific.E;
+  // where the material varies inside the cell, the relaxation is formed
+  // from what it says at the sample points and the kernel takes no
+  // matrix at all
+  set_E(krnl, data.get<LTS::LocalIntegration>().specific.E);
+  kernels::bindSourceOperands(krnl, data.get<LTS::LocalIntegration>());
 
   // powers in the taylor-series expansion
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
@@ -259,12 +266,10 @@ void Spacetime::computeBatchedAder(
     }
     krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      krnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
-    }
+    kernels::bindStarOperandsBatched(
+        krnl,
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
 
     krnl.W = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
@@ -272,9 +277,15 @@ void Spacetime::computeBatchedAder(
     krnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
-    krnl.E = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    // the relaxation in whichever shape the cells carry it, see computeAder
+    set_E(krnl,
+          const_cast<const real**>(
+              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
+    set_extraOffset_E(krnl, SEISSOL_OFFSET(LocalIntegrationData, specific.E));
+    kernels::bindSourceOperandsBatched(
+        krnl,
+        const_cast<const real**>(
+            entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
 
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);

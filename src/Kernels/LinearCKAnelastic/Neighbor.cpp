@@ -11,6 +11,8 @@
 
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
+#include "Kernels/StarOperands.h"
+#include "Model/OperatorLayout.h"
 #include "Monitoring/Metric.h"
 
 #include <cassert>
@@ -72,14 +74,15 @@ void Neighbor::computeNeighborsIntegral(
              data.get<LTS::CellInformation>().faceRelations[face][1] == 0);
 
       nfKrnl.I = timeIntegrated[face];
-      nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+      kernels::bindNeighborFluxOperands(
+          nfKrnl, data.get<LTS::LocalIntegration>(), data.get<LTS::NeighboringIntegration>(), face);
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
       nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][0], face);
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Vectorsize == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
-      drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
+      kernels::bindFaultFluxOperands(drKrnl, cellDrMapping[face].fluxSolver);
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Qext = Qext;
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
@@ -172,12 +175,19 @@ void Neighbor::computeBatchedNeighborsIntegral(
               neighFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
               neighFluxKrnl.I = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-              neighFluxKrnl.AminusT = const_cast<const real**>(
-                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
-
-              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
-              neighFluxKrnl.extraOffset_AminusT =
-                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+              // the cell's own data is recorded only where the flux reads the
+              // rotation of the face from it
+              const real** localIntegrationPtrs = nullptr;
+              if constexpr (NodalFlux) {
+                localIntegrationPtrs = const_cast<const real**>(
+                    entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+              }
+              kernels::bindNeighborFluxOperandsBatched(
+                  neighFluxKrnl,
+                  localIntegrationPtrs,
+                  const_cast<const real**>(
+                      entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr()),
+                  face);
 
               neighFluxKrnl.streamPtr = stream;
               (neighFluxKrnl.*seissol::kernel::gpu_neighborFluxExt::ExecutePtrs[faceRelation])();
@@ -196,14 +206,30 @@ void Neighbor::computeBatchedNeighborsIntegral(
               const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
               drKrnl.numElements = numElements;
 
-              drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+              kernels::bindFaultFluxOperandsBatched(
+                  drKrnl,
+                  const_cast<const real**>(
+                      (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr()));
               drKrnl.QInterpolated = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
               drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
+              // the lift keeps a temporary where the face carries it per point
+              real* tmpMem = nullptr;
+              if constexpr (seissol::dynamicRupture::kernel::gpu_nodalFlux::
+                                TmpMaxMemRequiredInBytes > 0) {
+                tmpMem = reinterpret_cast<real*>(device.api->allocMemAsync(
+                    seissol::dynamicRupture::kernel::gpu_nodalFlux::TmpMaxMemRequiredInBytes *
+                        numElements,
+                    stream));
+                drKrnl.linearAllocator.initialize(tmpMem);
+              }
+
               drKrnl.streamPtr = stream;
               (drKrnl.*seissol::dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs[faceRelation])();
+              if (tmpMem != nullptr) {
+                device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+              }
             }
           }
         });
