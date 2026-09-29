@@ -910,12 +910,12 @@ class DamageADERDG(NonLinearCK):
             # A cell at rest has no direction to give, and there the material
             # is the undamaged one whatever the damage says.
             #
-            # Written as a factor of one or zero rather than as a choice. The
-            # GPU generator lowers a choice between two cell values into two
-            # branches and stores the first branch's value from the second, so
-            # a choice here computed nothing on the device. The denominator is
-            # floored so that the branch a resting cell discards is finite: a
-            # zero factor on an infinite value is not zero.
+            # Written as a factor of one or zero rather than as a choice. A
+            # choice between two cell values is two guarded regions on the
+            # device, and there is nothing here for them to save: both
+            # branches are one multiplication. The denominator is floored so
+            # that what a resting cell discards is finite -- a zero factor on
+            # an infinite value is not zero.
             moving[""] <= yf.cast(yf.greater(invariantI2[""], floor), self.workingType),
             ratio[""]
             <= yf.mul(
