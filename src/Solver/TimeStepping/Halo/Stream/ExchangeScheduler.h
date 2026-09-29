@@ -99,7 +99,13 @@ class ExchangeScheduler {
    * after which no event from inside of it may be waited for. A ghost cluster may acknowledge a
    * group launched before such an event only after it, and then passes on the latest event.
    */
-  void restartAfter(void* event);
+  void restartAfter(ActorEvent event);
+
+  /**
+   * Lets go of all events: the latest one, and those that the ready operations which have not gone
+   * out yet wait for. Before the pools of these events go away, e.g. at the end.
+   */
+  void forgetEvents();
 
   /**
    * Orders the groups on the device: a group starts after the events its operations were made
@@ -130,10 +136,17 @@ class ExchangeScheduler {
   [[nodiscard]] bool launchedBefore(long time) const;
 
   /**
-   * The event that completes with all groups launched so far, when ordered on the device; null if
-   * there is none.
+   * The event that completes with all groups launched so far, when ordered on the device; empty if
+   * there is none. It stays reserved while the copy is held, so it can be handed on to whoever
+   * waits for the groups (see ActorEvent).
    */
-  [[nodiscard]] virtual void* latestEvent() const { return nullptr; }
+  [[nodiscard]] ActorEvent latestEvent() const { return latestEvent_; }
+
+  /**
+   * Makes the given event stand for all groups launched so far, e.g. once they have run as part of
+   * a replayed recording.
+   */
+  void setLatestEvent(ActorEvent event) { latestEvent_ = std::move(event); }
 
   /**
    * Sets up what needs all transports; collective over all processes, after all transports have
@@ -142,20 +155,19 @@ class ExchangeScheduler {
   virtual void prepare() {}
 
   /**
-   * Makes the given event stand for all groups launched so far, e.g. once they have run as part of
-   * a replayed recording.
-   */
-  virtual void setLatestEvent(void* /*event*/) {}
-
-  /**
    * The streams the groups run on.
    */
   [[nodiscard]] virtual std::vector<void*> streams() const { return {}; }
 
   /**
-   * Releases what the groups launched so far needed; only once the device has completed them.
+   * How many events the groups have needed: the size of the pool they come from, and the largest
+   * number of them that were referenced at once; zero without events.
    */
-  virtual void releaseEvents() {}
+  struct EventUsage {
+    std::size_t pool{0};
+    std::size_t peak{0};
+  };
+  [[nodiscard]] virtual EventUsage eventUsage() const { return {}; }
 
   [[nodiscard]] bool sendCompleted(const ScheduledTransport& transport, std::size_t exchange);
   [[nodiscard]] bool receiveCompleted(const ScheduledTransport& transport, std::size_t exchange);
@@ -225,6 +237,8 @@ class ExchangeScheduler {
   bool streamOrdered_{false};
   bool launching_{true};
   long horizon_{std::numeric_limits<long>::max()};
+
+  ActorEvent latestEvent_;
 };
 
 /**
@@ -240,7 +254,7 @@ class ScheduledTransport : public HaloTransport {
 
   void startInterval(const ExchangeInterval& interval) override;
   [[nodiscard]] bool streamOrdered() const override { return scheduler_.streamOrdered(); }
-  [[nodiscard]] void* latestEvent() const override { return scheduler_.latestEvent(); }
+  [[nodiscard]] ActorEvent latestEvent() const override { return scheduler_.latestEvent(); }
   void startSendAfter(const ActorEvent& event) override;
   void startReceiveAfter(const ActorEvent& event) override;
   void startSend() override;

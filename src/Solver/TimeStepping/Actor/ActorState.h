@@ -23,18 +23,19 @@ namespace seissol::solver {
  * An event that completes with the device work of an action, as it gets handed from a cluster to
  * the ones that wait for it.
  *
- * While it is held, an event from an event pool (e.g. the one of a stream runtime) stays reserved:
- * the pool does not hand it out to be recorded anew (see parallel::runtime::EventRef). So whoever
- * keeps an event to wait for it later -- a halo exchange that starts once the data is there, or a
- * replay that has to come after the work before it -- keeps the event itself. An event owned
- * elsewhere (e.g. by the halo exchange or by the recorder of super-timesteps) is not reserved; its
- * owner keeps it until nobody waits for it any more.
+ * While it is held, an event from an event pool stays reserved: the pool does not hand it out to be
+ * recorded anew (see parallel::runtime::EventRef). The events of the clusters, of the halo exchange
+ * and of the recorder of super-timesteps all come from pools. So whoever keeps an event to wait for
+ * it later -- a halo exchange that starts once the data is there, a copy layer that waits for the
+ * exchange, or a replay that has to come after the work before it -- keeps the event itself, even
+ * across synchronization points. An event that does not come from a pool is not reserved; whoever
+ * hands it out has to keep it valid, and must not record it anew, while anybody may wait for it.
  */
 class ActorEvent {
   public:
   ActorEvent() = default;
 
-  /// an event owned elsewhere
+  /// an event that does not come from a pool; not reserved
   explicit ActorEvent(void* event) : event_(event) {}
 
   /// an event from an event pool; reserved while held

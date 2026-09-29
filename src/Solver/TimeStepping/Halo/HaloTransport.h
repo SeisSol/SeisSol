@@ -75,9 +75,9 @@ class HaloTransport {
 
   /**
    * For stream-ordered transports: an event that completes with all operations launched so far;
-   * null if there is none.
+   * empty if there is none. It stays reserved while the copy is held.
    */
-  [[nodiscard]] virtual void* latestEvent() const { return nullptr; }
+  [[nodiscard]] virtual ActorEvent latestEvent() const { return {}; }
 
   /**
    * Starts sending once the work behind the event has completed on the device (for stream-ordered

@@ -9,6 +9,7 @@
 
 #include "Common/Executor.h"
 #include "Kernels/Precision.h"
+#include "Parallel/Runtime/EventPool.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/GhostCluster.h"
@@ -20,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <limits>
 #include <map>
 #include <memory>
@@ -43,6 +45,12 @@ constexpr auto NoActor = std::numeric_limits<std::size_t>::max();
  * buffering). Which stream runs next is random. Whenever work or a group runs, the rules of the
  * actor model are checked against what the devices have run so far.
  *
+ * Events behave as with CUDA and HIP: a wait refers to the latest record of the event at the time
+ * it is enqueued, and is satisfied right away if there is none; and a new event may get the handle
+ * of one destroyed before, the one destroyed last first. The devices count the uses of destroyed
+ * events, and the records of events that somebody still means to wait for: either would be a wait
+ * for other work than meant, or a crash.
+ *
  * While a process records its streams into a graph, they may only wait for events recorded inside
  * of the same recording; all other streams may only wait for events recorded outside of any (as
  * with CUDA graphs, where anything else fails). The model runs the recorded items right away; the
@@ -50,7 +58,7 @@ constexpr auto NoActor = std::numeric_limits<std::size_t>::max();
  */
 class StreamDevices {
   public:
-  using Event = std::uintptr_t;
+  using Event = void*;
 
   struct Actor {
     long rate{1};
@@ -79,8 +87,35 @@ class StreamDevices {
   std::size_t violations{0};
   // waits across the border of a recording
   std::size_t isolationViolations{0};
+  // waits for, and records of, destroyed events
+  std::size_t destroyedUses{0};
+  // records of events that somebody still means to wait for
+  std::size_t prematureRecords{0};
 
-  Event newEvent() { return nextEvent_++; }
+  /// whether somebody still means to wait for the event (e.g. a neighbor that it gets published to)
+  std::function<bool(Event)> awaited;
+
+  /// a new event; may be one destroyed before, as with CUDA
+  Event create() {
+    if (!freed_.empty()) {
+      auto* event = freed_.back();
+      freed_.pop_back();
+      destroyed_.erase(event);
+      latestRecord_.erase(event);
+      return event;
+    }
+    return &handles_.emplace_back();
+  }
+
+  void destroy(Event event) {
+    destroyed_.insert(event);
+    freed_.push_back(event);
+  }
+
+  /// a pool of events of the devices, as a stream runtime has one
+  parallel::runtime::EventPool pool() {
+    return {[this]() { return create(); }, [this](void* event) { destroy(event); }};
+  }
 
   /// makes the stream one of the process, for its recordings
   void assign(std::size_t stream, int process) { processes_[stream] = process; }
@@ -92,15 +127,29 @@ class StreamDevices {
     streams_[stream].push_back({Kind::Work, actor, action, 0, 0});
   }
   void wait(std::size_t stream, Event event) {
-    const auto recorded = recordedIn_.find(event);
-    if ((recorded == recordedIn_.end() ? 0 : recorded->second) != recording(stream)) {
+    if (destroyed_.count(event) > 0) {
+      ++destroyedUses;
+      return;
+    }
+    // the latest record so far; none (0) means that there is nothing to wait for
+    const auto found = latestRecord_.find(event);
+    const auto record = found == latestRecord_.end() ? 0 : found->second;
+    if ((record == 0 ? 0 : recordedIn_.at(record)) != recording(stream)) {
       ++isolationViolations;
     }
-    streams_[stream].push_back({Kind::Wait, 0, ActorAction::Nothing, event, 0});
+    streams_[stream].push_back({Kind::Wait, 0, ActorAction::Nothing, record, 0});
   }
   void record(std::size_t stream, Event event) {
-    recordedIn_[event] = recording(stream);
-    streams_[stream].push_back({Kind::Record, 0, ActorAction::Nothing, event, 0});
+    if (destroyed_.count(event) > 0) {
+      ++destroyedUses;
+    }
+    if (awaited && awaited(event)) {
+      ++prematureRecords;
+    }
+    const auto record = ++lastRecord_;
+    latestRecord_[event] = record;
+    recordedIn_[record] = recording(stream);
+    streams_[stream].push_back({Kind::Record, 0, ActorAction::Nothing, record, 0});
   }
   void group(std::size_t stream, Group group) {
     groups_.push_back(std::move(group));
@@ -169,7 +218,8 @@ class StreamDevices {
     Kind kind;
     std::size_t actor;
     ActorAction action;
-    Event event;
+    // for waits and records: the record
+    std::size_t record;
     std::size_t group;
   };
 
@@ -185,7 +235,7 @@ class StreamDevices {
   [[nodiscard]] bool canRun(const Item& item) const {
     switch (item.kind) {
     case Kind::Wait:
-      return completed_.count(item.event) > 0;
+      return item.record == 0 || completed_.count(item.record) > 0;
     case Kind::Group: {
       const auto& group = groups_[item.group];
       for (std::size_t i = 0; i < group.operations.size(); ++i) {
@@ -211,7 +261,7 @@ class StreamDevices {
   void run(const Item& item) {
     switch (item.kind) {
     case Kind::Record:
-      completed_.insert(item.event);
+      completed_.insert(item.record);
       break;
     case Kind::Wait:
       break;
@@ -264,25 +314,41 @@ class StreamDevices {
 
   std::map<std::size_t, std::deque<Item>> streams_;
   std::vector<Group> groups_;
-  std::set<Event> completed_;
   std::map<std::pair<int, int>, std::size_t> postedSends_;
   std::map<std::pair<int, int>, std::size_t> postedReceives_;
-  Event nextEvent_{1};
   std::map<std::size_t, int> processes_;
   std::map<int, std::size_t> recordings_;
-  std::map<Event, std::size_t> recordedIn_;
   std::size_t lastRecording_{0};
+
+  // the handles of the events (a deque keeps their addresses), the destroyed ones, and the ones
+  // free to be handed out again, the one destroyed last at the back
+  std::deque<char> handles_;
+  std::set<Event> destroyed_;
+  std::vector<Event> freed_;
+  // the records: the latest one of each event, the recording each one belongs to, and the ones the
+  // devices have reached
+  std::size_t lastRecord_{0};
+  std::map<Event, std::size_t> latestRecord_;
+  std::map<std::size_t, std::size_t> recordedIn_;
+  std::set<std::size_t> completed_;
 };
 
 /**
- * A copy layer that only enqueues its work on a stream of its own.
+ * A copy layer that only enqueues its work on a stream of its own, with events from a pool as a
+ * stream runtime has one.
  */
 class StreamCopyCluster : public AbstractTimeCluster {
   public:
   StreamCopyCluster(long timeStepRate, std::size_t actor, StreamDevices& devices)
       : AbstractTimeCluster(static_cast<double>(timeStepRate), timeStepRate, Executor::Device),
-        actor_(actor), devices_(devices) {
+        actor_(actor), devices_(devices), events_(devices.pool()) {
     setConcurrent(true);
+  }
+
+  /// as the cell clusters do in the end; returns the number of events still referenced
+  std::size_t dispose() {
+    finalize();
+    return events_.dispose();
   }
 
   protected:
@@ -295,19 +361,30 @@ class StreamCopyCluster : public AbstractTimeCluster {
 
   ActorEvent recordActionEvent() override {
     devices_.work(actor_, actor_, action_);
-    const auto event = devices_.newEvent();
-    devices_.record(actor_, event);
-    return ActorEvent(reinterpret_cast<void*>(event));
+    auto event = events_.next();
+    devices_.record(actor_, event.get());
+    return ActorEvent(std::move(event));
   }
 
-  void waitForEvent(void* event) override {
-    devices_.wait(actor_, reinterpret_cast<StreamDevices::Event>(event));
-  }
+  void waitForEvent(void* event) override { devices_.wait(actor_, event); }
 
   private:
   std::size_t actor_;
   StreamDevices& devices_;
+  parallel::runtime::EventPool events_;
   ActorAction action_{ActorAction::Nothing};
+};
+
+/**
+ * How the exchange scheduler of a process deals with the events of its groups.
+ */
+enum class EventHandling {
+  /// from a pool, and referenced by whoever gets them to wait for (as the stream exchange
+  /// schedulers do)
+  Pool,
+  /// as the stream exchange scheduler did before: a new event for each group, handed on without
+  /// any reference; at each synchronization point, all but the latest one get destroyed
+  CreateAndDestroy
 };
 
 /**
@@ -316,17 +393,48 @@ class StreamCopyCluster : public AbstractTimeCluster {
  */
 class StreamScheduler : public ExchangeScheduler {
   public:
-  StreamScheduler(StreamDevices& devices, int process, std::size_t clusterCount)
-      : ExchangeScheduler(clusterCount, LaunchOrder::Global), devices_(devices), process_(process) {
+  StreamScheduler(StreamDevices& devices,
+                  int process,
+                  std::size_t clusterCount,
+                  EventHandling handling)
+      : ExchangeScheduler(clusterCount, LaunchOrder::Global), devices_(devices), process_(process),
+        handling_(handling), events_(devices.pool()) {
     setStreamOrdered(true);
   }
 
   std::map<const ScheduledTransport*, std::size_t> ghosts;
 
-  [[nodiscard]] void* latestEvent() const override { return reinterpret_cast<void*>(latest_); }
-  void setLatestEvent(void* event) override {
-    latest_ = reinterpret_cast<StreamDevices::Event>(event);
+  /**
+   * At a synchronization point, once the devices have completed all work: with
+   * EventHandling::CreateAndDestroy, destroys the events of all groups but the latest one.
+   */
+  void releaseEvents() {
+    auto* latest = latestEvent().get();
+    bool ownsLatest = false;
+    for (auto* event : launched_) {
+      if (event != latest) {
+        devices_.destroy(event);
+      } else {
+        ownsLatest = true;
+      }
+    }
+    launched_.clear();
+    if (ownsLatest) {
+      launched_.push_back(latest);
+    }
   }
+
+  /// as in the end; returns the number of events still referenced
+  std::size_t dispose() {
+    forgetEvents();
+    for (auto* event : launched_) {
+      devices_.destroy(event);
+    }
+    launched_.clear();
+    return events_.dispose();
+  }
+
+  [[nodiscard]] std::size_t poolSize() const { return events_.size(); }
 
   protected:
   Ticket launch(std::size_t /*from*/,
@@ -337,7 +445,7 @@ class StreamScheduler : public ExchangeScheduler {
                 const std::vector<void*>& after) override {
     const auto stream = StreamOffset + static_cast<std::size_t>(process_);
     for (auto* event : after) {
-      devices_.wait(stream, reinterpret_cast<StreamDevices::Event>(event));
+      devices_.wait(stream, event);
     }
     StreamDevices::Group group{process_, {}, {}, false, NoActor, 0, NoActor, 0};
     if (sender != nullptr) {
@@ -355,9 +463,17 @@ class StreamScheduler : public ExchangeScheduler {
       group.receiveTarget = ghostClusters->at(group.receiver)->receiveTarget();
     }
     devices_.group(stream, std::move(group));
-    latest_ = devices_.newEvent();
-    devices_.record(stream, latest_);
-    return latest_;
+    if (handling_ == EventHandling::Pool) {
+      auto event = events_.next();
+      devices_.record(stream, event.get());
+      setLatestEvent(ActorEvent(std::move(event)));
+    } else {
+      auto* event = devices_.create();
+      devices_.record(stream, event);
+      launched_.push_back(event);
+      setLatestEvent(ActorEvent(event));
+    }
+    return ++tickets_;
   }
 
   bool completed(Ticket /*ticket*/) override { return true; }
@@ -370,7 +486,11 @@ class StreamScheduler : public ExchangeScheduler {
   private:
   StreamDevices& devices_;
   int process_;
-  StreamDevices::Event latest_{0};
+  EventHandling handling_;
+  parallel::runtime::EventPool events_;
+  // with EventHandling::CreateAndDestroy: the events of the groups since the last release
+  std::vector<StreamDevices::Event> launched_;
+  Ticket tickets_{0};
 };
 
 struct Neighborhood {
@@ -380,17 +500,15 @@ struct Neighborhood {
   std::size_t otherCluster;
 };
 
-void* asPointer(StreamDevices::Event event) { return reinterpret_cast<void*>(event); }
-
 /**
  * Records the work of one process into a graph, from any point on, as the `SuperStepRecorder` and
  * the `TimeManager` do on the device and with the scheduler; the replay follows right after the
- * recording.
+ * recording. Its events come from a pool, as those of the `SuperStepRecorder` do.
  */
 class ProcessRecorder {
   public:
   ProcessRecorder(StreamDevices& devices, int process, StreamScheduler& scheduler)
-      : devices_(devices), process_(process), scheduler_(scheduler) {
+      : devices_(devices), process_(process), scheduler_(scheduler), events_(devices.pool()) {
     devices_.assign(recorderStream(), process);
     devices_.assign(schedulerStream(), process);
   }
@@ -406,27 +524,39 @@ class ProcessRecorder {
 
   [[nodiscard]] bool recording() const { return recording_; }
 
+  /// whether the replay still has to wait for the event
+  [[nodiscard]] bool awaits(StreamDevices::Event event) const {
+    return std::any_of(
+        waitFor_.begin(), waitFor_.end(), [&](const auto& held) { return held.get() == event; });
+  }
+
   void begin() {
-    // the replay waits for the latest work of the clusters and the streams before the recording
+    // The replay waits for the latest work of the clusters and the streams before the recording,
+    // as noted now; the recorder keeps the events until then (SuperStepRecorder::beginReplay()).
+    // The model runs the recorded work right away, so it enqueues the waits right away as well.
+    waitFor_.clear();
     for (auto* cluster : clusters_) {
-      if (const auto event = cluster->latestEvent()) {
-        devices_.wait(recorderStream(), reinterpret_cast<StreamDevices::Event>(event.get()));
+      waitFor_.push_back(cluster->latestEvent());
+    }
+    auto before = events_.next();
+    devices_.record(schedulerStream(), before.get());
+    waitFor_.emplace_back(std::move(before));
+    for (const auto& event : waitFor_) {
+      if (event) {
+        devices_.wait(recorderStream(), event.get());
       }
     }
-    const auto before = devices_.newEvent();
-    devices_.record(schedulerStream(), before);
-    devices_.wait(recorderStream(), before);
 
     devices_.beginRecording(process_);
     recording_ = true;
-    const auto fork = devices_.newEvent();
-    devices_.record(recorderStream(), fork);
+    fork_ = ActorEvent(events_.next());
+    devices_.record(recorderStream(), fork_.get());
     for (auto* cluster : clusters_) {
-      cluster->joinEvent(asPointer(fork));
-      cluster->publishEvent(ActorEvent(asPointer(fork)));
+      cluster->joinEvent(fork_.get());
+      cluster->publishEvent(fork_);
     }
-    devices_.wait(schedulerStream(), fork);
-    scheduler_.restartAfter(asPointer(fork));
+    devices_.wait(schedulerStream(), fork_.get());
+    scheduler_.restartAfter(fork_);
   }
 
   void end() {
@@ -437,15 +567,26 @@ class ProcessRecorder {
     devices_.endRecording(process_);
     recording_ = false;
 
+    // the replay has enqueued its waits
+    waitFor_.clear();
+
     // everything enqueued from now on comes after the replay
-    const auto last = devices_.newEvent();
-    devices_.record(recorderStream(), last);
+    last_ = ActorEvent(events_.next());
+    devices_.record(recorderStream(), last_.get());
     for (auto* cluster : clusters_) {
-      cluster->joinEvent(asPointer(last));
-      cluster->publishEvent(ActorEvent(asPointer(last)));
+      cluster->joinEvent(last_.get());
+      cluster->publishEvent(last_);
     }
-    devices_.wait(schedulerStream(), last);
-    scheduler_.restartAfter(asPointer(last));
+    devices_.wait(schedulerStream(), last_.get());
+    scheduler_.restartAfter(last_);
+  }
+
+  /// as in the end; returns the number of events still referenced
+  std::size_t dispose() {
+    waitFor_.clear();
+    fork_ = ActorEvent();
+    last_ = ActorEvent();
+    return events_.dispose();
   }
 
   private:
@@ -457,38 +598,61 @@ class ProcessRecorder {
   }
 
   void join(std::size_t stream) {
-    const auto event = devices_.newEvent();
-    devices_.record(stream, event);
-    devices_.wait(recorderStream(), event);
+    const auto event = events_.next();
+    devices_.record(stream, event.get());
+    devices_.wait(recorderStream(), event.get());
   }
 
   StreamDevices& devices_;
   int process_;
   StreamScheduler& scheduler_;
+  parallel::runtime::EventPool events_;
   std::vector<std::size_t> copyStreams_;
   std::vector<AbstractTimeCluster*> clusters_;
   bool recording_{false};
+  std::vector<ActorEvent> waitFor_;
+  ActorEvent fork_;
+  ActorEvent last_;
+};
+
+/**
+ * What happened on the devices, summed over several runs.
+ */
+struct StreamOutcome {
+  // runs in which the devices got stuck
+  std::size_t stuck{0};
+  std::size_t violations{0};
+  std::size_t isolationViolations{0};
+  std::size_t destroyedUses{0};
+  std::size_t prematureRecords{0};
+  // events still referenced when their pools were disposed of
+  std::size_t leakedEvents{0};
+  // the largest pool of events of a scheduler
+  std::size_t schedulerPool{0};
 };
 
 /**
  * Enqueues all steps of all processes through the synchronization points, while the devices run
  * behind at random; with recordings, the processes also start and end recording their work at
- * random. Returns false if the devices get stuck.
+ * random. At each synchronization point, the devices complete everything, and the schedulers
+ * release their events as TimeManager::advanceInTime() did. In the end, everybody lets go of the
+ * events as in TimeManager::freeDynamicResources().
  */
-bool runStreamOrdered(int processes,
+void runStreamOrdered(int processes,
                       std::size_t clusterCount,
                       const std::vector<Neighborhood>& neighborhoods,
                       const std::vector<long>& syncTimes,
                       std::mt19937& random,
-                      std::size_t& violations,
+                      StreamOutcome& outcome,
                       bool recordings = false,
-                      std::size_t* isolationViolations = nullptr) {
+                      EventHandling handling = EventHandling::Pool) {
   StreamDevices devices;
   const auto rate = [](std::size_t cluster) { return 1L << cluster; };
 
   std::vector<std::unique_ptr<StreamScheduler>> schedulers;
   for (int process = 0; process < processes; ++process) {
-    schedulers.push_back(std::make_unique<StreamScheduler>(devices, process, clusterCount));
+    schedulers.push_back(
+        std::make_unique<StreamScheduler>(devices, process, clusterCount, handling));
   }
 
   std::map<std::pair<int, std::size_t>, std::size_t> copyIndex;
@@ -561,16 +725,16 @@ bool runStreamOrdered(int processes,
     scheduler->ghostClusters = &ghostPointers;
   }
 
-  std::vector<ProcessRecorder> recorders;
+  std::vector<std::unique_ptr<ProcessRecorder>> recorders;
   recorders.reserve(static_cast<std::size_t>(processes));
   for (int process = 0; process < processes; ++process) {
-    recorders.emplace_back(devices, process, *schedulers[process]);
+    recorders.push_back(std::make_unique<ProcessRecorder>(devices, process, *schedulers[process]));
   }
   for (const auto& [key, index] : copyIndex) {
-    recorders[static_cast<std::size_t>(key.first)].addCopy(index, *copies.at(index));
+    recorders[static_cast<std::size_t>(key.first)]->addCopy(index, *copies.at(index));
   }
   for (auto& [index, ghost] : ghosts) {
-    recorders[static_cast<std::size_t>(ghostProcesses.at(index))].addGhost(*ghost);
+    recorders[static_cast<std::size_t>(ghostProcesses.at(index))]->addGhost(*ghost);
   }
 
   std::vector<AbstractTimeCluster*> actors;
@@ -581,12 +745,30 @@ bool runStreamOrdered(int processes,
     actors.push_back(ghost.get());
   }
 
+  // an event is still meant to be waited for while a cluster publishes it, or while a recorder
+  // has yet to wait for it
+  devices.awaited = [&](StreamDevices::Event event) {
+    return std::any_of(actors.begin(),
+                       actors.end(),
+                       [&](const auto* actor) { return actor->latestEvent().get() == event; }) ||
+           std::any_of(recorders.begin(), recorders.end(), [&](const auto& recorder) {
+             return recorder->awaits(event);
+           });
+  };
+
   std::bernoulli_distribution deviceRuns(0.3);
   std::bernoulli_distribution toggleRecording(0.05);
   std::uniform_int_distribution<int> anyProcess(0, processes - 1);
+  bool stuck = false;
   for (const auto syncTime : syncTimes) {
     if (!devices.drain(random)) {
-      return false;
+      stuck = true;
+      break;
+    }
+    if (handling == EventHandling::CreateAndDestroy) {
+      for (auto& scheduler : schedulers) {
+        scheduler->releaseEvents();
+      }
     }
     devices.resetInterval();
     // the copy layers first: the ghost clusters announce their exchanges from them
@@ -616,26 +798,46 @@ bool runStreamOrdered(int processes,
         }
         if (recordings && toggleRecording(random)) {
           auto& recorder = recorders[static_cast<std::size_t>(anyProcess(random))];
-          if (recorder.recording()) {
-            recorder.end();
+          if (recorder->recording()) {
+            recorder->end();
           } else {
-            recorder.begin();
+            recorder->begin();
           }
         }
       }
     }
     for (auto& recorder : recorders) {
-      if (recorder.recording()) {
-        recorder.end();
+      if (recorder->recording()) {
+        recorder->end();
       }
     }
   }
-  const bool drained = devices.drain(random);
-  violations += devices.violations;
-  if (isolationViolations != nullptr) {
-    *isolationViolations += devices.isolationViolations;
+  if (stuck || !devices.drain(random)) {
+    ++outcome.stuck;
   }
-  return drained;
+
+  // the end
+  for (auto& scheduler : schedulers) {
+    scheduler->forgetEvents();
+  }
+  for (auto& [index, ghost] : ghosts) {
+    ghost->finalize();
+  }
+  for (auto& [index, copy] : copies) {
+    outcome.leakedEvents += copy->dispose();
+  }
+  for (auto& recorder : recorders) {
+    outcome.leakedEvents += recorder->dispose();
+  }
+  for (auto& scheduler : schedulers) {
+    outcome.schedulerPool = std::max(outcome.schedulerPool, scheduler->poolSize());
+    outcome.leakedEvents += scheduler->dispose();
+  }
+
+  outcome.violations += devices.violations;
+  outcome.isolationViolations += devices.isolationViolations;
+  outcome.destroyedUses += devices.destroyedUses;
+  outcome.prematureRecords += devices.prematureRecords;
 }
 
 std::vector<Neighborhood>
@@ -664,15 +866,22 @@ TEST_CASE("Exchanges ordered on the device neither get stuck nor break the depen
           doctest::test_suite("solver")) {
   const std::vector<long> syncTimes{6, 13, 16, 29};
   std::mt19937 random(8642);
-  std::size_t violations = 0;
+  StreamOutcome outcome;
   for (int trial = 0; trial < 150; ++trial) {
     const auto processes = std::uniform_int_distribution<int>(2, 4)(random);
     const auto clusters = std::uniform_int_distribution<std::size_t>(1, 3)(random);
     const auto neighborhoods = randomNeighborhoods(processes, clusters, random);
-    CAPTURE(trial);
-    CHECK(runStreamOrdered(processes, clusters, neighborhoods, syncTimes, random, violations));
+    runStreamOrdered(processes, clusters, neighborhoods, syncTimes, random, outcome);
   }
-  CHECK(violations == 0);
+  CHECK(outcome.stuck == 0);
+  CHECK(outcome.violations == 0);
+
+  // the events stay reserved while anybody means to wait for them, also across the
+  // synchronization points, and the scheduler needs no more of them than a pool has at first
+  CHECK(outcome.destroyedUses == 0);
+  CHECK(outcome.prematureRecords == 0);
+  CHECK(outcome.leakedEvents == 0);
+  CHECK(outcome.schedulerPool == parallel::runtime::EventPool::InitialSize);
 }
 
 TEST_CASE("Recordings of exchanges ordered on the device only wait for their own work" *
@@ -680,24 +889,54 @@ TEST_CASE("Recordings of exchanges ordered on the device only wait for their own
   // e.g. a ghost cluster may acknowledge a group launched before a recording only inside of it
   const std::vector<long> syncTimes{6, 13, 16, 29};
   std::mt19937 random(9753);
-  std::size_t violations = 0;
-  std::size_t isolationViolations = 0;
+  StreamOutcome outcome;
   for (int trial = 0; trial < 150; ++trial) {
     const auto processes = std::uniform_int_distribution<int>(2, 4)(random);
     const auto clusters = std::uniform_int_distribution<std::size_t>(1, 3)(random);
     const auto neighborhoods = randomNeighborhoods(processes, clusters, random);
-    CAPTURE(trial);
-    CHECK(runStreamOrdered(processes,
-                           clusters,
-                           neighborhoods,
-                           syncTimes,
-                           random,
-                           violations,
-                           true,
-                           &isolationViolations));
+    runStreamOrdered(processes, clusters, neighborhoods, syncTimes, random, outcome, true);
   }
-  CHECK(violations == 0);
-  CHECK(isolationViolations == 0);
+  CHECK(outcome.stuck == 0);
+  CHECK(outcome.violations == 0);
+  CHECK(outcome.isolationViolations == 0);
+
+  // also a replay waits for the events it has noted before the recording
+  CHECK(outcome.destroyedUses == 0);
+  CHECK(outcome.prematureRecords == 0);
+  CHECK(outcome.leakedEvents == 0);
+  CHECK(outcome.schedulerPool == parallel::runtime::EventPool::InitialSize);
+}
+
+TEST_CASE("Exchange events that get destroyed at synchronization points are waited for too late" *
+          doctest::test_suite("solver")) {
+  // The scheduler as it was: its events were owned by the scheduler alone, and destroyed at the
+  // synchronization points, while the ghost clusters still published them. After a
+  // synchronization point, a copy layer (or a replay) then waited for a destroyed event, or for
+  // one that had been created and recorded anew (CUDA hands out the handles of destroyed events
+  // again). This makes sure that the model above sees such events.
+  const std::vector<long> syncTimes{6, 13, 16, 29};
+  for (const bool recordings : {false, true}) {
+    CAPTURE(recordings);
+    std::mt19937 random(2468);
+    StreamOutcome outcome;
+    for (int trial = 0; trial < 30; ++trial) {
+      const auto processes = std::uniform_int_distribution<int>(2, 4)(random);
+      const auto clusters = std::uniform_int_distribution<std::size_t>(1, 3)(random);
+      const auto neighborhoods = randomNeighborhoods(processes, clusters, random);
+      runStreamOrdered(processes,
+                       clusters,
+                       neighborhoods,
+                       syncTimes,
+                       random,
+                       outcome,
+                       recordings,
+                       EventHandling::CreateAndDestroy);
+    }
+    MESSAGE("destroyed events used " << outcome.destroyedUses << " times, recorded too early "
+                                     << outcome.prematureRecords << " times");
+    CHECK(outcome.destroyedUses > 0);
+    CHECK(outcome.prematureRecords > 0);
+  }
 }
 
 } // namespace seissol::unit_test

@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_STREAMEXCHANGESCHEDULER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_STREAMEXCHANGESCHEDULER_H_
 
+#include "Parallel/Runtime/EventPool.h"
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
 
 #include <cstddef>
@@ -23,7 +24,9 @@ namespace seissol::solver {
  *
  * Before a group, its stream waits for the events the group has to wait for; after it, an event
  * gets recorded. The host either tests that event, or, ordered on the device, the dependent work
- * waits for it.
+ * waits for it. The events come from a pool that hands out an event again only once nobody refers
+ * to it any more: the scheduler until it has seen the group complete, or until a later group is the
+ * latest one; and everybody who has got it as latestEvent() until they have waited for it.
  *
  * Only available in device builds.
  */
@@ -37,10 +40,8 @@ class StreamExchangeScheduler : public ExchangeScheduler {
   StreamExchangeScheduler& operator=(const StreamExchangeScheduler&) = delete;
   StreamExchangeScheduler& operator=(StreamExchangeScheduler&&) = delete;
 
-  [[nodiscard]] void* latestEvent() const override { return latestEvent_; }
-  void setLatestEvent(void* event) override { latestEvent_ = event; }
   [[nodiscard]] std::vector<void*> streams() const override;
-  void releaseEvents() override;
+  [[nodiscard]] EventUsage eventUsage() const override;
 
   protected:
   /// the slot of a direction
@@ -79,13 +80,10 @@ class StreamExchangeScheduler : public ExchangeScheduler {
 
   std::size_t clusterCount_;
   std::vector<void*> streams_;
-  std::map<Ticket, void*> pendingEvents_;
+  parallel::runtime::EventPool events_;
+  // not ordered on the device: the events of the groups the host has not seen complete yet
+  std::map<Ticket, parallel::runtime::EventRef> pendingEvents_;
   Ticket nextTicket_{0};
-
-  // ordered on the device: the events of the groups launched since the last release, and the one
-  // standing for all groups so far
-  std::vector<void*> launchedEvents_;
-  void* latestEvent_{nullptr};
 };
 
 } // namespace seissol::solver

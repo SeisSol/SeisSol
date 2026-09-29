@@ -55,10 +55,10 @@ class SuperStepRecorder {
   /**
    * Starts recording the work the clusters enqueue from now on. Returns the event that starts the
    * recording: all clusters and streams wait for it, and, once replayed, it comes after all work
-   * before the recording. It stays valid until the next recording starts.
+   * before the recording. It stays reserved while the copy is held.
    */
-  void* beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
-                       const std::vector<void*>& streams);
+  ActorEvent beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
+                            const std::vector<void*>& streams);
 
   /**
    * Ends the recording, and keeps it for the key. It still needs to be replayed once to run.
@@ -81,12 +81,13 @@ class SuperStepRecorder {
               const std::vector<void*>& streams);
 
   /**
-   * The event that completes with the latest replay.
+   * The event that completes with the latest replay. It stays reserved while the copy is held.
    */
-  [[nodiscard]] void* lastEvent() const;
+  [[nodiscard]] ActorEvent lastEvent() const;
 
   /**
-   * Releases the device resources; needs to happen before the device is finalized.
+   * Releases the device resources; needs to happen before the device is finalized, and after
+   * everybody has let go of the events of the recorder.
    */
   void dispose();
 

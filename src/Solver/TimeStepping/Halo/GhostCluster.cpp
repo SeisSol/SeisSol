@@ -92,8 +92,9 @@ void GhostCluster::advanceSent(long target) {
 
 void GhostCluster::publishTransportEvent() {
   if (transport_->streamOrdered()) {
-    // the copy layer waits for the exchanges on the device
-    publishEvent(ActorEvent(transport_->latestEvent()));
+    // the copy layer waits for the exchanges on the device; the event stays reserved while this
+    // cluster publishes it, and while anybody keeps a copy of it to wait for it later
+    publishEvent(transport_->latestEvent());
   }
 }
 
@@ -257,6 +258,9 @@ void GhostCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate)
 }
 
 void GhostCluster::finalize() {
+  // the events may belong to pools that go away before this cluster
+  deferredSendEvent_ = ActorEvent();
+  deferredReceiveEvent_ = ActorEvent();
   AbstractTimeCluster::finalize();
   transport_->finalize();
 }

@@ -136,6 +136,8 @@ Diagnostics
 
 At the end of a run, the log reports the number of halo messages sent and received, summed over all processes;
 both have to agree.
+With a transfer mode on GPU streams, it also reports how many events of the halo exchange were referenced at once at most,
+and how many events their pool has; an event is reused once nobody waits for it any more, so both stay small.
 With ``SEISSOL_TIMESTEPPING_PLAN=1``, it also reports the super-timesteps:
 how many there were, how many ended early at a synchronization point,
 how many full ones were free of output samples and of host work, and how many were recorded and replayed.

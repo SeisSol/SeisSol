@@ -534,9 +534,6 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   if (concurrent_) {
     // the clusters have only enqueued their work
     device.api().syncDevice();
-    if (haloTransports_->scheduler() != nullptr) {
-      haloTransports_->scheduler()->releaseEvents();
-    }
   }
   device.api().popLastProfilingMark();
 #endif
@@ -686,12 +683,12 @@ void TimeManager::followPlan() {
       }
       ++replayedSuperSteps_;
     } else if (replayable && seenSuperSteps_.count(key) > 0) {
-      auto* fork = recorder_->beginRecording(participants, streams);
+      auto fork = recorder_->beginRecording(participants, streams);
       if (scheduler != nullptr) {
         // the recording must not wait for events from before it: neither for those of the pending
         // operations, nor for the latest group, which its ghost cluster may acknowledge only inside
         // the recording (e.g. one launched by setHorizon() above)
-        scheduler->restartAfter(fork);
+        scheduler->restartAfter(std::move(fork));
       }
       work = takeSteps(plan, begin, end);
       completeExchanges(superStepEnd);
@@ -765,8 +762,13 @@ void TimeManager::setInitialTimes(double time) {
 }
 
 void TimeManager::freeDynamicResources() {
-  for (auto& cluster : clusters_) {
-    cluster->finalize();
+  // Nothing may refer to an event of a pool that goes away. The halo exchange holds events of the
+  // clusters and of the recorder; the ghost clusters hold events of the halo exchange, of the copy
+  // layers and of the recorder; all clusters hold events of the recorder. So they let go of them in
+  // this order, before the clusters, the recorder and the halo exchange dispose of their pools.
+  auto* scheduler = haloTransports_->scheduler();
+  if (scheduler != nullptr) {
+    scheduler->forgetEvents();
   }
 
   // every message sent has to be received somewhere
@@ -776,6 +778,10 @@ void TimeManager::freeDynamicResources() {
     messages[1] += cluster->receivedMessages();
     cluster->finalize();
   }
+  for (auto& cluster : clusters_) {
+    cluster->finalize();
+  }
+
   MPI_Allreduce(MPI_IN_PLACE,
                 messages.data(),
                 messages.size(),
@@ -784,6 +790,22 @@ void TimeManager::freeDynamicResources() {
                 Mpi::mpi.comm());
   logInfo() << "Halo exchange:" << messages[0] << "messages sent," << messages[1]
             << "received (summed over all ranks)";
+
+  if (scheduler != nullptr) {
+    // the events of the halo exchange get reused once nobody waits for them any more
+    const auto usage = scheduler->eventUsage();
+    std::array<std::size_t, 2> events{usage.pool, usage.peak};
+    MPI_Allreduce(MPI_IN_PLACE,
+                  events.data(),
+                  events.size(),
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_MAX,
+                  Mpi::mpi.comm());
+    if (events[0] > 0) {
+      logInfo() << "Halo exchange events: at most" << events[1] << "of a pool of" << events[0]
+                << "referenced at once (maximum over all ranks)";
+    }
+  }
 
   if (followPlan_) {
     std::array<std::size_t, 7> superSteps{superSteps_,

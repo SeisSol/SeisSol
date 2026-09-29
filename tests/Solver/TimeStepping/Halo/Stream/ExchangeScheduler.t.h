@@ -224,9 +224,6 @@ class WaitRecordingScheduler : public ExchangeScheduler {
   // a deque keeps the addresses of its events stable
   std::deque<int> events;
 
-  [[nodiscard]] void* latestEvent() const override { return latest_; }
-  void setLatestEvent(void* event) override { latest_ = event; }
-
   protected:
   Ticket launch(std::size_t /*from*/,
                 std::size_t /*to*/,
@@ -235,14 +232,11 @@ class WaitRecordingScheduler : public ExchangeScheduler {
                 const ScheduledTransport* /*receiver*/,
                 const std::vector<void*>& after) override {
     waits.push_back(after);
-    latest_ = &events.emplace_back();
+    setLatestEvent(ActorEvent(&events.emplace_back()));
     return waits.size();
   }
 
   bool completed(Ticket /*ticket*/) override { return true; }
-
-  private:
-  void* latest_{nullptr};
 };
 
 /**
@@ -519,12 +513,12 @@ TEST_CASE("A group waits for the events its operations were made ready with, unl
   CHECK(scheduler.waits.empty());
 
   // e.g. a recording starts after the work behind the events, and must not wait for them
-  scheduler.restartAfter(&started);
-  CHECK(scheduler.latestEvent() == &started);
+  scheduler.restartAfter(ActorEvent(&started));
+  CHECK(scheduler.latestEvent().get() == &started);
   scheduler.setHorizon(1);
   REQUIRE(scheduler.waits.size() == 1);
   CHECK(scheduler.waits[0].empty());
-  CHECK(scheduler.latestEvent() == &scheduler.events[0]);
+  CHECK(scheduler.latestEvent().get() == &scheduler.events[0]);
   CHECK(transport.testSend());
   CHECK(transport.testReceive());
 
@@ -544,10 +538,15 @@ TEST_CASE("A group waits for the events its operations were made ready with, unl
   transport.startReceiveAfter(ActorEvent(&read));
   scheduler.setHorizon(3);
   REQUIRE(scheduler.waits.size() == 3);
-  scheduler.restartAfter(&startedLater);
+  scheduler.restartAfter(ActorEvent(&startedLater));
   CHECK(transport.testSend());
   CHECK(transport.testReceive());
-  CHECK(scheduler.latestEvent() == &startedLater);
+  CHECK(scheduler.latestEvent().get() == &startedLater);
+
+  // at the end, nothing is held any more
+  transport.startSendAfter(ActorEvent(&writtenLater));
+  scheduler.forgetEvents();
+  CHECK_FALSE(scheduler.latestEvent());
 }
 
 } // namespace seissol::unit_test

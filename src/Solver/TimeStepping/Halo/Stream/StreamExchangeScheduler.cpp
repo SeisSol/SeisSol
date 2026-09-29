@@ -7,6 +7,7 @@
 
 #include "StreamExchangeScheduler.h"
 
+#include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
 
 #include <algorithm>
@@ -53,12 +54,10 @@ StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount, Launc
 
 StreamExchangeScheduler::~StreamExchangeScheduler() {
   synchronize();
-  for (const auto& [ticket, event] : pendingEvents_) {
-    deviceInstance().api().destroyEvent(event);
-  }
-  for (auto* event : launchedEvents_) {
-    deviceInstance().api().destroyEvent(event);
-  }
+  // the pool goes before the members of the base class, and its events with it
+  forgetEvents();
+  pendingEvents_.clear();
+  events_.dispose();
   for (auto* stream : streams_) {
     if (stream != nullptr) {
       deviceInstance().api().destroyGenericStream(stream);
@@ -92,15 +91,14 @@ ExchangeScheduler::Ticket StreamExchangeScheduler::launch(std::size_t from,
 
   enqueueGroup(current, from, to, exchange, sender, receiver);
 
-  auto* event = deviceInstance().api().createEvent();
-  deviceInstance().api().recordEventOnStream(event, stream);
+  auto event = events_.next();
+  deviceInstance().api().recordEventOnStream(event.get(), stream);
   const auto ticket = nextTicket_++;
   if (streamOrdered()) {
-    // the dependent work waits for the event on the device; it stays until the device has completed
-    launchedEvents_.push_back(event);
-    latestEvent_ = event;
+    // the dependent work waits for the event on the device; whoever gets it to wait for keeps it
+    setLatestEvent(ActorEvent(std::move(event)));
   } else {
-    pendingEvents_[ticket] = event;
+    pendingEvents_.emplace(ticket, std::move(event));
   }
   return ticket;
 }
@@ -111,8 +109,7 @@ bool StreamExchangeScheduler::completed(Ticket ticket) {
     // tickets are handed out in increasing order; only completed ones are forgotten
     return ticket < nextTicket_;
   }
-  if (deviceInstance().api().isEventCompleted(pending->second)) {
-    deviceInstance().api().destroyEvent(pending->second);
+  if (deviceInstance().api().isEventCompleted(pending->second.get())) {
     pendingEvents_.erase(pending);
     return true;
   }
@@ -129,19 +126,8 @@ std::vector<void*> StreamExchangeScheduler::streams() const {
   return result;
 }
 
-void StreamExchangeScheduler::releaseEvents() {
-  bool ownsLatest = false;
-  for (auto* event : launchedEvents_) {
-    if (event != latestEvent_) {
-      deviceInstance().api().destroyEvent(event);
-    } else {
-      ownsLatest = true;
-    }
-  }
-  launchedEvents_.clear();
-  if (ownsLatest) {
-    launchedEvents_.push_back(latestEvent_);
-  }
+ExchangeScheduler::EventUsage StreamExchangeScheduler::eventUsage() const {
+  return {events_.size(), events_.peakReferenced()};
 }
 
 #else
@@ -168,7 +154,7 @@ bool StreamExchangeScheduler::completed(Ticket /*ticket*/) { return true; }
 
 std::vector<void*> StreamExchangeScheduler::streams() const { return {}; }
 
-void StreamExchangeScheduler::releaseEvents() {}
+ExchangeScheduler::EventUsage StreamExchangeScheduler::eventUsage() const { return {}; }
 
 #endif
 

@@ -8,12 +8,12 @@
 #include "SuperStepRecorder.h"
 
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <vector>
 
 #ifdef ACL_DEVICE
 #include "Parallel/Runtime/Stream.h"
-#include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <Device/device.h>
 #include <utility>
@@ -57,10 +57,10 @@ ActorEvent SuperStepRecorder::recordEvent(void* stream) {
 
 bool SuperStepRecorder::has(const Key& key) const { return graphs_.find(key) != graphs_.end(); }
 
-void* SuperStepRecorder::lastEvent() const { return lastEvent_.get(); }
+ActorEvent SuperStepRecorder::lastEvent() const { return lastEvent_; }
 
-void* SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
-                                        const std::vector<void*>& streams) {
+ActorEvent SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
+                                             const std::vector<void*>& streams) {
   beginReplay(clusters, streams);
 
   recording_ = deviceInstance().api().streamBeginCapture({stream_});
@@ -78,7 +78,7 @@ void* SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>&
     deviceInstance().api().syncStreamWithEvent(stream, fork_.get());
   }
   parallel::runtime::recordingOuterGraph() = true;
-  return fork_.get();
+  return fork_;
 }
 
 void SuperStepRecorder::endRecording(const Key& key,
@@ -146,11 +146,11 @@ bool SuperStepRecorder::available() { return false; }
 
 bool SuperStepRecorder::has(const Key& /*key*/) const { return false; }
 
-void* SuperStepRecorder::lastEvent() const { return nullptr; }
+ActorEvent SuperStepRecorder::lastEvent() const { return {}; }
 
-void* SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& /*clusters*/,
-                                        const std::vector<void*>& /*streams*/) {
-  return nullptr;
+ActorEvent SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& /*clusters*/,
+                                             const std::vector<void*>& /*streams*/) {
+  return {};
 }
 
 void SuperStepRecorder::endRecording(const Key& /*key*/,

@@ -186,11 +186,16 @@ void ExchangeScheduler::forgetPendingEvents() {
   }
 }
 
-void ExchangeScheduler::restartAfter(void* event) {
+void ExchangeScheduler::restartAfter(ActorEvent event) {
   forgetPendingEvents();
   // otherwise, a ghost cluster that acknowledges a group launched before the event would pass on
   // an older one
-  setLatestEvent(event);
+  setLatestEvent(std::move(event));
+}
+
+void ExchangeScheduler::forgetEvents() {
+  forgetPendingEvents();
+  latestEvent_ = ActorEvent();
 }
 
 void ExchangeScheduler::launchNext(std::size_t from, std::size_t to) {
