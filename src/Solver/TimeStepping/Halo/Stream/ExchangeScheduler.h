@@ -160,6 +160,12 @@ class ExchangeScheduler {
   [[nodiscard]] virtual std::vector<void*> streams() const { return {}; }
 
   /**
+   * Whether the groups can be part of a recording of super-timesteps, i.e. whether a replay of the
+   * operations they have enqueued does the same as launching the groups anew.
+   */
+  [[nodiscard]] virtual bool recordable() const { return true; }
+
+  /**
    * How many events the groups have needed: the size of the pool they come from, and the largest
    * number of them that were referenced at once; zero without events.
    */

@@ -127,8 +127,10 @@ and the outputs decide about their samples when their work runs.
 Hence, the receivers and fault receivers copy their data to the host in every step in this mode.
 
 Recording needs a GPU that can record graphs, and either no halo exchange (a single process),
-or one of the transfer modes on GPU streams in the global order and ``SEISSOL_CONCURRENT_CLUSTERS=1``,
+or ``ccl`` or ``shmem`` in the global order and ``SEISSOL_CONCURRENT_CLUSTERS=1``,
 without a communication thread.
+``stream-mpi`` cannot be recorded: MPICH creates the requests of an enqueued operation on the host
+and releases its state in host functions on the stream, which a replay would run again.
 If a requirement is missing, a warning says which one, and the super-timesteps run as usual.
 
 Diagnostics

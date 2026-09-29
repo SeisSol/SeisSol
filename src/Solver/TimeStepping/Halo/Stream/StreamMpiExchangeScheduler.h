@@ -38,6 +38,14 @@ class StreamMpiExchangeScheduler : public StreamExchangeScheduler {
   StreamMpiExchangeScheduler& operator=(const StreamMpiExchangeScheduler&) = delete;
   StreamMpiExchangeScheduler& operator=(StreamMpiExchangeScheduler&&) = delete;
 
+  /**
+   * No: MPICH creates the requests of an enqueued operation on the host, keeps what it needs in
+   * memory of its own, and releases it in host functions on the stream once the operation has
+   * completed; a replay would run these host functions again, on released state, and without new
+   * requests. The queues of HPE Cray MPICH are set up and started on the host as well.
+   */
+  [[nodiscard]] bool recordable() const override { return false; }
+
   protected:
   void enqueueGroup(std::size_t slot,
                     std::size_t from,
