@@ -13,11 +13,12 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "GeneratedCode/init.h"
 #include "Geometry.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
@@ -28,7 +29,6 @@
 #include <limits>
 #include <tuple>
 #include <utility>
-#include <utils/logger.h>
 #include <vector>
 
 namespace {
@@ -45,82 +45,65 @@ int getElementVertexId(int localSideId, int localFaceVertexId) {
   return MeshTools::FACE2NODES[localSideId][localFaceVertexId];
 }
 
-ExtTriangle getReferenceTriangle(int sideIdx) {
-  ExtTriangle referenceFace;
-  switch (sideIdx) {
-  case 0:
-    referenceFace.point(0) = {0.0, 0.0, 0.0};
-    referenceFace.point(1) = {0.0, 1.0, 0.0};
-    referenceFace.point(2) = {1.0, 0.0, 0.0};
-    break;
-  case 1:
-    referenceFace.point(0) = {0.0, 0.0, 0.0};
-    referenceFace.point(1) = {1.0, 0.0, 0.0};
-    referenceFace.point(2) = {0.0, 0.0, 1.0};
-    break;
-  case 2:
-    referenceFace.point(0) = {0.0, 0.0, 0.0};
-    referenceFace.point(1) = {0.0, 0.0, 1.0};
-    referenceFace.point(2) = {0.0, 1.0, 0.0};
-    break;
-  case 3:
-    referenceFace.point(0) = {1.0, 0.0, 0.0};
-    referenceFace.point(1) = {0.0, 1.0, 0.0};
-    referenceFace.point(2) = {0.0, 0.0, 1.0};
-    break;
-  default:
-    logError() << "Unknown Local Side Id. Must be 0, 1, 2 or 3";
-  }
-
-  return referenceFace;
-}
-
-ExtTriangle getGlobalTriangle(int localSideId,
-                              const Element& element,
-                              const std::vector<Vertex>& verticesInfo) {
+ExtTriangle toExtTriangle(const geometry::FaceTransform& face) {
+  const auto corners = face.vertices();
   ExtTriangle triangle{};
-
-  for (int vertexId = 0; vertexId < 3; ++vertexId) {
-    const auto elementVertexId = getElementVertexId(localSideId, vertexId);
-    const auto globalVertexId = element.vertices[elementVertexId];
-
-    triangle.point(vertexId) = verticesInfo[globalVertexId].coords;
+  for (std::size_t vertex = 0; vertex < Face::NumVertices; ++vertex) {
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      triangle.point(vertex)[d] = corners[vertex](d);
+    }
   }
   return triangle;
 }
 
-ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle) {
-  ExtVrtxCoords avgPoint{};
+ExtTriangle getReferenceTriangle(std::size_t sideIdx) {
+  const geometry::ReferenceFaceMap map(sideIdx);
+  ExtTriangle triangle{};
+  const std::array<geometry::ReferenceFaceMap::FaceVectorT, Face::NumVertices> corners{
+      geometry::ReferenceFaceMap::FaceVectorT(0.0, 0.0),
+      geometry::ReferenceFaceMap::FaceVectorT(1.0, 0.0),
+      geometry::ReferenceFaceMap::FaceVectorT(0.0, 1.0)};
+  for (std::size_t vertex = 0; vertex < Face::NumVertices; ++vertex) {
+    const auto point = map.faceToCell(corners[vertex]);
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      triangle.point(vertex)[d] = point(d);
+    }
+  }
+  return triangle;
+}
+
+CoordinateT getMidPointTriangle(const ExtTriangle& triangle) {
+  CoordinateT avgPoint{};
   const auto p0 = triangle.point(0);
   const auto p1 = triangle.point(1);
   const auto p2 = triangle.point(2);
   for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
-    avgPoint.coords[axis] = (p0.coords[axis] + p1.coords[axis] + p2.coords[axis]) / 3.0;
+    avgPoint[axis] = (p0[axis] + p1[axis] + p2[axis]) / 3.0;
   }
   return avgPoint;
 }
 
-ExtVrtxCoords getTrianglePointByCoords(const ExtTriangle& triangle,
-                                       const std::array<double, 2>& point) {
-  ExtVrtxCoords avgPoint{};
-  const auto p0 = triangle.point(0);
-  const auto p1 = triangle.point(1);
-  const auto p2 = triangle.point(2);
+CoordinateT getTrianglePointByCoords(const ExtTriangle& triangle,
+                                     const std::array<double, 2>& point) {
+  CoordinateT avgPoint{};
+  const auto& p0 = triangle.point(0);
+  const auto& p1 = triangle.point(1);
+  const auto& p2 = triangle.point(2);
 
   // barycentric coordinates
   const auto w0 = 1 - point[0] - point[1];
   const auto w1 = point[0];
   const auto w2 = point[1];
   for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
-    avgPoint.coords[axis] = w0 * p0.coords[axis] + w1 * p1.coords[axis] + w2 * p2.coords[axis];
+    avgPoint[axis] = w0 * p0[axis] + w1 * p1[axis] + w2 * p2[axis];
   }
   return avgPoint;
 }
 
-ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2) {
-  ExtVrtxCoords midPoint{};
+CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2) {
+  CoordinateT midPoint{};
   for (std::size_t axis = 0; axis < Cell::Dim; ++axis) {
-    midPoint.coords[axis] = 0.5 * (p1.coords[axis] + p2.coords[axis]);
+    midPoint[axis] = 0.5 * (p1[axis] + p2[axis]);
   }
   return midPoint;
 }
@@ -167,14 +150,14 @@ void assignNearestGaussianPoints(Receivers& geoPoints) {
 
   for (auto& geoPoint : geoPoints) {
 
-    double targetPoint2D[2];
-    transformations::XiEtaZeta2chiTau(
-        geoPoint.localFaceSideId, geoPoint.reference.coords, targetPoint2D);
+    const auto targetPoint2D =
+        geometry::ReferenceFaceMap(geoPoint.localFaceSideId.value())
+            .cellToFace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
     std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
-        targetPoint2D, trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
+        targetPoint2D.data(), trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }
@@ -196,24 +179,24 @@ int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
   return (i1 - 1) * (nPoly + 2) + j1;
 }
 
-void projectPointToFace(ExtVrtxCoords& point,
+void projectPointToFace(CoordinateT& point,
                         const ExtTriangle& face,
-                        const VrtxCoords faceNormal) {
+                        const CoordinateT& faceNormal) {
   const auto distance = getDistanceFromPointToFace(point, face, faceNormal);
   const double faceNormalLength = MeshTools::norm(faceNormal);
   const auto adjustedDistance = distance / faceNormalLength;
 
   for (int i = 0; i < 3; ++i) {
-    point.coords[i] += adjustedDistance * faceNormal[i];
+    point[i] += adjustedDistance * faceNormal[i];
   }
 }
 
-double getDistanceFromPointToFace(const ExtVrtxCoords& point,
+double getDistanceFromPointToFace(const CoordinateT& point,
                                   const ExtTriangle& face,
-                                  const VrtxCoords faceNormal) {
+                                  const CoordinateT& faceNormal) {
 
-  VrtxCoords diff{0.0, 0.0, 0.0};
-  MeshTools::sub(face.point(0).coords, point.coords, diff);
+  CoordinateT diff{0.0, 0.0, 0.0};
+  MeshTools::sub(face.point(0), point, diff);
 
   // Note: faceNormal may not be precisely a unit vector
   const double faceNormalLength = MeshTools::norm(faceNormal);
@@ -223,51 +206,50 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
 // (NOTE: only the sign really has a meaning; except maybe for some small tolerance)
 // (reason: lack of normalization, probably)
 double
-    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal) {
+    isInsideFace(const CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal) {
 
   // view the triangle as an intersection of hyperplanes
 
   double sidemin = std::numeric_limits<double>::max();
   for (auto [i1, i2] : seissol::common::zip(std::vector{0, 1, 2}, std::vector{1, 2, 0})) {
-    const auto& p1 = face.point(i1).coords;
-    const auto& p2 = face.point(i2).coords;
-    VrtxCoords sidevec{0.0, 0.0, 0.0};
-    VrtxCoords hypersupport{0.0, 0.0, 0.0};
+    const auto& p1 = face.point(i1);
+    const auto& p2 = face.point(i2);
+    CoordinateT sidevec{0.0, 0.0, 0.0};
+    CoordinateT hypersupport{0.0, 0.0, 0.0};
     MeshTools::sub(p2, p1, sidevec);
     MeshTools::cross(faceNormal, sidevec, hypersupport);
     const auto sidevalue = MeshTools::dot(hypersupport, p1);
-    const auto pointvalue = MeshTools::dot(hypersupport, point.coords);
+    const auto pointvalue = MeshTools::dot(hypersupport, point);
     const auto containvalue = pointvalue - sidevalue;
     sidemin = std::min(sidemin, containvalue);
   }
   return sidemin;
 }
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
-                                                   const VrtxCoords* plusElementCoords[4],
-                                                   const VrtxCoords* minusElementCoords[4]) {
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
+                                                   const geometry::CellTransform& plusTransform,
+                                                   const geometry::CellTransform& minusTransform) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
-  auto getBasisFunctions = [&point](const VrtxCoords* elementCoords[4]) {
-    auto referenceCoords = transformations::tetrahedronGlobalToReference(
-        *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
+  auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
+    const auto referenceCoords = transform.spaceToRef(point);
     const basisFunction::SampledBasisFunctions<real> sampler(
         ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.data();
   };
 
   PlusMinusBasisFunctions basisFunctions{};
-  basisFunctions.plusSide = getBasisFunctions(plusElementCoords);
-  basisFunctions.minusSide = getBasisFunctions(minusElementCoords);
+  basisFunctions.plusSide = getBasisFunctions(plusTransform);
+  basisFunctions.minusSide = getBasisFunctions(minusTransform);
 
   return basisFunctions;
 }
 
 real computeTriangleArea(ExtTriangle& triangle) {
-  const auto p0 = triangle.point(0).getAsEigen3LibVector();
-  const auto p1 = triangle.point(1).getAsEigen3LibVector();
-  const auto p2 = triangle.point(2).getAsEigen3LibVector();
+  const auto p0 = Eigen::Vector3d(triangle.point(0).data());
+  const auto p1 = Eigen::Vector3d(triangle.point(1).data());
+  const auto p2 = Eigen::Vector3d(triangle.point(2).data());
 
   const auto vector1 = p1 - p0;
   const auto vector2 = p2 - p0;

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/Datastructures.h"
+#include "Geometry/MeshDefinition.h"
 #include "Model/Common.h"
 #include "Model/Quantities.h"
 
@@ -22,9 +23,9 @@ namespace quantities {
 
 /// A right-handed orthonormal frame, built the way SeisSol's face normals are.
 struct Frame {
-  VrtxCoords normal{};
-  VrtxCoords tangent1{};
-  VrtxCoords tangent2{};
+  CoordinateT normal{};
+  CoordinateT tangent1{};
+  CoordinateT tangent2{};
 };
 
 inline Frame randomFrame(std::mt19937& rng) {

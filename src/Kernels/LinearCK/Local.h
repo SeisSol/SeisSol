@@ -17,7 +17,7 @@
 #include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
-#include "DirichletBoundary.h"
+#include "Kernels/AnalyticalBoundary.h"
 #pragma GCC diagnostic pop
 #include "Physics/InitialField.h"
 
@@ -37,7 +37,6 @@ class Local : public LocalKernel {
                        double timeStepWidth) override;
 
   void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                              recording::ConditionalMaterialTable& materialTable,
                               recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
@@ -57,20 +56,20 @@ class Local : public LocalKernel {
   kernel::localFlux localFluxKernelPrototype_;
   kernel::localFluxNodal nodalLfKrnlPrototype_;
 
-  kernel::projectToNodalBoundary projectKrnlPrototype_;
-  kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
+  kernels::AnalyticalBoundary analyticalBoundary_;
 
-  kernel::createEasiBoundaryGhostCells easiBoundaryKrnlPrototype_;
-
-  kernels::DirichletBoundary dirichletBoundary_;
+  kernel::fsgFlux fsgFlux_;
+  kernel::dirichletFlux dirichletFlux_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype_;
   kernel::gpu_localFlux deviceLocalFluxKernelPrototype_;
   kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype_;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
-  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
+
+  kernel::gpu_fsgFlux deviceFsgFlux_;
+  kernel::gpu_dirichletFlux deviceDirichletFlux_;
 #endif
 };
 

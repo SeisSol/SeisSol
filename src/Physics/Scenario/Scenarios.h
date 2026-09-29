@@ -1,0 +1,173 @@
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
+#define SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
+
+#include "GeneratedCode/init.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
+#include "Physics/InitialField.h"
+
+#include <Eigen/Dense>
+#include <array>
+#include <cmath>
+#include <complex>
+#include <cstddef>
+#include <vector>
+
+namespace seissol::physics {
+
+class PressureInjection : public InitialField {
+  public:
+  explicit PressureInjection(
+      const seissol::initializer::parameters::InitializationParameters& initializationParameters);
+
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+
+  private:
+  seissol::initializer::parameters::InitializationParameters parameters_;
+};
+
+// A planar wave travelling in direction kVec
+class Planarwave : public InitialField {
+  public:
+  // Choose phase in [0, 2*pi]
+  Planarwave(const CellMaterialData& materialData,
+             double phase,
+             Eigen::Vector3d kVec,
+             std::vector<int> varField,
+             std::vector<std::complex<double>> ampField);
+  explicit Planarwave(const CellMaterialData& materialData,
+                      double phase = 0.0,
+                      Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
+
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+
+  protected:
+  std::vector<int> varField_;
+  std::vector<std::complex<double>> ampField_;
+  double phase_;
+  Eigen::Vector3d kVec_;
+  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> lambdaA_;
+  std::array<std::complex<double>,
+             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
+      eigenvectors_;
+
+  private:
+  void init(const CellMaterialData& materialData);
+};
+
+// superimpose three planar waves travelling into different directions
+class SuperimposedPlanarwave : public InitialField {
+  public:
+  //! Choose phase in [0, 2*pi]
+  explicit SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
+
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+
+  private:
+  std::array<Eigen::Vector3d, 3> kVec_;
+  std::array<Planarwave, 3> pw_;
+};
+
+// A part of a planar wave travelling in one direction
+class TravellingWave : public Planarwave {
+  public:
+  TravellingWave(const CellMaterialData& materialData,
+                 const TravellingWaveParameters& travellingWaveParameters);
+
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+
+  private:
+  Eigen::Vector3d origin_;
+};
+
+class AcousticTravellingWaveITM : public InitialField {
+  public:
+  AcousticTravellingWaveITM(
+      const CellMaterialData& materialData,
+      const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+
+  private:
+  void init(const CellMaterialData& materialData);
+  double rho0_;
+  double c0_;
+  double k_;
+  double tITMMinus_;
+  double tau_;
+  double tITMPlus_;
+  double n_;
+};
+
+class ScholteWave : public InitialField {
+  public:
+  ScholteWave() = default;
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+};
+class SnellsLaw : public InitialField {
+  public:
+  SnellsLaw() = default;
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+};
+/*
+ * From
+ * Abrahams, L. S., Krenz, L., Dunham, E. M., & Gabriel, A. A. (2019, December).
+ * Verification of a 3D fully-coupled earthquake and tsunami model.
+ * In AGU Fall Meeting Abstracts (Vol. 2019, pp. NH43F-1000).
+ * A 3D extension of the 2D scenario in
+ * Lotto, G. C., & Dunham, E. M. (2015).
+ * High-order finite difference modeling of tsunami generation in a compressible ocean from offshore
+ * earthquakes. Computational Geosciences, 19(2), 327-340.
+ */
+class Ocean : public InitialField {
+  private:
+  int mode_;
+  double gravitationalAcceleration_;
+
+  public:
+  Ocean(int mode, double gravitationalAcceleration);
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+};
+
+} // namespace seissol::physics
+
+#endif // SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_

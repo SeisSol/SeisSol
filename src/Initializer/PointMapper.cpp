@@ -56,7 +56,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
   //   - between cells of the same key, the one with the smallest global id wins.
   struct Candidate {
     double key{std::numeric_limits<double>::infinity()};
-    GlobalElemId globalId{std::numeric_limits<GlobalElemId>::max()};
+    std::size_t globalId{std::numeric_limits<std::size_t>::max()};
   };
   const auto better = [](const Candidate& a, const Candidate& b) {
     return a.key < b.key || (a.key == b.key && a.globalId < b.globalId);
@@ -69,8 +69,8 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
     auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
     auto normLengths = std::array<double, Cell::NumFaces>();
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      VrtxCoords n{};
-      VrtxCoords p{};
+      CoordinateT n{};
+      CoordinateT p{};
       MeshTools::pointOnPlane(elements[elem], face, vertices, p);
       MeshTools::normal(elements[elem], face, vertices, n);
 
@@ -120,7 +120,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
         {
           if (better(candidate, best[point])) {
             best[point] = candidate;
-            meshIds[point] = static_cast<std::size_t>(elements[elem].localId);
+            meshIds[point] = elements[elem].localId;
           }
         }
       }

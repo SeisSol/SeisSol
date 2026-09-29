@@ -21,10 +21,11 @@ using P3 = std::array<double, 3>;
 
 // The subdivision tables are written in the coordinates of the reference simplex that
 // AffineMap::fromVertices reconstructs from, i.e. Va = f(0) and Vb, Vc, Vd = f(e_1), f(e_2),
-// f(e_3). Via transformations::tetrahedronReferenceToGlobal that identifies Va, Vb, Vc, Vd with
-// element.vertices[0], [1], [2], [3] -- the same identification the legacy
-// refinement::MeshRefiner used. Do not confuse this with the vertex order of the legacy
-// refinement::Tetrahedron::unitTetrahedron(), which is a different (rotated) labeling.
+// f(e_3). The cell transform (geometry::AffineTransform) maps 0, e_1, e_2, e_3 onto
+// element.vertices[0], [1], [2], [3], hence it identifies Va, Vb, Vc, Vd with those -- the same
+// identification the legacy refinement::MeshRefiner used. Do not confuse this with the vertex
+// order of the legacy refinement::Tetrahedron::unitTetrahedron(), which is a different (rotated)
+// labeling.
 constexpr auto Va = P3{0, 0, 0};
 constexpr auto Vb = P3{1, 0, 0};
 constexpr auto Vc = P3{0, 1, 0};
