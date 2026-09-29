@@ -814,11 +814,13 @@ void TimeManager::freeDynamicResources() {
     logWarning() << "The halo exchange sent and received a different number of messages.";
   }
 
-  communicationManager_.reset(nullptr);
-  haloTransports_.reset(nullptr);
+  // The recordings go before the halo exchange: a graph that has captured operations of its
+  // library keeps them in use, e.g. ncclCommDestroy waits until such graphs are destroyed.
   if (recorder_ != nullptr) {
     recorder_->dispose();
   }
+  communicationManager_.reset(nullptr);
+  haloTransports_.reset(nullptr);
 }
 
 void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
