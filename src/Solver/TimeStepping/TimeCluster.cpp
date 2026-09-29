@@ -452,6 +452,16 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
+  // The analytical boundary conditions are evaluated in a host function that is handed the
+  // current time. A graph keeps the host functions it recorded as they were, so replaying it
+  // would evaluate them at the time of the step that recorded it.
+  bool timeDependentBc = false;
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    const ConditionalKey analyticalKey(
+        *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
+    timeDependentBc = timeDependentBc || indicesTable.find(analyticalKey) != indicesTable.end();
+  }
+
   const ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
@@ -525,7 +535,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
           }
         }
       },
-      isRecurringTimestep(timeStepWidth));
+      isRecurringTimestep(timeStepWidth) && !timeDependentBc);
 
   loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
   device_.api->popLastProfilingMark();
