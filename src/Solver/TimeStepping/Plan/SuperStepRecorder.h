@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_
 
+#include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 
@@ -89,14 +90,15 @@ class SuperStepRecorder {
 
   private:
 #ifdef ACL_DEVICE
-  void* nextEvent();
+  /// records an event on the stream, from a pool that does not hand it out again while it is held
+  ActorEvent recordEvent(void* stream);
 
+  // the stream the recordings get replayed on, and the pool of the events around them
+  parallel::runtime::StreamRuntime runtime_;
   void* stream_{nullptr};
-  std::vector<void*> events_;
-  std::size_t eventIndex_{0};
-  void* lastEvent_{nullptr};
-  // the latest work before the super-timestep, until the replay has been enqueued after it; an
-  // event of a cluster stays reserved while it is held
+  // completes with the latest replay
+  ActorEvent lastEvent_;
+  // the latest work before the super-timestep, until the replay has been enqueued after it
   std::vector<ActorEvent> waitFor_;
   device::DeviceGraphHandle recording_;
   std::map<Key, device::DeviceGraphHandle> graphs_;

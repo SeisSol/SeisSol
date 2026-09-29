@@ -333,6 +333,13 @@ void ReceiverCluster::sampleAtRunTime([[maybe_unused]] const double* deviceClock
   callRuntime.enqueueHost(sampleStep);
 }
 
+void* ReceiverCluster::sampleStream() {
+  if (extraRuntime_.has_value()) {
+    return extraRuntime_->stream();
+  }
+  return nullptr;
+}
+
 void ReceiverCluster::allocateData() {
 #ifdef ACL_DEVICE
   if (stepStart_ == &stepStartHost_) {

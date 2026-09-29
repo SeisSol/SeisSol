@@ -611,6 +611,11 @@ bool OutputManager::hasPickpoints(std::size_t layerId) const {
   return this->ppOutputBuilder_ && ppOutputData_.find(layerId) != ppOutputData_.end();
 }
 
+void* OutputManager::pickpointStream(std::size_t layerId) {
+  auto& outputData = ppOutputData_.at(layerId);
+  return outputData->extraRuntime.has_value() ? outputData->extraRuntime->stream() : nullptr;
+}
+
 void OutputManager::prepareRunTimeOutput() {
   for (const auto& [layerId, _] : ppOutputData_) {
     iterationSteps_.try_emplace(layerId, 0);

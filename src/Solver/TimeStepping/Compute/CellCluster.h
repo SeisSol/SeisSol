@@ -248,6 +248,7 @@ class CellCluster : public AbstractTimeCluster {
   public:
   [[nodiscard]] bool outputsAhead(long steps) const override;
   [[nodiscard]] bool hostWork() const override;
+  [[nodiscard]] void* outputStream() override;
 
   protected:
   public:

@@ -59,6 +59,12 @@ class OutputManager {
   [[nodiscard]] bool hasPickpoints(std::size_t layerId) const;
 
   /**
+   * The stream the fault receivers of the layer take their samples on, if it is one of their own;
+   * null otherwise.
+   */
+  [[nodiscard]] void* pickpointStream(std::size_t layerId);
+
+  /**
    * Prepares the output step counters, so that the steps of different layers can be counted from
    * different threads.
    */

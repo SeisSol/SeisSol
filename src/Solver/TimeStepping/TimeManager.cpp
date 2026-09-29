@@ -612,7 +612,14 @@ void TimeManager::followPlan() {
   }
   std::vector<AbstractTimeCluster*> participants(clusters_.begin(), clusters_.end());
   participants.insert(participants.end(), ghosts.begin(), ghosts.end());
-  const auto streams = scheduler != nullptr ? scheduler->streams() : std::vector<void*>{};
+  auto streams = scheduler != nullptr ? scheduler->streams() : std::vector<void*>{};
+  // the outputs take their samples on streams of their own, which a recording has to comprise
+  for (auto* cluster : clusters_) {
+    auto* stream = cluster->outputStream();
+    if (stream != nullptr && std::find(streams.begin(), streams.end(), stream) == streams.end()) {
+      streams.push_back(stream);
+    }
+  }
 
   // the super-timestep an action falls into, by the first tick it covers; along the plan, the
   // actions of a super-timestep come one after another

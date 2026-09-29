@@ -653,6 +653,10 @@ void CellCluster::setTime(double time) {
 
 void CellCluster::setRunTimeOutputs(bool runTimeOutputs) { runTimeOutputs_ = runTimeOutputs; }
 
+void* CellCluster::outputStream() {
+  return receiverCluster_ != nullptr ? receiverCluster_->sampleStream() : nullptr;
+}
+
 void CellCluster::finalize() {
   sourceCluster_.host.reset(nullptr);
   sourceCluster_.device.reset(nullptr);

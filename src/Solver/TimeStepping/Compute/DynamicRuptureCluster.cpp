@@ -305,6 +305,13 @@ void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
   }
 }
 
+void* DynamicRuptureCluster::outputStream() {
+  if (faultOutputManager_ == nullptr || !faultOutputManager_->hasPickpoints(layerData_->id())) {
+    return nullptr;
+  }
+  return faultOutputManager_->pickpointStream(layerData_->id());
+}
+
 bool DynamicRuptureCluster::hostWork() const {
   return executor_ == Executor::Host || hasDifferentExecutorNeighbor() ||
          frictionSolverDevice_->allocationPlace() == initializer::AllocationPlace::Host;

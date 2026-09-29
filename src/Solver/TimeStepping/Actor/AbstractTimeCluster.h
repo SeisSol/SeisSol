@@ -215,6 +215,13 @@ class AbstractTimeCluster {
   virtual void setRunTimeOutputs(bool /*runTimeOutputs*/) {}
 
   /**
+   * The stream the outputs of this cluster take their samples on, if they have one of their own
+   * besides the streams of the cluster; null otherwise. A recording of the work of the cluster has
+   * to comprise it.
+   */
+  [[nodiscard]] virtual void* outputStream() { return nullptr; }
+
+  /**
    * Without device work, an action only runs its host part and keeps the books; its device work
    * then has to come from elsewhere, e.g. a recording.
    */

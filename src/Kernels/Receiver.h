@@ -163,6 +163,12 @@ class ReceiverCluster {
   //! @brief Waits for the samples taken so far to be in the output of the receivers.
   void waitForSamples();
 
+  /**
+   * The stream the samples of device clusters are taken on, if it is not the one of the cluster;
+   * null otherwise.
+   */
+  [[nodiscard]] void* sampleStream();
+
   private:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};

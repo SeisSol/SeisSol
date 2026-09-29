@@ -86,6 +86,7 @@ class DynamicRuptureCluster : public FaceCluster {
   public:
   [[nodiscard]] bool outputsAhead(long steps) const override;
   [[nodiscard]] bool hostWork() const override;
+  [[nodiscard]] void* outputStream() override;
   void setRunTimeOutputs(bool runTimeOutputs) override;
 
   protected:
