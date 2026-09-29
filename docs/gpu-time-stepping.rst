@@ -146,6 +146,8 @@ without a communication thread.
 and releases its state in host functions on the stream, which a replay would run again.
 Neither can ``shmem`` with ROCSHMEM or Intel SHMEM: a replay would signal and wait for the counts of the recorded exchanges.
 If a requirement is missing, a warning says which one, and the super-timesteps run as usual.
+Clusters that compute on the host (``SEISSOL_DEVICE_HOST_SWITCH``) keep all super-timesteps from getting recorded;
+a warning says so. (Clusters without cells stay on the GPU with any switch point.)
 
 Diagnostics
 ~~~~~~~~~~~

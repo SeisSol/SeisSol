@@ -69,7 +69,9 @@ class SeisSol {
   Executor executionPlace(std::size_t clusterSize) {
     constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
     if (executionPlaceCutoff_.has_value()) {
-      if (executionPlaceCutoff_.value() <= clusterSize) {
+      // An empty cluster computes nothing anywhere. On the host, it would only make its neighbors
+      // exchange data with the host, and keep super-timesteps from getting recorded.
+      if (executionPlaceCutoff_.value() <= clusterSize || clusterSize == 0) {
         return DefaultDevice;
       } else {
         return Executor::Host;

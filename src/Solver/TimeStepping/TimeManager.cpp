@@ -423,6 +423,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       replay_ = true;
       recorder_ = std::make_unique<SuperStepRecorder>();
       logInfo() << "Regular super-timesteps get recorded and replayed.";
+      if (std::any_of(clusters_.begin(), clusters_.end(), [](auto* c) { return c->hostWork(); })) {
+        logWarning() << "Some clusters compute on the host (see SEISSOL_DEVICE_HOST_SWITCH), or"
+                     << "exchange data with clusters that do; no super-timestep gets recorded.";
+      }
     }
   }
 
