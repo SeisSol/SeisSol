@@ -70,7 +70,8 @@ void* shmemMalloc(std::size_t bytes) { return nvshmem_malloc(bytes); }
 void shmemFree(void* pointer) { nvshmem_free(pointer); }
 void shmemBarrierAll() { nvshmem_barrier_all(); }
 void advanceOnStream(const Count& count, void* stream) { nvshmem::advance(count.device, stream); }
-void signalOnStream(std::uint64_t* signal, const Count& count, int pe, void* stream) {
+void signalOnStream(
+    std::uint64_t* signal, const Count& count, std::uint64_t* /*scratch*/, int pe, void* stream) {
   nvshmem::signalCount(signal, count.device, pe, stream);
 }
 void waitOnStream(std::uint64_t* signal, const Count& count, std::uint64_t factor, void* stream) {
@@ -97,8 +98,12 @@ void checkOnStream() {
 constexpr bool CountsOnDevice = false;
 void shmemInit(MPI_Comm comm) {
   rocshmem::rocshmem_init_attr_t attr{};
-  rocshmem::rocshmem_set_attr_mpi_comm_args(&comm, &attr);
-  rocshmem::rocshmem_init_attr(rocshmem::ROCSHMEM_INIT_WITH_MPI_COMM, &attr);
+  // (read during the initialization)
+  attr.mpi_comm = &comm;
+  if (rocshmem::rocshmem_init_attr(rocshmem::ROCSHMEM_INIT_WITH_MPI_COMM, &attr) !=
+      rocshmem::ROCSHMEM_SUCCESS) {
+    logError() << "Could not initialize ROCSHMEM.";
+  }
 }
 void shmemFinalize() { rocshmem::rocshmem_finalize(); }
 int shmemPe() { return rocshmem::rocshmem_my_pe(); }
@@ -106,9 +111,17 @@ void* shmemMalloc(std::size_t bytes) { return rocshmem::rocshmem_malloc(bytes); 
 void shmemFree(void* pointer) { rocshmem::rocshmem_free(pointer); }
 void shmemBarrierAll() { rocshmem::rocshmem_barrier_all(); }
 void advanceOnStream(const Count& /*count*/, void* /*stream*/) {}
-void signalOnStream(std::uint64_t* signal, const Count& count, int pe, void* stream) {
-  rocshmem::rocshmem_signal_op_on_stream(
-      signal, count.host, rocshmem::ROCSHMEM_SIGNAL_SET, pe, static_cast<hipStream_t>(stream));
+// there is no signal operation on streams; a put of one word with a signal sets it
+void signalOnStream(
+    std::uint64_t* signal, const Count& count, std::uint64_t* scratch, int pe, void* stream) {
+  rocshmem::rocshmem_putmem_signal_on_stream(scratch,
+                                             scratch,
+                                             sizeof(std::uint64_t),
+                                             signal,
+                                             count.host,
+                                             rocshmem::ROCSHMEM_SIGNAL_SET,
+                                             pe,
+                                             static_cast<hipStream_t>(stream));
 }
 void waitOnStream(std::uint64_t* signal, const Count& count, std::uint64_t factor, void* stream) {
   rocshmem::rocshmem_signal_wait_until_on_stream(
@@ -120,18 +133,18 @@ void putSignalOnStream(void* destination,
                        std::uint64_t* signal,
                        int pe,
                        void* stream) {
-  rocshmem::rocshmem_putmem_signal_nbi_on_stream(destination,
-                                                 source,
-                                                 bytes,
-                                                 signal,
-                                                 1,
-                                                 rocshmem::ROCSHMEM_SIGNAL_ADD,
-                                                 pe,
-                                                 static_cast<hipStream_t>(stream));
+  // there is no non-blocking put with a signal on streams
+  rocshmem::rocshmem_putmem_signal_on_stream(destination,
+                                             source,
+                                             bytes,
+                                             signal,
+                                             1,
+                                             rocshmem::ROCSHMEM_SIGNAL_ADD,
+                                             pe,
+                                             static_cast<hipStream_t>(stream));
 }
-void quietOnStream(void* stream) {
-  rocshmem::rocshmem_quiet_on_stream(static_cast<hipStream_t>(stream));
-}
+// the puts on the stream have completed before the stream goes on
+void quietOnStream(void* /*stream*/) {}
 void checkOnStream() {}
 #endif
 
@@ -151,11 +164,22 @@ void* shmemMalloc(std::size_t bytes) { return ishmem_malloc(bytes); }
 void shmemFree(void* pointer) { ishmem_free(pointer); }
 void shmemBarrierAll() { ishmem_barrier_all(); }
 void advanceOnStream(const Count& /*count*/, void* /*stream*/) {}
-void signalOnStream(std::uint64_t* signal, const Count& count, int pe, void* stream) {
-  ishmemx_signal_op_on_queue(signal, count.host, ISHMEM_SIGNAL_SET, pe, queue(stream));
+// there is no signal operation on queues; a put of one word with a signal sets it
+void signalOnStream(
+    std::uint64_t* signal, const Count& count, std::uint64_t* scratch, int pe, void* stream) {
+  ishmemx_putmem_signal_nbi_on_queue(scratch,
+                                     scratch,
+                                     sizeof(std::uint64_t),
+                                     signal,
+                                     count.host,
+                                     ISHMEM_SIGNAL_SET,
+                                     pe,
+                                     queue(stream));
 }
 void waitOnStream(std::uint64_t* signal, const Count& count, std::uint64_t factor, void* stream) {
-  ishmemx_signal_wait_until_on_queue(signal, ISHMEM_CMP_GE, count.host * factor, queue(stream));
+  // (without a place for the value of the signal)
+  ishmemx_signal_wait_until_on_queue(
+      signal, ISHMEM_CMP_GE, count.host * factor, nullptr, queue(stream));
 }
 void putSignalOnStream(void* destination,
                        const void* source,
@@ -204,6 +228,7 @@ ShmemExchangeScheduler::~ShmemExchangeScheduler() {
   synchronize();
   shmemBarrierAll();
   if (window_ != nullptr) {
+    shmemFree(scratch_);
     shmemFree(arrived_);
     shmemFree(clearToSend_);
     shmemFree(window_);
@@ -239,7 +264,8 @@ void ShmemExchangeScheduler::prepare() {
   const auto signalCount = clusterCount() * clusterCount() * static_cast<std::size_t>(size_);
   clearToSend_ = static_cast<std::uint64_t*>(shmemMalloc(signalCount * sizeof(std::uint64_t)));
   arrived_ = static_cast<std::uint64_t*>(shmemMalloc(signalCount * sizeof(std::uint64_t)));
-  if (window_ == nullptr || clearToSend_ == nullptr || arrived_ == nullptr) {
+  scratch_ = static_cast<std::uint64_t*>(shmemMalloc(sizeof(std::uint64_t)));
+  if (window_ == nullptr || clearToSend_ == nullptr || arrived_ == nullptr || scratch_ == nullptr) {
     logError() << "Could not allocate the symmetric memory for the halo exchange.";
   }
   const std::vector<std::uint64_t> zeros(signalCount, 0);
@@ -298,7 +324,7 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
   // the staging window is free again: the group before has copied its data out
   if (receiver != nullptr) {
     for (const auto peer : peersOf(receiver->regions().ghost)) {
-      signalOnStream(&clearToSend_[signalIndex(from, to, rank_)], count, peer, current);
+      signalOnStream(&clearToSend_[signalIndex(from, to, rank_)], count, scratch_, peer, current);
     }
   }
 

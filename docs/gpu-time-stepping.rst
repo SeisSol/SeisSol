@@ -160,4 +160,6 @@ The ordering and the decisions of the options above are checked by unit tests,
 including simulations of devices and networks that run the enqueued work in any admissible order.
 On GPUs, these options have not been validated yet;
 compare the results of a run bitwise to the default before relying on them.
-The paths for HPE Cray MPICH, ROCSHMEM and Intel SHMEM have not been compiled yet.
+The paths for ROCSHMEM and Intel SHMEM have only been compiled against the headers of these libraries
+(rocSHMEM from its development branch of September 2026, Intel SHMEM 1.5.2), not linked or run;
+the path for HPE Cray MPICH has not been compiled yet.

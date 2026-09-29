@@ -88,6 +88,8 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   char* window_{nullptr};
   std::uint64_t* clearToSend_{nullptr};
   std::uint64_t* arrived_{nullptr};
+  // a word in symmetric memory, for libraries that set signals by putting it
+  std::uint64_t* scratch_{nullptr};
   // for each direction: the count of its current exchange, in device memory
   std::uint64_t* counts_{nullptr};
 };
