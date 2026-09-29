@@ -18,6 +18,7 @@
 #include "Equations/Setup.h"
 #include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
@@ -836,9 +837,9 @@ TEST_CASE("Face rotation structure") {
     if (frame.determinant() < 0.0) {
       frame.col(2) *= -1.0;
     }
-    const VrtxCoords normal{frame(0, 0), frame(1, 0), frame(2, 0)};
-    const VrtxCoords tangent1{frame(0, 1), frame(1, 1), frame(2, 1)};
-    const VrtxCoords tangent2{frame(0, 2), frame(1, 2), frame(2, 2)};
+    const CoordinateT normal{frame(0, 0), frame(1, 0), frame(2, 0)};
+    const CoordinateT tangent1{frame(0, 1), frame(1, 1), frame(2, 1)};
+    const CoordinateT tangent2{frame(0, 2), frame(1, 2), frame(2, 2)};
 
     alignas(Alignment) std::array<real, seissol::tensor::T::size()> forwardData{};
     alignas(Alignment) std::array<real, seissol::tensor::Tinv::size()> inverseData{};

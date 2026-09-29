@@ -56,7 +56,7 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
 ModelParameters readModelParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
 
-  const auto boundaryFileName = reader->readPath("boundaryfileName");
+  const auto boundaryFileName = reader->readPath("boundaryfilename");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
   std::vector<std::string> plasticityFileNames(seissol::multisim::NumSimulations);

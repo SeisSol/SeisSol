@@ -10,7 +10,9 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIME_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIME_H_
 
+#include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
 
@@ -30,7 +32,6 @@ class Spacetime : public SpacetimeKernel {
                           LTS::Layer& layer,
                           LocalTmp& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
-                          recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
@@ -38,6 +39,7 @@ class Spacetime : public SpacetimeKernel {
 
   protected:
   kernel::derivative krnlPrototype_;
+  kernel::fsgKernel fsgKernelPrototype_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype_;

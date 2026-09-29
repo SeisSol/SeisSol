@@ -8,6 +8,8 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_SOLVER_H_
 
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Model/OperatorLayout.h"
 
 #include <cstddef>
 #include <variant>
@@ -35,6 +37,18 @@ struct Solver {
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
+
+  static constexpr FaceTypeSupport implementsFaceType(FaceType faceType) {
+    if (NodalFlux &&
+        (faceType == FaceType::Dirichlet || faceType == FaceType::FreeSurfaceGravity)) {
+      // The map of these conditions is folded into the flux matrix of the face
+      // (foldDirichlet, foldFreeSurfaceGravity), and a flux that reads the
+      // material at the nodes of the face does not apply that matrix.
+      return faceTypeUnsupported("the boundary map is folded into a flux matrix that a flux "
+                                 "varying along the face does not read");
+    }
+    return faceTypeSupported();
+  }
 
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();

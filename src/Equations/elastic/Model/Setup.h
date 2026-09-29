@@ -43,6 +43,31 @@ struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMate
 
   static constexpr auto CoefficientEntries = generated::ElasticCoefficientEntries;
 
+  static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
+    if (faceType == FaceType::FreeSurfaceGravity) {
+      // the surface elevation ODE closes wherever the cell carries no shear, which is decided
+      // per cell rather than for the material model as a whole
+      return faceTypeSupported();
+    }
+    return genericFaceTypeSupport(faceType);
+  }
+
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    if (faceType == FaceType::FreeSurfaceGravity) {
+      return faceTypeUnsupported("the surface elevation ODE is closed with a single pressure and a "
+                                 "scalar acoustic impedance, so the cell behind the face has to "
+                                 "have a vanishing shear modulus");
+    }
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType faceType, const ElasticMaterial& material) {
+    if (faceType == FaceType::FreeSurfaceGravity) {
+      return testIfAcoustic(material.mu);
+    }
+    return true;
+  }
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const ElasticMaterial& material, unsigned dim, T& matM) {

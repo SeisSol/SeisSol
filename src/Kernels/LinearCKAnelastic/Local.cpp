@@ -10,6 +10,8 @@
 #include "Local.h"
 
 #include "Common/Marker.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
@@ -34,6 +36,10 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
   // the relaxation reads constants too where it is formed at the samples
   localKernelPrototype_.bindGlobals(*global.onHost);
+
+  fsgFlux_.bindGlobals(*global.onHost);
+  dirichletFlux_.bindGlobals(*global.onHost);
+  nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
@@ -67,11 +73,63 @@ void Local::computeIntegral(
 
   volKrnl.execute();
 
+  const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
+  const auto& materialData = data.get<LTS::Material>();
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
       kernels::bindLocalFluxOperands(lfKrnl, data.get<LTS::LocalIntegration>(), face);
       lfKrnl.execute(face);
+    }
+
+    switch (data.get<LTS::CellInformation>().faceTypes[face]) {
+    case FaceType::FreeSurfaceGravity: {
+      auto kernel = fsgFlux_;
+      kernel.g2m = -2 * this->gravitationalAcceleration_;
+
+      const real localRho = materialData.local->getDensity();
+      kernel.rho = &localRho;
+      kernel.averageNormalDisplacement = tmp.nodalAvgDisplacements[face].data();
+
+      kernel.Qext = Qext;
+      kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+
+      kernel.execute(face);
+      break;
+    }
+    case FaceType::Dirichlet: {
+      auto kernel = dirichletFlux_;
+      kernel.dirichletOffset = cellBoundaryMapping[face].dirichletOffset;
+      kernel.dt = timeStepWidth;
+
+      kernel.Qext = Qext;
+      kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+
+      kernel.execute(face);
+      break;
+    }
+    case FaceType::Analytical: {
+      assert(initConds_ != nullptr);
+      const auto applyAnalyticalSolution = kernels::ApplyAnalyticalSolution(initConds_, data);
+
+      alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+      analyticalBoundary_.evaluate(cellBoundaryMapping[face],
+                                   applyAnalyticalSolution,
+                                   dofsFaceBoundaryNodal,
+                                   time,
+                                   timeStepWidth);
+
+      auto nodalLfKrnl = nodalLfKrnlPrototype_;
+      nodalLfKrnl.Qext = Qext;
+      nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+      nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+      nodalLfKrnl.execute(face);
+      break;
+    }
+    default:
+      // No boundary condition.
+      break;
     }
   }
 
@@ -107,6 +165,19 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
       if (faceTypes[face] != FaceType::DynamicRupture) {
         estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
       }
+      switch (faceTypes[face]) {
+      case FaceType::FreeSurfaceGravity:
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux>(face);
+        break;
+      case FaceType::Dirichlet:
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux>(face);
+        break;
+      case FaceType::Analytical:
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
+        break;
+      default:
+        break;
+      }
     }
 
     estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
@@ -131,7 +202,6 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
 
 void Local::computeBatchedIntegral(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {

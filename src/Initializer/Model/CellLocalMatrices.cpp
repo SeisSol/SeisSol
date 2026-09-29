@@ -15,11 +15,13 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BoundaryHelper.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -29,7 +31,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
-#include "Numerical/Transformation.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -50,7 +51,7 @@ namespace {
 void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,
-                   const double grad[3],
+                   const std::array<double, Cell::Dim>& grad,
                    real* starMatrix) {
   for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
@@ -238,6 +239,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
     auto* nodalMaterial = NodalMaterial ? layer.var<LTS::NodalMaterialData>() : nullptr;
 
 #pragma omp parallel
@@ -286,28 +288,28 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         // NOLINTNEXTLINE
         auto& materialLocal = materialData[cell];
 
-        double x[Cell::NumVertices];
-        double y[Cell::NumVertices];
-        double z[Cell::NumVertices];
-        double gradXi[3];
-        double gradEta[3];
-        double gradZeta[3];
+        std::array<double, Cell::Dim> gradXi{};
+        std::array<double, Cell::Dim> gradEta{};
+        std::array<double, Cell::Dim> gradZeta{};
 
-        // Iterate over all 4 vertices of the tetrahedron
-        for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
-          const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
-          x[vertex] = coords[0];
-          y[vertex] = coords[1];
-          z[vertex] = coords[2];
+        const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
+
+        // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
+        // hence, you may use an AffineTransform with an arbitrary point here; but nothing more.
+        const auto grad = transform.refToSpaceJacobianInverse(
+            seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
+
+        for (std::size_t i = 0; i < Cell::Dim; ++i) {
+          gradXi[i] = grad(0, i);
+          gradEta[i] = grad(1, i);
+          gradZeta[i] = grad(2, i);
         }
 
-        seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-            x, y, z, gradXi, gradEta, gradZeta);
-
         if constexpr (FactoredStar) {
-          const double* const gradients[3] = {gradXi, gradEta, gradZeta};
-          for (std::size_t dim = 0; dim < 3; ++dim) {
-            for (std::size_t component = 0; component < 3; ++component) {
+          const std::array<std::array<double, Cell::Dim>, Cell::Dim> gradients{
+              gradXi, gradEta, gradZeta};
+          for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+            for (std::size_t component = 0; component < Cell::Dim; ++component) {
               localIntegration[cell].referenceGradients[dim][component] = gradients[dim][component];
             }
           }
@@ -357,9 +359,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-          VrtxCoords normal;
-          VrtxCoords tangent1;
-          VrtxCoords tangent2;
+          CoordinateT normal{};
+          CoordinateT tangent1{};
+          CoordinateT tangent2{};
           MeshTools::normalAndTangents(
               elements[meshId], side, vertices, normal, tangent1, tangent2);
           const double surface = MeshTools::surface(normal);
@@ -441,17 +443,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto fluxDefault =
               isSpecialBC(side) ? modelParameters.fluxNearFault : modelParameters.flux;
 
-          // exclude boundary conditions
-          static const std::vector<FaceType> GodunovBoundaryConditions = {
-              FaceType::FreeSurface,
-              FaceType::FreeSurfaceGravity,
-              FaceType::Analytical,
-              FaceType::Outflow};
-
-          const auto enforceGodunovBc = std::any_of(
-              GodunovBoundaryConditions.begin(),
-              GodunovBoundaryConditions.end(),
-              [&](auto condition) { return condition == cellInformation[cell].faceTypes[side]; });
+          const auto enforceGodunovBc =
+              boundaryProperties(cellInformation[cell].faceTypes[side]).enforcesGodunovFlux;
 
           const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
 
@@ -551,12 +544,35 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           neighKrnl.T = matTData;
           neighKrnl.Tinv = matTinvData;
           neighKrnl.star(0) = matATtildeData;
-          if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
-              cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
-            // already rotated
+          if (boundaryProperties(cellInformation[cell].faceTypes[side]).usesFaceAlignedGhostState) {
             neighKrnl.Tinv = identityTinvData;
           }
           neighKrnl.execute();
+
+          if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
+            // the Dirichlet map is constant over the face, so it becomes part of
+            // the local flux solver; what is left of the boundary condition is
+            // the constant offset
+            kernel::foldDirichlet foldKrnl;
+            foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
+            foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+            foldKrnl.Tinv = matTinvData;
+            foldKrnl.dirichletMap = boundaryMapping[cell][side].dirichletMap;
+            foldKrnl.execute();
+          }
+
+          if (cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
+            // the free-surface-gravity map is constant over the face, so it becomes
+            // part of the local flux solver; what is left of the boundary condition
+            // is the displacement-driven offset
+            kernel::foldFreeSurfaceGravity foldKrnl;
+            // fsgMap is a constant; only the pool holds it
+            foldKrnl.bindGlobals(global);
+            foldKrnl.AplusT = localIntegration[cell].nApNm1[side];
+            foldKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+            foldKrnl.Tinv = matTinvData;
+            foldKrnl.execute();
+          }
         }
 
         seissol::model::initializeSpecificLocalData(

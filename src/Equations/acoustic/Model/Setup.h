@@ -36,6 +36,12 @@ struct MaterialSetup<AcousticMaterial> : public MaterialSetupDefaults<AcousticMa
 
   static constexpr auto CoefficientEntries = generated::AcousticCoefficientEntries;
 
+  static constexpr FaceTypeSupport supportsFaceType(FaceType /*faceType*/) {
+    // The free surface with gravity is formulated for exactly this material: one pressure,
+    // no shear waves, impedance sqrt(K rho).
+    return faceTypeSupported();
+  }
+
   template <typename T>
   static void
       getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& matM) {

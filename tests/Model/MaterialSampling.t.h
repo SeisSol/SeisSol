@@ -208,9 +208,9 @@ TEST_CASE("Material at the points of the plastic strain and of the volume quadra
     constexpr std::size_t Points = PerDirection * PerDirection * PerDirection;
     static_assert(tensor::materialToQuadrature::Shape[0] == Points);
     static_assert(tensor::materialToQuadrature::Shape[1] == Samples);
-    double points[Points][3]{};
+    std::array<std::array<double, 3>, Points> points{};
     double weights[Points]{};
-    seissol::quadrature::TetrahedronQuadrature(points, weights, PerDirection);
+    seissol::quadrature::TetrahedronQuadrature(points.data(), weights, PerDirection);
     check(init::materialToQuadrature::view::create(init::materialToQuadrature::Values),
           Points,
           [&](std::size_t point) {

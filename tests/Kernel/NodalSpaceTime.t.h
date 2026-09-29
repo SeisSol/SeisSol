@@ -27,6 +27,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
@@ -34,7 +35,6 @@
 #include "Kernels/StarOperands.h"
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
-#include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -74,7 +74,7 @@ Eigen::MatrixXd denseOf(ViewT view, std::size_t rows, std::size_t columns) {
 
 /// The star matrix of one reference direction for one material.
 inline Eigen::MatrixXd starOf(const seissol::model::PoroElasticMaterial& material,
-                              const double gradient[3]) {
+                              const std::array<double, Cell::Dim>& gradient) {
   constexpr std::size_t NQ = seissol::model::PoroElasticMaterial::NumQuantities;
   Eigen::MatrixXd star = Eigen::MatrixXd::Zero(NQ, NQ);
   for (std::size_t dim = 0; dim < 3; ++dim) {
@@ -111,19 +111,20 @@ TEST_CASE("Space time predictor at the material samples" * doctest::test_suite("
       std::mt19937 rng(20260927);
       std::uniform_real_distribution<real> unit(0.0, 1.0);
 
-      double x[Cell::NumVertices];
-      double y[Cell::NumVertices];
-      double z[Cell::NumVertices];
-      for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
-        x[vertex] = unit(rng);
-        y[vertex] = unit(rng);
-        z[vertex] = unit(rng);
+      std::array<CoordinateT, Cell::NumVertices> vertices{};
+      for (auto& vertex : vertices) {
+        vertex = CoordinateT{unit(rng), unit(rng), unit(rng)};
       }
-      double gradXi[3];
-      double gradEta[3];
-      double gradZeta[3];
-      transformations::tetrahedronGlobalToReferenceJacobian(x, y, z, gradXi, gradEta, gradZeta);
-      const double* const gradients[3] = {gradXi, gradEta, gradZeta};
+      // row dim holds the gradient of the dim-th reference coordinate
+      const auto jacobianInverse =
+          seissol::geometry::AffineTransform(vertices).refToSpaceJacobianInverse(
+              seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
+      std::array<std::array<double, Cell::Dim>, Cell::Dim> gradients{};
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+        for (std::size_t component = 0; component < Cell::Dim; ++component) {
+          gradients[dim][component] = jacobianInverse(dim, component);
+        }
+      }
 
       // the cell's own material, and one per sample point around it
       const auto cellMaterial = drawMaterial(1.0);

@@ -12,15 +12,16 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/STP/Setup.h"
 #include "Kernels/StarOperands.h"
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
-#include "Numerical/Transformation.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -41,8 +42,11 @@ class SpaceTimePredictorTestFixture {
   real zMatrix[seissol::model::MaterialT::NumQuantities][tensor::Zinv::size(0)];
   LocalIntegrationData localIntegration;
 
-  void setStarMatrix(
-      const real* at, const real* bt, const real* ct, const double grad[3], real* starMatrix) {
+  void setStarMatrix(const real* at,
+                     const real* bt,
+                     const real* ct,
+                     const std::array<double, Cell::Dim>& grad,
+                     real* starMatrix) {
     for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
       starMatrix[idx] = grad[0] * at[idx];
     }
@@ -65,23 +69,23 @@ class SpaceTimePredictorTestFixture {
     // NOLINTNEXTLINE (-cert-dcl59-cpp)
     std::mt19937 generator(20210109); // Standard mersenne_twister_engine seeded with today's date
     std::uniform_real_distribution<real> distribution(0, 1);
-    double x[] = {distribution(generator),
-                  distribution(generator),
-                  distribution(generator),
-                  distribution(generator)};
-    double y[] = {distribution(generator),
-                  distribution(generator),
-                  distribution(generator),
-                  distribution(generator)};
-    double z[] = {distribution(generator),
-                  distribution(generator),
-                  distribution(generator),
-                  distribution(generator)};
-    double gradXi[3];
-    double gradEta[3];
-    double gradZeta[3];
+    std::array<CoordinateT, Cell::NumVertices> vertices{};
+    for (auto& vertex : vertices) {
+      vertex =
+          CoordinateT{distribution(generator), distribution(generator), distribution(generator)};
+    }
 
-    transformations::tetrahedronGlobalToReferenceJacobian(x, y, z, gradXi, gradEta, gradZeta);
+    const auto grad = seissol::geometry::AffineTransform(vertices).refToSpaceJacobianInverse(
+        seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
+
+    std::array<double, Cell::Dim> gradXi{};
+    std::array<double, Cell::Dim> gradEta{};
+    std::array<double, Cell::Dim> gradZeta{};
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
+      gradXi[i] = grad(0, i);
+      gradEta[i] = grad(1, i);
+      gradZeta[i] = grad(2, i);
+    }
 
     // prepare starmatrices
     real atData[tensor::star::size(0)];
@@ -100,11 +104,10 @@ class SpaceTimePredictorTestFixture {
     // The three matrices above state the system the predictor has to solve;
     // what a cell hands the kernel is whatever that build has it carry, so
     // fill both and let the binding pick.
-    const double* const gradients[3] = {gradXi, gradEta, gradZeta};
     if constexpr (FactoredStar) {
-      for (std::size_t dim = 0; dim < 3; ++dim) {
-        for (std::size_t component = 0; component < 3; ++component) {
-          localIntegration.referenceGradients[dim][component] = gradients[dim][component];
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+        for (std::size_t component = 0; component < Cell::Dim; ++component) {
+          localIntegration.referenceGradients[dim][component] = grad(dim, component);
         }
       }
       const auto coefficients = seissol::model::getStarCoefficients(material);

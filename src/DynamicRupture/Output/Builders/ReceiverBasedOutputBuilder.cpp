@@ -18,6 +18,8 @@
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -119,13 +121,14 @@ void ReceiverBasedOutputBuilder::initTopology() {
       continue;
     }
 
-    const auto faceKey = faceToLtsMap_->get(receiver.faultFaceIndex).global;
+    const auto faceKey = faceToLtsMap_->get(receiver.faultFaceIndex.value()).global;
     if (faceIds.find(faceKey) == faceIds.end()) {
       faceIds[faceKey] = faceBuckets.size();
       auto& bucket = faceBuckets.emplace_back();
-      bucket.faultFaceIndex = static_cast<std::size_t>(receiver.faultFaceIndex);
-      bucket.elementIndex = static_cast<std::size_t>(receiver.elementIndex);
-      bucket.localFaceSideId = static_cast<std::size_t>(receiver.localFaceSideId);
+      bucket.faultFaceIndex = receiver.faultFaceIndex.value();
+      bucket.elementIndex = receiver.elementIndex.value();
+      bucket.localFaceSideId =
+          static_cast<std::size_t>(static_cast<std::uint8_t>(receiver.localFaceSideId.value()));
     }
     auto& faceBucket = faceBuckets[faceIds.at(faceKey)];
 
@@ -139,8 +142,7 @@ void ReceiverBasedOutputBuilder::initTopology() {
     // one -- a point given twice in the parameter file, or a corner which two sub-triangles of the
     // refined elementwise output share. It starts a point of its own, so that the elementwise
     // receivers keep the cell-major order which the elementwise writer indexes them by.
-    const std::array<double, 3> coords{
-        receiver.global.coords[0], receiver.global.coords[1], receiver.global.coords[2]};
+    const std::array<double, 3> coords = receiver.global;
     const auto existing = faceBucket.pointIds.find(coords);
     bool joinsExisting = existing != faceBucket.pointIds.end();
     if (joinsExisting) {
@@ -200,21 +202,18 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   for (std::size_t faceId = 0; faceId < topology.faceCount(); ++faceId) {
     const auto& face = topology.faces[faceId];
-    const auto elementIndex = faultInfo[face.faultFaceIndex].element;
+    assert(faultInfo[face.faultFaceIndex].element.hasValue());
+    const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
     const auto& element = elementsInfo[elementIndex];
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
 
-    const VrtxCoords* elemCoords[Cell::NumVertices]{};
-    for (size_t vertexIdx = 0; vertexIdx < Cell::NumVertices; ++vertexIdx) {
-      const auto address = element.vertices[vertexIdx];
-      elemCoords[vertexIdx] = &(verticesInfo[address].coords);
-    }
+    const auto transform = geometry::AffineTransform::fromMeshCell(elementIndex, *meshReader_);
 
-    const VrtxCoords* neighborElemCoords[Cell::NumVertices]{};
-    if (neighborElementIndex >= 0) {
+    std::array<CoordinateT, Cell::NumVertices> neighborElemCoords{};
+    if (neighborElementIndex.hasValue()) {
       for (size_t vertexIdx = 0; vertexIdx < Cell::NumVertices; ++vertexIdx) {
-        const auto address = elementsInfo[neighborElementIndex].vertices[vertexIdx];
-        neighborElemCoords[vertexIdx] = &(verticesInfo[address].coords);
+        const auto address = elementsInfo[neighborElementIndex.value()].vertices[vertexIdx];
+        neighborElemCoords[vertexIdx] = verticesInfo[address].coords;
       }
     } else {
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
@@ -225,14 +224,16 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto neighborIndex = element.mpiIndices[faultSide];
       for (size_t vertexIdx = 0; vertexIdx < Cell::NumVertices; ++vertexIdx) {
         const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
-        neighborElemCoords[vertexIdx] = reinterpret_cast<const double (*)[3]>(array3d);
+        neighborElemCoords[vertexIdx] = array3d;
       }
     }
+
+    const auto neighborTransform = geometry::AffineTransform(neighborElemCoords);
 
     for (const auto pointId : topology.pointsOf(faceId)) {
       const auto& receiver = outputData_->receivers[topology.representative(pointId)];
       topology.points[pointId].basisFunctions =
-          getPlusMinusBasisFunctions(receiver.global.coords, elemCoords, neighborElemCoords);
+          getPlusMinusBasisFunctions(receiver.global, transform, neighborTransform);
     }
   }
 }
@@ -250,7 +251,8 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
   // The gather arrays are built per face: a face needs the derivatives of its own element and of
   // its neighbour, no matter how many output points sit on it.
   for (auto& face : topology.faces) {
-    const auto elementIndex = faultInfo[face.faultFaceIndex].element;
+    assert(faultInfo[face.faultFaceIndex].element.hasValue());
+    const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
     const auto& element = elementsInfo[elementIndex];
 
     if (elementIndices.find(elementIndex) == elementIndices.end()) {
@@ -259,9 +261,9 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
     face.deviceDataPlus = elementIndices.at(elementIndex);
 
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
-    if (neighborElementIndex >= 0) {
-      if (elementIndices.find(neighborElementIndex) == elementIndices.end()) {
-        elementIndices[neighborElementIndex] = elementIndices.size();
+    if (neighborElementIndex.hasValue()) {
+      if (elementIndices.find(neighborElementIndex.value()) == elementIndices.end()) {
+        elementIndices[neighborElementIndex.value()] = elementIndices.size();
       }
     } else {
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
@@ -279,10 +281,10 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
   // local elements have been seen
   for (auto& face : topology.faces) {
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
-    if (neighborElementIndex >= 0) {
-      face.deviceDataMinus = elementIndices.at(neighborElementIndex);
+    if (neighborElementIndex.hasValue()) {
+      face.deviceDataMinus = elementIndices.at(neighborElementIndex.value());
     } else {
-      const auto elementIndex = faultInfo[face.faultFaceIndex].element;
+      const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
       const auto& element = elementsInfo[elementIndex];
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
       const auto ghostIndex = std::pair<int, std::size_t>(element.neighborRanks[faultSide],
@@ -348,13 +350,12 @@ void ReceiverBasedOutputBuilder::initFaultDirections() {
     auto& faultDirections = face.faultDirections;
     const auto globalIndex = face.faultFaceIndex;
 
-    std::copy_n(&faultInfo[globalIndex].normal[0], 3, faultDirections.faceNormal.begin());
-    std::copy_n(&faultInfo[globalIndex].tangent1[0], 3, faultDirections.tangent1.begin());
-    std::copy_n(&faultInfo[globalIndex].tangent2[0], 3, faultDirections.tangent2.begin());
+    std::copy_n(faultInfo[globalIndex].normal.data(), 3, faultDirections.faceNormal.begin());
+    std::copy_n(faultInfo[globalIndex].tangent1.data(), 3, faultDirections.tangent1.begin());
+    std::copy_n(faultInfo[globalIndex].tangent2.data(), 3, faultDirections.tangent2.begin());
 
-    misc::computeStrikeAndDipVectors(faultDirections.faceNormal.data(),
-                                     faultDirections.strike.data(),
-                                     faultDirections.dip.data());
+    misc::computeStrikeAndDipVectors(
+        faultDirections.faceNormal, faultDirections.strike, faultDirections.dip);
   }
 }
 
@@ -373,14 +374,12 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
     {
       auto* memorySpace = face.stressGlbToDipStrikeAligned.data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      inverseSymmetricTensor2RotationMatrix(
-          faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
+      inverseSymmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
     }
     {
       auto* memorySpace = face.stressFaceAlignedToGlb.data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      symmetricTensor2RotationMatrix(
-          faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
+      symmetricTensor2RotationMatrix(faceNormal, tangent1, tangent2, rotationMatrixView, 0, 0);
     }
     {
       // the face-aligned-to-global direction is not part of the output; it is only needed to
@@ -390,7 +389,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
       auto glbToFaceAligned = init::Tinv::view::create(face.glbToFaceAlignedData.data());
 
       seissol::model::getFaceRotationMatrix(
-          faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
+          faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
     }
   }
 }
@@ -411,31 +410,22 @@ void ReceiverBasedOutputBuilder::initOutputVariables(
 
 void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   const auto& faultInfo = meshReader_->getFault();
-  const auto& verticesInfo = meshReader_->getVertices();
-  const auto& elementsInfo = meshReader_->getElements();
 
   for (auto& outputFace : outputData_->topology.faces) {
-    const auto& element = elementsInfo[outputFace.elementIndex];
-    auto face =
-        getGlobalTriangle(static_cast<int>(outputFace.localFaceSideId), element, verticesInfo);
+    // the two edge vectors spanning the face are the columns of its Jacobian
+    const auto faceJacobian = geometry::AffineFaceTransform::fromMeshCell(
+                                  outputFace.elementIndex, outputFace.localFaceSideId, *meshReader_)
+                                  .refToSpaceJacobian(geometry::FaceTransform::FaceVectorT::Zero());
 
-    VrtxCoords xab;
-    VrtxCoords xac;
-    {
-      constexpr size_t X{0};
-      constexpr size_t Y{1};
-      constexpr size_t Z{2};
-      xab[X] = face.point(1)[X] - face.point(0)[X];
-      xab[Y] = face.point(1)[Y] - face.point(0)[Y];
-      xab[Z] = face.point(1)[Z] - face.point(0)[Z];
-
-      xac[X] = face.point(2)[X] - face.point(0)[X];
-      xac[Y] = face.point(2)[Y] - face.point(0)[Y];
-      xac[Z] = face.point(2)[Z] - face.point(0)[Z];
+    CoordinateT xab{};
+    CoordinateT xac{};
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      xab[d] = faceJacobian(d, 0);
+      xac[d] = faceJacobian(d, 1);
     }
 
-    const auto* tangent1 = faultInfo[outputFace.faultFaceIndex].tangent1;
-    const auto* tangent2 = faultInfo[outputFace.faultFaceIndex].tangent2;
+    const auto& tangent1 = faultInfo[outputFace.faultFaceIndex].tangent1;
+    const auto& tangent2 = faultInfo[outputFace.faultFaceIndex].tangent2;
 
     Eigen::Matrix<real, 2, 2> matrix;
     matrix(0, 0) = MeshTools::dot(tangent1, xab);
@@ -465,7 +455,7 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
   auto& geoPoints = outputData_->receivers;
   const auto& faultInfo = meshReader_->getFault();
   for (auto& geoPoint : geoPoints) {
-    geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex].tag;
+    geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex.value()].tag;
   }
 }
 

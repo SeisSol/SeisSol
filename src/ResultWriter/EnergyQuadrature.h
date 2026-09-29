@@ -70,8 +70,8 @@ class EnergyQuadrature {
     constexpr auto PerDirection = ConvergenceOrder + 1;
     static_assert(PerDirection * PerDirection * PerDirection == Points,
                   "The material is interpolated to another quadrature than the one used here.");
-    double points[Points][3]{};
-    seissol::quadrature::TetrahedronQuadrature(points, weights_.data(), PerDirection);
+    std::array<std::array<double, 3>, Points> points{};
+    seissol::quadrature::TetrahedronQuadrature(points.data(), weights_.data(), PerDirection);
 
     const auto interpolation =
         init::materialToQuadrature::view::create(init::materialToQuadrature::Values);

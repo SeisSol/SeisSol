@@ -170,11 +170,11 @@ void ReceiverOutput::calcFaultOutput(
         stePlus = outputData->deviceDataCollector->get(outFace.deviceDataPlus);
         steMinus = outputData->deviceDataCollector->get(outFace.deviceDataMinus);
       } else {
-        getDofs(stePlus, faultInfo.element);
-        if (faultInfo.neighborElement >= 0) {
-          getDofs(steMinus, faultInfo.neighborElement);
+        getDofs(stePlus, faultInfo.element.value());
+        if (faultInfo.neighborElement.hasValue()) {
+          getDofs(steMinus, faultInfo.neighborElement.value());
         } else {
-          getNeighborDofs(steMinus, faultInfo.element, faultInfo.side);
+          getNeighborDofs(steMinus, faultInfo.element.value(), faultInfo.side);
         }
       }
 
@@ -379,11 +379,11 @@ void ReceiverOutput::calcFaultOutput(
 
         auto& slipVectors = std::get<VariableID::Slip>(outputData->vars);
         if (slipVectors.isActive) {
-          VrtxCoords crossProduct = {0.0, 0.0, 0.0};
-          MeshTools::cross(strike.data(), tangent1.data(), crossProduct);
+          CoordinateT crossProduct = {0.0, 0.0, 0.0};
+          MeshTools::cross(strike, tangent1, crossProduct);
 
-          const double cos1t = MeshTools::dot(strike.data(), tangent1.data());
-          const double scalarProd = MeshTools::dot(crossProduct, normal.data());
+          const double cos1t = MeshTools::dot(strike, tangent1);
+          const double scalarProd = MeshTools::dot(crossProduct, normal);
 
           // Note: cos1t**2 can be greater than 1.0 because of rounding errors -> min
           double sin1t = std::sqrt(1.0 - std::min(1.0, cos1t * cos1t));

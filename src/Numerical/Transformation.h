@@ -9,59 +9,22 @@
 #ifndef SEISSOL_SRC_NUMERICAL_TRANSFORMATION_H_
 #define SEISSOL_SRC_NUMERICAL_TRANSFORMATION_H_
 
+#include "Common/Constants.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Typedefs.h"
 
 #include <Eigen/Dense>
+#include <cstdint>
 #include <yateto.h>
 
 namespace seissol::transformations {
 /**
- * Calculates the global coordinates from
- * reference tetrahedron coordinates.
- */
-void tetrahedronReferenceToGlobal(const double v0[3],
-                                  const double v1[3],
-                                  const double v2[3],
-                                  const double v3[3],
-                                  const double xiEtaZeta[3],
-                                  double xyz[3]);
-
-Eigen::Vector3d tetrahedronReferenceToGlobal(const Eigen::Vector3d& v0,
-                                             const Eigen::Vector3d& v1,
-                                             const Eigen::Vector3d& v2,
-                                             const Eigen::Vector3d& v3,
-                                             const double xiEtaZeta[3]);
-
-/**
- * Calculates the reference tetrahedron coordinates from
- * global tetrahedron coordinates.
- */
-Eigen::Vector3d tetrahedronGlobalToReference(const double v0[3],
-                                             const double v1[3],
-                                             const double v2[3],
-                                             const double v3[3],
-                                             const Eigen::Vector3d& xyz);
-
-/**
- * Calculates the Jacobian for the coordinate transformation
- * xi(x, y, z), eta(x, y, z), zeta(x, y, z)
- * from a global tetrahedron to the reference tetrahedron.
- **/
-void tetrahedronGlobalToReferenceJacobian(const double iX[4],
-                                          const double iY[4],
-                                          const double iZ[4],
-                                          double oGradXi[3],
-                                          double oGradEta[3],
-                                          double oGradZeta[3]);
-
-/**
  * Inverse of Tensor1RotationMatrix().
  **/
 template <typename ViewT>
-void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
-                                  const VrtxCoords iTangent1,
-                                  const VrtxCoords iTangent2,
+void inverseTensor1RotationMatrix(const CoordinateT& iNormal,
+                                  const CoordinateT& iTangent1,
+                                  const CoordinateT& iTangent2,
                                   ViewT& oTinv,
                                   std::uint32_t row = 0,
                                   std::uint32_t col = 0);
@@ -73,9 +36,9 @@ void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
  * u' = T*u
  **/
 template <typename ViewT>
-void tensor1RotationMatrix(const VrtxCoords iNormal,
-                           const VrtxCoords iTangent1,
-                           const VrtxCoords iTangent2,
+void tensor1RotationMatrix(const CoordinateT& iNormal,
+                           const CoordinateT& iTangent1,
+                           const CoordinateT& iTangent2,
                            ViewT& oT,
                            std::uint32_t row = 0,
                            std::uint32_t col = 0);
@@ -84,9 +47,9 @@ void tensor1RotationMatrix(const VrtxCoords iNormal,
  * Inverse of SymmetricTensor2RotationMatrix().
  **/
 template <typename ViewT>
-void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                           const VrtxCoords iTangent1,
-                                           const VrtxCoords iTangent2,
+void inverseSymmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                           const CoordinateT& iTangent1,
+                                           const CoordinateT& iTangent2,
                                            ViewT& oTinv,
                                            std::uint32_t row = 0,
                                            std::uint32_t col = 0);
@@ -98,15 +61,15 @@ void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
  * u' = T*u
  **/
 template <typename ViewT>
-void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                    const VrtxCoords iTangent1,
-                                    const VrtxCoords iTangent2,
+void symmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                    const CoordinateT& iTangent1,
+                                    const CoordinateT& iTangent2,
                                     ViewT& oTinv,
                                     std::uint32_t row = 0,
                                     std::uint32_t col = 0);
 
 /*
- * The four writers above are defined here rather than in the translation unit,
+ * The four writers above are defined here rather than in a translation unit,
  * because the view they write into is whichever one the code generator picked
  * for T and Tinv -- dense or pattern-only -- while a caller outside that pair
  * brings its own dense 6x6. A list of explicit instantiations would have to
@@ -114,9 +77,9 @@ void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
  */
 
 template <typename ViewT>
-void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
-                                  const VrtxCoords iTangent1,
-                                  const VrtxCoords iTangent2,
+void inverseTensor1RotationMatrix(const CoordinateT& iNormal,
+                                  const CoordinateT& iTangent1,
+                                  const CoordinateT& iTangent2,
                                   ViewT& oTinv,
                                   std::uint32_t row,
                                   std::uint32_t col) {
@@ -128,9 +91,9 @@ void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
 }
 
 template <typename ViewT>
-void tensor1RotationMatrix(const VrtxCoords iNormal,
-                           const VrtxCoords iTangent1,
-                           const VrtxCoords iTangent2,
+void tensor1RotationMatrix(const CoordinateT& iNormal,
+                           const CoordinateT& iTangent1,
+                           const CoordinateT& iTangent2,
                            ViewT& oT,
                            std::uint32_t row,
                            std::uint32_t col) {
@@ -142,9 +105,9 @@ void tensor1RotationMatrix(const VrtxCoords iNormal,
 }
 
 template <typename ViewT>
-void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                    const VrtxCoords iTangent1,
-                                    const VrtxCoords iTangent2,
+void symmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                    const CoordinateT& iTangent1,
+                                    const CoordinateT& iTangent2,
                                     ViewT& oT,
                                     std::uint32_t row,
                                     std::uint32_t col) {
@@ -197,9 +160,9 @@ void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
 }
 
 template <typename ViewT>
-void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                           const VrtxCoords iTangent1,
-                                           const VrtxCoords iTangent2,
+void inverseSymmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                           const CoordinateT& iTangent1,
+                                           const CoordinateT& iTangent2,
                                            ViewT& oTinv,
                                            std::uint32_t row,
                                            std::uint32_t col) {
@@ -251,11 +214,6 @@ void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
   oTinv(row + 5, col + 5) = nz * tx + nx * tz;
 }
 
-void chiTau2XiEtaZeta(std::uint32_t face,
-                      const double chiTau[2],
-                      double xiEtaZeta[3],
-                      std::int32_t sideOrientation = -1);
-void XiEtaZeta2chiTau(std::uint32_t face, const double xiEtaZeta[3], double chiTau[2]);
 } // namespace seissol::transformations
 
 #endif // SEISSOL_SRC_NUMERICAL_TRANSFORMATION_H_

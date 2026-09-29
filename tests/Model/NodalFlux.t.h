@@ -27,6 +27,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
@@ -96,9 +97,9 @@ void compareAgainstModal(FaceType faceType) {
       if (frame.determinant() < 0) {
         frame.col(2) *= -1.0;
       }
-      const VrtxCoords normal{frame(0, 0), frame(1, 0), frame(2, 0)};
-      const VrtxCoords tangent1{frame(0, 1), frame(1, 1), frame(2, 1)};
-      const VrtxCoords tangent2{frame(0, 2), frame(1, 2), frame(2, 2)};
+      const CoordinateT normal{frame(0, 0), frame(1, 0), frame(2, 0)};
+      const CoordinateT tangent1{frame(0, 1), frame(1, 1), frame(2, 1)};
+      const CoordinateT tangent2{frame(0, 2), frame(1, 2), frame(2, 2)};
 
       alignas(Alignment) std::array<real, tensor::T::size()> matT{};
       alignas(Alignment) std::array<real, tensor::Tinv::size()> matTinv{};

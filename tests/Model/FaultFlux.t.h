@@ -25,6 +25,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Model/FaultFlux.h"
 #include "Kernels/Precision.h"
@@ -48,9 +49,9 @@ namespace faultflux {
 
 /// A random right-handed orthonormal frame: the fault normal and the two tangents.
 struct Frame {
-  VrtxCoords normal;
-  VrtxCoords tangent1;
-  VrtxCoords tangent2;
+  CoordinateT normal;
+  CoordinateT tangent1;
+  CoordinateT tangent2;
 };
 
 inline Frame randomFrame(std::mt19937& rng) {

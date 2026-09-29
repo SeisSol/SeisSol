@@ -11,6 +11,7 @@
 
 #include "Common/Executor.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Initializer/Typedefs.h"
@@ -36,7 +37,7 @@ namespace kernels {
 struct Receiver {
   Receiver(std::size_t pointId,
            Eigen::Vector3d position,
-           const double* elementCoords[4],
+           const seissol::geometry::CellTransform& transform,
            size_t reserved);
   std::size_t pointId;
   Eigen::Vector3d position;

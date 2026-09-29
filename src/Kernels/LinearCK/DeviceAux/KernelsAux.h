@@ -8,125 +8,12 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 
-#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 
 namespace seissol::kernels::time::aux {
 void taylorSum(
     std::size_t count, real** target, const real** source, const real* coeffs, void* stream);
-} // namespace seissol::kernels::time::aux
-
-namespace seissol::kernels::local_flux::aux::details {
-void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
-                              real** displacementDataPtrs,
-                              double* rhos,
-                              double g,
-                              size_t numElements,
-                              void* deviceStream);
-
-void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
-                        real** easiBoundaryMapPtrs,
-                        real** easiBoundaryConstantPtrs,
-                        size_t numElements,
-                        void* deviceStream);
-} // namespace seissol::kernels::local_flux::aux::details
-
-namespace seissol::kernels::local_flux::aux {
-template <typename Derived>
-struct DirichletBoundaryAux {
-  void evaluate(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
-    static_cast<Derived*>(this)->dispatch(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
-  }
-};
-
-struct FreeSurfaceGravity : public DirichletBoundaryAux<FreeSurfaceGravity> {
-  real** displacementDataPtrs{};
-  double* rhos{nullptr};
-  double g{};
-
-  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) const {
-
-    assert(displacementDataPtrs != nullptr);
-    assert(rhos != nullptr);
-    details::launchFreeSurfaceGravity(
-        dofsFaceBoundaryNodalPtrs, displacementDataPtrs, rhos, g, numElements, deviceStream);
-  }
-};
-
-struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
-  real** easiBoundaryMapPtrs{};
-  real** easiBoundaryConstantPtrs{};
-
-  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) const {
-
-    assert(easiBoundaryMapPtrs != nullptr);
-    assert(easiBoundaryConstantPtrs != nullptr);
-    details::launchEasiBoundary(dofsFaceBoundaryNodalPtrs,
-                                easiBoundaryMapPtrs,
-                                easiBoundaryConstantPtrs,
-                                numElements,
-                                deviceStream);
-  }
-};
-
-} // namespace seissol::kernels::local_flux::aux
-
-namespace seissol::kernels::time::aux {
-/// Where the displacement block of the face rotation -- the rows and columns of
-/// the velocity -- sits in the storage of T and Tinv. The generator may store
-/// the rotation dense or by its pattern, so the offsets are read on the host,
-/// through the views, and the device kernels only follow them.
-struct DisplacementRotationOffsets {
-  unsigned t[3][3];
-  unsigned tinv[3][3];
-};
-
-inline DisplacementRotationOffsets displacementRotationOffsets() {
-  DisplacementRotationOffsets offsets{};
-  real tData[seissol::tensor::T::size()]{};
-  real tinvData[seissol::tensor::Tinv::size()]{};
-  auto t = seissol::init::T::view::create(tData);
-  auto tinv = seissol::init::Tinv::view::create(tinvData);
-  constexpr unsigned UIdx = seissol::model::MaterialT::VelocityOffset;
-  for (unsigned i = 0; i < 3; ++i) {
-    for (unsigned j = 0; j < 3; ++j) {
-      offsets.t[i][j] = static_cast<unsigned>(&t(i + UIdx, j + UIdx) - tData);
-      offsets.tinv[i][j] = static_cast<unsigned>(&tinv(i + UIdx, j + UIdx) - tinvData);
-    }
-  }
-  return offsets;
-}
-
-void extractRotationMatrices(real** displacementToFaceNormalPtrs,
-                             real** displacementToGlobalDataPtrs,
-                             real** tPtrs,
-                             real** tinvPtrs,
-                             size_t numElements,
-                             void* deviceStream);
-
-void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
-                                                    real** integratedDisplacementNodalPtrs,
-                                                    real** rotatedFaceDisplacementPtrs,
-                                                    double deltaTInt,
-                                                    size_t numElements,
-                                                    void* deviceStream);
-
-void computeInvAcousticImpedance(
-    double* invImpedances, double* rhos, double* lambdas, size_t numElements, void* deviceStream);
-
-void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
-                                   real** prevCoefficientsPtrs,
-                                   real** integratedDisplacementNodalPtrs,
-                                   real** dofsFaceNodalPtrs,
-                                   double* invImpedances,
-                                   double* rhos,
-                                   double g,
-                                   double factorEvaluated,
-                                   double factorInt,
-                                   size_t numElements,
-                                   void* deviceStream);
 } // namespace seissol::kernels::time::aux
 
 #endif // SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_

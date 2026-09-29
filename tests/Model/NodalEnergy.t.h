@@ -188,9 +188,9 @@ TEST_CASE("Nodal energies read the material where they integrate") {
     const auto actual = quadrature.energies(
         samples, dofs.dofs.data(), dofs.anelastic(), seissol::Pool::host(), shearModulus);
 
-    double points[Quadrature::Points][3]{};
+    std::array<std::array<double, 3>, Quadrature::Points> points{};
     double weights[Quadrature::Points]{};
-    seissol::quadrature::TetrahedronQuadrature(points, weights, ConvergenceOrder + 1);
+    seissol::quadrature::TetrahedronQuadrature(points.data(), weights, ConvergenceOrder + 1);
 
     alignas(Alignment) std::array<real, tensor::dofsQP::size()> atPointsData{};
     kernel::evalAtQP evalKrnl;
@@ -220,7 +220,7 @@ TEST_CASE("Nodal energies read the material where they integrate") {
           const double velocity = values(point, Material::VelocityOffset + i);
           velocitySq += velocity * velocity;
         }
-        expected += weights[point] * 0.5 * material.rho * field(points[point]) * velocitySq;
+        expected += weights[point] * 0.5 * material.rho * field(points[point].data()) * velocitySq;
       }
 
       double reported = 0;
@@ -234,9 +234,9 @@ TEST_CASE("Nodal energies read the material where they integrate") {
 
     if (hasShearModulus) {
       for (std::size_t point = 0; point < Quadrature::Points; ++point) {
-        REQUIRE(
-            shearModulus[point] ==
-            doctest::Approx(material.getMuBar() * field(points[point])).epsilon(MaterialTolerance));
+        REQUIRE(shearModulus[point] ==
+                doctest::Approx(material.getMuBar() * field(points[point].data()))
+                    .epsilon(MaterialTolerance));
       }
     }
   }

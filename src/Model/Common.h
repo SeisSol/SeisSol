@@ -75,6 +75,48 @@ static_assert(detail::kindsMatch(MaterialT::InverseRotationGroups,
                                  generated::InverseRotationGroupKinds),
               "the material's inverse quantity groups disagree with the generated layout");
 
+/**
+ * The face types that are defined for a material model as soon as it supplies a Godunov state
+ * and a nodal ghost state -- which every material model does.
+ *
+ * The free surface with gravity is the exception: its surface elevation ODE closes over a
+ * single pressure and the scalar impedance sqrt(K rho), both of which exist only when the
+ * shear modulus vanishes. A material model that carries shear waves would need a different
+ * closure, and one with a second pressure (poroelastic) a second equation.
+ */
+constexpr FaceTypeSupport genericFaceTypeSupport(FaceType faceType) {
+  if (faceType == FaceType::FreeSurfaceGravity) {
+    return faceTypeUnsupported(
+        "the surface elevation ODE is closed with a single pressure and a scalar acoustic "
+        "impedance");
+  }
+  return faceTypeSupported();
+}
+
+template <typename MaterialT>
+constexpr FaceTypeSupport faceTypeSupport(FaceType faceType) {
+  return MaterialSetup<MaterialT>::supportsFaceType(faceType);
+}
+
+/**
+ * Some boundary conditions are defined for a material model only where the cell behind the face
+ * meets an additional requirement. The requirement is stated without a cell, so that it can be
+ * reported on ranks that hold no offending cell themselves.
+ */
+constexpr FaceTypeSupport genericFaceTypeCellRequirement(FaceType /*faceType*/) {
+  return faceTypeSupported();
+}
+
+template <typename MaterialT>
+constexpr FaceTypeSupport faceTypeCellRequirement(FaceType faceType) {
+  return MaterialSetup<MaterialT>::cellRequirementForFaceType(faceType);
+}
+
+template <typename MaterialT>
+bool faceTypeCellAdmissible(FaceType faceType, const MaterialT& material) {
+  return MaterialSetup<MaterialT>::cellMeetsFaceType(faceType, material);
+}
+
 template <typename T>
 constexpr bool testIfAcoustic(T mu) {
   return std::abs(mu) <= std::numeric_limits<T>::epsilon();
@@ -238,31 +280,19 @@ void initializeSpecificNeighborData(const T& material,
  * c.f. 10.1111/j.1365-246X.2007.03381.x
  * This method is not needed for isotropic materials.
  */
-void getBondMatrix(const VrtxCoords normal,
-                   const VrtxCoords tangent1,
-                   const VrtxCoords tangent2,
+void getBondMatrix(const CoordinateT& normal,
+                   const CoordinateT& tangent1,
+                   const CoordinateT& tangent2,
                    std::array<double, 36>& matN);
-
-template <typename MaterialT = seissol::model::MaterialT>
-void getFaceRotationMatrix(const Eigen::Vector3d& normal,
-                           const Eigen::Vector3d& tangent1,
-                           const Eigen::Vector3d& tangent2,
-                           init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv) {
-  const VrtxCoords n = {normal(0), normal(1), normal(2)};
-  const VrtxCoords s = {tangent1(0), tangent1(1), tangent1(2)};
-  const VrtxCoords t = {tangent2(0), tangent2(1), tangent2(2)};
-  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
-}
 
 namespace detail {
 
 /// Writes one diagonal block per group, sized and shaped by its kind.
 template <bool Inverse, typename View, std::size_t N>
 void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
-                         const VrtxCoords normal,
-                         const VrtxCoords tangent1,
-                         const VrtxCoords tangent2,
+                         const CoordinateT& normal,
+                         const CoordinateT& tangent1,
+                         const CoordinateT& tangent2,
                          View& matrix) {
   matrix.setZero();
   std::size_t offset = 0;
@@ -311,14 +341,26 @@ void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
  * Voigt weights differ, so each kind supplies a forward and an inverse writer.
  */
 template <typename MaterialT = seissol::model::MaterialT>
-void getFaceRotationMatrix(const VrtxCoords normal,
-                           const VrtxCoords tangent1,
-                           const VrtxCoords tangent2,
+void getFaceRotationMatrix(const CoordinateT& normal,
+                           const CoordinateT& tangent1,
+                           const CoordinateT& tangent2,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv) {
   detail::writeRotationBlocks<false>(MaterialT::RotationGroups, normal, tangent1, tangent2, matT);
   detail::writeRotationBlocks<true>(
       MaterialT::InverseRotationGroups, normal, tangent1, tangent2, matTinv);
+}
+
+template <typename MaterialT = seissol::model::MaterialT>
+void getFaceRotationMatrix(const Eigen::Vector3d& normal,
+                           const Eigen::Vector3d& tangent1,
+                           const Eigen::Vector3d& tangent2,
+                           init::T::view::type& matT,
+                           init::Tinv::view::type& matTinv) {
+  const CoordinateT n = {normal(0), normal(1), normal(2)};
+  const CoordinateT s = {tangent1(0), tangent1(1), tangent1(2)};
+  const CoordinateT t = {tangent2(0), tangent2(1), tangent2(2)};
+  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
 }
 
 template <typename MaterialT>
@@ -368,6 +410,20 @@ struct MaterialSetupDefaults {
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const MaterialT& /*material*/,
                                                    T& /*sourceMatrix*/) {}
+
+  /// The face types every material model supports; cf. genericFaceTypeSupport.
+  static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
+    return genericFaceTypeSupport(faceType);
+  }
+
+  /// No requirement on the cell behind a face beyond the material model itself.
+  static constexpr FaceTypeSupport cellRequirementForFaceType(FaceType faceType) {
+    return genericFaceTypeCellRequirement(faceType);
+  }
+
+  static bool cellMeetsFaceType(FaceType /*faceType*/, const MaterialT& /*material*/) {
+    return true;
+  }
 };
 
 /// A material reads every one of its coefficients off itself, so all of them
