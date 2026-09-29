@@ -10,11 +10,14 @@
 
 #include "PointSource.h"
 
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
+#include "Model/Quantities.h"
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 
 void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3][3],
                                                 const double localSolidVelocityComponent[3],
@@ -63,30 +66,46 @@ void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3
     }
   }
 
-  std::fill(forceComponents, forceComponents + tensor::update::Size, 0);
-  // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u,
-  // v, w, p, u_f, v_f, w_f)
+  // The source acts on the primary quantities only. They lead the quantity axis in every layout;
+  // the memory variables of a fused anelastic layout follow them and receive no source.
+  constexpr auto Groups = model::MaterialT::PrimaryGroups;
+  static_assert(model::totalExtent(Groups) <= tensor::update::Size,
+                "The primary quantities have to fit into the point source update.");
+  constexpr auto StressKind = model::roleKind(Groups, model::FaceRole::Traction);
+  static_assert(model::roleExtent(Groups, model::FaceRole::Traction) > 0 &&
+                    (StressKind == model::QuantityKind::SymTensor2 ||
+                     StressKind == model::QuantityKind::Scalar),
+                "The moment tensor acts on a stress tensor or a scalar stress only.");
 
-  // TODO: prettify the code
-  forceComponents[0] = m[0][0];
-  if constexpr (tensor::update::Size == 4) {
-    forceComponents[1] = f[0];
-    forceComponents[2] = f[1];
-    forceComponents[3] = f[2];
+  std::fill(forceComponents, forceComponents + tensor::update::Size, 0);
+
+  constexpr auto StressOffset = model::roleOffset(Groups, model::FaceRole::Traction);
+  if constexpr (StressKind == model::QuantityKind::SymTensor2) {
+    // Voigt order (xx, yy, zz, xy, yz, xz)
+    forceComponents[StressOffset + 0] = m[0][0];
+    forceComponents[StressOffset + 1] = m[1][1];
+    forceComponents[StressOffset + 2] = m[2][2];
+    forceComponents[StressOffset + 3] = m[0][1];
+    forceComponents[StressOffset + 4] = m[1][2];
+    forceComponents[StressOffset + 5] = m[0][2];
   } else {
-    forceComponents[1] = m[1][1];
-    forceComponents[2] = m[2][2];
-    forceComponents[3] = m[0][1];
-    forceComponents[4] = m[1][2];
-    forceComponents[5] = m[0][2];
-    forceComponents[6] = f[0];
-    forceComponents[7] = f[1];
-    forceComponents[8] = f[2];
-    if constexpr (tensor::update::Size >= 13) {
-      forceComponents[9] = localPressureComponent;
-      forceComponents[10] = f[3];
-      forceComponents[11] = f[4];
-      forceComponents[12] = f[5];
+    // a scalar stress, i.e. the acoustic pressure, takes the first diagonal entry
+    forceComponents[StressOffset] = m[0][0];
+  }
+
+  for (std::size_t i = 0; i < 3; ++i) {
+    forceComponents[model::MaterialT::VelocityOffset + i] = f[i];
+  }
+
+  // the poroelastic material adds the fluid pressure and the fluid velocity
+  if constexpr (model::roleExtent(Groups, model::FaceRole::ExtraTraction) > 0) {
+    forceComponents[model::roleOffset(Groups, model::FaceRole::ExtraTraction)] =
+        localPressureComponent;
+  }
+  if constexpr (model::roleExtent(Groups, model::FaceRole::ExtraVelocity) > 0) {
+    constexpr auto FluidOffset = model::roleOffset(Groups, model::FaceRole::ExtraVelocity);
+    for (std::size_t i = 0; i < 3; ++i) {
+      forceComponents[FluidOffset + i] = f[i + 3];
     }
   }
 }

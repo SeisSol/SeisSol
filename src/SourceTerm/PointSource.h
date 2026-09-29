@@ -33,6 +33,11 @@ namespace seissol::sourceterm {
  * R_l * R_d * R_s = | -sin l  cos l    | |    cos d -sin d |  |  sin s  cos s    |
  *                   |                1 | |    sin d  cos d |  |                1 |
  *
+ * The result is written in the quantity layout of the configured material: the moment tensor
+ * into the stress (only its xx entry for a scalar stress), the solid force into the velocity and,
+ * for a poroelastic material, the pressure and the fluid force into the fluid quantities. All
+ * other entries, in particular the memory variables of a fused anelastic layout, are zero.
+ *
  **/
 void transformMomentTensor(const double localMomentTensor[3][3],
                            const double localSolidVelocityComponent[3],

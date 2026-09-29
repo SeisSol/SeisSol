@@ -53,6 +53,10 @@ void testMatrix(init::QgodLocal::view::type& qgod, const T& solution, double eps
   checkRelative(frobDiffSquared, frobASquared, epsilon);
 }
 
+// The fused visco solvers store only the rows of the quantities with a flux; the memory variables
+// have none, so the matrices end after those rows. The checks below skip the rows that are not
+// stored, which reading would take past the end of the data.
+
 /**
  * QgodLocal + QgodNeighbor == I.
  *
@@ -71,6 +75,9 @@ inline void testConsistency(init::QgodLocal::view::type& qgodLocal,
   double frobASquared = 0.0;
   for (std::size_t i = 0; i < qgodNeighbor.shape(0); i++) {
     for (std::size_t j = 0; j < qgodNeighbor.shape(1); j++) {
+      if (!qgodLocal.isInRange(i, j) || !qgodNeighbor.isInRange(i, j)) {
+        continue;
+      }
       const auto sol = (i == j) ? 1.0 : 0.0;
       const auto diff = (castReal(qgodLocal(i, j)) + castReal(qgodNeighbor(i, j))) - sol;
       diffSquared += diff * diff;
@@ -100,7 +107,7 @@ inline void testProjector(init::QgodNeighbor::view::type& qgodNeighbor, double e
   std::vector<double> matP(rows * cols);
   for (std::size_t i = 0; i < rows; i++) {
     for (std::size_t j = 0; j < cols; j++) {
-      matP[i * cols + j] = castReal(qgodNeighbor(i, j));
+      matP[i * cols + j] = qgodNeighbor.isInRange(i, j) ? castReal(qgodNeighbor(i, j)) : 0.0;
     }
   }
 
@@ -120,9 +127,14 @@ inline void testProjector(init::QgodNeighbor::view::type& qgodNeighbor, double e
   checkRelative(frobDiffSquared, frobASquared, epsilon);
 }
 
+/**
+ * At a free surface, the neighbor state of the primary quantities is filled with NaN, so that any
+ * use of it shows. The columns of the memory variables of the fused visco solvers are not part of
+ * that block.
+ */
 inline void testNAN(init::QgodNeighbor::view::type& qgodNeighbor) {
-  for (std::size_t i = 0; i < qgodNeighbor.shape(0); i++) {
-    for (std::size_t j = 0; j < qgodNeighbor.shape(1); j++) {
+  for (std::size_t i = 0; i < model::MaterialT::NumElasticQuantities; i++) {
+    for (std::size_t j = 0; j < model::MaterialT::NumElasticQuantities; j++) {
       CHECK(std::isnan(qgodNeighbor(i, j)));
     }
   }

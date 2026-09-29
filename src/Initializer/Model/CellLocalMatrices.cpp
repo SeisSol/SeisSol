@@ -221,9 +221,16 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
           for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
                i++) {
-            centralFluxView(i, i) = 0.5;
-            rusanovPlusView(i, i) = wavespeed * 0.5;
-            rusanovMinusView(i, i) = -wavespeed * 0.5;
+            // the fused visco solvers store no rows for the memory variables, which have no flux
+            if (centralFluxView.isInRange(i, i)) {
+              centralFluxView(i, i) = 0.5;
+            }
+            if (rusanovPlusView.isInRange(i, i)) {
+              rusanovPlusView(i, i) = wavespeed * 0.5;
+            }
+            if (rusanovMinusView.isInRange(i, i)) {
+              rusanovMinusView(i, i) = -wavespeed * 0.5;
+            }
           }
 
           // check if we're on a face that has an adjacent cell with DR face

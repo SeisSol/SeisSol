@@ -388,6 +388,59 @@ class TestViscoelasticSpp:
 
 
 # =============================================================================
+# Point sources — the quantities a moment tensor (momentToNRF) reaches
+# =============================================================================
+
+
+class TestMomentTensorSelector:
+    """The fused viscoacoustic layout reaches six quantities from two
+    mechanisms on, so a criterion on the quantity count mistakes it for a
+    material with a stress tensor. The pattern has to follow the traction group.
+    """
+
+    VOIGT = [(0, 0, 0), (1, 1, 1), (2, 2, 2), (3, 0, 1), (4, 1, 2), (5, 0, 2)]
+
+    @staticmethod
+    def _entries(adg):
+        from kernels.quantities import moment_tensor_selector
+
+        selector = moment_tensor_selector(adg.quantityBlocks())
+        assert selector.shape == (adg.numQuantities(), 3, 3)
+        return sorted(map(tuple, np.argwhere(selector).tolist()))
+
+    def test_stress_tensor_in_voigt_order(self):
+        from kernels.equations.elastic import ElasticADERDG
+        from kernels.equations.poroelastic import PoroelasticADERDG
+        from kernels.equations.viscoelastic import (
+            ViscoelasticADERDG,
+            ViscoelasticAnelasticADERDG,
+        )
+
+        for adg in (
+            _mk(ElasticADERDG, order=4),
+            _mk(PoroelasticADERDG, order=4),
+            _mk(ViscoelasticADERDG, order=4, numMechanisms=3),
+            _mk(ViscoelasticAnelasticADERDG, order=4, numMechanisms=3),
+        ):
+            assert self._entries(adg) == self.VOIGT
+
+    @pytest.mark.parametrize("mechanisms", [1, 2, 5, 9])
+    def test_scalar_stress_takes_xx_only(self, mechanisms):
+        from kernels.equations.acoustic import AcousticADERDG
+        from kernels.equations.viscoacoustic import (
+            ViscoacousticADERDG,
+            ViscoacousticAnelasticADERDG,
+        )
+
+        for adg in (
+            _mk(AcousticADERDG, order=4),
+            _mk(ViscoacousticADERDG, order=4, numMechanisms=mechanisms),
+            _mk(ViscoacousticAnelasticADERDG, order=4, numMechanisms=mechanisms),
+        ):
+            assert self._entries(adg) == [(0, 0, 0)]
+
+
+# =============================================================================
 # Poroelastic choose() — binomial coefficient helper
 # =============================================================================
 

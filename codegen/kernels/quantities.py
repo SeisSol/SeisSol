@@ -169,6 +169,28 @@ def velocity_selector(blocks):
     return _selector(blocks, FaceRole.VELOCITY, FaceRole.EXTRA_VELOCITY)
 
 
+def moment_tensor_selector(blocks):
+    """Maps a moment tensor onto the stress quantities.
+
+    A stress tensor takes the six entries in Voigt order, a scalar stress
+    (i.e. a pressure) the xx entry only. All other quantities, in particular
+    the memory variables, stay empty.
+    """
+    main = [block for block in blocks if block.group.role is FaceRole.TRACTION]
+    if len(main) != 1:
+        raise ValueError(f"expected exactly one traction group, got {len(main)}")
+    stress = main[0]
+    selector = np.zeros((total_extent(blocks), 3, 3))
+    if stress.group.kind is QuantityKind.SYM_TENSOR2:
+        for component, (p, q) in enumerate(VOIGT_ORDER):
+            selector[stress.offset + component, "xyz".index(p), "xyz".index(q)] = 1
+    elif stress.group.kind is QuantityKind.SCALAR:
+        selector[stress.offset, 0, 0] = 1
+    else:
+        raise ValueError(f"no moment tensor mapping defined for {stress.group.kind}")
+    return selector
+
+
 def role_offset(blocks, role) -> int:
     """Quantity index at which the group with ``role`` starts."""
     for block in blocks:
