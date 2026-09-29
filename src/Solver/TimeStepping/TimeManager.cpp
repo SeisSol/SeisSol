@@ -410,8 +410,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     } else if (!ghostClusterPointer->empty() &&
                (haloTransports_->scheduler() == nullptr ||
                 !haloTransports_->scheduler()->streamOrdered() || commThread_)) {
-      logWarning() << "Recording super-timesteps with halo exchange needs the transfer mode ccl"
-                   << "in its global order, and no communication thread.";
+      logWarning() << "Recording super-timesteps with halo exchange needs a transfer mode on device"
+                   << "streams (ccl, stream-mpi or shmem) in its global order, and no"
+                   << "communication thread.";
     } else if (!SuperStepRecorder::available()) {
       logWarning() << "This device cannot record super-timesteps.";
     } else {
