@@ -426,10 +426,6 @@ void CellCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM const St
               streamRuntime);
         },
         isRecurringTimestep(timeStepWidth));
-
-    seissolInstance_.flopCounter().incrementMetric(
-        perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)],
-        estimate_[static_cast<std::size_t>(ComputePart::PlasticityCheck)] * numPlasticCells_);
   }
 
   if (settings_.integrate) {
@@ -557,6 +553,13 @@ StepWork CellCluster::prepare(ActorAction action) {
   if (action == ActorAction::Correct) {
     incrementPerformanceMetrics(ComputePart::Neighbor);
     incrementPerformanceMetrics(ComputePart::DRNeighbor);
+    if (settings_.plasticity) {
+      // here instead of with the device work, which a replay of a recording skips; the yielding
+      // cells get counted on the device, and added at the synchronization points
+      seissolInstance_.flopCounter().incrementMetric(
+          perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)],
+          estimate_[static_cast<std::size_t>(ComputePart::PlasticityCheck)] * numPlasticCells_);
+    }
 
     if (printProgress_) {
       const auto nextCorrectionSteps = ct_.nextCorrectionSteps();
@@ -783,9 +786,6 @@ void CellCluster::computeNeighboringIntegrationImplementation(const StepParams& 
 
   if constexpr (UsePlasticity) {
     conditionalCounterHost_[0] += numberOfTetsWithPlasticYielding;
-    seissolInstance_.flopCounter().incrementMetric(
-        perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)],
-        estimate_[static_cast<std::size_t>(ComputePart::PlasticityCheck)] * numPlasticCells_);
   }
 
   loopStatistics_->end(regionComputeNeighboringIntegration_, clusterSize, profilingId_);
