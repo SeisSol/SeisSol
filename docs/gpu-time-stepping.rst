@@ -111,6 +111,10 @@ at the start, one after the other in the same order on all processes, with one e
 signals its arrival, and waits until the receiver has cleared the window for the next exchange;
 the receiver copies the data from there into its ghost layers.
 It always uses the global order.
+The signals count the exchanges of each direction. With NVSHMEM, the count of the current exchange is kept on the GPU:
+each exchange advances it, and small kernels signal and wait with the device API of NVSHMEM, reading it when they run.
+This needs relocatable device code linked with the static device library of NVSHMEM, which ``-DSHMEM=ON`` sets up.
+ROCSHMEM and Intel SHMEM get the counts from the host when the operations are enqueued.
 
 With ``SEISSOL_CONCURRENT_CLUSTERS=1``, the exchange is ordered on the GPU as well:
 the groups wait for the GPU work that produces or last reads their data,
@@ -126,14 +130,16 @@ Two such super-timesteps do the same GPU work if all clusters have the same step
 The first super-timestep of a kind runs as usual, the second one gets recorded into a graph,
 and all further ones replay it, while the clusters only keep their books on the host.
 All values that change from step to step are read on the GPU: the current time from a clock of each cluster,
+the exchange counts of ``shmem`` with NVSHMEM,
 and the outputs decide about their samples when their work runs.
 Hence, the receivers and fault receivers copy their data to the host in every step in this mode.
 
 Recording needs a GPU that can record graphs, and either no halo exchange (a single process),
-or ``ccl`` or ``shmem`` in the global order and ``SEISSOL_CONCURRENT_CLUSTERS=1``,
+or ``ccl`` or ``shmem`` with NVSHMEM in the global order and ``SEISSOL_CONCURRENT_CLUSTERS=1``,
 without a communication thread.
 ``stream-mpi`` cannot be recorded: MPICH creates the requests of an enqueued operation on the host
 and releases its state in host functions on the stream, which a replay would run again.
+Neither can ``shmem`` with ROCSHMEM or Intel SHMEM: a replay would signal and wait for the counts of the recorded exchanges.
 If a requirement is missing, a warning says which one, and the super-timesteps run as usual.
 
 Diagnostics

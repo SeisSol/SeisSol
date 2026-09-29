@@ -16,5 +16,6 @@
 #include "TimeStepping/Compute/ClusterClock.t.h"
 #include "TimeStepping/Halo/GhostCluster.t.h"
 #include "TimeStepping/Halo/Stream/ExchangeScheduler.t.h"
+#include "TimeStepping/Halo/Stream/NvshmemKernels.t.h"
 #include "TimeStepping/Halo/Stream/StreamOrderedExchange.t.h"
 #include "TimeStepping/Plan/TimeSteppingPlan.t.h"

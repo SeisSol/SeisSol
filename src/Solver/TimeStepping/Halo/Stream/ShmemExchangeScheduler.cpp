@@ -26,6 +26,8 @@
 #include <vector>
 
 #ifdef SHMEM_NVSHMEM
+#include "Solver/TimeStepping/Halo/Stream/NvshmemKernels.h"
+
 #include <nvshmem_host.h>
 #endif
 #ifdef SHMEM_ROCSHMEM
@@ -41,31 +43,38 @@ namespace seissol::solver {
 
 namespace {
 
+/**
+ * The number of an exchange of a direction, 1 for the first one: in device memory, and as the host
+ * knows it when it enqueues the group.
+ */
+struct Count {
+  std::uint64_t* device;
+  std::uint64_t host;
+};
+
 // the operations the protocol needs, for each library
 
 #ifdef SHMEM_NVSHMEM
-// Only the host library: nvshmemx_init_attr() and nvshmem_finalize() live in the static device
-// library, whose device code would need a device link step, and none of it is needed here; all
-// operations below are host calls that enqueue on streams.
+// The operations with an exchange count are kernels that read it from device memory when they run;
+// the host API would take it when they get enqueued, and a recording would keep it. (Recorded
+// signal operations of the host API even came out with garbage.)
+constexpr bool CountsOnDevice = true;
 void shmemInit(MPI_Comm comm) {
-  nvshmemx_init_attr_t attr{};
-  nvshmemx_set_attr_mpi_comm_args(&comm, &attr);
-  if (nvshmemx_hostlib_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr) != 0) {
+  if (nvshmem::initialize(comm) != 0) {
     logError() << "Could not initialize NVSHMEM.";
   }
 }
-void shmemFinalize() { nvshmemx_hostlib_finalize(); }
+void shmemFinalize() { nvshmem::finalize(); }
 int shmemPe() { return nvshmem_my_pe(); }
 void* shmemMalloc(std::size_t bytes) { return nvshmem_malloc(bytes); }
 void shmemFree(void* pointer) { nvshmem_free(pointer); }
 void shmemBarrierAll() { nvshmem_barrier_all(); }
-void signalOnStream(std::uint64_t* signal, std::uint64_t value, int pe, void* stream) {
-  nvshmemx_signal_op_on_stream(
-      signal, value, NVSHMEM_SIGNAL_SET, pe, static_cast<cudaStream_t>(stream));
+void advanceOnStream(const Count& count, void* stream) { nvshmem::advance(count.device, stream); }
+void signalOnStream(std::uint64_t* signal, const Count& count, int pe, void* stream) {
+  nvshmem::signalCount(signal, count.device, pe, stream);
 }
-void waitOnStream(std::uint64_t* signal, std::uint64_t value, void* stream) {
-  nvshmemx_signal_wait_until_on_stream(
-      signal, NVSHMEM_CMP_GE, value, static_cast<cudaStream_t>(stream));
+void waitOnStream(std::uint64_t* signal, const Count& count, std::uint64_t factor, void* stream) {
+  nvshmem::waitCount(signal, count.device, factor, stream);
 }
 void putSignalOnStream(void* destination,
                        const void* source,
@@ -73,19 +82,19 @@ void putSignalOnStream(void* destination,
                        std::uint64_t* signal,
                        int pe,
                        void* stream) {
-  nvshmemx_putmem_signal_nbi_on_stream(destination,
-                                       source,
-                                       bytes,
-                                       signal,
-                                       1,
-                                       NVSHMEM_SIGNAL_ADD,
-                                       pe,
-                                       static_cast<cudaStream_t>(stream));
+  nvshmem::putSignal(destination, source, bytes, signal, pe, stream);
 }
-void quietOnStream(void* stream) { nvshmemx_quiet_on_stream(static_cast<cudaStream_t>(stream)); }
+void quietOnStream(void* stream) { nvshmem::quiet(stream); }
+void checkOnStream() {
+  if (const auto* error = nvshmem::lastError()) {
+    logError() << "Could not enqueue the halo exchange with NVSHMEM:" << error;
+  }
+}
 #endif
 
 #ifdef SHMEM_ROCSHMEM
+// the host passes the exchange counts
+constexpr bool CountsOnDevice = false;
 void shmemInit(MPI_Comm comm) {
   rocshmem::rocshmem_init_attr_t attr{};
   rocshmem::rocshmem_set_attr_mpi_comm_args(&comm, &attr);
@@ -96,13 +105,14 @@ int shmemPe() { return rocshmem::rocshmem_my_pe(); }
 void* shmemMalloc(std::size_t bytes) { return rocshmem::rocshmem_malloc(bytes); }
 void shmemFree(void* pointer) { rocshmem::rocshmem_free(pointer); }
 void shmemBarrierAll() { rocshmem::rocshmem_barrier_all(); }
-void signalOnStream(std::uint64_t* signal, std::uint64_t value, int pe, void* stream) {
+void advanceOnStream(const Count& /*count*/, void* /*stream*/) {}
+void signalOnStream(std::uint64_t* signal, const Count& count, int pe, void* stream) {
   rocshmem::rocshmem_signal_op_on_stream(
-      signal, value, rocshmem::ROCSHMEM_SIGNAL_SET, pe, static_cast<hipStream_t>(stream));
+      signal, count.host, rocshmem::ROCSHMEM_SIGNAL_SET, pe, static_cast<hipStream_t>(stream));
 }
-void waitOnStream(std::uint64_t* signal, std::uint64_t value, void* stream) {
+void waitOnStream(std::uint64_t* signal, const Count& count, std::uint64_t factor, void* stream) {
   rocshmem::rocshmem_signal_wait_until_on_stream(
-      signal, rocshmem::ROCSHMEM_CMP_GE, value, static_cast<hipStream_t>(stream));
+      signal, rocshmem::ROCSHMEM_CMP_GE, count.host * factor, static_cast<hipStream_t>(stream));
 }
 void putSignalOnStream(void* destination,
                        const void* source,
@@ -122,9 +132,12 @@ void putSignalOnStream(void* destination,
 void quietOnStream(void* stream) {
   rocshmem::rocshmem_quiet_on_stream(static_cast<hipStream_t>(stream));
 }
+void checkOnStream() {}
 #endif
 
 #ifdef SHMEM_ISHMEM
+// the host passes the exchange counts
+constexpr bool CountsOnDevice = false;
 sycl::queue& queue(void* stream) { return *static_cast<sycl::queue*>(stream); }
 void shmemInit(MPI_Comm comm) {
   ishmemx_attr_t attr{};
@@ -137,11 +150,12 @@ int shmemPe() { return ishmem_my_pe(); }
 void* shmemMalloc(std::size_t bytes) { return ishmem_malloc(bytes); }
 void shmemFree(void* pointer) { ishmem_free(pointer); }
 void shmemBarrierAll() { ishmem_barrier_all(); }
-void signalOnStream(std::uint64_t* signal, std::uint64_t value, int pe, void* stream) {
-  ishmemx_signal_op_on_queue(signal, value, ISHMEM_SIGNAL_SET, pe, queue(stream));
+void advanceOnStream(const Count& /*count*/, void* /*stream*/) {}
+void signalOnStream(std::uint64_t* signal, const Count& count, int pe, void* stream) {
+  ishmemx_signal_op_on_queue(signal, count.host, ISHMEM_SIGNAL_SET, pe, queue(stream));
 }
-void waitOnStream(std::uint64_t* signal, std::uint64_t value, void* stream) {
-  ishmemx_signal_wait_until_on_queue(signal, ISHMEM_CMP_GE, value, queue(stream));
+void waitOnStream(std::uint64_t* signal, const Count& count, std::uint64_t factor, void* stream) {
+  ishmemx_signal_wait_until_on_queue(signal, ISHMEM_CMP_GE, count.host * factor, queue(stream));
 }
 void putSignalOnStream(void* destination,
                        const void* source,
@@ -153,6 +167,7 @@ void putSignalOnStream(void* destination,
       destination, source, bytes, signal, 1, ISHMEM_SIGNAL_ADD, pe, queue(stream));
 }
 void quietOnStream(void* stream) { ishmemx_quiet_on_queue(queue(stream)); }
+void checkOnStream() {}
 #endif
 
 device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instance(); }
@@ -193,8 +208,13 @@ ShmemExchangeScheduler::~ShmemExchangeScheduler() {
     shmemFree(clearToSend_);
     shmemFree(window_);
   }
+  if (counts_ != nullptr) {
+    deviceInstance().api().freeGlobMem(counts_);
+  }
   shmemFinalize();
 }
+
+bool ShmemExchangeScheduler::recordable() const { return CountsOnDevice; }
 
 std::size_t ShmemExchangeScheduler::signalIndex(std::size_t from, std::size_t to, int peer) const {
   return (from * clusterCount() + to) * static_cast<std::size_t>(size_) +
@@ -225,6 +245,11 @@ void ShmemExchangeScheduler::prepare() {
   const std::vector<std::uint64_t> zeros(signalCount, 0);
   deviceInstance().api().copyTo(clearToSend_, zeros.data(), signalCount * sizeof(std::uint64_t));
   deviceInstance().api().copyTo(arrived_, zeros.data(), signalCount * sizeof(std::uint64_t));
+
+  const auto directionCount = clusterCount() * clusterCount();
+  counts_ = static_cast<std::uint64_t*>(
+      deviceInstance().api().allocGlobMem(directionCount * sizeof(std::uint64_t)));
+  deviceInstance().api().copyTo(counts_, zeros.data(), directionCount * sizeof(std::uint64_t));
   shmemBarrierAll();
 
   // the receivers tell the senders where to put their data, matched as the data would be
@@ -266,7 +291,9 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
                                           const ScheduledTransport* sender,
                                           const ScheduledTransport* receiver) {
   void* current = stream(slot);
-  const std::uint64_t count = exchange + 1;
+  // the number of this exchange of the direction
+  const Count count{&counts_[from * clusterCount() + to], exchange + 1};
+  advanceOnStream(count, current);
 
   // the staging window is free again: the group before has copied its data out
   if (receiver != nullptr) {
@@ -279,7 +306,7 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
     const auto& regions = sender->regions().copy;
     const auto& remote = remoteOffsets_.at(sender);
     for (const auto peer : peersOf(regions)) {
-      waitOnStream(&clearToSend_[signalIndex(from, to, peer)], count, current);
+      waitOnStream(&clearToSend_[signalIndex(from, to, peer)], count, 1, current);
       for (std::size_t i = 0; i < regions.size(); ++i) {
         if (regions[i].rank == peer) {
           putSignalOnStream(window_ + remote[i],
@@ -301,13 +328,14 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
     for (const auto peer : peersOf(regions)) {
       const auto regionsFromPeer = static_cast<std::uint64_t>(std::count_if(
           regions.begin(), regions.end(), [&](const auto& region) { return region.rank == peer; }));
-      waitOnStream(&arrived_[signalIndex(from, to, peer)], count * regionsFromPeer, current);
+      waitOnStream(&arrived_[signalIndex(from, to, peer)], count, regionsFromPeer, current);
     }
     for (std::size_t i = 0; i < regions.size(); ++i) {
       deviceInstance().api().copyBetweenAsync(
           regions[i].data, window_ + offsets[i], bytesOf(regions[i]), current);
     }
   }
+  checkOnStream();
 }
 
 } // namespace seissol::solver
@@ -324,6 +352,8 @@ ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount)
 ShmemExchangeScheduler::~ShmemExchangeScheduler() = default;
 
 void ShmemExchangeScheduler::prepare() {}
+
+bool ShmemExchangeScheduler::recordable() const { return false; }
 
 void ShmemExchangeScheduler::added(const ScheduledTransport& /*transport*/) {}
 

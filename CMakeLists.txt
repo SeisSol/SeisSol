@@ -474,7 +474,25 @@ if (WITH_GPU)
   if (SHMEM)
     if (DEVICE_BACKEND STREQUAL "cuda")
       find_package(NVSHMEM REQUIRED)
-      target_link_libraries(seissol-common-properties INTERFACE nvshmem::nvshmem_host)
+      # The exchange signals and waits from small kernels that use the device API of NVSHMEM, so
+      # that recorded super-timesteps can replay it. They need relocatable device code, linked with
+      # the static device library of NVSHMEM right here, and the shared CUDA runtime like the rest
+      # (the imported device library target would bring the static one).
+      find_library(NVSHMEM_DEVICE_LIBRARY nvshmem_device HINTS ${NVSHMEM_LIB_DIR} REQUIRED)
+      add_library(seissol-nvshmem-kernels STATIC
+          src/Solver/TimeStepping/Halo/Stream/NvshmemKernels.cu)
+      string(REPLACE "sm_" "" NVSHMEM_KERNELS_ARCH "${DEVICE_ARCH}")
+      set_target_properties(seissol-nvshmem-kernels PROPERTIES
+          POSITION_INDEPENDENT_CODE ON
+          CUDA_SEPARABLE_COMPILATION ON
+          CUDA_RESOLVE_DEVICE_SYMBOLS ON
+          CUDA_RUNTIME_LIBRARY Shared
+          CUDA_ARCHITECTURES "${NVSHMEM_KERNELS_ARCH}")
+      target_compile_features(seissol-nvshmem-kernels PRIVATE cuda_std_17)
+      target_link_libraries(seissol-nvshmem-kernels
+          PUBLIC nvshmem::nvshmem_host ${NVSHMEM_DEVICE_LIBRARY}
+          PRIVATE MPI::MPI_C)
+      target_link_libraries(seissol-common-properties INTERFACE seissol-nvshmem-kernels)
       target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_NVSHMEM)
     elseif (DEVICE_BACKEND STREQUAL "hip")
       find_package(rocshmem REQUIRED)

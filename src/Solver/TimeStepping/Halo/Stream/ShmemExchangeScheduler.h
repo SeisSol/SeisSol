@@ -32,6 +32,12 @@ namespace seissol::solver {
  * ghost regions. Since a group signals before it waits for anything, it can complete once all
  * peers have started their groups of the same exchange, as for two-sided operations.
  *
+ * The signals count the exchanges of each direction. With NVSHMEM, the count of the current
+ * exchange is kept on the device: each group advances it on the stream, and the operations signal
+ * and wait from kernels that read it when they run. A group replayed from a recording of
+ * super-timesteps thus counts on. With ROCSHMEM and Intel SHMEM, the host passes the count to the
+ * operations when it enqueues them, so their groups cannot be replayed.
+ *
  * Only available in device builds with SHMEM support.
  */
 class ShmemExchangeScheduler : public StreamExchangeScheduler {
@@ -52,6 +58,11 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
    * collective over all processes.
    */
   void prepare() override;
+
+  /**
+   * Only where the exchange counts are kept on the device (NVSHMEM).
+   */
+  [[nodiscard]] bool recordable() const override;
 
   protected:
   void added(const ScheduledTransport& transport) override;
@@ -77,6 +88,8 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   char* window_{nullptr};
   std::uint64_t* clearToSend_{nullptr};
   std::uint64_t* arrived_{nullptr};
+  // for each direction: the count of its current exchange, in device memory
+  std::uint64_t* counts_{nullptr};
 };
 
 } // namespace seissol::solver

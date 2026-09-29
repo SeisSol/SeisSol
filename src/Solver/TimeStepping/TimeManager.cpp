@@ -415,7 +415,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                    << "communication thread.";
     } else if (!ghostClusterPointer->empty() && !haloTransports_->scheduler()->recordable()) {
       logWarning() << "The halo exchange of this transfer mode cannot be replayed from a recording"
-                   << "of super-timesteps (stream-mpi); use ccl or shmem.";
+                   << "of super-timesteps (stream-mpi, and shmem with ROCSHMEM or Intel SHMEM);"
+                   << "use ccl, or shmem with NVSHMEM.";
     } else if (!SuperStepRecorder::available()) {
       logWarning() << "This device cannot record super-timesteps.";
     } else {
