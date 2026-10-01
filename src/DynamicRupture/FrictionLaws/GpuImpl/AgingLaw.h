@@ -18,17 +18,34 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyStorageToLocal;
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
-                                                 double timeIncrement) {
+  /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
+  /// the state variable by the very slip rate it is solving for
+  template <typename S>
+  SEISSOL_DEVICE static S
+      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
+    using std::exp;
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const real localSlipRate = ctx.initialVariables.localSlipRate;
-    const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const double exp1v = std::exp(preexp1);
-    const double exp1m = -std::expm1(preexp1);
+    const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
+    // (L / V) (1 - exp(-V t / L)) is t times the mean of the relaxation over the step, which keeps
+    // L / V and its derivative -L / V^2 out of the expression
+    const S weight = rs::relaxationWeight(-preexp1);
 
-    const double stateVarReference = ctx.initialVariables.stateVarReference;
+    const real stateVarReference = ctx.initialVariables.stateVarReference;
+    // the relaxation towards L / V with a single exponential, psi0 + (L / V - psi0) (1 - exp(p)),
+    // which keeps L / V as its fixed point (see FastVelocityWeakeningLaw::updateStateVariable);
+    // with 1 - exp(p) = -p weight, it reads psi0 + weight (t + psi0 p) and leaves L / V out as
+    // well. With exp once the step relaxes more than half the way, since mu takes the logarithm
+    // of the state and the form with expm1 alone may then round it to zero.
+    if (valueOf(-preexp1 * weight) < static_cast<real>(0.5)) {
+      return S(stateVarReference) + weight * (S(timeIncrement) + S(stateVarReference) * preexp1);
+    }
+    return S(stateVarReference) * exp(preexp1) + S(timeIncrement) * weight;
+  }
+
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+                                                 real timeIncrement) {
     ctx.stateVariableBuffer =
-        static_cast<real>(stateVarReference * exp1v + localSl0 / localSlipRate * exp1m);
+        stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);
   }
 };
 

@@ -383,10 +383,12 @@ class BiMaterialFault {
     // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
     const auto expval = -(std::max(static_cast<real>(0.0), localSlipRate) + this->vStar_) * deltaT /
                         this->prakashLength_;
-    const real expterm = std::exp(expval);
     const real exp1mterm = -std::expm1(expval);
+    // the relaxation towards faultStrength with expm1 alone, which keeps faultStrength as its exact
+    // fixed point in any precision (see FastVelocityWeakeningLaw::updateStateVariable)
+    const real regularizedStrength = this->regularizedStrength_[ltsFace][pointIndex];
     const real newStrength =
-        this->regularizedStrength_[ltsFace][pointIndex] * expterm + faultStrength * exp1mterm;
+        regularizedStrength + (faultStrength - regularizedStrength) * exp1mterm;
     this->regularizedStrength_[ltsFace][pointIndex] = newStrength;
     return newStrength;
   }

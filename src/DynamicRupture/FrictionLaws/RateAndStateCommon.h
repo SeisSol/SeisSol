@@ -9,16 +9,34 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 
 #include "Common/Marker.h"
+#include "DynamicRupture/FrictionLaws/Dual.h"
 #include "Kernels/Precision.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <limits>
 #include <type_traits>
 
 namespace seissol::dr::friction_law::rs {
-// If the SR is too close to zero, we will have problems (NaN)
-// as a consequence, the SR is affected the AlmostZero value when too small
-// For double precision 1e-45 is a chosen by trial and error. For single precision, this value is
-// too small, so we use 1e-35
+/**
+  The floor the slip rate is clamped to, and with it the lower end of the inversion's bracket.
+  Every intermediate of a rate-and-state law has to stay representable there, which is what fixes
+  the value:
+
+  - the steady state of the state variable carries 2 V_0 / V, which at 1e-35 in single precision is
+    2e29 against a range that ends at 3.4e38. Past the floor it overflows, and the product of an
+    infinite steady state with a vanishing relaxation rate is a NaN -- which the residual loop does
+    not test for: a NaN fails `g > 0`, the upper end of the bracket takes the iterate, and a bracket
+    that has already collapsed there reports convergence.
+  - arsinhexp is entered at V / (2 V_0), which at the floor is 5e-30 against a smallest normal of
+    1.2e-38. Below 1e-38 it lands in the band where its asymptotic branch stands in for a product of
+    order one and returns a negative friction coefficient. The state variable sets how far below:
+    the band is tightest just above where exp(Psi / a) stops being representable, and even there the
+    floor stays 8.8 decades clear of it.
+
+  Nine decades of margin in single precision, and the clamp is what holds them.
+ */
 constexpr real almostZero() {
   if constexpr (std::is_same<real, double>()) {
     return 1e-45;
@@ -30,91 +48,161 @@ constexpr real almostZero() {
 }
 
 /**
-  Computes asinh(x * exp(c)). Reason is: exp(c) can grow really large (too large for float);
-  but actually asinh(exp(c)) \approx c for large c.
-
-  Hence, we compute instead (x > 0)
-  asinh(x * exp(c))
-  = asinh((x * exp(c)) + sqrt((x * exp(c))**2 + 1))
-  = asinh(exp(c) * (x + sqrt(x**2 + exp(-2c))))
-  = c + asinh(x + sqrt(x**2 + exp(-2c))).
-
-  Here, exp(-2c) is small.
-
-  If c < 0, we can process as normal.
+  The largest argument whose exponential is comfortably representable. The slack to log(max()) --
+  88.7 for float, 709.8 for double -- absorbs the one binade by which the bound on |x| in
+  arsinhexp may overshoot.
  */
-#pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
-  // Switch is empirically chosen; to prevent issues with
-  // or replacement formula not being accurate enough if x * exp(c) is small
-  constexpr T Switch = 10;
-  constexpr T Threshold = 50;
-  constexpr T Log2 = 0.69314718055994530943;
-  int xexp{};
-  (void)std::frexp(x, &xexp);
-
-  // make sure to invert the constant we'd use otherwise (if the exponent is too big/small)
-
-  // use the new code path only if we really need to
-  if (expLog + std::max(xexp, 0) * Log2 > Switch || expLog >= Threshold) {
-    if (expLog <= 0) {
-      exp = 1 / exp;
-    }
-    const T xa = std::abs(x);
-    const T xs = x >= 0 ? 1 : -1;
-    return xs * (expLog + std::log(xa + std::sqrt(xa * xa + exp * exp)));
-  } else {
-    if (expLog > 0) {
-      exp = 1 / exp;
-    }
-    const auto v = exp * x;
-    return std::asinh(v);
-  }
+SEISSOL_HOSTDEVICE constexpr T logMaxExp() {
+  return std::is_same_v<T, float> ? T(87) : T(700);
 }
 
 /**
-  Helper function to arsinhexp. Since for asinh(x * exp(c)),
-  we can assume c to be constant, we can pre-compute exp(c) or exp(-2c).
+  Precomputes exp(c) for arsinhexp. c does not depend on the slip rate, so for a friction law whose
+  state variable stays outside the inversion this runs once per point and time step.
+
+  Returns zero where exp(c) is not representable; arsinhexp then takes its asymptotic branch and
+  never reads the value. Zero rather than infinity is deliberate: a masked SIMD loop evaluates both
+  branches on every lane, and inf * 0 raises FE_INVALID on a locked point where 0 * 0 stays quiet.
+  It also survives the licence -ffast-math grants the compiler to assume that no infinities exist.
  */
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
-  T cExp{};
-  if (cExpLog > 0) {
-    cExp = std::exp(-cExpLog);
-  } else {
-    cExp = std::exp(cExpLog);
-  }
-  return cExp;
+  // unqualified so that a dual number picks up the overload next to its own definition, while a
+  // plain scalar keeps the standard one
+  using std::exp;
+  using Scalar = decltype(valueOf(T{}));
+  return valueOf(cExpLog) < logMaxExp<Scalar>() ? exp(cExpLog) : T(0);
 }
 
 /**
-  Derivative to arsinhexp.
+  Computes asinh(x * exp(c)), with c = cExpLog and cExp = exp(c) precomputed by computeCExp. The
+  point is that exp(c) alone overflows long before asinh(x * exp(c)) does -- c reaches a few
+  hundred for a locked point, while the result stays of the order of c itself.
+
+  frexp bounds log2|x| without evaluating a logarithm: |x| < 2^xexp, hence
+  cExp * x < exp(c + xexp * log 2). Clamping the exponent at zero also forces c < logMaxExp, which
+  covers |x| < 1, where exp(c) alone is the binding constraint. So the test never admits a product
+  that overflows, and wherever the product is representable the plain formula is what runs.
+
+  Where it is not, x * exp(c) lies far beyond 1 / sqrt(eps), and there asinh(z) = log(2z) holds to
+  machine precision -- the asymptotic branch therefore needs neither exp nor asinh. It is odd in x,
+  like asinh itself, and returns zero at x = 0: the asymptotic form has a logarithmic singularity
+  there which the function it stands in for does not.
+
+  The two branches cover everything reachable from a friction law, where x = V / (2 V_0) with V
+  clamped from below by almostZero(): the asymptotic branch is then only ever entered at a product
+  above 1e8, decades beyond where it becomes exact. Two regions outside that are inaccurate, and a
+  caller stepping outside should know which. Where exp(c) overflows while |x| is small enough to
+  bring the product back into range -- below 1e-38 in single precision -- the asymptotic branch is
+  entered at a product of order one and is simply the wrong formula. Where exp(c) underflows while
+  |x| is large enough to lift the product back, mirroring the first, the precomputed factor is zero
+  and the plain branch returns zero. Both would need exp(c/2) and two multiplications in place of
+  one, which costs a sixth of this function in the folded inversion -- measured -- for accuracy
+  outside the domain the friction laws occupy.
  */
 #pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
-  constexpr T Switch = 10;
-  constexpr T Threshold = 50;
-  constexpr T Log2 = 0.69314718055994530943;
+SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
+  using std::abs;
+  using std::asinh;
+  using std::log;
+  using Scalar = decltype(valueOf(T{}));
+  constexpr Scalar Log2 = 0.69314718055994530943;
+
   int xexp{};
-  (void)std::frexp(x, &xexp);
+  int dexp{};
+  (void)std::frexp(valueOf(x), &xexp);
+  (void)std::frexp(derivativeOf(x), &dexp);
+  // The plain branch forms cExp * x, and where x carries a derivative it forms cExp * dx beside it.
+  // Both have to be admitted: a bound on the value alone lets through a product whose derivative
+  // overflows, and a value that comes back representable next to an infinite slope is the worst
+  // thing the inversion can be handed -- the Newton step becomes exactly zero, the bracket rejects
+  // it, and the solve spends its whole budget halving. The derivative of the argument does not
+  // shrink with the argument: the friction laws pass V / (2 V_0), whose derivative is the constant
+  // 1 / (2 V_0), so in single precision the two bounds part company over a band of the state
+  // variable eleven wide. A plain scalar carries no derivative, so frexp reads zero there and this
+  // costs it nothing.
+  const int exponent = std::max({xexp, dexp, 0});
 
-  // make sure to invert the constant we'd use otherwise (if the exponent is too big/small)
-
-  if (expLog + std::max(xexp, 0) * Log2 > Switch || expLog >= Threshold) {
-    if (expLog <= 0) {
-      exp = 1 / exp;
-    }
-    return 1 / std::sqrt(x * x + exp * exp);
-  } else {
-    if (expLog > 0) {
-      exp = 1 / exp;
-    }
-    const auto v = exp * x;
-    return exp / std::sqrt(1 + v * v);
+  // the branch selects a formula; the selected formula is what carries the derivative
+  if (valueOf(cExpLog) + exponent * Log2 < logMaxExp<Scalar>()) {
+    return asinh(cExp * x);
   }
+  if (valueOf(x) == 0) {
+    return T(0);
+  }
+  const T xs = valueOf(x) >= 0 ? T(1) : T(-1);
+  return xs * (T(Log2) + cExpLog + log(abs(x)));
+}
+
+/**
+  Compute log(sinh(c) / y), the companion of logsinh for an argument that enters as a reciprocal.
+
+  A friction law whose steady state carries 2 V_0 / V has that quotient's derivative to carry with
+  it, -2 V_0 / V^2, which leaves single precision at a slip rate where the state variable itself is
+  untroubled: at the floor the quotient is 2e29 and its derivative 2e64. Splitting the logarithm
+  keeps the reciprocal out of the expression, and the derivative that comes back is -1 / V.
+ */
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE T logsinhOver(T y, T c) {
+  using std::abs;
+  using std::expm1;
+  using std::log;
+  const T sign = valueOf(c) >= 0 ? T(1) : T(-1);
+  const T absC = abs(c);
+  return absC + log(-sign * expm1(T(-2) * absC) / T(2)) - log(y);
+}
+
+/**
+  The mean of exp(-s) over the interval from zero to z, (1 - exp(-z)) / z.
+
+  This is the weight a state variable's steady state enters its exact integration with, and stating
+  it this way keeps two things out of the friction laws: the quotient L / V, whose derivative
+  -L / V^2 leaves single precision at a representable slip rate, and the cancellation of a large
+  quotient against a small relaxation -- a state that should come back as the time step itself is
+  otherwise assembled from 2e33 times 5e-38.
+
+  expm1 is the primitive that makes the quotient stable, so no series is needed here; it stays at
+  one as z vanishes, and the guard is for a z that has underflowed to zero outright. The function is
+  phi_1(-z) of Numerical/PhiFunctions.h, which reaches for the standard library by qualified name
+  and so cannot take a dual number.
+ */
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE T relaxationWeight(T z) {
+  using std::expm1;
+  using Scalar = decltype(valueOf(T{}));
+  if (valueOf(z) == Scalar(0)) {
+    return T(Scalar(1));
+  }
+  return -expm1(-z) / z;
+}
+
+/**
+  The effective normal stress at a trial slip rate, with the pressurization of this step resolved
+  rather than lagged.
+
+  The pore pressure is affine in the shear heating, p = offset + slope * tau V, and the heating is
+  tau V = mu |sigma| V, so the two close in one step:
+    sigma = stick / (1 - mu V slope).
+  The slope is negative -- heating lifts the pressure and unloads the fault -- so the divisor
+  exceeds one and the fault weakens. A divisor that is not positive would be a runaway with no
+  solution on this branch; the fault has no strength left there and the clamp takes it.
+
+  Both executors solve the same algebra, and it depends on nothing a friction law carries.
+ */
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE T effectiveNormalStress(T stick, real pressureSlope, T slipRate, T mu) {
+  using Scalar = decltype(valueOf(T{}));
+  const T divisor =
+      T(static_cast<Scalar>(1.0)) - mu * slipRate * T(static_cast<Scalar>(pressureSlope));
+  const T sigma = stick / divisor;
+  const bool closed = valueOf(sigma) < 0 && valueOf(divisor) > 0;
+  return closed ? sigma : T(static_cast<Scalar>(0.0));
 }
 
 /**
@@ -133,9 +221,12 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
 #pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T logsinh(T x, T c) {
-  const T sign = c >= 0 ? 1 : -1;
-  const T absC = std::abs(c);
-  return absC + std::log(x / 2 * -sign * std::expm1(-2 * absC));
+  using std::abs;
+  using std::expm1;
+  using std::log;
+  const T sign = valueOf(c) >= 0 ? T(1) : T(-1);
+  const T absC = abs(c);
+  return absC + log(x / T(2) * -sign * expm1(T(-2) * absC));
 }
 
 } // namespace seissol::dr::friction_law::rs

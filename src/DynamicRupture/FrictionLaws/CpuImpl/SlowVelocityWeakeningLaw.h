@@ -27,13 +27,13 @@ class SlowVelocityWeakeningLaw
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-// Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
-  double updateStateVariable(std::uint32_t pointIndex,
-                             std::size_t faceIndex,
-                             double stateVarReference,
-                             double timeIncrement,
-                             double localSlipRate) {
+  template <typename S>
+  S updateStateVariable(std::uint32_t pointIndex,
+                        std::size_t faceIndex,
+                        real stateVarReference,
+                        real timeIncrement,
+                        S localSlipRate) {
     return static_cast<Derived*>(this)->updateStateVariable(
         pointIndex, faceIndex, stateVarReference, timeIncrement, localSlipRate);
   }
@@ -43,7 +43,6 @@ class SlowVelocityWeakeningLaw
     std::array<real, misc::NumPaddedPoints> cLin{};
     std::array<real, misc::NumPaddedPoints> cExpLog{};
     std::array<real, misc::NumPaddedPoints> cExp{};
-    std::array<real, misc::NumPaddedPoints> acLin{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
@@ -61,15 +60,45 @@ class SlowVelocityWeakeningLaw
       const real cLin = static_cast<real>(0.5) / this->drParameters_.rsSr0;
       const real cExpLog = (localF0 + localB * log1) / localA;
       const real cExp = rs::computeCExp(cExpLog);
-      const real acLin = localA * cLin;
 
       details.a[pointIndex] = localA;
       details.cLin[pointIndex] = cLin;
       details.cExpLog[pointIndex] = cExpLog;
       details.cExp[pointIndex] = cExp;
-      details.acLin[pointIndex] = acLin;
     }
     return details;
+  }
+
+  /// the precision the state variable of this law is stated in. The relaxation rate here is
+  /// -expm1(-V dt / L) and grows with the slip rate, so wherever the state actually moves the step
+  /// is far above a single-precision ulp: some 8e-3 of the state at a metre per second.
+  using StateScalar = real;
+
+  /// the state variable is a closed-form function of the slip rate, so the inversion can carry it
+  /// inside its own iteration instead of relaying it through a fixed point
+  static constexpr bool FoldsStateVariable = true;
+
+  /// The friction coefficient at a slip rate, with the state variable evaluated at that very slip
+  /// rate. Both dependencies travel through the scalar, so a dual number comes back carrying
+  /// d(mu)/dV of the composition.
+  template <typename S>
+  S updateMuFolded(std::size_t ltsFace,
+                   std::uint32_t pointIndex,
+                   S slipRate,
+                   real stateVarReference,
+                   real timeIncrement) {
+    using std::log;
+    const auto stateVariable = static_cast<Derived*>(this)->updateStateVariable(
+        pointIndex, ltsFace, stateVarReference, timeIncrement, dualCast<StateScalar>(slipRate));
+
+    const S localStateVariable = dualCast<real>(stateVariable);
+    const S localA = S(this->a_[ltsFace][pointIndex]);
+    const S localSl0 = S(this->sl0_[ltsFace][pointIndex]);
+    const S log1 = log(S(this->drParameters_.rsSr0) * localStateVariable / localSl0);
+    const S cExpLog =
+        (S(this->f0_[ltsFace][pointIndex]) + S(this->b_[ltsFace][pointIndex]) * log1) / localA;
+    const S cLin = S(static_cast<real>(0.5) / this->drParameters_.rsSr0);
+    return localA * rs::arsinhexp(cLin * slipRate, cExpLog, rs::computeCExp(cExpLog));
   }
 
   /**
@@ -82,10 +111,12 @@ class SlowVelocityWeakeningLaw
    * @return \f$ \mu \f$
    */
 #pragma omp declare simd
-  real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
-    const real lx = details.cLin[pointIndex] * localSlipRateMagnitude;
-    return details.a[pointIndex] *
-           rs::arsinhexp(lx, details.cExpLog[pointIndex], details.cExp[pointIndex]);
+  /// generic over the scalar: a dual slip rate carries the derivative out with the value
+  template <typename S>
+  S updateMu(std::uint32_t pointIndex, S localSlipRateMagnitude, const MuDetails& details) {
+    const S lx = S(details.cLin[pointIndex]) * localSlipRateMagnitude;
+    return S(details.a[pointIndex]) *
+           rs::arsinhexp(lx, S(details.cExpLog[pointIndex]), S(details.cExp[pointIndex]));
   }
 
   /**
@@ -98,13 +129,6 @@ class SlowVelocityWeakeningLaw
    * @return \f$ \mu \f$
    */
 #pragma omp declare simd
-  real updateMuDerivative(std::uint32_t pointIndex,
-                          real localSlipRateMagnitude,
-                          const MuDetails& details) {
-    const real lx = details.cLin[pointIndex] * localSlipRateMagnitude;
-    return details.acLin[pointIndex] *
-           rs::arsinhexpDerivative(lx, details.cExpLog[pointIndex], details.cExp[pointIndex]);
-  }
 
   /**
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the

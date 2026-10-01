@@ -9,12 +9,11 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_TPCOMMON_H_
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 
-#include <array>
+#include <cmath>
 #include <cstddef>
+#include <vector>
 
 namespace seissol::dr::friction_law::tp {
 
@@ -22,70 +21,71 @@ namespace seissol::dr::friction_law::tp {
  * Logarithmic gridpoints as defined in Noda&Lapusta (14). These are the \f$\hat{l}\f$ for
  * ThermalPressurization.
  */
-template <size_t N, typename RealT = real>
+template <typename RealT = real>
 class GridPoints {
   public:
-  GridPoints() {
-    for (size_t i = 0; i < N; ++i) {
-      values_[i] =
-          misc::TpMaxWaveNumber * std::exp(-misc::TpLogDz * (misc::NumTpGridPoints - i - 1));
+  explicit GridPoints(std::size_t count) : values_(count) {
+    for (std::size_t i = 0; i < count; ++i) {
+      values_[i] = misc::TpMaxWaveNumber * std::exp(-misc::TpLogDz * (count - i - 1));
     }
   }
 
-#pragma omp declare simd
-  const RealT& operator[](size_t i) const { return values_[i]; };
-  [[nodiscard]] const std::array<RealT, N>& data() const { return values_; }
+  const RealT& operator[](std::size_t i) const { return values_[i]; };
+  [[nodiscard]] const std::vector<RealT>& data() const { return values_; }
+  [[nodiscard]] std::size_t size() const { return values_.size(); }
 
   private:
-  std::array<RealT, N> values_;
+  std::vector<RealT> values_;
 };
 
 /**
  * Inverse Fourier coefficients on the logarithmic grid.
  */
-template <size_t N, typename RealT = real>
+template <typename RealT = real>
 class InverseFourierCoefficients {
   public:
-  constexpr InverseFourierCoefficients() {
-    const GridPoints<N, double> localGridPoints;
+  explicit InverseFourierCoefficients(std::size_t count) : values_(count) {
+    const GridPoints<double> localGridPoints(count);
 
-    for (size_t i = 1; i < N - 1; ++i) {
+    for (std::size_t i = 1; i + 1 < count; ++i) {
       values_[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::TpLogDz;
     }
     values_[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::TpLogDz);
-    values_[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::TpLogDz;
+    if (count > 1) {
+      values_[count - 1] = std::sqrt(2 / M_PI) * localGridPoints[count - 1] * 0.5 * misc::TpLogDz;
+    }
   }
 
-#pragma omp declare simd
-  const RealT& operator[](size_t i) const { return values_[i]; };
-  [[nodiscard]] const std::array<RealT, N>& data() const { return values_; }
+  const RealT& operator[](std::size_t i) const { return values_[i]; };
+  [[nodiscard]] const std::vector<RealT>& data() const { return values_; }
+  [[nodiscard]] std::size_t size() const { return values_.size(); }
 
   private:
-  std::array<RealT, N> values_;
+  std::vector<RealT> values_;
 };
 
 /**
  * Stores the heat generation (without tauV) \f$\exp\left(\hat{l}^2/2\right) / \sqrt{2 \pi}\f$.
  */
-template <size_t N, typename RealT = real>
+template <typename RealT = real>
 class GaussianHeatSource {
   public:
-  constexpr GaussianHeatSource() {
-    const GridPoints<N, double> localGridPoints;
+  explicit GaussianHeatSource(std::size_t count) : values_(count) {
+    const GridPoints<double> localGridPoints(count);
     const double factor = 1 / std::sqrt(2.0 * M_PI);
 
-    for (size_t i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
       const double heatGeneration = std::exp(-0.5 * misc::power<2>(localGridPoints[i]));
       values_[i] = factor * heatGeneration;
     }
   }
 
-#pragma omp declare simd
-  const RealT& operator[](size_t i) const { return values_[i]; };
-  [[nodiscard]] const std::array<RealT, N>& data() const { return values_; }
+  const RealT& operator[](std::size_t i) const { return values_[i]; };
+  [[nodiscard]] const std::vector<RealT>& data() const { return values_; }
+  [[nodiscard]] std::size_t size() const { return values_.size(); }
 
   private:
-  std::array<RealT, N> values_;
+  std::vector<RealT> values_;
 };
 
 } // namespace seissol::dr::friction_law::tp

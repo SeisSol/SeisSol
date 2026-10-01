@@ -80,7 +80,7 @@ FrictionLawParameters::FrictionLawParameters(
       terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),
       etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
       forcedRuptureRiseTime(static_cast<real>(parameters.t0[0])),
-      sourceCount(stressSourceCount(parameters)),
+      sourceCount(stressSourceCount(parameters)), tpGridPoints(parameters.tpGridPoints),
       rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
       rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
       rsSlipRateTolerance(parameters.rsSlipRateTolerance),

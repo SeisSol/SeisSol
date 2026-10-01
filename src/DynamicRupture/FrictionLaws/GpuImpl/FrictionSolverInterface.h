@@ -73,8 +73,9 @@ struct FrictionLawData {
   // TP
   real (*__restrict temperature)[misc::NumPaddedPoints]{};
   real (*__restrict pressure)[misc::NumPaddedPoints]{};
-  real (*__restrict theta)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
-  real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
+  /// the grid points of a face follow each other; see LTSThermalPressurization::Theta
+  real (*__restrict theta)[misc::NumPaddedPoints]{};
+  real (*__restrict sigma)[misc::NumPaddedPoints]{};
   const real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
   const real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
 

@@ -58,7 +58,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     updateStateVariableIterative(ctx, timeIndex);
 
-    TPMethod::calcFluidPressure(ctx, timeIndex, true);
+    TPMethod::finalizeFluidPressure(ctx, timeIndex);
     updateDirectionAndProjections(ctx);
     updateNormalStress(ctx);
     calcSlipRateAndTraction(ctx, timeIndex);
@@ -180,11 +180,18 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     bool hasConvergedOuter = false;
     bool hasConvergedInner = true;
 
+    // The pressurization of this step is affine in the shear heating, so one walk over the
+    // wavenumber grid covers every iteration below; what the iterations then do is evaluate two
+    // coefficients.
+    TPMethod::prepareFluidPressure(ctx, timeIndex);
+
     for (uint32_t j = 0; j < ctx.data->drParameters.rsNumberStateVariableUpdates; j++) {
 
       const auto dt{ctx.args->deltaT[timeIndex]};
-      Derived::updateStateVariable(ctx, dt);
-      TPMethod::calcFluidPressure(ctx, timeIndex, false);
+      if constexpr (!Derived::FoldsStateVariable) {
+        Derived::updateStateVariable(ctx, dt);
+      }
+      TPMethod::applyShearHeating(ctx);
       const real invEta = updateDirectionAndProjections(ctx);
       updateNormalStress(ctx);
 
@@ -206,6 +213,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                     ctx.initialVariables.etaNormal,
                                                     absoluteShearStress,
                                                     localSlipRateMagnitude,
+                                                    dt,
                                                     invEta,
                                                     exportMu);
 
@@ -247,8 +255,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     const auto slipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
 
     // the only mu calculation left, outside of the fixed-point loop
-    const auto details = Derived::getMuDetails(ctx, localStateVariable);
-    const auto mu = Derived::updateMu(ctx, slipRateMagnitude, details);
+    real mu{};
+    if constexpr (Derived::FoldsStateVariable) {
+      mu = Derived::updateMuFolded(ctx, slipRateMagnitude, deltaTime);
+    } else {
+      const auto details = Derived::getMuDetails(ctx, localStateVariable);
+      mu = Derived::updateMu(ctx, slipRateMagnitude, details);
+    }
 
     ctx.data->mu[ctx.ltsFace][ctx.pointIndex] = mu;
 
@@ -335,14 +348,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
    * resolves it at a linear rate, into the quadratic one.
    */
-  SEISSOL_DEVICE static real effectiveNormalStress(real normalStress,
-                                                   real normalStressStick,
-                                                   real etaNormal,
-                                                   real slipRate) {
+  template <typename S>
+  SEISSOL_DEVICE static S stickAt(
+      real normalStress, real normalStressStick, real etaNormal, real pressureOffset, S slipRate) {
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-      return std::min(static_cast<real>(0.0), normalStressStick - slipRate * etaNormal);
+      return S(normalStressStick - pressureOffset) - slipRate * S(etaNormal);
     } else {
-      return normalStress;
+      return S(normalStress);
     }
   }
 
@@ -354,6 +366,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      real etaNormal,
                                                      real absoluteShearStress,
                                                      real slipRateMagnitude,
+                                                     real timeIncrement,
                                                      real invEtaS,
                                                      real& exportMu) {
     // Solve  g(V) = -invEtaS * (|sigma(V)| * mu(V) - tau) - V = 0   for V = slipRateTest,
@@ -362,15 +375,25 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     // (no search, endpoints not evaluated):
     //   g(0+)          = invEtaS * tau             > 0
     //   g(tau*invEtaS) = -invEtaS*|sigma(.)|*mu(.) <= 0
-    // Without the coupling dG < -1 everywhere and the root is unique; the coupling can weaken dG
-    // (cf. below), and bisection converges to a root in the bracket either way.
+    // The root need not be unique, and for a law that folds its state variable it usually is not:
+    // the state weakens with the slip rate, so d(mu)/dV changes sign once it travels inside the
+    // residual -- around a metre per second for the fast law -- and dG rises towards zero with it.
+    // The coupling weakens dG further (cf. below). Bisection converges to a root in the bracket
+    // either way, so the solver does not rest on uniqueness, but which root it reaches is decided
+    // by where it starts: hence the warm start below matters for more than speed.
     // rtsafe: Newton while it stays in the bracket and outruns bisection, else bisect.
     // The bracket is non-increasing and loses half of its decades on every fallback => the
     // iterate settles and termination is relative in V-space (|dV| < xacc * V), with two floors
     // that keep the test reachable in finite precision: xacc clamped to a few ulp, and a residual
     // that has sunk into the rounding noise of its own evaluation.
 
-    const auto details = Derived::getMuDetails(ctx, localStateVariable);
+    // Where the law can state its state variable as a function of the slip rate, the residual
+    // evaluates it at the trial slip rate rather than at one the outer fixed point supplies, and
+    // the coefficients that would be precomputed from a frozen state have no meaning here.
+    typename Derived::MuDetails details{};
+    if constexpr (!Derived::FoldsStateVariable) {
+      details = Derived::getMuDetails(ctx, localStateVariable);
+    }
     const real tau = absoluteShearStress;
 
     real xLow = friction_law::rs::almostZero();
@@ -396,8 +419,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     // directly, because it is the one root rtsafe cannot approach: a root on the bracket boundary
     // leaves the Newton step the same size as the previous one, so the guard falls back to
     // bisection on every iteration and the solve spends its whole budget halving.
-    if (effectiveNormalStress(normalStress, normalStressStick, etaNormal, xHigh) ==
-        static_cast<real>(0.0)) {
+    if (stickAt(normalStress,
+                normalStressStick,
+                etaNormal,
+                TPMethod::fluidPressureOffset(ctx),
+                xHigh) >= static_cast<real>(0.0)) {
       x = xHigh;
       converged = true;
     }
@@ -407,22 +433,34 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
       // >>> precision knob: evaluate muF/g/dG in double (promote sigma, tau, x) to drop the
       //     noise floor AND make the sign below exact. Needs a double mu() evaluation.
-      muF = Derived::updateMu(ctx, x, details);
-      const real dMuF = Derived::updateMuDerivative(ctx, x, details);
-      // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen: that
-      // moves the normal coupling out of the outer fixed point and into this Newton.
-      const real sigma = effectiveNormalStress(normalStress, normalStressStick, etaNormal, x);
-      const real absSigma = std::abs(sigma);
-      const real g = -invEtaS * (absSigma * muF - tau) - x;
-
-      // |sigma| = -sigma while the fault is closed, and sigma follows the slip rate through the
-      // anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
-      real dAbsSigma{};
-      if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-        dAbsSigma = (sigma < static_cast<real>(0)) ? etaNormal : static_cast<real>(0);
+      // one pass through mu() yields the value and its derivative; the friction law is written
+      // once and instantiated for a dual number here
+      const Dual<real> trial(x, static_cast<real>(1.0));
+      Dual<real> mu{};
+      if constexpr (Derived::FoldsStateVariable) {
+        mu = Derived::updateMuFolded(ctx, trial, timeIncrement);
       } else {
-        dAbsSigma = static_cast<real>(0);
+        mu = Derived::updateMu(ctx, trial, details);
       }
+      muF = mu.value;
+      const real dMuF = mu.derivative;
+      // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen: that
+      // moves the normal coupling and the pressurization out of the outer fixed point and into
+      // this Newton. The dual carries d|sigma|/dV of the whole composition, including the part
+      // that reaches through mu.
+      const Dual<real> sigmaDual =
+          rs::effectiveNormalStress(stickAt(normalStress,
+                                            normalStressStick,
+                                            etaNormal,
+                                            TPMethod::fluidPressureOffset(ctx),
+                                            trial),
+                                    TPMethod::fluidPressureSlope(ctx),
+                                    trial,
+                                    mu);
+      const auto absSigmaDual = abs(sigmaDual);
+      const real absSigma = absSigmaDual.value;
+      const real dAbsSigma = absSigmaDual.derivative;
+      const real g = -invEtaS * (absSigma * muF - tau) - x;
       const real dGFrozen = -invEtaS * (absSigma * dMuF) - static_cast<real>(1);
       const real dGCoupled = -invEtaS * (absSigma * dMuF + dAbsSigma * muF) - static_cast<real>(1);
       // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which the
@@ -497,7 +535,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
 
     slipRateTest = x;
-    exportMu = Derived::updateMu(ctx, x, details);
+    if constexpr (Derived::FoldsStateVariable) {
+      exportMu = Derived::updateMuFolded(ctx, x, timeIncrement);
+    } else {
+      exportMu = Derived::updateMu(ctx, x, details);
+    }
     return converged;
   }
 
@@ -513,13 +555,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * Newton solve can follow sigma(V) itself.
    */
   SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& __restrict ctx) {
+    // the stick keeps what does not follow this step's shear heating; the pressurization enters
+    // where sigma is formed, so that the solve can resolve it instead of lagging it
     ctx.initialVariables.normalStressStick =
         ctx.faultStresses.normalStress + ctx.initialStress.normalStress +
-        ctx.faultStresses.fluidPressure + ctx.initialStress.fluidPressure -
-        TPMethod::getFluidPressure(ctx);
+        ctx.faultStresses.fluidPressure + ctx.initialStress.fluidPressure;
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
-                 ctx.initialVariables.normalStressStick -
+                 ctx.initialVariables.normalStressStick - TPMethod::getFluidPressure(ctx) -
                      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] *
                          ctx.initialVariables.etaNormal);
   }

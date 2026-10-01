@@ -89,6 +89,11 @@ rsslipratetolerance = 1e-8 ! relative tolerance on the slip rate Newton-Raphson 
 rsstatetolerance = 1e-8 ! relative tolerance on the slip rate of the outer iteration,
                         ! i.e. the loop stops at |dV| < rsstatetolerance * V. Values below
                         ! the machine epsilon of the build precision are raised to a few ulp.
+tp_gridpoints = 60 ! points on the logarithmic wavenumber grid the thermal pressurization is
+                   ! integrated on. The wavenumber per point is fixed, so the count decides how far
+                   ! into the diffusive tail the integration reaches: the smallest resolved
+                   ! wavenumber is 10 * exp(-0.3 * (tp_gridpoints - 1)). A run restarted from a
+                   ! checkpoint has to keep the value it was written with.
 /
 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html

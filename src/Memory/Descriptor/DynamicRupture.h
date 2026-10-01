@@ -266,21 +266,29 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
 };
 
 struct LTSThermalPressurization {
+  public:
+  LTSThermalPressurization() = default;
+  explicit LTSThermalPressurization(const initializer::parameters::DRParameters* parameters)
+      : tpGridPointCount(parameters->tpGridPoints) {}
+
+  /// the wavenumber grid the pressurization is integrated on; see dr::misc::DefaultTpGridPoints
+  std::size_t tpGridPointCount{dr::misc::DefaultTpGridPoints};
+
   struct Temperature : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct Pressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Theta : public initializer::Variable<
-                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> {};
-  struct Sigma : public initializer::Variable<
-                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> {};
+  /// one spectral coefficient of a face, per point; the grid points share one array, indexed by
+  /// ltsFace * tpGridPointCount + tpGridPoint
+  struct Theta : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Sigma : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct HalfWidthShearZone : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct HydraulicDiffusivity : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  void addTo(DynamicRupture::Storage& storage) {
+  void addTo(DynamicRupture::Storage& storage) const {
     const auto mask = initializer::LayerMask(Ghost);
     storage.add<Temperature>(mask, Alignment, allocationModeDR());
     storage.add<Pressure>(mask, Alignment, allocationModeDR());
-    storage.add<Theta>(mask, Alignment, allocationModeDR());
-    storage.add<Sigma>(mask, Alignment, allocationModeDR());
+    storage.add<Theta>(mask, Alignment, allocationModeDR(), false, tpGridPointCount);
+    storage.add<Sigma>(mask, Alignment, allocationModeDR(), false, tpGridPointCount);
     storage.add<HalfWidthShearZone>(mask, Alignment, allocationModeDR(), true);
     storage.add<HydraulicDiffusivity>(mask, Alignment, allocationModeDR(), true);
   }
@@ -298,7 +306,7 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndState,
                                               public LTSThermalPressurization {
   explicit LTSRateAndStateThermalPressurization(
       const initializer::parameters::DRParameters* parameters)
-      : LTSRateAndState(parameters) {}
+      : LTSRateAndState(parameters), LTSThermalPressurization(parameters) {}
 
   void addTo(Storage& storage) override {
     LTSRateAndState::addTo(storage);
@@ -317,7 +325,7 @@ struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
       public LTSThermalPressurization {
   explicit LTSRateAndStateThermalPressurizationFastVelocityWeakening(
       const initializer::parameters::DRParameters* parameters)
-      : LTSRateAndStateFastVelocityWeakening(parameters) {}
+      : LTSRateAndStateFastVelocityWeakening(parameters), LTSThermalPressurization(parameters) {}
 
   void addTo(Storage& storage) override {
     LTSRateAndStateFastVelocityWeakening::addTo(storage);

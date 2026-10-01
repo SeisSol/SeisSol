@@ -18,16 +18,25 @@ class NoTP {
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-  void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
-                         real (*mu)[misc::NumPaddedPoints],
-                         std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
-                         real deltaT,
-                         bool saveTmpInTP,
+  void prepareFluidPressure(real deltaT, std::size_t ltsFace) {}
+
+  void applyShearHeating(const std::array<real, misc::NumPaddedPoints>& normalStress,
+                         const real (*mu)[misc::NumPaddedPoints],
+                         const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
                          std::size_t ltsFace) {}
+
+  void finalizeFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
+                             const real (*mu)[misc::NumPaddedPoints],
+                             const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+                             real deltaT,
+                             std::size_t ltsFace) {}
 
   [[nodiscard]] static real getFluidPressure(std::size_t /*unused*/, std::uint32_t /*unused*/) {
     return 0;
   };
+
+  [[nodiscard]] static real fluidPressureOffset(std::uint32_t /*unused*/) { return 0; }
+  [[nodiscard]] static real fluidPressureSlope(std::uint32_t /*unused*/) { return 0; }
 };
 
 } // namespace seissol::dr::friction_law::cpu
