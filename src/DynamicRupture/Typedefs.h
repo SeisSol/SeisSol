@@ -11,7 +11,9 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 
 namespace seissol::dr {
@@ -39,9 +41,9 @@ struct ImpedancesAndEta {
  * This generalizes equation (4.51) from Carsten's thesis
  */
 struct ImpedanceMatrices {
-  alignas(Alignment) real impedance[tensor::Zplus::size()] = {};
-  alignas(Alignment) real impedanceNeig[tensor::Zminus::size()] = {};
-  alignas(Alignment) real eta[tensor::eta::size()] = {};
+  alignas(Alignment) real impedance[tensor::Zplus<Config>::size()] = {};
+  alignas(Alignment) real impedanceNeig[tensor::Zminus<Config>::size()] = {};
+  alignas(Alignment) real eta[tensor::eta<Config>::size()] = {};
   /**
    * Maps a fault-local traction difference to the difference of the stress components which do not
    * take part in the fault-normal Riemann problem:
@@ -57,7 +59,7 @@ struct ImpedanceMatrices {
    * matrix form -- for an isotropic elastic material the single relevant entry is
    * lambda / (lambda + 2 mu) = 1 - 2 (cs/cp)^2, which the output computes from the wave speeds.
    */
-  alignas(Alignment) real lateralStress[3 * tensor::Zminus::Shape[0]] = {};
+  alignas(Alignment) real lateralStress[3 * tensor::Zminus<Config>::Shape[0]] = {};
 };
 
 template <Executor Executor>

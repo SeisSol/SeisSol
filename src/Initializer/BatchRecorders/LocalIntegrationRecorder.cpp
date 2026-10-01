@@ -7,6 +7,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Typedefs.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -31,14 +32,6 @@
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
-
-namespace seissol::tensor {
-struct Qane;
-struct Qext;
-struct dQane;
-struct dQext;
-struct Zinv;
-} // namespace seissol::tensor
 
 // NOLINTBEGIN (-misc-const-correctness)
 
@@ -133,26 +126,30 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
         dofsAnePtrs[cell] = dofsAne[cell];
 
         auto* idofsAne = currentLayer_->var<LTS::IDofsAneScratch>(AllocationPlace::Device);
-        idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + kernels::size<tensor::Iane>() * cell;
+        idofsAnePtrs[cell] =
+            static_cast<real*>(idofsAne) + kernels::size<tensor::Iane<Config>>() * cell;
 
         auto* derivativesExt =
             currentLayer_->var<LTS::DerivativesExtScratch>(AllocationPlace::Device);
         derivativesExtPtrs[cell] =
             static_cast<real*>(derivativesExt) +
-            (kernels::size<tensor::dQext>(1) + kernels::size<tensor::dQext>(2)) * cell;
+            (kernels::size<tensor::dQext<Config>>(1) + kernels::size<tensor::dQext<Config>>(2)) *
+                cell;
 
         auto* derivativesAne =
             currentLayer_->var<LTS::DerivativesAneScratch>(AllocationPlace::Device);
         derivativesAnePtrs[cell] =
             static_cast<real*>(derivativesAne) +
-            (kernels::size<tensor::dQane>(1) + kernels::size<tensor::dQane>(2)) * cell;
+            (kernels::size<tensor::dQane<Config>>(1) + kernels::size<tensor::dQane<Config>>(2)) *
+                cell;
 
         auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-        dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell;
+        dofsExtPtrs[cell] =
+            static_cast<real*>(dofsExt) + kernels::size<tensor::Qext<Config>>() * cell;
       }
       if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
         auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
-        zinvExtraPtrs[cell] = zinvExtraPtr + kernels::familySize<tensor::Zinv>() * cell;
+        zinvExtraPtrs[cell] = zinvExtraPtr + kernels::familySize<tensor::Zinv<Config>>() * cell;
       }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector
@@ -211,7 +208,8 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
         if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-          dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell);
+          dofsExtPtrs.push_back(static_cast<real*>(dofsExt) +
+                                kernels::size<tensor::Qext<Config>>() * cell);
         }
       }
     }
@@ -245,13 +243,13 @@ void LocalIntegrationRecorder::recordDisplacements() {
           dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
-        auto iview = init::I::view::create(idofsAddressRegistry_[cell]);
+        auto iview = init::I<Config>::view::create(idofsAddressRegistry_[cell]);
         // gpu_addVelocity reads the three integrated velocities as consecutive columns of I,
         // starting at this pointer. Where they start depends on the equation (column 6 for the
         // elastic ones, column 1 for the acoustic ones); a wrong column reads other quantities or,
         // past the last one, the integrals of other cells, without any error at runtime.
         static_assert(model::MaterialT::VelocityOffset + Cell::Dim <=
-                      tensor::I::Shape[multisim::BasisFunctionDimension + 1]);
+                      tensor::I<Config>::Shape[multisim::BasisFunctionDimension + 1]);
         iVelocitiesPtrs[face].push_back(
             &multisim::multisimWrap(iview, 0, 0, model::MaterialT::VelocityOffset));
         displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
@@ -271,7 +269,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
 void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
   const auto size = currentLayer_->size();
-  constexpr size_t NodalAvgDisplacementsSize = tensor::averageNormalDisplacement::size();
+  constexpr size_t NodalAvgDisplacementsSize = tensor::averageNormalDisplacement<Config>::size();
 
   real* nodalAvgDisplacements =
       static_cast<real*>(currentLayer_->var<LTS::NodalAvgDisplacements>(AllocationPlace::Device));
@@ -419,7 +417,7 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
           dofsPtrs[face].push_back(data.get<LTS::Dofs>());
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-          analytical[face].push_back(analyticScratch + cell * tensor::INodal::size());
+          analytical[face].push_back(analyticScratch + cell * tensor::INodal<Config>::size());
         }
       }
     }

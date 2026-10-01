@@ -75,7 +75,7 @@ namespace {
  */
 void computeMInvJInvPhisAtSources(
     const Eigen::Vector3d& center,
-    seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
+    seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources<Config>::size()>&
         mInvJInvPhisAtSources,
     std::size_t meshId,
     const seissol::geometry::MeshReader& mesh) {
@@ -163,7 +163,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
       runtime::init::stiffnessTensor::view(Variant, stiffnessTensorReal.data());
   transformKernel.rotateNRF = runtime::init::rotateNRF::view(Variant, faultBasis.data());
   transformKernel.tensorNRF = runtime::init::tensorNRF::view(
-      Variant, pointSources.tensor.data() + tensorIndex * tensor::update::Size);
+      Variant, pointSources.tensor.data() + tensorIndex * tensor::update<Config>::Size);
 
   transformKernel.execute(Variant);
 
@@ -230,7 +230,8 @@ struct FsrmFile : public SourceFile {
                  const seissol::model::Material& material) {
     const std::size_t fsrmIndex = originalIndex[sourceIndex];
 
-    auto* tensor = sources.tensor.data() + sources.sampleRange[index] * tensor::update::Size;
+    auto* tensor =
+        sources.tensor.data() + sources.sampleRange[index] * tensor::update<Config>::Size;
     transformMomentTensor(fsrm.momentTensor,
                           fsrm.solidVelocityComponent,
                           fsrm.pressureComponent,
@@ -240,7 +241,7 @@ struct FsrmFile : public SourceFile {
                           fsrm.rakes[fsrmIndex],
                           tensor);
 
-    for (std::size_t i = 0; i < tensor::update::Size; ++i) {
+    for (std::size_t i = 0; i < tensor::update<Config>::Size; ++i) {
       tensor[i] *= fsrm.areas[fsrmIndex];
     }
     if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
@@ -457,7 +458,7 @@ auto loadSourceFile(const char* fileName,
       sampleCount += file.sampleCount(sourceIndex);
     }
 
-    sources.tensor.resize(dataSourceCount * tensor::update::Size);
+    sources.tensor.resize(dataSourceCount * tensor::update<Config>::Size);
     sources.onsetTime.resize(numberOfSources);
     sources.samplingInterval.resize(numberOfSources);
     sources.sampleOffsets.resize(dataSourceCount + 1);

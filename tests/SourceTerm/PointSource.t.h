@@ -5,7 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
 #include "SourceTerm/PointSource.h"
 #include "TestHelper.h"
@@ -36,7 +38,7 @@ TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
   const double localPressureComponent = 0.0;
   const double localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
-  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update::Size>{};
+  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update<Config>::Size>{};
 
   seissol::sourceterm::transformMomentTensor(localMomentTensorXY,
                                              localSolidVelocityComponent,

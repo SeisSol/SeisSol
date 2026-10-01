@@ -7,7 +7,9 @@
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cmath>
@@ -43,8 +45,8 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          real timeStepWidth,
                          const size_t numElements,
                          void* streamPtr) {
-  constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
-                                init::QStressNodal::Start[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = init::QStressNodal<Config>::Stop[multisim::BasisFunctionDimension] -
+                                init::QStressNodal<Config>::Start[multisim::BasisFunctionDimension];
 
   auto queue = reinterpret_cast<sycl::queue*>(streamPtr);
   auto rng = getrange(NumNodes, numElements);
@@ -59,7 +61,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       real* qStressNodal = nodalStressTensors[wid];
       real localStresses[NumStressComponents];
 
-      constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
+      constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal<Config>>();
 #pragma unroll
       for (int i = 0; i < NumStressComponents; ++i) {
         localStresses[i] = qStressNodal[tid + ElementTensorsColumn * i];
@@ -107,7 +109,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       if (isAdjusted[0]) {
         const real factor = plasticity[wid].mufactor / (tV * oneMinusIntegratingFactor);
 
-        real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal::size();
+        real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal<Config>::size();
         real* __restrict localPstrain = pstrainPtr[wid];
 
         real dudtUpdate = 0;

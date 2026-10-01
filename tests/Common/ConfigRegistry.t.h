@@ -50,10 +50,10 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
     CHECK(layout.numQuantities == model::MaterialT::NumQuantities);
     CHECK(layout.numBasisFunctions == order * (order + 1) * (order + 2) / 6);
     CHECK(layout.basisFunctionDimension == multisim::BasisFunctionDimension);
-    CHECK(layout.dofsSize == tensor::Q::size());
+    CHECK(layout.dofsSize == tensor::Q<Config>::size());
     // (the unknowns of a cell may hold fewer quantities than the material, e.g. when a solver
     // stores the anelastic ones apart)
-    const auto storedQuantities = tensor::Q::Shape[multisim::BasisFunctionDimension + 1];
+    const auto storedQuantities = tensor::Q<Config>::Shape[multisim::BasisFunctionDimension + 1];
     CHECK(storedQuantities <= layout.numQuantities);
     CHECK(layout.dofsSize >= layout.numBasisFunctions * storedQuantities * Config::NumSimulations);
     CHECK(layout.drNumPoints == dr::misc::NumBoundaryGaussPoints);

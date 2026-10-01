@@ -134,7 +134,7 @@ void initializeFaultImpedance(const Fault& fault,
     using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
     constexpr std::size_t N = ImpedanceCompute::Dim;
     // Zplus, Zminus and eta all share this dimension in the code generator
-    static_assert(N == tensor::Zminus::Shape[0],
+    static_assert(N == tensor::Zminus<Config>::Shape[0],
                   "The impedance tensors of the code generator do not match the material.");
 
     // the normal/tangent vectors are already normalized
@@ -178,13 +178,13 @@ void initializeFaultImpedance(const Fault& fault,
     const Eigen::Matrix<double, N, N> bMatrix = faultImpedance.bPlus.transpose();
     const Eigen::Matrix<double, N, N> bNeigMatrix = faultImpedance.bMinus.transpose();
 
-    auto impedanceView = init::Zplus::view::create(impedanceMatrices.impedance);
-    auto impedanceNeigView = init::Zminus::view::create(impedanceMatrices.impedanceNeig);
-    auto etaView = init::eta::view::create(impedanceMatrices.eta);
+    auto impedanceView = init::Zplus<Config>::view::create(impedanceMatrices.impedance);
+    auto impedanceNeigView = init::Zminus<Config>::view::create(impedanceMatrices.impedanceNeig);
+    auto etaView = init::eta<Config>::view::create(impedanceMatrices.eta);
     auto tractionPlusMatrix =
-        init::tractionPlusMatrix::view::create(godunovData.tractionPlusMatrix);
+        init::tractionPlusMatrix<Config>::view::create(godunovData.tractionPlusMatrix);
     auto tractionMinusMatrix =
-        init::tractionMinusMatrix::view::create(godunovData.tractionMinusMatrix);
+        init::tractionMinusMatrix<Config>::view::create(godunovData.tractionMinusMatrix);
 
     copyEigenToYateto(impedanceMatrix, impedanceView);
     copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
@@ -232,10 +232,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage) {
   constexpr auto Variant = configIdOf<Config>();
-  real matTData[tensor::T::size()]{};
-  real matTinvData[tensor::Tinv::size()]{};
-  real matAPlusData[tensor::star::size(0)]{};
-  real matAMinusData[tensor::star::size(0)]{};
+  real matTData[tensor::T<Config>::size()]{};
+  real matTinvData[tensor::Tinv<Config>::size()]{};
+  real matAPlusData[tensor::star<Config>::size(0)]{};
+  real matAMinusData[tensor::star<Config>::size(0)]{};
 
   const auto& fault = meshReader.getFault();
 
@@ -405,8 +405,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Transformation matrix
-      auto matT = init::T::view::create(matTData);
-      auto matTinv = init::Tinv::view::create(matTinvData);
+      auto matT = init::T<Config>::view::create(matTData);
+      auto matTinv = init::Tinv<Config>::view::create(matTinvData);
       seissol::model::getFaceRotationMatrix(fault[meshFace].normal,
                                             fault[meshFace].tangent1,
                                             fault[meshFace].tangent2,
@@ -439,8 +439,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Wave speeds and Coefficient Matrices
-      auto matAPlus = init::star::view<0>::create(matAPlusData);
-      auto matAMinus = init::star::view<0>::create(matAMinusData);
+      auto matAPlus = init::star<Config>::view<0>::create(matAPlusData);
+      auto matAMinus = init::star<Config>::view<0>::create(matAMinusData);
 
       waveSpeedsPlus[ltsFace].density = plusMaterial->getDensity();
       waveSpeedsMinus[ltsFace].density = minusMaterial->getDensity();
@@ -503,9 +503,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         /// Traction matrices for "average" traction
 
         auto tractionPlusMatrix =
-            init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
-        auto tractionMinusMatrix =
-            init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
+            init::tractionPlusMatrix<Config>::view::create(godunovData[ltsFace].tractionPlusMatrix);
+        auto tractionMinusMatrix = init::tractionMinusMatrix<Config>::view::create(
+            godunovData[ltsFace].tractionMinusMatrix);
         const double cZpP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].pWaveVelocity;
         const double cZsP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].sWaveVelocity;
         const double cZpM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].pWaveVelocity;
@@ -534,7 +534,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       // forall visits the entries the view actually stores, so the same line
       // fills a dense and a packed TinvT, and the entries a packed one leaves
       // out are the ones the rotation has no value for anyway.
-      auto tinvT = init::TinvT::view::create(godunovData[ltsFace].dataTinvT);
+      auto tinvT = init::TinvT<Config>::view::create(godunovData[ltsFace].dataTinvT);
       tinvT.forall(
           [&matTinv](const auto* entry, auto& value) { value = matTinv(entry[1], entry[0]); });
 

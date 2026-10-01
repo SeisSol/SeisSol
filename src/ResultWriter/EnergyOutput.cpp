@@ -76,16 +76,16 @@ std::array<real, multisim::NumSimulations>
                       const real* degreesOfFreedomMinus,
                       const DRFaceInformation& faceInfo,
                       const DRGodunovData& godunovData,
-                      const real slip[seissol::tensor::slipInterpolated::size()],
+                      const real slip[seissol::tensor::slipInterpolated<Config>::size()],
                       const GlobalData* global) {
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config> krnl;
   krnl.bindGlobals(*global);
 
-  alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus::size()];
-  alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus::size()];
-  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(Alignment) real qPlus[tensor::Q::size()];
-  alignas(Alignment) real qMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus<Config>::size()];
+  alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus<Config>::size()];
+  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated<Config>::size()];
+  alignas(Alignment) real qPlus[tensor::Q<Config>::size()];
+  alignas(Alignment) real qMinus[tensor::Q<Config>::size()];
 
   // needed to counter potential mis-alignment
   std::memcpy(qPlus, degreesOfFreedomPlus, sizeof(qPlus));
@@ -115,7 +115,7 @@ std::array<real, multisim::NumSimulations>
       runtime::init::tractionInterpolated::view(Variant, tractionInterpolated);
   trKrnl.execute(Variant);
 
-  alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
+  alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork<Config>::size()]{};
 
   runtime::dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
   feKrnl.slipInterpolated = runtime::init::slipInterpolated::view(Variant, slip);
@@ -412,8 +412,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             // orientation of the fault and the rake enter, so the modulus varies from point to
             // point and cannot be pulled out of the quadrature sum.
 
-            static_assert(model::MaterialT::Type != model::MaterialType::Anisotropic ||
-                          (tensor::Zplus::size() == 9 && tensor::Zminus::size() == 9));
+            static_assert(
+                model::MaterialT::Type != model::MaterialType::Anisotropic ||
+                (tensor::Zplus<Config>::size() == 9 && tensor::Zminus<Config>::size() == 9));
 
             const auto admittance = [](const real* data) {
               return Eigen::Map<const Eigen::Matrix<real, 3, 3>>(data).cast<double>();
@@ -446,7 +447,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               const double muMinus = project(gammaMinus);
 
               const double slipIncrease =
-                  drEnergyOutput[i].accumulatedSlip[index] * init::quadweights::Values[k];
+                  drEnergyOutput[i].accumulatedSlip[index] * init::quadweights<Config>::Values[k];
               potencyIncrease += slipIncrease;
               momentIncrease += slipIncrease * 2.0 * muPlus * muMinus / (muPlus + muMinus);
             }
@@ -463,7 +464,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
               potencyIncrease +=
                   drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
-                  init::quadweights::Values[k];
+                  init::quadweights<Config>::Values[k];
             }
             potencyIncrease *= areaWeight;
             momentIncrease = potencyIncrease * mu;
@@ -572,16 +573,16 @@ void EnergyOutput::computeVolumeEnergies() {
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
 
-      alignas(Alignment) real linData[tensor::momentQ::size()];
-      auto lin = init::momentQ::view::create(linData);
+      alignas(Alignment) real linData[tensor::momentQ<Config>::size()];
+      auto lin = init::momentQ<Config>::view::create(linData);
       // cell integral of Q: momentQ(0, J) == \int_{T_ref} Q_J
       runtime::kernel::momentQCompute krnl;
       krnl.momentQ = runtime::init::momentQ::view(Variant, linData);
       krnl.Q = runtime::init::Q::view(Variant, dofsData[cell]);
       krnl.execute(Variant);
 
-      alignas(Alignment) real quadData[tensor::momentQQ::size()];
-      auto quad = init::momentQQ::view::create(quadData);
+      alignas(Alignment) real quadData[tensor::momentQQ<Config>::size()];
+      auto quad = init::momentQQ<Config>::view::create(quadData);
       // second moments of Q: momentQQ(I, J) == \int_{T_ref} Q_I Q_J
       runtime::kernel::momentQQCompute krnl2;
       krnl2.momentQQ = runtime::init::momentQQ::view(Variant, quadData);
@@ -618,12 +619,13 @@ void EnergyOutput::computeVolumeEnergies() {
         // Displacements are stored in face-aligned coordinate system.
         // We need to rotate it to the global coordinate system.
         const auto& boundaryMapping = boundaryMappings[face];
-        auto tinv = init::Tinv::view::create(boundaryMapping.dataTinv);
+        auto tinv = init::Tinv<Config>::view::create(boundaryMapping.dataTinv);
         alignas(Alignment)
-            real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+            real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix<Config>::Size];
 
         auto rotateDisplacementToFaceNormal =
-            init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
+            init::displacementRotationMatrix<Config>::view::create(
+                rotateDisplacementToFaceNormalData);
         for (int i = 0; i < 3; ++i) {
           for (int j = 0; j < 3; ++j) {
             rotateDisplacementToFaceNormal(i, j) = tinv(i + UIdx, j + UIdx);
@@ -639,7 +641,7 @@ void EnergyOutput::computeVolumeEnergies() {
         // two-step approach: the kernel produces the modal coefficients of the rotated
         // displacement, and the quadratic form against M2 is evaluated here.
 
-        alignas(Alignment) std::array<real, tensor::faceDisplacementSquared::Size>
+        alignas(Alignment) std::array<real, tensor::faceDisplacementSquared<Config>::Size>
             faceDisplacementSquared{};
         {
           runtime::kernel::faceDisplacementSquaredCompute evalKrnl;
@@ -653,7 +655,7 @@ void EnergyOutput::computeVolumeEnergies() {
         }
 
         const auto squaredViewFused =
-            init::faceDisplacementSquared::view::create(faceDisplacementSquared.data());
+            init::faceDisplacementSquared<Config>::view::create(faceDisplacementSquared.data());
 
         const auto surface = MeshTools::surface(elements[elementId], face, vertices);
         const auto rho = material.getDensity();
@@ -672,9 +674,9 @@ void EnergyOutput::computeVolumeEnergies() {
         const double mu = material.getMuBar();
 
         // integrating over all collocation points suffices
-        const real* __restrict qEta = &pstrainCell[tensor::QStressNodal::size()];
+        const real* __restrict qEta = &pstrainCell[tensor::QStressNodal<Config>::size()];
 
-        alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject::size()]{};
+        alignas(Alignment) real qEtaQuad[tensor::QEtaNodalProject<Config>::size()]{};
 
         runtime::kernel::plProject krnl;
         krnl.QEtaNodal = runtime::init::QEtaNodal::view(Variant, qEta);
@@ -683,9 +685,9 @@ void EnergyOutput::computeVolumeEnergies() {
 
         // go through the view: QEtaNodalProject is padded (at order 6, its 343 points take up 344
         // entries), and for fused simulations the simulation index leads and may be padded as well
-        static_assert(tensor::QEtaNodalProject::Shape[multisim::BasisFunctionDimension] ==
+        static_assert(tensor::QEtaNodalProject<Config>::Shape[multisim::BasisFunctionDimension] ==
                       NumQuadraturePointsTet);
-        auto qEtaQuadView = init::QEtaNodalProject::view::create(qEtaQuad);
+        auto qEtaQuadView = init::QEtaNodalProject<Config>::view::create(qEtaQuad);
         for (size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
           const auto qEtaQuadSim = multisim::simtensor(qEtaQuadView, sim);
           double pMoment = 0;

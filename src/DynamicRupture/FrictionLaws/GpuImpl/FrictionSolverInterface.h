@@ -8,8 +8,10 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERINTERFACE_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERINTERFACE_H_
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Typedefs.h"
+#include "GeneratedCode/tensor.h"
 #include "Memory/Tree/Layer.h"
 
 // A sycl-independent interface is required for interacting with the wp solver
@@ -35,8 +37,8 @@ struct FrictionLawData {
   real (*__restrict peakSlipRate)[misc::NumPaddedPoints]{};
   real (*__restrict traction1)[misc::NumPaddedPoints]{};
   real (*__restrict traction2)[misc::NumPaddedPoints]{};
-  real (*__restrict imposedStatePlus)[tensor::QInterpolated::size()]{};
-  real (*__restrict imposedStateMinus)[tensor::QInterpolated::size()]{};
+  real (*__restrict imposedStatePlus)[tensor::QInterpolated<Config>::size()]{};
+  real (*__restrict imposedStateMinus)[tensor::QInterpolated<Config>::size()]{};
   DREnergyOutput* __restrict energyData{};
   const DRGodunovData* __restrict godunovData{};
   const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints]{};
@@ -47,8 +49,10 @@ struct FrictionLawData {
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  const real (*__restrict qInterpolatedPlus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
-  const real (*__restrict qInterpolatedMinus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
+  const real (*__restrict qInterpolatedPlus)[misc::TimeSteps]
+                                            [tensor::QInterpolated<Config>::size()]{};
+  const real (*__restrict qInterpolatedMinus)[misc::TimeSteps]
+                                             [tensor::QInterpolated<Config>::size()]{};
 
   // LSW
   const real (*__restrict dC)[misc::NumPaddedPoints]{};

@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SOLVER_H_
 
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 
@@ -41,8 +42,8 @@ struct Solver {
     return faceTypeSupported();
   }
 
-  static constexpr std::size_t IntegralsSize = tensor::I::size();
-  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  static constexpr std::size_t IntegralsSize = tensor::I<Config>::size();
+  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ<Config>>();
 
   using LocalData = AnelasticLocalData;
   using NeighborData = AnelasticNeighborData;

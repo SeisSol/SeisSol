@@ -10,6 +10,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
@@ -63,12 +64,12 @@ constexpr uint32_t leadDim() noexcept {
  */
 static constexpr inline uint32_t NumPaddedPoints =
     multisim::MultisimEnabled
-        ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
-        : leadDim<init::QInterpolated>();
+        ? dimSize<init::QInterpolated<Config>, 0>() * dimSize<init::QInterpolated<Config>, 1>()
+        : leadDim<init::QInterpolated<Config>>();
 static constexpr inline uint32_t NumPaddedPointsSingleSim =
-    dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
+    dimSize<init::QInterpolated<Config>, multisim::BasisFunctionDimension>();
 static constexpr inline uint32_t NumQuantities =
-    misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
+    misc::dimSize<init::QInterpolated<Config>, multisim::BasisFunctionDimension + 1>();
 
 /*
  * Time integration point count
@@ -94,7 +95,7 @@ static constexpr double TpMaxWaveNumber = 10.0;
  * Number of gauss points on an element surface.
  */
 static constexpr uint32_t NumBoundaryGaussPoints =
-    init::QInterpolated::Shape[multisim::BasisFunctionDimension];
+    init::QInterpolated<Config>::Shape[multisim::BasisFunctionDimension];
 
 template <std::size_t I, typename F, typename TupleT>
 constexpr F forEachElement(F&& functor, TupleT&& tuple) {

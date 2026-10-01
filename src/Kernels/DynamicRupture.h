@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 #define SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
@@ -20,11 +21,11 @@ namespace seissol::kernels {
 
 class DynamicRupture : public Kernel {
   private:
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnlPrototype_;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config> krnlPrototype_;
   kernels::Time timeKernel_;
 #ifdef ACL_DEVICE
-  dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints gpuKrnlPrototype_;
-  dynamicRupture::kernel::gpu_projectToDR gpuCombinedKrnlPrototype_;
+  dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints<Config> gpuKrnlPrototype_;
+  dynamicRupture::kernel::gpu_projectToDR<Config> gpuCombinedKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 
@@ -38,8 +39,8 @@ class DynamicRupture : public Kernel {
       const DRGodunovData* godunovData,
       const real* timeDerivativePlus,
       const real* timeDerivativeMinus,
-      real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
-      real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
+      real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated<Config>::size()],
+      real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated<Config>::size()],
       const real* timeDerivativePlusPrefetch,
       const real* timeDerivativeMinusPrefetch,
       const real* coeffs);

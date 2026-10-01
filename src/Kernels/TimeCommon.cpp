@@ -11,7 +11,6 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
-#include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/LtsSetup.h"

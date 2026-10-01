@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
 #include "Common/Iterator.h"
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -169,9 +170,10 @@ struct OutputFace {
   std::size_t localFaceSideId{};
 
   FaultDirections faultDirections{};
-  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressGlbToDipStrikeAligned{};
-  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressFaceAlignedToGlb{};
-  std::array<real, seissol::tensor::Tinv::size()> glbToFaceAlignedData{};
+  std::array<real, seissol::tensor::stressRotationMatrix<Config>::size()>
+      stressGlbToDipStrikeAligned{};
+  std::array<real, seissol::tensor::stressRotationMatrix<Config>::size()> stressFaceAlignedToGlb{};
+  std::array<real, seissol::tensor::Tinv<Config>::size()> glbToFaceAlignedData{};
   Eigen::Matrix<real, 2, 2> jacobianT2d{Eigen::Matrix<real, 2, 2>::Zero()};
 
   // gather indices into ReceiverOutputData::deviceDataCollector

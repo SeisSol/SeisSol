@@ -88,8 +88,9 @@ ReceiverCluster::ReceiverCluster(
 
   estimatePerCell_ = spacetimeKernel_.metrics();
   estimatePerCellStep_ = timeKernel_.metrics();
-  estimatePerPoint_ = PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtPoint>() +
-                      PerformanceEstimate::fromKernel<kernel::evaluateDerivativeDOFSAtPoint>();
+  estimatePerPoint_ =
+      PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtPoint<Config>>() +
+      PerformanceEstimate::fromKernel<kernel::evaluateDerivativeDOFSAtPoint<Config>>();
 
   perfHandle_ = seissolInstance_.flopCounter().addMetric("receiver", "WP");
 }
@@ -150,7 +151,7 @@ double ReceiverCluster::calcReceivers(double time,
       runtime.eventSync(extraRuntime_->eventRecord());
     }
     deviceCollector_->gatherToHost(runtime.stream());
-    if constexpr (kernels::size<tensor::Qane>() > 0) {
+    if constexpr (kernels::size<tensor::Qane<Config>>() > 0) {
       deviceCollectorAne_->gatherToHost(runtime.stream());
     }
     if (extraRuntime_.has_value()) {
@@ -164,9 +165,10 @@ double ReceiverCluster::calcReceivers(double time,
     const std::size_t cellCount = receiverCells_.size();
     const auto receiverHandler = [this, timeBasis, timeStepWidth, time, expansionPoint, executor](
                                      std::size_t i) {
-      alignas(Alignment) real timeEvaluated[tensor::Q::size()]{};
-      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()]{};
-      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()]{};
+      alignas(Alignment) real timeEvaluated[tensor::Q<Config>::size()]{};
+      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint<Config>::size()]{};
+      alignas(Alignment)
+          real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Config>::size()]{};
       alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize]{};
 
       kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
@@ -180,9 +182,9 @@ double ReceiverCluster::calcReceivers(double time,
           runtime::init::QDerivativeAtPoint::view(Variant, timeEvaluatedDerivativesAtPoint);
       derivativeKrnl.Q = runtime::init::Q::view(Variant, timeEvaluated);
 
-      auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
+      auto qAtPoint = init::QAtPoint<Config>::view::create(timeEvaluatedAtPoint);
       auto qDerivativeAtPoint =
-          init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
+          init::QDerivativeAtPoint<Config>::view::create(timeEvaluatedDerivativesAtPoint);
 
       auto& receiverCell = receiverCells_[i];
 
@@ -193,7 +195,7 @@ double ReceiverCluster::calcReceivers(double time,
         tmpReceiverData.setPointer<LTS::Dofs>(
             reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
                 deviceCollector_->get(i)));
-        if constexpr (kernels::size<tensor::Qane>() > 0) {
+        if constexpr (kernels::size<tensor::Qane<Config>>() > 0) {
           tmpReceiverData.setPointer<LTS::DofsAne>(
               reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::DofsAne>())>(
                   deviceCollectorAne_->get(i)));
@@ -300,16 +302,16 @@ void ReceiverCluster::allocateData() {
 
     const bool hostAccessible = useUSM() && !extraRuntime_.has_value();
     deviceCollector_ = std::make_unique<seissol::parallel::DataCollector<real>>(
-        dofs, tensor::Q::size(), hostAccessible);
+        dofs, tensor::Q<Config>::size(), hostAccessible);
 
-    if constexpr (kernels::size<tensor::Qane>() > 0) {
+    if constexpr (kernels::size<tensor::Qane<Config>>() > 0) {
       std::vector<real*> dofsAne;
       dofsAne.reserve(receiverCells_.size());
       for (auto& receiverCell : receiverCells_) {
         dofsAne.push_back(receiverCell.dataDevice.get<LTS::DofsAne>());
       }
       deviceCollectorAne_ = std::make_unique<seissol::parallel::DataCollector<real>>(
-          dofsAne, kernels::size<tensor::Qane>(), hostAccessible);
+          dofsAne, kernels::size<tensor::Qane<Config>>(), hostAccessible);
     }
   }
 
@@ -346,15 +348,16 @@ namespace {
 // The derived quantities differentiate the particle velocity. Where it sits among the quantities
 // depends on the material: behind the six stresses for the solids (the solid velocity, for
 // poroelastic ones), right behind the pressure for the (visco)acoustic ones.
-static_assert(seissol::model::MaterialT::VelocityOffset + Cell::Dim <=
-                  tensor::QDerivativeAtPoint::Shape[seissol::multisim::BasisFunctionDimension],
-              "The velocity has to lie within the point derivatives.");
+static_assert(
+    seissol::model::MaterialT::VelocityOffset + Cell::Dim <=
+        tensor::QDerivativeAtPoint<Config>::Shape[seissol::multisim::BasisFunctionDimension],
+    "The velocity has to lie within the point derivatives.");
 
 /// The velocity gradient of one simulation at the point, gradient[i][j] = d_j v_i; in double, as
 /// the receivers record what is derived from it.
-std::array<std::array<double, Cell::Dim>, Cell::Dim>
-    velocityGradient(const seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint,
-                     std::size_t sim) {
+std::array<std::array<double, Cell::Dim>, Cell::Dim> velocityGradient(
+    const seissol::init::QDerivativeAtPoint<Config>::view::type& qDerivativeAtPoint,
+    std::size_t sim) {
   std::array<std::array<double, Cell::Dim>, Cell::Dim> gradient{};
   for (std::size_t i = 0; i < Cell::Dim; ++i) {
     for (std::size_t j = 0; j < Cell::Dim; ++j) {
@@ -367,10 +370,11 @@ std::array<std::array<double, Cell::Dim>, Cell::Dim>
 } // namespace
 
 std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", "rot2", "rot3"}; }
-void ReceiverRotation::compute(size_t sim,
-                               std::vector<double>& output,
-                               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
-                               seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
+void ReceiverRotation::compute(
+    size_t sim,
+    std::vector<double>& output,
+    seissol::init::QAtPoint<Config>::view::type& /*qAtPoint*/,
+    seissol::init::QDerivativeAtPoint<Config>::view::type& qDerivativeAtPoint) {
   const auto gradient = velocityGradient(qDerivativeAtPoint, sim);
   output.push_back(gradient[2][1] - gradient[1][2]);
   output.push_back(gradient[0][2] - gradient[2][0]);
@@ -380,10 +384,11 @@ void ReceiverRotation::compute(size_t sim,
 std::vector<std::string> ReceiverStrain::quantities() const {
   return {"epsxx", "epsxy", "epsxz", "epsyy", "epsyz", "epszz"};
 }
-void ReceiverStrain::compute(size_t sim,
-                             std::vector<double>& output,
-                             seissol::init::QAtPoint::view::type& /*qAtPoint*/,
-                             seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
+void ReceiverStrain::compute(
+    size_t sim,
+    std::vector<double>& output,
+    seissol::init::QAtPoint<Config>::view::type& /*qAtPoint*/,
+    seissol::init::QDerivativeAtPoint<Config>::view::type& qDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry
   const auto gradient = velocityGradient(qDerivativeAtPoint, sim);
   output.push_back(gradient[0][0]);

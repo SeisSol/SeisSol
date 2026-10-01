@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/kernel.h"
 #include "Initializer/Typedefs.h"
@@ -174,7 +175,7 @@ class FastVelocityWeakeningLaw
 
   protected:
   real (*__restrict srW_)[misc::NumPaddedPoints]{nullptr};
-  dynamicRupture::kernel::resampleParameter resampleKrnlPrototype_;
+  dynamicRupture::kernel::resampleParameter<Config> resampleKrnlPrototype_;
 };
 } // namespace seissol::dr::friction_law::cpu
 

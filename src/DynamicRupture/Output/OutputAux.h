@@ -8,7 +8,9 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 
+#include "Config.h"
 #include "DataTypes.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
@@ -41,7 +43,7 @@ CoordinateT getTrianglePointByCoords(const ExtTriangle& triangle,
 CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2);
 
 struct TriangleQuadratureData {
-  static constexpr size_t Size{tensor::quadweights::Shape[0]};
+  static constexpr size_t Size{tensor::quadweights<Config>::Shape[0]};
   std::array<double, 2 * Size> points{};
   std::array<double, Size> weights{};
 };

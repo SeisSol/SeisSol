@@ -10,20 +10,18 @@
 #define SEISSOL_SRC_KERNELS_INTERFACE_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
 #include "Memory/Descriptor/LTS.h"
 
-namespace seissol::tensor {
-struct Iane;
-} // namespace seissol::tensor
-
 namespace seissol::kernels {
 struct LocalTmp {
-  alignas(Alignment) real timeIntegratedAne[zeroGuard(kernels::size<tensor::Iane>())]{};
+  alignas(Alignment) real timeIntegratedAne[zeroGuard(kernels::size<tensor::Iane<Config>>())]{};
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
-  alignas(Alignment)
-      std::array<real,
-                 tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[Cell::NumFaces]{};
+  alignas(Alignment) std::array<
+      real,
+      tensor::averageNormalDisplacement<Config>::size()> nodalAvgDisplacements[Cell::NumFaces]{};
   explicit LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };

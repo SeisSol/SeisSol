@@ -15,9 +15,9 @@
 #include "Common/Constants.h"
 #include "Common/Executor.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
-#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -403,7 +403,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr &&
           data.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity) {
-        kernel::addVelocity addVelocityKrnl;
+        kernel::addVelocity<Config> addVelocityKrnl;
 
         addVelocityKrnl.bindGlobals(*globalData_.onHost);
         addVelocityKrnl.faceDisplacement = data.get<LTS::FaceDisplacements>()[face];
@@ -493,7 +493,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
             // point into the integrated dofs, at the first velocity column
             // (model::MaterialT::VelocityOffset).
 
-            kernel::gpu_addVelocity displacementKrnl;
+            kernel::gpu_addVelocity<Config> displacementKrnl;
             displacementKrnl.faceDisplacement =
                 entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
@@ -518,7 +518,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
                 (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
-                tensor::I::Size,
+                tensor::I<Config>::Size,
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime_.stream());
           } else {
@@ -526,7 +526,7 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
                 (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
-                tensor::I::Size,
+                tensor::I<Config>::Size,
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime_.stream());
           }
@@ -622,7 +622,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
       device_.algorithms().accumulateBatchedData(
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
           (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
-          tensor::Q::Size,
+          tensor::Q<Config>::Size,
           (entry.get(inner_keys::Wp::Id::Dofs))->getSize(),
           streamRuntime_.stream());
     }
@@ -992,7 +992,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 
 // only first-order time integration for the output here
 #pragma omp simd
-      for (std::size_t dof = 0; dof < tensor::Q::size(); ++dof) {
+      for (std::size_t dof = 0; dof < tensor::Q<Config>::size(); ++dof) {
         integral[dof] += timestep * dofs[dof];
       }
     }

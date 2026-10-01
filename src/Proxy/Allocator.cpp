@@ -49,7 +49,7 @@ namespace seissol::proxy {
 namespace {
 
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
-  real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
+  real(*dofs)[tensor::Q<Config>::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::StepIntegrals>();
   real** derivatives = layer.var<LTS::Derivatives>();
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
@@ -108,7 +108,8 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
     }
   }
 
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
+  kernels::fillWithStuff(
+      reinterpret_cast<real*>(dofs), tensor::Q<Config>::size() * layer.size(), false);
   kernels::fillWithStuff(bucket, kernels::Solver::IntegralsSize * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
@@ -236,9 +237,9 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     // From dynamic rupture storage
     auto& interior = drStorage.layer(layerId);
-    real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
+    real(*imposedStatePlus)[seissol::tensor::QInterpolated<Config>::size()] =
         interior.var<DynamicRupture::ImposedStatePlus>(Place);
-    real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
+    real(*fluxSolverPlus)[seissol::tensor::fluxSolver<Config>::size()] =
         interior.var<DynamicRupture::FluxSolverPlus>(Place);
     real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>();
     real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>();

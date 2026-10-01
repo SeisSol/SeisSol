@@ -7,22 +7,19 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_DATA_H_
 #define SEISSOL_SRC_KERNELS_STP_DATA_H_
 
+#include "Config.h"
 #include "GeneratedCode/quantities.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 
 #include <cstddef>
 
-namespace seissol::tensor {
-struct ET;
-struct Zinv;
-} // namespace seissol::tensor
-
 namespace seissol::kernels::solver::stp {
 // TODO: remove zeroGuard when only initialized where relevant
 
 struct STPLocalData {
-  real sourceMatrix[zeroGuard(kernels::size<tensor::ET>())]{};
+  real sourceMatrix[zeroGuard(kernels::size<tensor::ET<Config>>())]{};
 
   /// One entry per stiff source row, in the order the material declares them.
   // NOLINTNEXTLINE
@@ -30,7 +27,7 @@ struct STPLocalData {
 
   // currently hard-coded to poroelasticity
   // NOLINTNEXTLINE
-  real Zinv[zeroGuard(kernels::familySize<tensor::Zinv>())]{};
+  real Zinv[zeroGuard(kernels::familySize<tensor::Zinv<Config>>())]{};
 
   // preferrably double; will be compared closely against the "default" timestep width almost all
   // the time

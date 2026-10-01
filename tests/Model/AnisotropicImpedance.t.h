@@ -14,6 +14,7 @@
 #include <doctest.h>
 
 #include "Alignment.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h"
 #include "Equations/ImpedanceBase.h"
@@ -298,10 +299,10 @@ TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
     constexpr auto StoredRows = AnisotropicImpedance::TractionIndices;
     constexpr std::size_t Rows = 3;
 
-    REQUIRE(tensor::tractionPlusMatrix::size() == Rows * 3);
+    REQUIRE(tensor::tractionPlusMatrix<Config>::size() == Rows * 3);
 
-    alignas(Alignment) real data[tensor::tractionPlusMatrix::size()]{};
-    auto view = init::tractionPlusMatrix::view::create(data);
+    alignas(Alignment) real data[tensor::tractionPlusMatrix<Config>::size()]{};
+    auto view = init::tractionPlusMatrix<Config>::view::create(data);
     view.setZero();
     for (std::size_t col = 0; col < 3; ++col) {
       for (std::size_t row = 0; row < StoredRows.size(); ++row) {

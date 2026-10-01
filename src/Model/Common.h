@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_MODEL_COMMON_H_
 #define SEISSOL_SRC_MODEL_COMMON_H_
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/quantities.h"
@@ -310,8 +311,8 @@ template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const CoordinateT& normal,
                            const CoordinateT& tangent1,
                            const CoordinateT& tangent2,
-                           init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv) {
+                           init::T<Config>::view::type& matT,
+                           init::Tinv<Config>::view::type& matTinv) {
   detail::writeRotationBlocks<false>(MaterialT::RotationGroups, normal, tangent1, tangent2, matT);
   detail::writeRotationBlocks<true>(
       MaterialT::InverseRotationGroups, normal, tangent1, tangent2, matTinv);
@@ -321,8 +322,8 @@ template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const Eigen::Vector3d& normal,
                            const Eigen::Vector3d& tangent1,
                            const Eigen::Vector3d& tangent2,
-                           init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv) {
+                           init::T<Config>::view::type& matT,
+                           init::Tinv<Config>::view::type& matTinv) {
   const CoordinateT n = {normal(0), normal(1), normal(2)};
   const CoordinateT s = {tangent1(0), tangent1(1), tangent1(2)};
   const CoordinateT t = {tangent2(0), tangent2(1), tangent2(2)};

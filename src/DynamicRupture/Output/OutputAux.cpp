@@ -9,6 +9,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Config.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "GeneratedCode/init.h"
@@ -112,8 +113,9 @@ TriangleQuadratureData generateTriangleQuadrature() {
   TriangleQuadratureData data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
-  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
-  const auto weightsView = init::quadweights::view::create(init::quadweights::Values);
+  const auto pointsView = init::quadpoints<Config>::view::create(init::quadpoints<Config>::Values);
+  const auto weightsView =
+      init::quadweights<Config>::view::create(init::quadweights<Config>::Values);
 
   auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {

@@ -8,6 +8,10 @@
 #include "Time.h"
 
 #include "Common/Marker.h"
+#include "Config.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/MemoryOps.h"
 #include "Kernels/STP/Setup.h"
@@ -45,15 +49,15 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
 
 {
   assert((reinterpret_cast<uintptr_t>(stp)) % Vectorsize == 0);
-  std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
-  kernel::spaceTimePredictor krnl = krnlPrototype_;
+  std::fill(stp, stp + tensor::spaceTimePredictor<Config>::size(), 0);
+  kernel::spaceTimePredictor<Config> krnl = krnlPrototype_;
 
   // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
   // star matrices with dt before we execute the kernel.
-  real A_values[init::star::size(0)];
-  real B_values[init::star::size(1)];
-  real C_values[init::star::size(2)];
-  for (std::size_t i = 0; i < init::star::size(0); i++) {
+  real A_values[init::star<Config>::size(0)];
+  real B_values[init::star<Config>::size(1)];
+  real C_values[init::star<Config>::size(2)];
+  for (std::size_t i = 0; i < init::star<Config>::size(0); i++) {
     A_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[0][i];
     B_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[1][i];
     C_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[2][i];
@@ -83,13 +87,13 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
 
   // the members of the Zinv family are stored back to back
   const auto zinvOffset = [](std::size_t i) {
-    return yateto::computeFamilySize<tensor::Zinv>(1, i);
+    return yateto::computeFamilySize<tensor::Zinv<Config>>(1, i);
   };
 
   if (!defaultTimestep) {
     auto sourceMatrix =
-        init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
-    real zinvData[kernels::familySize<tensor::Zinv>()];
+        init::ET<Config>::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
+    real zinvData[kernels::familySize<tensor::Zinv<Config>>()];
     model::ZInvInitializer<seissol::model::MaterialT,
                            0,
                            seissol::model::MaterialT::NumQuantities,
@@ -123,26 +127,26 @@ void Spacetime::computeAder(const real* coeffs,
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Vectorsize == 0 ||
          timeDerivatives == nullptr);
 
-  alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
+  alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor<Config>::size()];
   real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
 PerformanceEstimate Spacetime::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::spaceTimePredictor>();
+  auto estimate = PerformanceEstimate::fromKernel<kernel::spaceTimePredictor<Config>>();
 
-  estimate.nonzeroFlop += 3 * init::star::size(0);
-  estimate.hardwareFlop += 3 * init::star::size(0);
+  estimate.nonzeroFlop += 3 * init::star<Config>::size(0);
+  estimate.hardwareFlop += 3 * init::star<Config>::size(0);
 
   // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
-  reals += tensor::Q::size() + 2 * tensor::I::size();
+  reals += tensor::Q<Config>::size() + 2 * tensor::I<Config>::size();
   // star matrices, source matrix
-  reals += yateto::computeFamilySize<tensor::star>();
+  reals += yateto::computeFamilySize<tensor::star<Config>>();
   // Zinv
-  reals += yateto::computeFamilySize<tensor::Zinv>();
+  reals += yateto::computeFamilySize<tensor::Zinv<Config>>();
   // G
   reals += 3;
 
@@ -164,7 +168,7 @@ void Spacetime::computeBatchedAder(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype_;
+  kernel::gpu_spaceTimePredictor<Config> krnl = deviceKrnlPrototype_;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
@@ -180,7 +184,7 @@ void Spacetime::computeBatchedAder(
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Config>>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
@@ -207,16 +211,17 @@ void Spacetime::computeBatchedAder(
         krnl.Zinv(i) = const_cast<const real**>(
             (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
         krnl.extraOffset_Zinv(i) = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv) +
-                                   yateto::computeFamilySize<tensor::Zinv>(1, i);
+                                   yateto::computeFamilySize<tensor::Zinv<Config>>(1, i);
       }
     } else {
       auto* layerZinvData = layer.var<LTS::ZinvExtra>();
       const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>();
       runtime.enqueueLoop(numElements, [=](std::size_t i) {
-        auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i;
+        auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv<Config>>() * i;
         const auto& localIntegration = layerLocalIntegration[i];
 
-        const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
+        const auto sourceMatrix =
+            init::ET<Config>::view::create(localIntegration.specific.sourceMatrix);
         model::ZInvInitializer<seissol::model::MaterialT,
                                0,
                                seissol::model::MaterialT::NumQuantities,
@@ -225,7 +230,7 @@ void Spacetime::computeBatchedAder(
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
             (entry.get(inner_keys::Wp::Id::ZinvExtra))->getDeviceDataPtr());
-        krnl.extraOffset_Zinv(i) = yateto::computeFamilySize<tensor::Zinv>(1, i);
+        krnl.extraOffset_Zinv(i) = yateto::computeFamilySize<tensor::Zinv<Config>>(1, i);
       }
     }
 
@@ -234,7 +239,7 @@ void Spacetime::computeBatchedAder(
     // TODO: integrate into the following kernel
     device.algorithms().setToValue(krnl.spaceTimePredictor,
                                    static_cast<real>(0.0),
-                                   tensor::spaceTimePredictor::size(),
+                                   tensor::spaceTimePredictor<Config>::size(),
                                    krnl.numElements,
                                    krnl.streamPtr);
 
@@ -246,7 +251,7 @@ void Spacetime::computeBatchedAder(
 }
 
 void Time::evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) {
-  kernel::evaluateDOFSAtTimeSTP krnl;
+  kernel::evaluateDOFSAtTimeSTP<Config> krnl;
   krnl.spaceTimePredictor = timeDerivatives;
   krnl.QAtTimeSTP = timeEvaluated;
   krnl.timeBasisFunctionsAtPoint = coeffs;
@@ -262,12 +267,12 @@ void Time::evaluateBatched(const real* coeffs,
   // if there are any errors, check this one again.
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivativeTaylorExpansion krnl;
+  kernel::gpu_derivativeTaylorExpansion<Config> krnl;
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Config>>(); ++i) {
     krnl.dQ(i) = const_cast<const real**>(timeDerivatives);
-    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
     krnl.power(i) = coeffs[i];
   }
   krnl.streamPtr = runtime.stream();
@@ -278,7 +283,7 @@ void Time::evaluateBatched(const real* coeffs,
 }
 
 PerformanceEstimate Time::metrics() const {
-  return PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtTimeSTP>();
+  return PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtTimeSTP<Config>>();
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}

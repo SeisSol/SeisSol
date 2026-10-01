@@ -11,7 +11,9 @@
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIME_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
@@ -38,11 +40,11 @@ class Spacetime : public SpacetimeKernel {
   [[nodiscard]] PerformanceEstimate metrics() const override;
 
   protected:
-  kernel::derivative krnlPrototype_;
-  kernel::fsgKernel fsgKernelPrototype_;
+  kernel::derivative<Config> krnlPrototype_;
+  kernel::fsgKernel<Config> fsgKernelPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype_;
+  kernel::gpu_derivative<Config> deviceKrnlPrototype_;
 #endif
 };
 
@@ -51,7 +53,7 @@ class Time : public TimeKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
   void evaluate(const real* coeffs,
                 const real* timeDerivatives,
-                real timeEvaluated[tensor::I::size()]) override;
+                real timeEvaluated[tensor::I<Config>::size()]) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,

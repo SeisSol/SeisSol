@@ -13,7 +13,6 @@
 #include "Common/Filesystem.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
@@ -79,13 +78,13 @@ constexpr std::size_t MaxProjectionOrder = ConvergenceOrder;
 // Which nodal points the plastic strain lives on is a build option (PLASTICITY_METHOD): "nb"
 // uses a unisolvent warp&blend set, "ip" the conical-product quadrature points. Read that back
 // off the generated matrices instead of duplicating the CMake variable.
-constexpr auto PlasticityNodalSet = static_cast<std::size_t>(tensor::vNodes::Shape[0]) ==
+constexpr auto PlasticityNodalSet = static_cast<std::size_t>(tensor::vNodes<Config>::Shape[0]) ==
                                             projection::modalSize(Cell::Dim, ConvergenceOrder)
                                         ? projection::NodalSet::WarpBlend
                                         : projection::NodalSet::Stroud;
 
 static_assert(projection::nodalSize(Cell::Dim, ConvergenceOrder, PlasticityNodalSet) ==
-                  static_cast<std::size_t>(tensor::vNodes::Shape[0]),
+                  static_cast<std::size_t>(tensor::vNodes<Config>::Shape[0]),
               "The projection module and the generated plasticity matrices disagree about the "
               "nodal point set of the volume.");
 
@@ -199,13 +198,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
   constexpr auto QDofSizePadded =
-      tensor::Q::Size / tensor::Q::Shape[multisim::BasisFunctionDimension + 1];
+      tensor::Q<Config>::Size / tensor::Q<Config>::Shape[multisim::BasisFunctionDimension + 1];
   constexpr auto QDofPointsPadded =
-      tensor::QStressNodal::Size /
-      tensor::QStressNodal::Shape[multisim::BasisFunctionDimension + 1];
+      tensor::QStressNodal<Config>::Size /
+      tensor::QStressNodal<Config>::Shape[multisim::BasisFunctionDimension + 1];
   constexpr auto FaceDisplacementPadded =
-      tensor::faceDisplacement::Size /
-      tensor::faceDisplacement::Shape[multisim::BasisFunctionDimension + 1];
+      tensor::faceDisplacement<Config>::Size /
+      tensor::faceDisplacement<Config>::Shape[multisim::BasisFunctionDimension + 1];
 
   const auto namewrap = [](const std::string& name, std::size_t sim) {
     if constexpr (multisim::MultisimEnabled) {
@@ -299,8 +298,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       spec.nodalSet = PlasticityNodalSet;
       spec.derivative = derivative;
       const auto stride = source == projection::Source::Nodal
-                              ? projectionStride<tensor::collnv>(order)
-                              : projectionStride<tensor::collvv>(order);
+                              ? projectionStride<tensor::collnv<Config>>(order)
+                              : projectionStride<tensor::collvv<Config>>(order);
       return std::make_shared<projection::Table<3, 3>>(
           subcells, dataBase, dataOrder, stride, spec, MinProjectionOrder, MaxProjectionOrder);
     };
@@ -375,9 +374,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           target[0] = meshReader.getElements()[cellIndices[index]].globalId;
         });
 
-    constexpr std::size_t MaxVtk3dPoints =
-        tensor::vtk3d::Shape[(sizeof(tensor::vtk3d::Shape) / sizeof(tensor::vtk3d::Shape[0])) - 1]
-                            [1];
+    constexpr std::size_t MaxVtk3dPoints = tensor::vtk3d<Config>::Shape
+        [(sizeof(tensor::vtk3d<Config>::Shape) / sizeof(tensor::vtk3d<Config>::Shape[0])) - 1][1];
 
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
       const auto projectVolume =
@@ -520,7 +518,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 std::array<double, MaxVtk3dPoints> itarget{};
                 projectVolumeDeriv(itarget.data(), dofsSingleQuantity2, idx1, index, subcell);
 
-                for (std::size_t i = 0; i < tensor::vtk3d::Shape[order][1]; ++i) {
+                for (std::size_t i = 0; i < tensor::vtk3d<Config>::Shape[order][1]; ++i) {
                   target[i] -= itarget[i];
                 }
               });
@@ -531,8 +529,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData::Quantities.size();
              ++quantity) {
           if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
-            constexpr std::size_t MaxVtk3dPoints = tensor::vtk3d::Shape
-                [(sizeof(tensor::vtk3d::Shape) / sizeof(tensor::vtk3d::Shape[0])) - 1][1];
+            constexpr std::size_t MaxVtk3dPoints =
+                tensor::vtk3d<Config>::Shape[(sizeof(tensor::vtk3d<Config>::Shape) /
+                                              sizeof(tensor::vtk3d<Config>::Shape[0])) -
+                                             1][1];
             writer.addGeometryOutput<double>(
                 namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
                 {},
@@ -645,13 +645,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
       projection::Spec spec;
       spec.target = projectionTarget;
-      proj[f] = std::make_shared<projection::Table<2, 3>>(embedded,
-                                                          dataBase,
-                                                          dataOrder,
-                                                          projectionStride<tensor::collvf>(order),
-                                                          spec,
-                                                          MinProjectionOrder,
-                                                          MaxProjectionOrder);
+      proj[f] =
+          std::make_shared<projection::Table<2, 3>>(embedded,
+                                                    dataBase,
+                                                    dataOrder,
+                                                    projectionStride<tensor::collvf<Config>>(order),
+                                                    spec,
+                                                    MinProjectionOrder,
+                                                    MaxProjectionOrder);
     }
 
     // face nodes -> face points (the nodal-to-modal transform is folded in)
@@ -664,7 +665,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         std::make_shared<projection::Table<2, 2>>(subcells,
                                                   dataBase,
                                                   dataOrder,
-                                                  projectionStride<tensor::collnf>(order),
+                                                  projectionStride<tensor::collnf<Config>>(order),
                                                   faceSpec,
                                                   MinProjectionOrder,
                                                   MaxProjectionOrder);
@@ -703,8 +704,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
            ++quantity) {
         constexpr std::size_t MaxVtk2dPoints =
-            tensor::vtk2d::Shape[(sizeof(tensor::vtk2d::Shape) / sizeof(tensor::vtk2d::Shape[0])) -
-                                 1][1];
+            tensor::vtk2d<Config>::Shape[(sizeof(tensor::vtk2d<Config>::Shape) /
+                                          sizeof(tensor::vtk2d<Config>::Shape[0])) -
+                                         1][1];
 
         if (seissolParams.output.freeSurfaceParameters.outputMask[quantity]) {
           writer.addGeometryOutput<double>(
@@ -734,8 +736,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
       for (std::size_t quantity = 0; quantity < quantityLabelsDisplacement.size(); ++quantity) {
         constexpr std::size_t MaxVtk2dPoints =
-            tensor::vtk2d::Shape[(sizeof(tensor::vtk2d::Shape) / sizeof(tensor::vtk2d::Shape[0])) -
-                                 1][1];
+            tensor::vtk2d<Config>::Shape[(sizeof(tensor::vtk2d<Config>::Shape) /
+                                          sizeof(tensor::vtk2d<Config>::Shape[0])) -
+                                         1][1];
         writer.addGeometryOutput<double>(
             namewrap(quantityLabelsDisplacement[quantity], sim),
             {},

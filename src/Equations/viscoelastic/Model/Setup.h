@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_
 
+#include "Config.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
@@ -67,8 +68,8 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+                                        init::QgodLocal<Config>::view::type& qGodLocal,
+                                        init::QgodNeighbor<Config>::view::type& qGodNeighbor) {
     seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
                                               dynamic_cast<const ElasticMaterial&>(neighbor),
                                               faceType,

@@ -7,6 +7,7 @@
 
 #include "doctest.h"
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "IO/Instance/Geometry/Points.h"
 #include "Kernels/Precision.h"
@@ -31,7 +32,7 @@ TEST_CASE("IO/Points") {
   };
 
   SUBCASE("Triangle (2D)") {
-    using init::vtk2d;
+    using vtk2d = init::vtk2d<Config>;
     using seissol::io::instance::geometry::pointsTriangle;
     pointsCompare(vtk2d::view<1>::create(vtk2d::Values1), pointsTriangle(1));
     pointsCompare(vtk2d::view<2>::create(vtk2d::Values2), pointsTriangle(2));
@@ -44,7 +45,7 @@ TEST_CASE("IO/Points") {
   }
 
   SUBCASE("Tetrahedron (3D)") {
-    using init::vtk3d;
+    using vtk3d = init::vtk3d<Config>;
     using seissol::io::instance::geometry::pointsTetrahedron;
     pointsCompare(vtk3d::view<1>::create(vtk3d::Values1), pointsTetrahedron(1));
     pointsCompare(vtk3d::view<2>::create(vtk3d::Values2), pointsTetrahedron(2));

@@ -10,6 +10,9 @@
 #include "Local.h"
 
 #include "Common/Marker.h"
+#include "Config.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
@@ -51,20 +54,20 @@ void Local::computeIntegral(
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
 #endif
 
-  alignas(Alignment) real Qext[tensor::Qext::size()];
+  alignas(Alignment) real Qext[tensor::Qext<Config>::size()];
 
-  kernel::volumeExt volKrnl = volumeKernelPrototype_;
+  kernel::volumeExt<Config> volKrnl = volumeKernelPrototype_;
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDoFs;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Config>>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
-  kernel::localFluxExt lfKrnl = localFluxKernelPrototype_;
+  kernel::localFluxExt<Config> lfKrnl = localFluxKernelPrototype_;
   lfKrnl.Qext = Qext;
   lfKrnl.I = timeIntegratedDoFs;
-  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
-  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
+  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I<Config>::size();
+  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q<Config>::size();
 
   volKrnl.execute();
 
@@ -108,7 +111,7 @@ void Local::computeIntegral(
       assert(initConds_ != nullptr);
       const auto applyAnalyticalSolution = kernels::ApplyAnalyticalSolution(initConds_, data);
 
-      alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+      alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Config>::size()];
       analyticalBoundary_.evaluate(cellBoundaryMapping[face],
                                    applyAnalyticalSolution,
                                    dofsFaceBoundaryNodal,
@@ -128,7 +131,7 @@ void Local::computeIntegral(
     }
   }
 
-  kernel::local lKrnl = localKernelPrototype_;
+  kernel::local<Config> lKrnl = localKernelPrototype_;
   lKrnl.E = data.get<LTS::LocalIntegration>().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
   lKrnl.Q = data.get<LTS::Dofs>();
@@ -141,7 +144,7 @@ void Local::computeIntegral(
 }
 
 PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
-  auto estimate = PerformanceEstimate::fromKernel<seissol::kernel::volumeExt>();
+  auto estimate = PerformanceEstimate::fromKernel<seissol::kernel::volumeExt<Config>>();
 
 #if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
   constexpr bool CombineLocalFlux = true;
@@ -150,41 +153,41 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
 #endif
 
   if constexpr (CombineLocalFlux) {
-    estimate += PerformanceEstimate::fromKernel<seissol::kernel::fluxLocalAll>();
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::fluxLocalAll<Config>>();
   } else {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (faceTypes[face] != FaceType::DynamicRupture) {
-        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt<Config>>(face);
       }
       switch (faceTypes[face]) {
       case FaceType::FreeSurfaceGravity:
-        estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux>(face);
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux<Config>>(face);
         break;
       case FaceType::Dirichlet:
-        estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux>(face);
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux<Config>>(face);
         break;
       case FaceType::Analytical:
-        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Config>>(face);
         break;
       default:
         break;
       }
     }
 
-    estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::local<Config>>();
   }
 
   // legacy memory estimate
   std::uint64_t reals = 0;
 
   // star matrices load
-  reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +
-           tensor::E::size();
+  reals += yateto::computeFamilySize<tensor::star<Config>>() + tensor::w<Config>::size() +
+           tensor::W<Config>::size() + tensor::E<Config>::size();
   // flux solvers
-  reals += 4 * tensor::AplusT::size();
+  reals += 4 * tensor::AplusT<Config>::size();
 
   // DOFs write
-  reals += tensor::Q::size() + tensor::Qane::size();
+  reals += tensor::Q<Config>::size() + tensor::Qane<Config>::size();
 
   estimate.bytes = reals * sizeof(real);
 
@@ -201,7 +204,7 @@ void Local::computeBatchedIntegral(
   using namespace seissol::recording;
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype_;
+  kernel::gpu_volumeExt<Config> volKrnl = deviceVolumeKernelPrototype_;
 
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
@@ -213,7 +216,7 @@ void Local::computeBatchedIntegral(
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Config>>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
@@ -260,8 +263,8 @@ void Local::computeBatchedIntegral(
 
 // deprecated code; kept for comparison reasons
 #ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype_;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
+  kernel::gpu_localFluxExt<Config> localFluxKrnl = deviceLocalFluxKernelPrototype_;
+  kernel::gpu_local<Config> localKrnl = deviceLocalKernelPrototype_;
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {

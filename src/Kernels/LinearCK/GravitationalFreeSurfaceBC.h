@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
@@ -40,7 +41,7 @@ class GravitationalFreeSurfaceBc {
       : gravitationalAcceleration_(gravitationalAcceleration) {};
 
   constexpr static PerformanceEstimate metrics(int8_t face) {
-    return PerformanceEstimate::fromKernel<kernel::fsgKernel>(face);
+    return PerformanceEstimate::fromKernel<kernel::fsgKernel<Config>>(face);
   }
 
   template <typename MappingKrnl>
@@ -55,7 +56,7 @@ class GravitationalFreeSurfaceBc {
                 CellMaterialData& materialData) {
     // The material constants are shared by every fused simulation, since those
     // share the cell they run in.
-    kernel::fsgKernel kernel = std::forward<MappingKrnl>(fsgKernelBase);
+    kernel::fsgKernel<Config> kernel = std::forward<MappingKrnl>(fsgKernelBase);
 
     assert(boundaryMapping.dataTinv != nullptr);
     assert(boundaryMapping.dataT != nullptr);
@@ -71,7 +72,7 @@ class GravitationalFreeSurfaceBc {
     kernel.fsgpower(0) = timeStepWidth;
 
     for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
-      kernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
+      kernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
 
       coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
       powerTmp *= timeStepWidth / static_cast<double>(i + 2);
@@ -120,16 +121,16 @@ class GravitationalFreeSurfaceBc {
       auto** integratedDisplacementNodalPtrs =
           dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
 
-      kernel::gpu_fsgKernel kernel = std::forward<MappingKrnl>(fsgKernelBase);
+      kernel::gpu_fsgKernel<Config> kernel = std::forward<MappingKrnl>(fsgKernelBase);
 
       kernel.invImp = const_cast<const real**>(constantData);
       kernel.rhoG = const_cast<const real**>(constantData);
       kernel.extraOffset_invImp = 0;
       kernel.extraOffset_rhoG = 1;
 
-      for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+      for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Config>>(); ++i) {
         kernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
-        kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+        kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
       }
       kernel.Tinv = const_cast<const real**>(TinvDataPtrs);
       kernel.T = const_cast<const real**>(TDataPtrs);

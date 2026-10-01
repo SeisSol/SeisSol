@@ -11,6 +11,7 @@
 
 #include "Alignment.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -49,22 +50,22 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
                                           real tV,
                                           const GlobalData* global,
                                           const seissol::model::PlasticityData* plasticityData,
-                                          real degreesOfFreedom[tensor::Q::size()],
+                                          real degreesOfFreedom[tensor::Q<Config>::size()],
                                           real* pstrain) {
 
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Vectorsize == 0);
 
-  alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
+  alignas(Alignment) real qStressNodal[tensor::QStressNodal<Config>::size()]{};
 
-  alignas(Alignment) real meanStress[tensor::meanStress::size()]{};
-  alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()]{};
-  alignas(Alignment) real tau[tensor::secondInvariant::size()]{};
-  alignas(Alignment) real taulim[tensor::meanStress::size()]{};
-  alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()]{};
+  alignas(Alignment) real meanStress[tensor::meanStress<Config>::size()]{};
+  alignas(Alignment) real secondInvariant[tensor::secondInvariant<Config>::size()]{};
+  alignas(Alignment) real tau[tensor::secondInvariant<Config>::size()]{};
+  alignas(Alignment) real taulim[tensor::meanStress<Config>::size()]{};
+  alignas(Alignment) real yieldFactor[tensor::yieldFactor<Config>::size()]{};
 
-  static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
+  static_assert(tensor::secondInvariant<Config>::size() == tensor::meanStress<Config>::size(),
                 "Second invariant tensor and mean stress tensor must be of the same size().");
-  static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(),
+  static_assert(tensor::yieldFactor<Config>::size() <= tensor::meanStress<Config>::size(),
                 "Yield factor tensor must be smaller than mean stress tensor.");
 
   /* Convert modal to nodal and add sigma0.
@@ -73,7 +74,7 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
    * also stores the previous DOFs before adding the new initial loading
    */
 
-  kernel::plConvertToNodal m2nKrnl;
+  kernel::plConvertToNodal<Config> m2nKrnl;
   m2nKrnl.bindGlobals(*global);
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
@@ -81,7 +82,7 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
   m2nKrnl.execute();
 
   // Computes m = s_{ii} / 3.0 for every node
-  kernel::plComputeMean cmKrnl;
+  kernel::plComputeMean<Config> cmKrnl;
   cmKrnl.bindGlobals(*global);
   cmKrnl.meanStress = meanStress;
   cmKrnl.QStressNodal = qStressNodal;
@@ -90,14 +91,14 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
   /* Compute s_{ij} := s_{ij} - m delta_{ij},
    * where delta_{ij} = 1 if i == j else 0.
    * Thus, s_{ij} contains the deviatoric stresses. */
-  kernel::plSubtractMean smKrnl;
+  kernel::plSubtractMean<Config> smKrnl;
   smKrnl.bindGlobals(*global);
   smKrnl.meanStress = meanStress;
   smKrnl.QStressNodal = qStressNodal;
   smKrnl.execute();
 
   // Compute I_2 = 0.5 s_{ij} s_ji for every node
-  kernel::plComputeSecondInvariant siKrnl;
+  kernel::plComputeSecondInvariant<Config> siKrnl;
   siKrnl.bindGlobals(*global);
   siKrnl.secondInvariant = secondInvariant;
   siKrnl.QStressNodal = qStressNodal;
@@ -105,13 +106,13 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
 
 // tau := sqrt(I_2) for every node
 #pragma omp simd
-  for (std::size_t ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::secondInvariant<Config>::size(); ++ip) {
     tau[ip] = std::sqrt(secondInvariant[ip]);
   }
 
 // Compute tau_c for every node
 #pragma omp simd
-  for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::meanStress<Config>::size(); ++ip) {
     taulim[ip] = std::max(static_cast<real>(0.0),
                           plasticityData->cohesionTimesCosAngularFriction[ip] -
                               meanStress[ip] * plasticityData->sinAngularFriction[ip]);
@@ -120,7 +121,7 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
   int32_t adjust = 0;
 
 #pragma omp simd reduction(max : adjust)
-  for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::yieldFactor<Config>::size(); ++ip) {
     // Compute yield := (t_c / tau - 1) r for every node,
     // where r = 1 - exp(-timeStepWidth / tV)
     const auto doesYield = tau[ip] > taulim[ip];
@@ -136,10 +137,11 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
     const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
 
     // calculate plastic strain
-    constexpr std::size_t NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
-                                     init::QStressNodal::Start[multisim::BasisFunctionDimension];
+    constexpr std::size_t NumNodes =
+        init::QStressNodal<Config>::Stop[multisim::BasisFunctionDimension] -
+        init::QStressNodal<Config>::Start[multisim::BasisFunctionDimension];
 
-    real* __restrict qEtaNodal = &pstrain[tensor::QStressNodal::size()];
+    real* __restrict qEtaNodal = &pstrain[tensor::QStressNodal<Config>::size()];
 
     /**
      * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
@@ -210,7 +212,7 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
       qEtaNodal[qp] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtPstrainSqAcc);
     }
 
-    kernel::plConvertToModal adjKrnl;
+    kernel::plConvertToModal<Config> adjKrnl;
     adjKrnl.QStress = degreesOfFreedom;
     adjKrnl.bindGlobals(*global);
     adjKrnl.QStressNodal = qStressNodal;
@@ -234,9 +236,10 @@ void Plasticity::computePlasticityBatched(
 
   using namespace seissol::recording;
 
-  static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
+  static_assert(tensor::Q<Config>::Shape[0] == tensor::QStressNodal<Config>::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
-  static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
+  static_assert(tensor::Q<Config>::Shape[multisim::BasisFunctionDimension] ==
+                    tensor::v<Config>::Shape[0],
                 "modal dofs and vandermonde matrix must have the same leading dimensions");
 
   const ConditionalKey key(*KernelNames::Plasticity);
@@ -253,9 +256,9 @@ void Plasticity::computePlasticityBatched(
     real** nodalStressTensors =
         (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
 
-    static_assert(kernel::gpu_plConvertToNodal::TmpMaxMemRequiredInBytes == 0);
+    static_assert(kernel::gpu_plConvertToNodal<Config>::TmpMaxMemRequiredInBytes == 0);
     real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
-    kernel::gpu_plConvertToNodal m2nKrnl;
+    kernel::gpu_plConvertToNodal<Config> m2nKrnl;
     m2nKrnl.bindGlobals(*global);
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
     m2nKrnl.QStressNodal = nodalStressTensors;
@@ -277,7 +280,7 @@ void Plasticity::computePlasticityBatched(
                                                  numElements,
                                                  defaultStream);
 
-    kernel::gpu_plConvertToModal n2mKrnl;
+    kernel::gpu_plConvertToModal<Config> n2mKrnl;
     n2mKrnl.bindGlobals(*global);
     n2mKrnl.QStressNodal = const_cast<const real**>(nodalStressTensors);
     n2mKrnl.QStress = modalStressTensors;
@@ -297,31 +300,31 @@ std::pair<PerformanceEstimate, PerformanceEstimate> Plasticity::metrics() {
   PerformanceEstimate yield;
 
   // flops from checking, i.e. outside if (adjust) {}
-  check += PerformanceEstimate::fromKernel<kernel::plConvertToNodal>();
+  check += PerformanceEstimate::fromKernel<kernel::plConvertToNodal<Config>>();
 
   // compute mean stress
-  check += PerformanceEstimate::fromKernel<kernel::plComputeMean>();
+  check += PerformanceEstimate::fromKernel<kernel::plComputeMean<Config>>();
 
   // subtract mean stress
-  check += PerformanceEstimate::fromKernel<kernel::plSubtractMean>();
+  check += PerformanceEstimate::fromKernel<kernel::plSubtractMean<Config>>();
 
   // compute second invariant
-  check += PerformanceEstimate::fromKernel<kernel::plComputeSecondInvariant>();
+  check += PerformanceEstimate::fromKernel<kernel::plComputeSecondInvariant<Config>>();
 
   // compute taulim (1 add, 1 mul, max NOT counted)
-  check.nonzeroFlop += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
-  check.hardwareFlop += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
+  check.nonzeroFlop += static_cast<std::uint64_t>(2 * tensor::meanStress<Config>::size());
+  check.hardwareFlop += static_cast<std::uint64_t>(2 * tensor::meanStress<Config>::size());
 
   // check for yield (NOT counted, as it would require counting the number of yielding points)
 
   // flops from plastic yielding, i.e. inside if (adjust) {}
-  yield += PerformanceEstimate::fromKernel<kernel::plConvertToModal>();
+  yield += PerformanceEstimate::fromKernel<kernel::plConvertToModal<Config>>();
 
   // manually counted
-  yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
-  yield.hardwareFlop += static_cast<std::uint64_t>(tensor::QStressNodal::size() * 6);
-  yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
-  yield.hardwareFlop += static_cast<std::uint64_t>(tensor::QEtaNodal::size() * 3);
+  yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QStressNodal<Config>::size() * 6);
+  yield.hardwareFlop += static_cast<std::uint64_t>(tensor::QStressNodal<Config>::size() * 6);
+  yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QEtaNodal<Config>::size() * 3);
+  yield.hardwareFlop += static_cast<std::uint64_t>(tensor::QEtaNodal<Config>::size() * 3);
 
   return {check, yield};
 }

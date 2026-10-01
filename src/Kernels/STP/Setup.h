@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SETUP_H_
 #define SEISSOL_SRC_KERNELS_STP_SETUP_H_
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/STP/Solver.h"
 #include "Model/Common.h"
@@ -38,7 +39,7 @@ inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
   using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
   using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
 
-  Matrix matZ{init::Z::Values};
+  Matrix matZ{init::Z<Config>::Values};
   // Only a stiff row carries a diagonal source entry. The check is not
   // cosmetic: for every other row the source matrix has no entry at
   // (quantity, quantity), so the lookup itself would be out of pattern.
@@ -62,10 +63,10 @@ inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
 template <typename MaterialT, size_t Istart, size_t Iend, typename Tview>
 struct ZInvInitializer {
   ZInvInitializer(real* zInvData, const Tview& sourceMatrix, real timeStepWidth) {
-    auto zInv = init::Zinv::view<Istart>::create(zInvData);
+    auto zInv = init::Zinv<Config>::view<Istart>::create(zInvData);
     calcZinv(zInv, sourceMatrix, Istart, isStiffRow<MaterialT>(Istart), timeStepWidth);
     if constexpr (Istart < Iend - 1) {
-      auto* nextZInvData = zInvData + init::Zinv::size(Istart);
+      auto* nextZInvData = zInvData + init::Zinv<Config>::size(Istart);
       ZInvInitializer<MaterialT, Istart + 1, Iend, Tview>(
           nextZInvData, sourceMatrix, timeStepWidth);
     }
@@ -84,7 +85,7 @@ struct SolverSetup<kernels::solver::stp::Solver, MaterialT>
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
                                           typename MaterialT::Solver::LocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+    auto sourceMatrix = init::ET<Config>::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
     MaterialSetup<MaterialT>::getTransposedSourceCoefficientTensor(material, sourceMatrix);
 

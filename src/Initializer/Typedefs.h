@@ -14,6 +14,7 @@
 #include "Alignment.h"
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/pool.h"
@@ -41,7 +42,7 @@ constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (Conve
  * copy of it in device memory. Which entries a table holds is decided by the
  * code generator, so adding a matrix no longer means touching this file.
  **/
-using GlobalData = seissol::Pool;
+using GlobalData = seissol::Pool<Config>;
 
 struct CompoundGlobalData {
   GlobalData* onHost{nullptr};
@@ -51,10 +52,10 @@ struct CompoundGlobalData {
 // data for the cell local integration
 struct alignas(Alignment) LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)]{};
+  real starMatrices[3][seissol::tensor::star<Config>::size(0)]{};
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::tensor::AplusT::size()]{};
+  real nApNm1[4][seissol::tensor::AplusT<Config>::size()]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::LocalData specific;
@@ -63,7 +64,7 @@ struct alignas(Alignment) LocalIntegrationData {
 // data for the neighboring boundary integration
 struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::tensor::AminusT::size()]{};
+  real nAmNm1[4][seissol::tensor::AminusT<Config>::size()]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::NeighborData specific;
@@ -84,9 +85,9 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  real dataTinvT[seissol::tensor::TinvT::size()]{};
-  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()]{};
-  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()]{};
+  real dataTinvT[seissol::tensor::TinvT<Config>::size()]{};
+  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix<Config>::size()]{};
+  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix<Config>::size()]{};
   // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of
@@ -100,7 +101,7 @@ struct DRGodunovData {
 };
 
 struct DREnergyOutput {
-  real slip[seissol::tensor::slipInterpolated::size()]{};
+  real slip[seissol::tensor::slipInterpolated<Config>::size()]{};
   real accumulatedSlip[seissol::dr::misc::NumPaddedPoints]{};
   real frictionalEnergy[seissol::dr::misc::NumPaddedPoints]{};
   real timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints]{};
@@ -136,11 +137,12 @@ struct CellDRMapping {
 
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
-  real dataT[seissol::tensor::T::size()]{};
-  real dataTinv[seissol::tensor::Tinv::size()]{};
-  real dirichletOffset[seissol::tensor::dirichletOffset::size()]{};
-  real dirichletMap[seissol::tensor::dirichletMap::size()]{};
+  real
+      nodes[seissol::nodal::tensor::nodes2D<Config>::Shape[multisim::BasisFunctionDimension] * 3]{};
+  real dataT[seissol::tensor::T<Config>::size()]{};
+  real dataTinv[seissol::tensor::Tinv<Config>::size()]{};
+  real dirichletOffset[seissol::tensor::dirichletOffset<Config>::size()]{};
+  real dirichletMap[seissol::tensor::dirichletMap<Config>::size()]{};
   real fsgData[3]{};
 };
 

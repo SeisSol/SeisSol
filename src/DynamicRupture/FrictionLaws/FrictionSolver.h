@@ -8,9 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -56,7 +58,7 @@ class FrictionSolver {
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   virtual void allocateAuxiliaryMemory(GlobalData* globalData) {
-    spaceWeights_ = globalData->*init::quadweights::PoolMember;
+    spaceWeights_ = globalData->*init::quadweights<Config>::PoolMember;
   }
 
   virtual seissol::initializer::AllocationPlace allocationPlace() {
@@ -91,8 +93,8 @@ class FrictionSolver {
   real (*__restrict peakSlipRate_)[misc::NumPaddedPoints]{};
   real (*__restrict traction1_)[misc::NumPaddedPoints]{};
   real (*__restrict traction2_)[misc::NumPaddedPoints]{};
-  real (*__restrict imposedStatePlus_)[tensor::QInterpolated::size()]{};
-  real (*__restrict imposedStateMinus_)[tensor::QInterpolated::size()]{};
+  real (*__restrict imposedStatePlus_)[tensor::QInterpolated<Config>::size()]{};
+  real (*__restrict imposedStateMinus_)[tensor::QInterpolated<Config>::size()]{};
   const real* __restrict spaceWeights_{};
   DREnergyOutput* __restrict energyData_{};
   DRGodunovData* __restrict godunovData_{};
@@ -104,8 +106,8 @@ class FrictionSolver {
   real (*__restrict dynStressTime_)[misc::NumPaddedPoints]{};
   bool (*__restrict dynStressTimePending_)[misc::NumPaddedPoints]{};
 
-  real (*__restrict qInterpolatedPlus_)[misc::TimeSteps][tensor::QInterpolated::size()]{};
-  real (*__restrict qInterpolatedMinus_)[misc::TimeSteps][tensor::QInterpolated::size()]{};
+  real (*__restrict qInterpolatedPlus_)[misc::TimeSteps][tensor::QInterpolated<Config>::size()]{};
+  real (*__restrict qInterpolatedMinus_)[misc::TimeSteps][tensor::QInterpolated<Config>::size()]{};
 };
 } // namespace seissol::dr::friction_law
 

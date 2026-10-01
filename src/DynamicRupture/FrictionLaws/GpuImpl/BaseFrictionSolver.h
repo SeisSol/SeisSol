@@ -10,12 +10,14 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "FrictionSolverInterface.h"
+#include "GeneratedCode/init.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Numerical/Functions.h"
 
@@ -106,8 +108,8 @@ inline bool deviceWarpAll(FrictionLawContext& __restrict /*ctx*/, bool /*value*/
 #endif
 
 SEISSOL_DEVICE inline real resampleVariable(FrictionLawContext& __restrict ctx, real toResample) {
-  constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
-  constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+  constexpr auto Dim0 = misc::dimSize<init::resample<Config>, 0>();
+  constexpr auto Dim1 = misc::dimSize<init::resample<Config>, 1>();
   static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
   static_assert(Dim0 >= Dim1);
 

@@ -12,8 +12,6 @@
 
 #include "DynamicRupture/Factory.h"
 #include "DynamicRupture/Misc.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Common.h"

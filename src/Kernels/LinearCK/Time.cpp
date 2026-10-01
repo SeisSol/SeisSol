@@ -14,6 +14,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "GravitationalFreeSurfaceBC.h"
@@ -87,8 +88,8 @@ void Spacetime::computeAder(const real* coeffs,
   alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
-  kernel::derivative krnl = krnlPrototype_;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  kernel::derivative<Config> krnl = krnlPrototype_;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Config>>(); ++i) {
     krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
@@ -96,8 +97,8 @@ void Spacetime::computeAder(const real* coeffs,
   set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
   krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
-  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
+  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Config>>(); ++i) {
+    krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
   }
 
   krnl.I = timeIntegrated;
@@ -108,11 +109,11 @@ void Spacetime::computeAder(const real* coeffs,
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
-    std::copy_n(data.get<LTS::Dofs>(), tensor::dQ::size(0), derivativesBuffer);
+    std::copy_n(data.get<LTS::Dofs>(), tensor::dQ<Config>::size(0), derivativesBuffer);
   } else if (timeDerivatives != nullptr) {
     // First derivative is not needed here but later
     // Hence stream it out
-    streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), derivativesBuffer);
+    streamstore(tensor::dQ<Config>::size(0), data.get<LTS::Dofs>(), derivativesBuffer);
   }
 
   krnl.execute();
@@ -148,7 +149,7 @@ void Spacetime::computeBatchedAder(
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype_;
+  kernel::gpu_derivative<Config> derivativesKrnl = deviceKrnlPrototype_;
 
   const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
@@ -162,7 +163,7 @@ void Spacetime::computeBatchedAder(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Config>>(); ++i) {
       derivativesKrnl.star(i) = localIntegrationPtrs;
       derivativesKrnl.extraOffset_star(i) =
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
@@ -177,9 +178,9 @@ void Spacetime::computeBatchedAder(
     set_ET(derivativesKrnl, localIntegrationPtrs);
     set_extraOffset_ET(derivativesKrnl, SourceMatrixOffset / sizeof(real));
 
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Config>>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-      derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+      derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
     }
 
     derivativesKrnl.Q =
@@ -209,15 +210,15 @@ void Spacetime::computeBatchedAder(
 }
 
 PerformanceEstimate Spacetime::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative>();
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative<Config>>();
 
   // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
-  reals += tensor::Q::size() + 2 * tensor::I::size();
+  reals += tensor::Q<Config>::size() + 2 * tensor::I<Config>::size();
   // star matrices, source matrix
-  reals += yateto::computeFamilySize<tensor::star>();
+  reals += yateto::computeFamilySize<tensor::star<Config>>();
 
   /// \todo incorporate derivatives
 
@@ -228,19 +229,20 @@ PerformanceEstimate Spacetime::metrics() const {
 
 void Time::evaluate(const real* coeffs,
                     const real* timeDerivatives,
-                    real timeEvaluated[tensor::Q::size()]) {
+                    real timeEvaluated[tensor::Q<Config>::size()]) {
   /*
    * assert alignments.
    */
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Vectorsize == 0);
   assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Vectorsize == 0);
 
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+  static_assert(tensor::I<Config>::size() == tensor::Q<Config>::size(),
+                "Sizes of tensors I and Q must match");
 
-  kernel::derivativeTaylorExpansion krnl;
+  kernel::derivativeTaylorExpansion<Config> krnl;
   krnl.I = timeEvaluated;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Config>>(); ++i) {
+    krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
     krnl.power(i) = coeffs[i];
   }
   krnl.execute();
@@ -257,16 +259,17 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
 
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
-  static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
+  static_assert(tensor::I<Config>::size() == tensor::Q<Config>::size(),
+                "Sizes of tensors I and Q must match");
+  static_assert(kernel::gpu_derivativeTaylorExpansion<Config>::TmpMaxMemRequiredInBytes == 0);
 
 #ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
-  kernel::gpu_derivativeTaylorExpansion krnl;
+  kernel::gpu_derivativeTaylorExpansion<Config> krnl;
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Config>>(); ++i) {
     krnl.dQ(i) = timeDerivatives;
-    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
     krnl.power(i) = coeffs[i];
   }
   krnl.streamPtr = runtime.stream();
@@ -284,7 +287,7 @@ void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
 }
 
 PerformanceEstimate Time::metrics() const {
-  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion>();
+  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion<Config>>();
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}

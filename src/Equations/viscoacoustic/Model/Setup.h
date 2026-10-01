@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_SETUP_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_SETUP_H_
 
+#include "Config.h"
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
@@ -55,8 +56,8 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+                                        init::QgodLocal<Config>::view::type& qGodLocal,
+                                        init::QgodNeighbor<Config>::view::type& qGodNeighbor) {
     seissol::model::getTransposedGodunovState(dynamic_cast<const AcousticMaterial&>(local),
                                               dynamic_cast<const AcousticMaterial&>(neighbor),
                                               faceType,

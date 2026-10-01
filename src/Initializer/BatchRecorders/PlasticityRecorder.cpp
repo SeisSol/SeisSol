@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
@@ -51,7 +52,8 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
         dofsPtrs[pcell] = static_cast<real*>(data.get<LTS::Dofs>());
         pstrainsPtrs[pcell] = static_cast<real*>(data.get<LTS::PStrain>());
         initialLoadPtrs[pcell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
-        qStressNodalPtrs[pcell] = qStressNodalScratch + pcell * tensor::QStressNodal::size();
+        qStressNodalPtrs[pcell] =
+            qStressNodalScratch + pcell * tensor::QStressNodal<Config>::size();
         ++pcell;
       }
     }

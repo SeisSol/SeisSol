@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_SETUP_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_SETUP_H_
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Model/Common.h"
@@ -64,7 +65,7 @@ struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double /*timeStepWidth*/,
                                           typename MaterialT::Solver::LocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+    auto sourceMatrix = init::ET<Config>::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
   }

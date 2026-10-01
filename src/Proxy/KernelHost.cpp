@@ -12,6 +12,7 @@
 #include "Allocator.h"
 #include "Common.h"
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Constants.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -223,8 +224,10 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
   const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
   real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
   real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
-  alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
-  alignas(Alignment) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
+  alignas(Alignment)
+      real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Config>::size()];
+  alignas(Alignment)
+      real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Config>::size()];
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, Timestep);
   const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);

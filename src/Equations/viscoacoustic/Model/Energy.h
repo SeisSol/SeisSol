@@ -14,6 +14,7 @@
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Solver/MultipleSimulations.h"
@@ -62,8 +63,8 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
    * `momentQaneQaneCompute` and `momentQQaneCompute`.
    */
   struct Moments {
-    alignas(Alignment) real ane[tensor::momentQaneQane::size()]{};
-    alignas(Alignment) real cross[tensor::momentQQane::size()]{};
+    alignas(Alignment) real ane[tensor::momentQaneQane<Config>::size()]{};
+    alignas(Alignment) real cross[tensor::momentQQane<Config>::size()]{};
   };
 
   static Moments computeMoments(const real* dofs, const real* dofsAne) {
@@ -149,8 +150,8 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
     output[MomentumYIdx] = rho * v;
     output[MomentumZIdx] = rho * w;
 
-    const auto aneFused = init::momentQaneQane::view::create(moments.ane);
-    const auto crossFused = init::momentQQane::view::create(moments.cross);
+    const auto aneFused = init::momentQaneQane<Config>::view::create(moments.ane);
+    const auto crossFused = init::momentQQane<Config>::view::create(moments.cross);
     const auto ane = multisim::simtensor(aneFused, sim);
     const auto cross = multisim::simtensor(crossFused, sim);
 

@@ -5,8 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/quantities.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/Quantities.h"
 
 #include <cstddef>
@@ -58,9 +60,10 @@ TEST_CASE("Configured material is self consistent" * doctest::test_suite("equati
   SUBCASE("the quantity groups account for the whole layout") {
     static_assert(model::totalExtent(MaterialT::PrimaryGroups) <= MaterialT::NumQuantities,
                   "the primary groups cannot cover more than the material has");
-    static_assert(model::quantitiesWellFormed(MaterialT::RotationGroups, tensor::T::Shape[0]));
     static_assert(
-        model::quantitiesWellFormed(MaterialT::InverseRotationGroups, tensor::Tinv::Shape[0]));
+        model::quantitiesWellFormed(MaterialT::RotationGroups, tensor::T<Config>::Shape[0]));
+    static_assert(model::quantitiesWellFormed(MaterialT::InverseRotationGroups,
+                                              tensor::Tinv<Config>::Shape[0]));
   }
 
   SUBCASE("the face roles are where the rest of the code expects them") {

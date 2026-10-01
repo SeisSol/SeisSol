@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
 #include "Alignment.h"
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
@@ -23,12 +24,12 @@ namespace seissol::model {
 
 // plasticity information per cell
 struct PlasticityData {
-  static constexpr auto PointCount = tensor::vNodes::Shape[0];
+  static constexpr auto PointCount = tensor::vNodes<Config>::Shape[0];
 
   // initial loading (stress tensor)
-  alignas(Alignment) real initialLoading[tensor::initialLoading::size()]{};
-  alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()]{};
-  alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()]{};
+  alignas(Alignment) real initialLoading[tensor::initialLoading<Config>::size()]{};
+  alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress<Config>::size()]{};
+  alignas(Alignment) real sinAngularFriction[tensor::meanStress<Config>::size()]{};
 
   // depends only on the material (i.e. only relevant for #1297 or multi-fused-material)
   real mufactor{};
@@ -36,14 +37,14 @@ struct PlasticityData {
   PlasticityData(const std::array<const Plasticity*, seissol::multisim::NumSimulations>& plasticity,
                  const Material* material,
                  bool pointwise) {
-    auto initialLoadingV = init::initialLoading::view::create(initialLoading);
+    auto initialLoadingV = init::initialLoading<Config>::view::create(initialLoading);
     initialLoadingV.setZero();
 
     auto cohesionTimesCosAngularFrictionV =
-        init::meanStress::view::create(cohesionTimesCosAngularFriction);
+        init::meanStress<Config>::view::create(cohesionTimesCosAngularFriction);
     cohesionTimesCosAngularFrictionV.setZero();
 
-    auto sinAngularFrictionV = init::meanStress::view::create(sinAngularFriction);
+    auto sinAngularFrictionV = init::meanStress<Config>::view::create(sinAngularFriction);
     sinAngularFrictionV.setZero();
 
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {

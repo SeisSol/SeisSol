@@ -68,8 +68,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
   const std::vector<Element>& elements = meshReader_->getElements();
 
-  constexpr auto NumQuantities =
-      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+  constexpr auto NumQuantities = tensor::Q<
+      Config>::Shape[sizeof(tensor::Q<Config>::Shape) / sizeof(tensor::Q<Config>::Shape[0]) - 1];
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
@@ -150,10 +150,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         const auto meshId = secondaryInformation[cell].meshId;
         const int curThreadId = OpenMP::threadId();
 
-        alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()]{};
+        alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Config>::size()]{};
         alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities]{};
 
-        auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+        auto numericalSolution = init::dofsQP<Config>::view::create(numericalSolutionData);
         auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
                                                                    {NumQuadPoints, NumQuantities});
 

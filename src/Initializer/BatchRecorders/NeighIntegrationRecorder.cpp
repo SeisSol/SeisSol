@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -25,10 +26,6 @@
 #include <yateto.h>
 
 // NOLINTBEGIN (-misc-const-correctness)
-
-namespace seissol::tensor {
-struct Qext;
-}
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
@@ -160,8 +157,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
           regularPeriodicAminusT[face][faceRelation].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
           if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-            regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                         kernels::size<tensor::Qext>() * cell);
+            regularDofsExt[face][faceRelation].push_back(
+                static_cast<real*>(dofsExt) + kernels::size<tensor::Qext<Config>>() * cell);
           }
         }
         break;
@@ -178,7 +175,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
         if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                  kernels::size<tensor::Qext>() * cell);
+                                                  kernels::size<tensor::Qext<Config>>() * cell);
         }
         break;
       }

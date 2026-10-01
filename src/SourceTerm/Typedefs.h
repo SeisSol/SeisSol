@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Memory/MemoryAllocator.h"
@@ -41,7 +42,7 @@ struct PointSources {
    * the l-th basis function and xi_s, eta_s, and zeta_s are the space position
    *  of the point source in the reference tetrahedron. */
   seissol::memory::MemkindArray<
-      seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>>
+      seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources<Config>::size()>>
       mInvJInvPhisAtSources;
 
   seissol::memory::MemkindArray<std::uint32_t> simulationIndex;

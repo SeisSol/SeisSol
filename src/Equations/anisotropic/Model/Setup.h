@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_SETUP_H_
 
+#include "Config.h"
 #include "Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
@@ -235,8 +236,8 @@ struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<Anisotr
   static void getTransposedGodunovState(const AnisotropicMaterial& local,
                                         const AnisotropicMaterial& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+                                        init::QgodLocal<Config>::view::type& qGodLocal,
+                                        init::QgodNeighbor<Config>::view::type& qGodNeighbor) {
 
     Matrix99 matR = Matrix99::Zero();
     getEigenBasisForAnisotropicMaterial(local, neighbor, matR);

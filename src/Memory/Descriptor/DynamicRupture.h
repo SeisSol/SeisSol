@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
@@ -51,11 +52,14 @@ struct DynamicRupture {
   struct TimeDerivativeMinus : public initializer::Variable<real*> {};
   struct TimeDerivativePlusDevice : public initializer::Variable<real*> {};
   struct TimeDerivativeMinusDevice : public initializer::Variable<real*> {};
-  struct ImposedStatePlus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
-  struct ImposedStateMinus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
+  struct ImposedStatePlus
+      : public initializer::Variable<real[tensor::QInterpolated<Config>::size()]> {};
+  struct ImposedStateMinus
+      : public initializer::Variable<real[tensor::QInterpolated<Config>::size()]> {};
   struct GodunovData : public initializer::Variable<DRGodunovData> {};
-  struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
-  struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
+  struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver<Config>::size()]> {};
+  struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver<Config>::size()]> {
+  };
   struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
   struct WaveSpeedsPlus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
   struct WaveSpeedsMinus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
@@ -93,10 +97,10 @@ struct DynamicRupture {
   struct PeakSlipRate : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct Traction1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct Traction2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct QInterpolatedPlus
-      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
-  struct QInterpolatedMinus
-      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
+  struct QInterpolatedPlus : public initializer::Variable<
+                                 real[ConvergenceOrder][tensor::QInterpolated<Config>::size()]> {};
+  struct QInterpolatedMinus : public initializer::Variable<
+                                  real[ConvergenceOrder][tensor::QInterpolated<Config>::size()]> {};
 
   struct IdofsPlusOnDevice : public initializer::Scratchpad<real> {};
   struct IdofsMinusOnDevice : public initializer::Scratchpad<real> {};

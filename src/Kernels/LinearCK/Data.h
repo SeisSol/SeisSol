@@ -7,20 +7,18 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DATA_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DATA_H_
 
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 
 #include <cstddef>
 
-namespace seissol::tensor {
-struct ET;
-} // namespace seissol::tensor
-
 namespace seissol::kernels::solver::linearck {
 // TODO: remove zeroGuard when only initialized where relevant
 
 struct LinearLocalData {
-  real sourceMatrix[zeroGuard(kernels::size<tensor::ET>())]{};
+  real sourceMatrix[zeroGuard(kernels::size<tensor::ET<Config>>())]{};
 };
 
 } // namespace seissol::kernels::solver::linearck
