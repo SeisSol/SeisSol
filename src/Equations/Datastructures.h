@@ -24,41 +24,48 @@
 
 // IWYU pragma: end_exports
 
+#include <cstddef>
+
 namespace seissol::model {
-template <MaterialType Type>
+template <MaterialType Type, std::size_t Mechanisms>
 struct MaterialTypeSelector;
 
-template <>
-struct MaterialTypeSelector<MaterialType::Elastic> {
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Elastic, Mechanisms> {
   using Type = ElasticMaterial;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Anisotropic> {
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Anisotropic, Mechanisms> {
   using Type = AnisotropicMaterial;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Viscoelastic> {
-  using Type = ViscoElasticMaterial<Config::RelaxationMechanisms>;
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Viscoelastic, Mechanisms> {
+  using Type = ViscoElasticMaterial<Mechanisms>;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Viscoacoustic> {
-  using Type = ViscoAcousticMaterial<Config::RelaxationMechanisms>;
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Viscoacoustic, Mechanisms> {
+  using Type = ViscoAcousticMaterial<Mechanisms>;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Acoustic> {
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Acoustic, Mechanisms> {
   using Type = AcousticMaterial;
 };
 
-template <>
-struct MaterialTypeSelector<MaterialType::Poroelastic> {
+template <std::size_t Mechanisms>
+struct MaterialTypeSelector<MaterialType::Poroelastic, Mechanisms> {
   using Type = PoroElasticMaterial;
 };
 
-using MaterialT = MaterialTypeSelector<Config::MaterialType>::Type;
+/// The material a configuration computes with.
+template <typename Cfg>
+using MaterialOf =
+    typename MaterialTypeSelector<Cfg::MaterialType, Cfg::RelaxationMechanisms>::Type;
+
+using MaterialT = MaterialOf<Config>;
 
 } // namespace seissol::model
 

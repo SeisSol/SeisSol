@@ -11,14 +11,11 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Common/Constants.h"
-#include "Common/Typedefs.h"
-#include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/viscoelastic/Model/Attenuation.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/PreProcessorMacros.h"
-#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -43,10 +40,6 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumElasticQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
-  /// The scheme this build advances cells with. The material does not pick
-  /// it; which combinations are allowed is checked when the build is
-  /// configured.
-  using Solver = kernels::SolverSelector<Config::Solver>::Type;
 
   static constexpr auto PrimaryGroups = ElasticQuantities;
   static constexpr auto MechanismGroups = ElasticMechanismQuantities;
@@ -70,14 +63,18 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   /// block, because the flux solver contracts over it, but the inverse is
   /// never applied there and spans the elastic quantities alone.
   /// Whether the memory variables share the quantity axis with the elastic
-  /// quantities, which is a property of the solver rather than the material.
-  static constexpr bool Fused = Config::Solver == SolverType::LinearCK;
-  static constexpr std::size_t RotationRepetitions = Fused ? Mechanisms : 1;
-  static constexpr std::size_t InverseRotationRepetitions = Fused ? Mechanisms : 0;
+  /// quantities is a property of the solver `SolverT` rather than the material.
+  template <typename SolverT>
+  static constexpr std::size_t RotationRepetitions = SolverT::FusedMechanisms ? Mechanisms : 1;
+  template <typename SolverT>
+  static constexpr std::size_t InverseRotationRepetitions =
+      SolverT::FusedMechanisms ? Mechanisms : 0;
+  template <typename SolverT>
   static constexpr auto RotationGroups =
-      withMechanisms<RotationRepetitions>(PrimaryGroups, MechanismGroups);
+      withMechanisms<RotationRepetitions<SolverT>>(PrimaryGroups, MechanismGroups);
+  template <typename SolverT>
   static constexpr auto InverseRotationGroups =
-      withMechanisms<InverseRotationRepetitions>(PrimaryGroups, MechanismGroups);
+      withMechanisms<InverseRotationRepetitions<SolverT>>(PrimaryGroups, MechanismGroups);
 
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;

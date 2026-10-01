@@ -9,6 +9,7 @@
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/quantities.h"
 #include "GeneratedCode/tensor.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/Quantities.h"
 
 #include <cstddef>
@@ -56,13 +57,14 @@ TEST_CASE("Configured material is self consistent" * doctest::test_suite("equati
   using namespace materialinvariants;
 
   using MaterialT = model::MaterialT;
+  using SolverT = kernels::SolverOf<Config>;
 
   SUBCASE("the quantity groups account for the whole layout") {
     static_assert(model::totalExtent(MaterialT::PrimaryGroups) <= MaterialT::NumQuantities,
                   "the primary groups cannot cover more than the material has");
-    static_assert(
-        model::quantitiesWellFormed(MaterialT::RotationGroups, tensor::T<Config>::Shape[0]));
-    static_assert(model::quantitiesWellFormed(MaterialT::InverseRotationGroups,
+    static_assert(model::quantitiesWellFormed(MaterialT::RotationGroups<SolverT>,
+                                              tensor::T<Config>::Shape[0]));
+    static_assert(model::quantitiesWellFormed(MaterialT::InverseRotationGroups<SolverT>,
                                               tensor::Tinv<Config>::Shape[0]));
   }
 

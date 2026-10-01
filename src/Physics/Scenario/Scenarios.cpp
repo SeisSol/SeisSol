@@ -90,7 +90,7 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   std::array<std::complex<double>,
              seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
       planeWaveOperator{};
-  seissol::model::getPlaneWaveOperator(
+  seissol::model::getPlaneWaveOperator<Config>(
       *dynamic_cast<model::MaterialT*>(materialData.local), kVec_.data(), planeWaveOperator.data());
   seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
       eigendecomposition;

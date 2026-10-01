@@ -7,7 +7,6 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 
-#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Kernels/Common.h"
@@ -30,8 +29,12 @@ namespace seissol::kernels::solver::stp {
 class Spacetime;
 class Time;
 
+template <typename Cfg>
 struct STPLocalData;
 
+/// The solver as a configuration `Cfg` runs it. Its kernels are those of the configuration of the
+/// build.
+template <typename Cfg>
 struct Solver {
   using SpacetimeKernelT = Spacetime;
   using TimeKernelT = Time;
@@ -50,11 +53,13 @@ struct Solver {
     return faceTypeSupported();
   }
 
-  static constexpr std::size_t IntegralsSize = tensor::I<Config>::size();
-  static constexpr std::size_t DerivativesSize =
-      kernels::size<tensor::spaceTimePredictor<Config>>();
+  /// Only the linear Cauchy-Kovalevskaya solver puts memory variables on the quantity axis.
+  static constexpr bool FusedMechanisms = false;
 
-  using LocalData = STPLocalData;
+  static constexpr std::size_t IntegralsSize = tensor::I<Cfg>::size();
+  static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor<Cfg>>();
+
+  using LocalData = STPLocalData<Cfg>;
   using NeighborData = std::monostate;
 };
 

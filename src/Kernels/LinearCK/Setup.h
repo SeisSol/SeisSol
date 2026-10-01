@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_SETUP_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_SETUP_H_
 
-#include "Config.h"
 #include "GeneratedCode/init.h"
+#include "Kernels/LinearCK/Data.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Model/Common.h"
 
@@ -23,9 +23,9 @@ namespace seissol::model {
  * is one matrix over all of it -- which is why the plane wave operator needs
  * nothing beyond the defaults.
  */
-template <typename MaterialT>
-struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
-    : public SolverSetupDefaults<kernels::solver::linearck::Solver, MaterialT> {
+template <typename Cfg, typename MaterialT>
+struct SolverSetup<kernels::solver::linearck::Solver<Cfg>, MaterialT>
+    : public SolverSetupDefaults<kernels::solver::linearck::Solver<Cfg>, MaterialT> {
   /// One anelastic block per mechanism, each weighted by its own relaxation
   /// frequency, because the memory variables share the quantity axis.
   template <typename T>
@@ -62,10 +62,11 @@ struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
     }
   }
 
-  static void initializeSpecificLocalData(const MaterialT& material,
-                                          double /*timeStepWidth*/,
-                                          typename MaterialT::Solver::LocalData* localData) {
-    auto sourceMatrix = init::ET<Config>::view::create(localData->sourceMatrix);
+  static void
+      initializeSpecificLocalData(const MaterialT& material,
+                                  double /*timeStepWidth*/,
+                                  kernels::solver::linearck::LinearLocalData<Cfg>* localData) {
+    auto sourceMatrix = init::ET<Cfg>::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
   }
