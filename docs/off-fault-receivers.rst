@@ -127,10 +127,13 @@ Rotational Output
 -----------------
 You can additionally choose to write the rotation of the velocity field by setting :code:`ReceiverComputeRotation=1` in the parameter file.
 The rotation of the vector field is defined as :math:`\text{rot} v = \begin{pmatrix} \partial_2 v_3 - \partial_3 v_2 \\ \partial_3 v_1 - \partial_1 v_3 \\ \partial_1 v_2 - \partial_2 v_1 \\ \end{pmatrix}`.
+The velocity is the particle velocity of the material: that of the solid for poroelastic materials, and that of the fluid for (visco)acoustic ones.
 
 Strain Rate Output
 ------------------
 Furthermore, you can also output the strain rate by setting :code:`ReceiverComputeStrainRate=1`.
+It is the symmetric part of the gradient of the same velocity, :math:`\dot\varepsilon_{ij} = \frac{1}{2}(\partial_j v_i + \partial_i v_j)`,
+written as :code:`epsxx`, :code:`epsxy`, :code:`epsxz`, :code:`epsyy`, :code:`epsyz`, :code:`epszz` (with the index of the simulation appended when simulations are fused).
 
 Placing free-surface receivers
 ------------------------------
