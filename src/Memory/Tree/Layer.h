@@ -214,9 +214,25 @@ struct Bucket : public BucketDescriptor {
   using Type = T;
 };
 
+template <template <typename> typename TT>
+struct VariantBucket : public BucketDescriptor {
+  using Type = void;
+
+  template <typename T>
+  using VariantType = TT<T>;
+};
+
 template <typename T>
 struct Scratchpad : public ScratchpadDescriptor {
   using Type = T;
+};
+
+template <template <typename> typename TT>
+struct VariantScratchpad : public ScratchpadDescriptor {
+  using Type = void;
+
+  template <typename T>
+  using VariantType = TT<T>;
 };
 
 using FilterFunction = std::function<bool(const LayerIdentifier&)>;

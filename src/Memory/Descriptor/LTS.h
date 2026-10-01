@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
 #include "Alignment.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
@@ -91,14 +92,27 @@ struct LTS {
     }
   }
 
-  struct Dofs : public initializer::Variable<real[tensor::Q<Config>::size()]> {};
-  struct DofsHalo : public initializer::Variable<real[tensor::Q<Config>::size()]> {};
-  // size is zero if Qane is not defined
-  struct DofsAne
-      : public initializer::Variable<real[zeroGuard(kernels::size<tensor::Qane<Config>>())]> {};
-  struct StepIntegrals : public initializer::Variable<real*> {};
-  struct AccumulatedIntegrals : public initializer::Variable<real*> {};
-  struct Derivatives : public initializer::Variable<real*> {};
+  // The unknowns of a cell and what is derived from them are held in the reals and the layout of
+  // the configuration of their layer.
+  template <typename Cfg>
+  using DofsArray = Real<Cfg>[tensor::Q<Cfg>::size()];
+  // empty if the configuration has no Qane
+  template <typename Cfg>
+  using DofsAneArray = Real<Cfg>[zeroGuard(kernels::size<tensor::Qane<Cfg>>())];
+  template <typename Cfg>
+  using PStrainArray =
+      Real<Cfg>[tensor::QStressNodal<Cfg>::size() + tensor::QEtaNodal<Cfg>::size()];
+  template <typename Cfg>
+  using RealPtr = Real<Cfg>*;
+  template <typename Cfg>
+  using FaceRealPtrs = std::array<Real<Cfg>*, Cell::NumFaces>;
+
+  struct Dofs : public initializer::VariantVariable<DofsArray> {};
+  struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
+  struct DofsAne : public initializer::VariantVariable<DofsAneArray> {};
+  struct StepIntegrals : public initializer::VariantVariable<RealPtr> {};
+  struct AccumulatedIntegrals : public initializer::VariantVariable<RealPtr> {};
+  struct Derivatives : public initializer::VariantVariable<RealPtr> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
   struct FaceNeighbors : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
@@ -110,18 +124,15 @@ struct LTS {
   struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
   struct BoundaryMapping
       : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
-  struct PStrain
-      : public initializer::Variable<
-            real[tensor::QStressNodal<Config>::size() + tensor::QEtaNodal<Config>::size()]> {};
-  struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
-  struct Buffers : public initializer::Bucket<real> {};
+  struct PStrain : public initializer::VariantVariable<PStrainArray> {};
+  struct FaceDisplacements : public initializer::VariantVariable<FaceRealPtrs> {};
+  struct Buffers : public initializer::VariantBucket<Real> {};
 
-  struct StepIntegralsDevice : public initializer::Variable<real*> {};
-  struct AccumulatedIntegralsDevice : public initializer::Variable<real*> {};
-  struct DerivativesDevice : public initializer::Variable<real*> {};
+  struct StepIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
+  struct AccumulatedIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
+  struct DerivativesDevice : public initializer::VariantVariable<RealPtr> {};
   struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
-  struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
-  };
+  struct FaceDisplacementsDevice : public initializer::VariantVariable<FaceRealPtrs> {};
   struct DRMappingDevice : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {
   };
   struct BoundaryMappingDevice
@@ -129,21 +140,21 @@ struct LTS {
 
   struct EnergyData : public initializer::Variable<model::MaterialT::EnergyData> {};
 
-  struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesScratch : public initializer::Scratchpad<real> {};
-  struct NodalAvgDisplacements : public initializer::Scratchpad<real> {};
-  struct AnalyticScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesExtScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesAneScratch : public initializer::Scratchpad<real> {};
-  struct IDofsAneScratch : public initializer::Scratchpad<real> {};
-  struct DofsExtScratch : public initializer::Scratchpad<real> {};
+  struct IntegratedDofsScratch : public initializer::VariantScratchpad<Real> {};
+  struct DerivativesScratch : public initializer::VariantScratchpad<Real> {};
+  struct NodalAvgDisplacements : public initializer::VariantScratchpad<Real> {};
+  struct AnalyticScratch : public initializer::VariantScratchpad<Real> {};
+  struct DerivativesExtScratch : public initializer::VariantScratchpad<Real> {};
+  struct DerivativesAneScratch : public initializer::VariantScratchpad<Real> {};
+  struct IDofsAneScratch : public initializer::VariantScratchpad<Real> {};
+  struct DofsExtScratch : public initializer::VariantScratchpad<Real> {};
 
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
-  struct QStressNodalScratch : public initializer::Scratchpad<real> {};
+  struct QStressNodalScratch : public initializer::VariantScratchpad<Real> {};
 
-  struct ZinvExtra : public initializer::Scratchpad<real> {};
+  struct ZinvExtra : public initializer::VariantScratchpad<Real> {};
 
-  struct Integrals : public initializer::Variable<real[tensor::Q<Config>::size()]> {};
+  struct Integrals : public initializer::VariantVariable<DofsArray> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,

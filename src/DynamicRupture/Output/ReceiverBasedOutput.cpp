@@ -67,7 +67,7 @@ void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
   assert(
       layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasBuffer(BufferType::Derivatives));
 
-  derivatives = layer.var<LTS::Derivatives>()[position.cell];
+  derivatives = layer.var<LTS::Derivatives>(Config())[position.cell];
 }
 
 void ReceiverOutput::getNeighborDofs(const real*(&derivatives),

@@ -217,7 +217,7 @@ void Spacetime::computeBatchedAder(
                                    yateto::computeFamilySize<tensor::Zinv<Config>>(1, i);
       }
     } else {
-      auto* layerZinvData = layer.var<LTS::ZinvExtra>();
+      auto* layerZinvData = layer.var<LTS::ZinvExtra>(Config());
       const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>();
       runtime.enqueueLoop(numElements, [=](std::size_t i) {
         auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv<Config>>() * i;

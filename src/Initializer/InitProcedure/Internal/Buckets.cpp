@@ -10,6 +10,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
+#include "Config.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
@@ -165,8 +166,8 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
       callForBuffer(type, [&](auto typeHelper) {
         using Buf = decltype(typeHelper);
         auto* offset = manager.markAllocate(Buf::Size * typeSize);
-        layer.var<typename Buf::Type>()[index] = offset;
-        layer.var<typename Buf::TypeDevice>()[index] = offset;
+        layer.var<typename Buf::Type>(Config())[index] = offset;
+        layer.var<typename Buf::TypeDevice>(Config())[index] = offset;
       });
     }
   };
@@ -235,15 +236,15 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
 }
 
 void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
-  auto* buffers = layer.var<LTS::Buffers>();
-  auto* buffersDevice = layer.var<LTS::Buffers>(AllocationPlace::Device);
+  auto* buffers = layer.var<LTS::Buffers>(Config());
+  auto* buffersDevice = layer.var<LTS::Buffers>(Config(), AllocationPlace::Device);
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t type = 0; type < BufferCount; ++type) {
       callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
         using Buf = decltype(typeHelper);
-        auto*& pointer = layer.var<typename Buf::Type>()[cell];
+        auto*& pointer = layer.var<typename Buf::Type>(Config())[cell];
         initBucketItem(pointer, buffers, Buf::Size, true);
         assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
                    static_cast<BufferType>(type)) ||
@@ -255,7 +256,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
       for (std::size_t type = 0; type < BufferCount; ++type) {
         callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
           using Buf = decltype(typeHelper);
-          auto*& pointer = layer.var<typename Buf::TypeDevice>()[cell];
+          auto*& pointer = layer.var<typename Buf::TypeDevice>(Config())[cell];
           initBucketItem(pointer, buffersDevice, Buf::Size, false);
           assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
                      static_cast<BufferType>(type)) ||
@@ -274,7 +275,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
       callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
         using Buf = decltype(typeHelper);
         const auto address =
-            reinterpret_cast<std::uintptr_t>(layer.var<typename Buf::Type>()[cell]);
+            reinterpret_cast<std::uintptr_t>(layer.var<typename Buf::Type>(Config())[cell]);
         const bool insideBucket =
             address >= bucketBase && address + Buf::Size * sizeof(real) <= bucketBase + bucketSize;
         assert(address == 0 || insideBucket);
@@ -315,10 +316,10 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
           if (faceNeighbor == StoragePosition::NullPosition) {
             logError() << "A face that needs the Neighbor kernel has no face neighbor.";
           } else {
-            faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(faceNeighbor);
+            faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(Config(), faceNeighbor);
             if constexpr (isDeviceOn()) {
               faceNeighborsDevice[cell][face] =
-                  storage.lookup<typename Buf::TypeDevice>(faceNeighbor);
+                  storage.lookup<typename Buf::TypeDevice>(Config(), faceNeighbor);
             }
           }
         });

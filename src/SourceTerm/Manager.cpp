@@ -283,7 +283,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
       const auto position = backmap.getDup(meshId, dup);
       if (position.has_value()) {
         clusterMapping.cellToSources[mapping].dofs =
-            ltsStorage.lookup<LTS::Dofs>(position.value(), place);
+            ltsStorage.lookup<LTS::Dofs>(Config(), position.value(), place);
         clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
         clusterMapping.cellToSources[mapping].numberOfPointSources = next - clusterSource;
         ++mapping;

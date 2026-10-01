@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 #define SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 
+#include "Config.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Writer/Instructions/Data.h"
@@ -56,11 +57,14 @@ class CheckpointManager {
     if (storage.template info<StorageT>().mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
+    // The values of all layers go into one dataset, of the type the configuration of the build
+    // holds them in.
+    using ValueT = initializer::StorageType<StorageT, Config>;
     dataRegistry_[&storage].variables.emplace_back(
         CheckpointVariable{name,
                            storage.template var<StorageT>(),
-                           datatype::inferDatatype<typename StorageT::Type>(),
-                           datatype::inferDatatype<typename StorageT::Type>(),
+                           datatype::inferDatatype<ValueT>(),
+                           datatype::inferDatatype<ValueT>(),
                            {},
                            {}});
   }

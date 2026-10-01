@@ -24,8 +24,8 @@ using namespace seissol::recording;
 void PlasticityRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
 
-  real* qStressNodalScratch =
-      static_cast<real*>(currentLayer_->var<LTS::QStressNodalScratch>(AllocationPlace::Device));
+  real* qStressNodalScratch = static_cast<real*>(
+      currentLayer_->var<LTS::QStressNodalScratch>(Config(), AllocationPlace::Device));
   const auto size = currentLayer_->size();
 
   std::size_t psize = 0;
