@@ -316,8 +316,8 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
         const auto arrayIndex = ghost.index + elementIndices.size();
 
         const auto position = wpBackmap_->get(neighbor.first);
-        indexPtrs[arrayIndex] =
-            wpStorage_->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
+        indexPtrs[arrayIndex] = static_cast<real*>(
+            wpStorage_->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second]);
         assert(indexPtrs[arrayIndex] != nullptr);
       }
 

@@ -328,9 +328,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           }
           if (timeDerivative2 == nullptr &&
               cellInformation.ltsSetup.neighborBuffer(derivativesSide) == BufferType::Derivatives) {
-            timeDerivative2 = ltsStorage.lookup<LTS::FaceNeighbors>(position)[derivativesSide];
-            timeDerivative2Device =
-                ltsStorage.lookup<LTS::FaceNeighborsDevice>(position)[derivativesSide];
+            timeDerivative2 = static_cast<real*>(
+                ltsStorage.lookup<LTS::FaceNeighbors>(position)[derivativesSide]);
+            timeDerivative2Device = static_cast<real*>(
+                ltsStorage.lookup<LTS::FaceNeighborsDevice>(position)[derivativesSide]);
 
             const auto& secondaryInformation =
                 ltsStorage.lookup<LTS::SecondaryInformation>(position);

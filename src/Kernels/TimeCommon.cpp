@@ -41,7 +41,7 @@ void TimeCommon::computeIntegrals(Time& time,
                                   const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                   const real* timeCoeffs,
                                   const real* subtimeCoeffs,
-                                  const std::array<real*, Cell::NumFaces>& timeDofs,
+                                  const std::array<void*, Cell::NumFaces>& timeDofs,
                                   const std::array<real*, Cell::NumFaces>& integrationBuffer,
                                   std::array<real*, Cell::NumFaces>& timeIntegrated) {
   // call the more general assembly
@@ -65,7 +65,7 @@ void TimeCommon::computeIntegrals(Time& time,
     if (faceTypes[dofneighbor] == FaceType::Regular) {
       // check if the time integration is already done (-> copy pointer)
       if (ltsSetup.neighborBuffer(dofneighbor) != BufferType::Derivatives) {
-        timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
+        timeIntegrated[dofneighbor] = static_cast<real*>(timeDofs[dofneighbor]);
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
@@ -77,7 +77,9 @@ void TimeCommon::computeIntegrals(Time& time,
         // relation" instead; then everything will work again.
 
         const auto* coeffs = ltsSetup.neighborGTSRelation(dofneighbor) ? timeCoeffs : subtimeCoeffs;
-        time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);
+        time.evaluate(coeffs,
+                      static_cast<const real*>(timeDofs[dofneighbor]),
+                      integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
       }

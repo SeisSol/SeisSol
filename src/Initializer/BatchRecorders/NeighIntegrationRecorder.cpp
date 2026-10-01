@@ -54,7 +54,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
       auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        real* neighborBuffer = faceNeighborsDevice[cell][face];
+        auto* neighborBuffer = static_cast<real*>(faceNeighborsDevice[cell][face]);
 
         // check whether a neighbor element idofs has not been counted twice
         if ((idofsAddressRegistry_.find(neighborBuffer) == idofsAddressRegistry_.end())) {
@@ -141,7 +141,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
       case FaceType::Regular: {
         // compute face type relation
 
-        real* neighborBufferPtr = faceNeighborsDevice[cell][face];
+        auto* neighborBufferPtr = static_cast<real*>(faceNeighborsDevice[cell][face]);
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBufferPtr != nullptr) {
           const auto faceRelation =

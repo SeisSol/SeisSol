@@ -60,7 +60,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
       // include data provided by ghost layers
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
 
-        const real* neighborBuffer = faceNeighbors[cell][face];
+        const auto* neighborBuffer = static_cast<const real*>(faceNeighbors[cell][face]);
 
         // check whether a neighbor element idofs has not been counted twice
         if ((registry.find(neighborBuffer) == registry.end())) {

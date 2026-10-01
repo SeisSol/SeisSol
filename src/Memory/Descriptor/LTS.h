@@ -115,7 +115,9 @@ struct LTS {
   struct Derivatives : public initializer::VariantVariable<RealPtr> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
-  struct FaceNeighbors : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  // The buffers or derivatives of the neighbors, which hold them in the reals of their own
+  // configuration.
+  struct FaceNeighbors : public initializer::Variable<std::array<void*, Cell::NumFaces>> {};
   struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
   struct MaterialData : public initializer::Variable<model::MaterialT> {};
@@ -131,7 +133,7 @@ struct LTS {
   struct StepIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
   struct AccumulatedIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
   struct DerivativesDevice : public initializer::VariantVariable<RealPtr> {};
-  struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  struct FaceNeighborsDevice : public initializer::Variable<std::array<void*, Cell::NumFaces>> {};
   struct FaceDisplacementsDevice : public initializer::VariantVariable<FaceRealPtrs> {};
   struct DRMappingDevice : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {
   };
