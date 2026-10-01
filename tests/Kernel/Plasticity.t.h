@@ -7,10 +7,24 @@
 
 #include <doctest.h>
 
+#include "Alignment.h"
+#include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/pool.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Plasticity.h"
+#include "Kernels/Precision.h"
+#include "Model/CommonDatastructures.h"
+#include "Model/Plasticity.h"
+#include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace seissol::unit_test {
 using seissol::kernels::Plasticity;
@@ -100,6 +114,136 @@ TEST_CASE("Plasticity metrics" * doctest::test_suite("kernel")) {
   SUBCASE("Hardware flops >= nonzero flops") {
     CHECK(metricsCheck.hardwareFlop >= metricsCheck.nonzeroFlop);
     CHECK(metricsYield.hardwareFlop >= metricsYield.nonzeroFlop);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// computePlasticity: which cells get the plastic correction
+// ---------------------------------------------------------------------------
+
+// One cell under uniform pure shear: the modal DOFs are zero, and the initial loading is
+// sigma_xy = ShearStress at every node. The mean stress then vanishes and tau = ShearStress at
+// every node, and with zero bulk friction the yield stress of a node is its cohesion. Each node is
+// given a cohesion of either half or twice ShearStress, so it is chosen exactly which nodes yield.
+class ShearedPlasticityCell {
+  public:
+  static constexpr std::size_t NumNodes = model::PlasticityData::PointCount;
+  static constexpr std::size_t ComponentXY = 3;
+
+  static constexpr double ShearStress = 1.0e6;
+  static constexpr double Mu = 3.0e10;
+  static constexpr double RelaxationTime = 0.1;
+  static constexpr double TimeStep = 1.0e-3;
+
+  // At a yielding node, the yield factor is (taulim / tau - 1) r = -r / 2, hence (Wollherr et al.,
+  // eq. 10) d/dt strain_xy = -yield s_xy / (2 mu tV r) = ShearStress / (4 mu tV), while the other
+  // components stay zero. eta grows by dt sqrt(0.5 d/dt strain_ij d/dt strain_ij).
+  static constexpr double YieldingNodeStrainXY = TimeStep * ShearStress / (4 * Mu * RelaxationTime);
+  static inline const double YieldingNodeEta = YieldingNodeStrainXY * std::sqrt(0.5);
+
+  // Runs the kernel once on the zero DOFs and plastic strains; node `i` yields iff `yields(i)`.
+  template <typename YieldsT>
+  std::size_t run(const YieldsT& yields) {
+    std::vector<model::Plasticity> parameters(NumNodes);
+    for (std::size_t node = 0; node < NumNodes; ++node) {
+      parameters[node].bulkFriction = 0;
+      parameters[node].plastCo = yields(node) ? ShearStress / 2 : ShearStress * 2;
+      parameters[node].sXY = ShearStress;
+    }
+    std::array<const model::Plasticity*, multisim::NumSimulations> perSimulation{};
+    perSimulation.fill(parameters.data());
+
+    model::ElasticMaterial material;
+    material.mu = Mu;
+    material.lambda = Mu;
+    const model::PlasticityData plasticityData(perSimulation, &material, true);
+
+    dofs_.fill(0);
+    pstrain_.fill(0);
+    const GlobalData global = seissol::Pool::host();
+    return Plasticity::computePlasticity(
+        static_cast<real>(Plasticity::computeRelaxTime(RelaxationTime, TimeStep)),
+        static_cast<real>(TimeStep),
+        static_cast<real>(RelaxationTime),
+        &global,
+        &plasticityData,
+        dofs_.data(),
+        pstrain_.data());
+  }
+
+  [[nodiscard]] bool dofsUnchanged() const {
+    return std::all_of(dofs_.begin(), dofs_.end(), [](real value) { return value == 0; });
+  }
+
+  [[nodiscard]] bool plasticStrainUnchanged() const {
+    return std::all_of(pstrain_.begin(), pstrain_.end(), [](real value) { return value == 0; });
+  }
+
+  // pstrain_ holds the plastic strain (in the layout of QStressNodal), followed by eta
+  [[nodiscard]] double
+      plasticStrain(std::size_t sim, std::size_t node, std::size_t component) const {
+    auto view = init::QStressNodal::view::create(pstrain_.data());
+    return multisim::simtensor(view, static_cast<int>(sim))(node, component);
+  }
+
+  [[nodiscard]] double eta(std::size_t sim, std::size_t node) const {
+    auto view = init::QEtaNodal::view::create(pstrain_.data() + tensor::QStressNodal::size());
+    return multisim::simtensor(view, static_cast<int>(sim))(node);
+  }
+
+  private:
+  // the kernel reads and writes the six stress quantities of the DOFs, via the tensor QStress
+  static constexpr std::size_t DofsSize = std::max(tensor::Q::size(), tensor::QStress::size());
+
+  alignas(Alignment) std::array<real, DofsSize> dofs_{};
+  alignas(Alignment)
+      std::array<real, tensor::QStressNodal::size() + tensor::QEtaNodal::size()> pstrain_{};
+};
+
+TEST_CASE("Plasticity computePlasticity corrects every cell with a yielding node" *
+          doctest::test_suite("kernel")) {
+  constexpr auto NumNodes = ShearedPlasticityCell::NumNodes;
+  ShearedPlasticityCell cell;
+
+  SUBCASE("No node yields: the cell stays unchanged") {
+    CHECK(cell.run([](std::size_t /*node*/) { return false; }) == 0);
+    CHECK(cell.dofsUnchanged());
+    CHECK(cell.plasticStrainUnchanged());
+  }
+
+  SUBCASE("Exactly one node yields, at every position in turn") {
+    // The yield check reduces over all nodes in SIMD chunks; a single yielding node has to trigger
+    // the correction wherever it is, from the first to the last real node.
+    for (std::size_t yieldingNode = 0; yieldingNode < NumNodes; ++yieldingNode) {
+      CAPTURE(yieldingNode);
+      CHECK(cell.run([&](std::size_t node) { return node == yieldingNode; }) == 1);
+      CHECK_FALSE(cell.dofsUnchanged());
+      for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+        for (std::size_t node = 0; node < NumNodes; ++node) {
+          if (node == yieldingNode) {
+            CHECK(cell.plasticStrain(sim, node, ShearedPlasticityCell::ComponentXY) /
+                      ShearedPlasticityCell::YieldingNodeStrainXY ==
+                  doctest::Approx(1.0));
+            CHECK(cell.eta(sim, node) / ShearedPlasticityCell::YieldingNodeEta ==
+                  doctest::Approx(1.0));
+          } else {
+            CHECK(cell.plasticStrain(sim, node, ShearedPlasticityCell::ComponentXY) == 0);
+            CHECK(cell.eta(sim, node) == 0);
+          }
+        }
+      }
+    }
+  }
+
+  SUBCASE("Every node yields") {
+    CHECK(cell.run([](std::size_t /*node*/) { return true; }) == 1);
+    CHECK_FALSE(cell.dofsUnchanged());
+    for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+      for (std::size_t node = 0; node < NumNodes; ++node) {
+        CAPTURE(node);
+        CHECK(cell.eta(sim, node) / ShearedPlasticityCell::YieldingNodeEta == doctest::Approx(1.0));
+      }
+    }
   }
 }
 
