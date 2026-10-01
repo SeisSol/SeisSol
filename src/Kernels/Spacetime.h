@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_KERNELS_SPACETIME_H_
 #define SEISSOL_SRC_KERNELS_SPACETIME_H_
 
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -51,7 +52,7 @@ class SpacetimeKernel : public Kernel {
    */
   virtual void computeAder(const real* coeffs,
                            double timeStepWidth,
-                           LTS::Ref& data,
+                           LTS::Ref<Config>& data,
                            LocalTmp& tmp,
                            real* timeIntegrated,
                            real* timeDerivativesOrSTP = nullptr,

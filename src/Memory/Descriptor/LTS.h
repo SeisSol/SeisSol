@@ -187,7 +187,8 @@ struct LTS {
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
-  using Ref = initializer::Layer<LTSVarmap>::CellRef;
+  template <typename Cfg>
+  using Ref = initializer::Layer<LTSVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
   static void addTo(Storage& storage, const SimulationSettings& settings) {

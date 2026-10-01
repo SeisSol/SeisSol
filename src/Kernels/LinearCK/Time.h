@@ -31,7 +31,7 @@ class Spacetime : public SpacetimeKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
-                   LTS::Ref& data,
+                   LTS::Ref<Config>& data,
                    LocalTmp& tmp,
                    real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,

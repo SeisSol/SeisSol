@@ -52,11 +52,11 @@ struct Receiver {
   point evaluation is repeated for each receiver in it.
  */
 struct ReceiverCell {
-  ReceiverCell(std::size_t meshId, LTS::Ref dataHost, LTS::Ref dataDevice);
+  ReceiverCell(std::size_t meshId, LTS::Ref<Config> dataHost, LTS::Ref<Config> dataDevice);
   std::size_t meshId{};
   std::size_t ltsPosition{};
-  LTS::Ref dataHost;
-  LTS::Ref dataDevice;
+  LTS::Ref<Config> dataHost;
+  LTS::Ref<Config> dataDevice;
   std::vector<std::size_t> receiverIds;
 };
 

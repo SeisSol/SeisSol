@@ -25,7 +25,7 @@ class Local : public LocalKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
 
   void computeIntegral(real* timeIntegratedDoFs,
-                       LTS::Ref& data,
+                       LTS::Ref<Config>& data,
                        LocalTmp& tmp,
                        double time,
                        double timeStepWidth) override;

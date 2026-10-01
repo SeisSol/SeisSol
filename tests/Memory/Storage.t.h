@@ -11,11 +11,13 @@
 #include "Common/Real.h"
 #include "Config.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 
 #include <cstddef>
+#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -93,6 +95,26 @@ TEST_CASE("Storage" * doctest::test_suite("memory")) {
         CHECK(perConfig[cell][j] == 0);
         perConfig[cell][j] = static_cast<RealT<Config::Precision>>(cell + j);
       }
+    }
+  }
+
+  // a cell of a configuration sees the variables as that configuration holds them, whichever way
+  // it is reached
+  for (auto [color, layer] : common::enumerate(storage.leaves())) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      auto ref = layer.cellRef<Config>(cell);
+      static_assert(
+          std::is_same_v<decltype(ref.get<TestDescriptor::Var4>()), PerConfigArray<Config>&>);
+      static_assert(std::is_same_v<decltype(ref.get<TestDescriptor::Var3>()), double (&)[123]>);
+      CHECK(&ref.get<TestDescriptor::Var4>() == &layer.var<TestDescriptor::Var4>(Config())[cell]);
+
+      initializer::StoragePosition position;
+      position.color = color;
+      position.cell = cell;
+      CHECK(&storage.lookup<TestDescriptor::Var4>(Config(), position) ==
+            &ref.get<TestDescriptor::Var4>());
+      CHECK(&storage.lookupRef<Config>(position).get<TestDescriptor::Var4>() ==
+            &ref.get<TestDescriptor::Var4>());
     }
   }
 

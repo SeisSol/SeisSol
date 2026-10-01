@@ -30,7 +30,7 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
 
   std::size_t psize = 0;
   for (std::size_t cell = 0; cell < size; ++cell) {
-    const auto dataHost = currentLayer_->cellRef(cell);
+    const auto dataHost = currentLayer_->cellRef<Config>(cell);
 
     if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
       ++psize;
@@ -45,8 +45,8 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
 
     std::size_t pcell = 0;
     for (std::size_t cell = 0; cell < size; ++cell) {
-      const auto dataHost = currentLayer_->cellRef(cell);
-      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
+      const auto dataHost = currentLayer_->cellRef<Config>(cell);
+      auto data = currentLayer_->cellRef<Config>(cell, AllocationPlace::Device);
 
       if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
         dofsPtrs[pcell] = static_cast<real*>(data.get<LTS::Dofs>());

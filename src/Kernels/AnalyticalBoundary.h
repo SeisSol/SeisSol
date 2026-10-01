@@ -31,7 +31,7 @@ namespace seissol::kernels {
  */
 struct ApplyAnalyticalSolution {
   ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
-                          LTS::Ref& data)
+                          LTS::Ref<Config>& data)
       : initConditions_(initConditions), localData_(data) {}
 
   void operator()(const real* nodes,
@@ -63,7 +63,7 @@ struct ApplyAnalyticalSolution {
 
   private:
   const std::vector<std::unique_ptr<physics::InitialField>>* initConditions_;
-  LTS::Ref& localData_;
+  LTS::Ref<Config>& localData_;
 };
 
 /**

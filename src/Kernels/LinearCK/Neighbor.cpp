@@ -73,7 +73,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Neighbor::computeNeighborsIntegral(
-    LTS::Ref& data,
+    LTS::Ref<Config>& data,
     const std::array<real*, Cell::NumFaces>& timeIntegrated,
     const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) {
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);

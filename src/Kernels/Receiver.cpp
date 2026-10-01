@@ -67,7 +67,9 @@ Receiver::Receiver(std::size_t pointId,
       transform, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
 }
 
-ReceiverCell::ReceiverCell(std::size_t meshId, LTS::Ref dataHost, LTS::Ref dataDevice)
+ReceiverCell::ReceiverCell(std::size_t meshId,
+                           LTS::Ref<Config> dataHost,
+                           LTS::Ref<Config> dataDevice)
     : meshId(meshId), dataHost(dataHost), dataDevice(dataDevice) {}
 
 ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
@@ -118,10 +120,10 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
 
     auto& cell = receiverCells_.emplace_back(
         meshId,
-        ltsStorage.lookupRef(position),
-        ltsStorage.lookupRef(position,
-                             isDeviceOn() ? initializer::AllocationPlace::Device
-                                          : initializer::AllocationPlace::Host));
+        ltsStorage.lookupRef<Config>(position),
+        ltsStorage.lookupRef<Config>(position,
+                                     isDeviceOn() ? initializer::AllocationPlace::Device
+                                                  : initializer::AllocationPlace::Host));
     cell.ltsPosition = position.global;
   }
 

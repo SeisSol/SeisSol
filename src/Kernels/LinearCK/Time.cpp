@@ -65,7 +65,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
 void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
-                            LTS::Ref& data,
+                            LTS::Ref<Config>& data,
                             LocalTmp& tmp,
                             real* timeIntegrated,
                             real* timeDerivatives,

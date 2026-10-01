@@ -109,7 +109,8 @@ struct DynamicRupture {
 
   using Storage = initializer::Storage<DynrupVarmap>;
   using Layer = initializer::Layer<DynrupVarmap>;
-  using Ref = initializer::Layer<DynrupVarmap>::CellRef;
+  template <typename Cfg>
+  using Ref = initializer::Layer<DynrupVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<1>;
 
   virtual void addTo(Storage& storage) {
