@@ -25,7 +25,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     FaultStresses<Executor::Host> faultStresses{};
     TractionResults<Executor::Host> tractionResults{};
     ImposedState<Executor::Host> imposedState{};
-    ImpedancesAndEta impAndEta;
+    ImpedancesAndEta<Config> impAndEta;
     alignas(Alignment)
         real qInterpolatedPlus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()] = {
             {}};
@@ -58,7 +58,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     impAndEta.invZpNeig = 1.0 / impAndEta.zpNeig;
     impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
 
-    ImpedanceMatrices impMats;
+    ImpedanceMatrices<Config> impMats;
     auto etaView = init::eta<Config>::view::create(impMats.eta);
     etaView(0, 0) = impAndEta.etaP;
     etaView(1, 1) = impAndEta.etaS;

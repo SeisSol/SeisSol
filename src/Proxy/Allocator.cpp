@@ -239,17 +239,17 @@ void ProxyData::initDataStructures(bool enableDR) {
     // From dynamic rupture storage
     auto& interior = drStorage.layer(layerId);
     real(*imposedStatePlus)[seissol::tensor::QInterpolated<Config>::size()] =
-        interior.var<DynamicRupture::ImposedStatePlus>(Place);
+        interior.var<DynamicRupture::ImposedStatePlus>(Config(), Place);
     real(*fluxSolverPlus)[seissol::tensor::fluxSolver<Config>::size()] =
-        interior.var<DynamicRupture::FluxSolverPlus>(Place);
-    real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>();
-    real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>();
-    real** timeDerivativePlus = isDeviceOn()
-                                    ? interior.var<DynamicRupture::TimeDerivativePlusDevice>()
-                                    : interior.var<DynamicRupture::TimeDerivativePlus>();
-    real** timeDerivativeMinus = isDeviceOn()
-                                     ? interior.var<DynamicRupture::TimeDerivativeMinusDevice>()
-                                     : interior.var<DynamicRupture::TimeDerivativeMinus>();
+        interior.var<DynamicRupture::FluxSolverPlus>(Config(), Place);
+    real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>(Config());
+    real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>(Config());
+    real** timeDerivativePlus =
+        isDeviceOn() ? interior.var<DynamicRupture::TimeDerivativePlusDevice>(Config())
+                     : interior.var<DynamicRupture::TimeDerivativePlus>(Config());
+    real** timeDerivativeMinus =
+        isDeviceOn() ? interior.var<DynamicRupture::TimeDerivativeMinusDevice>(Config())
+                     : interior.var<DynamicRupture::TimeDerivativeMinus>(Config());
     DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
 
     std::mt19937 rng(cellCount);

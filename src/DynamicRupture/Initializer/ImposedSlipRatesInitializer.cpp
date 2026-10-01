@@ -37,9 +37,9 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
     // parameters to be read from fault parameters yaml file
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
-    auto* imposedSlipDirection1 = layer.var<LTSImposedSlipRates::ImposedSlipDirection1>();
-    auto* imposedSlipDirection2 = layer.var<LTSImposedSlipRates::ImposedSlipDirection2>();
-    auto* onsetTime = layer.var<LTSImposedSlipRates::OnsetTime>();
+    auto* imposedSlipDirection1 = layer.var<LTSImposedSlipRates::ImposedSlipDirection1>(Config());
+    auto* imposedSlipDirection2 = layer.var<LTSImposedSlipRates::ImposedSlipDirection2>(Config());
+    auto* onsetTime = layer.var<LTSImposedSlipRates::OnsetTime>(Config());
 
     // First read slip in strike/dip direction. Later we will rotate this to the face aligned
     // coordinate system.
@@ -66,10 +66,10 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
     rotateSlipToFaultCS(layer, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);
 
     const auto sourceCount = stressSourceCount(*drParameters_);
-    auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>();
-    auto* pressure = layer.var<DynamicRupture::StressSourcePressure>();
-    auto* onset = layer.var<DynamicRupture::StressSourceOnset>();
-    auto* riseTime = layer.var<DynamicRupture::StressSourceRiseTime>();
+    auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>(Config());
+    auto* pressure = layer.var<DynamicRupture::StressSourcePressure>(Config());
+    auto* onset = layer.var<DynamicRupture::StressSourceOnset>(Config());
+    auto* riseTime = layer.var<DynamicRupture::StressSourceRiseTime>(Config());
     for (std::uint32_t source = 0; source < sourceCount; ++source) {
       for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>;
@@ -128,15 +128,15 @@ void ImposedSlipRatesInitializer::fixInterpolatedSTFParameters(DynamicRupture::L
 
 void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
-  real(*tauS)[misc::NumPaddedPoints<Config>] = layer.var<LTSImposedSlipRatesYoffe::TauS>();
-  real(*tauR)[misc::NumPaddedPoints<Config>] = layer.var<LTSImposedSlipRatesYoffe::TauR>();
+  real(*tauS)[misc::NumPaddedPoints<Config>] = layer.var<LTSImposedSlipRatesYoffe::TauS>(Config());
+  real(*tauR)[misc::NumPaddedPoints<Config>] = layer.var<LTSImposedSlipRatesYoffe::TauR>(Config());
   parameterToStorageMap.insert({"tau_S", reinterpret_cast<real*>(tauS)});
   parameterToStorageMap.insert({"tau_R", reinterpret_cast<real*>(tauR)});
 }
 
 void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(DynamicRupture::Layer& layer) {
-  real(*tauS)[misc::NumPaddedPoints<Config>] = layer.var<LTSImposedSlipRatesYoffe::TauS>();
-  real(*tauR)[misc::NumPaddedPoints<Config>] = layer.var<LTSImposedSlipRatesYoffe::TauR>();
+  real(*tauS)[misc::NumPaddedPoints<Config>] = layer.var<LTSImposedSlipRatesYoffe::TauS>(Config());
+  real(*tauR)[misc::NumPaddedPoints<Config>] = layer.var<LTSImposedSlipRatesYoffe::TauR>(Config());
   // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
   // can happen due to ASAGI interpolation)
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -150,7 +150,7 @@ void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(DynamicRuptu
 void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   real(*riseTime)[misc::NumPaddedPoints<Config>] =
-      layer.var<LTSImposedSlipRatesGaussian::RiseTime>();
+      layer.var<LTSImposedSlipRatesGaussian::RiseTime>(Config());
   parameterToStorageMap.insert({"rupture_rise_time", reinterpret_cast<real*>(riseTime)});
 }
 

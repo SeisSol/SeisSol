@@ -26,15 +26,16 @@ void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Storage& dr
   BaseDRInitializer::initializeFault(drStorage);
   for (auto& layer : drStorage.leaves(Ghost)) {
     bool (*dynStressTimePending)[misc::NumPaddedPoints<Config>] =
-        layer.var<LTSLinearSlipWeakening::DynStressTimePending>();
+        layer.var<LTSLinearSlipWeakening::DynStressTimePending>(Config());
     real(*slipRate1)[misc::NumPaddedPoints<Config>] =
-        layer.var<LTSLinearSlipWeakening::SlipRate1>();
+        layer.var<LTSLinearSlipWeakening::SlipRate1>(Config());
     real(*slipRate2)[misc::NumPaddedPoints<Config>] =
-        layer.var<LTSLinearSlipWeakening::SlipRate2>();
-    real(*mu)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::Mu>();
-    const real(*muS)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::MuS>();
+        layer.var<LTSLinearSlipWeakening::SlipRate2>(Config());
+    real(*mu)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::Mu>(Config());
+    const real(*muS)[misc::NumPaddedPoints<Config>] =
+        layer.var<LTSLinearSlipWeakening::MuS>(Config());
     real(*forcedRuptureTime)[misc::NumPaddedPoints<Config>] =
-        layer.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
+        layer.var<LTSLinearSlipWeakening::ForcedRuptureTime>(Config());
     const bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       // initialuint32_t pointIndexts for vectorization
@@ -54,17 +55,18 @@ void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Storage& dr
 
 void LinearSlipWeakeningInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
-  real(*dC)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::DC>();
-  real(*muS)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::MuS>();
-  real(*muD)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::MuD>();
-  real(*cohesion)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::Cohesion>();
+  real(*dC)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::DC>(Config());
+  real(*muS)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::MuS>(Config());
+  real(*muD)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::MuD>(Config());
+  real(*cohesion)[misc::NumPaddedPoints<Config>] =
+      layer.var<LTSLinearSlipWeakening::Cohesion>(Config());
   parameterToStorageMap.insert({"d_c", reinterpret_cast<real*>(dC)});
   parameterToStorageMap.insert({"mu_s", reinterpret_cast<real*>(muS)});
   parameterToStorageMap.insert({"mu_d", reinterpret_cast<real*>(muD)});
   parameterToStorageMap.insert({"cohesion", reinterpret_cast<real*>(cohesion)});
   if (this->faultProvides("forced_rupture_time")) {
     real(*forcedRuptureTime)[misc::NumPaddedPoints<Config>] =
-        layer.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
+        layer.var<LTSLinearSlipWeakening::ForcedRuptureTime>(Config());
     parameterToStorageMap.insert(
         {"forced_rupture_time", reinterpret_cast<real*>(forcedRuptureTime)});
   }
@@ -74,16 +76,18 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(DynamicRupture::S
   LinearSlipWeakeningInitializer::initializeFault(drStorage);
   for (auto& layer : drStorage.leaves(Ghost)) {
     real(*regularizedStrength)[misc::NumPaddedPoints<Config>] =
-        layer.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
-    const real(*mu)[misc::NumPaddedPoints<Config>] = layer.var<LTSLinearSlipWeakening::Mu>();
+        layer.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Config());
+    const real(*mu)[misc::NumPaddedPoints<Config>] =
+        layer.var<LTSLinearSlipWeakening::Mu>(Config());
     const real(*cohesion)[misc::NumPaddedPoints<Config>] =
-        layer.var<LTSLinearSlipWeakening::Cohesion>();
+        layer.var<LTSLinearSlipWeakening::Cohesion>(Config());
     // the stress the fault starts out under, which is every source that is in effect at the
     // beginning of the simulation and not only the initial state
     const auto sourceCount = stressSourceCount(*drParameters_);
-    const auto* stressSources = layer.var<LTSLinearSlipWeakening::StressSourceInFaultCS>();
-    const auto* stressSourceOnset = layer.var<LTSLinearSlipWeakening::StressSourceOnset>();
-    const auto* stressSourceRiseTime = layer.var<LTSLinearSlipWeakening::StressSourceRiseTime>();
+    const auto* stressSources = layer.var<LTSLinearSlipWeakening::StressSourceInFaultCS>(Config());
+    const auto* stressSourceOnset = layer.var<LTSLinearSlipWeakening::StressSourceOnset>(Config());
+    const auto* stressSourceRiseTime =
+        layer.var<LTSLinearSlipWeakening::StressSourceRiseTime>(Config());
 
     using namespace dr::misc::quantity_indices;
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {

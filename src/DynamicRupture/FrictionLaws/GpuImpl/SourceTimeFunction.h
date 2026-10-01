@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SOURCETIMEFUNCTION_H_
 
 #include "BaseFrictionSolver.h"
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "FrictionSolverInterface.h"
@@ -23,9 +24,9 @@ class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
   public:
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(place);
-    data->tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>(place);
-    data->tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>(place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Config(), place);
+    data->tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>(Config(), place);
+    data->tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Config(), place);
   }
 
   SEISSOL_DEVICE static real evaluateSTF(FrictionLawContext& __restrict ctx,
@@ -42,8 +43,8 @@ class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
   public:
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(place);
-    data->riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Config(), place);
+    data->riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(Config(), place);
   }
 
   SEISSOL_DEVICE static real
@@ -60,7 +61,7 @@ class DeltaSTF : public ImposedSlipRates<DeltaSTF> {
   public:
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Config(), place);
   }
 
   SEISSOL_DEVICE static real

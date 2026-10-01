@@ -126,9 +126,9 @@ void initializeFaultImpedance(const Fault& fault,
                               std::size_t meshFace,
                               const MaterialT& plusMaterial,
                               const MaterialT& minusMaterial,
-                              seissol::dr::ImpedanceMatrices& impedanceMatrices,
-                              DRGodunovData& godunovData,
-                              seissol::dr::ImpedancesAndEta& impAndEta) {
+                              seissol::dr::ImpedanceMatrices<Config>& impedanceMatrices,
+                              DRGodunovData<Config>& godunovData,
+                              seissol::dr::ImpedancesAndEta<Config>& impAndEta) {
   if constexpr (MaterialT::Type == seissol::model::MaterialType::Anisotropic ||
                 MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
     using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
@@ -247,29 +247,35 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   };
 
   for (auto& layer : drStorage.leaves(Ghost)) {
-    auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>();
-    auto* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>();
-    auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
-    auto* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
-    auto* timeDerivativePlusDevice = layer.var<DynamicRupture::TimeDerivativePlusDevice>();
-    auto* timeDerivativeMinusDevice = layer.var<DynamicRupture::TimeDerivativeMinusDevice>();
-    auto* godunovData = layer.var<DynamicRupture::GodunovData>();
-    auto* imposedStatePlus = layer.var<DynamicRupture::ImposedStatePlus>(AllocationPlace::Host);
-    auto* imposedStateMinus = layer.var<DynamicRupture::ImposedStateMinus>(AllocationPlace::Host);
-    auto* fluxSolverPlus = layer.var<DynamicRupture::FluxSolverPlus>(AllocationPlace::Host);
-    auto* fluxSolverMinus = layer.var<DynamicRupture::FluxSolverMinus>(AllocationPlace::Host);
+    auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>(Config());
+    auto* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>(Config());
+    auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>(Config());
+    auto* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>(Config());
+    auto* timeDerivativePlusDevice = layer.var<DynamicRupture::TimeDerivativePlusDevice>(Config());
+    auto* timeDerivativeMinusDevice =
+        layer.var<DynamicRupture::TimeDerivativeMinusDevice>(Config());
+    auto* godunovData = layer.var<DynamicRupture::GodunovData>(Config());
+    auto* imposedStatePlus =
+        layer.var<DynamicRupture::ImposedStatePlus>(Config(), AllocationPlace::Host);
+    auto* imposedStateMinus =
+        layer.var<DynamicRupture::ImposedStateMinus>(Config(), AllocationPlace::Host);
+    auto* fluxSolverPlus =
+        layer.var<DynamicRupture::FluxSolverPlus>(Config(), AllocationPlace::Host);
+    auto* fluxSolverMinus =
+        layer.var<DynamicRupture::FluxSolverMinus>(Config(), AllocationPlace::Host);
     auto* imposedStatePlusDevice =
-        layer.var<DynamicRupture::ImposedStatePlus>(AllocationPlace::Device);
+        layer.var<DynamicRupture::ImposedStatePlus>(Config(), AllocationPlace::Device);
     auto* imposedStateMinusDevice =
-        layer.var<DynamicRupture::ImposedStateMinus>(AllocationPlace::Device);
-    auto* fluxSolverPlusDevice = layer.var<DynamicRupture::FluxSolverPlus>(AllocationPlace::Device);
+        layer.var<DynamicRupture::ImposedStateMinus>(Config(), AllocationPlace::Device);
+    auto* fluxSolverPlusDevice =
+        layer.var<DynamicRupture::FluxSolverPlus>(Config(), AllocationPlace::Device);
     auto* fluxSolverMinusDevice =
-        layer.var<DynamicRupture::FluxSolverMinus>(AllocationPlace::Device);
+        layer.var<DynamicRupture::FluxSolverMinus>(Config(), AllocationPlace::Device);
     auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
     auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
     auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
-    auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
-    auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
+    auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>(Config());
+    auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>(Config());
 
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)

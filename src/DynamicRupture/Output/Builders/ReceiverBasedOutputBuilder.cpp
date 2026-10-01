@@ -325,13 +325,16 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
           indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
 
       for (const auto& variable : variables_) {
-        auto* var = drStorage_->varUntyped(variable, initializer::AllocationPlace::Device);
-        const std::size_t elementSize = drStorage_->info(variable).bytes;
-
+        std::size_t elementSize = 0;
         std::vector<void*> dataPointers(topology.faceCount());
         for (std::size_t faceId = 0; faceId < topology.faceCount(); ++faceId) {
-          dataPointers[faceId] = reinterpret_cast<uint8_t*>(var) +
-                                 elementSize * topology.faces[faceId].position.global;
+          const auto& position = topology.faces[faceId].position;
+          auto& layer = drStorage_->layer(position.color);
+          // a face holds the variable in the type of the configuration of its layer
+          elementSize = drStorage_->info(variable).bytesLayer(layer.getIdentifier());
+          dataPointers[faceId] = static_cast<uint8_t*>(layer.varUntyped(
+                                     variable, initializer::AllocationPlace::Device)) +
+                                 elementSize * position.cell;
         }
 
         const bool hostAccessible = useUSM() && !outputData_->extraRuntime.has_value();

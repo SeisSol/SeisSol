@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_IMPOSEDSLIPRATES_H_
 
 #include "BaseFrictionSolver.h"
+#include "Config.h"
 
 namespace seissol::dr::friction_law::gpu {
 /**
@@ -22,8 +23,10 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(place);
-    data->imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(place);
+    data->imposedSlipDirection1 =
+        layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Config(), place);
+    data->imposedSlipDirection2 =
+        layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Config(), place);
     STF::copyStorageToLocal(data, layerData);
   }
 

@@ -20,8 +20,8 @@ namespace seissol::dr::friction_law::gpu {
 struct FrictionLawData {
   FrictionLawParameters drParameters;
 
-  const ImpedancesAndEta* __restrict impAndEta{};
-  const ImpedanceMatrices* __restrict impedanceMatrices{};
+  const ImpedancesAndEta<Config>* __restrict impAndEta{};
+  const ImpedanceMatrices<Config>* __restrict impedanceMatrices{};
   // CS = coordinate system
   const real (*__restrict stressSourceInFaultCS)[6][misc::NumPaddedPoints<Config>]{};
   const real (*__restrict cohesion)[misc::NumPaddedPoints<Config>]{};
@@ -39,8 +39,8 @@ struct FrictionLawData {
   real (*__restrict traction2)[misc::NumPaddedPoints<Config>]{};
   real (*__restrict imposedStatePlus)[tensor::QInterpolated<Config>::size()]{};
   real (*__restrict imposedStateMinus)[tensor::QInterpolated<Config>::size()]{};
-  DREnergyOutput* __restrict energyData{};
-  const DRGodunovData* __restrict godunovData{};
+  DREnergyOutput<Config>* __restrict energyData{};
+  const DRGodunovData<Config>* __restrict godunovData{};
   const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints<Config>]{};
   const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints<Config>]{};
   const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints<Config>]{};
@@ -106,32 +106,37 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     const seissol::initializer::AllocationPlace place =
         seissol::initializer::AllocationPlace::Device;
-    data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
-    data->impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
-    data->stressSourceInFaultCS = layerData.var<DynamicRupture::StressSourceInFaultCS>(place);
-    data->mu = layerData.var<DynamicRupture::Mu>(place);
-    data->accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(place);
-    data->slip1 = layerData.var<DynamicRupture::Slip1>(place);
-    data->slip2 = layerData.var<DynamicRupture::Slip2>(place);
-    data->slipRateMagnitude = layerData.var<DynamicRupture::SlipRateMagnitude>(place);
-    data->slipRate1 = layerData.var<DynamicRupture::SlipRate1>(place);
-    data->slipRate2 = layerData.var<DynamicRupture::SlipRate2>(place);
-    data->ruptureTime = layerData.var<DynamicRupture::RuptureTime>(place);
-    data->ruptureTimePending = layerData.var<DynamicRupture::RuptureTimePending>(place);
-    data->peakSlipRate = layerData.var<DynamicRupture::PeakSlipRate>(place);
-    data->traction1 = layerData.var<DynamicRupture::Traction1>(place);
-    data->traction2 = layerData.var<DynamicRupture::Traction2>(place);
-    data->imposedStatePlus = layerData.var<DynamicRupture::ImposedStatePlus>(place);
-    data->imposedStateMinus = layerData.var<DynamicRupture::ImposedStateMinus>(place);
-    data->energyData = layerData.var<DynamicRupture::DREnergyOutputVar>(place);
-    data->godunovData = layerData.var<DynamicRupture::GodunovData>(place);
-    data->dynStressTime = layerData.var<DynamicRupture::DynStressTime>(place);
-    data->dynStressTimePending = layerData.var<DynamicRupture::DynStressTimePending>(place);
-    data->qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(place);
-    data->qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(place);
-    data->stressSourcePressure = layerData.var<DynamicRupture::StressSourcePressure>(place);
-    data->stressSourceOnset = layerData.var<DynamicRupture::StressSourceOnset>(place);
-    data->stressSourceRiseTime = layerData.var<DynamicRupture::StressSourceRiseTime>(place);
+    data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(Config(), place);
+    data->impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(Config(), place);
+    data->stressSourceInFaultCS =
+        layerData.var<DynamicRupture::StressSourceInFaultCS>(Config(), place);
+    data->mu = layerData.var<DynamicRupture::Mu>(Config(), place);
+    data->accumulatedSlipMagnitude =
+        layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(Config(), place);
+    data->slip1 = layerData.var<DynamicRupture::Slip1>(Config(), place);
+    data->slip2 = layerData.var<DynamicRupture::Slip2>(Config(), place);
+    data->slipRateMagnitude = layerData.var<DynamicRupture::SlipRateMagnitude>(Config(), place);
+    data->slipRate1 = layerData.var<DynamicRupture::SlipRate1>(Config(), place);
+    data->slipRate2 = layerData.var<DynamicRupture::SlipRate2>(Config(), place);
+    data->ruptureTime = layerData.var<DynamicRupture::RuptureTime>(Config(), place);
+    data->ruptureTimePending = layerData.var<DynamicRupture::RuptureTimePending>(Config(), place);
+    data->peakSlipRate = layerData.var<DynamicRupture::PeakSlipRate>(Config(), place);
+    data->traction1 = layerData.var<DynamicRupture::Traction1>(Config(), place);
+    data->traction2 = layerData.var<DynamicRupture::Traction2>(Config(), place);
+    data->imposedStatePlus = layerData.var<DynamicRupture::ImposedStatePlus>(Config(), place);
+    data->imposedStateMinus = layerData.var<DynamicRupture::ImposedStateMinus>(Config(), place);
+    data->energyData = layerData.var<DynamicRupture::DREnergyOutputVar>(Config(), place);
+    data->godunovData = layerData.var<DynamicRupture::GodunovData>(Config(), place);
+    data->dynStressTime = layerData.var<DynamicRupture::DynStressTime>(Config(), place);
+    data->dynStressTimePending =
+        layerData.var<DynamicRupture::DynStressTimePending>(Config(), place);
+    data->qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(Config(), place);
+    data->qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(Config(), place);
+    data->stressSourcePressure =
+        layerData.var<DynamicRupture::StressSourcePressure>(Config(), place);
+    data->stressSourceOnset = layerData.var<DynamicRupture::StressSourceOnset>(Config(), place);
+    data->stressSourceRiseTime =
+        layerData.var<DynamicRupture::StressSourceRiseTime>(Config(), place);
   }
 
   protected:

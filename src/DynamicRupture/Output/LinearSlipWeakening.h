@@ -8,13 +8,14 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENING_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENING_H_
 
+#include "Config.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {
 class LinearSlipWeakening : public ReceiverOutput {
   protected:
   real computeLocalStrength(LocalInfo& local) override {
-    const auto* const cohesions = local.layer->var<LTSLinearSlipWeakening::Cohesion>();
+    const auto* const cohesions = local.layer->var<LTSLinearSlipWeakening::Cohesion>(Config());
     const auto cohesion = cohesions[local.ltsId][local.gpIndex];
 
     const auto effectiveNormalStress =

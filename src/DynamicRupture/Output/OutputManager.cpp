@@ -487,9 +487,9 @@ void OutputManager::initPickpointOutput() {
                 const auto sourceCount =
                     dr::stressSourceCount(seissolInstance_.parameters().drParameters);
                 const auto& drLayer = drStorage_->layer(position.color);
-                const auto* stresses = drLayer.var<DynamicRupture::StressSourceInFaultCS>();
-                const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>();
-                const auto* riseTimes = drLayer.var<DynamicRupture::StressSourceRiseTime>();
+                const auto* stresses = drLayer.var<DynamicRupture::StressSourceInFaultCS>(Config());
+                const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>(Config());
+                const auto* riseTimes = drLayer.var<DynamicRupture::StressSourceRiseTime>(Config());
                 auto unrotatedInitialStress =
                     dr::stressAtTime(&stresses[position.cell * sourceCount],
                                      &riseTimes[position.cell * sourceCount],

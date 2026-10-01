@@ -226,11 +226,11 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   loopStatistics_->begin(regionComputeDynamicRupture_);
 
   const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
-  auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>();
-  auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>();
+  const DRGodunovData<Config>* godunovData = layerData.var<DynamicRupture::GodunovData>(Config());
+  real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>(Config());
+  real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>(Config());
+  auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(Config());
+  auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(Config());
 
   const auto timestep = timeStepSize();
 

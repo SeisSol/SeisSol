@@ -132,14 +132,14 @@ class ReceiverOutput {
     onfault receiver output on GPUs)
    */
   template <typename StorageT>
-  [[nodiscard]] const std::remove_extent_t<typename StorageT::Type>*
+  [[nodiscard]] const std::remove_extent_t<seissol::initializer::StorageType<StorageT, Config>>*
       getCellData(const LocalInfo& local) const {
+    using ValueT = std::remove_extent_t<seissol::initializer::StorageType<StorageT, Config>>;
     const auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<const std::remove_extent_t<typename StorageT::Type>*>(
-          devVar->second->get(local.faceId));
+      return reinterpret_cast<const ValueT*>(devVar->second->get(local.faceId));
     } else {
-      return local.layer->var<StorageT>()[local.ltsId];
+      return local.layer->var<StorageT>(Config())[local.ltsId];
     }
   }
 

@@ -75,7 +75,7 @@ std::array<real, multisim::NumSimulations>
     computeStaticWork(const real* degreesOfFreedomPlus,
                       const real* degreesOfFreedomMinus,
                       const DRFaceInformation& faceInfo,
-                      const DRGodunovData& godunovData,
+                      const DRGodunovData<Config>& godunovData,
                       const real slip[seissol::tensor::slipInterpolated<Config>::size()],
                       const GlobalData* global) {
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config> krnl;
@@ -368,15 +368,15 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
   for (const auto& layer : drStorage_->leaves()) {
 
-    real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>();
-    real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
+    real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>(Config());
+    real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>(Config());
 
-    const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
+    const auto* godunovData = layer.var<DynamicRupture::GodunovData>(Config());
     const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
-    const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+    const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>(Config());
     const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
     const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
-    const auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
+    const auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>(Config());
     const auto layerSize = layer.size();
 
 #if !NVHPC_AVOID_OMP

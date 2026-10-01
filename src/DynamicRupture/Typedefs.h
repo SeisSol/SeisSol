@@ -11,6 +11,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
@@ -22,28 +23,30 @@ namespace seissol::dr {
  * Stores the P and S wave impedances for an element and its neighbor as well as the eta values from
  * Carsten Uphoff's dissertation equation (4.51)
  */
+template <typename Cfg>
 struct ImpedancesAndEta {
-  real zp{};
-  real zs{};
-  real zpNeig{};
-  real zsNeig{};
-  real etaP{};
-  real etaS{};
-  real invEtaS{};
-  real invZp{};
-  real invZs{};
-  real invZpNeig{};
-  real invZsNeig{};
+  Real<Cfg> zp{};
+  Real<Cfg> zs{};
+  Real<Cfg> zpNeig{};
+  Real<Cfg> zsNeig{};
+  Real<Cfg> etaP{};
+  Real<Cfg> etaS{};
+  Real<Cfg> invEtaS{};
+  Real<Cfg> invZp{};
+  Real<Cfg> invZs{};
+  Real<Cfg> invZpNeig{};
+  Real<Cfg> invZsNeig{};
 };
 
 /**
  * Stores the impedance matrices for an element and its neighbor for a poroelastic material.
  * This generalizes equation (4.51) from Carsten's thesis
  */
+template <typename Cfg>
 struct ImpedanceMatrices {
-  alignas(Alignment) real impedance[tensor::Zplus<Config>::size()] = {};
-  alignas(Alignment) real impedanceNeig[tensor::Zminus<Config>::size()] = {};
-  alignas(Alignment) real eta[tensor::eta<Config>::size()] = {};
+  alignas(Alignment) Real<Cfg> impedance[tensor::Zplus<Cfg>::size()] = {};
+  alignas(Alignment) Real<Cfg> impedanceNeig[tensor::Zminus<Cfg>::size()] = {};
+  alignas(Alignment) Real<Cfg> eta[tensor::eta<Cfg>::size()] = {};
   /**
    * Maps a fault-local traction difference to the difference of the stress components which do not
    * take part in the fault-normal Riemann problem:
@@ -59,7 +62,7 @@ struct ImpedanceMatrices {
    * matrix form -- for an isotropic elastic material the single relevant entry is
    * lambda / (lambda + 2 mu) = 1 - 2 (cs/cp)^2, which the output computes from the wave speeds.
    */
-  alignas(Alignment) real lateralStress[3 * tensor::Zminus<Config>::Shape[0]] = {};
+  alignas(Alignment) Real<Cfg> lateralStress[3 * tensor::Zminus<Cfg>::Shape[0]] = {};
 };
 
 template <Executor Executor>
