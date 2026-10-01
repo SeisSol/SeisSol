@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -277,7 +278,7 @@ class NoSpecialization {
 
   SEISSOL_DEVICE static real
       resampleSlipRate(FrictionLawContext& __restrict ctx,
-                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Config>]) {
     return resampleVariable(ctx, slipRateMagnitude[ctx.pointIndex]);
   };
 
@@ -322,7 +323,7 @@ class BiMaterialFault {
 
   SEISSOL_DEVICE static real
       resampleSlipRate(FrictionLawContext& __restrict ctx,
-                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Config>]) {
     return slipRateMagnitude[ctx.pointIndex];
   };
 
@@ -372,7 +373,7 @@ class TPApprox {
 
   SEISSOL_DEVICE static real
       resampleSlipRate(FrictionLawContext& __restrict ctx,
-                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Config>]) {
     return slipRateMagnitude[ctx.pointIndex];
   };
 

@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 
@@ -18,9 +19,9 @@ class NoTP {
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-  void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
-                         real (*mu)[misc::NumPaddedPoints],
-                         std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
+                         real (*mu)[misc::NumPaddedPoints<Config>],
+                         std::array<real, misc::NumPaddedPoints<Config>>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
                          std::size_t ltsFace) {}

@@ -7,6 +7,7 @@
 
 #include "ThermalPressurization.h"
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
@@ -33,14 +34,14 @@ void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData)
 }
 
 void ThermalPressurization::calcFluidPressure(
-    const std::array<real, misc::NumPaddedPoints>& normalStress,
-    const real (*mu)[misc::NumPaddedPoints],
-    const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+    const std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
+    const real (*mu)[misc::NumPaddedPoints<Config>],
+    const std::array<real, misc::NumPaddedPoints<Config>>& slipRateMagnitude,
     real deltaT,
     bool saveTPinLTS,
     std::size_t ltsFace) {
 #pragma omp simd
-  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 

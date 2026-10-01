@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_IMPOSEDSLIPRATESINITIALIZER_H_
 
 #include "BaseDRInitializer.h"
+#include "Config.h"
 
 namespace seissol::dr::initializer {
 /**
@@ -51,11 +52,12 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param imposedSlipDirection1: Slip in fault aligned direction 1
    * @param imposedSlipDirection2: Slip in fault aligned direction 2
    */
-  void rotateSlipToFaultCS(DynamicRupture::Layer& layer,
-                           const std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
-                           const std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip,
-                           real (*imposedSlipDirection1)[misc::NumPaddedPoints],
-                           real (*imposedSlipDirection2)[misc::NumPaddedPoints]);
+  void rotateSlipToFaultCS(
+      DynamicRupture::Layer& layer,
+      const std::vector<std::array<real, misc::NumPaddedPoints<Config>>>& strikeSlip,
+      const std::vector<std::array<real, misc::NumPaddedPoints<Config>>>& dipSlip,
+      real (*imposedSlipDirection1)[misc::NumPaddedPoints<Config>],
+      real (*imposedSlipDirection2)[misc::NumPaddedPoints<Config>]);
 };
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {

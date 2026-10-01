@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
@@ -59,9 +60,9 @@ class ThermalPressurization {
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
-  void calcFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
-                         const real (*mu)[misc::NumPaddedPoints],
-                         const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(const std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
+                         const real (*mu)[misc::NumPaddedPoints<Config>],
+                         const std::array<real, misc::NumPaddedPoints<Config>>& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
                          std::size_t ltsFace);
@@ -71,12 +72,12 @@ class ThermalPressurization {
   }
 
   protected:
-  real (*__restrict temperature_)[misc::NumPaddedPoints]{};
-  real (*__restrict pressure_)[misc::NumPaddedPoints]{};
-  real (*__restrict theta_)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
-  real (*__restrict sigma_)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
-  real (*__restrict halfWidthShearZone_)[misc::NumPaddedPoints]{};
-  real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints]{};
+  real (*__restrict temperature_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict pressure_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict theta_)[misc::NumTpGridPoints][misc::NumPaddedPoints<Config>]{};
+  real (*__restrict sigma_)[misc::NumTpGridPoints][misc::NumPaddedPoints<Config>]{};
+  real (*__restrict halfWidthShearZone_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints<Config>]{};
 
   private:
   FrictionLawParameters drParameters_;

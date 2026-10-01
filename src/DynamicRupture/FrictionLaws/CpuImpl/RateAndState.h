@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_RATEANDSTATE_H_
 
 #include "BaseFrictionLaw.h"
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
@@ -43,8 +44,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                              const FaultStresses<Executor::Host>& initialStress,
                              TractionResults<Executor::Host>& tractionResults,
-                             std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                             std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,
+                             std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+                             std::array<real, misc::NumPaddedPoints<Config>>& /*strengthBuffer*/,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     bool hasConverged = false;
@@ -108,15 +109,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                   ltsFace);
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  void preHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+               std::size_t ltsFace) {
 // copy state variable from last time step
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       stateVariableBuffer[pointIndex] = this->stateVariable_[ltsFace][pointIndex];
     }
   }
 
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  void postHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+                std::size_t ltsFace) {
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
@@ -137,44 +140,44 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * Contains all the variables, which are to be computed initially in each timestep.
    */
   struct InitialVariables {
-    std::array<real, misc::NumPaddedPoints> absoluteShearTraction{0};
-    std::array<real, misc::NumPaddedPoints> localSlipRate{0};
-    std::array<real, misc::NumPaddedPoints> normalStress{0};
+    std::array<real, misc::NumPaddedPoints<Config>> absoluteShearTraction{0};
+    std::array<real, misc::NumPaddedPoints<Config>> localSlipRate{0};
+    std::array<real, misc::NumPaddedPoints<Config>> normalStress{0};
     /// the same, before the slip rate dependent part and the clamp; the Newton solve needs it to
     /// evaluate sigma(V) itself
-    std::array<real, misc::NumPaddedPoints> normalStressStick{0};
-    std::array<real, misc::NumPaddedPoints> stateVarReference{0};
-    std::array<real, misc::NumPaddedPoints> etaInv{0};
-    std::array<real, misc::NumPaddedPoints> etaNormal{0};
-    std::array<real, misc::NumPaddedPoints> slipDirection1{0};
-    std::array<real, misc::NumPaddedPoints> slipDirection2{0};
+    std::array<real, misc::NumPaddedPoints<Config>> normalStressStick{0};
+    std::array<real, misc::NumPaddedPoints<Config>> stateVarReference{0};
+    std::array<real, misc::NumPaddedPoints<Config>> etaInv{0};
+    std::array<real, misc::NumPaddedPoints<Config>> etaNormal{0};
+    std::array<real, misc::NumPaddedPoints<Config>> slipDirection1{0};
+    std::array<real, misc::NumPaddedPoints<Config>> slipDirection2{0};
   };
 
   /*
    * Compute shear stress magnitude, localSlipRate, effective normal stress, reference state
    * variable. Also sets slipRateMagnitude member to reference value.
    */
-  InitialVariables
-      calcInitialVariables(const FaultStresses<Executor::Host>& faultStresses,
-                           const FaultStresses<Executor::Host>& initialStress,
-                           const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                           std::size_t ltsFace) {
+  InitialVariables calcInitialVariables(
+      const FaultStresses<Executor::Host>& faultStresses,
+      const FaultStresses<Executor::Host>& initialStress,
+      const std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable,
+      std::size_t ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
     // localStateVariable!
-    std::array<real, misc::NumPaddedPoints> stateVarReference{};
+    std::array<real, misc::NumPaddedPoints<Config>> stateVarReference{};
     std::copy(localStateVariable.begin(), localStateVariable.end(), stateVarReference.begin());
 
-    std::array<real, misc::NumPaddedPoints> absoluteTraction{};
-    std::array<real, misc::NumPaddedPoints> normalStress{};
-    std::array<real, misc::NumPaddedPoints> normalStressStick{};
-    std::array<real, misc::NumPaddedPoints> temporarySlipRate{};
-    std::array<real, misc::NumPaddedPoints> etaInv{};
-    std::array<real, misc::NumPaddedPoints> etaNormal{};
-    std::array<real, misc::NumPaddedPoints> slipDirection1{};
-    std::array<real, misc::NumPaddedPoints> slipDirection2{};
+    std::array<real, misc::NumPaddedPoints<Config>> absoluteTraction{};
+    std::array<real, misc::NumPaddedPoints<Config>> normalStress{};
+    std::array<real, misc::NumPaddedPoints<Config>> normalStressStick{};
+    std::array<real, misc::NumPaddedPoints<Config>> temporarySlipRate{};
+    std::array<real, misc::NumPaddedPoints<Config>> etaInv{};
+    std::array<real, misc::NumPaddedPoints<Config>> etaNormal{};
+    std::array<real, misc::NumPaddedPoints<Config>> slipDirection1{};
+    std::array<real, misc::NumPaddedPoints<Config>> slipDirection2{};
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 =
           initialStress.traction1[pointIndex] + faultStresses.traction1[pointIndex];
@@ -236,17 +239,17 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * fixed-point loop makes the sweep essentially free.
    */
   void updateDirectionAndProjections(
-      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& slipDirection1,
-      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& slipDirection2,
-      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& absoluteShearTraction,
-      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& etaInv,
-      [[maybe_unused]] std::array<real, misc::NumPaddedPoints>& etaNormal,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints<Config>>& slipDirection1,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints<Config>>& slipDirection2,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints<Config>>& absoluteShearTraction,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints<Config>>& etaInv,
+      [[maybe_unused]] std::array<real, misc::NumPaddedPoints<Config>>& etaNormal,
       [[maybe_unused]] const FaultStresses<Executor::Host>& faultStresses,
       [[maybe_unused]] const FaultStresses<Executor::Host>& initialStress,
       [[maybe_unused]] std::size_t ltsFace) {
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
 #pragma omp simd
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
         const real totalTraction1 =
             initialStress.traction1[pointIndex] + faultStresses.traction1[pointIndex];
         const real totalTraction2 =
@@ -289,24 +292,24 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void
-      updateStateVariableIterative(bool& hasConverged,
-                                   const std::array<real, misc::NumPaddedPoints>& stateVarReference,
-                                   std::array<real, misc::NumPaddedPoints>& localSlipRate,
-                                   std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                                   std::array<real, misc::NumPaddedPoints>& normalStress,
-                                   std::array<real, misc::NumPaddedPoints>& normalStressStick,
-                                   std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
-                                   const FaultStresses<Executor::Host>& faultStresses,
-                                   const FaultStresses<Executor::Host>& initialStress,
-                                   std::array<real, misc::NumPaddedPoints>& etaInv,
-                                   std::array<real, misc::NumPaddedPoints>& etaNormal,
-                                   std::array<real, misc::NumPaddedPoints>& slipDirection1,
-                                   std::array<real, misc::NumPaddedPoints>& slipDirection2,
-                                   uint32_t timeIndex,
-                                   std::size_t ltsFace) {
-    std::array<real, misc::NumPaddedPoints> testSlipRate{};
-    std::array<bool, misc::NumPaddedPoints> convergenceOuterPre{};
+  void updateStateVariableIterative(
+      bool& hasConverged,
+      const std::array<real, misc::NumPaddedPoints<Config>>& stateVarReference,
+      std::array<real, misc::NumPaddedPoints<Config>>& localSlipRate,
+      std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable,
+      std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
+      std::array<real, misc::NumPaddedPoints<Config>>& normalStressStick,
+      std::array<real, misc::NumPaddedPoints<Config>>& absoluteShearStress,
+      const FaultStresses<Executor::Host>& faultStresses,
+      const FaultStresses<Executor::Host>& initialStress,
+      std::array<real, misc::NumPaddedPoints<Config>>& etaInv,
+      std::array<real, misc::NumPaddedPoints<Config>>& etaNormal,
+      std::array<real, misc::NumPaddedPoints<Config>>& slipDirection1,
+      std::array<real, misc::NumPaddedPoints<Config>>& slipDirection2,
+      uint32_t timeIndex,
+      std::size_t ltsFace) {
+    std::array<real, misc::NumPaddedPoints<Config>> testSlipRate{};
+    std::array<bool, misc::NumPaddedPoints<Config>> convergenceOuterPre{};
 
     // use:
     // - (inner loop) Newton-Raphson to find the fixed point slip rate with a _fixed_ state and
@@ -325,7 +328,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     for (uint32_t j = 0; j < this->drParameters_.rsNumberStateVariableUpdates; j++) {
 #pragma omp simd
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
         // fault strength using friction coefficient and fluid pressure from previous
         // timestep/iteration update state variable using sliprate from the previous time step
         localStateVariable[pointIndex] =
@@ -363,7 +366,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       int32_t converged = 1;
 
 #pragma omp simd reduction(min : converged)
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
         // found (Kaneko 2008, step 6)
@@ -398,26 +401,27 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     // update (outer) (non-)convergence
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       convergenceOuter_[ltsFace][pointIndex] &= convergenceOuterPre[pointIndex];
     }
   }
 
-  void calcSlipRateAndTraction(const std::array<real, misc::NumPaddedPoints>& stateVarReference,
-                               const std::array<real, misc::NumPaddedPoints>& localSlipRate,
-                               std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                               const std::array<real, misc::NumPaddedPoints>& normalStress,
-                               const std::array<real, misc::NumPaddedPoints>& absoluteTraction,
-                               const FaultStresses<Executor::Host>& faultStresses,
-                               TractionResults<Executor::Host>& tractionResults,
-                               const std::array<real, misc::NumPaddedPoints>& etaNormal,
-                               const std::array<real, misc::NumPaddedPoints>& slipDirection1,
-                               const std::array<real, misc::NumPaddedPoints>& slipDirection2,
-                               uint32_t timeIndex,
-                               std::size_t ltsFace) {
+  void calcSlipRateAndTraction(
+      const std::array<real, misc::NumPaddedPoints<Config>>& stateVarReference,
+      const std::array<real, misc::NumPaddedPoints<Config>>& localSlipRate,
+      std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable,
+      const std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
+      const std::array<real, misc::NumPaddedPoints<Config>>& absoluteTraction,
+      const FaultStresses<Executor::Host>& faultStresses,
+      TractionResults<Executor::Host>& tractionResults,
+      const std::array<real, misc::NumPaddedPoints<Config>>& etaNormal,
+      const std::array<real, misc::NumPaddedPoints<Config>>& slipDirection1,
+      const std::array<real, misc::NumPaddedPoints<Config>>& slipDirection2,
+      uint32_t timeIndex,
+      std::size_t ltsFace) {
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       // SV from mean slip rate in tmp
       localStateVariable[pointIndex] =
           static_cast<Derived*>(this)->updateStateVariable(pointIndex,
@@ -430,7 +434,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       // update LocMu for next strength determination, only needed for last update
       this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
           pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
@@ -488,7 +492,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   void saveDynamicStressOutput(std::size_t faceIndex, real time) {
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
 
       if (this->ruptureTime_[faceIndex][pointIndex] > static_cast<real>(0.0) &&
           this->ruptureTime_[faceIndex][pointIndex] <= time &&
@@ -522,22 +526,24 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * sunk into the rounding noise of its own evaluation counts as converged, because no further step
    * can be told from noise.
    */
-  bool invertSlipRateIterative(std::size_t ltsFace,
-                               const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                               const std::array<real, misc::NumPaddedPoints>& normalStress,
-                               const std::array<real, misc::NumPaddedPoints>& normalStressStick,
-                               const std::array<real, misc::NumPaddedPoints>& etaNormal,
-                               const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
-                               const std::array<real, misc::NumPaddedPoints>& invEta,
-                               std::array<real, misc::NumPaddedPoints>& slipRateTest) {
+  bool invertSlipRateIterative(
+      std::size_t ltsFace,
+      const std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable,
+      const std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
+      const std::array<real, misc::NumPaddedPoints<Config>>& normalStressStick,
+      const std::array<real, misc::NumPaddedPoints<Config>>& etaNormal,
+      const std::array<real, misc::NumPaddedPoints<Config>>& absoluteShearStress,
+      const std::array<real, misc::NumPaddedPoints<Config>>& invEta,
+      std::array<real, misc::NumPaddedPoints<Config>>& slipRateTest) {
 
-    real muF[misc::NumPaddedPoints]{};
-    real g[misc::NumPaddedPoints]{};
-    real xLow[misc::NumPaddedPoints]{};
-    real xHigh[misc::NumPaddedPoints]{};
-    real dxOld[misc::NumPaddedPoints]{};        // previous step, for the "outrun bisection" test
-    real gNoise[misc::NumPaddedPoints]{};       // rounding noise of the residual, per point
-    int32_t converged[misc::NumPaddedPoints]{}; // int not bool: keeps ICX SIMD happy (cf. below)
+    real muF[misc::NumPaddedPoints<Config>]{};
+    real g[misc::NumPaddedPoints<Config>]{};
+    real xLow[misc::NumPaddedPoints<Config>]{};
+    real xHigh[misc::NumPaddedPoints<Config>]{};
+    real dxOld[misc::NumPaddedPoints<Config>]{};  // previous step, for the "outrun bisection" test
+    real gNoise[misc::NumPaddedPoints<Config>]{}; // rounding noise of the residual, per point
+    int32_t converged[misc::NumPaddedPoints<Config>]{}; // int not bool: keeps ICX SIMD happy (cf.
+                                                        // below)
 
     // Number of roundings that enter one residual evaluation; used to size both floors below.
     constexpr real NoiseFactor = 4;
@@ -554,7 +560,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
 #endif
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       const real lo = rs::almostZero();
       const real hi = std::max(lo, absoluteShearStress[pointIndex] * invEta[pointIndex]);
       // A point that carries no normal stress at the free-slip limit has its root exactly there:
@@ -584,7 +590,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
 #endif
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
         const real x = slipRateTest[pointIndex];
         muF[pointIndex] = static_cast<Derived*>(this)->updateMu(pointIndex, x, details);
         // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen:
@@ -608,7 +614,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #ifndef SEISSOL_INTEL_SIMD_EXCEPTION
 #pragma omp simd
 #endif
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
         const real x = slipRateTest[pointIndex];
         const real dMuF = static_cast<Derived*>(this)->updateMuDerivative(pointIndex, x, details);
         const real sigma =
@@ -697,7 +703,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
 #endif
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       this->mu_[ltsFace][pointIndex] =
           static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
       convergenceInner_[ltsFace][pointIndex] &= (converged[pointIndex] != 0);
@@ -717,15 +723,15 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * iteration (or, on entry, from the previous time step). normalStressStick keeps the part that
    * does not depend on it, so that the Newton solve can follow sigma(V) itself.
    */
-  void updateNormalStress(std::array<real, misc::NumPaddedPoints>& normalStress,
-                          std::array<real, misc::NumPaddedPoints>& normalStressStick,
+  void updateNormalStress(std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
+                          std::array<real, misc::NumPaddedPoints<Config>>& normalStressStick,
                           const FaultStresses<Executor::Host>& faultStresses,
                           const FaultStresses<Executor::Host>& initialStress,
-                          const std::array<real, misc::NumPaddedPoints>& etaNormal,
+                          const std::array<real, misc::NumPaddedPoints<Config>>& etaNormal,
                           size_t ltsFace) {
     // Todo(SW): consider poroelastic materials together with thermal pressurization
 #pragma omp simd
-    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       normalStressStick[pointIndex] =
           faultStresses.normalStress[pointIndex] + initialStress.normalStress[pointIndex] +
           faultStresses.fluidPressure[pointIndex] + initialStress.fluidPressure[pointIndex] -
@@ -746,12 +752,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * resolves it at a linear rate, into the quadratic one.
    */
 #pragma omp declare simd
-  static real
-      effectiveNormalStress(const std::array<real, misc::NumPaddedPoints>& normalStress,
-                            const std::array<real, misc::NumPaddedPoints>& normalStressStick,
-                            const std::array<real, misc::NumPaddedPoints>& etaNormal,
-                            real slipRate,
-                            std::uint32_t pointIndex) {
+  static real effectiveNormalStress(
+      const std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
+      const std::array<real, misc::NumPaddedPoints<Config>>& normalStressStick,
+      const std::array<real, misc::NumPaddedPoints<Config>>& etaNormal,
+      real slipRate,
+      std::uint32_t pointIndex) {
     if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
       return std::min(static_cast<real>(0.0),
                       normalStressStick[pointIndex] - slipRate * etaNormal[pointIndex]);
@@ -762,16 +768,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   protected:
   // Attributes
-  real (*__restrict a_)[misc::NumPaddedPoints]{};
-  real (*__restrict sl0_)[misc::NumPaddedPoints]{};
-  real (*__restrict stateVariable_)[misc::NumPaddedPoints]{};
+  real (*__restrict a_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict sl0_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict stateVariable_)[misc::NumPaddedPoints<Config>]{};
 
-  real (*__restrict f0_)[misc::NumPaddedPoints]{};
-  real (*__restrict muW_)[misc::NumPaddedPoints]{};
-  real (*__restrict b_)[misc::NumPaddedPoints]{};
+  real (*__restrict f0_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict muW_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict b_)[misc::NumPaddedPoints<Config>]{};
 
-  bool (*__restrict convergenceInner_)[misc::NumPaddedPoints]{};
-  bool (*__restrict convergenceOuter_)[misc::NumPaddedPoints]{};
+  bool (*__restrict convergenceInner_)[misc::NumPaddedPoints<Config>]{};
+  bool (*__restrict convergenceOuter_)[misc::NumPaddedPoints<Config>]{};
 
   TPMethod tpMethod_;
 };

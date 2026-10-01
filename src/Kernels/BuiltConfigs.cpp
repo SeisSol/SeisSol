@@ -47,10 +47,10 @@ ConfigLayout generatedLayout() {
   layout.basisFunctionDimension = multisim::BasisFunctionDimension;
   layout.dofsSize = tensor::Q<Config>::size();
 
-  layout.drNumPoints = dr::misc::NumBoundaryGaussPoints;
-  layout.drNumPaddedPoints = dr::misc::NumPaddedPoints;
-  layout.drNumQuantities = dr::misc::NumQuantities;
-  layout.drNumTimePoints = dr::misc::TimeSteps;
+  layout.drNumPoints = dr::misc::NumBoundaryGaussPoints<Config>;
+  layout.drNumPaddedPoints = dr::misc::NumPaddedPoints<Config>;
+  layout.drNumQuantities = dr::misc::NumQuantities<Config>;
+  layout.drNumTimePoints = dr::misc::TimeSteps<Config>;
   return layout;
 }
 

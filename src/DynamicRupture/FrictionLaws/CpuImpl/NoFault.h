@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_NOFAULT_H_
 
 #include "BaseFrictionLaw.h"
+#include "Config.h"
 
 namespace seissol::dr::friction_law::cpu {
 /**
@@ -18,18 +19,19 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
-  static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
-                                    const FaultStresses<Executor::Host>& initialStress,
-                                    TractionResults<Executor::Host>& tractionResults,
-                                    std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                                    std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                                    std::size_t ltsFace,
-                                    uint32_t timeIndex);
+  static void
+      updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                            const FaultStresses<Executor::Host>& initialStress,
+                            TractionResults<Executor::Host>& tractionResults,
+                            std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+                            std::array<real, misc::NumPaddedPoints<Config>>& strengthBuffer,
+                            std::size_t ltsFace,
+                            uint32_t timeIndex);
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
-  };
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
-  };
+  void preHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+               std::size_t ltsFace) {};
+  void postHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+                std::size_t ltsFace) {};
   void saveDynamicStressOutput(std::size_t ltsFace, real time) {};
 };
 } // namespace seissol::dr::friction_law::cpu

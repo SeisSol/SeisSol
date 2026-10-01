@@ -7,6 +7,7 @@
 
 #include "AgingLaw.h"
 #include "BaseFrictionSolver.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "ImposedSlipRates.h"
@@ -43,7 +44,7 @@ constexpr std::size_t safeblockMultiple(std::size_t block, std::size_t maxmult) 
 
 constexpr std::size_t BlockTargetsize = 256;
 constexpr std::size_t PaddedMultiple =
-    safeblockMultiple(seissol::dr::misc::NumPaddedPoints, BlockTargetsize);
+    safeblockMultiple(seissol::dr::misc::NumPaddedPoints<Config>, BlockTargetsize);
 
 // __grid_constant__ needs sm_70 or higher
 #if defined(__CUDACC__) && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
@@ -53,7 +54,7 @@ constexpr std::size_t PaddedMultiple =
 #endif
 
 template <typename T>
-__launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
+__launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints<Config>) __global__
     void flkernelwrapper(const std::size_t elements,
                          const SEISSOL_GRID_CONSTANT FrictionLawArgs args) {
   FrictionLawContext ctx{};
@@ -61,8 +62,8 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
   ctx.data = args.data;
   ctx.args = &args;
 
-  __shared__ real shm[PaddedMultiple * seissol::dr::misc::NumPaddedPoints];
-  ctx.sharedMemory = &shm[threadIdx.z * seissol::dr::misc::NumPaddedPoints];
+  __shared__ real shm[PaddedMultiple * seissol::dr::misc::NumPaddedPoints<Config>];
+  ctx.sharedMemory = &shm[threadIdx.z * seissol::dr::misc::NumPaddedPoints<Config>];
   // ctx.item = nullptr;
 
   ctx.ltsFace = blockIdx.x * PaddedMultiple + threadIdx.z;
@@ -86,7 +87,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   using StreamT = hipStream_t;
 #endif
   auto stream = reinterpret_cast<StreamT>(runtime.stream());
-  dim3 block(multisim::NumSimulations, misc::NumPaddedPointsSingleSim, PaddedMultiple);
+  dim3 block(multisim::NumSimulations, misc::NumPaddedPointsSingleSim<Config>, PaddedMultiple);
   dim3 grid((this->currLayerSize_ + PaddedMultiple - 1) / PaddedMultiple);
 
   FrictionLawArgs args{};
@@ -96,8 +97,8 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   args.tpInverseFourierCoefficients = this->devTpInverseFourierCoefficients_;
   args.tpGridPoints = this->devTpGridPoints_;
   args.heatSource = this->devHeatSource_;
-  std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
-  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
+  std::copy_n(timeWeights, misc::TimeSteps<Config>, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps<Config>, args.deltaT);
   args.fullUpdateTime = fullUpdateTime;
 
   flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize_, args);

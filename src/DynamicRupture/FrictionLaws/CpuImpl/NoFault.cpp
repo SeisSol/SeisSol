@@ -8,6 +8,7 @@
 #include "NoFault.h"
 
 #include "Common/Executor.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Kernels/Precision.h"
@@ -21,11 +22,11 @@ void NoFault::updateFrictionAndSlip(
     const FaultStresses<Executor::Host>& faultStresses,
     const FaultStresses<Executor::Host>& /*initialStress*/,
     TractionResults<Executor::Host>& tractionResults,
-    std::array<real, misc::NumPaddedPoints>& /*stateVariableBuffer*/,
-    std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,
+    std::array<real, misc::NumPaddedPoints<Config>>& /*stateVariableBuffer*/,
+    std::array<real, misc::NumPaddedPoints<Config>>& /*strengthBuffer*/,
     std::size_t /*ltsFace*/,
     uint32_t /*timeIndex*/) {
-  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
     tractionResults.traction1[pointIndex] = faultStresses.traction1[pointIndex];
     tractionResults.traction2[pointIndex] = faultStresses.traction2[pointIndex];
   }

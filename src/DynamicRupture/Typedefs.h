@@ -78,10 +78,10 @@ struct ImposedState;
  */
 template <>
 struct FaultStresses<Executor::Host> {
-  alignas(Alignment) real normalStress[misc::NumPaddedPoints]{};
-  alignas(Alignment) real traction1[misc::NumPaddedPoints]{};
-  alignas(Alignment) real traction2[misc::NumPaddedPoints]{};
-  alignas(Alignment) real fluidPressure[misc::NumPaddedPoints]{};
+  alignas(Alignment) real normalStress[misc::NumPaddedPoints<Config>]{};
+  alignas(Alignment) real traction1[misc::NumPaddedPoints<Config>]{};
+  alignas(Alignment) real traction2[misc::NumPaddedPoints<Config>]{};
+  alignas(Alignment) real fluidPressure[misc::NumPaddedPoints<Config>]{};
 };
 
 /**
@@ -97,9 +97,9 @@ struct FaultStresses<Executor::Host> {
  */
 template <>
 struct TractionResults<Executor::Host> {
-  alignas(Alignment) real normalStress[misc::NumPaddedPoints]{};
-  alignas(Alignment) real traction1[misc::NumPaddedPoints]{};
-  alignas(Alignment) real traction2[misc::NumPaddedPoints]{};
+  alignas(Alignment) real normalStress[misc::NumPaddedPoints<Config>]{};
+  alignas(Alignment) real traction1[misc::NumPaddedPoints<Config>]{};
+  alignas(Alignment) real traction2[misc::NumPaddedPoints<Config>]{};
 };
 
 /**
@@ -107,8 +107,8 @@ struct TractionResults<Executor::Host> {
  */
 template <>
 struct ImposedState<Executor::Host> {
-  alignas(Alignment) real plus[misc::NumQuantities][misc::NumPaddedPoints]{};
-  alignas(Alignment) real minus[misc::NumQuantities][misc::NumPaddedPoints]{};
+  alignas(Alignment) real plus[misc::NumQuantities<Config>][misc::NumPaddedPoints<Config>]{};
+  alignas(Alignment) real minus[misc::NumQuantities<Config>][misc::NumPaddedPoints<Config>]{};
 };
 
 /**
@@ -142,8 +142,8 @@ struct TractionResults<Executor::Device> {
  */
 template <>
 struct ImposedState<Executor::Device> {
-  real plus[misc::NumQuantities]{};
-  real minus[misc::NumQuantities]{};
+  real plus[misc::NumQuantities<Config>]{};
+  real minus[misc::NumQuantities<Config>]{};
 };
 
 } // namespace seissol::dr

@@ -56,11 +56,11 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
     const auto storedQuantities = tensor::Q<Config>::Shape[multisim::BasisFunctionDimension + 1];
     CHECK(storedQuantities <= layout.numQuantities);
     CHECK(layout.dofsSize >= layout.numBasisFunctions * storedQuantities * Config::NumSimulations);
-    CHECK(layout.drNumPoints == dr::misc::NumBoundaryGaussPoints);
-    CHECK(layout.drNumPaddedPoints == dr::misc::NumPaddedPoints);
+    CHECK(layout.drNumPoints == dr::misc::NumBoundaryGaussPoints<Config>);
+    CHECK(layout.drNumPaddedPoints == dr::misc::NumPaddedPoints<Config>);
     CHECK(layout.drNumPaddedPoints >= layout.drNumPoints * Config::NumSimulations);
-    CHECK(layout.drNumQuantities == dr::misc::NumQuantities);
-    CHECK(layout.drNumTimePoints == dr::misc::TimeSteps);
+    CHECK(layout.drNumQuantities == dr::misc::NumQuantities<Config>);
+    CHECK(layout.drNumTimePoints == dr::misc::TimeSteps<Config>);
   }
 
   SUBCASE("Every layout agrees with the kernels of its id in runtime.h") {

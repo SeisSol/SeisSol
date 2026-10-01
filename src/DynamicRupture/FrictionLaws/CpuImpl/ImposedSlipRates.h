@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_IMPOSEDSLIPRATES_H_
 
 #include "BaseFrictionLaw.h"
+#include "Config.h"
 
 namespace seissol::dr::friction_law::cpu {
 /**
@@ -25,13 +26,14 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     stf_.copyStorageToLocal(layerData);
   }
 
-  void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
-                             const FaultStresses<Executor::Host>& /*initialStress*/,
-                             TractionResults<Executor::Host>& tractionResults,
-                             std::array<real, misc::NumPaddedPoints>& /*stateVariableBuffer*/,
-                             std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,
-                             std::size_t ltsFace,
-                             uint32_t timeIndex) {
+  void updateFrictionAndSlip(
+      const FaultStresses<Executor::Host>& faultStresses,
+      const FaultStresses<Executor::Host>& /*initialStress*/,
+      TractionResults<Executor::Host>& tractionResults,
+      std::array<real, misc::NumPaddedPoints<Config>>& /*stateVariableBuffer*/,
+      std::array<real, misc::NumPaddedPoints<Config>>& /*strengthBuffer*/,
+      std::size_t ltsFace,
+      uint32_t timeIndex) {
     const real timeIncrement = this->deltaT_[timeIndex];
     real currentTime = this->fullUpdateTime_;
     for (uint32_t i = 0; i <= timeIndex; i++) {
@@ -39,7 +41,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       const real stfEvaluated = stf_.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
       const auto evalCardinal1 = imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
@@ -82,14 +84,15 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {}
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
-  }
+  void preHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+               std::size_t ltsFace) {}
+  void postHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+                std::size_t ltsFace) {}
   void saveDynamicStressOutput(std::size_t ltsFace, real time) {}
 
   protected:
-  real (*__restrict imposedSlipDirection1_)[misc::NumPaddedPoints]{};
-  real (*__restrict imposedSlipDirection2_)[misc::NumPaddedPoints]{};
+  real (*__restrict imposedSlipDirection1_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict imposedSlipDirection2_)[misc::NumPaddedPoints<Config>]{};
   STF stf_{};
 };
 

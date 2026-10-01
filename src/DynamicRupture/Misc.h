@@ -60,22 +60,26 @@ constexpr uint32_t leadDim() noexcept {
 }
 
 /**
- * Number of gauss points padded to match the vector register length.
+ * Number of gauss points padded to match the vector register length, in the configuration `Cfg`.
  */
-static constexpr inline uint32_t NumPaddedPoints =
-    multisim::MultisimEnabled
-        ? dimSize<init::QInterpolated<Config>, 0>() * dimSize<init::QInterpolated<Config>, 1>()
-        : leadDim<init::QInterpolated<Config>>();
-static constexpr inline uint32_t NumPaddedPointsSingleSim =
-    dimSize<init::QInterpolated<Config>, multisim::BasisFunctionDimension>();
-static constexpr inline uint32_t NumQuantities =
-    misc::dimSize<init::QInterpolated<Config>, multisim::BasisFunctionDimension + 1>();
+template <typename Cfg>
+inline constexpr uint32_t NumPaddedPoints =
+    multisim::MultisimHelperWrapper<Cfg::NumSimulations>::MultisimEnabled
+        ? dimSize<init::QInterpolated<Cfg>, 0>() * dimSize<init::QInterpolated<Cfg>, 1>()
+        : leadDim<init::QInterpolated<Cfg>>();
+template <typename Cfg>
+inline constexpr uint32_t NumPaddedPointsSingleSim =
+    dimSize<init::QInterpolated<Cfg>, multisim::BasisDim<Cfg>>();
+template <typename Cfg>
+inline constexpr uint32_t NumQuantities =
+    misc::dimSize<init::QInterpolated<Cfg>, multisim::BasisDim<Cfg> + 1>();
 
 /*
  * Time integration point count
  */
 
-static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
+template <typename Cfg>
+inline constexpr uint32_t TimeSteps = Cfg::ConvergenceOrder;
 
 /**
  * Face relations of a dynamic rupture face: 0 addresses the plus side, 1 the minus side. The
@@ -94,8 +98,9 @@ static constexpr double TpMaxWaveNumber = 10.0;
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr uint32_t NumBoundaryGaussPoints =
-    init::QInterpolated<Config>::Shape[multisim::BasisFunctionDimension];
+template <typename Cfg>
+inline constexpr uint32_t NumBoundaryGaussPoints =
+    init::QInterpolated<Cfg>::Shape[multisim::BasisDim<Cfg>];
 
 template <std::size_t I, typename F, typename TupleT>
 constexpr F forEachElement(F&& functor, TupleT&& tuple) {
@@ -338,9 +343,9 @@ struct FrictionLawParameters {
  * @param[in] riseTimes the rise time of every source of the face, at this point
  * @param[in] onsets the onset of every source of the face, at this point
  */
-inline std::array<real, 6> stressAtTime(const real (*sources)[6][misc::NumPaddedPoints],
-                                        const real (*riseTimes)[misc::NumPaddedPoints],
-                                        const real (*onsets)[misc::NumPaddedPoints],
+inline std::array<real, 6> stressAtTime(const real (*sources)[6][misc::NumPaddedPoints<Config>],
+                                        const real (*riseTimes)[misc::NumPaddedPoints<Config>],
+                                        const real (*onsets)[misc::NumPaddedPoints<Config>],
                                         std::uint32_t sourceCount,
                                         std::uint32_t pointIndex,
                                         real time) {

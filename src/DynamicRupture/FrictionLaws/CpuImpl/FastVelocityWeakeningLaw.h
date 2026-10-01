@@ -83,24 +83,25 @@ class FastVelocityWeakeningLaw
     const real exp1m = -std::expm1(preexp1);
     const real localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
     assert((std::isfinite(localStateVariable) ||
-            pointIndex >= misc::NumBoundaryGaussPoints * multisim::NumSimulations) &&
+            pointIndex >= misc::NumBoundaryGaussPoints<Config> * multisim::NumSimulations) &&
            "Inf/NaN detected");
     return localStateVariable;
   }
 
   struct MuDetails {
-    std::array<real, misc::NumPaddedPoints> a{};
-    std::array<real, misc::NumPaddedPoints> cLin{};
-    std::array<real, misc::NumPaddedPoints> cExpLog{};
-    std::array<real, misc::NumPaddedPoints> cExp{};
-    std::array<real, misc::NumPaddedPoints> acLin{};
+    std::array<real, misc::NumPaddedPoints<Config>> a{};
+    std::array<real, misc::NumPaddedPoints<Config>> cLin{};
+    std::array<real, misc::NumPaddedPoints<Config>> cExpLog{};
+    std::array<real, misc::NumPaddedPoints<Config>> cExp{};
+    std::array<real, misc::NumPaddedPoints<Config>> acLin{};
   };
 
-  MuDetails getMuDetails(std::size_t ltsFace,
-                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+  MuDetails
+      getMuDetails(std::size_t ltsFace,
+                   const std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
       const real localA = this->a_[ltsFace][pointIndex];
 
       const real cLin = static_cast<real>(0.5) / this->drParameters_.rsSr0;
@@ -152,12 +153,12 @@ class FastVelocityWeakeningLaw
   /**
    * Resample the state variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
-    alignas(Alignment) std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
-    alignas(Alignment) std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints<Config>> deltaStateVar = {0};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints<Config>> resampledDeltaStateVar = {0};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable_[ltsFace][pointIndex];
     }
@@ -167,14 +168,14 @@ class FastVelocityWeakeningLaw
     resampleKrnl.execute();
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       this->stateVariable_[ltsFace][pointIndex] =
           this->stateVariable_[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
   protected:
-  real (*__restrict srW_)[misc::NumPaddedPoints]{nullptr};
+  real (*__restrict srW_)[misc::NumPaddedPoints<Config>]{nullptr};
   dynamicRupture::kernel::resampleParameter<Config> resampleKrnlPrototype_;
 };
 } // namespace seissol::dr::friction_law::cpu
