@@ -533,14 +533,14 @@ void EnergyOutput::computeVolumeEnergies() {
   for (const auto& layer : ltsStorage_->leaves(Ghost)) {
     const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     const auto* cellInformationData = layer.var<LTS::CellInformation>();
-    const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>();
+    const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>(Config());
     const auto* materialData = layer.var<LTS::MaterialData>();
     const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
-    const auto* pstrainData = layer.var<LTS::PStrain>();
-    const auto* dofsData = layer.var<LTS::Dofs>();
+    const auto* pstrainData = layer.var<LTS::PStrain>(Config());
+    const auto* dofsData = layer.var<LTS::Dofs>(Config());
     const auto* energyData = layer.var<LTS::EnergyData>();
     // only allocated for materials with anelastic variables
-    const auto* dofsAneData = layer.var<LTS::DofsAne>();
+    const auto* dofsAneData = layer.var<LTS::DofsAne>(Config());
 
     constexpr auto SimCount = multisim::NumSimulations;
     constexpr auto EnergyCountSingle = model::EnergyCompute<model::MaterialT>::EnergyCount;

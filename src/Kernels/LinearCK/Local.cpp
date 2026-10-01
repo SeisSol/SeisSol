@@ -328,7 +328,7 @@ void Local::evaluateBatchedTimeDependentBc(
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
       auto* analytical = reinterpret_cast<real(*)[tensor::INodal<Config>::size()]>(
-          layer.var<LTS::AnalyticScratch>());
+          layer.var<LTS::AnalyticScratch>(Config()));
 
       runtime.enqueueLoop(
           numElements,

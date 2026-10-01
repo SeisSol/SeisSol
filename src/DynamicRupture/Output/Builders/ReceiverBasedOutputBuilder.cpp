@@ -308,7 +308,7 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
 
       for (const auto& [index, arrayIndex] : elementIndices) {
         const auto position = wpBackmap_->get(index);
-        indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::DerivativesDevice>(position);
+        indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::DerivativesDevice>(Config(), position);
         assert(indexPtrs[arrayIndex] != nullptr);
       }
       for (const auto& [_, ghost] : elementIndicesGhost) {

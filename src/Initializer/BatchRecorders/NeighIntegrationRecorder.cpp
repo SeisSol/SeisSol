@@ -40,8 +40,8 @@ void NeighIntegrationRecorder::record(LTS::Layer& layer) {
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   auto* faceNeighborsDevice = currentLayer_->var<LTS::FaceNeighborsDevice>();
-  real* integratedDofsScratch =
-      static_cast<real*>(currentLayer_->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
+  real* integratedDofsScratch = static_cast<real*>(
+      currentLayer_->var<LTS::IntegratedDofsScratch>(Config(), AllocationPlace::Device));
 
   const auto size = currentLayer_->size();
   if (size > 0) {
@@ -129,7 +129,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
   const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>();
 
-  auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
+  auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(Config(), AllocationPlace::Device);
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {

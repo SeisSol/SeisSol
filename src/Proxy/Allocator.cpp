@@ -49,21 +49,22 @@ namespace seissol::proxy {
 namespace {
 
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
-  real(*dofs)[tensor::Q<Config>::size()] = layer.var<LTS::Dofs>();
-  real** buffers = layer.var<LTS::StepIntegrals>();
-  real** derivatives = layer.var<LTS::Derivatives>();
+  real(*dofs)[tensor::Q<Config>::size()] = layer.var<LTS::Dofs>(Config());
+  real** buffers = layer.var<LTS::StepIntegrals>(Config());
+  real** derivatives = layer.var<LTS::Derivatives>(Config());
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* localIntegration = layer.var<LTS::LocalIntegration>();
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-  real* bucket = static_cast<real*>(layer.var<LTS::Buffers>(initializer::AllocationPlace::Host));
+  real* bucket =
+      static_cast<real*>(layer.var<LTS::Buffers>(Config(), initializer::AllocationPlace::Host));
 
-  real** buffersDevice = layer.var<LTS::StepIntegralsDevice>();
-  real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
+  real** buffersDevice = layer.var<LTS::StepIntegralsDevice>(Config());
+  real** derivativesDevice = layer.var<LTS::DerivativesDevice>(Config());
   auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
-      static_cast<real*>(layer.var<LTS::Buffers>(initializer::AllocationPlace::Device));
+      static_cast<real*>(layer.var<LTS::Buffers>(Config(), initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);

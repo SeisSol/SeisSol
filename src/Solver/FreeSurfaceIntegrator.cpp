@@ -10,6 +10,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Config.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BoundaryHelper.h"
 #include "Initializer/Typedefs.h"
@@ -105,11 +106,11 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   for (auto [layer, surfaceLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* faceDisplacements = layer.var<LTS::FaceDisplacements>();
-    auto* faceDisplacementsDevice = layer.var<LTS::FaceDisplacementsDevice>();
-    auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
-    auto* displacementDofsDevice =
-        surfaceLayer.var<SurfaceLTS::DisplacementDofs>(initializer::AllocationPlace::Device);
+    auto* faceDisplacements = layer.var<LTS::FaceDisplacements>(Config());
+    auto* faceDisplacementsDevice = layer.var<LTS::FaceDisplacementsDevice>(Config());
+    auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(Config());
+    auto* displacementDofsDevice = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(
+        Config(), initializer::AllocationPlace::Device);
     auto* cellMaterialData = layer.var<LTS::Material>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();

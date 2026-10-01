@@ -308,9 +308,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       const auto getDofs = [&](const StoragePosition& position) -> real* {
         const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
         if (halo == HaloType::Ghost) {
-          return ltsStorage.lookup<LTS::DofsHalo>(position);
+          return ltsStorage.lookup<LTS::DofsHalo>(Config(), position);
         } else {
-          return ltsStorage.lookup<LTS::Dofs>(position);
+          return ltsStorage.lookup<LTS::Dofs>(Config(), position);
         }
       };
 
@@ -321,8 +321,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
           if (timeDerivative1 == nullptr &&
               cellInformation.ltsSetup.hasBuffer(BufferType::Derivatives)) {
-            timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(position);
-            timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(position);
+            timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(Config(), position);
+            timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(Config(), position);
 
             timeDofs1 = getDofs(position);
           }

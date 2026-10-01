@@ -123,7 +123,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     for (const auto& layer : ltsStorage.leaves(Ghost)) {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* materialData = layer.var<LTS::Material>();
-      const auto* dofsData = layer.var<LTS::Dofs>();
+      const auto* dofsData = layer.var<LTS::Dofs>(Config());
 
 #if !NVHPC_AVOID_OMP
       // Note: Adding default(none) leads error when using gcc-8

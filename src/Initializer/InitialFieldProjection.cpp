@@ -138,8 +138,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* material = layer.var<LTS::Material>();
-      auto* dofs = layer.var<LTS::Dofs>();
-      auto* dofsAne = layer.var<LTS::DofsAne>();
+      auto* dofs = layer.var<LTS::Dofs>(Config());
+      auto* dofsAne = layer.var<LTS::DofsAne>(Config());
 
 #if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
@@ -255,8 +255,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       krnl.iniCond = runtime::init::iniCond::view(Variant, iniCondData);
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      auto* dofs = layer.var<LTS::Dofs>();
-      auto* dofsAne = layer.var<LTS::DofsAne>();
+      auto* dofs = layer.var<LTS::Dofs>(Config());
+      auto* dofsAne = layer.var<LTS::DofsAne>(Config());
 
 #if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)

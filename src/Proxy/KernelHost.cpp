@@ -40,8 +40,8 @@ void ProxyKernelHostAder::run(ProxyData& data,
                               seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
-  real* const* derivatives = layer.var<LTS::Derivatives>();
+  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>(Config());
+  real* const* derivatives = layer.var<LTS::Derivatives>(Config());
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
@@ -75,7 +75,7 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
+  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>(Config());
 
 #pragma omp parallel
   {
@@ -109,8 +109,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
                                seissol::parallel::runtime::StreamRuntime& /*runtime*/) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
-  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>();
-  real* const* derivatives = layer.var<LTS::Derivatives>();
+  real* const* stepIntegrals = layer.var<LTS::StepIntegrals>(Config());
+  real* const* derivatives = layer.var<LTS::Derivatives>(Config());
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 

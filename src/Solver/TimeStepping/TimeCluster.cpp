@@ -367,9 +367,9 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
 
-  real* const* stepIntegrals = clusterData_->var<LTS::StepIntegrals>();
-  real* const* accumulatedIntegrals = clusterData_->var<LTS::AccumulatedIntegrals>();
-  real* const* derivatives = clusterData_->var<LTS::Derivatives>();
+  real* const* stepIntegrals = clusterData_->var<LTS::StepIntegrals>(Config());
+  real* const* accumulatedIntegrals = clusterData_->var<LTS::AccumulatedIntegrals>(Config());
+  real* const* derivatives = clusterData_->var<LTS::Derivatives>(Config());
 
   kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
@@ -897,7 +897,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   const auto* drMapping = clusterData_->var<LTS::DRMapping>();
   const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
   auto* plasticity = clusterData_->var<LTS::Plasticity>();
-  auto* pstrain = clusterData_->var<LTS::PStrain>();
+  auto* pstrain = clusterData_->var<LTS::PStrain>(Config());
 
   // NOLINTNEXTLINE
   std::size_t numberOfTetsWithPlasticYielding = 0;
