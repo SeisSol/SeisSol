@@ -51,22 +51,6 @@ class CheckpointManager {
     dataRegistry_[&storage].ids = ids;
   }
 
-  template <typename HandleT, typename VarmapT>
-  void registerData(const std::string& name,
-                    initializer::Storage<VarmapT>& storage,
-                    const HandleT& var) {
-    if (storage.info(var).mask != initializer::LayerMask(Ghost)) {
-      logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
-    }
-    dataRegistry_[&storage].variables.emplace_back(
-        CheckpointVariable{name,
-                           storage.var(var),
-                           datatype::inferDatatype<typename HandleT::Type>(),
-                           datatype::inferDatatype<typename HandleT::Type>(),
-                           {},
-                           {}});
-  }
-
   template <typename StorageT, typename VarmapT>
   void registerData(const std::string& name, initializer::Storage<VarmapT>& storage) {
     if (storage.template info<StorageT>().mask != initializer::LayerMask(Ghost)) {

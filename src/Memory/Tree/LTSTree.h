@@ -194,23 +194,11 @@ class Storage {
     return memoryContainer_[index].get(place);
   }
 
-  template <typename HandleT>
-  typename HandleT::Type* var(const HandleT& handle,
-                              AllocationPlace place = AllocationPlace::Host) {
-    return static_cast<typename HandleT::Type*>(varUntyped(varmap_.index(handle), place));
-  }
-
   template <typename StorageT>
   typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
-  }
-
-  template <typename HandleT>
-  const typename HandleT::Type* var(const HandleT& handle,
-                                    AllocationPlace place = AllocationPlace::Host) const {
-    return static_cast<typename HandleT::Type*>(varUntyped(varmap_.index(handle), place));
   }
 
   template <typename StorageT>
@@ -234,29 +222,16 @@ class Storage {
     return memoryInfo_[index];
   }
 
-  template <typename HandleT>
-  [[nodiscard]] const MemoryInfo& info(const HandleT& handle) const {
-    const auto index = varmap_.index(handle);
-    assert(memoryInfo_.size() > index);
-    return memoryInfo_[index];
-  }
-
   [[nodiscard]] const MemoryInfo& info(std::size_t index) const {
     assert(memoryInfo_.size() > index);
     return memoryInfo_[index];
   }
 
+  /// The cell at `position`, seen as a cell of the configuration `Cfg`.
+  template <typename Cfg>
   auto lookupRef(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
-    return layer(position.color).cellRef(position.cell, place);
-  }
-
-  template <typename HandleT>
-  auto& lookup(const HandleT& handle,
-               const StoragePosition& position,
-               AllocationPlace place = AllocationPlace::Host) {
-    assert(position != StoragePosition::NullPosition);
-    return layer(position.color).var(handle, place)[position.cell];
+    return layer(position.color).template cellRef<Cfg>(position.cell, place);
   }
 
   template <typename StorageT>
@@ -265,19 +240,28 @@ class Storage {
     return layer(position.color).template var<StorageT>(place)[position.cell];
   }
 
-  template <typename HandleT>
-  const auto& lookup(const HandleT& handle,
-                     const StoragePosition& position,
-                     AllocationPlace place = AllocationPlace::Host) const {
-    assert(position != StoragePosition::NullPosition);
-    return layer(position.color).var(handle, place)[position.cell];
-  }
-
   template <typename StorageT>
   const auto& lookup(const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) const {
     assert(position != StoragePosition::NullPosition);
     return layer(position.color).template var<StorageT>(place)[position.cell];
+  }
+
+  /// The value of a variable at `position`, as the configuration `Cfg` holds it.
+  template <typename StorageT, typename Cfg>
+  auto& lookup(const Cfg& config,
+               const StoragePosition& position,
+               AllocationPlace place = AllocationPlace::Host) {
+    assert(position != StoragePosition::NullPosition);
+    return layer(position.color).template var<StorageT>(config, place)[position.cell];
+  }
+
+  template <typename StorageT, typename Cfg>
+  const auto& lookup(const Cfg& config,
+                     const StoragePosition& position,
+                     AllocationPlace place = AllocationPlace::Host) const {
+    assert(position != StoragePosition::NullPosition);
+    return layer(position.color).template var<StorageT>(config, place)[position.cell];
   }
 
   [[nodiscard]] std::size_t getNumberOfVariables() const { return memoryInfo_.size(); }
@@ -290,17 +274,6 @@ class Storage {
            std::size_t count = 1) {
     const auto index = varmap_.template add<StorageT>();
     addInternal<StorageT>(index, mask, alignment, allocMode, constant, count);
-  }
-
-  template <typename HandleT>
-  void add(HandleT& handle,
-           LayerMask mask,
-           size_t alignment,
-           AllocationMode allocMode,
-           bool constant = false,
-           std::size_t count = 1) {
-    const auto index = varmap_.add(handle);
-    addInternal<HandleT>(index, mask, alignment, allocMode, constant, count);
   }
 
   void allocateVariables() {

@@ -380,7 +380,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
     firstprivate(tmp) schedule(static)
   for (std::size_t cell = 0; cell < clusterData_->size(); cell++) {
-    auto data = clusterData_->cellRef(cell);
+    auto data = clusterData_->cellRef<Config>(cell);
 
     if (data.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::StepIntegrals)) {
       // assert presence of the buffer
@@ -932,7 +932,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                timestep,                                                                           \
                clusterSize) reduction(+ : numberOfTetsWithPlasticYielding)
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
-    auto data = clusterData_->cellRef(cell);
+    auto data = clusterData_->cellRef<Config>(cell);
 
     // Scratch for the neighbours whose time integral has to be computed here.
     // Written before it is read, so it needs no initialisation; the frame

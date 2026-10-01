@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LOCAL_H_
 #define SEISSOL_SRC_KERNELS_LOCAL_H_
 
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -56,7 +57,7 @@ class LocalKernel : public Kernel {
    * @param timeStepWidth The current time step width
    */
   virtual void computeIntegral(real* timeIntegratedDoFs,
-                               LTS::Ref& data,
+                               LTS::Ref<Config>& data,
                                LocalTmp& tmp,
                                double time,
                                double timeStepWidth) = 0;

@@ -29,7 +29,7 @@ class Spacetime : public SpacetimeKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
-                   LTS::Ref& data,
+                   LTS::Ref<Config>& data,
                    LocalTmp& tmp,
                    real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
@@ -45,7 +45,7 @@ class Spacetime : public SpacetimeKernel {
   [[nodiscard]] PerformanceEstimate metrics() const override;
 
   private:
-  void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
+  void executeSTP(double timeStepWidth, LTS::Ref<Config>& data, real* timeIntegrated, real* stp);
 
   kernel::spaceTimePredictor<Config> krnlPrototype_;
 

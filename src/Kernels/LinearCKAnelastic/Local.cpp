@@ -45,8 +45,11 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Local::computeIntegral(
-    real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
+void Local::computeIntegral(real* timeIntegratedDoFs,
+                            LTS::Ref<Config>& data,
+                            LocalTmp& tmp,
+                            double time,
+                            double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
   assert((reinterpret_cast<uintptr_t>(timeIntegratedDoFs)) % Vectorsize == 0);

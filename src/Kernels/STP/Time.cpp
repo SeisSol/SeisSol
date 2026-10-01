@@ -45,7 +45,10 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp)
+void Spacetime::executeSTP(double timeStepWidth,
+                           LTS::Ref<Config>& data,
+                           real* timeIntegrated,
+                           real* stp)
 
 {
   assert((reinterpret_cast<uintptr_t>(stp)) % Vectorsize == 0);
@@ -114,7 +117,7 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
 
 void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
-                            LTS::Ref& data,
+                            LTS::Ref<Config>& data,
                             LocalTmp& tmp,
                             real* timeIntegrated,
                             real* timeDerivatives,

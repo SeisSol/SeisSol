@@ -76,8 +76,8 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     real** accumulatedIntegrals = currentLayer_->var<LTS::AccumulatedIntegralsDevice>();
 
     for (unsigned cell = 0; cell < size; ++cell) {
-      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
-      auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
+      auto data = currentLayer_->cellRef<Config>(cell, AllocationPlace::Device);
+      auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
       // dofs
       dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
@@ -198,8 +198,8 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
     localPtrs.reserve(size);
 
     for (std::size_t cell = 0; cell < size; ++cell) {
-      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
-      auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
+      auto data = currentLayer_->cellRef<Config>(cell, AllocationPlace::Device);
+      auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
       // no element local contribution in the case of dynamic rupture boundary conditions
       if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
@@ -235,7 +235,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
-    auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
+    auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       auto isRequired = faceDisplacements[cell][face] != nullptr;
@@ -293,8 +293,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
     size_t nodalAvgDisplacementsCounter{0};
 
     for (std::size_t cell = 0; cell < size; ++cell) {
-      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
-      auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
+      auto data = currentLayer_->cellRef<Config>(cell, AllocationPlace::Device);
+      auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
       for (std::size_t face = 0; face < 4; ++face) {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
@@ -365,8 +365,8 @@ void LocalIntegrationRecorder::recordDirichletBc() {
     std::array<std::size_t, 4> counter{};
 
     for (std::size_t cell = 0; cell < size; ++cell) {
-      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
-      auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
+      auto data = currentLayer_->cellRef<Config>(cell, AllocationPlace::Device);
+      auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
       for (std::size_t face = 0; face < 4; ++face) {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Dirichlet) {
@@ -408,8 +408,8 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
         reinterpret_cast<real*>(layer.var<LTS::AnalyticScratch>(AllocationPlace::Device));
 
     for (std::size_t cell = 0; cell < size; ++cell) {
-      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
-      auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
+      auto data = currentLayer_->cellRef<Config>(cell, AllocationPlace::Device);
+      auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
       for (std::size_t face = 0; face < 4; ++face) {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Analytical) {

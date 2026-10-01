@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_KERNELS_NEIGHBOR_H_
 #define SEISSOL_SRC_KERNELS_NEIGHBOR_H_
 
+#include "Config.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Kernel.h"
@@ -41,7 +42,7 @@ class NeighborKernel : public Kernel {
    * @param faceNeighborsPrefetch The current time step width
    */
   virtual void
-      computeNeighborsIntegral(LTS::Ref& data,
+      computeNeighborsIntegral(LTS::Ref<Config>& data,
                                const std::array<real*, Cell::NumFaces>& timeIntegrated,
                                const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) = 0;
 

@@ -66,8 +66,11 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Local::computeIntegral(
-    real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp, double time, double timeStepWidth) {
+void Local::computeIntegral(real* timeIntegratedDoFs,
+                            LTS::Ref<Config>& data,
+                            LocalTmp& tmp,
+                            double time,
+                            double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(timeIntegratedDoFs) % Vectorsize == 0);
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
 
@@ -331,7 +334,7 @@ void Local::evaluateBatchedTimeDependentBc(
           numElements,
           [this, face, time, timeStepWidth, analytical, &cellIds, &layer](std::size_t index) {
             auto cellId = cellIds.at(index);
-            auto data = layer.cellRef(cellId);
+            auto data = layer.cellRef<Config>(cellId);
 
             alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Config>::size()];
 

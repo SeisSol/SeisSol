@@ -20,7 +20,7 @@ class Neighbor : public NeighborKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
 
   void computeNeighborsIntegral(
-      LTS::Ref& data,
+      LTS::Ref<Config>& data,
       const std::array<real*, Cell::NumFaces>& timeIntegrated,
       const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) override;
 

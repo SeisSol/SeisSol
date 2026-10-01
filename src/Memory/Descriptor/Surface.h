@@ -32,7 +32,8 @@ struct SurfaceLTS {
 
   using Storage = initializer::Storage<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
-  using Ref = initializer::Layer<SurfaceVarmap>::CellRef;
+  template <typename Cfg>
+  using Ref = initializer::Layer<SurfaceVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<1>;
 
   static void addTo(Storage& storage) {
