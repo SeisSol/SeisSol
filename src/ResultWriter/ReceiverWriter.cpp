@@ -19,7 +19,6 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -261,7 +260,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     quantitySet.reserve(names.size());
     for (const auto& name : names) {
       quantitySet.push_back(
-          io::instance::point::TableQuantity{name, io::datatype::inferDatatype<real>()});
+          io::instance::point::TableQuantity{name, io::datatype::inferDatatype<double>()});
     }
 
     const std::vector<std::vector<io::instance::point::TableQuantity>> pointQuantities(
@@ -353,7 +352,7 @@ void ReceiverWriter::collectSamples() {
     // a receiver with fewer samples than the longest one of its table leaves the rest of its
     // column as prepare left it
     for (std::size_t sample = 0; sample < std::min(held, samples[group]); ++sample) {
-      auto* target = reinterpret_cast<real*>(storage[group]) + (sample * points + row) * columns;
+      auto* target = reinterpret_cast<double*>(storage[group]) + (sample * points + row) * columns;
       std::copy_n(receiver.output.data() + sample * columns, columns, target);
     }
     receiver.output.clear();
