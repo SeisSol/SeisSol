@@ -32,17 +32,19 @@
 #include <vector>
 
 namespace seissol::dr::output {
+/// The values one output variable records, per component, cache level and receiver; in double, as
+/// the fault output writes them.
 template <std::size_t Dim>
 struct VarT {
   VarT() = default;
   [[nodiscard]] constexpr std::size_t dim() const { return Dim; }
 
-  real* operator[](std::size_t dim) {
+  double* operator[](std::size_t dim) {
     assert(dim < Dim && "access is out of the Dim. bounds");
     return data[dim].data();
   }
 
-  real& operator()(std::size_t dim, size_t level, size_t index) {
+  double& operator()(std::size_t dim, size_t level, size_t index) {
     assert(dim < Dim && "access is out of Dim. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
@@ -50,17 +52,17 @@ struct VarT {
     return data[dim][index + level * size];
   }
 
-  real& operator()(size_t level, size_t index) {
+  double& operator()(size_t level, size_t index) {
     static_assert(Dim == 1, "access of the overload is allowed only for 1 dim variables");
     return this->operator()(0, level, index);
   }
 
-  const real* operator[](std::size_t dim) const {
+  const double* operator[](std::size_t dim) const {
     assert(dim < Dim && "access is out of the Dim. bounds");
     return data[dim].data();
   }
 
-  const real& operator()(std::size_t dim, size_t level, size_t index) const {
+  const double& operator()(std::size_t dim, size_t level, size_t index) const {
     assert(dim < Dim && "access is out of Dim. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
@@ -68,7 +70,7 @@ struct VarT {
     return data[dim][index + level * size];
   }
 
-  const real& operator()(size_t level, size_t index) const {
+  const double& operator()(size_t level, size_t index) const {
     static_assert(Dim == 1, "access of the overload is allowed only for 1 dim variables");
     return this->operator()(0, level, index);
   }
@@ -98,7 +100,7 @@ struct VarT {
     }
   }
 
-  std::array<std::vector<real>, Dim> data;
+  std::array<std::vector<double>, Dim> data;
   bool isActive{false};
   size_t size{0};
   size_t maxCacheLevel{1};
