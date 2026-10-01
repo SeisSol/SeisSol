@@ -305,11 +305,11 @@ void OutputManager::initElementwiseOutput() {
           }
         };
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-          writer.addGeometryOutput<real>(
+          writer.addGeometryOutput<double>(
               variableName(d, s),
               std::vector<std::size_t>(),
               false,
-              [=](real* target, std::size_t index, std::size_t) {
+              [=](double* target, std::size_t index, std::size_t) {
                 for (std::size_t i = 0; i < dataCount; ++i) {
                   target[i] = data[(dataCount * index + i) * multisim::NumSimulations + s];
                 }
@@ -635,7 +635,7 @@ void OutputManager::initPickpointTable() {
   // a row of their own here.
   std::vector<io::instance::point::TableQuantity> quantitySet;
   quantitySet.push_back(
-      io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<real>()});
+      io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<double>()});
   // A rank without on-fault receivers has no point to describe; the table learns the quantity
   // sets of the other ranks when it groups the points.
   if (!ppOutputData_.empty()) {
@@ -643,7 +643,7 @@ void OutputManager::initPickpointTable() {
       if (var.isActive) {
         for (std::size_t dim = 0; dim < var.dim(); ++dim) {
           quantitySet.push_back(io::instance::point::TableQuantity{
-              VariableLabels[i][dim], io::datatype::inferDatatype<real>()});
+              VariableLabels[i][dim], io::datatype::inferDatatype<double>()});
         }
       }
     });
@@ -735,15 +735,15 @@ void OutputManager::collectPickpointSamples() {
                   seissol::Mpi::mpi.comm());
   }
 
-  std::vector<real*> storage(grouping.groupCount(), nullptr);
+  std::vector<double*> storage(grouping.groupCount(), nullptr);
   for (std::size_t group = 0; group < grouping.groupCount(); ++group) {
     auto* prepared = ppTable_->prepare(group, samples[group]);
-    storage[group] = reinterpret_cast<real*>(prepared);
+    storage[group] = reinterpret_cast<double*>(prepared);
     // A receiver that cached fewer samples than the longest one of its table leaves the rest of
     // its column unset, and a zero there is a value a reader cannot tell from a measurement.
     const auto values = samples[group] * ppTable_->localPointCount(group) *
-                        ppTable_->sampleSize(group) / sizeof(real);
-    std::fill_n(storage[group], values, std::numeric_limits<real>::quiet_NaN());
+                        ppTable_->sampleSize(group) / sizeof(double);
+    std::fill_n(storage[group], values, std::numeric_limits<double>::quiet_NaN());
   }
 
   for (std::size_t row = 0; row < ppTableRows_.size(); ++row) {
@@ -755,13 +755,13 @@ void OutputManager::collectPickpointSamples() {
     const auto group = grouping.group[row];
     const auto column = ppTable_->localRow(row);
     const auto points = ppTable_->localPointCount(group);
-    const auto components = ppTable_->sampleSize(group) / sizeof(real);
+    const auto components = ppTable_->sampleSize(group) / sizeof(double);
 
     for (std::size_t level = 0; level < std::min(outputData.currentCacheLevel, samples[group]);
          ++level) {
       auto* target = storage[group] + (level * points + column) * components;
       std::size_t position = 0;
-      target[position++] = static_cast<real>(outputData.cachedTime[level]);
+      target[position++] = outputData.cachedTime[level];
       misc::forEach(outputData.vars, [&](const auto& var, int) {
         if (var.isActive) {
           for (std::size_t dim = 0; dim < var.dim(); ++dim) {
