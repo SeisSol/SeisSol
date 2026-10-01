@@ -53,8 +53,8 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real** buffers = layer.var<LTS::StepIntegrals>(Config());
   real** derivatives = layer.var<LTS::Derivatives>(Config());
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
-  auto* localIntegration = layer.var<LTS::LocalIntegration>();
-  auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
+  auto* localIntegration = layer.var<LTS::LocalIntegration>(Config());
+  auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(Config());
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
   real* bucket =
@@ -113,10 +113,10 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
       reinterpret_cast<real*>(dofs), tensor::Q<Config>::size() * layer.size(), false);
   kernels::fillWithStuff(bucket, kernels::Solver::IntegralsSize * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
-                         sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
+                         sizeof(LocalIntegrationData<Config>) / sizeof(real) * layer.size(),
                          false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
-                         sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
+                         sizeof(NeighboringIntegrationData<Config>) / sizeof(real) * layer.size(),
                          false);
 
 #ifdef SEISSOL_KERNELS_STP
@@ -230,8 +230,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   if (enableDR) {
     // From lts storage
-    auto* drMapping =
-        isDeviceOn() ? ltsStorage.var<LTS::DRMappingDevice>() : ltsStorage.var<LTS::DRMapping>();
+    auto* drMapping = isDeviceOn() ? layer.var<LTS::DRMappingDevice>(Config())
+                                   : layer.var<LTS::DRMapping>(Config());
 
     constexpr initializer::AllocationPlace Place =
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
@@ -261,7 +261,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     /* init drMapping */
     for (std::size_t cell = 0; cell < cellCount; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        CellDRMapping& drm = drMapping[cell][face];
+        auto& drm = drMapping[cell][face];
         const auto orientation = orientationDist(rng);
         const auto drFace = drDist(rng);
         // as in the solver, the mapping of a face addresses that face

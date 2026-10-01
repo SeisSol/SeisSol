@@ -106,6 +106,14 @@ struct LTS {
   using RealPtr = Real<Cfg>*;
   template <typename Cfg>
   using FaceRealPtrs = std::array<Real<Cfg>*, Cell::NumFaces>;
+  // The data of the integration, the material and the mappings of the faces of a cell are those
+  // of the configuration of its layer as well.
+  template <typename Cfg>
+  using FaceDRMappings = std::array<CellDRMapping<Cfg>, Cell::NumFaces>;
+  template <typename Cfg>
+  using FaceBoundaryMappings = std::array<CellBoundaryMapping<Cfg>, Cell::NumFaces>;
+  template <typename Cfg>
+  using EnergyDataOf = typename model::MaterialOf<Cfg>::template EnergyData<Cfg>;
 
   struct Dofs : public initializer::VariantVariable<DofsArray> {};
   struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
@@ -118,14 +126,14 @@ struct LTS {
   // The buffers or derivatives of the neighbors, which hold them in the reals of their own
   // configuration.
   struct FaceNeighbors : public initializer::Variable<std::array<void*, Cell::NumFaces>> {};
-  struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
-  struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
-  struct MaterialData : public initializer::Variable<model::MaterialT> {};
+  struct LocalIntegration : public initializer::VariantVariable<LocalIntegrationData> {};
+  struct NeighboringIntegration : public initializer::VariantVariable<NeighboringIntegrationData> {
+  };
+  struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
-  struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
-  struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
-  struct BoundaryMapping
-      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
+  struct Plasticity : public initializer::VariantVariable<seissol::model::PlasticityData> {};
+  struct DRMapping : public initializer::VariantVariable<FaceDRMappings> {};
+  struct BoundaryMapping : public initializer::VariantVariable<FaceBoundaryMappings> {};
   struct PStrain : public initializer::VariantVariable<PStrainArray> {};
   struct FaceDisplacements : public initializer::VariantVariable<FaceRealPtrs> {};
   struct Buffers : public initializer::VariantBucket<Real> {};
@@ -135,12 +143,10 @@ struct LTS {
   struct DerivativesDevice : public initializer::VariantVariable<RealPtr> {};
   struct FaceNeighborsDevice : public initializer::Variable<std::array<void*, Cell::NumFaces>> {};
   struct FaceDisplacementsDevice : public initializer::VariantVariable<FaceRealPtrs> {};
-  struct DRMappingDevice : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {
-  };
-  struct BoundaryMappingDevice
-      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
+  struct DRMappingDevice : public initializer::VariantVariable<FaceDRMappings> {};
+  struct BoundaryMappingDevice : public initializer::VariantVariable<FaceBoundaryMappings> {};
 
-  struct EnergyData : public initializer::Variable<model::MaterialT::EnergyData> {};
+  struct EnergyData : public initializer::VariantVariable<EnergyDataOf> {};
 
   struct IntegratedDofsScratch : public initializer::VariantScratchpad<Real> {};
   struct DerivativesScratch : public initializer::VariantScratchpad<Real> {};

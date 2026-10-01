@@ -154,6 +154,11 @@ using MultisimHelper = MultisimHelperWrapper<Config::NumSimulations>;
 constexpr unsigned int NumSimulations = MultisimHelper::NumSimulations;
 constexpr unsigned int BasisFunctionDimension = MultisimHelper::BasisFunctionDimension;
 
+/// The dimension of the basis functions in the tensors of the configuration `Cfg`.
+template <typename Cfg>
+constexpr unsigned int BasisDim =
+    MultisimHelperWrapper<Cfg::NumSimulations>::BasisFunctionDimension;
+
 #ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
 #endif

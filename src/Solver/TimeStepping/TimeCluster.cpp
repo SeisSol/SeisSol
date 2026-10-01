@@ -591,7 +591,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
   if (settings_.plasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity =
-        clusterData_->var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
+        clusterData_->var<LTS::Plasticity>(Config(), seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
         clusterData_->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
     streamRuntime_.runGraph(
@@ -661,7 +661,7 @@ void TimeCluster::computeNeighborIntegrationFlops() {
   estimateDR = PerformanceEstimate{};
 
   auto* cellInformation = clusterData_->var<LTS::CellInformation>();
-  auto* drMapping = clusterData_->var<LTS::DRMapping>();
+  auto* drMapping = clusterData_->var<LTS::DRMapping>(Config());
   for (std::size_t cell = 0; cell < clusterData_->size(); ++cell) {
     const auto [cellRegular, cellDR] = neighborKernel_.metrics(
         cellInformation[cell].faceTypes, cellInformation[cell].faceRelations, drMapping[cell]);
@@ -894,9 +894,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   loopStatistics_->begin(regionComputeNeighboringIntegration_);
 
   const auto* faceNeighbors = clusterData_->var<LTS::FaceNeighbors>();
-  const auto* drMapping = clusterData_->var<LTS::DRMapping>();
+  const auto* drMapping = clusterData_->var<LTS::DRMapping>(Config());
   const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
-  auto* plasticity = clusterData_->var<LTS::Plasticity>();
+  auto* plasticity = clusterData_->var<LTS::Plasticity>(Config());
   auto* pstrain = clusterData_->var<LTS::PStrain>(Config());
 
   // NOLINTNEXTLINE

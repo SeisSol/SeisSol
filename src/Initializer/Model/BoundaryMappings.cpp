@@ -47,7 +47,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* boundary = layer.var<LTS::BoundaryMapping>();
+    auto* boundary = layer.var<LTS::BoundaryMapping>(Config());
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
 #pragma omp for schedule(static)

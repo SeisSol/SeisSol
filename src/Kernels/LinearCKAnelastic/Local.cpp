@@ -218,11 +218,12 @@ void Local::computeBatchedIntegral(
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Config>, starMatrices);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Config>>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+      volKrnl.extraOffset_star(i) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Config>, starMatrices, i);
     }
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
@@ -238,26 +239,27 @@ void Local::computeBatchedIntegral(
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
     krnl.W = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.W);
     krnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.w);
     krnl.E = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.E);
     krnl.streamPtr = runtime.stream();
 
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.E);
 
     krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Config>, nApNm1);
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       krnl.AplusTAll(face) = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      krnl.extraOffset_AplusTAll(face) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+      krnl.extraOffset_AplusTAll(face) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Config>, nApNm1, face);
     }
 
     krnl.execute();
@@ -282,8 +284,9 @@ void Local::computeBatchedIntegral(
       localFluxKrnl.AplusT = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
 
-      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
-      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Config>, nApNm1);
+      localFluxKrnl.extraOffset_AplusT =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Config>, nApNm1, face);
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
     }
@@ -302,18 +305,18 @@ void Local::computeBatchedIntegral(
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
     localKrnl.W = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.W);
     localKrnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.w);
     localKrnl.E = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.E);
     localKrnl.streamPtr = runtime.stream();
 
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.E);
 
     localKrnl.execute();
   }

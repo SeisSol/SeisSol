@@ -187,39 +187,40 @@ void Spacetime::computeBatchedAder(
 
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Config>, starMatrices);
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Config>>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+      krnl.extraOffset_star(i) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Config>, starMatrices, i);
     }
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.G);
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.G);
     for (std::size_t i = 0; i < generated::StiffSourceRowCount; ++i) {
       krnl.Gt(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_Gt(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, specific.G, i);
+      krnl.extraOffset_Gt(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Config>, specific.G, i);
     }
 
     // checking the first cell should suffice; if we always work on the same cluster.
     // (which we currently always do)
     const auto defaultTimestep =
-        std::abs(
-            (layer.var<LTS::LocalIntegration>()[0].specific.typicalTimeStepWidth - timeStepWidth) /
-            timeStepWidth) < 1e-7;
+        std::abs((layer.var<LTS::LocalIntegration>(Config())[0].specific.typicalTimeStepWidth -
+                  timeStepWidth) /
+                 timeStepWidth) < 1e-7;
 
     if (defaultTimestep) {
       // Zinv is one flat family, so its members are not spaced by the size of a single entry
-      SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.Zinv);
+      SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.Zinv);
       for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
             (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-        krnl.extraOffset_Zinv(i) = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv) +
+        krnl.extraOffset_Zinv(i) = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.Zinv) +
                                    yateto::computeFamilySize<tensor::Zinv<Config>>(1, i);
       }
     } else {
       auto* layerZinvData = layer.var<LTS::ZinvExtra>(Config());
-      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>();
+      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>(Config());
       runtime.enqueueLoop(numElements, [=](std::size_t i) {
         auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv<Config>>() * i;
         const auto& localIntegration = layerLocalIntegration[i];

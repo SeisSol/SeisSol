@@ -7,9 +7,11 @@
 
 #include "InitModel.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
 #include "Initializer/BasicTypedefs.h"
@@ -137,7 +139,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   for (auto& layer : memoryManager.ltsStorage().leaves()) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-    auto* materialDataArray = layer.var<LTS::MaterialData>();
+    auto* materialDataArray = layer.var<LTS::MaterialData>(Config());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
 
@@ -160,8 +162,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     } else {
       auto* materialArray = layer.var<LTS::Material>();
       auto* plasticityArray =
-          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
-      auto* energyDataArray = layer.var<LTS::EnergyData>();
+          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>(Config()) : nullptr;
+      auto* energyDataArray = layer.var<LTS::EnergyData>(Config());
 
 #pragma omp parallel for schedule(static)
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -185,9 +187,14 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             // use the neighbor face material info in case that we are not at a boundary
             const auto& globalNeighborIndex = localSecondaryInformation.faceNeighbors[side];
 
-            auto* materialNeighbor =
-                &memoryManager.ltsStorage().lookup<LTS::MaterialData>(globalNeighborIndex);
-            material.neighbor[side] = materialNeighbor;
+            // the neighbor holds the material of its own configuration
+            auto& storage = memoryManager.ltsStorage();
+            const auto neighborConfig =
+                storage.layer(globalNeighborIndex.color).getIdentifier().config;
+            dispatchConfig(neighborConfig, [&](auto config) {
+              material.neighbor[side] =
+                  &storage.lookup<LTS::MaterialData>(config, globalNeighborIndex);
+            });
           } else {
             // otherwise, use the material from the own cell
             material.neighbor[side] = material.local;
@@ -201,12 +208,13 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
                  "Plasticity database size mismatch with number of simulations");
           std::array<const Plasticity*, seissol::multisim::NumSimulations> localPlasticity{};
           for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
-            const auto pointsPerCell = plasticityPointwise ? model::PlasticityData::PointCount : 1;
+            const auto pointsPerCell =
+                plasticityPointwise ? model::PlasticityData<Config>::PointCount : 1;
             localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
           }
-          initAssign(
-              plasticity,
-              seissol::model::PlasticityData(localPlasticity, material.local, plasticityPointwise));
+          initAssign(plasticity,
+                     seissol::model::PlasticityData<Config>(
+                         localPlasticity, material.local, plasticityPointwise));
         }
       }
     }

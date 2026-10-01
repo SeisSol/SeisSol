@@ -7,6 +7,7 @@
 
 #include "OutputParameters.h"
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
@@ -316,8 +317,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask =
-      convertStringToArray<bool, seissol::model::PlasticityData::Quantities.size()>(
+  const std::array<bool, seissol::model::PlasticityData<Config>::Quantities.size()> plasticityMask =
+      convertStringToArray<bool, seissol::model::PlasticityData<Config>::Quantities.size()>(
           plasticityMaskString, false);
 
   const auto integrationMaskString =

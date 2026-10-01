@@ -285,7 +285,7 @@ easi::Query ElementAverageGenerator::generate() const {
 }
 
 std::size_t PlasticityPointGenerator::outputPerCell() const {
-  constexpr auto PlasticityPoints = model::PlasticityData::PointCount;
+  constexpr auto PlasticityPoints = model::PlasticityData<Config>::PointCount;
   return pointwise_ ? PlasticityPoints : 1;
 }
 

@@ -78,7 +78,7 @@ class AnalyticalBoundary {
   }
 
   template <typename Func>
-  void evaluate(const CellBoundaryMapping& boundaryMapping,
+  void evaluate(const CellBoundaryMapping<Config>& boundaryMapping,
                 const Func& evaluateBoundaryCondition,
                 real* dofsFaceBoundaryNodal,
                 double startTime,

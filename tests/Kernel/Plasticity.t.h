@@ -128,7 +128,7 @@ TEST_CASE("Plasticity metrics" * doctest::test_suite("kernel")) {
 // given a cohesion of either half or twice ShearStress, so it is chosen exactly which nodes yield.
 class ShearedPlasticityCell {
   public:
-  static constexpr std::size_t NumNodes = model::PlasticityData::PointCount;
+  static constexpr std::size_t NumNodes = model::PlasticityData<Config>::PointCount;
   static constexpr std::size_t ComponentXY = 3;
 
   static constexpr double ShearStress = 1.0e6;
@@ -157,7 +157,7 @@ class ShearedPlasticityCell {
     model::ElasticMaterial material;
     material.mu = Mu;
     material.lambda = Mu;
-    const model::PlasticityData plasticityData(perSimulation, &material, true);
+    const model::PlasticityData<Config> plasticityData(perSimulation, &material, true);
 
     dofs_.fill(0);
     pstrain_.fill(0);

@@ -8,11 +8,15 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_INTEGRATIONDATA_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_INTEGRATIONDATA_H_
 
-#include "Kernels/Precision.h"
+#include "Common/Real.h"
+
+#include <array>
+
 namespace seissol::model {
 
+template <typename Cfg>
 struct AnisotropicEnergyData {
-  std::array<real, 36> matS{};
+  std::array<Real<Cfg>, 36> matS{};
 };
 
 } // namespace seissol::model

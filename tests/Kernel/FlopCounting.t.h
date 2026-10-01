@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 
@@ -125,7 +126,7 @@ TEST_CASE("Neighbor metrics all Regular" * doctest::test_suite("kernel")) {
     neighboringIndices[f] = {0, 0};
   }
 
-  const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
+  const std::array<CellDRMapping<Config>, Cell::NumFaces> drMapping{};
 
   const auto [metric, metricDR] = neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
@@ -153,7 +154,7 @@ TEST_CASE("Neighbor metrics with DR faces" * doctest::test_suite("kernel")) {
   faceTypes.fill(FaceType::DynamicRupture);
 
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
+  const std::array<CellDRMapping<Config>, Cell::NumFaces> drMapping{};
 
   const auto [metric, metricDR] = neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
@@ -187,7 +188,7 @@ TEST_CASE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::test_suite(
 
   const kernels::Neighbor neighbor;
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
+  const std::array<CellDRMapping<Config>, Cell::NumFaces> drMapping{};
   const auto [neighborMetrics, drMetrics] =
       neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 

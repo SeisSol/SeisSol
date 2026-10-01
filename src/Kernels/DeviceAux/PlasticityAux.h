@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 #define SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Model/Plasticity.h"
@@ -21,7 +22,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          real** __restrict pstrainPtr,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
-                         const seissol::model::PlasticityData* __restrict plasticity,
+                         const seissol::model::PlasticityData<Config>* __restrict plasticity,
                          real oneMinusIntegratingFactor,
                          real tV,
                          real timeStepWidth,

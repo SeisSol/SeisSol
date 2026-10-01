@@ -528,7 +528,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
 
       if (seissolParams.model.plasticity) {
-        for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData::Quantities.size();
+        for (std::size_t quantity = 0;
+             quantity < seissol::model::PlasticityData<Config>::Quantities.size();
              ++quantity) {
           if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
             constexpr std::size_t MaxVtk3dPoints =
@@ -536,7 +537,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                               sizeof(tensor::vtk3d<Config>::Shape[0])) -
                                              1][1];
             writer.addGeometryOutput<double>(
-                namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
+                namewrap(seissol::model::PlasticityData<Config>::Quantities[quantity], sim),
                 {},
                 false,
                 [=, &ltsStorage, &backmap](double* target, std::size_t index, std::size_t subcell) {
