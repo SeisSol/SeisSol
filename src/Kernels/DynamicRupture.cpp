@@ -80,8 +80,10 @@ void DynamicRupture::spaceTimeInterpolation(
     const DRGodunovData* godunovData,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated<Config>::size()],
-    real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated<Config>::size()],
+    real qInterpolatedPlus[dr::misc::TimeSteps<Config>]
+                          [seissol::tensor::QInterpolated<Config>::size()],
+    real qInterpolatedMinus[dr::misc::TimeSteps<Config>]
+                           [seissol::tensor::QInterpolated<Config>::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
@@ -100,16 +102,16 @@ void DynamicRupture::spaceTimeInterpolation(
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q<Config>::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config> krnl = krnlPrototype_;
-  for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
+  for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps<Config>; ++timeInterval) {
     timeKernel_.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
     timeKernel_.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
-    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
+    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps<Config>)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
                                    : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
+    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps<Config>)
                                     ? &qInterpolatedMinus[timeInterval + 1][0]
                                     : timeDerivativeMinusPrefetch;
 
@@ -153,7 +155,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
       krnl.numElements = numElements;
 
       std::size_t offsetQDR = 0;
-      for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
+      for (std::size_t s = 0; s < dr::misc::TimeSteps<Config>; ++s) {
         krnl.QDR(s) = (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
         krnl.extraOffset_QDR(s) = offsetQDR;
         offsetQDR += tensor::QDR<Config>::size(s);
@@ -167,7 +169,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
         offsetDQ += tensor::dQ<Config>::size(p);
       }
 
-      for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
+      for (std::size_t s = 0; s < dr::misc::TimeSteps<Config>; ++s) {
         for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
           krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s * ConvergenceOrder + p];
         }
@@ -207,11 +209,11 @@ PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) c
         dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config>>(
         faceInfo.minusSide, faceInfo.faceRelation);
 
-    estimate *= dr::misc::TimeSteps;
+    estimate *= dr::misc::TimeSteps<Config>;
 
     // legacy CPU memory estimate
     estimate.bytes = (tensor::TinvT<Config>::size() +
-                      tensor::QInterpolated<Config>::size() * 2 * dr::misc::TimeSteps +
+                      tensor::QInterpolated<Config>::size() * 2 * dr::misc::TimeSteps<Config> +
                       yateto::computeFamilySize<tensor::dQ<Config>>() * 2) *
                      sizeof(real);
 

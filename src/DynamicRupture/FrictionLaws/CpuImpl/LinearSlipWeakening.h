@@ -36,12 +36,12 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                              const FaultStresses<Executor::Host>& initialStress,
                              TractionResults<Executor::Host>& tractionResults,
-                             std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                             std::array<real, misc::NumPaddedPoints>& strengthBuffer,
+                             std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+                             std::array<real, misc::NumPaddedPoints<Config>>& strengthBuffer,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     // d(strength)/d(-sigma_eff); only needed for the anisotropic normal/shear coupling
-    alignas(Alignment) std::array<real, misc::NumPaddedPoints> strengthSlopeBuffer{};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints<Config>> strengthSlopeBuffer{};
 
     // computes fault strength, which is the critical value whether active slip exists.
     this->calcStrengthHook(
@@ -80,12 +80,12 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void calcSlipRateAndTraction(const FaultStresses<Executor::Host>& faultStresses,
                                const FaultStresses<Executor::Host>& initialStress,
                                TractionResults<Executor::Host>& tractionResults,
-                               std::array<real, misc::NumPaddedPoints>& strength,
-                               std::array<real, misc::NumPaddedPoints>& strengthSlope,
+                               std::array<real, misc::NumPaddedPoints<Config>>& strength,
+                               std::array<real, misc::NumPaddedPoints<Config>>& strengthSlope,
                                uint32_t timeIndex,
                                std::size_t ltsFace) {
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 =
           initialStress.traction1[pointIndex] + faultStresses.traction1[pointIndex];
@@ -164,19 +164,19 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
-  };
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
-  };
+  void preHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+               std::size_t ltsFace) {};
+  void postHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+                std::size_t ltsFace) {};
 
   /**
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
-  void frictionFunctionHook(std::array<real, misc::NumPaddedPoints>& stateVariable,
+  void frictionFunctionHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariable,
                             std::size_t ltsFace) {
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       this->mu_[ltsFace][pointIndex] =
           muS_[ltsFace][pointIndex] -
           (muS_[ltsFace][pointIndex] - muD_[ltsFace][pointIndex]) * stateVariable[pointIndex];
@@ -194,7 +194,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
    */
   void saveDynamicStressOutput(std::size_t ltsFace, real time) {
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       if (this->dynStressTimePending_[ltsFace][pointIndex] &&
           std::fabs(this->accumulatedSlipMagnitude_[ltsFace][pointIndex]) >=
               dC_[ltsFace][pointIndex]) {
@@ -206,12 +206,12 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
   void calcStrengthHook(const FaultStresses<Executor::Host>& faultStresses,
                         const FaultStresses<Executor::Host>& initialStress,
-                        std::array<real, misc::NumPaddedPoints>& strength,
-                        std::array<real, misc::NumPaddedPoints>& strengthSlope,
+                        std::array<real, misc::NumPaddedPoints<Config>>& strength,
+                        std::array<real, misc::NumPaddedPoints<Config>>& strengthSlope,
                         uint32_t timeIndex,
                         std::size_t ltsFace) {
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term.
       // The anisotropic normal/shear coupling is deliberately *not* applied here: since the
       // strength is affine in the normal stress, it is handled exactly through the divisor in
@@ -245,10 +245,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void calcStateVariableHook(std::array<real, misc::NumPaddedPoints>& stateVariable,
+  void calcStateVariableHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariable,
                              uint32_t timeIndex,
                              std::size_t ltsFace) {
-    alignas(Alignment) real resampledSlipRate[misc::NumPaddedPoints]{};
+    alignas(Alignment) real resampledSlipRate[misc::NumPaddedPoints<Config>]{};
     specialization_.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude_[ltsFace]);
 
     real time = this->fullUpdateTime_;
@@ -256,7 +256,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       time += this->deltaT_[i];
     }
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       // integrate slip rate to get slip = state variable
 
       const auto update = resampledSlipRate[pointIndex] * this->deltaT_[timeIndex];
@@ -287,11 +287,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   protected:
-  real (*__restrict dC_)[misc::NumPaddedPoints]{};
-  real (*__restrict muS_)[misc::NumPaddedPoints]{};
-  real (*__restrict muD_)[misc::NumPaddedPoints]{};
-  real (*__restrict cohesion_)[misc::NumPaddedPoints]{};
-  real (*__restrict forcedRuptureTime_)[misc::NumPaddedPoints]{};
+  real (*__restrict dC_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict muS_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict muD_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict cohesion_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict forcedRuptureTime_)[misc::NumPaddedPoints<Config>]{};
   SpecializationT specialization_;
 };
 
@@ -307,8 +307,8 @@ class NoSpecialization {
    * the reference triangle with degree less or equal than ConvergenceOrder-1, and then evaluates
    * the polynomial at the quadrature points
    */
-  void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                        const real (&slipRate)[dr::misc::NumPaddedPoints]) const;
+  void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints<Config>],
+                        const real (&slipRate)[dr::misc::NumPaddedPoints<Config>]) const;
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
@@ -361,8 +361,8 @@ class BiMaterialFault {
    * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
    * replace the resampling with a simple copy.
    */
-  static void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                               const real (&slipRate)[dr::misc::NumPaddedPoints]) {
+  static void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints<Config>],
+                               const real (&slipRate)[dr::misc::NumPaddedPoints<Config>]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 
@@ -412,7 +412,7 @@ class BiMaterialFault {
   real vStar_{};
   real prakashLength_{};
 
-  real (*__restrict regularizedStrength_)[misc::NumPaddedPoints]{};
+  real (*__restrict regularizedStrength_)[misc::NumPaddedPoints<Config>]{};
 };
 
 /**
@@ -428,8 +428,8 @@ class TPApprox {
   /**
    * Use a simple copy for now, maybe use proper resampling later
    */
-  static void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-                               const real (&slipRate)[dr::misc::NumPaddedPoints]) {
+  static void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints<Config>],
+                               const real (&slipRate)[dr::misc::NumPaddedPoints<Config>]) {
     std::copy(std::begin(slipRate), std::end(slipRate), std::begin(resampledSlipRate));
   };
 

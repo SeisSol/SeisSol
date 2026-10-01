@@ -371,7 +371,7 @@ easi::Query FaultGPGenerator::generate() const {
   const std::vector<Element>& elements = meshReader_.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
-  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
+  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Config>;
   const auto pointsView = init::quadpoints<Config>::view::create(init::quadpoints<Config>::Values);
   easi::Query query(NumPoints * faceIDs_.size(), Cell::Dim);
   std::size_t q = 0;
@@ -403,7 +403,7 @@ easi::Query FaultGPGenerator::generate() const {
           seissol::multisim::multisimTranspose(pointsView, n, 0),
           seissol::multisim::multisimTranspose(pointsView, n, 1));
       // padded points are in the middle of the tetrahedron
-      if (n >= dr::misc::NumBoundaryGaussPoints) {
+      if (n >= dr::misc::NumBoundaryGaussPoints<Config>) {
         localPoints =
             seissol::geometry::FaceTransform::FaceVectorT(Face::ReferenceBarycenter.data());
       }

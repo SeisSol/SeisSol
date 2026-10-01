@@ -670,7 +670,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
-  for (size_t point = 0; point < misc::NumBoundaryGaussPoints; ++point) {
+  for (size_t point = 0; point < misc::NumBoundaryGaussPoints<Config>; ++point) {
     if (ruptureTime[point * multisim::NumSimulations + local.fusedIndex] == 0.0) {
       needsUpdate = false;
     }
@@ -690,7 +690,7 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
     const auto weights = init::quadweights<Config>::view::create(init::quadweights<Config>::Values);
 
     const auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
-    for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
+    for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints<Config>; ++jBndGP) {
       const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 1);
 

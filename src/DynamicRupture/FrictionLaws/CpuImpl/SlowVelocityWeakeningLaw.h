@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 
+#include "Config.h"
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law::cpu {
@@ -39,18 +40,19 @@ class SlowVelocityWeakeningLaw
   }
 
   struct MuDetails {
-    std::array<real, misc::NumPaddedPoints> a{};
-    std::array<real, misc::NumPaddedPoints> cLin{};
-    std::array<real, misc::NumPaddedPoints> cExpLog{};
-    std::array<real, misc::NumPaddedPoints> cExp{};
-    std::array<real, misc::NumPaddedPoints> acLin{};
+    std::array<real, misc::NumPaddedPoints<Config>> a{};
+    std::array<real, misc::NumPaddedPoints<Config>> cLin{};
+    std::array<real, misc::NumPaddedPoints<Config>> cExpLog{};
+    std::array<real, misc::NumPaddedPoints<Config>> cExp{};
+    std::array<real, misc::NumPaddedPoints<Config>> acLin{};
   };
 
-  MuDetails getMuDetails(std::size_t ltsFace,
-                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+  MuDetails
+      getMuDetails(std::size_t ltsFace,
+                   const std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
       const real localA = this->a_[ltsFace][pointIndex];
       const real localSl0 = this->sl0_[ltsFace][pointIndex];
       const real log1 =
@@ -110,10 +112,10 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
 #pragma omp simd
-    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }

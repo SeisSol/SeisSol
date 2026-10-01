@@ -27,21 +27,23 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     ImposedState<Executor::Host> imposedState{};
     ImpedancesAndEta impAndEta;
     alignas(Alignment)
-        real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated<Config>::size()] = {{}};
+        real qInterpolatedPlus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()] = {
+            {}};
     alignas(Alignment)
-        real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated<Config>::size()] = {{}};
+        real qInterpolatedMinus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()] = {
+            {}};
     alignas(Alignment) real imposedStatePlus[tensor::QInterpolated<Config>::size()] = {};
     alignas(Alignment) real imposedStateMinus[tensor::QInterpolated<Config>::size()] = {};
-    real timeWeights[misc::TimeSteps]{};
+    real timeWeights[misc::TimeSteps<Config>]{};
     std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
     constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
 
     constexpr auto GpuRange = friction_law::common::RangeType::GPU;
 
-    using QInterpolatedShapeT = real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+    using QInterpolatedShapeT = real(*)[misc::NumQuantities<Config>][misc::NumPaddedPoints<Config>];
     auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
     auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
-    using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
+    using ImposedStateShapeT = real(*)[misc::NumPaddedPoints<Config>];
     auto* iSPlus = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
     auto* iSMinus = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
@@ -80,9 +82,9 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
 
     // qInterpolated still carries every time step; FaultStresses and TractionResults do not --
     // they hold a single time slice and are refilled on every step of the friction loop.
-    for (size_t o = 0; o < misc::TimeSteps; o++) {
-      for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
-        for (size_t q = 0; q < misc::NumQuantities; q++) {
+    for (size_t o = 0; o < misc::TimeSteps<Config>; o++) {
+      for (size_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
+        for (size_t q = 0; q < misc::NumQuantities<Config>; q++) {
           qIPlus[o][q][p] = qP(o, q, p);
           qIMinus[o][q][p] = qM(o, q, p);
         }
@@ -91,7 +93,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
 
     // stands in for the friction law: fills the single-slice traction results for step o
     auto seedTractionResults = [&](size_t o) {
-      for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+      for (size_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
         tractionResults.normalStress[p] = tn(o, p);
         tractionResults.traction1[p] = t1(o, p);
         tractionResults.traction2[p] = t2(o, p);
@@ -113,13 +115,13 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     };
 
     SUBCASE("Precompute Stress") {
-      for (size_t o = 0; o < misc::TimeSteps; o++) {
+      for (size_t o = 0; o < misc::TimeSteps<Config>; o++) {
         friction_law::common::precomputeStressFromQInterpolated(
             faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0, o);
 
         // Assure that the faultstresses of *this* step were computed correctly. Since the struct
         // holds a single slice, a step index that is ignored somewhere would show up right here.
-        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+        for (size_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
           CHECK(faultStresses.normalStress[p] ==
                 AbsApprox(trialNormalStress(o, p)).epsilon(Epsilon));
           CHECK(faultStresses.traction1[p] == AbsApprox(trialTraction1(o, p)).epsilon(Epsilon));
@@ -128,9 +130,9 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
       }
 
       // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
-      for (size_t o = 0; o < misc::TimeSteps; o++) {
-        for (size_t q = 0; q < misc::NumQuantities; q++) {
-          for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+      for (size_t o = 0; o < misc::TimeSteps<Config>; o++) {
+        for (size_t q = 0; q < misc::NumQuantities<Config>; q++) {
+          for (size_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
             CHECK(qIPlus[o][q][p] == qP(o, q, p));
             CHECK(qIMinus[o][q][p] == qM(o, q, p));
           }
@@ -141,13 +143,13 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     SUBCASE("Initialize Traction Results") {
       // the seeding has to happen on every step now, not once up front -- comparing against the
       // trial stress of the current step catches a seed that is left over from an earlier one
-      for (size_t o = 0; o < misc::TimeSteps; o++) {
+      for (size_t o = 0; o < misc::TimeSteps<Config>; o++) {
         seedTractionResults(o);
         friction_law::common::precomputeStressFromQInterpolated(
             faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0, o);
         friction_law::common::initializeTractionResults(faultStresses, tractionResults);
 
-        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+        for (size_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
           // the trial normal stress of *this* step is seeded ...
           CHECK(tractionResults.normalStress[p] ==
                 AbsApprox(trialNormalStress(o, p)).epsilon(Epsilon));
@@ -167,7 +169,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
         imposedStateMinus[i] = static_cast<real>(-1.0);
       }
 
-      for (size_t o = 0; o < misc::TimeSteps; o++) {
+      for (size_t o = 0; o < misc::TimeSteps<Config>; o++) {
         seedTractionResults(o);
         friction_law::common::postcomputeImposedStateFromNewStress(imposedState,
                                                                    faultStresses,
@@ -181,7 +183,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
       }
       friction_law::common::finalizeImposedState(imposedState, imposedStatePlus, imposedStateMinus);
 
-      for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+      for (size_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
         // index 0: Minus side
         // index 1: Plus side
         real expectedNormalStress[2]{};
@@ -190,7 +192,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
         real expectedU[2]{};
         real expectedV[2]{};
         real expectedW[2]{};
-        for (size_t o = 0; o < misc::TimeSteps; o++) {
+        for (size_t o = 0; o < misc::TimeSteps<Config>; o++) {
           expectedNormalStress[0] += timeWeights[o] * tn(o, p);
           expectedTraction1[0] += timeWeights[o] * t1(o, p);
           expectedTraction2[0] += timeWeights[o] * t2(o, p);
@@ -245,11 +247,11 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
       auto* dSPlus = reinterpret_cast<ImposedStateShapeT>(deviceImposedStatePlus);
       auto* dSMinus = reinterpret_cast<ImposedStateShapeT>(deviceImposedStateMinus);
 
-      for (size_t o = 0; o < misc::TimeSteps; o++) {
+      for (size_t o = 0; o < misc::TimeSteps<Config>; o++) {
         friction_law::common::precomputeStressFromQInterpolated(
             faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0, o);
         friction_law::common::initializeTractionResults(faultStresses, tractionResults);
-        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+        for (size_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
           tractionResults.traction1[p] = t1(o, p);
           tractionResults.traction2[p] = t2(o, p);
         }
@@ -265,12 +267,12 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
       }
       friction_law::common::finalizeImposedState(imposedState, imposedStatePlus, imposedStateMinus);
 
-      for (std::uint32_t p = 0; p < misc::NumPaddedPoints; p++) {
+      for (std::uint32_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
         FaultStresses<Executor::Device> deviceFaultStresses{};
         TractionResults<Executor::Device> deviceTractionResults{};
         ImposedState<Executor::Device> deviceImposedState{};
 
-        for (std::uint32_t o = 0; o < misc::TimeSteps; o++) {
+        for (std::uint32_t o = 0; o < misc::TimeSteps<Config>; o++) {
           friction_law::common::precomputeStressFromQInterpolated<GpuRange>(deviceFaultStresses,
                                                                             impAndEta,
                                                                             impMats,
@@ -299,8 +301,8 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
             deviceImposedState, deviceImposedStatePlus, deviceImposedStateMinus, p);
       }
 
-      for (size_t q = 0; q < misc::NumQuantities; q++) {
-        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+      for (size_t q = 0; q < misc::NumQuantities<Config>; q++) {
+        for (size_t p = 0; p < misc::NumPaddedPoints<Config>; p++) {
           CHECK(dSPlus[q][p] == AbsApprox(iSPlus[q][p]).epsilon(Epsilon).delta(Epsilon));
           CHECK(dSMinus[q][p] == AbsApprox(iSMinus[q][p]).epsilon(Epsilon).delta(Epsilon));
         }

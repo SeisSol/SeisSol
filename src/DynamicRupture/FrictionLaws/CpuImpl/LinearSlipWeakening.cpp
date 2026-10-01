@@ -7,6 +7,7 @@
 
 #include "LinearSlipWeakening.h"
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/kernel.h"
 #include "Initializer/Typedefs.h"
@@ -20,8 +21,8 @@ void NoSpecialization::allocateAuxiliaryMemory(GlobalData* globalData) {
 }
 
 void NoSpecialization::resampleSlipRate(
-    real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
-    const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) const {
+    real (&resampledSlipRate)[dr::misc::NumPaddedPoints<Config>],
+    const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Config>]) const {
   auto resampleKrnl = resampleKrnlPrototype_;
   resampleKrnl.originalQ = slipRateMagnitude;
   resampleKrnl.resampledQ = resampledSlipRate;

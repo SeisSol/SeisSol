@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
@@ -59,7 +60,7 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_DEFINE(myRegionHandle)
       std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT_);
       this->fullUpdateTime_ = fullUpdateTime;
-      std::array<real, misc::TimeSteps> localTimeWeights{};
+      std::array<real, misc::TimeSteps<Config>> localTimeWeights{};
       std::copy_n(timeWeights, localTimeWeights.size(), localTimeWeights.begin());
 
       // loop over all dynamic rupture faces, in this LTS layer
@@ -76,8 +77,8 @@ class BaseFrictionLaw : public FrictionSolver {
             myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
         LIKWID_MARKER_START("computeDynamicRupturePreHook");
         // define some temporary variables
-        std::array<real, misc::NumPaddedPoints> stateVariableBuffer{};
-        std::array<real, misc::NumPaddedPoints> strengthBuffer{};
+        std::array<real, misc::NumPaddedPoints<Config>> stateVariableBuffer{};
+        std::array<real, misc::NumPaddedPoints<Config>> strengthBuffer{};
 
         static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
         LIKWID_MARKER_STOP("computeDynamicRupturePreHook");
@@ -95,7 +96,7 @@ class BaseFrictionLaw : public FrictionSolver {
         // loop over sub time steps (i.e. quadrature points in time
         real startTime = 0;
         real updateTime = this->fullUpdateTime_;
-        for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps; timeIndex++) {
+        for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps<Config>; timeIndex++) {
           startTime = updateTime;
           updateTime += this->deltaT_[timeIndex];
 

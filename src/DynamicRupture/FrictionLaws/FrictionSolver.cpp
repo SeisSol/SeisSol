@@ -7,6 +7,7 @@
 
 #include "FrictionSolver.h"
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
@@ -18,7 +19,7 @@
 namespace seissol::dr::friction_law {
 
 FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<double>& timePoints) {
-  std::vector<double> deltaT(misc::TimeSteps);
+  std::vector<double> deltaT(misc::TimeSteps<Config>);
 
   if (timePoints.size() != deltaT.size()) {
     logError() << "Internal time point count mismatch. Given vs. expected:" << timePoints.size()
@@ -26,7 +27,7 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
   }
 
   deltaT[0] = timePoints[0]; // - 0
-  for (std::size_t timeIndex = 1; timeIndex < misc::TimeSteps; ++timeIndex) {
+  for (std::size_t timeIndex = 1; timeIndex < misc::TimeSteps<Config>; ++timeIndex) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
   }
 

@@ -50,8 +50,8 @@ struct FrictionLawArgs {
   const real* __restrict tpGridPoints{nullptr};
   const real* __restrict heatSource{nullptr};
 
-  real timeWeights[misc::TimeSteps]{};
-  real deltaT[misc::TimeSteps]{};
+  real timeWeights[misc::TimeSteps<Config>]{};
+  real deltaT[misc::TimeSteps<Config>]{};
   real fullUpdateTime{};
 };
 
@@ -110,7 +110,7 @@ inline bool deviceWarpAll(FrictionLawContext& __restrict /*ctx*/, bool /*value*/
 SEISSOL_DEVICE inline real resampleVariable(FrictionLawContext& __restrict ctx, real toResample) {
   constexpr auto Dim0 = misc::dimSize<init::resample<Config>, 0>();
   constexpr auto Dim1 = misc::dimSize<init::resample<Config>, 1>();
-  static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
+  static_assert(Dim0 == misc::NumPaddedPointsSingleSim<Config>);
   static_assert(Dim0 >= Dim1);
 
   ctx.sharedMemory[ctx.pointIndex] = toResample;
@@ -161,7 +161,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       real startTime = 0;
       real updateTime = ctx.args->fullUpdateTime;
 
-      for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps; ++timeIndex) {
+      for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps<Config>; ++timeIndex) {
         const real dt = ctx.args->deltaT[timeIndex];
 
         startTime = updateTime;

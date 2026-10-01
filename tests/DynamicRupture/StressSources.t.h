@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "TestHelper.h"
@@ -62,12 +63,12 @@ inline FrictionLawParameters
 }
 
 /// a field of a face, as the initializer lays it out: the nucleations, then the initial state
-inline void withField(real (*field)[seissol::dr::misc::NumPaddedPoints],
+inline void withField(real (*field)[seissol::dr::misc::NumPaddedPoints<Config>],
                       std::uint32_t sourceCount,
                       const std::vector<double>& nucleations) {
   for (std::uint32_t source = 0; source < sourceCount; ++source) {
     const auto value = source + 1 < sourceCount ? nucleations[source] : 0.0;
-    for (std::uint32_t point = 0; point < seissol::dr::misc::NumPaddedPoints; ++point) {
+    for (std::uint32_t point = 0; point < seissol::dr::misc::NumPaddedPoints<Config>; ++point) {
       field[source][point] = static_cast<real>(value);
     }
   }
@@ -141,7 +142,7 @@ TEST_CASE("Stress sources of a parameter set" * doctest::test_suite("dynamicrupt
 
 TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrupture")) {
   using namespace stresssources;
-  using seissol::dr::misc::NumPaddedPoints;
+  constexpr auto NumPaddedPoints = seissol::dr::misc::NumPaddedPoints<Config>;
 
   const auto parameters = withSources({{1.0, 0.5}, {2.0, 3.0}});
   constexpr std::uint32_t Point = 3;
@@ -191,7 +192,7 @@ TEST_CASE("Stress of a point over its sources" * doctest::test_suite("dynamicrup
 TEST_CASE("Stress of a point does not depend on the order it is asked in" *
           doctest::test_suite("dynamicrupture")) {
   using namespace stresssources;
-  using seissol::dr::misc::NumPaddedPoints;
+  constexpr auto NumPaddedPoints = seissol::dr::misc::NumPaddedPoints<Config>;
 
   const auto parameters = withSources({{1.0, 0.5}, {2.0, 3.0}, {0.0, 2.0}});
   constexpr std::uint32_t Point = 5;
@@ -227,7 +228,7 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
 /// the onset is a field, so two points of a face may reach the same source at different times
 TEST_CASE("Stress sources with an onset per point" * doctest::test_suite("dynamicrupture")) {
   using namespace stresssources;
-  using seissol::dr::misc::NumPaddedPoints;
+  constexpr auto NumPaddedPoints = seissol::dr::misc::NumPaddedPoints<Config>;
 
   const auto parameters = withSources({{1.0, 0.0}});
   alignas(Alignment) static real sources[MaxStressSources][6][NumPaddedPoints]{};

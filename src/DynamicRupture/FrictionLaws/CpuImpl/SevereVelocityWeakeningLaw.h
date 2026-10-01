@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "RateAndState.h"
 
@@ -43,16 +44,17 @@ class SevereVelocityWeakeningLaw
   }
 
   struct MuDetails {
-    std::array<real, misc::NumPaddedPoints> a{};
-    std::array<real, misc::NumPaddedPoints> c{};
-    std::array<real, misc::NumPaddedPoints> f0{};
+    std::array<real, misc::NumPaddedPoints<Config>> a{};
+    std::array<real, misc::NumPaddedPoints<Config>> c{};
+    std::array<real, misc::NumPaddedPoints<Config>> f0{};
   };
 
-  MuDetails getMuDetails(std::size_t ltsFace,
-                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+  MuDetails
+      getMuDetails(std::size_t ltsFace,
+                   const std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
       const real localA = this->a_[ltsFace][pointIndex];
       const real localSl0 = this->sl0_[ltsFace][pointIndex];
       const real c = this->b_[ltsFace][pointIndex] * localStateVariable[pointIndex] /
@@ -86,10 +88,10 @@ class SevereVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
 #pragma omp simd
-    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
       this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }

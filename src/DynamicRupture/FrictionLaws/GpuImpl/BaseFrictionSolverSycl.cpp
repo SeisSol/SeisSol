@@ -7,6 +7,7 @@
 
 #include "AgingLaw.h"
 #include "BaseFrictionSolver.h"
+#include "Config.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "FrictionSolverInterface.h"
 #include "ImposedSlipRates.h"
@@ -38,14 +39,15 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   args.tpInverseFourierCoefficients = this->devTpInverseFourierCoefficients_;
   args.tpGridPoints = this->devTpGridPoints_;
   args.heatSource = this->devHeatSource_;
-  std::copy_n(timeWeights, misc::TimeSteps, args.timeWeights);
-  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps, args.deltaT);
+  std::copy_n(timeWeights, misc::TimeSteps<Config>, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps<Config>, args.deltaT);
   args.fullUpdateTime = fullUpdateTime;
 
-  sycl::nd_range rng{{this->currLayerSize_ * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
+  sycl::nd_range rng{{this->currLayerSize_ * misc::NumPaddedPoints<Config>},
+                     {misc::NumPaddedPoints<Config>}};
   queue->submit([&](sycl::handler& cgh) {
     // NOLINTNEXTLINE
-    sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints, cgh);
+    sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints<Config>, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       FrictionLawContext ctx{};

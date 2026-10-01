@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATE_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATE_H_
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -38,7 +39,7 @@ class RateAndState : public ReceiverOutput {
     const auto* outer = getCellData<LTSRateAndState::ConvergenceOuter>(local);
     std::vector<std::size_t> failuresInner;
     std::vector<std::size_t> failuresOuter;
-    for (std::size_t i = 0; i < misc::NumBoundaryGaussPoints; ++i) {
+    for (std::size_t i = 0; i < misc::NumBoundaryGaussPoints<Config>; ++i) {
       const auto index = i * multisim::NumSimulations + local.fusedIndex;
       if (!inner[index]) {
         failuresInner.push_back(i);

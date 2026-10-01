@@ -43,7 +43,7 @@ enum class RangeType { CPU, GPU };
 template <RangeType Type>
 struct NumPoints {
   private:
-  using CpuRange = ForLoopRange<0, dr::misc::NumPaddedPoints, 1>;
+  using CpuRange = ForLoopRange<0, dr::misc::NumPaddedPoints<Config>, 1>;
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
@@ -55,7 +55,8 @@ template <RangeType Type>
 struct QInterpolated {
   private:
   using CpuRange = ForLoopRange<0, tensor::QInterpolated<Config>::size(), 1>;
-  using GpuRange = ForLoopRange<0, tensor::QInterpolated<Config>::size(), misc::NumPaddedPoints>;
+  using GpuRange =
+      ForLoopRange<0, tensor::QInterpolated<Config>::size(), misc::NumPaddedPoints<Config>>;
 
   public:
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
@@ -79,9 +80,13 @@ struct VariableIndexing;
 
 template <>
 struct VariableIndexing<Executor::Host> {
-  static constexpr real& index(real (&data)[misc::NumPaddedPoints], int i) { return data[i]; }
+  static constexpr real& index(real (&data)[misc::NumPaddedPoints<Config>], int i) {
+    return data[i];
+  }
 
-  static constexpr real index(const real (&data)[misc::NumPaddedPoints], int i) { return data[i]; }
+  static constexpr real index(const real (&data)[misc::NumPaddedPoints<Config>], int i) {
+    return data[i];
+  }
 };
 
 template <>
@@ -113,8 +118,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
     const ImpedancesAndEta& __restrict impAndEta,
     [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
-    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
-    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedPlus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedMinus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
     real etaPDamp,
     uint32_t step,
     uint32_t startLoopIndex = 0) {
@@ -124,7 +129,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
   const auto o = step;
 
-  using QInterpolatedShapeT = const real(*__restrict)[misc::NumQuantities][misc::NumPaddedPoints];
+  using QInterpolatedShapeT =
+      const real(*__restrict)[misc::NumQuantities<Config>][misc::NumPaddedPoints<Config>];
   const auto* __restrict qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   const auto* __restrict qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
@@ -277,8 +283,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const TractionResults<RangeExecutor<Type>::Exec>& __restrict tractionResults,
     const ImpedancesAndEta& __restrict impAndEta,
     [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
-    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
-    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedPlus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedMinus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
     uint32_t step,
     real weight,
     uint32_t startIndex = 0) {
@@ -289,7 +295,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 
   using Acc = VariableIndexing<RangeExecutor<Type>::Exec>;
 
-  using QInterpolatedShapeT = const real(*__restrict)[misc::NumQuantities][misc::NumPaddedPoints];
+  using QInterpolatedShapeT =
+      const real(*__restrict)[misc::NumQuantities<Config>][misc::NumPaddedPoints<Config>];
   const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -410,7 +417,7 @@ SEISSOL_HOSTDEVICE inline void
 
   using NumPointsRange = typename NumPoints<Type>::Range;
 
-  using ImposedStateShapeT = real(*__restrict)[misc::NumPaddedPoints];
+  using ImposedStateShapeT = real(*__restrict)[misc::NumPaddedPoints<Config>];
   auto* __restrict imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* __restrict imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
@@ -418,7 +425,7 @@ SEISSOL_HOSTDEVICE inline void
        index += NumPointsRange::Step) {
     auto i{startIndex + index};
 #pragma unroll
-    for (std::uint32_t q = 0; q < dr::misc::NumQuantities; ++q) {
+    for (std::uint32_t q = 0; q < dr::misc::NumQuantities<Config>; ++q) {
       imposedStateM[q][i] = VariableIndexing<RangeExecutor<Type>::Exec>::index(state.minus[q], i);
       imposedStateP[q][i] = VariableIndexing<RangeExecutor<Type>::Exec>::index(state.plus[q], i);
     }
@@ -441,15 +448,15 @@ SEISSOL_HOSTDEVICE inline void
  * @param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
-SEISSOL_HOSTDEVICE inline void
-    computeInitialStress(FaultStresses<RangeExecutor<Type>::Exec>& __restrict initialStress,
-                         const real (*__restrict stressSourceInFaultCS)[6][misc::NumPaddedPoints],
-                         const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints],
-                         const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints],
-                         const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints],
-                         std::uint32_t sourceCount,
-                         real fullUpdateTime,
-                         uint32_t startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void computeInitialStress(
+    FaultStresses<RangeExecutor<Type>::Exec>& __restrict initialStress,
+    const real (*__restrict stressSourceInFaultCS)[6][misc::NumPaddedPoints<Config>],
+    const real (*__restrict stressSourcePressure)[misc::NumPaddedPoints<Config>],
+    const real (*__restrict stressSourceOnset)[misc::NumPaddedPoints<Config>],
+    const real (*__restrict stressSourceRiseTime)[misc::NumPaddedPoints<Config>],
+    std::uint32_t sourceCount,
+    real fullUpdateTime,
+    uint32_t startIndex = 0) {
   constexpr auto Exec = RangeExecutor<Type>::Exec;
   using Range = typename NumPoints<Type>::Range;
 
@@ -502,11 +509,11 @@ template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
     // See https://github.com/llvm/llvm-project/issues/60163
     // NOLINTNEXTLINE
-    saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints],
+    saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints<Config>],
                            // See https://github.com/llvm/llvm-project/issues/60163
                            // NOLINTNEXTLINE
-                           real ruptureTime[misc::NumPaddedPoints],
-                           const real slipRateMagnitude[misc::NumPaddedPoints],
+                           real ruptureTime[misc::NumPaddedPoints<Config>],
+                           const real slipRateMagnitude[misc::NumPaddedPoints<Config>],
                            real fullUpdateTime,
                            uint32_t startIndex = 0) {
 
@@ -533,10 +540,10 @@ SEISSOL_HOSTDEVICE inline void
  */
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
-    savePeakSlipRateOutput(const real slipRateMagnitude[misc::NumPaddedPoints],
+    savePeakSlipRateOutput(const real slipRateMagnitude[misc::NumPaddedPoints<Config>],
                            // See https://github.com/llvm/llvm-project/issues/60163
                            // NOLINTNEXTLINE
-                           real peakSlipRate[misc::NumPaddedPoints],
+                           real peakSlipRate[misc::NumPaddedPoints<Config>],
                            uint32_t startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
@@ -558,15 +565,15 @@ SEISSOL_HOSTDEVICE inline void
  * param[in] dt
  */
 template <RangeType Type = RangeType::CPU>
-SEISSOL_HOSTDEVICE inline void
-    updateTimeSinceSlipRateBelowThreshold(const real slipRateMagnitude[misc::NumPaddedPoints],
-                                          const bool ruptureTimePending[misc::NumPaddedPoints],
-                                          // See https://github.com/llvm/llvm-project/issues/60163
-                                          // NOLINTNEXTLINE
-                                          DREnergyOutput& __restrict energyData,
-                                          const real dt,
-                                          const real slipRateThreshold,
-                                          uint32_t startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
+    const real slipRateMagnitude[misc::NumPaddedPoints<Config>],
+    const bool ruptureTimePending[misc::NumPaddedPoints<Config>],
+    // See https://github.com/llvm/llvm-project/issues/60163
+    // NOLINTNEXTLINE
+    DREnergyOutput& __restrict energyData,
+    const real dt,
+    const real slipRateThreshold,
+    uint32_t startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
   auto* timeSinceSlipRateBelowThreshold = energyData.timeSinceSlipRateBelowThreshold;
@@ -590,22 +597,23 @@ SEISSOL_HOSTDEVICE inline void
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     DREnergyOutput& __restrict energyData,
-    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
-    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedPlus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedMinus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
     const ImpedancesAndEta& __restrict impAndEta,
-    const real timeWeights[misc::TimeSteps],
+    const real timeWeights[misc::TimeSteps<Config>],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
     const DRGodunovData& __restrict godunovData,
-    const real slipRateMagnitude[misc::NumPaddedPoints],
+    const real slipRateMagnitude[misc::NumPaddedPoints<Config>],
     const bool energiesFromAcrossFaultVelocities,
     size_t startIndex = 0) {
 
-  auto* slip = reinterpret_cast<real(*)[misc::NumPaddedPoints]>(energyData.slip);
+  auto* slip = reinterpret_cast<real(*)[misc::NumPaddedPoints<Config>]>(energyData.slip);
   auto* accumulatedSlip = energyData.accumulatedSlip;
   auto* frictionalEnergy = energyData.frictionalEnergy;
   const real doubledSurfaceAreaN = -static_cast<real>(godunovData.doubledSurfaceArea);
 
-  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  using QInterpolatedShapeT =
+      const real(*)[misc::NumQuantities<Config>][misc::NumPaddedPoints<Config>];
   const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -670,7 +678,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     }
   }
 
-  for (size_t o = 0; o < misc::TimeSteps; ++o) {
+  for (size_t o = 0; o < misc::TimeSteps<Config>; ++o) {
     const auto timeWeight = timeWeights[o];
 
 #ifndef ACL_DEVICE

@@ -397,7 +397,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #pragma omp simd
         for (size_t sim = 0; sim < SimCount; sim++) {
           staticFrictionalWork[sim] += staticFrictionalWorkIncrease[sim];
-          for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
+          for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints<Config>; ++j) {
             totalFrictionalWork[sim] += drEnergyOutput[i].frictionalEnergy[j * SimCount + sim];
           }
 
@@ -425,10 +425,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             const auto gammaMinus = AnisotropicImpedance::christoffelFromAdmittance(
                 admittance(impedanceMatrices[i].impedanceNeig), waveSpeedsMinus[i].density);
 
-            const auto* slip = reinterpret_cast<const real(*)[seissol::dr::misc::NumPaddedPoints]>(
-                drEnergyOutput[i].slip);
+            const auto* slip =
+                reinterpret_cast<const real(*)[seissol::dr::misc::NumPaddedPoints<Config>]>(
+                    drEnergyOutput[i].slip);
 
-            for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+            for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints<Config>; ++k) {
               const auto index = k * seissol::multisim::NumSimulations + sim;
 
               // the rake is taken from the net slip; it is the instantaneous one only as long as
@@ -461,7 +462,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             const double muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
                                    waveSpeedsMinus[i].sWaveVelocity;
             const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
-            for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+            for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints<Config>; ++k) {
               potencyIncrease +=
                   drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
                   init::quadweights<Config>::Values[k];
@@ -490,7 +491,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #pragma omp simd
         for (size_t sim = 0; sim < SimCount; sim++) {
-          for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
+          for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints<Config>; ++j) {
             localMin[sim] = std::min(
                 static_cast<double>(
                     drEnergyOutput[i]
