@@ -159,10 +159,10 @@ void ReceiverOutput::calcFaultOutput(
 
     if (outputType == initializer::parameters::OutputType::Elementwise) {
       std::memcpy(dofsPlus,
-                  local.layer->var<DynamicRupture::TimeDofsPlus>()[local.ltsId],
+                  local.layer->var<DynamicRupture::TimeDofsPlus>(Config())[local.ltsId],
                   sizeof(dofsPlus));
       std::memcpy(dofsMinus,
-                  local.layer->var<DynamicRupture::TimeDofsMinus>()[local.ltsId],
+                  local.layer->var<DynamicRupture::TimeDofsMinus>(Config())[local.ltsId],
                   sizeof(dofsMinus));
     } else {
       // only interpolate for the on-fault receivers
@@ -195,9 +195,10 @@ void ReceiverOutput::calcFaultOutput(
     const auto& jacobiT2d = outFace.jacobianT2d;
 
     const auto sourceCount = stressSourceCount(*drParameters_);
-    const auto* stressSources = local.layer->var<DynamicRupture::StressSourceInFaultCS>();
-    const auto* stressSourceOnset = local.layer->var<DynamicRupture::StressSourceOnset>();
-    const auto* stressSourceRiseTime = local.layer->var<DynamicRupture::StressSourceRiseTime>();
+    const auto* stressSources = local.layer->var<DynamicRupture::StressSourceInFaultCS>(Config());
+    const auto* stressSourceOnset = local.layer->var<DynamicRupture::StressSourceOnset>(Config());
+    const auto* stressSourceRiseTime =
+        local.layer->var<DynamicRupture::StressSourceRiseTime>(Config());
 
     runtime::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = runtime::init::Tinv::view(Variant, outFace.glbToFaceAlignedData.data());
@@ -444,7 +445,7 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     //   T*   = eta * (Y+ T+ + Y- T- + (v- - v+))
     //   v*_+ = v+ + Y+ (T* - T+)
     const auto& impedanceMatrices =
-        ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
+        ((local.layer->var<DynamicRupture::ImpedanceMatrices>(Config()))[local.ltsId]);
 
     constexpr std::size_t Count =
         model::MaterialT::Type == model::MaterialType::Poroelastic ? 4 : 3;
@@ -509,7 +510,7 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + lateralStress[1];
     local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ] + lateralStress[2];
   } else {
-    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>(Config()))[local.ltsId]);
     const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
     const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
@@ -556,9 +557,9 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
     // the very solve the friction laws run, so the reconstruction cannot drift away from it: with
     // an anisotropic impedance the slip is not parallel to the trial traction, and the strength
     // follows the fault-normal traction, which follows the slip rate
-    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>(Config()))[local.ltsId]);
     const auto& impedanceMatrices =
-        ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
+        ((local.layer->var<DynamicRupture::ImpedanceMatrices>(Config()))[local.ltsId]);
 
     const auto solution = friction_law::common::solveSlipRate(
         impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
@@ -636,7 +637,7 @@ void ReceiverOutput::computeSlipRate(
     // the shear block of eta is a multiple of the identity for every material with an isotropic
     // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
     // a scalar is exact and the order of scaling and rotation does not matter
-    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+    const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>(Config()))[local.ltsId]);
     local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
                                                  rotatedStress[QuantityIndices::XY]);
     local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -

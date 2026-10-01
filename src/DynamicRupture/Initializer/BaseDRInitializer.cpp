@@ -255,8 +255,8 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     // onset of all of its points
     const auto sourceCount = stressSourceCount(*drParameters_);
     const auto initialSource = drParameters_->nucleationCount;
-    auto* stressSourceOnset = layer.var<DynamicRupture::StressSourceOnset>();
-    auto* stressSourceRiseTime = layer.var<DynamicRupture::StressSourceRiseTime>();
+    auto* stressSourceOnset = layer.var<DynamicRupture::StressSourceOnset>(Config());
+    auto* stressSourceRiseTime = layer.var<DynamicRupture::StressSourceRiseTime>(Config());
     std::vector<bool> onsetFromFault(drParameters_->nucleationCount);
     std::vector<bool> riseTimeFromFault(drParameters_->nucleationCount);
     for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
@@ -291,7 +291,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     }
 
     // the initial state is the last stress source of the face, the one without a rise time
-    auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>();
+    auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>(Config());
     rotateStressToFaultCS(layer,
                           stressInFaultCS,
                           initialSource,
@@ -362,7 +362,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       sourcesDescribed = true;
     }
 
-    auto* pressure = layer.var<DynamicRupture::StressSourcePressure>();
+    auto* pressure = layer.var<DynamicRupture::StressSourcePressure>(Config());
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
         pressure[ltsFace * sourceCount + initialSource][pointIndex] =
@@ -410,7 +410,7 @@ void BaseDRInitializer::addAdditionalParameters(
 void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
   // initialize rupture front flag
   bool (*ruptureTimePending)[misc::NumPaddedPoints<Config>] =
-      layer.var<DynamicRupture::RuptureTimePending>();
+      layer.var<DynamicRupture::RuptureTimePending>(Config());
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
       ruptureTimePending[ltsFace][pointIndex] = true;
@@ -418,17 +418,20 @@ void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
   }
 
   // initialize all other variables to zero
-  real(*peakSlipRate)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::PeakSlipRate>();
-  real(*ruptureTime)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::RuptureTime>();
-  real(*dynStressTime)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::DynStressTime>();
+  real(*peakSlipRate)[misc::NumPaddedPoints<Config>] =
+      layer.var<DynamicRupture::PeakSlipRate>(Config());
+  real(*ruptureTime)[misc::NumPaddedPoints<Config>] =
+      layer.var<DynamicRupture::RuptureTime>(Config());
+  real(*dynStressTime)[misc::NumPaddedPoints<Config>] =
+      layer.var<DynamicRupture::DynStressTime>(Config());
   real(*accumulatedSlipMagnitude)[misc::NumPaddedPoints<Config>] =
-      layer.var<DynamicRupture::AccumulatedSlipMagnitude>();
-  real(*slip1)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::Slip1>();
-  real(*slip2)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::Slip2>();
+      layer.var<DynamicRupture::AccumulatedSlipMagnitude>(Config());
+  real(*slip1)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::Slip1>(Config());
+  real(*slip2)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::Slip2>(Config());
   real(*slipRateMagnitude)[misc::NumPaddedPoints<Config>] =
-      layer.var<DynamicRupture::SlipRateMagnitude>();
-  real(*traction1)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::Traction1>();
-  real(*traction2)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::Traction2>();
+      layer.var<DynamicRupture::SlipRateMagnitude>(Config());
+  real(*traction1)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::Traction1>(Config());
+  real(*traction2)[misc::NumPaddedPoints<Config>] = layer.var<DynamicRupture::Traction2>(Config());
 
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {

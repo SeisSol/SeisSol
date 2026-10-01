@@ -88,10 +88,11 @@ struct DRFaceInformation {
   bool plusSideOnThisRank{};
 };
 
+template <typename Cfg>
 struct DRGodunovData {
-  real dataTinvT[seissol::tensor::TinvT<Config>::size()]{};
-  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix<Config>::size()]{};
-  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix<Config>::size()]{};
+  Real<Cfg> dataTinvT[seissol::tensor::TinvT<Cfg>::size()]{};
+  Real<Cfg> tractionPlusMatrix[seissol::tensor::tractionPlusMatrix<Cfg>::size()]{};
+  Real<Cfg> tractionMinusMatrix[seissol::tensor::tractionMinusMatrix<Cfg>::size()]{};
   // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of
@@ -104,11 +105,12 @@ struct DRGodunovData {
   double doubledSurfaceArea{};
 };
 
+template <typename Cfg>
 struct DREnergyOutput {
-  real slip[seissol::tensor::slipInterpolated<Config>::size()]{};
-  real accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Config>]{};
-  real frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Config>]{};
-  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints<Config>]{};
+  Real<Cfg> slip[seissol::tensor::slipInterpolated<Cfg>::size()]{};
+  Real<Cfg> accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
+  Real<Cfg> frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
+  Real<Cfg> timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
 
   static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {
     return {

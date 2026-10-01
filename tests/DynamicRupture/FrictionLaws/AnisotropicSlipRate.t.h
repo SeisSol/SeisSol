@@ -33,8 +33,8 @@ using seissol::dr::ImpedancesAndEta;
 
 /// eta = (Y+ + Y-)^-1 of a homogeneous fault in a VTI tilted out of the fault plane, rounded.
 /// Symmetric positive definite, with both a shear/shear and a normal/shear coupling.
-inline ImpedanceMatrices testImpedance() {
-  ImpedanceMatrices impedanceMatrices;
+inline ImpedanceMatrices<Config> testImpedance() {
+  ImpedanceMatrices<Config> impedanceMatrices;
   auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.818e6;
   eta(1, 1) = 2.106e6;
@@ -47,8 +47,8 @@ inline ImpedanceMatrices testImpedance() {
 
 /// eta with a deliberately asymmetric shear block. Physical impedances are self-adjoint, which
 /// makes eta and its transpose interchangeable -- this one tells them apart.
-inline ImpedanceMatrices asymmetricImpedance() {
-  ImpedanceMatrices impedanceMatrices;
+inline ImpedanceMatrices<Config> asymmetricImpedance() {
+  ImpedanceMatrices<Config> impedanceMatrices;
   auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.8e6;
   eta(0, 1) = 1.1e5;
@@ -62,8 +62,8 @@ inline ImpedanceMatrices asymmetricImpedance() {
   return impedanceMatrices;
 }
 
-inline ImpedanceMatrices isotropicImpedance(real etaS) {
-  ImpedanceMatrices impedanceMatrices;
+inline ImpedanceMatrices<Config> isotropicImpedance(real etaS) {
+  ImpedanceMatrices<Config> impedanceMatrices;
   auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.818e6;
   eta(1, 1) = etaS;
@@ -73,7 +73,7 @@ inline ImpedanceMatrices isotropicImpedance(real etaS) {
 
 /// Residual of tau0 = (S I + V eta_ss) n with S = strength + slope * V * (eta n)_n, relative to
 /// the trial traction. Zero for the exact solution, whatever route produced it.
-inline real slipRateResidual(ImpedanceMatrices impedanceMatrices,
+inline real slipRateResidual(ImpedanceMatrices<Config> impedanceMatrices,
                              const seissol::dr::friction_law::common::SlipRateSolution& solution,
                              real traction1,
                              real traction2,
@@ -109,7 +109,7 @@ TEST_CASE("Anisotropic slip rate solve" *
 
   using seissol::dr::friction_law::common::solveSlipRate;
 
-  const ImpedancesAndEta impAndEta{};
+  const ImpedancesAndEta<Config> impAndEta{};
   constexpr real Strength = 30.0e6;
   constexpr real Slope = 0.6;
   // two sweeps leave a truncation error below 1e-4 for an overshoot up to 100 percent, single
@@ -209,7 +209,7 @@ TEST_CASE("Anisotropic impedance projections" *
 
   namespace common = seissol::dr::friction_law::common;
 
-  const ImpedancesAndEta impAndEta{};
+  const ImpedancesAndEta<Config> impAndEta{};
   auto impedanceMatrices = asymmetricImpedance();
   const auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
 

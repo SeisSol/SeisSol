@@ -124,14 +124,14 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
-    a_ = layerData.var<LTSRateAndState::RsA>();
-    sl0_ = layerData.var<LTSRateAndState::RsSl0>();
-    f0_ = layerData.var<LTSRateAndState::RsF0>();
-    muW_ = layerData.var<LTSRateAndState::RsMuW>();
-    b_ = layerData.var<LTSRateAndState::RsB>();
-    convergenceInner_ = layerData.var<LTSRateAndState::ConvergenceInner>();
-    convergenceOuter_ = layerData.var<LTSRateAndState::ConvergenceOuter>();
-    stateVariable_ = layerData.var<LTSRateAndState::StateVariable>();
+    a_ = layerData.var<LTSRateAndState::RsA>(Config());
+    sl0_ = layerData.var<LTSRateAndState::RsSl0>(Config());
+    f0_ = layerData.var<LTSRateAndState::RsF0>(Config());
+    muW_ = layerData.var<LTSRateAndState::RsMuW>(Config());
+    b_ = layerData.var<LTSRateAndState::RsB>(Config());
+    convergenceInner_ = layerData.var<LTSRateAndState::ConvergenceInner>(Config());
+    convergenceOuter_ = layerData.var<LTSRateAndState::ConvergenceOuter>(Config());
+    stateVariable_ = layerData.var<LTSRateAndState::StateVariable>(Config());
     static_cast<Derived*>(this)->copyStorageToLocal(layerData);
     tpMethod_.copyStorageToLocal(layerData);
   }

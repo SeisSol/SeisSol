@@ -75,8 +75,8 @@ class FrictionSolver {
   real deltaT_[misc::TimeSteps<Config>] = {};
 
   FrictionLawParameters drParameters_;
-  ImpedancesAndEta* __restrict impAndEta_{};
-  ImpedanceMatrices* __restrict impedanceMatrices_{};
+  ImpedancesAndEta<Config>* __restrict impAndEta_{};
+  ImpedanceMatrices<Config>* __restrict impedanceMatrices_{};
   real fullUpdateTime_{};
   // CS = coordinate system
   real (*__restrict stressSourceInFaultCS_)[6][misc::NumPaddedPoints<Config>]{};
@@ -96,8 +96,8 @@ class FrictionSolver {
   real (*__restrict imposedStatePlus_)[tensor::QInterpolated<Config>::size()]{};
   real (*__restrict imposedStateMinus_)[tensor::QInterpolated<Config>::size()]{};
   const real* __restrict spaceWeights_{};
-  DREnergyOutput* __restrict energyData_{};
-  DRGodunovData* __restrict godunovData_{};
+  DREnergyOutput<Config>* __restrict energyData_{};
+  DRGodunovData<Config>* __restrict godunovData_{};
   real (*__restrict stressSourcePressure_)[misc::NumPaddedPoints<Config>]{};
   real (*__restrict stressSourceOnset_)[misc::NumPaddedPoints<Config>]{};
   real (*__restrict stressSourceRiseTime_)[misc::NumPaddedPoints<Config>]{};

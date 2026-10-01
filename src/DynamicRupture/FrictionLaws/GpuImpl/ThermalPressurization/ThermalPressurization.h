@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -53,13 +54,14 @@ class ThermalPressurization {
    */
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(place);
-    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(place);
-    data->theta = layerData.var<LTSThermalPressurization::Theta>(place);
-    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(place);
-    data->halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(place);
+    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(Config(), place);
+    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(Config(), place);
+    data->theta = layerData.var<LTSThermalPressurization::Theta>(Config(), place);
+    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(Config(), place);
+    data->halfWidthShearZone =
+        layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Config(), place);
     data->hydraulicDiffusivity =
-        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(place);
+        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Config(), place);
   }
 
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& __restrict ctx) {

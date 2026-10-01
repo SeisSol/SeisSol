@@ -65,11 +65,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
-    this->dC_ = layerData.var<LTSLinearSlipWeakening::DC>();
-    this->muS_ = layerData.var<LTSLinearSlipWeakening::MuS>();
-    this->muD_ = layerData.var<LTSLinearSlipWeakening::MuD>();
-    this->cohesion_ = layerData.var<LTSLinearSlipWeakening::Cohesion>();
-    this->forcedRuptureTime_ = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
+    this->dC_ = layerData.var<LTSLinearSlipWeakening::DC>(Config());
+    this->muS_ = layerData.var<LTSLinearSlipWeakening::MuS>(Config());
+    this->muD_ = layerData.var<LTSLinearSlipWeakening::MuD>(Config());
+    this->cohesion_ = layerData.var<LTSLinearSlipWeakening::Cohesion>(Config());
+    this->forcedRuptureTime_ = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>(Config());
     specialization_.copyStorageToLocal(layerData);
   }
 

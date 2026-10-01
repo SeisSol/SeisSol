@@ -36,7 +36,7 @@ class DynamicRupture : public Kernel {
 
   void spaceTimeInterpolation(
       const DRFaceInformation& faceInfo,
-      const DRGodunovData* godunovData,
+      const DRGodunovData<Config>* godunovData,
       const real* timeDerivativePlus,
       const real* timeDerivativeMinus,
       real qInterpolatedPlus[dr::misc::TimeSteps<Config>]

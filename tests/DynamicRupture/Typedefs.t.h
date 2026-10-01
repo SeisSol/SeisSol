@@ -20,7 +20,7 @@ using namespace seissol::dr;
 // ---------------------------------------------------------------------------
 
 TEST_CASE("ImpedancesAndEta default zero" * doctest::test_suite("dynamicrupture")) {
-  ImpedancesAndEta imp{};
+  ImpedancesAndEta<Config> imp{};
   CHECK(imp.zp == doctest::Approx(0.0));
   CHECK(imp.zs == doctest::Approx(0.0));
   CHECK(imp.zpNeig == doctest::Approx(0.0));
@@ -31,7 +31,7 @@ TEST_CASE("ImpedancesAndEta default zero" * doctest::test_suite("dynamicrupture"
 
 TEST_CASE("ImpedancesAndEta physical setup" * doctest::test_suite("dynamicrupture")) {
   // Typical setup from the existing FrictionSolverCommon test
-  ImpedancesAndEta imp;
+  ImpedancesAndEta<Config> imp;
   imp.zp = 10.0;
   imp.zs = 20.0;
   imp.zpNeig = 15.0;
@@ -67,7 +67,7 @@ TEST_CASE("ImpedancesAndEta physical setup" * doctest::test_suite("dynamicruptur
 }
 
 TEST_CASE("ImpedancesAndEta equal impedances" * doctest::test_suite("dynamicrupture")) {
-  ImpedancesAndEta imp;
+  ImpedancesAndEta<Config> imp;
   imp.zp = 10.0;
   imp.zpNeig = 10.0;
   imp.etaP = imp.zp * imp.zpNeig / (imp.zp + imp.zpNeig);

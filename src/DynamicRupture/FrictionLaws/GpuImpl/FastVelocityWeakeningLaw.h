@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
@@ -29,7 +30,7 @@ class FastVelocityWeakeningLaw
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
     data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(
-        seissol::initializer::AllocationPlace::Device);
+        Config(), seissol::initializer::AllocationPlace::Device);
   }
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,

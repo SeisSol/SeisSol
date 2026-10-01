@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_RATEANDSTATE_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_RATEANDSTATE_H_
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
@@ -38,14 +39,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     constexpr auto Place = seissol::initializer::AllocationPlace::Device;
 
-    data->a = layerData.var<LTSRateAndState::RsA>(Place);
-    data->sl0 = layerData.var<LTSRateAndState::RsSl0>(Place);
-    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(Place);
-    data->f0 = layerData.var<LTSRateAndState::RsF0>(Place);
-    data->muW = layerData.var<LTSRateAndState::RsMuW>(Place);
-    data->b = layerData.var<LTSRateAndState::RsB>(Place);
-    data->convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>(Place);
-    data->convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>(Place);
+    data->a = layerData.var<LTSRateAndState::RsA>(Config(), Place);
+    data->sl0 = layerData.var<LTSRateAndState::RsSl0>(Config(), Place);
+    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(Config(), Place);
+    data->f0 = layerData.var<LTSRateAndState::RsF0>(Config(), Place);
+    data->muW = layerData.var<LTSRateAndState::RsMuW>(Config(), Place);
+    data->b = layerData.var<LTSRateAndState::RsB>(Config(), Place);
+    data->convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>(Config(), Place);
+    data->convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>(Config(), Place);
 
     Derived::copySpecificStorageDataToLocal(data, layerData);
     TPMethod::copyStorageToLocal(data, layerData);

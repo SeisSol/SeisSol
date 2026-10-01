@@ -176,16 +176,16 @@ class LinearSlipWeakeningLaw
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData) {
-    data->dC =
-        layerData.var<LTSLinearSlipWeakening::DC>(seissol::initializer::AllocationPlace::Device);
-    data->muS =
-        layerData.var<LTSLinearSlipWeakening::MuS>(seissol::initializer::AllocationPlace::Device);
-    data->muD =
-        layerData.var<LTSLinearSlipWeakening::MuD>(seissol::initializer::AllocationPlace::Device);
+    data->dC = layerData.var<LTSLinearSlipWeakening::DC>(
+        Config(), seissol::initializer::AllocationPlace::Device);
+    data->muS = layerData.var<LTSLinearSlipWeakening::MuS>(
+        Config(), seissol::initializer::AllocationPlace::Device);
+    data->muD = layerData.var<LTSLinearSlipWeakening::MuD>(
+        Config(), seissol::initializer::AllocationPlace::Device);
     data->cohesion = layerData.var<LTSLinearSlipWeakening::Cohesion>(
-        seissol::initializer::AllocationPlace::Device);
+        Config(), seissol::initializer::AllocationPlace::Device);
     data->forcedRuptureTime = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>(
-        seissol::initializer::AllocationPlace::Device);
+        Config(), seissol::initializer::AllocationPlace::Device);
     SpecializationT::copyStorageToLocal(data, layerData);
   }
 
@@ -318,7 +318,7 @@ class BiMaterialFault {
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     data->regularizedStrength =
         layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(
-            seissol::initializer::AllocationPlace::Device);
+            Config(), seissol::initializer::AllocationPlace::Device);
   }
 
   SEISSOL_DEVICE static real

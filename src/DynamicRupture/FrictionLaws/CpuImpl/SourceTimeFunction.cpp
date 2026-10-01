@@ -7,6 +7,7 @@
 
 #include "SourceTimeFunction.h"
 
+#include "Config.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Numerical/DeltaPulse.h"
@@ -18,9 +19,9 @@
 
 namespace seissol::dr::friction_law::cpu {
 void YoffeSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime_ = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>();
-  tauS_ = layerData.var<LTSImposedSlipRatesYoffe::TauS>();
-  tauR_ = layerData.var<LTSImposedSlipRatesYoffe::TauR>();
+  onsetTime_ = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Config());
+  tauS_ = layerData.var<LTSImposedSlipRatesYoffe::TauS>(Config());
+  tauR_ = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Config());
 }
 
 real YoffeSTF::evaluate(real currentTime,
@@ -33,8 +34,8 @@ real YoffeSTF::evaluate(real currentTime,
 }
 
 void GaussianSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime_ = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>();
-  riseTime_ = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>();
+  onsetTime_ = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Config());
+  riseTime_ = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(Config());
 }
 
 real GaussianSTF::evaluate(real currentTime,
@@ -47,7 +48,7 @@ real GaussianSTF::evaluate(real currentTime,
 }
 
 void DeltaSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime_ = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>();
+  onsetTime_ = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Config());
 }
 
 real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex) {

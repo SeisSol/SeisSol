@@ -116,8 +116,8 @@ struct VariableIndexing<Executor::Device> {
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
-    const ImpedancesAndEta& __restrict impAndEta,
-    [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
+    const ImpedancesAndEta<Config>& __restrict impAndEta,
+    [[maybe_unused]] const ImpedanceMatrices<Config>& __restrict impedanceMatrices,
     const real qInterpolatedPlus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
     const real qInterpolatedMinus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
     real etaPDamp,
@@ -281,8 +281,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     ImposedState<RangeExecutor<Type>::Exec>& __restrict state,
     [[maybe_unused]] const FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
     const TractionResults<RangeExecutor<Type>::Exec>& __restrict tractionResults,
-    const ImpedancesAndEta& __restrict impAndEta,
-    [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
+    const ImpedancesAndEta<Config>& __restrict impAndEta,
+    [[maybe_unused]] const ImpedanceMatrices<Config>& __restrict impedanceMatrices,
     const real qInterpolatedPlus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
     const real qInterpolatedMinus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
     uint32_t step,
@@ -570,7 +570,7 @@ SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
     const bool ruptureTimePending[misc::NumPaddedPoints<Config>],
     // See https://github.com/llvm/llvm-project/issues/60163
     // NOLINTNEXTLINE
-    DREnergyOutput& __restrict energyData,
+    DREnergyOutput<Config>& __restrict energyData,
     const real dt,
     const real slipRateThreshold,
     uint32_t startIndex = 0) {
@@ -596,13 +596,13 @@ SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
 }
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
-    DREnergyOutput& __restrict energyData,
+    DREnergyOutput<Config>& __restrict energyData,
     const real qInterpolatedPlus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
     const real qInterpolatedMinus[misc::TimeSteps<Config>][tensor::QInterpolated<Config>::size()],
-    const ImpedancesAndEta& __restrict impAndEta,
+    const ImpedancesAndEta<Config>& __restrict impAndEta,
     const real timeWeights[misc::TimeSteps<Config>],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
-    const DRGodunovData& __restrict godunovData,
+    const DRGodunovData<Config>& __restrict godunovData,
     const real slipRateMagnitude[misc::NumPaddedPoints<Config>],
     const bool energiesFromAcrossFaultVelocities,
     size_t startIndex = 0) {
@@ -753,8 +753,8 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   Returns {etaProj, invEtaProj}
  */
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
-    projectEta(const ImpedancesAndEta& impAndEta,
-               [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+    projectEta(const ImpedancesAndEta<Config>& impAndEta,
+               [[maybe_unused]] const ImpedanceMatrices<Config>& impedanceMatrices,
                [[maybe_unused]] real t1,
                [[maybe_unused]] real t2,
                [[maybe_unused]] real tmag) {
@@ -794,8 +794,8 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
   there.
  */
 SEISSOL_HOSTDEVICE inline real
-    projectEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
-                     [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+    projectEtaNormal([[maybe_unused]] const ImpedancesAndEta<Config>& impAndEta,
+                     [[maybe_unused]] const ImpedanceMatrices<Config>& impedanceMatrices,
                      [[maybe_unused]] real t1,
                      [[maybe_unused]] real t2,
                      [[maybe_unused]] real tmag) {
@@ -820,8 +820,8 @@ SEISSOL_HOSTDEVICE inline real
   Returns a 2-element vector
  */
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
-    matmulEta(const ImpedancesAndEta& impAndEta,
-              [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+    matmulEta(const ImpedancesAndEta<Config>& impAndEta,
+              [[maybe_unused]] const ImpedanceMatrices<Config>& impedanceMatrices,
               real v1,
               real v2) {
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
@@ -854,8 +854,8 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
   direction -- is known.
  */
 SEISSOL_HOSTDEVICE inline real
-    matmulEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
-                    [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+    matmulEtaNormal([[maybe_unused]] const ImpedancesAndEta<Config>& impAndEta,
+                    [[maybe_unused]] const ImpedanceMatrices<Config>& impedanceMatrices,
                     [[maybe_unused]] real v1,
                     [[maybe_unused]] real v2) {
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
@@ -893,8 +893,8 @@ SEISSOL_HOSTDEVICE inline real
   @param[in] t1, t2, tmag the trial (stick) shear traction and its magnitude
  */
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
-    updateSlipDirection([[maybe_unused]] const ImpedancesAndEta& impAndEta,
-                        [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+    updateSlipDirection([[maybe_unused]] const ImpedancesAndEta<Config>& impAndEta,
+                        [[maybe_unused]] const ImpedanceMatrices<Config>& impedanceMatrices,
                         [[maybe_unused]] real strength,
                         [[maybe_unused]] real slipRate,
                         real t1,
@@ -953,13 +953,14 @@ struct SlipRateSolution {
  * Every projection is a no-op for an isotropic impedance, where n is the direction of tau0 and the
  * result reduces to V = (|tau0| - strength) / eta.
  */
-SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta& impAndEta,
-                                                         const ImpedanceMatrices& impedanceMatrices,
-                                                         real traction1,
-                                                         real traction2,
-                                                         real tractionMagnitude,
-                                                         real strength,
-                                                         real strengthSlope) {
+SEISSOL_HOSTDEVICE inline SlipRateSolution
+    solveSlipRate(const ImpedancesAndEta<Config>& impAndEta,
+                  const ImpedanceMatrices<Config>& impedanceMatrices,
+                  real traction1,
+                  real traction2,
+                  real tractionMagnitude,
+                  real strength,
+                  real strengthSlope) {
   const real invAbsolute =
       (tractionMagnitude > 0) ? static_cast<real>(1.0) / tractionMagnitude : static_cast<real>(0.0);
   real n1 = traction1 * invAbsolute;
