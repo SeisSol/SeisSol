@@ -9,4 +9,5 @@
 
 #include "MPI/Collectives.t.h"
 #include "MPI/Distribution.t.h"
+#include "MPI/GhostTimeClusterWithCopy.t.h"
 #include "MPI/ParallelStatistics.t.h"
