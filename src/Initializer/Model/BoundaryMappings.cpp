@@ -9,10 +9,13 @@
 
 #include "BoundaryMappings.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
@@ -21,7 +24,6 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
@@ -41,7 +43,7 @@ namespace seissol::initializer {
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const std::optional<DirichletCondition>& dirichletCondition,
                                 LTS::Storage& ltsStorage) {
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     auto* cellInformation = layer.var<LTS::CellInformation>();

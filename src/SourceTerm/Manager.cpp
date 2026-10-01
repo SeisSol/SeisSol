@@ -11,10 +11,13 @@
 
 #include "Manager.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "FSRMReader.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
@@ -24,7 +27,6 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/PointSourceClusterOnHost.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
@@ -88,7 +90,7 @@ void computeMInvJInvPhisAtSources(
   const double volume = MeshTools::volume(elements[meshId], vertices);
   const double jInv = 1.0 / (6.0 * volume);
 
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
   runtime::kernel::computeMInvJInvPhisAtSources krnl;
   krnl.basisFunctionsAtPoint =
       runtime::init::basisFunctionsAtPoint::view(Variant, basisFunctionsAtPoint.data().data());
@@ -153,7 +155,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
   std::array<real, 81> stiffnessTensorReal{};
   std::copy(stiffnessTensor.begin(), stiffnessTensor.end(), stiffnessTensorReal.begin());
 
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
   runtime::kernel::transformNRF transformKernel;
   transformKernel.mArea = -subfault.area;
   transformKernel.mNormal = runtime::init::mNormal::view(Variant, faultBasis.data() + 6);

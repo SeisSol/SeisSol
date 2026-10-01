@@ -250,7 +250,7 @@ class TestRuntime:
         assert (outdir / self.EQUATION / "runtime.cpp").is_file()
 
     def test_variant_h_keys_the_configuration(self, generated_elastic_o3):
-        """Kernels/Runtime.h takes the variant as runtime::variantOf<Config>()."""
+        """The id of a configuration is its variant, runtime::variantOf<Config>()."""
         outdir, _ = generated_elastic_o3
         content = (outdir / "variant.h").read_text()
         assert '#include "Config.h"' in content

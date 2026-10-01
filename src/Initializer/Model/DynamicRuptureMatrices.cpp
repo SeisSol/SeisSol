@@ -9,12 +9,15 @@
 
 #include "DynamicRuptureMatrices.h"
 
+#include "Common/ConfigDispatch.h"
+#include "Config.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Impedance.h"      // IWYU pragma: keep
 #include "Equations/ImpedanceBase.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
@@ -25,7 +28,6 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -229,7 +231,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage) {
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
   real matTData[tensor::T::size()]{};
   real matTinvData[tensor::Tinv::size()]{};
   real matAPlusData[tensor::star::size(0)]{};

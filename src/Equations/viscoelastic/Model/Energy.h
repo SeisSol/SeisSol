@@ -7,12 +7,14 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ENERGY_H_
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Model/Common.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -76,7 +78,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   };
 
   static Moments computeMoments(const real* dofs, const real* dofsAne) {
-    constexpr auto Variant = kernels::RuntimeVariant;
+    constexpr auto Variant = configIdOf<Config>();
     Moments moments{};
 
     runtime::kernel::momentQaneQaneCompute aneKrnl;
