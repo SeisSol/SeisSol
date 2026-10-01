@@ -124,7 +124,9 @@ std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
     // Compute yield := (t_c / tau - 1) r for every node,
     // where r = 1 - exp(-timeStepWidth / tV)
     const auto doesYield = tau[ip] > taulim[ip];
-    adjust = doesYield ? 1 : 0;
+    // Combine with the previous value: under the reduction, each SIMD lane keeps only its own
+    // last value, so a plain assignment would discard all but the last chunk of nodes.
+    adjust = std::max(adjust, static_cast<int32_t>(doesYield ? 1 : 0));
     const auto ifYield =
         (taulim[ip] / tau[ip] - static_cast<real>(1.0)) * oneMinusIntegratingFactor;
     yieldFactor[ip] = doesYield ? ifYield : 0;
