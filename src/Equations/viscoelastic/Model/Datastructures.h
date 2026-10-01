@@ -79,6 +79,7 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
+  template <typename Cfg>
   using EnergyData = std::monostate;
 
   //! Relaxation frequencies

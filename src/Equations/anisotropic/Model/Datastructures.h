@@ -21,6 +21,7 @@
 #include <string>
 
 namespace seissol::model {
+template <typename Cfg>
 struct AnisotropicEnergyData;
 
 struct AnisotropicMaterial : public Material {
@@ -57,7 +58,8 @@ struct AnisotropicMaterial : public Material {
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
-  using EnergyData = AnisotropicEnergyData;
+  template <typename Cfg>
+  using EnergyData = AnisotropicEnergyData<Cfg>;
 
   double c11{};
   double c12{};

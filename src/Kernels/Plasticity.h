@@ -35,7 +35,7 @@ class Plasticity {
                                        real timeStepWidth,
                                        real tV,
                                        const GlobalData* global,
-                                       const seissol::model::PlasticityData* plasticityData,
+                                       const seissol::model::PlasticityData<Config>* plasticityData,
                                        real degreesOfFreedom[tensor::Q<Config>::size()],
                                        real* pstrain);
 
@@ -43,7 +43,7 @@ class Plasticity {
                                        real tV,
                                        const GlobalData* global,
                                        recording::ConditionalPointersToRealsTable& table,
-                                       seissol::model::PlasticityData* plasticityData,
+                                       seissol::model::PlasticityData<Config>* plasticityData,
                                        std::size_t* yieldCounter,
                                        unsigned* isAdjustableVector,
                                        seissol::parallel::runtime::StreamRuntime& runtime);

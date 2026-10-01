@@ -264,26 +264,27 @@ void Spacetime::computeBatchedAder(
     }
     krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Config>, starMatrices);
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Config>>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+      krnl.extraOffset_star(i) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Config>, starMatrices, i);
     }
 
     krnl.W = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.W);
     krnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.w);
     krnl.E = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
+    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.E);
 
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.W);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.E);
 
     for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
       // update scalar for this derivative

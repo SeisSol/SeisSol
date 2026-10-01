@@ -99,10 +99,10 @@ void Neighbor::computeNeighborsIntegral(
   nKrnl.execute();
 }
 
-std::pair<PerformanceEstimate, PerformanceEstimate>
-    Neighbor::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-                      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const {
+std::pair<PerformanceEstimate, PerformanceEstimate> Neighbor::metrics(
+    const std::array<FaceType, Cell::NumFaces>& faceTypes,
+    const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+    const std::array<CellDRMapping<Config>, Cell::NumFaces>& cellDrMapping) const {
 
   PerformanceEstimate regular;
   PerformanceEstimate dr;
@@ -179,9 +179,9 @@ void Neighbor::computeBatchedNeighborsIntegral(
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
 
-              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
+              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData<Config>, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
-                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Config>, nAmNm1, face);
 
               neighFluxKrnl.streamPtr = stream;
               (neighFluxKrnl.*
@@ -226,9 +226,9 @@ void Neighbor::computeBatchedNeighborsIntegral(
     nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
     nKrnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Config>, specific.w);
 
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
+    SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Config>, specific.w);
 
     nKrnl.streamPtr = runtime.stream();
 

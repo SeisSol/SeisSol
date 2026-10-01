@@ -14,6 +14,7 @@
 #include "Alignment.h"
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
@@ -51,24 +52,26 @@ struct CompoundGlobalData {
 };
 
 // data for the cell local integration
+template <typename Cfg>
 struct alignas(Alignment) LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::tensor::star<Config>::size(0)]{};
+  Real<Cfg> starMatrices[3][seissol::tensor::star<Cfg>::size(0)]{};
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::tensor::AplusT<Config>::size()]{};
+  Real<Cfg> nApNm1[4][seissol::tensor::AplusT<Cfg>::size()]{};
 
   // solver-specific data
-  seissol::kernels::SolverOf<Config>::LocalData specific;
+  typename seissol::kernels::SolverOf<Cfg>::LocalData specific;
 };
 
 // data for the neighboring boundary integration
+template <typename Cfg>
 struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::tensor::AminusT<Config>::size()]{};
+  Real<Cfg> nAmNm1[4][seissol::tensor::AminusT<Cfg>::size()]{};
 
   // solver-specific data
-  seissol::kernels::SolverOf<Config>::NeighborData specific;
+  typename seissol::kernels::SolverOf<Cfg>::NeighborData specific;
 };
 
 // material constants per cell
@@ -129,34 +132,36 @@ struct DREnergyOutput {
   }
 };
 
+template <typename Cfg>
 struct CellDRMapping {
   std::int8_t side{};
   std::int8_t faceRelation{};
-  real* godunov{nullptr};
-  real* fluxSolver{nullptr};
+  Real<Cfg>* godunov{nullptr};
+  Real<Cfg>* fluxSolver{nullptr};
 };
 
+template <typename Cfg>
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real
-      nodes[seissol::nodal::tensor::nodes2D<Config>::Shape[multisim::BasisFunctionDimension] * 3]{};
-  real dataT[seissol::tensor::T<Config>::size()]{};
-  real dataTinv[seissol::tensor::Tinv<Config>::size()]{};
-  real dirichletOffset[seissol::tensor::dirichletOffset<Config>::size()]{};
-  real dirichletMap[seissol::tensor::dirichletMap<Config>::size()]{};
-  real fsgData[3]{};
+  Real<Cfg> nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] * 3]{};
+  Real<Cfg> dataT[seissol::tensor::T<Cfg>::size()]{};
+  Real<Cfg> dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
+  Real<Cfg> dirichletOffset[seissol::tensor::dirichletOffset<Cfg>::size()]{};
+  Real<Cfg> dirichletMap[seissol::tensor::dirichletMap<Cfg>::size()]{};
+  Real<Cfg> fsgData[3]{};
 };
 
+template <typename Cfg>
 struct CellBoundaryMapping {
-  real* nodes{nullptr};
-  real* dataT{nullptr};
-  real* dataTinv{nullptr};
-  real* dirichletOffset{nullptr};
-  real* dirichletMap{nullptr};
-  real* fsgData{nullptr};
+  Real<Cfg>* nodes{nullptr};
+  Real<Cfg>* dataT{nullptr};
+  Real<Cfg>* dataTinv{nullptr};
+  Real<Cfg>* dirichletOffset{nullptr};
+  Real<Cfg>* dirichletMap{nullptr};
+  Real<Cfg>* fsgData{nullptr};
 
   CellBoundaryMapping() = default;
-  explicit CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
+  explicit CellBoundaryMapping(BoundaryFaceInformation<Cfg>& faceInfo)
       : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
         dirichletOffset(faceInfo.dirichletOffset), dirichletMap(faceInfo.dirichletMap),
         fsgData(faceInfo.fsgData) {}

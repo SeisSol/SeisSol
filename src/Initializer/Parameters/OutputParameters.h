@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/InputAux.h"
 #include "Model/Plasticity.h"
@@ -156,7 +157,7 @@ struct WaveFieldOutputParameters {
   VolumeRefinement refinement{VolumeRefinement::NoRefine};
   OutputBounds bounds;
   std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask{};
-  std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask{};
+  std::array<bool, seissol::model::PlasticityData<Config>::Quantities.size()> plasticityMask{};
   std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask{};
   std::unordered_set<int> groups;
   bool computeRotation{false};

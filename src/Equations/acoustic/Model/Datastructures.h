@@ -61,6 +61,7 @@ struct AcousticMaterial : public Material {
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
+  template <typename Cfg>
   using EnergyData = std::monostate;
 
   double lambda{};

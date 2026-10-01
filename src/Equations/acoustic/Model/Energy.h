@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ENERGY_H_
 
+#include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -45,14 +46,14 @@ struct EnergyCompute<AcousticMaterial> {
   struct Moments {};
   static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
 
-  static AcousticMaterial::EnergyData initEnergyData(const AcousticMaterial& /*material*/) {
+  static AcousticMaterial::EnergyData<Config> initEnergyData(const AcousticMaterial& /*material*/) {
     return {};
   }
 
   template <typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const AcousticMaterial& material,
-                      const AcousticMaterial::EnergyData& /*data*/,
+                      const AcousticMaterial::EnergyData<Config>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
                       const Moments& /*moments*/,

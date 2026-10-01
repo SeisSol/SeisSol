@@ -145,9 +145,9 @@ void Neighbor::computeBatchedNeighborsIntegral(
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
 
-              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
+              SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData<Config>, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
-                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Config>, nAmNm1, face);
 
               real* tmpMem = reinterpret_cast<real*>(device_.api().allocMemAsync(
                   seissol::kernel::gpu_neighboringFlux<Config>::TmpMaxMemRequiredInBytes *
@@ -198,10 +198,10 @@ void Neighbor::computeBatchedNeighborsIntegral(
 #endif
 }
 
-std::pair<PerformanceEstimate, PerformanceEstimate>
-    Neighbor::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-                      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const {
+std::pair<PerformanceEstimate, PerformanceEstimate> Neighbor::metrics(
+    const std::array<FaceType, Cell::NumFaces>& faceTypes,
+    const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+    const std::array<CellDRMapping<Config>, Cell::NumFaces>& cellDrMapping) const {
   // reset flops
   PerformanceEstimate neigh;
   PerformanceEstimate neighDR;

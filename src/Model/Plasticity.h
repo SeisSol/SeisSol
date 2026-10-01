@@ -9,10 +9,9 @@
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
 #include "Alignment.h"
-#include "Config.h"
+#include "Common/Real.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -23,35 +22,37 @@
 namespace seissol::model {
 
 // plasticity information per cell
+template <typename Cfg>
 struct PlasticityData {
-  static constexpr auto PointCount = tensor::vNodes<Config>::Shape[0];
+  static constexpr auto PointCount = tensor::vNodes<Cfg>::Shape[0];
 
   // initial loading (stress tensor)
-  alignas(Alignment) real initialLoading[tensor::initialLoading<Config>::size()]{};
-  alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress<Config>::size()]{};
-  alignas(Alignment) real sinAngularFriction[tensor::meanStress<Config>::size()]{};
+  alignas(Alignment) Real<Cfg> initialLoading[tensor::initialLoading<Cfg>::size()]{};
+  alignas(Alignment) Real<Cfg> cohesionTimesCosAngularFriction[tensor::meanStress<Cfg>::size()]{};
+  alignas(Alignment) Real<Cfg> sinAngularFriction[tensor::meanStress<Cfg>::size()]{};
 
   // depends only on the material (i.e. only relevant for #1297 or multi-fused-material)
-  real mufactor{};
+  Real<Cfg> mufactor{};
 
-  PlasticityData(const std::array<const Plasticity*, seissol::multisim::NumSimulations>& plasticity,
+  PlasticityData(const std::array<const Plasticity*, Cfg::NumSimulations>& plasticity,
                  const Material* material,
                  bool pointwise) {
-    auto initialLoadingV = init::initialLoading<Config>::view::create(initialLoading);
+    auto initialLoadingV = init::initialLoading<Cfg>::view::create(initialLoading);
     initialLoadingV.setZero();
 
     auto cohesionTimesCosAngularFrictionV =
-        init::meanStress<Config>::view::create(cohesionTimesCosAngularFriction);
+        init::meanStress<Cfg>::view::create(cohesionTimesCosAngularFriction);
     cohesionTimesCosAngularFrictionV.setZero();
 
-    auto sinAngularFrictionV = init::meanStress<Config>::view::create(sinAngularFriction);
+    auto sinAngularFrictionV = init::meanStress<Cfg>::view::create(sinAngularFriction);
     sinAngularFrictionV.setZero();
 
-    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      auto initialLoadingVS = multisim::simtensor(initialLoadingV, s);
+    using Multisim = multisim::MultisimHelperWrapper<Cfg::NumSimulations>;
+    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+      auto initialLoadingVS = Multisim::simtensor(initialLoadingV, s);
       auto cohesionTimesCosAngularFrictionVS =
-          multisim::simtensor(cohesionTimesCosAngularFrictionV, s);
-      auto sinAngularFrictionVS = multisim::simtensor(sinAngularFrictionV, s);
+          Multisim::simtensor(cohesionTimesCosAngularFrictionV, s);
+      auto sinAngularFrictionVS = Multisim::simtensor(sinAngularFrictionV, s);
 
       for (std::size_t i = 0; i < PointCount; ++i) {
         const auto ii = pointwise ? i : 0;

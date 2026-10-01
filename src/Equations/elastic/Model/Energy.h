@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_ENERGY_H_
 
+#include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -48,14 +49,14 @@ struct EnergyCompute<ElasticMaterial> {
   struct Moments {};
   static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
 
-  static ElasticMaterial::EnergyData initEnergyData(const ElasticMaterial& /*material*/) {
+  static ElasticMaterial::EnergyData<Config> initEnergyData(const ElasticMaterial& /*material*/) {
     return {};
   }
 
   template <typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const ElasticMaterial& material,
-                      const ElasticMaterial::EnergyData& /*data*/,
+                      const ElasticMaterial::EnergyData<Config>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
                       const Moments& /*moments*/,

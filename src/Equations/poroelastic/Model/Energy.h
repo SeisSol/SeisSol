@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_ENERGY_H_
 
+#include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
@@ -54,14 +55,15 @@ struct EnergyCompute<PoroElasticMaterial> {
   struct Moments {};
   static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
 
-  static PoroElasticMaterial::EnergyData initEnergyData(const PoroElasticMaterial& /*material*/) {
+  static PoroElasticMaterial::EnergyData<Config>
+      initEnergyData(const PoroElasticMaterial& /*material*/) {
     return {};
   }
 
   template <typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const PoroElasticMaterial& material,
-                      const PoroElasticMaterial::EnergyData& /*data*/,
+                      const PoroElasticMaterial::EnergyData<Config>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
                       const Moments& /*moments*/,

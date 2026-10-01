@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ENERGY_H_
 
+#include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
@@ -49,7 +50,8 @@ struct EnergyCompute<AnisotropicMaterial> {
   struct Moments {};
   static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
 
-  static AnisotropicMaterial::EnergyData initEnergyData(const AnisotropicMaterial& material) {
+  static AnisotropicMaterial::EnergyData<Config>
+      initEnergyData(const AnisotropicMaterial& material) {
     // The c_IJ follow *standard* Voigt numbering (1=xx, 2=yy, 3=zz, 4=yz, 5=xz,
     // 6=xy), as can be read off getTransposedCoefficientMatrix in
     // AnisotropicSetup.h. The quantity vector Q, and hence quadSub, uses
@@ -92,12 +94,12 @@ struct EnergyCompute<AnisotropicMaterial> {
                      << "). The elastic energy of such cells is not well defined and will be"
                      << "reported as zero. Further occurrences are not reported.";
       }
-      return AnisotropicEnergyData{};
+      return AnisotropicEnergyData<Config>{};
     }
 
     const auto inverse = stiffness.inverse().eval();
 
-    AnisotropicEnergyData data{};
+    AnisotropicEnergyData<Config> data{};
     std::copy_n(inverse.data(), data.matS.size(), data.matS.begin());
     return data;
   }
@@ -105,7 +107,7 @@ struct EnergyCompute<AnisotropicMaterial> {
   template <typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const AnisotropicMaterial& material,
-                      const AnisotropicMaterial::EnergyData& data,
+                      const AnisotropicMaterial::EnergyData<Config>& data,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
                       const Moments& /*moments*/,

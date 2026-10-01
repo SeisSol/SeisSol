@@ -27,7 +27,6 @@
 #include <vector>
 
 namespace seissol {
-struct LocalIntegrationData;
 class SeisSol;
 } // namespace seissol
 

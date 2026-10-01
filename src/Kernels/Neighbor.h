@@ -53,7 +53,7 @@ class NeighborKernel : public Kernel {
   [[nodiscard]] virtual std::pair<PerformanceEstimate, PerformanceEstimate>
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
               const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-              const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const = 0;
+              const std::array<CellDRMapping<Config>, Cell::NumFaces>& cellDrMapping) const = 0;
 };
 
 } // namespace seissol::kernels

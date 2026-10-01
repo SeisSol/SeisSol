@@ -47,7 +47,7 @@ class GravitationalFreeSurfaceBc {
   template <typename MappingKrnl>
   void evaluate(int8_t faceIdx,
                 MappingKrnl&& fsgKernelBase,
-                const CellBoundaryMapping& boundaryMapping,
+                const CellBoundaryMapping<Config>& boundaryMapping,
                 real* displacementNodalData,
                 real* integratedDisplacementNodalData,
                 const real* derivatives,

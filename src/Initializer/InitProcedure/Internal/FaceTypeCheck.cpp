@@ -44,7 +44,7 @@ FaceTypeCensus collectFaceTypes(LTS::Storage& storage) {
   const LayerMask ghostMask(Ghost);
   for (auto& layer : storage.leaves(ghostMask)) {
     const auto* cellInformation = layer.var<LTS::CellInformation>();
-    const auto* materialData = layer.var<LTS::MaterialData>();
+    const auto* materialData = layer.var<LTS::MaterialData>(Config());
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         const auto faceType = cellInformation[cell].faceTypes[face];

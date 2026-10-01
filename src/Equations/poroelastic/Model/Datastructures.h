@@ -70,6 +70,7 @@ struct PoroElasticMaterial : public ElasticMaterial {
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
+  template <typename Cfg>
   using EnergyData = std::monostate;
 
   double bulkSolid{};

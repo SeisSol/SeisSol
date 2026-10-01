@@ -534,11 +534,11 @@ void EnergyOutput::computeVolumeEnergies() {
     const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     const auto* cellInformationData = layer.var<LTS::CellInformation>();
     const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>(Config());
-    const auto* materialData = layer.var<LTS::MaterialData>();
-    const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
+    const auto* materialData = layer.var<LTS::MaterialData>(Config());
+    const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>(Config());
     const auto* pstrainData = layer.var<LTS::PStrain>(Config());
     const auto* dofsData = layer.var<LTS::Dofs>(Config());
-    const auto* energyData = layer.var<LTS::EnergyData>();
+    const auto* energyData = layer.var<LTS::EnergyData>(Config());
     // only allocated for materials with anelastic variables
     const auto* dofsAneData = layer.var<LTS::DofsAne>(Config());
 

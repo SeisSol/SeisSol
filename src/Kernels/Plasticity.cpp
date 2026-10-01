@@ -45,13 +45,14 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-std::size_t Plasticity::computePlasticity(real oneMinusIntegratingFactor,
-                                          real timeStepWidth,
-                                          real tV,
-                                          const GlobalData* global,
-                                          const seissol::model::PlasticityData* plasticityData,
-                                          real degreesOfFreedom[tensor::Q<Config>::size()],
-                                          real* pstrain) {
+std::size_t
+    Plasticity::computePlasticity(real oneMinusIntegratingFactor,
+                                  real timeStepWidth,
+                                  real tV,
+                                  const GlobalData* global,
+                                  const seissol::model::PlasticityData<Config>* plasticityData,
+                                  real degreesOfFreedom[tensor::Q<Config>::size()],
+                                  real* pstrain) {
 
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Vectorsize == 0);
 
@@ -228,7 +229,7 @@ void Plasticity::computePlasticityBatched(
     SEISSOL_GPU_PARAM real tV,
     SEISSOL_GPU_PARAM const GlobalData* global,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
-    SEISSOL_GPU_PARAM seissol::model::PlasticityData* plasticityData,
+    SEISSOL_GPU_PARAM seissol::model::PlasticityData<Config>* plasticityData,
     SEISSOL_GPU_PARAM std::size_t* yieldCounter,
     SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {

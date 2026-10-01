@@ -371,14 +371,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
 #pragma omp critical
           {
-            CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
-                plusLtsId.value())[faceInformation[ltsFace].plusSide];
+            auto& mapping = ltsStorage.lookup<LTS::DRMapping>(
+                Config(), plusLtsId.value())[faceInformation[ltsFace].plusSide];
             mapping.side = faceInformation[ltsFace].plusSide;
             mapping.faceRelation = 0;
             mapping.godunov = &imposedStatePlus[ltsFace][0];
             mapping.fluxSolver = &fluxSolverPlus[ltsFace][0];
-            CellDRMapping& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(
-                plusLtsId.value())[faceInformation[ltsFace].plusSide];
+            auto& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(
+                Config(), plusLtsId.value())[faceInformation[ltsFace].plusSide];
             mappingDevice.side = faceInformation[ltsFace].plusSide;
             mappingDevice.faceRelation = 0;
             mappingDevice.godunov = &imposedStatePlusDevice[ltsFace][0];
@@ -389,14 +389,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
 #pragma omp critical
           {
-            CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
-                minusLtsId.value())[faceInformation[ltsFace].minusSide];
+            auto& mapping = ltsStorage.lookup<LTS::DRMapping>(
+                Config(), minusLtsId.value())[faceInformation[ltsFace].minusSide];
             mapping.side = faceInformation[ltsFace].minusSide;
             mapping.faceRelation = faceInformation[ltsFace].faceRelation;
             mapping.godunov = &imposedStateMinus[ltsFace][0];
             mapping.fluxSolver = &fluxSolverMinus[ltsFace][0];
-            CellDRMapping& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(
-                minusLtsId.value())[faceInformation[ltsFace].minusSide];
+            auto& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(
+                Config(), minusLtsId.value())[faceInformation[ltsFace].minusSide];
             mappingDevice.side = faceInformation[ltsFace].minusSide;
             mappingDevice.faceRelation = faceInformation[ltsFace].faceRelation;
             mappingDevice.godunov = &imposedStateMinusDevice[ltsFace][0];

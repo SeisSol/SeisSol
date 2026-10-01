@@ -127,7 +127,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
 
-  const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>();
+  const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>(Config());
 
   auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(Config(), AllocationPlace::Device);
 

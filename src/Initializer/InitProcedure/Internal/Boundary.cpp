@@ -57,23 +57,24 @@ void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& stora
   for (auto [layer, boundaryLayer] :
        seissol::common::zip(storage.leaves(ghostMask), boundaryStorage.leaves(ghostMask))) {
     const auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
-    auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
-    auto* faceInformation = boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Host);
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(Config());
+    auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>(Config());
+    auto* faceInformation =
+        boundaryLayer.var<Boundary::FaceInformation>(Config(), AllocationPlace::Host);
     auto* faceInformationDevice =
-        boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Device);
+        boundaryLayer.var<Boundary::FaceInformation>(Config(), AllocationPlace::Device);
 
     std::size_t boundaryFace = 0;
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (boundaryProperties(cellInformation[cell].faceTypes[face]).requiresFaceData) {
-          boundaryMapping[cell][face] = CellBoundaryMapping(faceInformation[boundaryFace]);
+          boundaryMapping[cell][face] = CellBoundaryMapping<Config>(faceInformation[boundaryFace]);
           boundaryMappingDevice[cell][face] =
-              CellBoundaryMapping(faceInformationDevice[boundaryFace]);
+              CellBoundaryMapping<Config>(faceInformationDevice[boundaryFace]);
           ++boundaryFace;
         } else {
-          boundaryMapping[cell][face] = CellBoundaryMapping();
-          boundaryMappingDevice[cell][face] = CellBoundaryMapping();
+          boundaryMapping[cell][face] = CellBoundaryMapping<Config>();
+          boundaryMappingDevice[cell][face] = CellBoundaryMapping<Config>();
         }
       }
     }

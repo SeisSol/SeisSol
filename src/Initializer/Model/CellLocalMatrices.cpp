@@ -87,12 +87,12 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     auto* material = layer.var<LTS::Material>();
-    auto* materialData = layer.var<LTS::MaterialData>();
-    auto* localIntegration = layer.var<LTS::LocalIntegration>();
-    auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
+    auto* materialData = layer.var<LTS::MaterialData>(Config());
+    auto* localIntegration = layer.var<LTS::LocalIntegration>(Config());
+    auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(Config());
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(Config());
 
 #pragma omp parallel
     {
