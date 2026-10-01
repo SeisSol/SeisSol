@@ -85,7 +85,7 @@ void Spacetime::computeAder(const real* coeffs,
     return anyOfResult;
   }();
 
-  alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
+  alignas(PagesizeStack) real temporaryBuffer[Solver<Config>::DerivativesSize];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
   kernel::derivative<Config> krnl = krnlPrototype_;

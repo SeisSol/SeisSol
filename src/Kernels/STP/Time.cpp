@@ -97,7 +97,8 @@ void Spacetime::executeSTP(double timeStepWidth,
     auto sourceMatrix =
         init::ET<Config>::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
     real zinvData[kernels::familySize<tensor::Zinv<Config>>()];
-    model::ZInvInitializer<seissol::model::MaterialT,
+    model::ZInvInitializer<Config,
+                           seissol::model::MaterialT,
                            0,
                            seissol::model::MaterialT::NumQuantities,
                            decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
@@ -225,7 +226,8 @@ void Spacetime::computeBatchedAder(
 
         const auto sourceMatrix =
             init::ET<Config>::view::create(localIntegration.specific.sourceMatrix);
-        model::ZInvInitializer<seissol::model::MaterialT,
+        model::ZInvInitializer<Config,
+                               seissol::model::MaterialT,
                                0,
                                seissol::model::MaterialT::NumQuantities,
                                decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);

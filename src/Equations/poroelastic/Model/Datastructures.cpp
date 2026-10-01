@@ -7,6 +7,7 @@
 
 #include "Datastructures.h"
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "Model/Common.h"
@@ -28,7 +29,7 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
 
   // TODO: remove this if constexpr guard (needs multi-equation build support)
   if constexpr (seissol::model::MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
-    seissol::model::getTransposedCoefficientMatrix(*this, 0, at);
+    seissol::model::getTransposedCoefficientMatrix<Config>(*this, 0, at);
   }
 
   seissol::eigenvalues::computeEigenvalues(atValues, eigendecomposition);

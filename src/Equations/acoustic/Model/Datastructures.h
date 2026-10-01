@@ -13,7 +13,6 @@
 
 #include "GeneratedCode/general/init.h"
 #include "GeneratedCode/general/kernel.h"
-#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -37,13 +36,13 @@ struct AcousticMaterial : public Material {
   // By definition, the normal stress and pressure are negatives of each other.
   static inline const std::array<std::string, NumQuantities> Quantities = {
       "pprime", "v1", "v2", "v3"};
-  /// The scheme this build advances cells with. The material does not pick
-  /// it; which combinations are allowed is checked when the build is
-  /// configured.
-  using Solver = kernels::SolverSelector<Config::Solver>::Type;
 
   static constexpr auto PrimaryGroups = AcousticQuantities;
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
   static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
   static constexpr auto InverseRotationGroups = PrimaryGroups;
 
   /// Where the velocity components start. Everything reaching for them --

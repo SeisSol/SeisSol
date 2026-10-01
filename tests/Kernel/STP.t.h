@@ -90,44 +90,44 @@ class SpaceTimePredictorTestFixture {
     auto at = init::star<Config>::view<0>::create(atData);
     auto bt = init::star<Config>::view<0>::create(btData);
     auto ct = init::star<Config>::view<0>::create(ctData);
-    model::getTransposedCoefficientMatrix(material, 0, at);
-    model::getTransposedCoefficientMatrix(material, 1, bt);
-    model::getTransposedCoefficientMatrix(material, 2, ct);
+    model::getTransposedCoefficientMatrix<Config>(material, 0, at);
+    model::getTransposedCoefficientMatrix<Config>(material, 1, bt);
+    model::getTransposedCoefficientMatrix<Config>(material, 2, ct);
     setStarMatrix(atData, btData, ctData, gradXi, starMatrices0);
     setStarMatrix(atData, btData, ctData, gradEta, starMatrices1);
     setStarMatrix(atData, btData, ctData, gradZeta, starMatrices2);
 
     // prepare sourceterm
     auto et = init::ET<Config>::view::create(sourceMatrix);
-    model::getTransposedSourceCoefficientTensor(material, et);
+    model::getTransposedSourceCoefficientTensor<Config>(material, et);
 
     // prepare Zinv
     auto zinv0 = init::Zinv<Config>::view<0>::create(zMatrix[0]);
-    model::calcZinv(zinv0, et, 0, model::isStiffRow<model::PoroElasticMaterial>(0), Dt);
+    model::calcZinv<Config>(zinv0, et, 0, model::isStiffRow<model::PoroElasticMaterial>(0), Dt);
     auto zinv1 = init::Zinv<Config>::view<1>::create(zMatrix[1]);
-    model::calcZinv(zinv1, et, 1, model::isStiffRow<model::PoroElasticMaterial>(1), Dt);
+    model::calcZinv<Config>(zinv1, et, 1, model::isStiffRow<model::PoroElasticMaterial>(1), Dt);
     auto zinv2 = init::Zinv<Config>::view<2>::create(zMatrix[2]);
-    model::calcZinv(zinv2, et, 2, model::isStiffRow<model::PoroElasticMaterial>(2), Dt);
+    model::calcZinv<Config>(zinv2, et, 2, model::isStiffRow<model::PoroElasticMaterial>(2), Dt);
     auto zinv3 = init::Zinv<Config>::view<3>::create(zMatrix[3]);
-    model::calcZinv(zinv3, et, 3, model::isStiffRow<model::PoroElasticMaterial>(3), Dt);
+    model::calcZinv<Config>(zinv3, et, 3, model::isStiffRow<model::PoroElasticMaterial>(3), Dt);
     auto zinv4 = init::Zinv<Config>::view<4>::create(zMatrix[4]);
-    model::calcZinv(zinv4, et, 4, model::isStiffRow<model::PoroElasticMaterial>(4), Dt);
+    model::calcZinv<Config>(zinv4, et, 4, model::isStiffRow<model::PoroElasticMaterial>(4), Dt);
     auto zinv5 = init::Zinv<Config>::view<5>::create(zMatrix[5]);
-    model::calcZinv(zinv5, et, 5, model::isStiffRow<model::PoroElasticMaterial>(5), Dt);
+    model::calcZinv<Config>(zinv5, et, 5, model::isStiffRow<model::PoroElasticMaterial>(5), Dt);
     auto zinv6 = init::Zinv<Config>::view<6>::create(zMatrix[6]);
-    model::calcZinv(zinv6, et, 6, model::isStiffRow<model::PoroElasticMaterial>(6), Dt);
+    model::calcZinv<Config>(zinv6, et, 6, model::isStiffRow<model::PoroElasticMaterial>(6), Dt);
     auto zinv7 = init::Zinv<Config>::view<7>::create(zMatrix[7]);
-    model::calcZinv(zinv7, et, 7, model::isStiffRow<model::PoroElasticMaterial>(7), Dt);
+    model::calcZinv<Config>(zinv7, et, 7, model::isStiffRow<model::PoroElasticMaterial>(7), Dt);
     auto zinv8 = init::Zinv<Config>::view<8>::create(zMatrix[8]);
-    model::calcZinv(zinv8, et, 8, model::isStiffRow<model::PoroElasticMaterial>(8), Dt);
+    model::calcZinv<Config>(zinv8, et, 8, model::isStiffRow<model::PoroElasticMaterial>(8), Dt);
     auto zinv9 = init::Zinv<Config>::view<9>::create(zMatrix[9]);
-    model::calcZinv(zinv9, et, 9, model::isStiffRow<model::PoroElasticMaterial>(9), Dt);
+    model::calcZinv<Config>(zinv9, et, 9, model::isStiffRow<model::PoroElasticMaterial>(9), Dt);
     auto zinv10 = init::Zinv<Config>::view<10>::create(zMatrix[10]);
-    model::calcZinv(zinv10, et, 10, model::isStiffRow<model::PoroElasticMaterial>(10), Dt);
+    model::calcZinv<Config>(zinv10, et, 10, model::isStiffRow<model::PoroElasticMaterial>(10), Dt);
     auto zinv11 = init::Zinv<Config>::view<11>::create(zMatrix[11]);
-    model::calcZinv(zinv11, et, 11, model::isStiffRow<model::PoroElasticMaterial>(11), Dt);
+    model::calcZinv<Config>(zinv11, et, 11, model::isStiffRow<model::PoroElasticMaterial>(11), Dt);
     auto zinv12 = init::Zinv<Config>::view<12>::create(zMatrix[12]);
-    model::calcZinv(zinv12, et, 12, model::isStiffRow<model::PoroElasticMaterial>(12), Dt);
+    model::calcZinv<Config>(zinv12, et, 12, model::isStiffRow<model::PoroElasticMaterial>(12), Dt);
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor<Config>& krnlPrototype) {

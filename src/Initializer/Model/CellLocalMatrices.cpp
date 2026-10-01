@@ -145,9 +145,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           gradZeta[i] = grad(2, i);
         }
 
-        seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
-        seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
-        seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
+        seissol::model::getTransposedCoefficientMatrix<Config>(materialLocal, 0, matAT);
+        seissol::model::getTransposedCoefficientMatrix<Config>(materialLocal, 1, matBT);
+        seissol::model::getTransposedCoefficientMatrix<Config>(materialLocal, 2, matCT);
 
         setStarMatrix(
             matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
@@ -180,7 +180,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               cellInformation[cell].faceTypes[side],
               qGodLocal,
               qGodNeighbor);
-          seissol::model::getTransposedCoefficientMatrix(
+          seissol::model::getTransposedCoefficientMatrix<Config>(
               seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
               0,
               matATtilde);
@@ -313,11 +313,11 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           }
         }
 
-        seissol::model::initializeSpecificLocalData(
+        seissol::model::initializeSpecificLocalData<Config>(
             materialLocal, timeStepWidth, &localIntegration[cell].specific);
 
-        seissol::model::initializeSpecificNeighborData(materialLocal,
-                                                       &neighboringIntegration[cell].specific);
+        seissol::model::initializeSpecificNeighborData<Config>(
+            materialLocal, &neighboringIntegration[cell].specific);
       }
     }
   }

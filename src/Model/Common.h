@@ -16,6 +16,7 @@
 #include "GeneratedCode/quantities.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 #include "Numerical/Eigenvalues.h"
@@ -70,9 +71,10 @@ constexpr bool kindsMatch(const std::array<QuantityGroup, N>& groups,
 // the generator cannot read C++, and the material headers are not generated.
 // This is what keeps the two from drifting apart: a disagreement becomes a
 // compile error rather than a rotation matrix with blocks in the wrong places.
-static_assert(detail::kindsMatch(MaterialT::RotationGroups, generated::RotationGroupKinds),
+static_assert(detail::kindsMatch(MaterialT::RotationGroups<kernels::SolverOf<Config>>,
+                                 generated::RotationGroupKinds),
               "the material's quantity groups disagree with the generated layout");
-static_assert(detail::kindsMatch(MaterialT::InverseRotationGroups,
+static_assert(detail::kindsMatch(MaterialT::InverseRotationGroups<kernels::SolverOf<Config>>,
                                  generated::InverseRotationGroupKinds),
               "the material's inverse quantity groups disagree with the generated layout");
 
@@ -184,18 +186,20 @@ void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim
   }
 }
 
-template <typename Tmaterial, typename Tmatrix>
+/// The operators of a material as the solver of the configuration `Cfg` lays them out.
+template <typename Cfg, typename Tmaterial, typename Tmatrix>
 void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tmatrix& matM) {
-  SolverSetup<typename Tmaterial::Solver, Tmaterial>::getTransposedCoefficientMatrix(
+  SolverSetup<kernels::SolverOf<Cfg>, Tmaterial>::getTransposedCoefficientMatrix(
       material, dim, matM);
 }
 
-template <typename Tmaterial, typename T>
+template <typename Cfg, typename Tmaterial, typename T>
 void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
-  SolverSetup<typename Tmaterial::Solver, Tmaterial>::getTransposedSourceCoefficientTensor(material,
-                                                                                           mE);
+  SolverSetup<kernels::SolverOf<Cfg>, Tmaterial>::getTransposedSourceCoefficientTensor(material,
+                                                                                       mE);
 }
 
+/// The eigenpairs of the normal Jacobian of a material, as the solver of the build lays it out.
 template <typename Tmaterial>
 seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
     getEigenDecomposition(const Tmaterial& material, double zeroThreshold = 1e-7);
@@ -217,25 +221,26 @@ void getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
                                           T& qGodNeighbor,
                                           Tmatrix& matR);
 
-template <typename T>
+template <typename Cfg, typename T>
 void getPlaneWaveOperator(const T& material,
                           const double n[3],
                           std::complex<double> mdata[T::NumQuantities * T::NumQuantities]) {
-  SolverSetup<typename T::Solver, T>::getPlaneWaveOperator(material, n, mdata);
+  SolverSetup<kernels::SolverOf<Cfg>, T>::getPlaneWaveOperator(material, n, mdata);
 }
 
-template <typename T>
+/// Prepares the data the solver of the configuration `Cfg` keeps per cell.
+template <typename Cfg, typename T>
 void initializeSpecificLocalData(const T& material,
                                  double timeStepWidth,
-                                 typename T::Solver::LocalData* localData) {
-  SolverSetup<typename T::Solver, T>::initializeSpecificLocalData(
+                                 typename kernels::SolverOf<Cfg>::LocalData* localData) {
+  SolverSetup<kernels::SolverOf<Cfg>, T>::initializeSpecificLocalData(
       material, timeStepWidth, localData);
 }
 
-template <typename T>
+template <typename Cfg, typename T>
 void initializeSpecificNeighborData(const T& material,
-                                    typename T::Solver::NeighborData* neighborData) {
-  SolverSetup<typename T::Solver, T>::initializeSpecificNeighborData(material, neighborData);
+                                    typename kernels::SolverOf<Cfg>::NeighborData* neighborData) {
+  SolverSetup<kernels::SolverOf<Cfg>, T>::initializeSpecificNeighborData(material, neighborData);
 }
 
 /*
@@ -313,9 +318,11 @@ void getFaceRotationMatrix(const CoordinateT& normal,
                            const CoordinateT& tangent2,
                            init::T<Config>::view::type& matT,
                            init::Tinv<Config>::view::type& matTinv) {
-  detail::writeRotationBlocks<false>(MaterialT::RotationGroups, normal, tangent1, tangent2, matT);
+  using SolverT = kernels::SolverOf<Config>;
+  detail::writeRotationBlocks<false>(
+      MaterialT::template RotationGroups<SolverT>, normal, tangent1, tangent2, matT);
   detail::writeRotationBlocks<true>(
-      MaterialT::InverseRotationGroups, normal, tangent1, tangent2, matTinv);
+      MaterialT::template InverseRotationGroups<SolverT>, normal, tangent1, tangent2, matTinv);
 }
 
 template <typename MaterialT = seissol::model::MaterialT>
@@ -369,6 +376,13 @@ struct MaterialSetupDefaults {
   }
 };
 
+/// The plane wave operator from the operators of the material as `SolverT` lays them out.
+template <typename SolverT, typename MaterialT>
+void getElasticPlaneWaveOperator(
+    const MaterialT& material,
+    const double n[3],
+    std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]);
+
 /**
  * What a solver setup looks like when the solver needs nothing beyond the
  * material's own operators: the plane wave operator follows from the
@@ -381,16 +395,15 @@ struct SolverSetupDefaults {
       const MaterialT& material,
       const double n[3],
       std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
+    getElasticPlaneWaveOperator<SolverT>(material, n, mdata);
   }
 
   static void initializeSpecificLocalData(const MaterialT& /*material*/,
                                           double /*timeStepWidth*/,
-                                          typename MaterialT::Solver::LocalData* /*localData*/) {}
+                                          typename SolverT::LocalData* /*localData*/) {}
 
-  static void
-      initializeSpecificNeighborData(const MaterialT& /*material*/,
-                                     typename MaterialT::Solver::NeighborData* /*neighborData*/) {}
+  static void initializeSpecificNeighborData(const MaterialT& /*material*/,
+                                             typename SolverT::NeighborData* /*neighborData*/) {}
 
   /// Materials without relaxation describe their source term directly.
   template <typename T>
@@ -405,7 +418,7 @@ struct SolverSetupDefaults {
   }
 };
 
-template <typename MaterialT>
+template <typename SolverT, typename MaterialT>
 void getElasticPlaneWaveOperator(
     const MaterialT& material,
     const double n[3],
@@ -420,7 +433,7 @@ void getElasticPlaneWaveOperator(
 
   for (unsigned d = 0; d < 3; ++d) {
     coeff.setZero();
-    getTransposedCoefficientMatrix(material, d, coeff);
+    SolverSetup<SolverT, MaterialT>::getTransposedCoefficientMatrix(material, d, coeff);
 
     for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
       for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
@@ -429,7 +442,7 @@ void getElasticPlaneWaveOperator(
     }
   }
   coeff.setZero();
-  getTransposedSourceCoefficientTensor(material, coeff);
+  SolverSetup<SolverT, MaterialT>::getTransposedSourceCoefficientTensor(material, coeff);
 
   for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
     for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
@@ -465,7 +478,7 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> dataAT;
   auto viewAT = yateto::DenseTensorView<2, std::complex<double>>(
       dataAT.data(), {Tmaterial::NumQuantities, Tmaterial::NumQuantities});
-  getTransposedCoefficientMatrix(material, 0, viewAT);
+  seissol::model::getTransposedCoefficientMatrix<seissol::Config>(material, 0, viewAT);
   std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> dataA;
   // transpose dataAT to get dataA
   for (std::size_t i = 0; i < Tmaterial::NumQuantities; i++) {

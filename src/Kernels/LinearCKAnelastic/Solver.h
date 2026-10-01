@@ -7,7 +7,6 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SOLVER_H_
 
-#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 
@@ -26,9 +25,14 @@ class Time;
 class Local;
 class Neighbor;
 
+template <typename Cfg>
 struct AnelasticLocalData;
+template <typename Cfg>
 struct AnelasticNeighborData;
 
+/// The solver as a configuration `Cfg` runs it. Its kernels are those of the configuration of the
+/// build.
+template <typename Cfg>
 struct Solver {
   using SpacetimeKernelT = Spacetime;
   using TimeKernelT = Time;
@@ -42,11 +46,15 @@ struct Solver {
     return faceTypeSupported();
   }
 
-  static constexpr std::size_t IntegralsSize = tensor::I<Config>::size();
-  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ<Config>>();
+  /// The memory variables keep the mechanism in a tensor dimension of their own, apart from the
+  /// quantity axis.
+  static constexpr bool FusedMechanisms = false;
 
-  using LocalData = AnelasticLocalData;
-  using NeighborData = AnelasticNeighborData;
+  static constexpr std::size_t IntegralsSize = tensor::I<Cfg>::size();
+  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ<Cfg>>();
+
+  using LocalData = AnelasticLocalData<Cfg>;
+  using NeighborData = AnelasticNeighborData<Cfg>;
 };
 
 } // namespace seissol::kernels::solver::linearckanelastic

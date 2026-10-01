@@ -471,8 +471,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       impAndEta[ltsFace].etaS =
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
-      seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
-      seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
+      seissol::model::getTransposedCoefficientMatrix<Config>(*plusMaterial, 0, matAPlus);
+      seissol::model::getTransposedCoefficientMatrix<Config>(*minusMaterial, 0, matAMinus);
 
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Anisotropic:

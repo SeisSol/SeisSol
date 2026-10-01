@@ -8,12 +8,12 @@
 #define SEISSOL_SRC_KERNELS_SOLVER_H_
 
 #include "Config.h"
-#include "Equations/Datastructures.h"
 #include "Kernels/Data.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Kernels/Precision.h"
 #include "Kernels/STP/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Numerical/TimeBasis.h"
 
 // IWYU pragma: begin_exports
@@ -38,7 +38,7 @@ namespace seissol::kernels {
 
 // some typename shortcuts
 
-using Solver = model::MaterialT::Solver;
+using Solver = SolverOf<Config>;
 
 using Time = Solver::TimeKernelT;
 using Spacetime = Solver::SpacetimeKernelT;

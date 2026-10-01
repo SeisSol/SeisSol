@@ -7,7 +7,6 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_SOLVER_H_
 
-#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 
@@ -22,6 +21,7 @@ class MonomialBasis;
 
 namespace seissol::kernels::solver::linearck {
 
+template <typename Cfg>
 struct LinearLocalData;
 
 class Spacetime;
@@ -29,6 +29,9 @@ class Time;
 class Local;
 class Neighbor;
 
+/// The solver as a configuration `Cfg` runs it. Its kernels are those of the configuration of the
+/// build.
+template <typename Cfg>
 struct Solver {
   using SpacetimeKernelT = Spacetime;
   using TimeKernelT = Time;
@@ -42,10 +45,14 @@ struct Solver {
     return faceTypeSupported();
   }
 
-  static constexpr std::size_t IntegralsSize = tensor::I<Config>::size();
-  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ<Config>>();
+  /// The memory variables of a material with relaxation share the quantity axis with its other
+  /// quantities.
+  static constexpr bool FusedMechanisms = true;
 
-  using LocalData = LinearLocalData;
+  static constexpr std::size_t IntegralsSize = tensor::I<Cfg>::size();
+  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ<Cfg>>();
+
+  using LocalData = LinearLocalData<Cfg>;
   using NeighborData = std::monostate;
 };
 

@@ -82,7 +82,7 @@ void Spacetime::computeAder(const real* coeffs,
 
   // the gravitational free surface boundary condition reads every derivative, so
   // they have to stay around for the whole timestep
-  alignas(PagesizeStack) real derivativesScratch[Solver::DerivativesSize];
+  alignas(PagesizeStack) real derivativesScratch[Solver<Config>::DerivativesSize];
   real* derivativesBuffer = timeDerivativesOrSTP;
   if (derivativesBuffer == nullptr && updateDisplacement) {
     derivativesBuffer = derivativesScratch;

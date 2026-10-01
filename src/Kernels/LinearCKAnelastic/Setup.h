@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SETUP_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SETUP_H_
 
-#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Kernels/LinearCKAnelastic/Data.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/Common.h"
 
@@ -27,9 +27,9 @@ namespace seissol::model {
  * itself: it supplies one coupling block and one source prototype, and what
  * follows is this solver's arithmetic.
  */
-template <typename MaterialT>
-struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
-    : public SolverSetupDefaults<kernels::solver::linearckanelastic::Solver, MaterialT> {
+template <typename Cfg, typename MaterialT>
+struct SolverSetup<kernels::solver::linearckanelastic::Solver<Cfg>, MaterialT>
+    : public SolverSetupDefaults<kernels::solver::linearckanelastic::Solver<Cfg>, MaterialT> {
   /// A single anelastic block with unit weight: the relaxation frequencies
   /// are held in w, not folded into the flux. A material without relaxation
   /// (e.g. when the impedance of another material is computed) has none.
@@ -80,14 +80,14 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
       }
     }
     double Edata[MaterialT::NumQuantities * MaterialT::NumQuantities];
-    yateto::DenseTensorView<3, double> E(Edata, tensor::E<Config>::Shape);
+    yateto::DenseTensorView<3, double> E(Edata, tensor::E<Cfg>::Shape);
     E.setZero();
     getTransposedSourceCoefficientTensor(material, E);
     Coeff.setZero();
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       std::size_t offset = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
-      for (std::size_t i = 0; i < tensor::E<Config>::Shape[0]; ++i) {
-        for (std::size_t j = 0; j < tensor::E<Config>::Shape[2]; ++j) {
+      for (std::size_t i = 0; i < tensor::E<Cfg>::Shape[0]; ++i) {
+        for (std::size_t j = 0; j < tensor::E<Cfg>::Shape[2]; ++j) {
           Coeff(offset + i, j) = E(i, mech, j);
         }
       }
@@ -110,26 +110,27 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
       }
     }
   }
-  static void initializeSpecificLocalData(const MaterialT& material,
-                                          double timeStepWidth,
-                                          typename MaterialT::Solver::LocalData* localData) {
-    auto E = init::E<Config>::view::create(localData->E);
+  static void initializeSpecificLocalData(
+      const MaterialT& material,
+      double timeStepWidth,
+      kernels::solver::linearckanelastic::AnelasticLocalData<Cfg>* localData) {
+    auto E = init::E<Cfg>::view::create(localData->E);
     E.setZero();
     getTransposedSourceCoefficientTensor(material, E);
 
-    auto w = init::w<Config>::view::create(localData->w);
-    auto W = init::W<Config>::view::create(localData->W);
+    auto w = init::w<Cfg>::view::create(localData->w);
+    auto W = init::W<Cfg>::view::create(localData->W);
     W.setZero();
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       w(mech) = material.omega[mech];
       W(mech, mech) = -material.omega[mech];
     }
   }
-  static void
-      initializeSpecificNeighborData(const MaterialT& localMaterial,
-                                     typename MaterialT::Solver::NeighborData* neighborData) {
+  static void initializeSpecificNeighborData(
+      const MaterialT& localMaterial,
+      kernels::solver::linearckanelastic::AnelasticNeighborData<Cfg>* neighborData) {
     // We only need the local omegas
-    auto w = init::w<Config>::view::create(neighborData->w);
+    auto w = init::w<Cfg>::view::create(neighborData->w);
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       w(mech) = localMaterial.omega[mech];
     }

@@ -22,6 +22,7 @@
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "Kernels/Data.h"
+#include "Kernels/SolverSelector.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
@@ -58,7 +59,7 @@ struct alignas(Alignment) LocalIntegrationData {
   real nApNm1[4][seissol::tensor::AplusT<Config>::size()]{};
 
   // solver-specific data
-  seissol::model::MaterialT::Solver::LocalData specific;
+  seissol::kernels::SolverOf<Config>::LocalData specific;
 };
 
 // data for the neighboring boundary integration
@@ -67,7 +68,7 @@ struct alignas(Alignment) NeighboringIntegrationData {
   real nAmNm1[4][seissol::tensor::AminusT<Config>::size()]{};
 
   // solver-specific data
-  seissol::model::MaterialT::Solver::NeighborData specific;
+  seissol::kernels::SolverOf<Config>::NeighborData specific;
 };
 
 // material constants per cell

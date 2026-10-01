@@ -9,7 +9,6 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -41,14 +40,14 @@ struct PoroElasticMaterial : public ElasticMaterial {
                                                                         "v1_f",
                                                                         "v2_f",
                                                                         "v3_f"};
-  /// The scheme this build advances cells with. The material does not pick
-  /// it; which combinations are allowed is checked when the build is
-  /// configured.
-  using Solver = kernels::SolverSelector<Config::Solver>::Type;
 
   static constexpr auto PrimaryGroups =
       detail::concat(ElasticQuantities, PoroelasticExtraQuantities);
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
   static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
   static constexpr auto InverseRotationGroups = PrimaryGroups;
 
   /// The fluid velocities relax against the solid ones through Biot drag.
