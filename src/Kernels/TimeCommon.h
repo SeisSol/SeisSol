@@ -39,7 +39,7 @@ struct TimeCommon {
    * @param subtimeCoeffs LTS time integration basis coefficients (for neighbor.cluster >
    local.cluster)
    * @param timeDofs pointers to time integrated buffers or time derivatives of the four neighboring
-   *cells.
+   *cells, in the reals and the layout the cell computes in.
    * @param integrationBuffer memory where the time integration goes if derived from derivatives.
    *Ensure thread safety!
    * @param timeIntegrated pointers to the time integrated DOFs of the four neighboring cells
@@ -50,7 +50,7 @@ struct TimeCommon {
                                const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                const real* timeCoeffs,
                                const real* subtimeCoeffs,
-                               const std::array<real*, Cell::NumFaces>& timeDofs,
+                               const std::array<void*, Cell::NumFaces>& timeDofs,
                                const std::array<real*, Cell::NumFaces>& integrationBuffer,
                                std::array<real*, Cell::NumFaces>& timeIntegrated);
 

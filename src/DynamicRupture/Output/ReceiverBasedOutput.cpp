@@ -76,7 +76,7 @@ void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
   const auto position = wpBackmap_->get(meshId);
   auto& layer = wpStorage_->layer(position.color);
 
-  derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
+  derivatives = static_cast<const real*>(layer.var<LTS::FaceNeighbors>()[position.cell][side]);
   assert(derivatives != nullptr);
 }
 

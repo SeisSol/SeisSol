@@ -7,6 +7,7 @@
 #include "Buckets.h"
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
@@ -316,11 +317,15 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
           if (faceNeighbor == StoragePosition::NullPosition) {
             logError() << "A face that needs the Neighbor kernel has no face neighbor.";
           } else {
-            faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(Config(), faceNeighbor);
-            if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] =
-                  storage.lookup<typename Buf::TypeDevice>(Config(), faceNeighbor);
-            }
+            // the neighbor holds its buffers in the reals of its own configuration
+            const auto neighborConfig = storage.layer(faceNeighbor.color).getIdentifier().config;
+            dispatchConfig(neighborConfig, [&](auto config) {
+              faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(config, faceNeighbor);
+              if constexpr (isDeviceOn()) {
+                faceNeighborsDevice[cell][face] =
+                    storage.lookup<typename Buf::TypeDevice>(config, faceNeighbor);
+              }
+            });
           }
         });
 
