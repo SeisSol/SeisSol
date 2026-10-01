@@ -23,6 +23,9 @@ namespace seissol {
 /**
  * @brief The index of a configuration among the ones built into the executable.
  *
+ * It is also the variant of the configuration's kernels in runtime.h: the configuration of some
+ * data, given by id, selects the kernels that compute on it.
+ *
  * It depends on the build; outside of a run (e.g. in a file), a configuration is named by
  * `configName` instead.
  */

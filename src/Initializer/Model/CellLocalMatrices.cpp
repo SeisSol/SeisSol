@@ -9,10 +9,13 @@
 
 #include "CellLocalMatrices.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -25,7 +28,6 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
@@ -70,7 +72,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  const parameters::ModelParameters& modelParameters) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
 
   static_assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0],
                 "Shape mismatch for flux matrices");

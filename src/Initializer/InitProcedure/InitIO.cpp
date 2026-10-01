@@ -8,10 +8,13 @@
 #include "InitIO.h"
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
@@ -23,7 +26,6 @@
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
@@ -187,7 +189,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 }
 
 void setupOutput(seissol::SeisSol& seissolInstance) {
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
   const auto& seissolParams = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
   auto& ltsStorage = memoryManager.ltsStorage();

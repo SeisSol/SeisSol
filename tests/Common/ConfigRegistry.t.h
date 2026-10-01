@@ -7,12 +7,15 @@
 
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <cstddef>
 #include <string>
 
 namespace seissol::unit_test {
@@ -58,6 +61,26 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
     CHECK(layout.drNumPaddedPoints >= layout.drNumPoints * Config::NumSimulations);
     CHECK(layout.drNumQuantities == dr::misc::NumQuantities);
     CHECK(layout.drNumTimePoints == dr::misc::TimeSteps);
+  }
+
+  SUBCASE("Every layout agrees with the kernels of its id in runtime.h") {
+    for (std::size_t other = 0; other < builtConfigCount(); ++other) {
+      const auto config = static_cast<ConfigId>(other);
+      CAPTURE(config);
+      const auto& layout = configLayout(config);
+
+      const auto* dofs = runtime::init::Q::descriptor(config);
+      REQUIRE(dofs != nullptr);
+      CHECK(yateto::sizeOf(dofs->datatype) == sizeOfRealType(layout.config.precision));
+      CHECK(dofs->size == layout.dofsSize);
+      CHECK(dofs->shape[layout.basisFunctionDimension] == layout.numBasisFunctions);
+
+      const auto* face = runtime::init::QInterpolated::descriptor(config);
+      REQUIRE(face != nullptr);
+      CHECK(face->shape[layout.basisFunctionDimension] == layout.drNumPoints);
+      CHECK(face->shape[layout.basisFunctionDimension + 1] == layout.drNumQuantities);
+      CHECK(face->size == layout.drNumPaddedPoints * layout.drNumQuantities);
+    }
   }
 
   SUBCASE("Every built configuration is described") {

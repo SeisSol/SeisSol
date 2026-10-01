@@ -7,8 +7,10 @@
 
 #include "DynamicRupture/Output/OutputManager.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
@@ -17,6 +19,7 @@
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Instance/Geometry/Typedefs.h"
@@ -29,7 +32,6 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -497,7 +499,7 @@ void OutputManager::initPickpointOutput() {
                                      static_cast<std::uint32_t>(receiver.gpIndex),
                                      static_cast<real>(0.0));
 
-                constexpr auto Variant = kernels::RuntimeVariant;
+                constexpr auto Variant = configIdOf<Config>();
                 const auto& face = outputData->topology.faces[faceId];
                 runtime::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
                 alignAlongDipAndStrikeKernel.stressRotationMatrix =

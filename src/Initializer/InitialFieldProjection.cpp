@@ -9,9 +9,12 @@
 #include "InitialFieldProjection.h"
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
@@ -19,7 +22,6 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
@@ -110,7 +112,7 @@ namespace seissol::initializer {
 void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
                          const seissol::geometry::MeshReader& meshReader,
                          LTS::Storage& storage) {
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
   const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
 
@@ -226,7 +228,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const seissol::geometry::MeshReader& meshReader,
                              LTS::Storage& storage,
                              bool needsTime) {
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
   const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;

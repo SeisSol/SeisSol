@@ -8,7 +8,9 @@
 #include "EnergyOutput.h"
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
@@ -16,6 +18,7 @@
 #include "Equations/anisotropic/Model/Impedance.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
@@ -26,7 +29,6 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -101,7 +103,7 @@ std::array<real, multisim::NumSimulations>
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
   runtime::dynamicRupture::kernel::computeTractionInterpolated trKrnl;
   trKrnl.tractionPlusMatrix =
       runtime::init::tractionPlusMatrix::view(Variant, godunovData.tractionPlusMatrix);
@@ -515,7 +517,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 void EnergyOutput::computeVolumeEnergies() {
   const std::vector<Element>& elements = meshReader_->getElements();
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
-  constexpr auto Variant = kernels::RuntimeVariant;
+  constexpr auto Variant = configIdOf<Config>();
 
   const auto g = seissolInstance_.gravitationSetup().acceleration;
 

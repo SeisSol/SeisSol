@@ -9,18 +9,20 @@
 #include "Receiver.h"
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -169,7 +171,7 @@ double ReceiverCluster::calcReceivers(double time,
 
       kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
 
-      constexpr auto Variant = kernels::RuntimeVariant;
+      constexpr auto Variant = configIdOf<Config>();
       runtime::kernel::evaluateDOFSAtPoint krnl;
       krnl.QAtPoint = runtime::init::QAtPoint::view(Variant, timeEvaluatedAtPoint);
       krnl.Q = runtime::init::Q::view(Variant, timeEvaluated);

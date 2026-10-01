@@ -8,7 +8,9 @@
 #include "ReceiverBasedOutput.h"
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
@@ -17,6 +19,7 @@
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
@@ -24,7 +27,6 @@
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Runtime.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -130,7 +132,7 @@ void ReceiverOutput::calcFaultOutput(
                         integrateCoeffs,
                         stateTime,
                         frictionTime](std::size_t faceId) {
-    constexpr auto Variant = kernels::RuntimeVariant;
+    constexpr auto Variant = configIdOf<Config>();
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
 
