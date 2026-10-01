@@ -8,7 +8,9 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SETUP_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SETUP_H_
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Model/Common.h"
 
@@ -78,14 +80,14 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
       }
     }
     double Edata[MaterialT::NumQuantities * MaterialT::NumQuantities];
-    yateto::DenseTensorView<3, double> E(Edata, tensor::E::Shape);
+    yateto::DenseTensorView<3, double> E(Edata, tensor::E<Config>::Shape);
     E.setZero();
     getTransposedSourceCoefficientTensor(material, E);
     Coeff.setZero();
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       std::size_t offset = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
-      for (std::size_t i = 0; i < tensor::E::Shape[0]; ++i) {
-        for (std::size_t j = 0; j < tensor::E::Shape[2]; ++j) {
+      for (std::size_t i = 0; i < tensor::E<Config>::Shape[0]; ++i) {
+        for (std::size_t j = 0; j < tensor::E<Config>::Shape[2]; ++j) {
           Coeff(offset + i, j) = E(i, mech, j);
         }
       }
@@ -111,12 +113,12 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
                                           typename MaterialT::Solver::LocalData* localData) {
-    auto E = init::E::view::create(localData->E);
+    auto E = init::E<Config>::view::create(localData->E);
     E.setZero();
     getTransposedSourceCoefficientTensor(material, E);
 
-    auto w = init::w::view::create(localData->w);
-    auto W = init::W::view::create(localData->W);
+    auto w = init::w<Config>::view::create(localData->w);
+    auto W = init::W<Config>::view::create(localData->W);
     W.setZero();
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       w(mech) = material.omega[mech];
@@ -127,7 +129,7 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
       initializeSpecificNeighborData(const MaterialT& localMaterial,
                                      typename MaterialT::Solver::NeighborData* neighborData) {
     // We only need the local omegas
-    auto w = init::w::view::create(neighborData->w);
+    auto w = init::w<Config>::view::create(neighborData->w);
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       w(mech) = localMaterial.omega[mech];
     }

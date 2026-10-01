@@ -5,9 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
 #include "Equations/acoustic/Model/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/Common.h"
 #include "TestHelper.h"
 #include "Values.h"
@@ -40,7 +43,7 @@ inline void checkRelative(double frobDiffSquared, double frobASquared, double ep
 }
 
 template <typename T>
-void testMatrix(init::QgodLocal::view::type& qgod, const T& solution, double epsilon) {
+void testMatrix(init::QgodLocal<Config>::view::type& qgod, const T& solution, double epsilon) {
   double frobDiffSquared = 0.0;
   double frobASquared = 0.0;
   for (std::size_t i = 0; i < solution[0].size(); i++) {
@@ -64,8 +67,8 @@ void testMatrix(init::QgodLocal::view::type& qgod, const T& solution, double eps
  * a mode partition that leaves the null space out of both matrices (which is what the poroelastic
  * setup used to do).
  */
-inline void testConsistency(init::QgodLocal::view::type& qgodLocal,
-                            init::QgodNeighbor::view::type& qgodNeighbor,
+inline void testConsistency(init::QgodLocal<Config>::view::type& qgodLocal,
+                            init::QgodNeighbor<Config>::view::type& qgodNeighbor,
                             double epsilon) {
   double diffSquared = 0.0;
   double frobASquared = 0.0;
@@ -93,7 +96,7 @@ inline void testConsistency(init::QgodLocal::view::type& qgodLocal,
  * order 1e6 that cancel back down to order 1e6 amplifies the input rounding by ||P||_F, so this is
  * the scaling at which the residual is precision-independent (~1e-16 in double, ~1e-8 in single).
  */
-inline void testProjector(init::QgodNeighbor::view::type& qgodNeighbor, double epsilon) {
+inline void testProjector(init::QgodNeighbor<Config>::view::type& qgodNeighbor, double epsilon) {
   const std::size_t rows = qgodNeighbor.shape(0);
   const std::size_t cols = qgodNeighbor.shape(1);
 
@@ -120,7 +123,7 @@ inline void testProjector(init::QgodNeighbor::view::type& qgodNeighbor, double e
   checkRelative(frobDiffSquared, frobASquared, epsilon);
 }
 
-inline void testNAN(init::QgodNeighbor::view::type& qgodNeighbor) {
+inline void testNAN(init::QgodNeighbor<Config>::view::type& qgodNeighbor) {
   for (std::size_t i = 0; i < qgodNeighbor.shape(0); i++) {
     for (std::size_t j = 0; j < qgodNeighbor.shape(1); j++) {
       CHECK(std::isnan(qgodNeighbor(i, j)));
@@ -139,10 +142,11 @@ TEST_CASE("Godunov state is correct" * doctest::test_suite("model")) {
   // checked at machine precision for every equation set.
   constexpr double StructuralEpsilon = 1e2 * std::numeric_limits<real>::epsilon();
 
-  real localData[tensor::QgodLocal::size()]{};
-  real neighborData[tensor::QgodNeighbor::size()]{};
-  init::QgodLocal::view::type qgodLocal = init::QgodLocal::view::create(localData);
-  init::QgodNeighbor::view::type qgodNeighbor = init::QgodNeighbor::view::create(neighborData);
+  real localData[tensor::QgodLocal<Config>::size()]{};
+  real neighborData[tensor::QgodNeighbor<Config>::size()]{};
+  init::QgodLocal<Config>::view::type qgodLocal = init::QgodLocal<Config>::view::create(localData);
+  init::QgodNeighbor<Config>::view::type qgodNeighbor =
+      init::QgodNeighbor<Config>::view::create(neighborData);
   qgodLocal.setZero();
   qgodNeighbor.setZero();
 

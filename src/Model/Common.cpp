@@ -9,7 +9,6 @@
 
 #include "Model/Common.h"
 
-#include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 
 #include <array>

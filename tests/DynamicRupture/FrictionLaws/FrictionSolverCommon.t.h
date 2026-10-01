@@ -5,8 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "TestHelper.h"
 
 #include <cstdint>
@@ -24,11 +27,11 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     ImposedState<Executor::Host> imposedState{};
     ImpedancesAndEta impAndEta;
     alignas(Alignment)
-        real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()] = {{}};
+        real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated<Config>::size()] = {{}};
     alignas(Alignment)
-        real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()] = {{}};
-    alignas(Alignment) real imposedStatePlus[tensor::QInterpolated::size()] = {};
-    alignas(Alignment) real imposedStateMinus[tensor::QInterpolated::size()] = {};
+        real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated<Config>::size()] = {{}};
+    alignas(Alignment) real imposedStatePlus[tensor::QInterpolated<Config>::size()] = {};
+    alignas(Alignment) real imposedStateMinus[tensor::QInterpolated<Config>::size()] = {};
     real timeWeights[misc::TimeSteps]{};
     std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
     constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
@@ -54,15 +57,15 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
 
     ImpedanceMatrices impMats;
-    auto etaView = init::eta::view::create(impMats.eta);
+    auto etaView = init::eta<Config>::view::create(impMats.eta);
     etaView(0, 0) = impAndEta.etaP;
     etaView(1, 1) = impAndEta.etaS;
     etaView(2, 2) = impAndEta.etaS;
-    auto impedanceView = init::Zplus::view::create(impMats.impedance);
+    auto impedanceView = init::Zplus<Config>::view::create(impMats.impedance);
     impedanceView(0, 0) = impAndEta.invZp;
     impedanceView(1, 1) = impAndEta.invZs;
     impedanceView(2, 2) = impAndEta.invZs;
-    auto impedanceNeigView = init::Zminus::view::create(impMats.impedanceNeig);
+    auto impedanceNeigView = init::Zminus<Config>::view::create(impMats.impedanceNeig);
     impedanceNeigView(0, 0) = impAndEta.invZpNeig;
     impedanceNeigView(1, 1) = impAndEta.invZsNeig;
     impedanceNeigView(2, 2) = impAndEta.invZsNeig;
@@ -159,7 +162,7 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
 
     SUBCASE("Postcompute Imposed State") {
       // finalizeImposedState has to overwrite the output, not accumulate into it
-      for (size_t i = 0; i < tensor::QInterpolated::size(); i++) {
+      for (size_t i = 0; i < tensor::QInterpolated<Config>::size(); i++) {
         imposedStatePlus[i] = static_cast<real>(-1.0);
         imposedStateMinus[i] = static_cast<real>(-1.0);
       }
@@ -237,8 +240,8 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
       // padded point through startIndex instead. Instantiating them for RangeType::GPU on the host
       // is the only coverage that path gets in a CPU build, and it pins down the host/device index
       // handling that the single-slice rework touches.
-      alignas(Alignment) real deviceImposedStatePlus[tensor::QInterpolated::size()] = {};
-      alignas(Alignment) real deviceImposedStateMinus[tensor::QInterpolated::size()] = {};
+      alignas(Alignment) real deviceImposedStatePlus[tensor::QInterpolated<Config>::size()] = {};
+      alignas(Alignment) real deviceImposedStateMinus[tensor::QInterpolated<Config>::size()] = {};
       auto* dSPlus = reinterpret_cast<ImposedStateShapeT>(deviceImposedStatePlus);
       auto* dSMinus = reinterpret_cast<ImposedStateShapeT>(deviceImposedStateMinus);
 

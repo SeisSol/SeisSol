@@ -15,6 +15,7 @@
 #include <doctest.h>
 
 #include "Alignment.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h"
 #include "Equations/ImpedanceBase.h"
@@ -173,11 +174,11 @@ TEST_CASE("Poroelastic traction matrix pattern" * doctest::test_suite("dynamicru
     constexpr std::size_t Rows = StoredRows.size();
     constexpr std::size_t Columns = 3;
 
-    REQUIRE(tensor::tractionPlusMatrix::size() == Rows * Columns);
-    REQUIRE(tensor::tractionMinusMatrix::size() == Rows * Columns);
+    REQUIRE(tensor::tractionPlusMatrix<Config>::size() == Rows * Columns);
+    REQUIRE(tensor::tractionMinusMatrix<Config>::size() == Rows * Columns);
 
-    alignas(Alignment) real data[tensor::tractionPlusMatrix::size()]{};
-    auto view = init::tractionPlusMatrix::view::create(data);
+    alignas(Alignment) real data[tensor::tractionPlusMatrix<Config>::size()]{};
+    auto view = init::tractionPlusMatrix<Config>::view::create(data);
     view.setZero();
     for (std::size_t col = 0; col < Columns; ++col) {
       for (std::size_t row = 0; row < Rows; ++row) {

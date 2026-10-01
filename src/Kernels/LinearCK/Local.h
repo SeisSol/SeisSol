@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_LOCAL_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Local.h"
 #include "Monitoring/Metric.h"
@@ -52,24 +53,24 @@ class Local : public LocalKernel {
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
-  kernel::volume volumeKernelPrototype_;
-  kernel::localFlux localFluxKernelPrototype_;
-  kernel::localFluxNodal nodalLfKrnlPrototype_;
+  kernel::volume<Config> volumeKernelPrototype_;
+  kernel::localFlux<Config> localFluxKernelPrototype_;
+  kernel::localFluxNodal<Config> nodalLfKrnlPrototype_;
 
   kernels::AnalyticalBoundary analyticalBoundary_;
 
-  kernel::fsgFlux fsgFlux_;
-  kernel::dirichletFlux dirichletFlux_;
+  kernel::fsgFlux<Config> fsgFlux_;
+  kernel::dirichletFlux<Config> dirichletFlux_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volume deviceVolumeKernelPrototype_;
-  kernel::gpu_localFlux deviceLocalFluxKernelPrototype_;
-  kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype_;
-  kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
+  kernel::gpu_volume<Config> deviceVolumeKernelPrototype_;
+  kernel::gpu_localFlux<Config> deviceLocalFluxKernelPrototype_;
+  kernel::gpu_localFluxAll<Config> deviceLocalFluxAllKernelPrototype_;
+  kernel::gpu_localFluxNodal<Config> deviceNodalLfKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 
-  kernel::gpu_fsgFlux deviceFsgFlux_;
-  kernel::gpu_dirichletFlux deviceDirichletFlux_;
+  kernel::gpu_fsgFlux<Config> deviceFsgFlux_;
+  kernel::gpu_dirichletFlux<Config> deviceDirichletFlux_;
 #endif
 };
 

@@ -51,15 +51,15 @@ void setStarMatrix(const real* matAT,
                    const real* matCT,
                    const std::array<double, Cell::Dim>& grad,
                    real* starMatrix) {
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star<Config>::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
   }
 
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star<Config>::size(1); ++idx) {
     starMatrix[idx] += grad[1] * matBT[idx];
   }
 
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star<Config>::size(2); ++idx) {
     starMatrix[idx] += grad[2] * matCT[idx];
   }
 }
@@ -74,9 +74,11 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   const std::vector<Vertex>& vertices = meshReader.getVertices();
   constexpr auto Variant = configIdOf<Config>();
 
-  static_assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0],
+  static_assert(seissol::tensor::AplusT<Config>::Shape[0] ==
+                    seissol::tensor::AminusT<Config>::Shape[0],
                 "Shape mismatch for flux matrices");
-  static_assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1],
+  static_assert(seissol::tensor::AplusT<Config>::Shape[1] ==
+                    seissol::tensor::AminusT<Config>::Shape[1],
                 "Shape mismatch for flux matrices");
 
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::Material>().mask);
@@ -94,28 +96,28 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
 #pragma omp parallel
     {
-      real matATData[tensor::star::size(0)]{};
-      real matATtildeData[tensor::star::size(0)]{};
-      real matBTData[tensor::star::size(1)]{};
-      real matCTData[tensor::star::size(2)]{};
-      auto matAT = init::star::view<0>::create(matATData);
+      real matATData[tensor::star<Config>::size(0)]{};
+      real matATtildeData[tensor::star<Config>::size(0)]{};
+      real matBTData[tensor::star<Config>::size(1)]{};
+      real matCTData[tensor::star<Config>::size(2)]{};
+      auto matAT = init::star<Config>::view<0>::create(matATData);
       // matAT with elastic parameters in local coordinate system, used for flux kernel
-      auto matATtilde = init::star::view<0>::create(matATtildeData);
-      auto matBT = init::star::view<0>::create(matBTData);
-      auto matCT = init::star::view<0>::create(matCTData);
+      auto matATtilde = init::star<Config>::view<0>::create(matATtildeData);
+      auto matBT = init::star<Config>::view<0>::create(matBTData);
+      auto matCT = init::star<Config>::view<0>::create(matCTData);
 
-      real matTData[seissol::tensor::T::size()]{};
-      real matTinvData[seissol::tensor::Tinv::size()]{};
-      auto matT = init::T::view::create(matTData);
-      auto matTinv = init::Tinv::view::create(matTinvData);
+      real matTData[seissol::tensor::T<Config>::size()]{};
+      real matTinvData[seissol::tensor::Tinv<Config>::size()]{};
+      auto matT = init::T<Config>::view::create(matTData);
+      auto matTinv = init::Tinv<Config>::view::create(matTinvData);
 
-      real qGodLocalData[tensor::QgodLocal::size()]{};
-      real qGodNeighborData[tensor::QgodNeighbor::size()]{};
-      auto qGodLocal = init::QgodLocal::view::create(qGodLocalData);
-      auto qGodNeighbor = init::QgodNeighbor::view::create(qGodNeighborData);
+      real qGodLocalData[tensor::QgodLocal<Config>::size()]{};
+      real qGodNeighborData[tensor::QgodNeighbor<Config>::size()]{};
+      auto qGodLocal = init::QgodLocal<Config>::view::create(qGodLocalData);
+      auto qGodNeighbor = init::QgodNeighbor<Config>::view::create(qGodNeighborData);
 
-      real rusanovPlusNull[tensor::QcorrLocal::size()]{};
-      real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
+      real rusanovPlusNull[tensor::QcorrLocal<Config>::size()]{};
+      real rusanovMinusNull[tensor::QcorrNeighbor<Config>::size()]{};
 
 #pragma omp for schedule(static)
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -215,13 +217,14 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto wavespeedNeighbor = material[cell].neighbor[side]->getMaxWaveSpeed();
           const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
 
-          real centralFluxData[tensor::QgodLocal::size()]{};
-          real rusanovPlusData[tensor::QcorrLocal::size()]{};
-          real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
-          auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
-          auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
-          auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
-          for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
+          real centralFluxData[tensor::QgodLocal<Config>::size()]{};
+          real rusanovPlusData[tensor::QcorrLocal<Config>::size()]{};
+          real rusanovMinusData[tensor::QcorrNeighbor<Config>::size()]{};
+          auto centralFluxView = init::QgodLocal<Config>::view::create(centralFluxData);
+          auto rusanovPlusView = init::QcorrLocal<Config>::view::create(rusanovPlusData);
+          auto rusanovMinusView = init::QcorrNeighbor<Config>::view::create(rusanovMinusData);
+          for (size_t i = 0; i < std::min(tensor::QgodLocal<Config>::Shape[0],
+                                          tensor::QgodLocal<Config>::Shape[1]);
                i++) {
             centralFluxView(i, i) = 0.5;
             rusanovPlusView(i, i) = wavespeed * 0.5;
@@ -276,7 +279,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           neighKrnl.star(0) = runtime::init::star::view(Variant, 0, matATtildeData);
           if (boundaryProperties(cellInformation[cell].faceTypes[side]).usesFaceAlignedGhostState) {
             // the identity, in the layout it has as a tensor of its own
-            neighKrnl.Tinv = runtime::init::identityT::view(Variant, init::identityT::Values);
+            neighKrnl.Tinv =
+                runtime::init::identityT::view(Variant, init::identityT<Config>::Values);
           }
           neighKrnl.execute(Variant);
 

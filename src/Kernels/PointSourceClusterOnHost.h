@@ -9,6 +9,8 @@
 #ifndef SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONHOST_H_
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONHOST_H_
 
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
 #include "PointSourceCluster.h"
 #include "SourceTerm/Typedefs.h"
 
@@ -26,7 +28,7 @@ class PointSourceClusterOnHost : public PointSourceCluster {
   void addTimeIntegratedPointSource(std::size_t source,
                                     double from,
                                     double to,
-                                    real dofs[tensor::Q::size()]);
+                                    real dofs[tensor::Q<Config>::size()]);
 
   std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
   std::shared_ptr<sourceterm::PointSources> sources_;

@@ -11,6 +11,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -47,13 +48,15 @@ namespace seissol::kernels {
 // The dynamic rupture families are indexed by the side and the face relation. Relation 0
 // addresses the plus side, relation 1 the minus side at a zero face orientation index, which the
 // canonical vertex numbering guarantees on every interior face.
-static_assert(std::size(dynamicRupture::kernel::nodalFlux::ExecutePtrs) ==
+static_assert(std::size(dynamicRupture::kernel::nodalFlux<Config>::ExecutePtrs) ==
               Cell::NumFaces * dr::misc::NumFaceRelations);
 static_assert(
-    std::size(dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::ExecutePtrs) ==
+    std::size(
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config>::ExecutePtrs) ==
     Cell::NumFaces * dr::misc::NumFaceRelations);
-static_assert(std::size(tensor::V3mTo2n::Size) == Cell::NumFaces * dr::misc::NumFaceRelations);
-static_assert(std::size(tensor::V3mTo2nTWDivM::Size) ==
+static_assert(std::size(tensor::V3mTo2n<Config>::Size) ==
+              Cell::NumFaces * dr::misc::NumFaceRelations);
+static_assert(std::size(tensor::V3mTo2nTWDivM<Config>::Size) ==
               Cell::NumFaces * dr::misc::NumFaceRelations);
 
 #ifdef ACL_DEVICE
@@ -77,8 +80,8 @@ void DynamicRupture::spaceTimeInterpolation(
     const DRGodunovData* godunovData,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
-    real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
+    real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated<Config>::size()],
+    real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated<Config>::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
@@ -90,13 +93,13 @@ void DynamicRupture::spaceTimeInterpolation(
   assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Vectorsize == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Vectorsize == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Vectorsize == 0);
-  static_assert(tensor::Q::size() == tensor::I::size(),
+  static_assert(tensor::Q<Config>::size() == tensor::I<Config>::size(),
                 "The tensors Q and I need to match in size");
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q<Config>::size()];
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q<Config>::size()];
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = krnlPrototype_;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config> krnl = krnlPrototype_;
   for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
     timeKernel_.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
@@ -153,7 +156,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
       for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
         krnl.QDR(s) = (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
         krnl.extraOffset_QDR(s) = offsetQDR;
-        offsetQDR += tensor::QDR::size(s);
+        offsetQDR += tensor::QDR<Config>::size(s);
       }
 
       std::size_t offsetDQ = 0;
@@ -161,7 +164,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
         krnl.dQ(p) = const_cast<const real**>(
             (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
         krnl.extraOffset_dQ(p) = offsetDQ;
-        offsetDQ += tensor::dQ::size(p);
+        offsetDQ += tensor::dQ<Config>::size(p);
       }
 
       for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
@@ -186,9 +189,9 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
 PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) const {
   if (isDeviceOn()) {
-    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(faceInfo.plusSide,
-                                                                                0) +
-           PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(
+    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR<Config>>(
+               faceInfo.plusSide, 0) +
+           PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR<Config>>(
                faceInfo.minusSide, faceInfo.faceRelation);
   } else {
     auto estimate = timeKernel_.metrics();
@@ -197,19 +200,20 @@ PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) c
     estimate *= 2;
 
     estimate += PerformanceEstimate::fromKernel<
-        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.plusSide, 0);
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config>>(faceInfo.plusSide,
+                                                                                 0);
 
     estimate += PerformanceEstimate::fromKernel<
-        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.minusSide,
-                                                                         faceInfo.faceRelation);
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config>>(
+        faceInfo.minusSide, faceInfo.faceRelation);
 
     estimate *= dr::misc::TimeSteps;
 
     // legacy CPU memory estimate
-    estimate.bytes =
-        (tensor::TinvT::size() + tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
-         yateto::computeFamilySize<tensor::dQ>() * 2) *
-        sizeof(real);
+    estimate.bytes = (tensor::TinvT<Config>::size() +
+                      tensor::QInterpolated<Config>::size() * 2 * dr::misc::TimeSteps +
+                      yateto::computeFamilySize<tensor::dQ<Config>>() * 2) *
+                     sizeof(real);
 
     return estimate;
   }

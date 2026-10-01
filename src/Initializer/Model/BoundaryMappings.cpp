@@ -62,13 +62,16 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
             seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, meshReader);
 
         // Compute nodal points in global coordinates for each side.
-        real nodesReferenceData[nodal::tensor::nodes2D::Size];
-        std::copy_n(nodal::init::nodes2D::Values, nodal::tensor::nodes2D::Size, nodesReferenceData);
-        auto nodesReference = nodal::init::nodes2D::view::create(nodesReferenceData);
+        real nodesReferenceData[nodal::tensor::nodes2D<Config>::Size];
+        std::copy_n(nodal::init::nodes2D<Config>::Values,
+                    nodal::tensor::nodes2D<Config>::Size,
+                    nodesReferenceData);
+        auto nodesReference = nodal::init::nodes2D<Config>::view::create(nodesReferenceData);
         auto* nodes = boundary[cell][side].nodes;
         assert(nodes != nullptr);
         auto offset = 0;
-        for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+        for (std::size_t i = 0;
+             i < nodal::tensor::nodes2D<Config>::Shape[multisim::BasisFunctionDimension];
              ++i) {
           // Compute the global coordinates for the nodal points.
           const auto xyz = face.refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
@@ -83,8 +86,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         real* matTinvData = boundary[cell][side].dataTinv;
         assert(matTData != nullptr);
         assert(matTinvData != nullptr);
-        auto matT = init::T::view::create(matTData);
-        auto matTinv = init::Tinv::view::create(matTinvData);
+        auto matT = init::T<Config>::view::create(matTData);
+        auto matTinv = init::Tinv<Config>::view::create(matTinvData);
 
         const auto basis = face.faceAlignedBasis();
         seissol::model::getFaceRotationMatrix(
@@ -99,14 +102,15 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           if (dirichletCondition.has_value()) {
             const auto faceBarycenter = face.center();
 
-            real globalMapData[tensor::dirichletMapGlobal::size()];
-            real globalConstantData[tensor::dirichletOffsetGlobal::size()];
+            real globalMapData[tensor::dirichletMapGlobal<Config>::size()];
+            real globalConstantData[tensor::dirichletOffsetGlobal<Config>::size()];
             const auto frame =
                 dirichletCondition->query(faceBarycenter.data(), globalMapData, globalConstantData);
 
             if (frame == BoundaryFrame::FaceAligned) {
-              std::copy_n(globalMapData, tensor::dirichletMap::size(), dirichletMap);
-              std::copy_n(globalConstantData, tensor::dirichletOffset::size(), dirichletOffset);
+              std::copy_n(globalMapData, tensor::dirichletMap<Config>::size(), dirichletMap);
+              std::copy_n(
+                  globalConstantData, tensor::dirichletOffset<Config>::size(), dirichletOffset);
             } else {
               runtime::kernel::rotateBoundaryCondition rotateKrnl;
               rotateKrnl.dirichletMapGlobal =
@@ -126,10 +130,10 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         } else {
           // Boundary should not be evaluated
           std::fill_n(dirichletMap,
-                      seissol::tensor::dirichletMap::size(),
+                      seissol::tensor::dirichletMap<Config>::size(),
                       std::numeric_limits<real>::signaling_NaN());
           std::fill_n(dirichletOffset,
-                      seissol::tensor::dirichletOffset::size(),
+                      seissol::tensor::dirichletOffset<Config>::size(),
                       std::numeric_limits<real>::signaling_NaN());
         }
       }

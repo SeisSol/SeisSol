@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Alignment.h"
+#include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/pool.h"
@@ -160,7 +161,7 @@ class ShearedPlasticityCell {
 
     dofs_.fill(0);
     pstrain_.fill(0);
-    const GlobalData global = seissol::Pool::host();
+    const GlobalData global = seissol::Pool<Config>::host();
     return Plasticity::computePlasticity(
         static_cast<real>(Plasticity::computeRelaxTime(RelaxationTime, TimeStep)),
         static_cast<real>(TimeStep),
@@ -182,22 +183,25 @@ class ShearedPlasticityCell {
   // pstrain_ holds the plastic strain (in the layout of QStressNodal), followed by eta
   [[nodiscard]] double
       plasticStrain(std::size_t sim, std::size_t node, std::size_t component) const {
-    auto view = init::QStressNodal::view::create(pstrain_.data());
+    auto view = init::QStressNodal<Config>::view::create(pstrain_.data());
     return multisim::simtensor(view, static_cast<int>(sim))(node, component);
   }
 
   [[nodiscard]] double eta(std::size_t sim, std::size_t node) const {
-    auto view = init::QEtaNodal::view::create(pstrain_.data() + tensor::QStressNodal::size());
+    auto view = init::QEtaNodal<Config>::view::create(pstrain_.data() +
+                                                      tensor::QStressNodal<Config>::size());
     return multisim::simtensor(view, static_cast<int>(sim))(node);
   }
 
   private:
   // the kernel reads and writes the six stress quantities of the DOFs, via the tensor QStress
-  static constexpr std::size_t DofsSize = std::max(tensor::Q::size(), tensor::QStress::size());
+  static constexpr std::size_t DofsSize =
+      std::max(tensor::Q<Config>::size(), tensor::QStress<Config>::size());
 
   alignas(Alignment) std::array<real, DofsSize> dofs_{};
-  alignas(Alignment)
-      std::array<real, tensor::QStressNodal::size() + tensor::QEtaNodal::size()> pstrain_{};
+  alignas(Alignment) std::array<real,
+                                tensor::QStressNodal<Config>::size() +
+                                    tensor::QEtaNodal<Config>::size()> pstrain_{};
 };
 
 TEST_CASE("Plasticity computePlasticity corrects every cell with a yielding node" *

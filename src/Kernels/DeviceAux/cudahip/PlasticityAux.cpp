@@ -7,6 +7,7 @@
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/Plasticity.h"
@@ -70,7 +71,7 @@ __global__ void
   real* __restrict qStressNodal = nodalStressTensors[blockIdx.x];
   real localStresses[NumStressComponents];
 
-  constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
+  constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal<Config>>();
 #pragma unroll
   for (int i = 0; i < NumStressComponents; ++i) {
     localStresses[i] = qStressNodal[linearidx() + ElementTensorsColumn * i];
@@ -119,7 +120,7 @@ __global__ void
   if (isAdjusted) {
     const real factor = plasticity[blockIdx.x].mufactor / (tV * oneMinusIntegratingFactor);
 
-    real* __restrict eta = pstrainPtr[blockIdx.x] + tensor::QStressNodal::size();
+    real* __restrict eta = pstrainPtr[blockIdx.x] + tensor::QStressNodal<Config>::size();
     real* __restrict localPstrain = pstrainPtr[blockIdx.x];
 
     real dudtUpdate = 0;
@@ -161,8 +162,8 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                          size_t numElements,
                          void* streamPtr) {
   // use Stop/Start to include padding (and possibly avoid masked warps/wavefronts)
-  constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
-                                init::QStressNodal::Start[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = init::QStressNodal<Config>::Stop[multisim::BasisFunctionDimension] -
+                                init::QStressNodal<Config>::Start[multisim::BasisFunctionDimension];
   const auto block = getblock(NumNodes);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);

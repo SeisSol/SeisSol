@@ -18,7 +18,6 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
-#include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Instance/Geometry/Geometry.h"

@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBOR_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBOR_H_
 
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
 
@@ -32,14 +33,14 @@ class Neighbor : public NeighborKernel {
               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const override;
 
   protected:
-  kernel::neighborFluxExt nfKrnlPrototype_;
-  kernel::neighbor nKrnlPrototype_;
-  dynamicRupture::kernel::nodalFlux drKrnlPrototype_;
+  kernel::neighborFluxExt<Config> nfKrnlPrototype_;
+  kernel::neighbor<Config> nKrnlPrototype_;
+  dynamicRupture::kernel::nodalFlux<Config> drKrnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_neighborFluxExt deviceNfKrnlPrototype_;
-  kernel::gpu_neighbor deviceNKrnlPrototype_;
-  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype_;
+  kernel::gpu_neighborFluxExt<Config> deviceNfKrnlPrototype_;
+  kernel::gpu_neighbor<Config> deviceNKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux<Config> deviceDrKrnlPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

@@ -10,6 +10,8 @@
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_SURFACE_H_
 
 #include "Alignment.h"
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/Boundary.h"
 #include "Memory/Tree/LTSTree.h"
@@ -17,7 +19,7 @@
 namespace seissol {
 
 struct SurfaceLTS {
-  using FaceDisplacementType = real[tensor::faceDisplacement::size()];
+  using FaceDisplacementType = real[tensor::faceDisplacement<Config>::size()];
 
   struct Side : public seissol::initializer::Variable<std::uint8_t> {};
   struct MeshId : public seissol::initializer::Variable<std::size_t> {};

@@ -24,19 +24,11 @@
 #include <cstddef>
 #include <unordered_set>
 
-namespace seissol::tensor {
-struct Iane;
-struct Qext;
-struct dQext;
-struct dQane;
-struct Zinv;
-} // namespace seissol::tensor
-
 namespace seissol::initializer::internal {
 
 void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
   constexpr size_t TotalDerivativesSize = kernels::Solver::DerivativesSize;
-  constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement::size();
+  constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement<Config>::size();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
 
@@ -112,36 +104,38 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
                                                    NodalDisplacementsSize * sizeof(real));
 
     if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-      layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * kernels::size<tensor::Iane>() *
-                                               sizeof(real));
+      layer.setEntrySize<LTS::IDofsAneScratch>(
+          layer.size() * kernels::size<tensor::Iane<Config>>() * sizeof(real));
       layer.setEntrySize<LTS::DerivativesExtScratch>(
-          layer.size() * (kernels::size<tensor::dQext>(1) + kernels::size<tensor::dQext>(2)) *
+          layer.size() *
+          (kernels::size<tensor::dQext<Config>>(1) + kernels::size<tensor::dQext<Config>>(2)) *
           sizeof(real));
       layer.setEntrySize<LTS::DerivativesAneScratch>(
-          layer.size() * (kernels::size<tensor::dQane>(1) + kernels::size<tensor::dQane>(2)) *
+          layer.size() *
+          (kernels::size<tensor::dQane<Config>>(1) + kernels::size<tensor::dQane<Config>>(2)) *
           sizeof(real));
-      layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * kernels::size<tensor::Qext>() *
+      layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * kernels::size<tensor::Qext<Config>>() *
                                               sizeof(real));
     }
 
-    layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal::size() *
+    layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal<Config>::size() *
                                              sizeof(real));
 
     if (plasticity) {
       layer.setEntrySize<LTS::FlagScratch>(numPlasticCells * sizeof(unsigned));
-      layer.setEntrySize<LTS::QStressNodalScratch>(numPlasticCells * tensor::QStressNodal::Size *
-                                                   sizeof(real));
+      layer.setEntrySize<LTS::QStressNodalScratch>(
+          numPlasticCells * tensor::QStressNodal<Config>::Size * sizeof(real));
     }
 
     if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
-      layer.setEntrySize<LTS::ZinvExtra>(layer.size() * kernels::familySize<tensor::Zinv>() *
-                                         sizeof(real));
+      layer.setEntrySize<LTS::ZinvExtra>(
+          layer.size() * kernels::familySize<tensor::Zinv<Config>>() * sizeof(real));
     }
   }
 }
 
 void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage) {
-  constexpr size_t IdofsSize = tensor::Q::size() * sizeof(real);
+  constexpr size_t IdofsSize = tensor::Q<Config>::size() * sizeof(real);
   for (auto& layer : drStorage.leaves()) {
     const auto layerSize = layer.size();
     layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(IdofsSize * layerSize);

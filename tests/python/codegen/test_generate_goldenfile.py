@@ -8,7 +8,7 @@
 """End-to-end smoke + golden-file tests for generate.py.
 
 These invoke the REAL generator with minimal configurations and verify:
- - All the forward-files listed in generate.py are produced
+ - All the headers at the top level are produced
  - The per-equation subfolder is created with its expected name pattern
  - The generated header files contain the kernel-family names the rest
    of SeisSol's C++ code expects
@@ -121,21 +121,22 @@ def generated_elastic_o3(tmp_path_factory):
 
 
 class TestGeneratedFilesExist:
-    """generate.py's `forward_files` list — we assert each one appears."""
+    """The headers at the top level: those of the metagen, which name the code
+    of the equation by key, and generate.py's `forward_files` list."""
 
-    # Must match the literal list at the bottom of generate.py's main().
-    # If the list drifts, this catches it.
-    EXPECTED_FORWARD_FILES = {
+    EXPECTED_TOP_LEVEL_HEADERS = {
         "init.h",
         "kernel.h",
+        "pool.h",
+        "quantities.h",
         "tensor.h",
     }
 
-    def test_forward_files_produced(self, generated_elastic_o3):
+    def test_top_level_headers_produced(self, generated_elastic_o3):
         outdir, _ = generated_elastic_o3
         produced = {p.name for p in outdir.iterdir() if p.is_file()}
-        missing = self.EXPECTED_FORWARD_FILES - produced
-        assert not missing, f"Missing forward files: {missing}"
+        missing = self.EXPECTED_TOP_LEVEL_HEADERS - produced
+        assert not missing, f"Missing top-level headers: {missing}"
 
     def test_equation_subfolder_name_pattern(self, generated_elastic_o3):
         """The per-equation subfolder is named
@@ -191,18 +192,19 @@ class TestGeneratedContent:
     present, which is what the C++ caller relies on.
     """
 
-    def test_init_h_uses_iwyu_pragma(self, generated_elastic_o3):
+    def test_quantities_h_uses_iwyu_pragma(self, generated_elastic_o3):
         outdir, _ = generated_elastic_o3
-        content = (outdir / "init.h").read_text()
+        content = (outdir / "quantities.h").read_text()
         assert "IWYU pragma: begin_exports" in content
         assert "IWYU pragma: end_exports" in content
 
-    def test_forward_files_include_equation_subdir(self, generated_elastic_o3):
-        """The forward init.h should #include the equation-subdir's init.h."""
+    def test_top_level_headers_include_the_equation_only(self, generated_elastic_o3):
+        """init.h includes the equation's init.h; the code of general/ belongs
+        to no configuration and is included from there."""
         outdir, _ = generated_elastic_o3
         content = (outdir / "init.h").read_text()
         assert "equation-elastic-3-double/init.h" in content
-        assert "general/init.h" in content
+        assert "general/init.h" not in content
 
     def test_kernel_h_declares_aderdg_kernels(self, generated_elastic_o3):
         """ADER-DG pipeline kernels must appear in kernel.h. If generate.py
@@ -256,17 +258,37 @@ class TestRuntime:
         assert '#include "Config.h"' in content
         assert "VariantOf<seissol::Config>" in content
 
-    def test_kernels_keep_their_namespace(self, generated_elastic_o3):
-        """The kernels of the equation are in seissol::kernel, and the headers at
-        the top level are the ones that include those of every subfolder, rather
-        than headers that name a kernel by the key of its configuration."""
+    def test_code_is_named_by_the_key_of_its_configuration(self, generated_elastic_o3):
+        """The code of the equation is in a namespace of its own, and the headers
+        at the top level name it by the key of its configuration:
+        seissol::kernel::X<seissol::Config>, seissol::Pool<seissol::Config>."""
         outdir, _ = generated_elastic_o3
+        space = "yatetometagen_" + self.EQUATION.replace("-", "_")
         content = (outdir / self.EQUATION / "kernel.h").read_text()
-        assert "namespace seissol {\n  namespace kernel {" in content
-        for name in ["init.h", "kernel.h", "tensor.h"]:
-            forward = (outdir / name).read_text()
-            assert f'#include "{self.EQUATION}/{name}"' in forward
-            assert "template" not in forward
+        assert f"namespace seissol {{\n  namespace {space} {{" in content
+        for name, prefix in [
+            ("init", "init::"),
+            ("kernel", "kernel::"),
+            ("tensor", "tensor::"),
+        ]:
+            typed = (outdir / f"{name}.h").read_text()
+            assert f'#include "{self.EQUATION}/{name}.h"' in typed
+            assert f"using Type = ::seissol::{space}::{prefix}" in typed
+        pool = (outdir / "pool.h").read_text()
+        assert (
+            f"struct Internal_Pool<seissol::Config> {{ using Type = ::seissol::{space}::Pool; }};"
+            in pool
+        )
+
+    def test_optional_tensors_are_named_in_every_configuration(
+        self, generated_elastic_o3
+    ):
+        """Qane is no tensor of the elastic equation, but its name exists, as
+        `void`, which kernels::size counts as empty."""
+        outdir, _ = generated_elastic_o3
+        tensor = (outdir / "tensor.h").read_text()
+        assert "template<typename Arg0> using Qane = " in tensor
+        assert "Internal_Qane<seissol::Config>" not in tensor
 
     def test_collect_lists_what_codegen_writes(self, generated_elastic_o3, tmp_path):
         outdir, _ = generated_elastic_o3
@@ -275,7 +297,14 @@ class TestRuntime:
         targets = json.loads((tmp_path / "targets.json").read_text())
 
         assert targets["runtime"]["kernels"] == ["runtime.cpp"]
-        assert sorted(targets["runtime"]["headers"]) == ["runtime.h", "variant.h"]
+        assert sorted(targets["runtime"]["headers"]) == [
+            "init.h",
+            "kernel.h",
+            "pool.h",
+            "runtime.h",
+            "tensor.h",
+            "variant.h",
+        ]
         assert f"{self.EQUATION}/runtime.cpp" in targets[self.EQUATION]["kernels"]
 
         listed = [

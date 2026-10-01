@@ -9,9 +9,8 @@
 #include "Datastructures.h"
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
-#include "GeneratedCode/tensor.h"
+#include "GeneratedCode/general/init.h"
+#include "GeneratedCode/general/kernel.h"
 #include "Model/CommonDatastructures.h"
 
 #include <Eigen/Core>

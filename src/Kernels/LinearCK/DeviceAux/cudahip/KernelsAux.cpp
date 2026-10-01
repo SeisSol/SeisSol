@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -64,7 +65,7 @@ static __device__ __forceinline__ void taylorSumInner(TargetRealT* const __restr
   constexpr bool UseShared = MemorySize >= RestMemSize;
   constexpr std::size_t LoadSize = UseShared ? RestMemSize : SourceMemSize;
 
-  static_assert(seissol::tensor::dQ::size(ThisOrder) == SourceMemSize,
+  static_assert(seissol::tensor::dQ<Config>::size(ThisOrder) == SourceMemSize,
                 "Tensor size mismatch in explicit kernel.");
 
   if constexpr (LoadSize > 0) {

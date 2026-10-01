@@ -8,8 +8,10 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ParametersInitializer.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Solver.h"
@@ -113,10 +115,10 @@ class ReceiverOutput {
     real slipRateTangent1{};
     real slipRateTangent2{};
 
-    real
-        faceAlignedValuesPlus[tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+    real faceAlignedValuesPlus
+        [tensor::QAtPoint<Config>::Shape[seissol::multisim::BasisFunctionDimension]]{};
     real faceAlignedValuesMinus
-        [tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+        [tensor::QAtPoint<Config>::Shape[seissol::multisim::BasisFunctionDimension]]{};
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};

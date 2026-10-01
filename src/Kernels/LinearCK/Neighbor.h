@@ -12,6 +12,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBOR_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
 #include "Monitoring/Metric.h"
@@ -39,12 +40,12 @@ class Neighbor : public NeighborKernel {
               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const override;
 
   protected:
-  kernel::neighboringFlux nfKrnlPrototype_;
-  dynamicRupture::kernel::nodalFlux drKrnlPrototype_;
+  kernel::neighboringFlux<Config> nfKrnlPrototype_;
+  dynamicRupture::kernel::nodalFlux<Config> drKrnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_neighboringFlux deviceNfKrnlPrototype_;
-  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype_;
+  kernel::gpu_neighboringFlux<Config> deviceNfKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux<Config> deviceDrKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };

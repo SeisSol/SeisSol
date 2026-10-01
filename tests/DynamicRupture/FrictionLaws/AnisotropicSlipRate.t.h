@@ -13,6 +13,7 @@
 
 #include <doctest.h>
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
@@ -34,7 +35,7 @@ using seissol::dr::ImpedancesAndEta;
 /// Symmetric positive definite, with both a shear/shear and a normal/shear coupling.
 inline ImpedanceMatrices testImpedance() {
   ImpedanceMatrices impedanceMatrices;
-  auto eta = init::eta::view::create(impedanceMatrices.eta);
+  auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.818e6;
   eta(1, 1) = 2.106e6;
   eta(2, 2) = 2.337e6;
@@ -48,7 +49,7 @@ inline ImpedanceMatrices testImpedance() {
 /// makes eta and its transpose interchangeable -- this one tells them apart.
 inline ImpedanceMatrices asymmetricImpedance() {
   ImpedanceMatrices impedanceMatrices;
-  auto eta = init::eta::view::create(impedanceMatrices.eta);
+  auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.8e6;
   eta(0, 1) = 1.1e5;
   eta(0, 2) = 2.2e5;
@@ -63,7 +64,7 @@ inline ImpedanceMatrices asymmetricImpedance() {
 
 inline ImpedanceMatrices isotropicImpedance(real etaS) {
   ImpedanceMatrices impedanceMatrices;
-  auto eta = init::eta::view::create(impedanceMatrices.eta);
+  auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
   eta(0, 0) = 3.818e6;
   eta(1, 1) = etaS;
   eta(2, 2) = etaS;
@@ -78,7 +79,7 @@ inline real slipRateResidual(ImpedanceMatrices impedanceMatrices,
                              real traction2,
                              real strength,
                              real strengthSlope) {
-  const auto eta = init::eta::view::create(impedanceMatrices.eta);
+  const auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
   const real slip1 = solution.slipRate * solution.direction1;
   const real slip2 = solution.slipRate * solution.direction2;
 
@@ -210,7 +211,7 @@ TEST_CASE("Anisotropic impedance projections" *
 
   const ImpedancesAndEta impAndEta{};
   auto impedanceMatrices = asymmetricImpedance();
-  const auto eta = init::eta::view::create(impedanceMatrices.eta);
+  const auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
 
   constexpr real V1 = 0.37;
   constexpr real V2 = -0.91;

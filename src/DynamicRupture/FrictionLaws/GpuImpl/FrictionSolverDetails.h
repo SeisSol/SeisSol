@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_
 
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
@@ -33,8 +34,8 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 #endif
     }
 
-    resampleMatrix_ = globalData->*init::resample::PoolMember;
-    devSpaceWeights_ = globalData->*init::quadweights::PoolMember;
+    resampleMatrix_ = globalData->*init::resample<Config>::PoolMember;
+    devSpaceWeights_ = globalData->*init::quadweights<Config>::PoolMember;
 
 #ifdef ACL_DEVICE
     // The thermal-pressurization tables are functions of the grid alone, and

@@ -133,11 +133,11 @@ void ReceiverOutput::calcFaultOutput(
                         stateTime,
                         frictionTime](std::size_t faceId) {
     constexpr auto Variant = configIdOf<Config>();
-    alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
-    alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
+    alignas(Alignment) real dofsPlus[tensor::Q<Config>::size()]{};
+    alignas(Alignment) real dofsMinus[tensor::Q<Config>::size()]{};
 
-    alignas(Alignment) real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
-    alignas(Alignment) real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
+    alignas(Alignment) real faceAlignedValuesPlus[tensor::QAtPoint<Config>::size()]{};
+    alignas(Alignment) real faceAlignedValuesMinus[tensor::QAtPoint<Config>::size()]{};
 
     const auto& topology = outputData->topology;
     const auto& outFace = topology.faces[faceId];
@@ -253,7 +253,8 @@ void ReceiverOutput::calcFaultOutput(
         local.iniNormalTraction = initialStress[QuantityIndices::XX];
         local.fluidPressure = this->computeFluidPressure(local);
 
-        for (size_t j = 0; j < tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension];
+        for (size_t j = 0;
+             j < tensor::QAtPoint<Config>::Shape[seissol::multisim::BasisFunctionDimension];
              ++j) {
           local.faceAlignedValuesPlus[j] =
               faceAlignedValuesPlus[j * seissol::multisim::NumSimulations + local.fusedIndex];
@@ -354,8 +355,8 @@ void ReceiverOutput::calcFaultOutput(
 
         auto& totalTractions = std::get<VariableID::TotalTractions>(outputData->vars);
         if (totalTractions.isActive) {
-          std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
-          std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
+          std::array<real, tensor::initialStress<Config>::size()> unrotatedInitStress{};
+          std::array<real, tensor::rotatedStress<Config>::size()> rotatedInitStress{};
           for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
             unrotatedInitStress[stressVar] = initialStress[stressVar];
           }
@@ -577,7 +578,7 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
     // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
     // state through the first row of Y+. The friction solve moves that traction, and with an
     // anisotropic admittance the two shear components move the fault-normal velocity as well.
-    constexpr std::size_t Count = tensor::Zplus::Shape[0];
+    constexpr std::size_t Count = tensor::Zplus<Config>::Shape[0];
     local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
                                  impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
                                  impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
@@ -684,8 +685,9 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
     std::array<double, static_cast<std::size_t>(2 * NumDegFr2d)> phiAtPoint{};
     phiAtPoint.fill(0.0);
 
-    const auto chiTau2dPoints = init::quadpoints::view::create(init::quadpoints::Values);
-    const auto weights = init::quadweights::view::create(init::quadweights::Values);
+    const auto chiTau2dPoints =
+        init::quadpoints<Config>::view::create(init::quadpoints<Config>::Values);
+    const auto weights = init::quadweights<Config>::view::create(init::quadweights<Config>::Values);
 
     const auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
@@ -699,7 +701,8 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
                           rt[jBndGP * multisim::NumSimulations + local.fusedIndex] * phiAtPoint[d];
       }
     }
-    const auto m2inv = seissol::init::M2inv::view::create(seissol::init::M2inv::Values);
+    const auto m2inv =
+        seissol::init::M2inv<Config>::view::create(seissol::init::M2inv<Config>::Values);
     for (size_t d = 0; d < NumDegFr2d; ++d) {
       projectedRT[d] *= m2inv(d, d);
     }

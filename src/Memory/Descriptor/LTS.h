@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
 #include "Alignment.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
@@ -22,10 +23,6 @@
 #include "Model/Plasticity.h"
 #include "Parallel/Helper.h"
 #include "Solver/Settings.h"
-
-namespace seissol::tensor {
-struct Qane;
-} // namespace seissol::tensor
 
 namespace seissol {
 
@@ -94,10 +91,11 @@ struct LTS {
     }
   }
 
-  struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
-  struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
+  struct Dofs : public initializer::Variable<real[tensor::Q<Config>::size()]> {};
+  struct DofsHalo : public initializer::Variable<real[tensor::Q<Config>::size()]> {};
   // size is zero if Qane is not defined
-  struct DofsAne : public initializer::Variable<real[zeroGuard(kernels::size<tensor::Qane>())]> {};
+  struct DofsAne
+      : public initializer::Variable<real[zeroGuard(kernels::size<tensor::Qane<Config>>())]> {};
   struct StepIntegrals : public initializer::Variable<real*> {};
   struct AccumulatedIntegrals : public initializer::Variable<real*> {};
   struct Derivatives : public initializer::Variable<real*> {};
@@ -112,8 +110,9 @@ struct LTS {
   struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
   struct BoundaryMapping
       : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
-  struct PStrain : public initializer::Variable<
-                       real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
+  struct PStrain
+      : public initializer::Variable<
+            real[tensor::QStressNodal<Config>::size() + tensor::QEtaNodal<Config>::size()]> {};
   struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct Buffers : public initializer::Bucket<real> {};
 
@@ -144,7 +143,7 @@ struct LTS {
 
   struct ZinvExtra : public initializer::Scratchpad<real> {};
 
-  struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
+  struct Integrals : public initializer::Variable<real[tensor::Q<Config>::size()]> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
@@ -211,7 +210,7 @@ struct LTS {
                           PagesizeHeap,
                           allocationModeWP(AllocationPreset::Dofs));
 
-    if (kernels::size<tensor::Qane>() > 0) {
+    if (kernels::size<tensor::Qane<Config>>() > 0) {
       storage.add<DofsAne>(
           LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     } else {
@@ -286,7 +285,7 @@ struct LTS {
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
                                           Storage& storage) {
     manager.registerData<Dofs>("dofs", storage);
-    if constexpr (kernels::size<tensor::Qane>() > 0) {
+    if constexpr (kernels::size<tensor::Qane<Config>>() > 0) {
       manager.registerData<DofsAne>("dofsAne", storage);
     }
     // check plasticity usage over the layer mask (for now)

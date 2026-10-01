@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -40,11 +41,13 @@ inline std::vector<double> evaluate(kernels::DerivedReceiverQuantity& derived) {
   // Twice the size of the tensors: whatever is read besides the velocity gradient -- another
   // quantity, or something past the end of the tensor -- is the poison value and spoils the result,
   // rather than being whatever happens to follow in memory.
-  std::vector<real> qAtPointData(2 * static_cast<std::size_t>(tensor::QAtPoint::size()), Poison);
+  std::vector<real> qAtPointData(2 * static_cast<std::size_t>(tensor::QAtPoint<Config>::size()),
+                                 Poison);
   std::vector<real> qDerivativeAtPointData(
-      2 * static_cast<std::size_t>(tensor::QDerivativeAtPoint::size()), Poison);
-  auto qAtPoint = init::QAtPoint::view::create(qAtPointData.data());
-  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(qDerivativeAtPointData.data());
+      2 * static_cast<std::size_t>(tensor::QDerivativeAtPoint<Config>::size()), Poison);
+  auto qAtPoint = init::QAtPoint<Config>::view::create(qAtPointData.data());
+  auto qDerivativeAtPoint =
+      init::QDerivativeAtPoint<Config>::view::create(qDerivativeAtPointData.data());
   for (auto sim = multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
       for (std::size_t j = 0; j < Cell::Dim; ++j) {

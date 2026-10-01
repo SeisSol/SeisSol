@@ -11,8 +11,8 @@
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/general/init.h"
+#include "GeneratedCode/general/kernel.h"
 #include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"

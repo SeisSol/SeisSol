@@ -10,8 +10,10 @@
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 
 #include "Common/Marker.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Memory/MemoryAllocator.h"
 #include "Parallel/Runtime/Stream.h"
@@ -106,11 +108,11 @@ SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
 }
 
 // workaround for NVHPC (using constexpr arrays directly caused errors in 24.01)
-constexpr std::size_t QSpan = init::Q::Stop[multisim::BasisFunctionDimension] -
-                              init::Q::Start[multisim::BasisFunctionDimension];
-constexpr std::size_t QMultiSpan = init::Q::Stop[0] - init::Q::Start[0];
-constexpr std::size_t MomentFsrmSpan = tensor::update::Shape[0];
-constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources::Shape[0];
+constexpr std::size_t QSpan = init::Q<Config>::Stop[multisim::BasisFunctionDimension] -
+                              init::Q<Config>::Start[multisim::BasisFunctionDimension];
+constexpr std::size_t QMultiSpan = init::Q<Config>::Stop[0] - init::Q<Config>::Start[0];
+constexpr std::size_t MomentFsrmSpan = tensor::update<Config>::Shape[0];
+constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources<Config>::Shape[0];
 
 constexpr std::size_t Quantities = MomentFsrmSpan;
 
@@ -130,8 +132,9 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
     double from,
     double to,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
-    const seissol::memory::
-        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<
+        real,
+        tensor::mInvJInvPhisAtSources<Config>::size()>* __restrict mInvJInvPhisAtSources,
     const std::uint32_t* __restrict simulationIndex,
     const real* __restrict tensor,
     const double* __restrict onsetTime,

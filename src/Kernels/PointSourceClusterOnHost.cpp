@@ -8,7 +8,7 @@
 
 #include "PointSourceClusterOnHost.h"
 
-#include "GeneratedCode/init.h"
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
@@ -53,7 +53,7 @@ std::size_t PointSourceClusterOnHost::size() const { return sources_->numberOfSo
 void PointSourceClusterOnHost::addTimeIntegratedPointSource(std::size_t source,
                                                             double from,
                                                             double to,
-                                                            real dofs[tensor::Q::size()]) {
+                                                            real dofs[tensor::Q<Config>::size()]) {
   std::array<real, Quantities> update{};
   const auto base = sources_->sampleRange[source];
   const auto localSamples = sources_->sampleRange[source + 1] - base;
@@ -76,7 +76,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSource(std::size_t source,
     }
   }
 
-  kernel::addPointSource krnl;
+  kernel::addPointSource<Config> krnl;
   krnl.update = update.data();
   krnl.Q = dofs;
   krnl.mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources[source].data();

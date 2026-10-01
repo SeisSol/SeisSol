@@ -7,9 +7,9 @@
 
 #include "Physics/Scenario/Scenarios.h"
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
@@ -140,8 +140,8 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  const std::size_t basisFunCount = init::Q::Shape[multisim::BasisFunctionDimension];
-  const std::size_t quantityCount = init::Q::Shape[multisim::BasisFunctionDimension + 1];
+  const std::size_t basisFunCount = init::Q<Config>::Shape[multisim::BasisFunctionDimension];
+  const std::size_t quantityCount = init::Q<Config>::Shape[multisim::BasisFunctionDimension + 1];
 
   std::vector<real> dofsPwVector(quantityCount * basisFunCount);
   auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(

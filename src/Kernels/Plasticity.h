@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_KERNELS_PLASTICITY_H_
 #define SEISSOL_SRC_KERNELS_PLASTICITY_H_
 
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
@@ -35,7 +36,7 @@ class Plasticity {
                                        real tV,
                                        const GlobalData* global,
                                        const seissol::model::PlasticityData* plasticityData,
-                                       real degreesOfFreedom[tensor::Q::size()],
+                                       real degreesOfFreedom[tensor::Q<Config>::size()],
                                        real* pstrain);
 
   static void computePlasticityBatched(real timeStepWidth,

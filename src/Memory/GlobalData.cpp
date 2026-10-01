@@ -9,6 +9,7 @@
 #include "GlobalData.h"
 
 #include "Alignment.h"
+#include "Config.h"
 #include "GeneratedCode/pool.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/MemoryAllocator.h"
@@ -19,14 +20,15 @@ namespace seissol::initializer {
 namespace matrixmanip {
 
 GlobalData OnHost::pool(memory::ManagedAllocator& /*allocator*/, memory::Memkind /*memkind*/) {
-  return seissol::Pool::host();
+  return seissol::Pool<Config>::host();
 }
 
 GlobalData OnDevice::pool(memory::ManagedAllocator& allocator, memory::Memkind memkind) {
-  const std::size_t bytes = seissol::poolBytes();
+  const std::size_t bytes = seissol::poolBytes<Config>();
   void* image = allocator.allocateMemory(bytes, PagesizeHeap, memkind);
-  seissol::memory::memcopy(image, seissol::poolData(), bytes, memkind, memory::Memkind::Standard);
-  return seissol::Pool::create(image);
+  seissol::memory::memcopy(
+      image, seissol::poolData<Config>(), bytes, memkind, memory::Memkind::Standard);
+  return seissol::Pool<Config>::create(image);
 }
 
 } // namespace matrixmanip

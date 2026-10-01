@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_KERNELS_ANALYTICALBOUNDARY_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -35,10 +36,11 @@ struct ApplyAnalyticalSolution {
 
   void operator()(const real* nodes,
                   double time,
-                  seissol::init::INodal::view::type& boundaryDofs) const {
+                  seissol::init::INodal<Config>::view::type& boundaryDofs) const {
     assert(initConditions_ != nullptr);
 
-    constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
+    constexpr auto NodeCount =
+        seissol::tensor::INodal<Config>::Shape[multisim::BasisFunctionDimension];
     alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
 
 #pragma omp simd
@@ -81,10 +83,10 @@ class AnalyticalBoundary {
                 real* dofsFaceBoundaryNodal,
                 double startTime,
                 double timeStepWidth) const {
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
+    auto boundaryDofs = init::INodal<Config>::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
-                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
+    static_assert(nodal::tensor::nodes2D<Config>::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal<Config>::Shape[multisim::BasisFunctionDimension],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -97,13 +99,13 @@ class AnalyticalBoundary {
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights_[point];
     }
 
-    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
-    auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
+    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal<Config>::size()];
+    auto boundaryDofsTmp = init::INodal<Config>::view::create(dofsFaceBoundaryNodalTmp);
 
     boundaryDofs.setZero();
     boundaryDofsTmp.setZero();
 
-    auto updateKernel = kernel::updateINodal{};
+    auto updateKernel = kernel::updateINodal<Config>{};
     updateKernel.INodal = dofsFaceBoundaryNodal;
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).

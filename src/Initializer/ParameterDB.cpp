@@ -10,6 +10,7 @@
 #include "ParameterDB.h"
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Equations/acoustic/Model/Datastructures.h"
@@ -17,7 +18,6 @@
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -55,8 +55,6 @@
 
 #ifdef USE_HDF
 // PUML.h needs to be included before Downward.h
-
-#include "GeneratedCode/kernel.h"
 
 #include <PUML/Downward.h>
 #endif
@@ -298,7 +296,7 @@ easi::Query PlasticityPointGenerator::generate() const {
   // Generate query using quadrature points for each element
   easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
 
-  const auto nodes = init::vNodes::view::create(init::vNodes::Values);
+  const auto nodes = init::vNodes<Config>::view::create(init::vNodes<Config>::Values);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
@@ -374,7 +372,7 @@ easi::Query FaultGPGenerator::generate() const {
   auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
-  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
+  const auto pointsView = init::quadpoints<Config>::view::create(init::quadpoints<Config>::Values);
   easi::Query query(NumPoints * faceIDs_.size(), Cell::Dim);
   std::size_t q = 0;
   // loop over all fault elements which are managed by this generator
@@ -741,8 +739,8 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   // therefore map_v1_v1: -1.
   const auto& varNames = model::MaterialT::Quantities;
 
-  auto mapTerms = init::dirichletMapGlobal::view::create(mapTermsData);
-  auto constantTerms = init::dirichletOffsetGlobal::view::create(constantTermsData);
+  auto mapTerms = init::dirichletMapGlobal<Config>::view::create(mapTermsData);
+  auto constantTerms = init::dirichletOffsetGlobal<Config>::view::create(constantTermsData);
 
   easi::ArraysAdapter<real> adapter{};
   std::unordered_set<std::string> known;

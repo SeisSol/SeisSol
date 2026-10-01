@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "BaseFrictionLaw.h"
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "Initializer/Typedefs.h"
 
@@ -342,7 +343,7 @@ class NoSpecialization {
   };
 
   private:
-  dynamicRupture::kernel::resampleParameter resampleKrnlPrototype_;
+  dynamicRupture::kernel::resampleParameter<Config> resampleKrnlPrototype_;
 };
 
 /**

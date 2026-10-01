@@ -127,8 +127,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 #pragma omp parallel
 #endif
     {
-      alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
-      auto iniCond = init::iniCond::view::create(iniCondData);
+      alignas(Alignment) real iniCondData[tensor::iniCond<Config>::size()] = {};
+      auto iniCond = init::iniCond<Config>::view::create(iniCondData);
 
       std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
       quadraturePointsXyz.resize(NumQuadPoints);
@@ -158,7 +158,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
         }
 
         krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
-        if constexpr (kernels::HasSize<tensor::Qane>::Value) {
+        if constexpr (kernels::HasSize<tensor::Qane<Config>>::Value) {
           set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
         }
         krnl.execute(Variant);
@@ -245,8 +245,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
 #pragma omp parallel
 #endif
     {
-      alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
-      auto iniCond = init::iniCond::view::create(iniCondData);
+      alignas(Alignment) real iniCondData[tensor::iniCond<Config>::size()] = {};
+      auto iniCond = init::iniCond<Config>::view::create(iniCondData);
 
       std::vector<std::array<double, 3>> quadraturePointsXyz;
       quadraturePointsXyz.resize(NumQuadPoints);
@@ -275,7 +275,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
         }
 
         krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
-        if constexpr (kernels::HasSize<tensor::Qane>::Value) {
+        if constexpr (kernels::HasSize<tensor::Qane<Config>>::Value) {
           set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
         }
         krnl.execute(Variant);

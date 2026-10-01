@@ -211,11 +211,29 @@ def main():
 
     gemmTools = GeneratorCollection(gemm_generators)
 
-    # The kernels of the equation are in seissol::kernel, and runtime.h reaches
-    # them as well, by the variant of their configuration -- the only one
-    # here -- with operands as views where they are to take them so (see
-    # kernels.common.cold_kernel_attrs).
-    metagen = MetaGenerator(["typename"], typedHeaders=False)
+    # The code of the equation is named by the key of its configuration:
+    # seissol::kernel::X<Config> is the kernel X of the configuration Config,
+    # and seissol::Pool<Config> the pool it binds. runtime.h reaches the
+    # kernels as well, by the variant of their configuration, with operands as
+    # views where they are to take them so (see kernels.common.cold_kernel_attrs).
+    metagen = MetaGenerator(["typename"])
+
+    # Tensors that the code names whatever the configuration, but that only
+    # some configurations have: in the others, the key names no tensor
+    # (`void`), which kernels::size and kernels::familySize count as empty.
+    optionalTensors = [
+        "E",
+        "ET",
+        "Iane",
+        "Qane",
+        "Qext",
+        "W",
+        "Zinv",
+        "dQane",
+        "dQext",
+        "spaceTimePredictor",
+        "w",
+    ]
 
     def check_run_codegen(name):
         return cmdLineArgs.mode == "codegen" and cmdLineArgs.codegen_target in (
@@ -333,7 +351,6 @@ def main():
             ["seissol::Config"],
             generator,
             name=re.sub(r"\W", "_", outputDirName),
-            namespace="seissol",
             directory=outputDirName,
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
@@ -345,7 +362,10 @@ def main():
         # Generate code (if we need to)
         if check_run_codegen(outputDirName):
             metagen.generate(
-                cmdLineArgs.outputDir, namespace="seissol", includes=["Config.h"]
+                cmdLineArgs.outputDir,
+                namespace="seissol",
+                includes=["Config.h"],
+                declarationsTensors=optionalTensors,
             )
 
     def generate_general(subfolders):
@@ -404,11 +424,9 @@ def main():
     if cmdLineArgs.mode == "codegen":
         routine_cache.generate(cmdLineArgs.outputDir, "seissol")
 
-        # for now
-        forward_files("init.h")
-        forward_files("kernel.h")
-        forward_files("pool.h")
-        forward_files("tensor.h")
+        # init.h, kernel.h, pool.h and tensor.h are the metagen's, which name
+        # the code of the equation by key; the code of general/, which belongs
+        # to no configuration, is included from there.
         forward_files("quantities.h")
 
     if cmdLineArgs.mode == "collect":

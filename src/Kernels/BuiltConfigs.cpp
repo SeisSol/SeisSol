@@ -43,9 +43,9 @@ ConfigLayout generatedLayout() {
   layout.config = Config::Value;
 
   layout.numQuantities = model::MaterialT::NumQuantities;
-  layout.numBasisFunctions = tensor::Q::Shape[multisim::BasisFunctionDimension];
+  layout.numBasisFunctions = tensor::Q<Config>::Shape[multisim::BasisFunctionDimension];
   layout.basisFunctionDimension = multisim::BasisFunctionDimension;
-  layout.dofsSize = tensor::Q::size();
+  layout.dofsSize = tensor::Q<Config>::size();
 
   layout.drNumPoints = dr::misc::NumBoundaryGaussPoints;
   layout.drNumPaddedPoints = dr::misc::NumPaddedPoints;

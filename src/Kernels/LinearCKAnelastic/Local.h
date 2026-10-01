@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
 
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Interface.h"
@@ -45,21 +46,21 @@ class Local : public LocalKernel {
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
-  kernel::volumeExt volumeKernelPrototype_;
-  kernel::localFluxExt localFluxKernelPrototype_;
-  kernel::local localKernelPrototype_;
+  kernel::volumeExt<Config> volumeKernelPrototype_;
+  kernel::localFluxExt<Config> localFluxKernelPrototype_;
+  kernel::local<Config> localKernelPrototype_;
 
-  kernel::fsgFlux fsgFlux_;
-  kernel::dirichletFlux dirichletFlux_;
-  kernel::localFluxNodal nodalLfKrnlPrototype_;
+  kernel::fsgFlux<Config> fsgFlux_;
+  kernel::dirichletFlux<Config> dirichletFlux_;
+  kernel::localFluxNodal<Config> nodalLfKrnlPrototype_;
 
   kernels::AnalyticalBoundary analyticalBoundary_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
-  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype_;
-  kernel::gpu_local deviceLocalKernelPrototype_;
-  kernel::gpu_fluxLocalAll deviceFluxLocalAllKernelPrototype_;
+  kernel::gpu_volumeExt<Config> deviceVolumeKernelPrototype_;
+  kernel::gpu_localFluxExt<Config> deviceLocalFluxKernelPrototype_;
+  kernel::gpu_local<Config> deviceLocalKernelPrototype_;
+  kernel::gpu_fluxLocalAll<Config> deviceFluxLocalAllKernelPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -57,7 +58,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count>
         timeDerivativeMinusPtrs {};
 
-    const size_t idofsSize = tensor::Q::size();
+    const size_t idofsSize = tensor::Q<Config>::size();
     for (std::size_t faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedMinusPtr[plusSide][0].push_back(&qInterpolatedPlus[faceId][0][0]);

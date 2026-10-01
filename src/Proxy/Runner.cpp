@@ -8,7 +8,6 @@
 
 #include "Runner.h"
 
-#include "GeneratedCode/kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
 #include "Kernels/Common.h"

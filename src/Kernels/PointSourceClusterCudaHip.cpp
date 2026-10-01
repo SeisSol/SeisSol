@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
 #include "Parallel/Runtime/Stream.h"
 #include "PointSourceCluster.h"
 #include "SourceTerm/Typedefs.h"
@@ -28,8 +30,9 @@ __launch_bounds__(Blocksize) __global__ void launchKernel(
     double from,
     double to,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
-    const seissol::memory::
-        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<
+        real,
+        tensor::mInvJInvPhisAtSources<Config>::size()>* __restrict mInvJInvPhisAtSources,
     const std::uint32_t* __restrict simulationIndex,
     const real* __restrict tensor,
     const double* __restrict onsetTime,

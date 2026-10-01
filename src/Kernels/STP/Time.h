@@ -12,6 +12,7 @@
 #define SEISSOL_SRC_KERNELS_STP_TIME_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
@@ -46,10 +47,10 @@ class Spacetime : public SpacetimeKernel {
   private:
   void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
 
-  kernel::spaceTimePredictor krnlPrototype_;
+  kernel::spaceTimePredictor<Config> krnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor deviceKrnlPrototype_;
+  kernel::gpu_spaceTimePredictor<Config> deviceKrnlPrototype_;
 #endif
 };
 

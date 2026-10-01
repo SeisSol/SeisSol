@@ -7,6 +7,7 @@
 
 #include "doctest.h"
 
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "IO/Instance/Geometry/Points.h"
 #include "Kernels/Precision.h"
@@ -31,29 +32,29 @@ TEST_CASE("IO/Points") {
   };
 
   SUBCASE("Triangle (2D)") {
-    using init::vtk2d;
+    using Vtk2d = init::vtk2d<Config>;
     using seissol::io::instance::geometry::pointsTriangle;
-    pointsCompare(vtk2d::view<1>::create(vtk2d::Values1), pointsTriangle(1));
-    pointsCompare(vtk2d::view<2>::create(vtk2d::Values2), pointsTriangle(2));
-    pointsCompare(vtk2d::view<3>::create(vtk2d::Values3), pointsTriangle(3));
-    pointsCompare(vtk2d::view<4>::create(vtk2d::Values4), pointsTriangle(4));
-    pointsCompare(vtk2d::view<5>::create(vtk2d::Values5), pointsTriangle(5));
-    pointsCompare(vtk2d::view<6>::create(vtk2d::Values6), pointsTriangle(6));
-    pointsCompare(vtk2d::view<7>::create(vtk2d::Values7), pointsTriangle(7));
-    pointsCompare(vtk2d::view<8>::create(vtk2d::Values8), pointsTriangle(8));
+    pointsCompare(Vtk2d::view<1>::create(Vtk2d::Values1), pointsTriangle(1));
+    pointsCompare(Vtk2d::view<2>::create(Vtk2d::Values2), pointsTriangle(2));
+    pointsCompare(Vtk2d::view<3>::create(Vtk2d::Values3), pointsTriangle(3));
+    pointsCompare(Vtk2d::view<4>::create(Vtk2d::Values4), pointsTriangle(4));
+    pointsCompare(Vtk2d::view<5>::create(Vtk2d::Values5), pointsTriangle(5));
+    pointsCompare(Vtk2d::view<6>::create(Vtk2d::Values6), pointsTriangle(6));
+    pointsCompare(Vtk2d::view<7>::create(Vtk2d::Values7), pointsTriangle(7));
+    pointsCompare(Vtk2d::view<8>::create(Vtk2d::Values8), pointsTriangle(8));
   }
 
   SUBCASE("Tetrahedron (3D)") {
-    using init::vtk3d;
+    using Vtk3d = init::vtk3d<Config>;
     using seissol::io::instance::geometry::pointsTetrahedron;
-    pointsCompare(vtk3d::view<1>::create(vtk3d::Values1), pointsTetrahedron(1));
-    pointsCompare(vtk3d::view<2>::create(vtk3d::Values2), pointsTetrahedron(2));
-    pointsCompare(vtk3d::view<3>::create(vtk3d::Values3), pointsTetrahedron(3));
-    pointsCompare(vtk3d::view<4>::create(vtk3d::Values4), pointsTetrahedron(4));
-    pointsCompare(vtk3d::view<5>::create(vtk3d::Values5), pointsTetrahedron(5));
-    pointsCompare(vtk3d::view<6>::create(vtk3d::Values6), pointsTetrahedron(6));
-    pointsCompare(vtk3d::view<7>::create(vtk3d::Values7), pointsTetrahedron(7));
-    pointsCompare(vtk3d::view<8>::create(vtk3d::Values8), pointsTetrahedron(8));
+    pointsCompare(Vtk3d::view<1>::create(Vtk3d::Values1), pointsTetrahedron(1));
+    pointsCompare(Vtk3d::view<2>::create(Vtk3d::Values2), pointsTetrahedron(2));
+    pointsCompare(Vtk3d::view<3>::create(Vtk3d::Values3), pointsTetrahedron(3));
+    pointsCompare(Vtk3d::view<4>::create(Vtk3d::Values4), pointsTetrahedron(4));
+    pointsCompare(Vtk3d::view<5>::create(Vtk3d::Values5), pointsTetrahedron(5));
+    pointsCompare(Vtk3d::view<6>::create(Vtk3d::Values6), pointsTetrahedron(6));
+    pointsCompare(Vtk3d::view<7>::create(Vtk3d::Values7), pointsTetrahedron(7));
+    pointsCompare(Vtk3d::view<8>::create(Vtk3d::Values8), pointsTetrahedron(8));
   }
 }
 

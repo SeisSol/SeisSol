@@ -384,9 +384,9 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
     {
       // the face-aligned-to-global direction is not part of the output; it is only needed to
       // obtain its inverse
-      std::array<real, seissol::tensor::T::size()> faceAlignedToGlbData{};
-      auto faceAlignedToGlb = init::T::view::create(faceAlignedToGlbData.data());
-      auto glbToFaceAligned = init::Tinv::view::create(face.glbToFaceAlignedData.data());
+      std::array<real, seissol::tensor::T<Config>::size()> faceAlignedToGlbData{};
+      auto faceAlignedToGlb = init::T<Config>::view::create(faceAlignedToGlbData.data());
+      auto glbToFaceAligned = init::Tinv<Config>::view::create(face.glbToFaceAlignedData.data());
 
       seissol::model::getFaceRotationMatrix(
           faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);

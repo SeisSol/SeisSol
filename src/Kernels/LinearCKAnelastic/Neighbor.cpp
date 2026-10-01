@@ -10,9 +10,12 @@
 #include "Neighbor.h"
 
 #include "Common/Marker.h"
-#include "GeneratedCode/init.h"
+#include "Config.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Monitoring/Metric.h"
 
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -28,7 +31,7 @@ namespace seissol::kernels::solver::linearckanelastic {
 // The neighbouring flux family is indexed by the neighbouring side and the own face. The face
 // orientation index is not part of it, since the canonical vertex numbering pins it to zero on
 // every interior face.
-static_assert(std::size(seissol::kernel::neighborFluxExt::ExecutePtrs) ==
+static_assert(std::size(seissol::kernel::neighborFluxExt<Config>::ExecutePtrs) ==
               Cell::NumFaces * Cell::NumFaces);
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
@@ -59,9 +62,9 @@ void Neighbor::computeNeighborsIntegral(
   // alignment of the degrees of freedom
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Vectorsize == 0);
 
-  alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
+  alignas(PagesizeStack) real Qext[tensor::Qext<Config>::size()] = {};
 
-  kernel::neighborFluxExt nfKrnl = nfKrnlPrototype_;
+  kernel::neighborFluxExt<Config> nfKrnl = nfKrnlPrototype_;
   nfKrnl.Qext = Qext;
 
   // iterate over faces
@@ -78,7 +81,7 @@ void Neighbor::computeNeighborsIntegral(
     } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Vectorsize == 0);
 
-      dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
+      dynamicRupture::kernel::nodalFlux<Config> drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Qext = Qext;
@@ -87,7 +90,7 @@ void Neighbor::computeNeighborsIntegral(
     }
   }
 
-  kernel::neighbor nKrnl = nKrnlPrototype_;
+  kernel::neighbor<Config> nKrnl = nKrnlPrototype_;
   nKrnl.Qext = Qext;
   nKrnl.Q = data.get<LTS::Dofs>();
   nKrnl.Qane = data.get<LTS::DofsAne>();
@@ -109,23 +112,24 @@ std::pair<PerformanceEstimate, PerformanceEstimate>
     if (faceTypes[face] == FaceType::Regular) {
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] == 0);
 
-      regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt>(
+      regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt<Config>>(
           neighboringIndices[face][0], face);
     } else if (faceTypes[face] == FaceType::DynamicRupture) {
-      dr += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux>(
+      dr += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux<Config>>(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }
 
-  regular += PerformanceEstimate::fromKernel<kernel::neighbor>();
+  regular += PerformanceEstimate::fromKernel<kernel::neighbor<Config>>();
 
   // legacy memory estimate
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
-  reals += 4 * tensor::I::size() + 2 * tensor::Q::size() + 2 * tensor::Qane::size();
+  reals += 4 * tensor::I<Config>::size() + 2 * tensor::Q<Config>::size() +
+           2 * tensor::Qane<Config>::size();
   // flux solvers load
-  reals += 4 * tensor::AminusT::size() + tensor::w::size();
+  reals += 4 * tensor::AminusT<Config>::size() + tensor::w<Config>::size();
 
   regular.bytes = reals * sizeof(real);
 
@@ -138,8 +142,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_neighborFluxExt neighFluxKrnl = deviceNfKrnlPrototype_;
-  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype_;
+  kernel::gpu_neighborFluxExt<Config> neighFluxKrnl = deviceNfKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux<Config> drKrnl = deviceDrKrnlPrototype_;
 
   {
     ConditionalKey key(KernelNames::Time || KernelNames::Volume);
@@ -147,7 +151,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
       auto& entry = table[key];
       device.algorithms().setToValue((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
                                      static_cast<real>(0.0),
-                                     tensor::Qext::Size,
+                                     tensor::Qext<Config>::Size,
                                      (entry.get(inner_keys::Wp::Id::DofsExt))->getSize(),
                                      runtime.stream());
     }
@@ -180,7 +184,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
               neighFluxKrnl.streamPtr = stream;
-              (neighFluxKrnl.*seissol::kernel::gpu_neighborFluxExt::ExecutePtrs[faceRelation])();
+              (neighFluxKrnl.*
+               seissol::kernel::gpu_neighborFluxExt<Config>::ExecutePtrs[faceRelation])();
             }
           } else {
             // Dynamic Rupture
@@ -203,7 +208,8 @@ void Neighbor::computeBatchedNeighborsIntegral(
               drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
               drKrnl.streamPtr = stream;
-              (drKrnl.*seissol::dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs[faceRelation])();
+              (drKrnl.*
+               seissol::dynamicRupture::kernel::gpu_nodalFlux<Config>::ExecutePtrs[faceRelation])();
             }
           }
         });
@@ -212,7 +218,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    kernel::gpu_neighbor nKrnl = deviceNKrnlPrototype_;
+    kernel::gpu_neighbor<Config> nKrnl = deviceNKrnlPrototype_;
     nKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     nKrnl.Qext =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());

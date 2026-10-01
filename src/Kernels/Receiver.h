@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
 #include "Common/Executor.h"
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
@@ -64,26 +65,28 @@ struct DerivedReceiverQuantity {
   [[nodiscard]] virtual std::vector<std::string> quantities() const = 0;
   virtual void compute(size_t sim,
                        std::vector<double>&,
-                       seissol::init::QAtPoint::view::type&,
-                       seissol::init::QDerivativeAtPoint::view::type&) = 0;
+                       seissol::init::QAtPoint<Config>::view::type&,
+                       seissol::init::QDerivativeAtPoint<Config>::view::type&) = 0;
 };
 
 struct ReceiverRotation : public DerivedReceiverQuantity {
   ~ReceiverRotation() override = default;
   [[nodiscard]] std::vector<std::string> quantities() const override;
-  void compute(size_t sim,
-               std::vector<double>& /*output*/,
-               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
-               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
+  void compute(
+      size_t sim,
+      std::vector<double>& /*output*/,
+      seissol::init::QAtPoint<Config>::view::type& /*qAtPoint*/,
+      seissol::init::QDerivativeAtPoint<Config>::view::type& /*qDerivativeAtPoint*/) override;
 };
 
 struct ReceiverStrain : public DerivedReceiverQuantity {
   ~ReceiverStrain() override = default;
   [[nodiscard]] std::vector<std::string> quantities() const override;
-  void compute(size_t sim,
-               std::vector<double>& /*output*/,
-               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
-               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
+  void compute(
+      size_t sim,
+      std::vector<double>& /*output*/,
+      seissol::init::QAtPoint<Config>::view::type& /*qAtPoint*/,
+      seissol::init::QDerivativeAtPoint<Config>::view::type& /*qDerivativeAtPoint*/) override;
 };
 
 class ReceiverCluster {

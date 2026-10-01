@@ -10,8 +10,10 @@
 
 #include "Common/Constants.h"
 #include "Common/Executor.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
@@ -52,8 +54,8 @@ struct NumPoints {
 template <RangeType Type>
 struct QInterpolated {
   private:
-  using CpuRange = ForLoopRange<0, tensor::QInterpolated::size(), 1>;
-  using GpuRange = ForLoopRange<0, tensor::QInterpolated::size(), misc::NumPaddedPoints>;
+  using CpuRange = ForLoopRange<0, tensor::QInterpolated<Config>::size(), 1>;
+  using GpuRange = ForLoopRange<0, tensor::QInterpolated<Config>::size(), misc::NumPaddedPoints>;
 
   public:
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
@@ -111,13 +113,13 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
     const ImpedancesAndEta& __restrict impAndEta,
     [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
-    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
     real etaPDamp,
     uint32_t step,
     uint32_t startLoopIndex = 0) {
-  static_assert(tensor::QInterpolated::Shape[seissol::multisim::BasisFunctionDimension] ==
-                    tensor::resample::Shape[0],
+  static_assert(tensor::QInterpolated<Config>::Shape[seissol::multisim::BasisFunctionDimension] ==
+                    tensor::resample<Config>::Shape[0],
                 "Different number of quadrature points?");
 
   const auto o = step;
@@ -275,8 +277,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const TractionResults<RangeExecutor<Type>::Exec>& __restrict tractionResults,
     const ImpedancesAndEta& __restrict impAndEta,
     [[maybe_unused]] const ImpedanceMatrices& __restrict impedanceMatrices,
-    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
     uint32_t step,
     real weight,
     uint32_t startIndex = 0) {
@@ -402,8 +404,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
     finalizeImposedState(const ImposedState<RangeExecutor<Type>::Exec>& __restrict state,
-                         real imposedStatePlus[tensor::QInterpolated::size()],
-                         real imposedStateMinus[tensor::QInterpolated::size()],
+                         real imposedStatePlus[tensor::QInterpolated<Config>::size()],
+                         real imposedStateMinus[tensor::QInterpolated<Config>::size()],
                          uint32_t startIndex = 0) {
 
   using NumPointsRange = typename NumPoints<Type>::Range;
@@ -588,8 +590,8 @@ SEISSOL_HOSTDEVICE inline void
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     DREnergyOutput& __restrict energyData,
-    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
+    const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated<Config>::size()],
     const ImpedancesAndEta& __restrict impAndEta,
     const real timeWeights[misc::TimeSteps],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],

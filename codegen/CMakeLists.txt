@@ -9,12 +9,10 @@
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode")
 
+# (tensor.h, init.h, kernel.h and pool.h are listed by the metagen, with runtime.h)
 set(GENERATED_FILES_FOR_SEISSOL "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/subroutine.h"
                                 "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/subroutine.cpp"
-                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/gpulike_subroutine.cpp"
-                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/tensor.h"
-                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/init.h"
-                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/kernel.h")
+                                "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/gpulike_subroutine.cpp")
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/)
 

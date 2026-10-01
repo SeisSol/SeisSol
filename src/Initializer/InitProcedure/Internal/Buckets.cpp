@@ -10,7 +10,6 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
-#include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"

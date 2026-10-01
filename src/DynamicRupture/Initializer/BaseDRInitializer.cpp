@@ -9,8 +9,8 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/general/init.h"
+#include "GeneratedCode/general/kernel.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/ParameterDB.h"
