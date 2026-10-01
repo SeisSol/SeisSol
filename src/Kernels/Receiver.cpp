@@ -348,11 +348,12 @@ static_assert(seissol::model::MaterialT::VelocityOffset + Cell::Dim <=
                   tensor::QDerivativeAtPoint::Shape[seissol::multisim::BasisFunctionDimension],
               "The velocity has to lie within the point derivatives.");
 
-/// The velocity gradient of one simulation at the point, gradient[i][j] = d_j v_i.
-std::array<std::array<real, Cell::Dim>, Cell::Dim>
+/// The velocity gradient of one simulation at the point, gradient[i][j] = d_j v_i; in double, as
+/// the receivers record what is derived from it.
+std::array<std::array<double, Cell::Dim>, Cell::Dim>
     velocityGradient(const seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint,
                      std::size_t sim) {
-  std::array<std::array<real, Cell::Dim>, Cell::Dim> gradient{};
+  std::array<std::array<double, Cell::Dim>, Cell::Dim> gradient{};
   for (std::size_t i = 0; i < Cell::Dim; ++i) {
     for (std::size_t j = 0; j < Cell::Dim; ++j) {
       gradient[i][j] = seissol::multisim::multisimWrap(
@@ -365,7 +366,7 @@ std::array<std::array<real, Cell::Dim>, Cell::Dim>
 
 std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", "rot2", "rot3"}; }
 void ReceiverRotation::compute(size_t sim,
-                               std::vector<real>& output,
+                               std::vector<double>& output,
                                seissol::init::QAtPoint::view::type& /*qAtPoint*/,
                                seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   const auto gradient = velocityGradient(qDerivativeAtPoint, sim);
@@ -378,7 +379,7 @@ std::vector<std::string> ReceiverStrain::quantities() const {
   return {"epsxx", "epsxy", "epsxz", "epsyy", "epsyz", "epszz"};
 }
 void ReceiverStrain::compute(size_t sim,
-                             std::vector<real>& output,
+                             std::vector<double>& output,
                              seissol::init::QAtPoint::view::type& /*qAtPoint*/,
                              seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry

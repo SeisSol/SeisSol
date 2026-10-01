@@ -33,7 +33,7 @@ inline real velocityGradient(std::size_t sim, std::size_t i, std::size_t j) {
 
 /// Evaluates a derived receiver quantity for every simulation on point values that carry the
 /// velocity gradient above and a poison value everywhere else.
-inline std::vector<real> evaluate(kernels::DerivedReceiverQuantity& derived) {
+inline std::vector<double> evaluate(kernels::DerivedReceiverQuantity& derived) {
   // Larger than any entry of the velocity gradient, and finite, so that reading it does not depend
   // on how the floating-point mode treats NaN.
   constexpr real Poison = 1000;
@@ -53,7 +53,7 @@ inline std::vector<real> evaluate(kernels::DerivedReceiverQuantity& derived) {
       }
     }
   }
-  std::vector<real> output;
+  std::vector<double> output;
   for (auto sim = multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
     const auto before = output.size();
     derived.compute(sim, output, qAtPoint, qDerivativeAtPoint);
