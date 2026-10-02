@@ -14,7 +14,7 @@
 namespace seissol {
 class AcceleratorDevice {
   public:
-  static AcceleratorDevice& getInstance() {
+  static AcceleratorDevice& instance() {
     static AcceleratorDevice instance;
     return instance;
   }
