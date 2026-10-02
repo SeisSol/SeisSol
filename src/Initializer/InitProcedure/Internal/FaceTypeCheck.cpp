@@ -124,7 +124,8 @@ void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType 
           problems << "\n  " << faceTypeName(faceType)
                    << ": present on a cell that does not qualify (" << requirement.reason << ")";
         } else if (faceType == FaceType::Analytical) {
-          const auto scenario = physics::scenario::analyticalBoundaryAvailability(scenarioType);
+          const auto scenario =
+              physics::scenario::analyticalBoundaryAvailability(scenarioType, config);
           if (!scenario.available) {
             ++problemCount;
             problems << "\n  " << faceTypeName(faceType) << ": the configured scenario "

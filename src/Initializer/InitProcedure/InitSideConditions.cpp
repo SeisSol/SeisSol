@@ -7,7 +7,8 @@
 
 #include "InitSideConditions.h"
 
-#include "Equations/Datastructures.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -33,11 +34,14 @@ std::vector<std::unique_ptr<physics::InitialField>>
   const auto& parameters = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
   const auto type = parameters.initialization.type;
+  // the scenario is set up for the configuration of the run
+  const auto config = parameters.model.config;
 
-  const auto availability = physics::scenario::availability(type);
+  const auto availability = physics::scenario::availability(type, config);
   if (!availability.available) {
     logError() << "The initial condition" << physics::scenario::name(type).data()
-               << "cannot be used with material" << model::MaterialT::Text.c_str() << "--"
+               << "cannot be used with material"
+               << materialTypeName(configValue(config).materialType).data() << "--"
                << availability.reason.data() << ".";
   }
 
@@ -47,7 +51,9 @@ std::vector<std::unique_ptr<physics::InitialField>>
   logInfo() << "Using initial condition" << physics::scenario::name(type).data() << ".";
 
   return physics::scenario::build(
-      type, physics::scenario::Input{parameters, materialData, seissolInstance.gravitationSetup()});
+      type,
+      physics::scenario::Input{
+          parameters, materialData, seissolInstance.gravitationSetup(), config});
 }
 
 void initInitialCondition(seissol::SeisSol& seissolInstance) {

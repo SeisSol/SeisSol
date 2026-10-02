@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
 #define SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
 
+#include "Common/ConfigRegistry.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Physics/InitialField.h"
 
 #include <Eigen/Dense>
@@ -42,15 +42,17 @@ class PressureInjection : public InitialFieldOf<PressureInjection> {
 // A planar wave travelling in direction kVec
 class Planarwave : public InitialFieldOf<Planarwave> {
   public:
-  // Choose phase in [0, 2*pi]
+  // Choose phase in [0, 2*pi]; the wave is set up for the material of the configuration `config`
   Planarwave(const CellMaterialData& materialData,
+             ConfigId config,
              double phase,
              Eigen::Vector3d kVec,
              std::vector<int> varField,
              std::vector<std::complex<double>> ampField);
-  explicit Planarwave(const CellMaterialData& materialData,
-                      double phase = 0.0,
-                      Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
+  Planarwave(const CellMaterialData& materialData,
+             ConfigId config,
+             double phase = 0.0,
+             Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
 
   template <typename RealT>
   void evaluateIn(double time,
@@ -64,20 +66,21 @@ class Planarwave : public InitialFieldOf<Planarwave> {
   std::vector<std::complex<double>> ampField_;
   double phase_;
   Eigen::Vector3d kVec_;
-  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> lambdaA_;
-  std::array<std::complex<double>,
-             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
-      eigenvectors_;
+  // the quantities of the material, and the eigenvalues and eigenvectors of the plane wave
+  // operator for them
+  std::size_t numQuantities_{};
+  std::vector<std::complex<double>> lambdaA_;
+  std::vector<std::complex<double>> eigenvectors_;
 
   private:
-  void init(const CellMaterialData& materialData);
+  void init(const CellMaterialData& materialData, ConfigId config);
 };
 
 // superimpose three planar waves travelling into different directions
 class SuperimposedPlanarwave : public InitialFieldOf<SuperimposedPlanarwave> {
   public:
   //! Choose phase in [0, 2*pi]
-  explicit SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
+  SuperimposedPlanarwave(const CellMaterialData& materialData, ConfigId config, double phase = 0.0);
 
   template <typename RealT>
   void evaluateIn(double time,
@@ -95,6 +98,7 @@ class SuperimposedPlanarwave : public InitialFieldOf<SuperimposedPlanarwave> {
 class TravellingWave : public InitialFieldOf<TravellingWave, Planarwave> {
   public:
   TravellingWave(const CellMaterialData& materialData,
+                 ConfigId config,
                  const TravellingWaveParameters& travellingWaveParameters);
 
   template <typename RealT>
@@ -165,9 +169,13 @@ class Ocean : public InitialFieldOf<Ocean> {
   private:
   int mode_;
   double gravitationalAcceleration_;
+  // whether the material of the configuration is elastic (and not acoustic), and the index of its
+  // first velocity
+  bool elastic_;
+  std::size_t velocityOffset_;
 
   public:
-  Ocean(int mode, double gravitationalAcceleration);
+  Ocean(int mode, double gravitationalAcceleration, ConfigId config);
   template <typename RealT>
   void evaluateIn(double time,
                   const std::array<double, 3>* points,
