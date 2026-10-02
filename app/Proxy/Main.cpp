@@ -55,6 +55,12 @@ int main(int argc, char* argv[]) {
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
   args.addEnumOption("format", formatValues, 'f', "The output format", false);
+  args.addOption("config",
+                 'c',
+                 "The configuration to run the kernels in, by its name (default: the first one "
+                 "listed above)",
+                 utils::Args::Required,
+                 false);
 
   if (args.parse(argc, argv) != utils::Args::Success) {
     return -1;
@@ -65,6 +71,16 @@ int main(int argc, char* argv[]) {
   config.timesteps = args.getAdditionalArgument<std::size_t>("timesteps");
   const auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
   const auto formatValue = args.getArgument<std::int32_t>("format", 0);
+  if (args.isSet("config")) {
+    const auto configName = args.getArgument<std::string>("config");
+    const auto configId = seissol::findConfig(configName);
+    if (!configId.has_value()) {
+      std::cerr << "The configuration " << configName << " is not built into this proxy."
+                << std::endl;
+      return -1;
+    }
+    config.config = *configId;
+  }
 
   const auto format = formatValue == 1 ? OutputFormat::Json : OutputFormat::Plain;
 

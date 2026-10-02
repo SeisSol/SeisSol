@@ -9,12 +9,17 @@
 #ifndef SEISSOL_SRC_KERNELS_TOUCH_H_
 #define SEISSOL_SRC_KERNELS_TOUCH_H_
 
-#include "Kernels/Precision.h"
+#include "Common/Real.h"
 
 namespace seissol::kernels {
 
-void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned numberOfCells);
-void fillWithStuff(real* buffer, unsigned nValues, bool onDevice);
+/// Zeroes the time integrated buffers and the derivatives of cells of the configuration `Cfg`.
+template <typename Cfg>
+void touchBuffersDerivatives(Real<Cfg>** buffers, Real<Cfg>** derivatives, unsigned numberOfCells);
+
+/// Fills `buffer` with arbitrary finite values that are not zero.
+template <typename RealT>
+void fillWithStuff(RealT* buffer, unsigned nValues, bool onDevice);
 
 } // namespace seissol::kernels
 

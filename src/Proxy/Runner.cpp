@@ -72,7 +72,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
     std::cerr << "Allocating fake data... ";
   }
 
-  auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
+  auto data = makeProxyData(config.config, config.cells, enableDynamicRupture);
 
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 
