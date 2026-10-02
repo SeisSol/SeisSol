@@ -128,8 +128,16 @@ seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
 
 void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.outputManager().getCheckpointManager();
-  // the data of the run is checkpointed in its configuration
-  const auto config = seissolInstance.parameters().model.config;
+  // the data of the run is checkpointed in its configuration; a checkpoint holds the cells of one
+  // configuration only
+  const auto& model = seissolInstance.parameters().model;
+  const auto config = model.config;
+  if (model.configs().size() > 1 &&
+      (seissolInstance.parameters().output.checkpointParameters.enabled ||
+       seissolInstance.checkpointLoadFile().has_value())) {
+    logError() << "Checkpoints are not supported yet for runs whose cells compute in several "
+                  "configurations.";
+  }
   checkpoint.setConfig(config);
 
   {

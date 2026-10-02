@@ -62,7 +62,13 @@ struct ModelParameters {
 /// The configuration the cells of the run compute in: the one named by `configuration` in the
 /// section `equations`, or the first one built into the executable.
 ConfigId readConfig(ParameterReader* baseReader);
-ModelParameters readModelParameters(ParameterReader* baseReader, ConfigId config);
+/// The mesh groups whose cells compute in a configuration other than `config`, by `configmap` in
+/// the section `equations`: e.g. "1,2:name;3:other" puts the groups 1 and 2 into the configuration
+/// `name`, and the group 3 into `other`.
+std::unordered_map<int, ConfigId> readGroupConfigs(ParameterReader* baseReader, ConfigId config);
+ModelParameters readModelParameters(ParameterReader* baseReader,
+                                    ConfigId config,
+                                    std::unordered_map<int, ConfigId> groupConfigs);
 ITMParameters readITMParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 

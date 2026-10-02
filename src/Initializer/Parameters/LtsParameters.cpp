@@ -218,7 +218,8 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
     : vertexWeight(vertexWeight), cfl(cfl), maxTimestepWidth(maxTimestepWidth), endTime(endTime),
       lts(std::move(lts)) {}
 
-TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader, ConfigId config) {
+TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
+                                                  const std::vector<ConfigId>& configs) {
   auto* reader = baseReader->readSubNode("discretization");
   const auto weightElement =
       static_cast<std::uint64_t>(reader->readWithDefault("vertexweightelement", 100));
@@ -229,7 +230,9 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader, C
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 
-  const bool isAnelastic = configValue(config).relaxationMechanisms > 0;
+  const bool isAnelastic = std::any_of(configs.begin(), configs.end(), [](ConfigId config) {
+    return configValue(config).relaxationMechanisms > 0;
+  });
 
   if (isAnelastic) {
     auto* modelReader = baseReader->readSubNode("equations");

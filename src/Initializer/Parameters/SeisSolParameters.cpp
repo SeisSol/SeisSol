@@ -25,9 +25,11 @@ namespace seissol::initializer::parameters {
 SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   logInfo() << "Reading SeisSol parameter file...";
 
-  // the configuration the cells of the run compute in; the parameters that depend on it, e.g. on
-  // its material or on its number of fused simulations, are read for it
+  // the configuration the cells of the run compute in, and the ones of the mesh groups with their
+  // own; the parameters that depend on it, e.g. on its material or on its number of fused
+  // simulations, are read for it
   const ConfigId config = readConfig(parameterReader);
+  const auto groupConfigs = readGroupConfigs(parameterReader, config);
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
@@ -35,11 +37,12 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   const InitializationParameters initializationParameters =
       readInitializationParameters(parameterReader, config);
   const MeshParameters meshParameters = readMeshParameters(parameterReader);
-  const ModelParameters modelParameters = readModelParameters(parameterReader, config);
+  const ModelParameters modelParameters =
+      readModelParameters(parameterReader, config, groupConfigs);
   const OutputParameters outputParameters = readOutputParameters(parameterReader, config);
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);
   const TimeSteppingParameters timeSteppingParameters =
-      readTimeSteppingParameters(parameterReader, config);
+      readTimeSteppingParameters(parameterReader, modelParameters.configs());
 
   parameterReader->warnDeprecated({"boundaries",
                                    "rffile",

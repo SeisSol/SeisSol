@@ -12,9 +12,13 @@
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cstddef>
 #include <string>
+#include <system_error>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
@@ -74,26 +78,76 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
       itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
 }
 
-ConfigId readConfig(ParameterReader* baseReader) {
-  auto* reader = baseReader->readSubNode("equations");
-  auto name = reader->read<std::string>("configuration");
-  if (!name.has_value()) {
-    return defaultConfig();
-  }
-  sanitize(name.value());
-  const auto config = findConfig(name.value());
+namespace {
+
+ConfigId configByName(std::string name) {
+  sanitize(name);
+  const auto config = findConfig(name);
   if (!config.has_value()) {
     std::string names;
     for (std::size_t id = 0; id < builtConfigCount(); ++id) {
       names += (id > 0 ? ", " : "") + configName(configValue(static_cast<ConfigId>(id)));
     }
-    logError() << "The configuration" << name.value()
+    logError() << "The configuration" << name
                << "is not built into this executable. It has:" << names;
   }
   return config.value();
 }
 
-ModelParameters readModelParameters(ParameterReader* baseReader, ConfigId config) {
+} // namespace
+
+ConfigId readConfig(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto name = reader->read<std::string>("configuration");
+  if (!name.has_value()) {
+    return defaultConfig();
+  }
+  return configByName(name.value());
+}
+
+std::unordered_map<int, ConfigId> readGroupConfigs(ParameterReader* baseReader, ConfigId config) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto configMap = reader->readWithDefault<std::string>("configmap", "");
+
+  std::unordered_map<int, ConfigId> groupConfigs;
+  for (const auto& entry : utils::StringUtils::split(configMap, ';')) {
+    auto trimmed = entry;
+    if (utils::StringUtils::trim(trimmed).empty()) {
+      continue;
+    }
+    const auto groupsAndName = utils::StringUtils::split(entry, ':');
+    if (groupsAndName.size() != 2) {
+      logError() << "The configmap entry" << entry
+                 << "does not have the form \"group,group,...:configuration\".";
+    }
+    const auto groupConfig = configByName(groupsAndName[1]);
+    if (configValue(groupConfig).numSimulations != configValue(config).numSimulations) {
+      logError() << "The configuration" << configName(configValue(groupConfig))
+                 << "fuses another number of simulations than" << configName(configValue(config))
+                 << "; all configurations of a run fuse the same number.";
+    }
+    for (auto group : utils::StringUtils::split(groupsAndName[0], ',')) {
+      utils::StringUtils::trim(group);
+      int groupId = 0;
+      const auto* groupEnd = group.data() + group.size();
+      const auto parsed = std::from_chars(group.data(), groupEnd, groupId);
+      if (group.empty() || parsed.ec != std::errc{} || parsed.ptr != groupEnd) {
+        logError() << "The configmap entry" << entry << "names" << group
+                   << "as a mesh group, which is not an integer.";
+      }
+      const auto [found, inserted] = groupConfigs.emplace(groupId, groupConfig);
+      if (!inserted && found->second != groupConfig) {
+        logError() << "The configmap gives the mesh group" << groupId
+                   << "more than one configuration.";
+      }
+    }
+  }
+  return groupConfigs;
+}
+
+ModelParameters readModelParameters(ParameterReader* baseReader,
+                                    ConfigId config,
+                                    std::unordered_map<int, ConfigId> groupConfigs) {
   auto* reader = baseReader->readSubNode("equations");
 
   const auto boundaryFileName = reader->readPath("boundaryfilename");
@@ -129,7 +183,10 @@ ModelParameters readModelParameters(ParameterReader* baseReader, ConfigId config
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  const bool isAnelastic = configValue(config).relaxationMechanisms > 0;
+  bool isAnelastic = configValue(config).relaxationMechanisms > 0;
+  for (const auto& [group, groupConfig] : groupConfigs) {
+    isAnelastic = isAnelastic || configValue(groupConfig).relaxationMechanisms > 0;
+  }
 
   const auto freqCentral = reader->readIfRequired<double>("freqcentral", isAnelastic);
   const auto freqRatio = reader->readIfRequired<double>("freqratio", isAnelastic);
@@ -175,7 +232,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader, ConfigId config
                          flux,
                          fluxNearFault,
                          config,
-                         {}};
+                         std::move(groupConfigs)};
 }
 
 std::string fluxToString(NumericalFlux flux) {

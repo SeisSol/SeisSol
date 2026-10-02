@@ -13,6 +13,7 @@
 #include "ParameterReader.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -117,7 +118,9 @@ struct TimeSteppingParameters {
 };
 
 LtsParameters readLtsParameters(ParameterReader* baseReader);
-TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader, ConfigId config);
+/// The time stepping of a run whose cells compute in the configurations `configs`.
+TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
+                                                  const std::vector<ConfigId>& configs);
 
 } // namespace seissol::initializer::parameters
 
