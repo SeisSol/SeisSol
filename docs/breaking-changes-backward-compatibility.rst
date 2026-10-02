@@ -51,6 +51,10 @@ as the same value, e.g. ``0.25`` rather than ``2.50000000000000000e-01``. What
 the columns are and what they hold is unchanged. A reader using a CSV parser
 needs no change; one comparing the lines literally does.
 
+``-analysis.csv`` has a column ``simulation_index``, as ``-energy.csv`` has. With
+fused simulations, it holds the errors of every simulation; it held those of the
+last one only.
+
 Output of a restarted run
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)

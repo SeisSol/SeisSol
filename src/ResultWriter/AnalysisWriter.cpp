@@ -120,6 +120,21 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
   const auto& quadraturePoints = rule.first;
   const auto& quadratureWeights = rule.second;
 
+  // the errors of all simulations, gathered on rank 0 as they are printed; "LInf_rel" is the
+  // longest norm name
+  seissol::io::instance::point::Csv table("analysis");
+  table.addColumn<std::int32_t>("variable");
+  table.addColumn<std::uint64_t>("simulation_index");
+  table.addTextColumn("norm", 8);
+  table.addColumn<double>("error");
+  const auto addObservation =
+      [&table](std::size_t variable, std::size_t sim, const std::string& norm, double error) {
+        table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
+        table.addCell<std::uint64_t>(sim);
+        table.addText(norm);
+        table.addCell<double>(error);
+      };
+
   for (unsigned sim = 0; sim < Cfg::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << configLabel.c_str() << ": absolute, relative";
     logInfo() << "--------------------------";
@@ -313,18 +328,6 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                0,
                comm);
 
-    // the errors, gathered on rank 0 as they are printed; "LInf_rel" is the longest norm name
-    seissol::io::instance::point::Csv table("analysis");
-    table.addColumn<std::int32_t>("variable");
-    table.addTextColumn("norm", 8);
-    table.addColumn<double>("error");
-    const auto addObservation =
-        [&table](std::size_t variable, const std::string& norm, double error) {
-          table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
-          table.addText(norm);
-          table.addCell<double>(error);
-        };
-
     for (std::size_t i = 0; i < NumQuantities; ++i) {
       CoordinateT centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
@@ -353,18 +356,18 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
         logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "at rank "
                   << errLInfRecv[i].rank << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1]
                   << ",\t" << centerRecv[2] << "\t]";
-        addObservation(i, "L1", errL1);
-        addObservation(i, "L2", errL2);
-        addObservation(i, "LInf", errLInf);
-        addObservation(i, "L1_rel", errL1Rel);
-        addObservation(i, "L2_rel", errL2Rel);
-        addObservation(i, "LInf_rel", errLInfRel);
+        addObservation(i, sim, "L1", errL1);
+        addObservation(i, sim, "L2", errL2);
+        addObservation(i, sim, "LInf", errLInf);
+        addObservation(i, sim, "L1_rel", errL1Rel);
+        addObservation(i, sim, "L2_rel", errL2Rel);
+        addObservation(i, sim, "LInf_rel", errLInfRel);
       }
     }
+  }
 
-    if (mpi.rank() == 0) {
-      table.writeFile(fileName);
-    }
+  if (mpi.rank() == 0) {
+    table.writeFile(fileName);
   }
 }
 } // namespace seissol::writer
