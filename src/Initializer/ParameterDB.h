@@ -131,6 +131,9 @@ class FaultBarycenterGenerator : public QueryGenerator {
   std::size_t numberOfPoints_;
 };
 
+/// The quadrature points of the given fault faces, in the quadrature rule of the configuration
+/// `Cfg`.
+template <typename Cfg>
 class FaultGPGenerator : public QueryGenerator {
   public:
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
@@ -160,20 +163,29 @@ class MaterialParameterDB : public ParameterDB {
   std::vector<T>* materials_{};
 };
 
+/**
+ * The parameters of the fault faces of the simulation `simulation` of `numSimulations` fused ones,
+ * written into arrays of `T`.
+ */
+template <typename T>
 class FaultParameterDB : public ParameterDB {
   public:
-  explicit FaultParameterDB(std::size_t simulation) : simid_(simulation) {}
+  FaultParameterDB(std::size_t simulation, std::size_t numSimulations)
+      : simid_(simulation), numSimulations_(numSimulations) {}
   ~FaultParameterDB() override = default;
-  void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
+  void addParameter(const std::string& parameter, T* memory, unsigned stride = 1) {
     parameters_[parameter] = std::make_pair(memory, stride);
   }
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
-  static std::set<std::string> faultProvides(const std::string& fileName);
 
   private:
   std::size_t simid_;
-  std::unordered_map<std::string, std::pair<real*, unsigned>> parameters_;
+  std::size_t numSimulations_;
+  std::unordered_map<std::string, std::pair<T*, unsigned>> parameters_;
 };
+
+/// The parameters a fault parameter file provides.
+std::set<std::string> faultProvides(const std::string& fileName);
 
 /**
  * The frame the affine boundary condition is stated in. Global is the default; face-aligned

@@ -34,7 +34,7 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * maps the parameter name, to the address in memory, where the parameter shall be stored
    * @param layer reference to a Storage layer
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override = 0;
 
   /**
@@ -52,19 +52,20 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param imposedSlipDirection1: Slip in fault aligned direction 1
    * @param imposedSlipDirection2: Slip in fault aligned direction 2
    */
+  template <typename Cfg>
   void rotateSlipToFaultCS(
       DynamicRupture::Layer& layer,
-      const std::vector<std::array<real, misc::NumPaddedPoints<Config>>>& strikeSlip,
-      const std::vector<std::array<real, misc::NumPaddedPoints<Config>>>& dipSlip,
-      real (*imposedSlipDirection1)[misc::NumPaddedPoints<Config>],
-      real (*imposedSlipDirection2)[misc::NumPaddedPoints<Config>]);
+      const std::vector<std::array<Real<Cfg>, misc::NumPaddedPoints<Cfg>>>& strikeSlip,
+      const std::vector<std::array<Real<Cfg>, misc::NumPaddedPoints<Cfg>>>& dipSlip,
+      Real<Cfg> (*imposedSlipDirection1)[misc::NumPaddedPoints<Cfg>],
+      Real<Cfg> (*imposedSlipDirection2)[misc::NumPaddedPoints<Cfg>]);
 };
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
 
   protected:
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 
   void fixInterpolatedSTFParameters(DynamicRupture::Layer& layer) override;
@@ -74,7 +75,7 @@ class ImposedSlipRatesGaussianInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
 
   protected:
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 };
 
@@ -82,7 +83,7 @@ class ImposedSlipRatesDeltaInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
 
   protected:
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 };
 

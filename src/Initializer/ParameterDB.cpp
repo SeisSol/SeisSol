@@ -366,13 +366,14 @@ easi::Query FaultBarycenterGenerator::generate() const {
   return query;
 }
 
-easi::Query FaultGPGenerator::generate() const {
+template <typename Cfg>
+easi::Query FaultGPGenerator<Cfg>::generate() const {
   const std::vector<Fault>& fault = meshReader_.getFault();
   const std::vector<Element>& elements = meshReader_.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
-  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Config>;
-  const auto pointsView = init::quadpoints<Config>::view::create(init::quadpoints<Config>::Values);
+  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
+  const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
   easi::Query query(NumPoints * faceIDs_.size(), Cell::Dim);
   std::size_t q = 0;
   // loop over all fault elements which are managed by this generator
@@ -400,10 +401,10 @@ easi::Query FaultGPGenerator::generate() const {
         seissol::geometry::ReferenceFaceMap(side, sideOrientation));
     for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
       auto localPoints = seissol::geometry::FaceTransform::FaceVectorT(
-          seissol::multisim::multisimTranspose<Config>(pointsView, n, 0),
-          seissol::multisim::multisimTranspose<Config>(pointsView, n, 1));
+          seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 0),
+          seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 1));
       // padded points are in the middle of the tetrahedron
-      if (n >= dr::misc::NumBoundaryGaussPoints<Config>) {
+      if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
         localPoints =
             seissol::geometry::FaceTransform::FaceVectorT(Face::ReferenceBarycenter.data());
       }
@@ -417,6 +418,10 @@ easi::Query FaultGPGenerator::generate() const {
   }
   return query;
 }
+
+#define SEISSOL_INSTANTIATE(Cfg) template class FaultGPGenerator<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 namespace {
 
@@ -671,15 +676,16 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   delete model;
 }
 
-void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
+template <typename T>
+void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
+                                        const QueryGenerator& queryGen) {
   // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
-  easi::ArraysAdapter<real> adapter;
+  easi::ArraysAdapter<T> adapter;
   for (auto& kv : parameters_) {
-    adapter.addBindingPoint(
-        kv.first, kv.second.first + simid_, kv.second.second * multisim::NumSimulations);
+    adapter.addBindingPoint(kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
   }
 
   easiEvalSafe(model, query, adapter, "fault material");
@@ -687,7 +693,10 @@ void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGen
   delete model;
 }
 
-std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileName) {
+template class FaultParameterDB<float>;
+template class FaultParameterDB<double>;
+
+std::set<std::string> faultProvides(const std::string& fileName) {
   if (fileName.empty()) {
     return {};
   }
