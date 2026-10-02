@@ -281,11 +281,11 @@ void Time<Cfg>::evaluateBatched(
   krnl.streamPtr = runtime.stream();
   krnl.execute();
 #else
-  seissol::kernels::time::aux::taylorSum(numElements,
-                                         timeIntegratedDofs,
-                                         const_cast<const real**>(timeDerivatives),
-                                         coeffs,
-                                         runtime.stream());
+  seissol::kernels::time::aux::taylorSum<Cfg>(numElements,
+                                              timeIntegratedDofs,
+                                              const_cast<const real**>(timeDerivatives),
+                                              coeffs,
+                                              runtime.stream());
 #endif
 #else
   logError() << "No GPU implementation provided";

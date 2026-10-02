@@ -12,8 +12,12 @@
 #include "Kernels/Precision.h"
 
 namespace seissol::kernels::time::aux {
-void taylorSum(
-    std::size_t count, real** target, const real** source, const real* coeffs, void* stream);
+template <typename Cfg>
+void taylorSum(std::size_t count,
+               Real<Cfg>** target,
+               const Real<Cfg>** source,
+               const Real<Cfg>* coeffs,
+               void* stream);
 } // namespace seissol::kernels::time::aux
 
 #endif // SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_

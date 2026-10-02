@@ -266,7 +266,7 @@ void Local<Cfg>::computeBatchedIntegral(
       auto** rhos = dataTable[fsgKey].get(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 
       auto bcKernel = deviceFsgFlux_;
-      bcKernel.g2m = -2 * gravitationalAcceleration_;
+      bcKernel.g2m = -2 * this->gravitationalAcceleration_;
       bcKernel.rho = const_cast<const real**>(rhos);
       bcKernel.extraOffset_rho = 2;
       bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);
