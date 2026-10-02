@@ -318,7 +318,7 @@ struct LTS {
     });
     // check plasticity usage over the layer mask (for now)
     if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
-      manager.registerData<Plasticity>("pstrain", storage);
+      manager.registerData<PStrain>("pstrain", storage);
     }
   }
 };
