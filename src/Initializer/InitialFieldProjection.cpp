@@ -228,12 +228,14 @@ void projectEasiFieldsOnLayer(const std::vector<double>& data,
 
 } // namespace
 
-void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
-                         const seissol::geometry::MeshReader& meshReader,
-                         LTS::Storage& storage) {
+void projectInitialField(
+    const std::vector<std::vector<std::unique_ptr<physics::InitialField>>>& iniFields,
+    const seissol::geometry::MeshReader& meshReader,
+    LTS::Storage& storage) {
   for (auto& layer : storage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
-      projectInitialFieldOnLayer<decltype(cfg)>(iniFields, meshReader, layer);
+      projectInitialFieldOnLayer<decltype(cfg)>(
+          iniFields.at(layer.getIdentifier().config), meshReader, layer);
     });
   }
 }

@@ -11,6 +11,7 @@
 #include "MemoryManager.h"
 
 #include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "DynamicRupture/Factory.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -36,7 +37,8 @@
 
 namespace seissol::initializer {
 
-MemoryManager::MemoryManager(seissol::SeisSol& instance) : seissolInstance_(instance) {}
+MemoryManager::MemoryManager(seissol::SeisSol& instance)
+    : seissolInstance_(instance), iniConds_(builtConfigCount()) {}
 
 void MemoryManager::initialize() {
   // initialize global matrices

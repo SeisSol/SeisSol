@@ -12,6 +12,7 @@
 #define SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 
 #include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "DynamicRupture/Factory.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/ParameterDB.h"
@@ -59,7 +60,8 @@ class MemoryManager {
   LTS::Storage ltsStorage_;
   LTS::Backmap backmap_;
 
-  std::vector<std::unique_ptr<physics::InitialField>> iniConds_;
+  // the initial conditions of the cells of each configuration, by its id
+  std::vector<std::vector<std::unique_ptr<physics::InitialField>>> iniConds_;
 
   DynamicRupture::Backmap drBackmap_;
 
@@ -119,11 +121,19 @@ class MemoryManager {
 
   Boundary::Storage& boundaryStorage() { return boundaryStorage_; }
 
-  void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
-    iniConds_ = std::move(iniConds);
+  /// Sets the initial conditions of the cells of the configuration `config`.
+  void setInitialConditions(ConfigId config,
+                            std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
+    iniConds_.at(config) = std::move(iniConds);
   }
 
-  const std::vector<std::unique_ptr<physics::InitialField>>& initialConditions() {
+  /// The initial conditions of the cells of the configuration `config`; the reference stays valid.
+  const std::vector<std::unique_ptr<physics::InitialField>>& initialConditions(ConfigId config) {
+    return iniConds_.at(config);
+  }
+
+  /// The initial conditions of the cells of every configuration, by its id.
+  const std::vector<std::vector<std::unique_ptr<physics::InitialField>>>& initialConditions() {
     return iniConds_;
   }
 

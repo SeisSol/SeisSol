@@ -29,7 +29,7 @@
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
-#include "Physics/InitialField.h"
+#include "Physics/InitialField.h" // IWYU pragma: keep
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -91,7 +91,7 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
     }
   }
 
-  const auto& iniFields = seissolInstance_.memoryManager().initialConditions();
+  const auto& iniFields = seissolInstance_.memoryManager().initialConditions(configIdOf<Cfg>());
 
   constexpr auto Variant = configIdOf<Cfg>();
 

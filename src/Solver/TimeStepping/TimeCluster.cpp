@@ -123,7 +123,7 @@ TimeCluster<Cfg>::TimeCluster(
   spacetimeKernel_.setGlobalData(globalData);
   timeKernel_.setGlobalData(globalData);
   localKernel_.setGlobalData(globalData);
-  localKernel_.setInitConds(&seissolInstance_.memoryManager().initialConditions());
+  localKernel_.setInitConds(&seissolInstance_.memoryManager().initialConditions(configIdOf<Cfg>()));
   localKernel_.setGravitationalAcceleration(seissolInstance_.gravitationSetup().acceleration);
   neighborKernel_.setGlobalData(globalData);
   dynamicRuptureKernel_.setGlobalData(globalData);
