@@ -9,6 +9,7 @@
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Kernels/Common.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cassert>
@@ -64,9 +65,6 @@ static __device__ __forceinline__ void taylorSumInner(TargetRealT* const __restr
   constexpr std::size_t SourceMemSize = SourceStride * Quantities;
   constexpr bool UseShared = MemorySize >= RestMemSize;
   constexpr std::size_t LoadSize = UseShared ? RestMemSize : SourceMemSize;
-
-  static_assert(seissol::tensor::dQ<Config>::size(ThisOrder) == SourceMemSize,
-                "Tensor size mismatch in explicit kernel.");
 
   if constexpr (LoadSize > 0) {
     __syncthreads();

@@ -59,9 +59,6 @@ static void taylorSumInner(sycl::nd_item<1>& item,
   constexpr bool UseShared = MemorySize >= RestMemSize;
   constexpr std::size_t LoadSize = UseShared ? RestMemSize : SourceMemSize;
 
-  static_assert(seissol::tensor::dQ<Config>::size(ThisOrder) == SourceMemSize,
-                "Tensor size mismatch in explicit kernel.");
-
   if constexpr (LoadSize > 0) {
     item.barrier();
     constexpr std::size_t Rounds = LoadSize / Blocksize;

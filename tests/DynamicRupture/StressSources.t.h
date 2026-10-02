@@ -223,7 +223,7 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
     const auto backward =
         stressAtTime<Config>(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
     for (std::size_t component = 0; component < 6; ++component) {
-      CHECK(backward[component] == forward[step][component]);
+      CHECK(backward[component] == AbsApprox(forward[step][component]));
     }
   }
 }

@@ -306,7 +306,9 @@ class NoSpecialization {
 
   explicit NoSpecialization(const FrictionLawParameters<Real<Cfg>>& /*parameters*/) {};
 
-  void allocateAuxiliaryMemory(GlobalData<Cfg>* globalData);
+  void allocateAuxiliaryMemory(GlobalData<Cfg>* globalData) {
+    resampleKrnlPrototype_.bindGlobals(*globalData);
+  }
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
@@ -315,7 +317,12 @@ class NoSpecialization {
    * the polynomial at the quadrature points
    */
   void resampleSlipRate(real (&resampledSlipRate)[dr::misc::NumPaddedPoints<Cfg>],
-                        const real (&slipRate)[dr::misc::NumPaddedPoints<Cfg>]) const;
+                        const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Cfg>]) const {
+    auto resampleKrnl = resampleKrnlPrototype_;
+    resampleKrnl.originalQ = slipRateMagnitude;
+    resampleKrnl.resampledQ = resampledSlipRate;
+    resampleKrnl.execute();
+  }
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
@@ -365,8 +372,11 @@ class BiMaterialFault {
       : vStar_(parameters.vStar), prakashLength_(parameters.prakashLength) {};
 
   void allocateAuxiliaryMemory(GlobalData<Cfg>* /*globalData*/) {}
-  void copyStorageToLocal(DynamicRupture::Layer& layerData);
-  /**
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+    regularizedStrength_ =
+        layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Cfg());
+  }
+  /*
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
    * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
    * replace the resampling with a simple copy.

@@ -28,7 +28,7 @@ class ImposedSlipRates : public ReceiverOutputImpl<ImposedSlipRates> {
 
     rotatedUpdatedStress[QuantityIndices::XY] = rotatedStress[QuantityIndices::XY];
     rotatedUpdatedStress[QuantityIndices::XZ] = rotatedStress[QuantityIndices::XZ];
-  };
+  }
 };
 } // namespace seissol::dr::output
 

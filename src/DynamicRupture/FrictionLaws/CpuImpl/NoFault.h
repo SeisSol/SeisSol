@@ -24,18 +24,23 @@ class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
 
   static void
       updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
-                            const FaultStresses<Cfg, Executor::Host>& initialStress,
+                            const FaultStresses<Cfg, Executor::Host>& /*initialStress*/,
                             TractionResults<Cfg, Executor::Host>& tractionResults,
-                            std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-                            std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
-                            std::size_t ltsFace,
-                            uint32_t timeIndex);
+                            std::array<real, misc::NumPaddedPoints<Cfg>>& /*stateVariableBuffer*/,
+                            std::array<real, misc::NumPaddedPoints<Cfg>>& /*strengthBuffer*/,
+                            std::size_t /*ltsFace*/,
+                            uint32_t /*timeIndex*/) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
+      tractionResults.traction1[pointIndex] = faultStresses.traction1[pointIndex];
+      tractionResults.traction2[pointIndex] = faultStresses.traction2[pointIndex];
+    }
+  }
 
   void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-               std::size_t ltsFace) {};
+               std::size_t ltsFace) {}
   void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-                std::size_t ltsFace) {};
-  void saveDynamicStressOutput(std::size_t ltsFace, real time) {};
+                std::size_t ltsFace) {}
+  void saveDynamicStressOutput(std::size_t ltsFace, real time) {}
 };
 } // namespace seissol::dr::friction_law::cpu
 

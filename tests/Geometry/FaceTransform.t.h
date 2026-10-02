@@ -97,7 +97,7 @@ TEST_CASE("Reference face map" * doctest::test_suite("geometry")) {
       const AffineFaceTransform face(cellTransform, ReferenceFaceMap(side));
       const auto corners = face.vertices();
       for (std::size_t vertex = 0; vertex < Face::NumVertices; ++vertex) {
-        const auto expected = cellVertices[MeshTools::FACE2NODES[side][vertex]];
+        const auto& expected = cellVertices[MeshTools::FACE2NODES[side][vertex]];
         REQUIRE((corners[vertex] - expected).norm() == AbsApprox(0.0).epsilon(Epsilon));
       }
     }
