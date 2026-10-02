@@ -72,7 +72,7 @@ class EnergiesStorage {
 
 class EnergyOutput : public Module {
   public:
-  void init(GlobalData* newGlobal,
+  void init(GlobalData<Config>* newGlobal,
             const DynamicRupture::Storage& newDynRuptTree,
             const seissol::geometry::MeshReader& newMeshReader,
             const LTS::Storage& newStorage,
@@ -128,7 +128,7 @@ class EnergyOutput : public Module {
   //! The energies of every output, held by the rank that writes them.
   std::optional<io::instance::point::Csv> table_;
 
-  const GlobalData* global_ = nullptr;
+  const GlobalData<Config>* global_ = nullptr;
   const DynamicRupture::Storage* drStorage_ = nullptr;
   const seissol::geometry::MeshReader* meshReader_ = nullptr;
   const LTS::Storage* ltsStorage_ = nullptr;

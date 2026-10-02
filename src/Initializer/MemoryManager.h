@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 #define SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 
+#include "Common/ConfigDispatch.h"
 #include "DynamicRupture/Factory.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/ParameterDB.h"
@@ -50,9 +51,9 @@ class MemoryManager {
   /*
    * Cross-cluster
    */
-  //! global data
-  GlobalData globalDataOnHost_;
-  GlobalData globalDataOnDevice_;
+  //! global data of every configuration
+  PerConfig<GlobalData> globalDataOnHost_;
+  PerConfig<GlobalData> globalDataOnDevice_;
 
   //! Memory organization storage
   LTS::Storage ltsStorage_;
@@ -87,14 +88,15 @@ class MemoryManager {
   void initialize();
 
   /**
-   * Gets the global data on both host and device.
+   * Gets the global data of the configuration `Cfg` on both host and device.
    **/
-  CompoundGlobalData globalData() {
-    CompoundGlobalData global{};
-    global.onHost = &globalDataOnHost_;
+  template <typename Cfg>
+  CompoundGlobalData<Cfg> globalData() {
+    CompoundGlobalData<Cfg> global{};
+    global.onHost = &globalDataOnHost_.get<Cfg>();
     global.onDevice = nullptr;
     if constexpr (seissol::isDeviceOn()) {
-      global.onDevice = &globalDataOnDevice_;
+      global.onDevice = &globalDataOnDevice_.get<Cfg>();
     }
     return global;
   }

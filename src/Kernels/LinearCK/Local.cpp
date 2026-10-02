@@ -49,7 +49,7 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
 
-void Local::setGlobalData(const CompoundGlobalData& global) {
+void Local::setGlobalData(const CompoundGlobalData<Config>& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);

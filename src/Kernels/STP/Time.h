@@ -26,7 +26,7 @@ namespace seissol::kernels::solver::stp {
 
 class Spacetime : public SpacetimeKernel {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const CompoundGlobalData<Config>& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
                    LTS::Ref<Config>& data,
@@ -56,7 +56,7 @@ class Spacetime : public SpacetimeKernel {
 
 class Time : public TimeKernel {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const CompoundGlobalData<Config>& global) override;
   void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,

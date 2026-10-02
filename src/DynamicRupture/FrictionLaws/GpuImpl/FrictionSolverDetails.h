@@ -25,7 +25,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 
   ~FrictionSolverDetails() override = default;
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+  void allocateAuxiliaryMemory(GlobalData<Config>* globalData) override {
     // call the device module directly here
     {
 #ifdef ACL_DEVICE

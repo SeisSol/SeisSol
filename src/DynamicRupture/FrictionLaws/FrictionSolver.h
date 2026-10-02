@@ -57,7 +57,7 @@ class FrictionSolver {
    */
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
-  virtual void allocateAuxiliaryMemory(GlobalData* globalData) {
+  virtual void allocateAuxiliaryMemory(GlobalData<Config>* globalData) {
     spaceWeights_ = globalData->*init::quadweights<Config>::PoolMember;
   }
 

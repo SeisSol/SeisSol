@@ -118,7 +118,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   // iterate over local time clusters
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
-    auto globalData = memoryManager.globalData();
+    auto globalData = memoryManager.globalData<Config>();
 
     const auto clusterId = layer.getIdentifier().lts;
 

@@ -81,7 +81,7 @@ class TimeCluster : public AbstractTimeCluster {
    * global data
    */
   //! global data structures
-  CompoundGlobalData globalData_;
+  CompoundGlobalData<Config> globalData_;
 #ifdef ACL_DEVICE
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
@@ -245,7 +245,7 @@ class TimeCluster : public AbstractTimeCluster {
               long timeStepRate,
               bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler,
-              CompoundGlobalData globalData,
+              CompoundGlobalData<Config> globalData,
               LTS::Layer* clusterData,
               DynamicRupture::Layer* dynRupInteriorData,
               DynamicRupture::Layer* dynRupCopyData,

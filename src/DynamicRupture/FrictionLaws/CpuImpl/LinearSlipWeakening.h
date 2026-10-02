@@ -28,7 +28,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization_(drParameters) {}
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+  void allocateAuxiliaryMemory(GlobalData<Config>* globalData) override {
     BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>::allocateAuxiliaryMemory(globalData);
     specialization_.allocateAuxiliaryMemory(globalData);
   }
@@ -299,7 +299,7 @@ class NoSpecialization {
   public:
   explicit NoSpecialization(const FrictionLawParameters& /*parameters*/) {};
 
-  void allocateAuxiliaryMemory(GlobalData* globalData);
+  void allocateAuxiliaryMemory(GlobalData<Config>* globalData);
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
@@ -354,7 +354,7 @@ class BiMaterialFault {
   explicit BiMaterialFault(const FrictionLawParameters& parameters)
       : vStar_(parameters.vStar), prakashLength_(parameters.prakashLength) {};
 
-  void allocateAuxiliaryMemory(GlobalData* /*globalData*/) {}
+  void allocateAuxiliaryMemory(GlobalData<Config>* /*globalData*/) {}
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
@@ -423,7 +423,7 @@ class TPApprox {
   explicit TPApprox(const FrictionLawParameters& parameters)
       : tpProxyExponent_(parameters.tpProxyExponent) {};
 
-  void allocateAuxiliaryMemory(GlobalData* /*globalData*/) {}
+  void allocateAuxiliaryMemory(GlobalData<Config>* /*globalData*/) {}
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
   /**
    * Use a simple copy for now, maybe use proper resampling later

@@ -64,7 +64,7 @@ static_assert(*seissol::recording::DrFaceRelations::Count ==
               Cell::NumFaces * dr::misc::NumFaceRelations);
 #endif
 
-void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
+void DynamicRupture::setGlobalData(const CompoundGlobalData<Config>& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);

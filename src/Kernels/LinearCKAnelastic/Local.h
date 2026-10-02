@@ -22,7 +22,7 @@
 namespace seissol::kernels::solver::linearckanelastic {
 class Local : public LocalKernel {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const CompoundGlobalData<Config>& global) override;
 
   void computeIntegral(real* timeIntegratedDoFs,
                        LTS::Ref<Config>& data,

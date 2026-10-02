@@ -34,7 +34,7 @@ namespace seissol::kernels::solver::linearckanelastic {
 static_assert(std::size(seissol::kernel::neighborFluxExt<Config>::ExecutePtrs) ==
               Cell::NumFaces * Cell::NumFaces);
 
-void Neighbor::setGlobalData(const CompoundGlobalData& global) {
+void Neighbor::setGlobalData(const CompoundGlobalData<Config>& global) {
   nfKrnlPrototype_.bindGlobals(*global.onHost);
   drKrnlPrototype_.bindGlobals(*global.onHost);
 

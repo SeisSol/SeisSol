@@ -32,7 +32,7 @@ class DynamicRupture : public Kernel {
   public:
   DynamicRupture() = default;
 
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const CompoundGlobalData<Config>& global) override;
 
   void spaceTimeInterpolation(
       const DRFaceInformation& faceInfo,

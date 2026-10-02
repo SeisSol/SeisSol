@@ -161,7 +161,7 @@ class ShearedPlasticityCell {
 
     dofs_.fill(0);
     pstrain_.fill(0);
-    const GlobalData global = seissol::Pool<Config>::host();
+    const GlobalData<Config> global = seissol::Pool<Config>::host();
     return Plasticity::computePlasticity(
         static_cast<real>(Plasticity::computeRelaxTime(RelaxationTime, TimeStep)),
         static_cast<real>(TimeStep),

@@ -21,7 +21,7 @@
 namespace seissol::kernels::solver::linearckanelastic {
 class Spacetime : public SpacetimeKernel {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const CompoundGlobalData<Config>& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
                    LTS::Ref<Config>& data,
@@ -50,7 +50,7 @@ class Spacetime : public SpacetimeKernel {
 
 class Time : public TimeKernel {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const CompoundGlobalData<Config>& global) override;
   void evaluate(const real* coeffs,
                 const real* timeDerivatives,
                 real timeEvaluated[tensor::I<Config>::size()]) override;

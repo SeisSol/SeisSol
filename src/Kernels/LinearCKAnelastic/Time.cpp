@@ -33,9 +33,9 @@ extern long long libxsmm_num_total_flops;
 
 namespace seissol::kernels::solver::linearckanelastic {
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+void Time::setGlobalData(const CompoundGlobalData<Config>& global) {}
 
-void Spacetime::setGlobalData(const CompoundGlobalData& global) {
+void Spacetime::setGlobalData(const CompoundGlobalData<Config>& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
   fsgKernelPrototype_.bindGlobals(*global.onHost);
 

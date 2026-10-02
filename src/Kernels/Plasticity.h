@@ -34,14 +34,14 @@ class Plasticity {
   static std::size_t computePlasticity(real oneMinusIntegratingFactor,
                                        real timeStepWidth,
                                        real tV,
-                                       const GlobalData* global,
+                                       const GlobalData<Config>* global,
                                        const seissol::model::PlasticityData<Config>* plasticityData,
                                        real degreesOfFreedom[tensor::Q<Config>::size()],
                                        real* pstrain);
 
   static void computePlasticityBatched(real timeStepWidth,
                                        real tV,
-                                       const GlobalData* global,
+                                       const GlobalData<Config>* global,
                                        recording::ConditionalPointersToRealsTable& table,
                                        seissol::model::PlasticityData<Config>* plasticityData,
                                        std::size_t* yieldCounter,

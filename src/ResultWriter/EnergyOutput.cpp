@@ -77,7 +77,7 @@ std::array<real, multisim::NumSimulations>
                       const DRFaceInformation& faceInfo,
                       const DRGodunovData<Config>& godunovData,
                       const real slip[seissol::tensor::slipInterpolated<Config>::size()],
-                      const GlobalData* global) {
+                      const GlobalData<Config>* global) {
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config> krnl;
   krnl.bindGlobals(*global);
 
@@ -240,7 +240,7 @@ std::vector<double>& EnergiesStorage::values() { return values_; }
 void EnergiesStorage::reset() { std::fill(values_.begin(), values_.end(), 0); }
 
 void EnergyOutput::init(
-    GlobalData* newGlobal,
+    GlobalData<Config>* newGlobal,
     const DynamicRupture::Storage& newDynRuptTree,
     const seissol::geometry::MeshReader& newMeshReader,
     const LTS::Storage& newStorage,

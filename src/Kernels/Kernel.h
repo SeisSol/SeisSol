@@ -15,7 +15,7 @@ namespace seissol::kernels {
 
 class Kernel {
   public:
-  virtual void setGlobalData(const CompoundGlobalData& global) {}
+  virtual void setGlobalData(const CompoundGlobalData<Config>& global) {}
   virtual ~Kernel() = default;
 
 #ifdef ACL_DEVICE

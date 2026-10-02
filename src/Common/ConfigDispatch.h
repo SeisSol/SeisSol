@@ -13,6 +13,7 @@
 
 #include <array>
 #include <cstddef>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -46,7 +47,27 @@ constexpr std::array<ConfigVariant, sizeof...(Indices)>
   return {ConfigVariant(std::in_place_index<Indices>)...};
 }
 
+template <template <typename> typename T, typename Variant>
+struct PerConfigValues;
+
+template <template <typename> typename T, typename... Cfgs>
+struct PerConfigValues<T, std::variant<Cfgs...>> {
+  using Type = std::tuple<T<Cfgs>...>;
+};
+
+constexpr bool forEachConfigListsVariant() {
+  std::size_t index = 0;
+  bool listed = true;
+#define SEISSOL_CONFIG_LISTED(Cfg) listed = listed && configIdOf<Cfg>() == index++;
+  SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_LISTED)
+#undef SEISSOL_CONFIG_LISTED
+  return listed && index == std::variant_size_v<ConfigVariant>;
+}
+
 } // namespace internal
+
+static_assert(internal::forEachConfigListsVariant(),
+              "SEISSOL_FOR_EACH_CONFIG lists the configurations of ConfigVariant, in its order.");
 
 /// The id of a configuration type.
 template <typename Cfg>
@@ -66,6 +87,37 @@ decltype(auto) dispatchConfig(ConfigId id, F&& function) {
       internal::configVariants(std::make_index_sequence<std::variant_size_v<ConfigVariant>>());
   return std::visit(std::forward<F>(function), Variants.at(id));
 }
+
+/// Calls `function` as `dispatchConfig` does, once for every configuration built into the
+/// executable, in the order of their ids.
+template <typename F>
+void forEachConfig(const F& function) {
+  for (ConfigId id = 0; id < std::variant_size_v<ConfigVariant>; ++id) {
+    dispatchConfig(id, function);
+  }
+}
+
+/**
+ * @brief One `T<Cfg>` for every configuration `Cfg` built into the executable.
+ *
+ * Holds what exists once per configuration, such as the global data of its kernels.
+ */
+template <template <typename> typename T>
+class PerConfig {
+  public:
+  template <typename Cfg>
+  [[nodiscard]] T<Cfg>& get() {
+    return std::get<configIdOf<Cfg>()>(values_);
+  }
+
+  template <typename Cfg>
+  [[nodiscard]] const T<Cfg>& get() const {
+    return std::get<configIdOf<Cfg>()>(values_);
+  }
+
+  private:
+  typename internal::PerConfigValues<T, ConfigVariant>::Type values_;
+};
 
 } // namespace seissol
 

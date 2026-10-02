@@ -66,7 +66,7 @@ class ReceiverWriter : public seissol::Module {
    */
   void addPoints(const seissol::geometry::MeshReader& mesh,
                  const LTS::Backmap& backmap,
-                 const CompoundGlobalData& global);
+                 const CompoundGlobalData<Config>& global);
 
   /**
    * \brief Returns the ReceiverCluster for a given cluster ID.

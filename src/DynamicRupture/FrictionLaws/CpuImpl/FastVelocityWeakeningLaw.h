@@ -25,7 +25,7 @@ class FastVelocityWeakeningLaw
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+  void allocateAuxiliaryMemory(GlobalData<Config>* globalData) override {
     RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::allocateAuxiliaryMemory(globalData);
     resampleKrnlPrototype_.bindGlobals(*globalData);
   }

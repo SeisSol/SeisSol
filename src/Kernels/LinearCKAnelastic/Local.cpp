@@ -30,7 +30,7 @@
 
 namespace seissol::kernels::solver::linearckanelastic {
 
-void Local::setGlobalData(const CompoundGlobalData& global) {
+void Local::setGlobalData(const CompoundGlobalData<Config>& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
 

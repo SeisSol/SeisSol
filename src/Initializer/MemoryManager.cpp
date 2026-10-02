@@ -10,6 +10,7 @@
 
 #include "MemoryManager.h"
 
+#include "Common/ConfigDispatch.h"
 #include "DynamicRupture/Factory.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -39,11 +40,15 @@ MemoryManager::MemoryManager(seissol::SeisSol& instance) : seissolInstance_(inst
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(globalDataOnHost_, memoryAllocator_, memory::Memkind::Standard);
-  if constexpr (seissol::isDeviceOn()) {
-    GlobalDataInitializerOnDevice::init(
-        globalDataOnDevice_, memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
-  }
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    GlobalDataInitializerOnHost::init<Cfg>(
+        globalDataOnHost_.get<Cfg>(), memoryAllocator_, memory::Memkind::Standard);
+    if constexpr (seissol::isDeviceOn()) {
+      GlobalDataInitializerOnDevice::init<Cfg>(
+          globalDataOnDevice_.get<Cfg>(), memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
+    }
+  });
 }
 
 void MemoryManager::initializeFrictionLaw() {

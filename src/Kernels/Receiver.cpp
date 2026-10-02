@@ -76,7 +76,7 @@ ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
     : samplingInterval_(1.0e99), syncPointInterval_(0.0), seissolInstance_(seissolInstance) {}
 
 ReceiverCluster::ReceiverCluster(
-    const CompoundGlobalData& global,
+    const CompoundGlobalData<Config>& global,
     const std::vector<std::size_t>& quantities,
     double samplingInterval,
     double syncPointInterval,

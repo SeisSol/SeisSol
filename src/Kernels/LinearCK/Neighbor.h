@@ -24,7 +24,7 @@ namespace seissol::kernels::solver::linearck {
 
 class Neighbor : public NeighborKernel {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const CompoundGlobalData<Config>& global) override;
 
   void computeNeighborsIntegral(
       LTS::Ref<Config>& data,

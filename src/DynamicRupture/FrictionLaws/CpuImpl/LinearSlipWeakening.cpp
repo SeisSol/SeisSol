@@ -16,7 +16,7 @@
 
 namespace seissol::dr::friction_law::cpu {
 
-void NoSpecialization::allocateAuxiliaryMemory(GlobalData* globalData) {
+void NoSpecialization::allocateAuxiliaryMemory(GlobalData<Config>* globalData) {
   resampleKrnlPrototype_.bindGlobals(*globalData);
 }
 

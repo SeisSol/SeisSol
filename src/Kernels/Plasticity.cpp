@@ -49,7 +49,7 @@ std::size_t
     Plasticity::computePlasticity(real oneMinusIntegratingFactor,
                                   real timeStepWidth,
                                   real tV,
-                                  const GlobalData* global,
+                                  const GlobalData<Config>* global,
                                   const seissol::model::PlasticityData<Config>* plasticityData,
                                   real degreesOfFreedom[tensor::Q<Config>::size()],
                                   real* pstrain) {
@@ -227,7 +227,7 @@ std::size_t
 void Plasticity::computePlasticityBatched(
     SEISSOL_GPU_PARAM real timeStepWidth,
     SEISSOL_GPU_PARAM real tV,
-    SEISSOL_GPU_PARAM const GlobalData* global,
+    SEISSOL_GPU_PARAM const GlobalData<Config>* global,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
     SEISSOL_GPU_PARAM seissol::model::PlasticityData<Config>* plasticityData,
     SEISSOL_GPU_PARAM std::size_t* yieldCounter,

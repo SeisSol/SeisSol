@@ -37,7 +37,7 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::stp {
 
-void Spacetime::setGlobalData(const CompoundGlobalData& global) {
+void Spacetime::setGlobalData(const CompoundGlobalData<Config>& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
@@ -292,6 +292,6 @@ PerformanceEstimate Time::metrics() const {
   return PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtTimeSTP<Config>>();
 }
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+void Time::setGlobalData(const CompoundGlobalData<Config>& global) {}
 
 } // namespace seissol::kernels::solver::stp

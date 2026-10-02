@@ -9,6 +9,7 @@
 
 #include "ReceiverWriter.h"
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "IO/Datatype/Inference.h"
@@ -179,7 +180,7 @@ void ReceiverWriter::init(
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const LTS::Backmap& backmap,
-                               const CompoundGlobalData& global) {
+                               const CompoundGlobalData<Config>& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
   if (!receiverFileName_.empty()) {

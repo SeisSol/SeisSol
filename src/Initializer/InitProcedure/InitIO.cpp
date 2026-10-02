@@ -194,7 +194,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto& ltsStorage = memoryManager.ltsStorage();
   auto& backmap = memoryManager.backmap();
   auto& drStorage = memoryManager.drStorage();
-  auto* globalData = memoryManager.globalData().onHost;
+  auto* globalData = memoryManager.globalData<Config>().onHost;
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
   constexpr auto QDofSizePadded =
@@ -780,7 +780,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     receiverWriter.init(seissolParams.output.prefix,
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
-    receiverWriter.addPoints(seissolInstance.meshReader(), backmap, memoryManager.globalData());
+    receiverWriter.addPoints(
+        seissolInstance.meshReader(), backmap, memoryManager.globalData<Config>());
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 

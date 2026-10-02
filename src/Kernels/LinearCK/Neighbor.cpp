@@ -59,7 +59,7 @@ static_assert(std::size(dynamicRupture::kernel::gpu_nodalFlux<Config>::ExecutePt
               *seissol::recording::DrFaceRelations::Count);
 #endif
 
-void Neighbor::setGlobalData(const CompoundGlobalData& global) {
+void Neighbor::setGlobalData(const CompoundGlobalData<Config>& global) {
 
   nfKrnlPrototype_.bindGlobals(*global.onHost);
   drKrnlPrototype_.bindGlobals(*global.onHost);

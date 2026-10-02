@@ -145,14 +145,14 @@ ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount
 }
 
 void ProxyData::initGlobalData() {
-  seissol::initializer::GlobalDataInitializerOnHost::init(
+  seissol::initializer::GlobalDataInitializerOnHost::init<Config>(
       globalDataOnHost, allocator, seissol::memory::Memkind::Standard);
 
-  CompoundGlobalData globalData{};
+  CompoundGlobalData<Config> globalData{};
   globalData.onHost = &globalDataOnHost;
   globalData.onDevice = nullptr;
   if constexpr (seissol::isDeviceOn()) {
-    seissol::initializer::GlobalDataInitializerOnDevice::init(
+    seissol::initializer::GlobalDataInitializerOnDevice::init<Config>(
         globalDataOnDevice, allocator, seissol::memory::Memkind::DeviceGlobalMemory);
     globalData.onDevice = &globalDataOnDevice;
   }

@@ -38,17 +38,20 @@ constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (Conve
 } // namespace kernels
 
 /**
- * The generated constant matrices, as one table of pointers into the pool.
+ * The generated constant matrices of the configuration `Cfg`, as one table of pointers into the
+ * pool of its generator.
  *
- * There are two of these: one built on the image in this binary, one on a
- * copy of it in device memory. Which entries a table holds is decided by the
- * code generator, so adding a matrix no longer means touching this file.
+ * There are two of these per configuration: one built on the image in this binary, one on a
+ * copy of it in device memory. Which entries a table holds is decided by the code generator.
  **/
-using GlobalData = seissol::Pool<Config>;
+template <typename Cfg>
+using GlobalData = seissol::Pool<Cfg>;
 
+/// The global data of the configuration `Cfg` on the host and, in a GPU build, on the device.
+template <typename Cfg>
 struct CompoundGlobalData {
-  GlobalData* onHost{nullptr};
-  GlobalData* onDevice{nullptr};
+  GlobalData<Cfg>* onHost{nullptr};
+  GlobalData<Cfg>* onDevice{nullptr};
 };
 
 // data for the cell local integration

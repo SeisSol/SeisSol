@@ -51,7 +51,7 @@ GENERATE_HAS_MEMBER(extraOffset_ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
-void Spacetime::setGlobalData(const CompoundGlobalData& global) {
+void Spacetime::setGlobalData(const CompoundGlobalData<Config>& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
   fsgKernelPrototype_.bindGlobals(*global.onHost);
 
@@ -290,6 +290,6 @@ PerformanceEstimate Time::metrics() const {
   return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion<Config>>();
 }
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+void Time::setGlobalData(const CompoundGlobalData<Config>& global) {}
 
 } // namespace seissol::kernels::solver::linearck

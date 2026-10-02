@@ -45,4 +45,8 @@ struct Config {
 
 } // namespace seissol
 
+// Expands `X(Cfg)` for every configuration built into the executable, in the order of their ids.
+// A translation unit that defines templates of a configuration instantiates them through it.
+#define SEISSOL_FOR_EACH_CONFIG(X) X(::seissol::Config)
+
 #endif // SEISSOL_SRC_CONFIG_IN_H_
