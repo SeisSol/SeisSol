@@ -90,7 +90,8 @@ TEST_CASE("Configured material is self consistent" * doctest::test_suite("equati
   SUBCASE("relaxation is configured consistently") { checkRelaxation<MaterialT>(); }
 
   SUBCASE("the stiff source rows are inside the material") {
-    static_assert(MaterialT::StiffSourceRows.size() == generated::StiffSourceRowCount,
+    static_assert(MaterialT::StiffSourceRows.size() ==
+                      generated::Quantities<Config>::StiffSourceRowCount,
                   "the material and the generated kernels disagree on the stiff rows");
     for (const auto& row : MaterialT::StiffSourceRows) {
       CHECK(row.quantity < MaterialT::NumQuantities);

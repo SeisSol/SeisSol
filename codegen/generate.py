@@ -345,10 +345,13 @@ def main():
 
         subfolders += [outputDirName]
 
-        kernels.quantities.emit_header(adg, trueOutputDir)
+        # the C++ type the code of the equation is generated for
+        key = "seissol::Config"
+
+        kernels.quantities.emit_header(adg, trueOutputDir, key)
 
         metagen.add_generator(
-            ["seissol::Config"],
+            [key],
             generator,
             name=re.sub(r"\W", "_", outputDirName),
             directory=outputDirName,

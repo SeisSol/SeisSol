@@ -95,7 +95,8 @@ struct SolverSetup<kernels::solver::stp::Solver<Cfg>, MaterialT>
     ZInvInitializer<Cfg, MaterialT, 0, MaterialT::NumQuantities, decltype(sourceMatrix)>(
         localData->Zinv, sourceMatrix, timeStepWidth);
 
-    static_assert(MaterialT::StiffSourceRows.size() == generated::StiffSourceRowCount,
+    static_assert(MaterialT::StiffSourceRows.size() ==
+                      generated::Quantities<Cfg>::StiffSourceRowCount,
                   "the material and the generated kernels disagree on the stiff rows");
     for (std::size_t i = 0; i < MaterialT::StiffSourceRows.size(); ++i) {
       const auto& row = MaterialT::StiffSourceRows[i];

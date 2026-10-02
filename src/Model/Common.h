@@ -71,12 +71,18 @@ constexpr bool kindsMatch(const std::array<QuantityGroup, N>& groups,
 // the generator cannot read C++, and the material headers are not generated.
 // This is what keeps the two from drifting apart: a disagreement becomes a
 // compile error rather than a rotation matrix with blocks in the wrong places.
-static_assert(detail::kindsMatch(MaterialT::RotationGroups<kernels::SolverOf<Config>>,
-                                 generated::RotationGroupKinds),
-              "the material's quantity groups disagree with the generated layout");
-static_assert(detail::kindsMatch(MaterialT::InverseRotationGroups<kernels::SolverOf<Config>>,
-                                 generated::InverseRotationGroupKinds),
-              "the material's inverse quantity groups disagree with the generated layout");
+// the argument is a type, which the check takes for an expression in template arguments
+// NOLINTBEGIN(bugprone-macro-parentheses)
+#define SEISSOL_CHECK_GROUPS(Cfg)                                                                  \
+  static_assert(detail::kindsMatch(MaterialOf<Cfg>::RotationGroups<kernels::SolverOf<Cfg>>,        \
+                                   generated::Quantities<Cfg>::RotationGroupKinds),                \
+                "the material's quantity groups disagree with the generated layout");              \
+  static_assert(detail::kindsMatch(MaterialOf<Cfg>::InverseRotationGroups<kernels::SolverOf<Cfg>>, \
+                                   generated::Quantities<Cfg>::InverseRotationGroupKinds),         \
+                "the material's inverse quantity groups disagree with the generated layout");
+// NOLINTEND(bugprone-macro-parentheses)
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_CHECK_GROUPS)
+#undef SEISSOL_CHECK_GROUPS
 
 /**
  * The face types that are defined for a material model as soon as it supplies a Godunov state
