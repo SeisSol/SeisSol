@@ -11,6 +11,7 @@
 
 #include "Backmap.h"
 #include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Iterator.h"
 #include "Common/Literals.h"
 #include "Layer.h"
@@ -19,10 +20,12 @@
 #include "Memory/Tree/Colormap.h"
 #include "Monitoring/Unit.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer {
 
@@ -151,6 +154,19 @@ class Storage {
   ~Storage() = default;
 
   [[nodiscard]] const LTSColorMap& getColorMap() const { return map_.value(); }
+
+  /// The configurations of the layers, each once, by increasing id. Every rank has the same
+  /// layers, so they are the same on every rank.
+  [[nodiscard]] std::vector<ConfigId> configs() const {
+    std::vector<ConfigId> configs;
+    configs.reserve(getColorMap().size());
+    for (std::size_t color = 0; color < getColorMap().size(); ++color) {
+      configs.push_back(getColorMap().argument(color).config);
+    }
+    std::sort(configs.begin(), configs.end());
+    configs.erase(std::unique(configs.begin(), configs.end()), configs.end());
+    return configs;
+  }
 
   void setName(const std::string& name) { this->name_ = name; }
 

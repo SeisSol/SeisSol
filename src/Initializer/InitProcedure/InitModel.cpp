@@ -159,7 +159,8 @@ void initializeCellMaterialOfConfig(
         initAssign(materialData, localMaterial);
         material.local = &materialData;
 
-        energyDataArray[cell] = model::EnergyCompute<MaterialT>::initEnergyData(materialData);
+        energyDataArray[cell] =
+            model::EnergyCompute<MaterialT>::template initEnergyData<Cfg>(materialData);
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {

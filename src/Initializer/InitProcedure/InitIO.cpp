@@ -194,7 +194,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto& ltsStorage = memoryManager.ltsStorage();
   auto& backmap = memoryManager.backmap();
   auto& drStorage = memoryManager.drStorage();
-  auto* globalData = memoryManager.globalData<Config>().onHost;
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
   constexpr auto QDofSizePadded =
@@ -787,8 +786,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   if (seissolParams.output.energyParameters.enabled) {
     auto& energyOutput = seissolInstance.energyOutput();
 
-    energyOutput.init(globalData,
-                      drStorage,
+    energyOutput.init(drStorage,
                       seissolInstance.meshReader(),
                       ltsStorage,
                       seissolParams.model.plasticity,

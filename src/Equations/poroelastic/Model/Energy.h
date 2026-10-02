@@ -52,21 +52,27 @@ struct EnergyCompute<PoroElasticMaterial> {
   /// No anelastic variables. See the viscoelastic specialization for the
   /// non-trivial case; the arguments are accepted uniformly so that
   /// EnergyOutput does not need to branch on the material.
+  template <typename Cfg>
   struct Moments {};
-  static Moments computeMoments(const real* /*dofs*/, const real* /*dofsAne*/) { return {}; }
 
-  static PoroElasticMaterial::EnergyData<Config>
+  template <typename Cfg>
+  static Moments<Cfg> computeMoments(const Real<Cfg>* /*dofs*/, const Real<Cfg>* /*dofsAne*/) {
+    return {};
+  }
+
+  template <typename Cfg>
+  static PoroElasticMaterial::EnergyData<Cfg>
       initEnergyData(const PoroElasticMaterial& /*material*/) {
     return {};
   }
 
-  template <typename LinearViewT, typename QuadraticViewT>
+  template <typename Cfg, typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const PoroElasticMaterial& material,
-                      const PoroElasticMaterial::EnergyData<Config>& /*data*/,
+                      const PoroElasticMaterial::EnergyData<Cfg>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
-                      const Moments& /*moments*/,
+                      const Moments<Cfg>& /*moments*/,
                       std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
 

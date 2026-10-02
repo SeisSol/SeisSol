@@ -73,14 +73,16 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
    * Cell moments involving the anelastic variables, see codegen kernels
    * `momentQaneQaneCompute` and `momentQQaneCompute`.
    */
+  template <typename Cfg>
   struct Moments {
-    alignas(Alignment) real ane[tensor::momentQaneQane<Config>::size()]{};
-    alignas(Alignment) real cross[tensor::momentQQane<Config>::size()]{};
+    alignas(Alignment) Real<Cfg> ane[tensor::momentQaneQane<Cfg>::size()]{};
+    alignas(Alignment) Real<Cfg> cross[tensor::momentQQane<Cfg>::size()]{};
   };
 
-  static Moments computeMoments(const real* dofs, const real* dofsAne) {
-    constexpr auto Variant = configIdOf<Config>();
-    Moments moments{};
+  template <typename Cfg>
+  static Moments<Cfg> computeMoments(const Real<Cfg>* dofs, const Real<Cfg>* dofsAne) {
+    constexpr auto Variant = configIdOf<Cfg>();
+    Moments<Cfg> moments{};
 
     runtime::kernel::momentQaneQaneCompute aneKrnl;
     aneKrnl.Qane = runtime::init::Qane::view(Variant, dofsAne);
@@ -96,7 +98,8 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     return moments;
   }
 
-  static typename ViscoMaterial::template EnergyData<Config>
+  template <typename Cfg>
+  static typename ViscoMaterial::template EnergyData<Cfg>
       initEnergyData(const ViscoMaterial& /*material*/) {
     return {};
   }
@@ -135,13 +138,13 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
    * Everything below evaluates these in a volumetric/deviatoric split, which
    * avoids inverting any 6x6 matrix.
    */
-  template <typename LinearViewT, typename QuadraticViewT>
+  template <typename Cfg, typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const ViscoMaterial& material,
-                      const typename ViscoMaterial::template EnergyData<Config>& /*data*/,
+                      const typename ViscoMaterial::template EnergyData<Cfg>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
-                      const Moments& moments,
+                      const Moments<Cfg>& moments,
                       std::size_t sim) {
     std::array<double, EnergyCount> output{};
 
@@ -162,10 +165,10 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     output[MomentumYIdx] = rho * v;
     output[MomentumZIdx] = rho * w;
 
-    const auto aneFused = init::momentQaneQane<Config>::view::create(moments.ane);
-    const auto crossFused = init::momentQQane<Config>::view::create(moments.cross);
-    const auto ane = multisim::simtensor<Config>(aneFused, sim);
-    const auto cross = multisim::simtensor<Config>(crossFused, sim);
+    const auto aneFused = init::momentQaneQane<Cfg>::view::create(moments.ane);
+    const auto crossFused = init::momentQQane<Cfg>::view::create(moments.cross);
+    const auto ane = multisim::simtensor<Cfg>(aneFused, sim);
+    const auto cross = multisim::simtensor<Cfg>(crossFused, sim);
 
     // Voigt order (xx, yy, zz, xy, yz, xz). The anelastic variables carry tensor
     // components, so a double contraction weights the off-diagonals by two.

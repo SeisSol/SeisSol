@@ -72,8 +72,7 @@ class EnergiesStorage {
 
 class EnergyOutput : public Module {
   public:
-  void init(GlobalData<Config>* newGlobal,
-            const DynamicRupture::Storage& newDynRuptTree,
+  void init(const DynamicRupture::Storage& newDynRuptTree,
             const seissol::geometry::MeshReader& newMeshReader,
             const LTS::Storage& newStorage,
             bool newIsPlasticityEnabled,
@@ -106,7 +105,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(const std::array<double, multisim::NumSimulations>& timeSinceThreshold,
+  void checkAbortCriterion(const std::vector<double>& timeSinceThreshold,
                            const std::string& prefixMessage);
 
   void writeEnergies(double time);
@@ -128,18 +127,19 @@ class EnergyOutput : public Module {
   //! The energies of every output, held by the rank that writes them.
   std::optional<io::instance::point::Csv> table_;
 
-  const GlobalData<Config>* global_ = nullptr;
   const DynamicRupture::Storage* drStorage_ = nullptr;
   const seissol::geometry::MeshReader* meshReader_ = nullptr;
   const LTS::Storage* ltsStorage_ = nullptr;
 
+  //! The fused simulations of the run: the most that one of its configurations has.
+  std::size_t simulationCount_{1};
   EnergiesStorage energiesStorage_{};
-  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold_{};
-  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold_{};
+  std::vector<double> minTimeSinceSlipRateBelowThreshold_;
+  std::vector<double> minTimeSinceMomentRateBelowThreshold_;
   double terminatorMaxTimePostRupture_{};
   double energyOutputInterval_{};
   double terminatorMomentRateThreshold_{};
-  std::array<double, multisim::NumSimulations> seismicMomentPrevious_{};
+  std::vector<double> seismicMomentPrevious_;
 };
 
 } // namespace writer
