@@ -8,6 +8,8 @@
 #include "DynamicRupture/Output/OutputManager.h"
 
 #include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "Common/Real.h"
@@ -36,7 +38,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
 #include <array>
@@ -150,6 +151,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ppOutputBuilder_ = std::make_unique<PickPointBuilder>();
     ppOutputBuilder_->setMeshReader(&userMesher);
     ppOutputBuilder_->setParams(seissolParameters.output.pickpointParameters);
+    ppOutputBuilder_->setSimulationCount(
+        configValue(seissolParameters.model.config).numSimulations);
     ppOutputBuilder_->setTimestep(seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
                                   seissolParameters.timeStepping.endTime);
   }
@@ -158,6 +161,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ewOutputBuilder_ = std::make_unique<ElementWiseBuilder>();
     ewOutputBuilder_->setMeshReader(&userMesher);
     ewOutputBuilder_->setParams(seissolParameters.output.elementwiseParameters);
+    ewOutputBuilder_->setSimulationCount(
+        configValue(seissolParameters.model.config).numSimulations);
   }
   if (!elementwiseEnabled && !pointEnabled) {
     logInfo() << "No dynamic rupture output enabled";
@@ -224,6 +229,8 @@ void OutputManager::initElementwiseOutput() {
   logInfo() << "Setting up the fault output.";
   ewOutputBuilder_->build(ewOutputData_);
   const auto& seissolParameters = seissolInstance_.parameters();
+  // the receivers of the fused simulations of the configuration of the run follow each other
+  const auto numSimulations = configValue(seissolParameters.model.config).numSimulations;
 
   const auto& receivers = ewOutputData_->receivers;
 
@@ -256,7 +263,7 @@ void OutputManager::initElementwiseOutput() {
 
   auto writer = io::instance::geometry::GeometryWriter(
       "fault",
-      receivers.size() / dataCount / multisim::NumSimulations,
+      receivers.size() / dataCount / numSimulations,
       io::instance::geometry::Shape::Triangle,
       config,
       1,
@@ -266,11 +273,11 @@ void OutputManager::initElementwiseOutput() {
           for (std::size_t i = 0; i < pointCount; ++i) {
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
               target[i * Cell::Dim + j] =
-                  receivers[(pointCount * index + i) * multisim::NumSimulations].global[j];
+                  receivers[(pointCount * index + i) * numSimulations].global[j];
             }
           }
         } else {
-          const auto& triangle = receivers[index * multisim::NumSimulations].globalTriangle;
+          const auto& triangle = receivers[index * numSimulations].globalTriangle;
           for (std::size_t i = 0; i < pointCount; ++i) {
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
               target[i * Cell::Dim + j] = triangle.point(i)[j];
@@ -285,12 +292,12 @@ void OutputManager::initElementwiseOutput() {
 
   writer.addCellData<int>(
       "fault-tag", {}, true, [=, &receivers](int* target, std::size_t index, std::size_t) {
-        *target = faultTagOfCell(receivers, index, dataCount, multisim::NumSimulations);
+        *target = faultTagOfCell(receivers, index, dataCount, numSimulations);
       });
 
   writer.addCellData<std::size_t>(
       "global-id", {}, true, [=, &receivers](std::size_t* target, std::size_t index, std::size_t) {
-        *target = globalFaceIdOfCell(receivers, index, dataCount, multisim::NumSimulations);
+        *target = globalFaceIdOfCell(receivers, index, dataCount, numSimulations);
       });
 
   misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
@@ -298,20 +305,20 @@ void OutputManager::initElementwiseOutput() {
       for (std::size_t d = 0; d < var.dim(); ++d) {
         const auto* data = var[d];
         const auto variableName = [&](std::size_t d, std::size_t s) {
-          if constexpr (multisim::MultisimEnabled) {
+          if (numSimulations > 1) {
             return VariableLabels[i][d] + "-" + std::to_string(s);
           } else {
             return VariableLabels[i][d];
           }
         };
-        for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+        for (std::size_t s = 0; s < numSimulations; ++s) {
           writer.addGeometryOutput<double>(
               variableName(d, s),
               std::vector<std::size_t>(),
               false,
               [=](double* target, std::size_t index, std::size_t) {
                 for (std::size_t i = 0; i < dataCount; ++i) {
-                  target[i] = data[(dataCount * index + i) * multisim::NumSimulations + s];
+                  target[i] = data[(dataCount * index + i) * numSimulations + s];
                 }
               });
         }
@@ -337,6 +344,7 @@ void OutputManager::initPickpointOutput() {
   logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder_->build(ppOutputData_);
   const auto& seissolParameters = seissolInstance_.parameters();
+  const auto numSimulations = configValue(seissolParameters.model.config).numSimulations;
 
   seissolInstance_.pickpointWriter().enable(
       seissolParameters.output.pickpointParameters.writeInterval);
@@ -390,14 +398,14 @@ void OutputManager::initPickpointOutput() {
 
     std::stringstream baseHeader;
 
-    auto suffix = [&allReceiversInOneFilePerRank](auto pointIndex, auto simIndex) {
+    auto suffix = [&allReceiversInOneFilePerRank, numSimulations](auto pointIndex, auto simIndex) {
       std::string suffix;
 
       if (allReceiversInOneFilePerRank) {
         suffix += "-" + std::to_string(pointIndex);
       }
 
-      if constexpr (seissol::multisim::MultisimEnabled) {
+      if (numSimulations > 1) {
         suffix += "-" + std::to_string(simIndex);
       }
 
@@ -408,7 +416,7 @@ void OutputManager::initPickpointOutput() {
         allReceiversInOneFilePerRank ? outputData->topology.pointCount() : 1;
 
     for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
-      for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
+      for (std::size_t simIndex = 0; simIndex < numSimulations; ++simIndex) {
         size_t labelCounter = 0;
         auto collectVariableNames =
             [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](const auto& var, int i) {

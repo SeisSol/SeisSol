@@ -15,7 +15,6 @@
 #include "Geometry/FaceTransform.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include "Solver/MultipleSimulations.h"
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
@@ -60,7 +59,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
 
     logInfo() << "Initializing Fault output."
               << "Number of sub-triangles:" << numSubTriangles << "Output order:" << order
-              << "Simulation count:" << multisim::NumSimulations;
+              << "Simulation count:" << numSimulations_;
 
     // get the array of fault faces from the meshReader
     const auto& faultInfo = meshReader_->getFault();
@@ -87,7 +86,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
                                            elementIdx.value(),
                                            &fault,
                                            order,
-                                           multisim::NumSimulations},
+                                           numSimulations_},
                                           std::make_pair(globalFace, referenceTriangle));
       }
     }
