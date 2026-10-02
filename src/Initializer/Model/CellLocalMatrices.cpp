@@ -217,12 +217,20 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         auto centralFluxView = init::QgodLocal<Cfg>::view::create(centralFluxData);
         auto rusanovPlusView = init::QcorrLocal<Cfg>::view::create(rusanovPlusData);
         auto rusanovMinusView = init::QcorrNeighbor<Cfg>::view::create(rusanovMinusData);
+        // the diagonal ends where the stored block does: with the memory variables among the
+        // unknowns, these matrices keep only the rows of the quantities of the Riemann problem
         for (size_t i = 0;
              i < std::min(tensor::QgodLocal<Cfg>::Shape[0], tensor::QgodLocal<Cfg>::Shape[1]);
              i++) {
-          centralFluxView(i, i) = 0.5;
-          rusanovPlusView(i, i) = wavespeed * 0.5;
-          rusanovMinusView(i, i) = -wavespeed * 0.5;
+          if (centralFluxView.isInRange(i, i)) {
+            centralFluxView(i, i) = 0.5;
+          }
+          if (rusanovPlusView.isInRange(i, i)) {
+            rusanovPlusView(i, i) = wavespeed * 0.5;
+          }
+          if (rusanovMinusView.isInRange(i, i)) {
+            rusanovMinusView(i, i) = -wavespeed * 0.5;
+          }
         }
 
         // check if we're on a face that has an adjacent cell with DR face
