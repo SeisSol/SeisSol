@@ -113,7 +113,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       break;
     }
     case FaceType::Analytical: {
-      assert(initConds_ != nullptr);
+      assert(this->initConds_ != nullptr);
       const auto applyAnalyticalSolution =
           kernels::ApplyAnalyticalSolution<Cfg>(this->initConds_, data);
 

@@ -141,7 +141,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       break;
     }
     case FaceType::Analytical: {
-      assert(initConds_ != nullptr);
+      assert(this->initConds_ != nullptr);
       const auto applyAnalyticalSolution = ApplyAnalyticalSolution<Cfg>(this->initConds_, data);
 
       analyticalBoundary_.evaluate(cellBoundaryMapping[face],
@@ -344,7 +344,7 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
 
             alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
 
-            assert(initConds_ != nullptr);
+            assert(this->initConds_ != nullptr);
             const ApplyAnalyticalSolution<Cfg> applyAnalyticalSolution(this->initConds_, data);
 
             analyticalBoundary_.evaluate(data.template get<LTS::BoundaryMapping>()[face],
