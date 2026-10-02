@@ -9,8 +9,9 @@
 
 #include "Alignment.h"
 #include "Common/ConfigDispatch.h"
-#include "Common/Constants.h"
-#include "Config.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
+#include "Common/Real.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
@@ -23,7 +24,6 @@
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
@@ -47,8 +47,6 @@
 namespace seissol::writer {
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
-  const auto& mpi = seissol::Mpi::mpi;
-
   const auto initialConditionType = seissolInstance_.parameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
       initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
@@ -60,37 +58,70 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   logInfo() << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
             << " at time " << simulationTime;
 
+  // every configuration of the run is compared on its own cells, in its quantities
+  const auto configs = seissolInstance_.memoryManager().ltsStorage().configs();
+  for (const auto config : configs) {
+    dispatchConfig(config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if (configs.size() == 1) {
+        printAnalysisOf<Cfg>(simulationTime, "", fileNamePrefix_ + "-analysis.csv");
+      } else {
+        const auto name = configName(configValue(config));
+        printAnalysisOf<Cfg>(simulationTime,
+                             " (configuration " + name + ")",
+                             fileNamePrefix_ + "-analysis-" + name + ".csv");
+      }
+    });
+  }
+}
+
+template <typename Cfg>
+void AnalysisWriter::printAnalysisOf(double simulationTime,
+                                     const std::string& configLabel,
+                                     const std::string& fileName) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  const auto& mpi = seissol::Mpi::mpi;
+  const auto initialConditionType = seissolInstance_.parameters().initialization.type;
+
+  // the cells of the configuration
+  std::vector<const LTS::Layer*> layers;
+  for (const auto& layer : seissolInstance_.memoryManager().ltsStorage().leaves(Ghost)) {
+    if (layer.getIdentifier().config == configIdOf<Cfg>()) {
+      layers.push_back(&layer);
+    }
+  }
+
   const auto& iniFields = seissolInstance_.memoryManager().initialConditions();
 
-  const auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
-  constexpr auto Variant = configIdOf<Config>();
+  constexpr auto Variant = configIdOf<Cfg>();
 
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
   const std::vector<Element>& elements = meshReader_->getElements();
 
-  constexpr auto NumQuantities = tensor::Q<
-      Config>::Shape[sizeof(tensor::Q<Config>::Shape) / sizeof(tensor::Q<Config>::Shape[0]) - 1];
+  constexpr auto NumQuantities =
+      tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
-    data = initializer::projectEasiFields({seissolInstance_.parameters().initialization.filename},
-                                          simulationTime,
-                                          *meshReader_,
-                                          seissolInstance_.parameters().initialization.hasTime);
+    data =
+        initializer::projectEasiFields<Cfg>({seissolInstance_.parameters().initialization.filename},
+                                            simulationTime,
+                                            *meshReader_,
+                                            seissolInstance_.parameters().initialization.hasTime);
   }
 
   const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
   const auto& quadraturePoints = rule.first;
   const auto& quadratureWeights = rule.second;
 
-  for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
-    logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
+  for (unsigned sim = 0; sim < Cfg::NumSimulations; ++sim) {
+    logInfo() << "Analysis for simulation" << sim << configLabel.c_str() << ": absolute, relative";
     logInfo() << "--------------------------";
 
     using ErrorArrayT = std::array<double, NumQuantities>;
@@ -120,10 +151,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     // cells that are duplicates.
     std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
 
-    for (const auto& layer : ltsStorage.leaves(Ghost)) {
-      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      const auto* materialData = layer.var<LTS::Material>();
-      const auto* dofsData = layer.var<LTS::Dofs>(Config());
+    for (const auto& layer : layers) {
+      const auto* secondaryInformation = layer->var<LTS::SecondaryInformation>();
+      const auto* materialData = layer->var<LTS::Material>();
+      const auto* dofsData = layer->var<LTS::Dofs>(Cfg());
 
 #if !NVHPC_AVOID_OMP
       // Note: Adding default(none) leads error when using gcc-8
@@ -142,7 +173,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     analyticalsL2Local,                                            \
                                     analyticalsLInfLocal) firstprivate(quadraturePointsXyz)
 #endif
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (std::size_t cell = 0; cell < layer->size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {
           // skip duplicate cells
           continue;
@@ -150,10 +181,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         const auto meshId = secondaryInformation[cell].meshId;
         const int curThreadId = OpenMP::threadId();
 
-        alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Config>::size()]{};
+        alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Cfg>::size()]{};
         alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities]{};
 
-        auto numericalSolution = init::dofsQP<Config>::view::create(numericalSolutionData);
+        auto numericalSolution = init::dofsQP<Cfg>::view::create(numericalSolutionData);
         auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
                                                                    {NumQuadPoints, NumQuantities});
 
@@ -191,7 +222,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         krnl.Q = runtime::init::Q::view(Variant, dofsData[cell]);
         krnl.execute(Variant);
 
-        const auto numSub = seissol::multisim::simtensor<Config>(numericalSolution, sim);
+        const auto numSub = seissol::multisim::simtensor<Cfg>(numericalSolution, sim);
 
         for (size_t i = 0; i < NumQuadPoints; ++i) {
           const auto curWeight = jacobiDet * quadratureWeights[i];
@@ -332,7 +363,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     }
 
     if (mpi.rank() == 0) {
-      table.writeFile(fileName_);
+      table.writeFile(fileName);
     }
   }
 }

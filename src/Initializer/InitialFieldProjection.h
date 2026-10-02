@@ -23,6 +23,9 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          const seissol::geometry::MeshReader& meshReader,
                          LTS::Storage& storage);
 
+/// The values of the easi fields `iniFields` at the quadrature points of every element, as the
+/// configuration `Cfg` projects them: by element, point, quantity and field.
+template <typename Cfg>
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
                                       const seissol::geometry::MeshReader& meshReader,

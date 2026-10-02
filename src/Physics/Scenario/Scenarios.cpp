@@ -9,14 +9,12 @@
 
 #include "Config.h"
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/init.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
 #include "Numerical/Eigenvalues.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
 #include <array>
@@ -36,6 +34,7 @@
 // FIXME: the following line is absolutely necessary for the plain-wave operator to work correctly
 // (template specializations for the equations).
 #include "Equations/Setup.h" // IWYU pragma: keep
+#include "Physics/InitialField.h"
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
@@ -99,12 +98,13 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   eigenvectors_ = eigendecomposition.vectors;
 }
 
-void seissol::physics::Planarwave::evaluate(
+template <typename RealT>
+void seissol::physics::Planarwave::evaluateIn(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& /*materialData*/,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
   const auto r = yateto::DenseTensorView<2, std::complex<double>, unsigned, true>(
@@ -132,24 +132,26 @@ seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
            Planarwave(materialData, phase, kVec_.at(1)),
            Planarwave(materialData, phase, kVec_.at(2))}) {}
 
-void seissol::physics::SuperimposedPlanarwave::evaluate(
+template <typename RealT>
+void seissol::physics::SuperimposedPlanarwave::evaluateIn(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& materialData,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  const std::size_t basisFunCount = init::Q<Config>::Shape[multisim::BasisFunctionDimension];
-  const std::size_t quantityCount = init::Q<Config>::Shape[multisim::BasisFunctionDimension + 1];
+  // a row for every point, as the planar waves fill it
+  const auto pointCount = static_cast<unsigned>(count);
+  const auto quantityCount = dofsQP.shape(1);
 
-  std::vector<real> dofsPwVector(quantityCount * basisFunCount);
-  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
-      dofsPwVector.data(), {basisFunCount, quantityCount}, {0, 0}, {basisFunCount, quantityCount});
+  std::vector<RealT> dofsPwVector(static_cast<std::size_t>(pointCount) * quantityCount);
+  auto dofsPW = yateto::DenseTensorView<2, RealT, unsigned>(
+      dofsPwVector.data(), {pointCount, quantityCount}, {0, 0}, {pointCount, quantityCount});
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
-    pw_.at(pw).evaluate(time, points, count, materialData, dofsPW);
+    pw_.at(pw).evaluateIn(time, points, count, materialData, dofsPW);
     // and add results together
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < count; ++i) {
@@ -164,11 +166,11 @@ seissol::physics::TravellingWave::TravellingWave(
     // Set phase to 0.5*M_PI, so we have a zero at the origin
     // The wave travels in direction of kVec
     // 2*pi / magnitude(kVec) is the wave length of the wave
-    : Planarwave(materialData,
-                 0.5 * M_PI,
-                 travellingWaveParameters.kVec,
-                 travellingWaveParameters.varField,
-                 travellingWaveParameters.ampField),
+    : InitialFieldOf<TravellingWave, Planarwave>(materialData,
+                                                 0.5 * M_PI,
+                                                 travellingWaveParameters.kVec,
+                                                 travellingWaveParameters.varField,
+                                                 travellingWaveParameters.ampField),
       // origin is a point on the wavefront at time zero
       origin_(travellingWaveParameters.origin) {
   logInfo() << "Impose a travelling wave as initial condition";
@@ -202,12 +204,13 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
 
 void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {}
 
-void seissol::physics::AcousticTravellingWaveITM::evaluate(
+template <typename RealT>
+void seissol::physics::AcousticTravellingWaveITM::evaluateIn(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& /*materialData*/,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
   dofsQP.setZero();
   double pressure = 0.0;
   for (size_t i = 0; i < count; ++i) {
@@ -275,12 +278,13 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
   }
 }
 
-void seissol::physics::TravellingWave::evaluate(
+template <typename RealT>
+void seissol::physics::TravellingWave::evaluateIn(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& /*materialData*/,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
   dofsQp.setZero();
 
   const auto r = yateto::DenseTensorView<2, std::complex<double>, unsigned, true>(
@@ -314,12 +318,13 @@ seissol::physics::PressureInjection::PressureInjection(
             << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
 }
 
-void seissol::physics::PressureInjection::evaluate(
+template <typename RealT>
+void seissol::physics::PressureInjection::evaluateIn(
     double /*time*/,
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& /*materialData*/,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
   const auto o1 = parameters_.origin[0];
   const auto o2 = parameters_.origin[1];
   const auto o3 = parameters_.origin[2];
@@ -348,18 +353,19 @@ void seissol::physics::PressureInjection::evaluate(
   }
 }
 
-void seissol::physics::ScholteWave::evaluate(
+template <typename RealT>
+void seissol::physics::ScholteWave::evaluateIn(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& materialData,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-  const real omega = 2.0 * std::acos(-1);
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
+  const RealT omega = 2.0 * std::acos(-1);
 
   for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local->getMuBar()) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local->getMuBar()) < std::numeric_limits<RealT>::epsilon();
     const auto x1 = x[0];
     const auto x3 = x[2];
     const auto t = time;
@@ -422,19 +428,20 @@ void seissol::physics::ScholteWave::evaluate(
   }
 }
 
-void seissol::physics::SnellsLaw::evaluate(
+template <typename RealT>
+void seissol::physics::SnellsLaw::evaluateIn(
     double time,
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& materialData,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
   const double pi = std::acos(-1);
   const double omega = 2.0 * pi;
 
   for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local->getMuBar()) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local->getMuBar()) < std::numeric_limits<RealT>::epsilon();
 
     const auto x1 = x[0];
     const auto x3 = x[2];
@@ -530,11 +537,13 @@ seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration)
     throw std::runtime_error("Wave mode " + std::to_string(mode) + " is not supported.");
   }
 }
-void seissol::physics::Ocean::evaluate(double time,
-                                       const std::array<double, 3>* points,
-                                       std::size_t count,
-                                       const CellMaterialData& materialData,
-                                       yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+template <typename RealT>
+void seissol::physics::Ocean::evaluateIn(
+    double time,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& materialData,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
   for (size_t i = 0; i < count; ++i) {
     const auto x = points[i][0];
     const auto y = points[i][1];
@@ -619,3 +628,29 @@ void seissol::physics::Ocean::evaluate(double time,
     }
   }
 }
+
+// the types of reals the configurations compute in
+#define SEISSOL_FIELD_INSTANTIATE(Field, RealT)                                                    \
+  template void seissol::physics::Field::evaluateIn(double,                                        \
+                                                    const std::array<double, 3>*,                  \
+                                                    std::size_t,                                   \
+                                                    const CellMaterialData&,                       \
+                                                    yateto::DenseTensorView<2, RealT, unsigned>&)  \
+      const;
+SEISSOL_FIELD_INSTANTIATE(Planarwave, float)
+SEISSOL_FIELD_INSTANTIATE(Planarwave, double)
+SEISSOL_FIELD_INSTANTIATE(SuperimposedPlanarwave, float)
+SEISSOL_FIELD_INSTANTIATE(SuperimposedPlanarwave, double)
+SEISSOL_FIELD_INSTANTIATE(AcousticTravellingWaveITM, float)
+SEISSOL_FIELD_INSTANTIATE(AcousticTravellingWaveITM, double)
+SEISSOL_FIELD_INSTANTIATE(TravellingWave, float)
+SEISSOL_FIELD_INSTANTIATE(TravellingWave, double)
+SEISSOL_FIELD_INSTANTIATE(PressureInjection, float)
+SEISSOL_FIELD_INSTANTIATE(PressureInjection, double)
+SEISSOL_FIELD_INSTANTIATE(ScholteWave, float)
+SEISSOL_FIELD_INSTANTIATE(ScholteWave, double)
+SEISSOL_FIELD_INSTANTIATE(SnellsLaw, float)
+SEISSOL_FIELD_INSTANTIATE(SnellsLaw, double)
+SEISSOL_FIELD_INSTANTIATE(Ocean, float)
+SEISSOL_FIELD_INSTANTIATE(Ocean, double)
+#undef SEISSOL_FIELD_INSTANTIATE

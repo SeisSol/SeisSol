@@ -21,7 +21,6 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
@@ -41,6 +40,7 @@
 #include <vector>
 
 #ifdef USE_ASAGI
+#include "Common/Real.h"
 #include "Reader/AsagiReader.h"
 
 #include <easi/util/AsagiReader.h>
@@ -109,71 +109,144 @@ struct EasiLoader {
 
 namespace seissol::initializer {
 
-void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
-                         const seissol::geometry::MeshReader& meshReader,
-                         LTS::Storage& storage) {
-  constexpr auto Variant = configIdOf<Config>();
+namespace {
+
+/// Projects the initial fields onto the cells of `layer`, which compute in the configuration `Cfg`.
+template <typename Cfg>
+void projectInitialFieldOnLayer(
+    const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
+    const seissol::geometry::MeshReader& meshReader,
+    LTS::Layer& layer) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  constexpr auto Variant = configIdOf<Cfg>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
   const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
 
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
   const auto rule = seissol::quadrature::simplexRule<Cell::Dim>(QuadPolyDegree);
   const auto& quadraturePoints = rule.first;
 
-  for (auto& layer : storage.leaves(Ghost)) {
 #if !NVHPC_AVOID_OMP
 #pragma omp parallel
 #endif
-    {
-      alignas(Alignment) real iniCondData[tensor::iniCond<Config>::size()] = {};
-      auto iniCond = init::iniCond<Config>::view::create(iniCondData);
+  {
+    alignas(Alignment) real iniCondData[tensor::iniCond<Cfg>::size()] = {};
+    auto iniCond = init::iniCond<Cfg>::view::create(iniCondData);
 
-      std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
-      quadraturePointsXyz.resize(NumQuadPoints);
+    std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
+    quadraturePointsXyz.resize(NumQuadPoints);
 
-      runtime::kernel::projectIniCond krnl;
-      krnl.iniCond = runtime::init::iniCond::view(Variant, iniCondData);
+    runtime::kernel::projectIniCond krnl;
+    krnl.iniCond = runtime::init::iniCond::view(Variant, iniCondData);
 
-      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      const auto* material = layer.var<LTS::Material>();
-      auto* dofs = layer.var<LTS::Dofs>(Config());
-      auto* dofsAne = layer.var<LTS::DofsAne>(Config());
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    const auto* material = layer.var<LTS::Material>();
+    auto* dofs = layer.var<LTS::Dofs>(Cfg());
+    auto* dofsAne = layer.var<LTS::DofsAne>(Cfg());
 
 #if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-        const auto meshId = secondaryInformation[cell].meshId;
-        const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
-        transform.refToSpace(
-            quadraturePoints.data(), quadraturePointsXyz.data(), quadraturePoints.size());
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      const auto meshId = secondaryInformation[cell].meshId;
+      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
+      transform.refToSpace(
+          quadraturePoints.data(), quadraturePointsXyz.data(), quadraturePoints.size());
 
-        const CellMaterialData& materialData = material[cell];
-        for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-          auto sub = multisim::simtensor<Config>(iniCond, s);
-          iniFields[s % iniFields.size()]->evaluate(
-              0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
-        }
-
-        krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
-        if constexpr (kernels::HasSize<tensor::Qane<Config>>::Value) {
-          set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
-        }
-        krnl.execute(Variant);
+      const CellMaterialData& materialData = material[cell];
+      for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+        auto sub = multisim::simtensor<Cfg>(iniCond, s);
+        iniFields[s % iniFields.size()]->evaluate(
+            0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
       }
+
+      krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
+      if constexpr (kernels::HasSize<tensor::Qane<Cfg>>::Value) {
+        set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
+      }
+      krnl.execute(Variant);
     }
   }
 }
 
+/// Projects the values `data` of the easi fields, as `projectEasiFields<Cfg>` gives them, onto the
+/// cells of `layer`, which compute in the configuration `Cfg`.
+template <typename Cfg>
+void projectEasiFieldsOnLayer(const std::vector<double>& data,
+                              std::size_t fieldCount,
+                              LTS::Layer& layer) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  constexpr auto Variant = configIdOf<Cfg>();
+  // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
+  const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
+  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
+  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+
+  const auto quantityCount = model::MaterialOf<Cfg>::Quantities.size();
+  const auto dataStride = NumQuadPoints * fieldCount * quantityCount;
+
+#if !NVHPC_AVOID_OMP
+#pragma omp parallel
+#endif
+  {
+    alignas(Alignment) real iniCondData[tensor::iniCond<Cfg>::size()] = {};
+    auto iniCond = init::iniCond<Cfg>::view::create(iniCondData);
+
+    runtime::kernel::projectIniCond krnl;
+    krnl.iniCond = runtime::init::iniCond::view(Variant, iniCondData);
+
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* dofs = layer.var<LTS::Dofs>(Cfg());
+    auto* dofsAne = layer.var<LTS::DofsAne>(Cfg());
+
+#if !NVHPC_AVOID_OMP
+#pragma omp for schedule(static)
+#endif
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      const auto meshId = secondaryInformation[cell].meshId;
+      // TODO: multisim loop
+
+      for (std::size_t s = 0; s < Cfg::NumSimulations; s++) {
+        auto sub = multisim::simtensor<Cfg>(iniCond, s);
+        for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+          for (std::size_t j = 0; j < quantityCount; ++j) {
+            sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+          }
+        }
+      }
+
+      krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
+      if constexpr (kernels::HasSize<tensor::Qane<Cfg>>::Value) {
+        set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
+      }
+      krnl.execute(Variant);
+    }
+  }
+}
+
+} // namespace
+
+void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
+                         const seissol::geometry::MeshReader& meshReader,
+                         LTS::Storage& storage) {
+  for (auto& layer : storage.leaves(Ghost)) {
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      projectInitialFieldOnLayer<decltype(cfg)>(iniFields, meshReader, layer);
+    });
+  }
+}
+
+template <typename Cfg>
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
                                       const seissol::geometry::MeshReader& meshReader,
                                       bool needsTime) {
+  using MaterialT = model::MaterialOf<Cfg>;
   const auto& elements = meshReader.getElements();
 
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
   const int dimensions = needsTime ? (Cell::Dim + 1) : Cell::Dim;
@@ -200,15 +273,15 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
     }
   }
 
-  std::vector<double> data(NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size() *
+  std::vector<double> data(NumQuadPoints * iniFields.size() * MaterialT::Quantities.size() *
                            elements.size());
-  const auto dataPointStride = iniFields.size() * model::MaterialT::Quantities.size();
+  const auto dataPointStride = iniFields.size() * MaterialT::Quantities.size();
   {
     auto models = EasiLoader(needsTime, iniFields);
     for (std::size_t i = 0; i < iniFields.size(); ++i) {
       auto adapter = easi::ArraysAdapter();
-      for (std::size_t j = 0; j < model::MaterialT::Quantities.size(); ++j) {
-        const auto& quantity = model::MaterialT::Quantities.at(j);
+      for (std::size_t j = 0; j < MaterialT::Quantities.size(); ++j) {
+        const auto& quantity = MaterialT::Quantities.at(j);
         const std::size_t bindOffset = i + j * iniFields.size();
         adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
       }
@@ -224,63 +297,27 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   return data;
 }
 
+#define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
+  template std::vector<double> projectEasiFields<Cfg>(                                             \
+      const std::vector<std::string>&, double, const seissol::geometry::MeshReader&, bool);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
+#undef SEISSOL_CONFIG_INSTANTIATE
+
 void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const seissol::geometry::MeshReader& meshReader,
                              LTS::Storage& storage,
                              bool needsTime) {
-  constexpr auto Variant = configIdOf<Config>();
-  // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
-  const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
-  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
-
-  const auto data = projectEasiFields(iniFields, 0, meshReader, needsTime);
-
-  const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size();
-  const auto quantityCount = model::MaterialT::Quantities.size();
-
-  for (auto& layer : storage.leaves(Ghost)) {
-
-#if !NVHPC_AVOID_OMP
-#pragma omp parallel
-#endif
-    {
-      alignas(Alignment) real iniCondData[tensor::iniCond<Config>::size()] = {};
-      auto iniCond = init::iniCond<Config>::view::create(iniCondData);
-
-      std::vector<std::array<double, 3>> quadraturePointsXyz;
-      quadraturePointsXyz.resize(NumQuadPoints);
-
-      runtime::kernel::projectIniCond krnl;
-      krnl.iniCond = runtime::init::iniCond::view(Variant, iniCondData);
-
-      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      auto* dofs = layer.var<LTS::Dofs>(Config());
-      auto* dofsAne = layer.var<LTS::DofsAne>(Config());
-
-#if !NVHPC_AVOID_OMP
-#pragma omp for schedule(static)
-#endif
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-        const auto meshId = secondaryInformation[cell].meshId;
-        // TODO: multisim loop
-
-        for (std::size_t s = 0; s < seissol::multisim::NumSimulations; s++) {
-          auto sub = multisim::simtensor<Config>(iniCond, s);
-          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-            for (std::size_t j = 0; j < quantityCount; ++j) {
-              sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
-            }
-          }
+  // the fields are sampled at the points of each configuration, once for all of its layers
+  for (const auto config : storage.configs()) {
+    dispatchConfig(config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto data = projectEasiFields<Cfg>(iniFields, 0, meshReader, needsTime);
+      for (auto& layer : storage.leaves(Ghost)) {
+        if (layer.getIdentifier().config == config) {
+          projectEasiFieldsOnLayer<Cfg>(data, iniFields.size(), layer);
         }
-
-        krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
-        if constexpr (kernels::HasSize<tensor::Qane<Config>>::Value) {
-          set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
-        }
-        krnl.execute(Variant);
       }
-    }
+    });
   }
 }
 
