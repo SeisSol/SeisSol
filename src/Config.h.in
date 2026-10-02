@@ -63,4 +63,8 @@ struct ConfigOf {
 #define SEISSOL_FOR_EACH_CONFIG_LINEARCKANELASTIC(X) @SEISSOL_CONFIGS_LINEARCKANELASTIC@
 #define SEISSOL_FOR_EACH_CONFIG_STP(X) @SEISSOL_CONFIGS_STP@
 
+// The same, restricted to the first configuration of each material (`model::MaterialOf`); for what
+// is instantiated per material.
+#define SEISSOL_FOR_EACH_MATERIAL(X) @SEISSOL_CONFIGS_PER_MATERIAL@
+
 #endif // SEISSOL_SRC_CONFIG_IN_H_

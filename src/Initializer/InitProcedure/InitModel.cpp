@@ -14,6 +14,7 @@
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h" // IWYU pragma: keep
 #include "Equations/EnergyBase.h"
+#include "GeneratedCode/init.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
@@ -60,6 +61,21 @@ namespace {
 
 using Plasticity = seissol::model::Plasticity;
 
+/// The nodes of the plasticity of the configuration `Cfg`, in reference coordinates.
+template <typename Cfg>
+std::vector<std::array<double, Cell::Dim>> plasticityNodes() {
+  const auto nodes = init::vNodes<Cfg>::view::create(init::vNodes<Cfg>::Values);
+  std::vector<std::array<double, Cell::Dim>> points(model::PlasticityData<Cfg>::PointCount);
+  for (std::size_t i = 0; i < points.size(); ++i) {
+    for (std::size_t j = 0; j < Cell::Dim; ++j) {
+      if (nodes.isInRange(i, j)) {
+        points[i][j] = nodes(i, j);
+      }
+    }
+  }
+  return points;
+}
+
 template <typename T>
 std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerator>& queryGen,
                        const std::string& fileName) {
@@ -83,8 +99,8 @@ void initializeCellMaterialOfConfig(
   const auto& meshReader = seissolInstance.meshReader();
   initializer::MemoryManager& memoryManager = seissolInstance.memoryManager();
 
-  const auto queryGen = seissol::initializer::getBestQueryGenerator(
-      seissolParams.model.useCellHomogenizedMaterial, ctv);
+  const auto queryGen = seissol::initializer::getBestQueryGenerator<MaterialT>(
+      seissolParams.model.useCellHomogenizedMaterial, ctv, Cfg::ConvergenceOrder);
   auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
   // plasticity (if needed)
@@ -96,10 +112,11 @@ void initializeCellMaterialOfConfig(
   if (seissolParams.model.plasticity) {
 
     // plasticity information is only needed on all interior+copy cells.
+    const auto plasticityGen = std::make_shared<PlasticityPointGenerator>(
+        ctv, plasticityNodes<Cfg>(), plasticityPointwise);
     for (size_t i = 0; i < Cfg::NumSimulations; i++) {
       plasticityDB[i] =
-          queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv, plasticityPointwise),
-                              seissolParams.model.plasticityFileNames[i]);
+          queryDB<Plasticity>(plasticityGen, seissolParams.model.plasticityFileNames[i]);
     }
   }
 

@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -19,11 +20,13 @@
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #ifdef USE_HDF
@@ -37,7 +40,6 @@ class Component;
 } // namespace easi
 
 namespace seissol::initializer {
-constexpr auto NumQuadpoints = ConvergenceOrder * ConvergenceOrder * ConvergenceOrder;
 
 class QueryGenerator;
 
@@ -73,8 +75,15 @@ struct CellToVertexArray {
   static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
 };
 
+/**
+ * The query generator for the material `MaterialT`: if useCellHomogenizedMaterial and the material
+ * can be averaged, the average over each cell with the quadrature for the given convergence order;
+ * otherwise, the barycenter of each cell.
+ */
+template <typename MaterialT>
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
-                                                      const CellToVertexArray& cellToVertex);
+                                                      const CellToVertexArray& cellToVertex,
+                                                      std::size_t convergenceOrder);
 
 class QueryGenerator {
   public:
@@ -93,29 +102,35 @@ class ElementBarycenterGenerator : public QueryGenerator {
   CellToVertexArray cellToVertex_;
 };
 
+/// Queries the points of the quadrature for the given convergence order in each cell.
 class ElementAverageGenerator : public QueryGenerator {
   public:
-  explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
+  ElementAverageGenerator(const CellToVertexArray& cellToVertex, std::size_t convergenceOrder);
   [[nodiscard]] easi::Query generate() const override;
-  [[nodiscard]] const std::array<double, NumQuadpoints>& getQuadratureWeights() const {
+  [[nodiscard]] const std::vector<double>& getQuadratureWeights() const {
     return quadratureWeights_;
   };
 
   private:
   CellToVertexArray cellToVertex_;
-  std::array<double, NumQuadpoints> quadratureWeights_{};
-  std::array<std::array<double, 3>, NumQuadpoints> quadraturePoints_{};
+  std::vector<double> quadratureWeights_;
+  std::vector<std::array<double, Cell::Dim>> quadraturePoints_;
 };
 
+/// Queries the nodes of the plasticity of a configuration in each cell, given in reference
+/// coordinates, or only the barycenter if not pointwise.
 class PlasticityPointGenerator : public QueryGenerator {
   public:
-  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
-      : cellToVertex_(cellToVertex), pointwise_(pointwise) {}
+  PlasticityPointGenerator(const CellToVertexArray& cellToVertex,
+                           std::vector<std::array<double, Cell::Dim>> nodes,
+                           bool pointwise = true)
+      : cellToVertex_(cellToVertex), nodes_(std::move(nodes)), pointwise_(pointwise) {}
   [[nodiscard]] easi::Query generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
   CellToVertexArray cellToVertex_;
+  std::vector<std::array<double, Cell::Dim>> nodes_;
   bool pointwise_{true};
 };
 

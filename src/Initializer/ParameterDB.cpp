@@ -23,7 +23,6 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/PUMLReader.h"
 #include "Model/CommonDatastructures.h"
-#include "Model/Plasticity.h"
 #include "Numerical/Quadrature.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
@@ -249,14 +248,15 @@ easi::Query ElementBarycenterGenerator::generate() const {
   return query;
 }
 
-ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex)
+ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex,
+                                                 std::size_t convergenceOrder)
     : cellToVertex_(cellToVertex) {
   const auto [quadraturePoints, quadratureWeights] =
-      seissol::quadrature::simplexRule<3>(ConvergenceOrder);
+      seissol::quadrature::simplexRule<3>(convergenceOrder);
 
-  std::copy(
-      std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(quadratureWeights_));
-  for (std::size_t i = 0; i < NumQuadpoints; ++i) {
+  quadratureWeights_.assign(std::begin(quadratureWeights), std::end(quadratureWeights));
+  quadraturePoints_.resize(quadratureWeights_.size());
+  for (std::size_t i = 0; i < quadraturePoints_.size(); ++i) {
     std::copy(std::begin(quadraturePoints[i]),
               std::end(quadraturePoints[i]),
               std::begin(quadraturePoints_[i]));
@@ -264,20 +264,22 @@ ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellTo
 }
 
 easi::Query ElementAverageGenerator::generate() const {
+  const auto numQuadpoints = quadraturePoints_.size();
+
   // Generate query using quadrature points for each element
-  easi::Query query(cellToVertex_.size * NumQuadpoints, Cell::Dim);
+  easi::Query query(cellToVertex_.size * numQuadpoints, Cell::Dim);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
     auto vertices = cellToVertex_.elementCoordinates(elem);
     const auto transform = seissol::geometry::AffineTransform(vertices);
-    for (std::size_t i = 0; i < NumQuadpoints; ++i) {
+    for (std::size_t i = 0; i < numQuadpoints; ++i) {
       const auto transformed = transform.refToSpace(quadraturePoints_[i]);
       for (std::size_t d = 0; d < Cell::Dim; ++d) {
-        query.x(elem * NumQuadpoints + i, d) = transformed[d];
+        query.x(elem * numQuadpoints + i, d) = transformed[d];
       }
-      query.group(elem * NumQuadpoints + i) = cellToVertex_.elementGroups(elem);
+      query.group(elem * numQuadpoints + i) = cellToVertex_.elementGroups(elem);
     }
   }
 
@@ -285,8 +287,7 @@ easi::Query ElementAverageGenerator::generate() const {
 }
 
 std::size_t PlasticityPointGenerator::outputPerCell() const {
-  constexpr auto PlasticityPoints = model::PlasticityData<Config>::PointCount;
-  return pointwise_ ? PlasticityPoints : 1;
+  return pointwise_ ? nodes_.size() : 1;
 }
 
 easi::Query PlasticityPointGenerator::generate() const {
@@ -295,8 +296,6 @@ easi::Query PlasticityPointGenerator::generate() const {
 
   // Generate query using quadrature points for each element
   easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
-
-  const auto nodes = init::vNodes<Config>::view::create(init::vNodes<Config>::Values);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
@@ -310,11 +309,7 @@ easi::Query PlasticityPointGenerator::generate() const {
       std::array<double, Cell::Dim> point{};
 
       if (pointwise_) {
-        for (std::size_t j = 0; j < Cell::Dim; ++j) {
-          if (nodes.isInRange(i, j)) {
-            point[j] = nodes(i, j);
-          }
-        }
+        point = nodes_[i];
       } else {
         point = {1 / 4., 1 / 4., 1 / 4.};
       }
@@ -456,10 +451,10 @@ struct MaterialAverager<AcousticMaterial> {
     // Average of the bulk modulus, used for acoustic material
     double kMeanInv = 0.0;
 
-    for (std::size_t quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+    for (std::size_t quadPointIdx = 0; quadPointIdx < quadratureWeights.size(); ++quadPointIdx) {
       // Divide by volume of reference tetrahedron (1/6)
       const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-      const std::size_t globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const std::size_t globalPointIdx = quadratureWeights.size() * elementIdx + quadPointIdx;
       const auto& elementMaterial = materialsFromQuery(globalPointIdx);
       rhoMean += elementMaterial.rho * quadWeight;
       kMeanInv += 1.0 / elementMaterial.lambda * quadWeight;
@@ -496,16 +491,16 @@ struct MaterialAverager<ElasticMaterial> {
     bool isAcoustic = false;
 
     // important: scan for acousticity _first_.
-    for (std::size_t quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
-      const std::size_t globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+    for (std::size_t quadPointIdx = 0; quadPointIdx < quadratureWeights.size(); ++quadPointIdx) {
+      const std::size_t globalPointIdx = quadratureWeights.size() * elementIdx + quadPointIdx;
       const auto& elementMaterial = materialsFromQuery(globalPointIdx);
       isAcoustic |= elementMaterial.mu == 0.0;
     }
 
-    for (std::size_t quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+    for (std::size_t quadPointIdx = 0; quadPointIdx < quadratureWeights.size(); ++quadPointIdx) {
       // Divide by volume of reference tetrahedron (1/6)
       const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-      const std::size_t globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const std::size_t globalPointIdx = quadratureWeights.size() * elementIdx + quadPointIdx;
       const auto& elementMaterial = materialsFromQuery(globalPointIdx);
       if (!isAcoustic) {
         muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
@@ -548,9 +543,9 @@ struct MaterialAverager<ViscoElasticMaterial<Mechanisms>> {
     double qpMean = 0.0;
     double qsMean = 0.0;
 
-    for (std::size_t quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+    for (std::size_t quadPointIdx = 0; quadPointIdx < quadratureWeights.size(); ++quadPointIdx) {
       const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-      const std::size_t globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const std::size_t globalPointIdx = quadratureWeights.size() * elementIdx + quadPointIdx;
       const auto& elementMaterial = materialsFromQuery(globalPointIdx);
       qpMean += elementMaterial.qp * quadWeight;
       qsMean += elementMaterial.qs * quadWeight;
@@ -581,9 +576,9 @@ struct MaterialAverager<ViscoAcousticMaterial<Mechanisms>> {
           materialsFromQuery) {
     double qpMean = 0.0;
 
-    for (std::size_t quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+    for (std::size_t quadPointIdx = 0; quadPointIdx < quadratureWeights.size(); ++quadPointIdx) {
       const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-      const std::size_t globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const std::size_t globalPointIdx = quadratureWeights.size() * elementIdx + quadPointIdx;
       const auto& elementMaterial = materialsFromQuery(globalPointIdx);
       qpMean += elementMaterial.qp * quadWeight;
     }
@@ -636,9 +631,8 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
 
     // Only use homogenization when ElementAverageGenerator has been supplied
     if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
-      const std::size_t numElems = numPoints / NumQuadpoints;
-      const std::vector<double> quadratureWeights(gen->getQuadratureWeights().begin(),
-                                                  gen->getQuadratureWeights().end());
+      const auto& quadratureWeights = gen->getQuadratureWeights();
+      const std::size_t numElems = numPoints / quadratureWeights.size();
 
       // allocate output array
       materials_->resize(numElems);
@@ -828,8 +822,10 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 
+template <typename MaterialT>
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
-                                                      const CellToVertexArray& cellToVertex) {
+                                                      const CellToVertexArray& cellToVertex,
+                                                      std::size_t convergenceOrder) {
   std::shared_ptr<QueryGenerator> queryGen;
   if (!useCellHomogenizedMaterial) {
     queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
@@ -840,13 +836,21 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMat
                       "material properties sampled from the element barycenters instead.";
       queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else {
-      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
+      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex, convergenceOrder);
     }
   }
   return queryGen;
 }
 
-template class MaterialParameterDB<seissol::model::MaterialT>;
+// the argument is a type, which the check takes for an expression in template arguments
+// NOLINTBEGIN(bugprone-macro-parentheses)
+#define SEISSOL_MATERIAL_INSTANTIATE(Cfg)                                                          \
+  template std::shared_ptr<QueryGenerator> getBestQueryGenerator<seissol::model::MaterialOf<Cfg>>( \
+      bool, const CellToVertexArray&, std::size_t);                                                \
+  template class MaterialParameterDB<seissol::model::MaterialOf<Cfg>>;
+// NOLINTEND(bugprone-macro-parentheses)
+SEISSOL_FOR_EACH_MATERIAL(SEISSOL_MATERIAL_INSTANTIATE)
+#undef SEISSOL_MATERIAL_INSTANTIATE
 template class MaterialParameterDB<seissol::model::Plasticity>;
 
 } // namespace seissol::initializer
