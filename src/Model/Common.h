@@ -234,6 +234,7 @@ void getTransposedGodunovState(const Tmaterial& local,
 /// Riemann problem at their faces in the same material.
 template <typename MaterialT, typename NeighborT>
 constexpr bool CanNeighbor =
+    // NOLINTNEXTLINE
     std::is_same_v<typename MaterialT::RiemannMaterial, typename NeighborT::RiemannMaterial>;
 
 /// The neighbor `neighbor` as a material `MaterialT`, for the Riemann problem at their face: with
