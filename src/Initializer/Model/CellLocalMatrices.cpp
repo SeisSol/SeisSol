@@ -39,6 +39,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer {
@@ -163,14 +164,30 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
 
+        // the neighbor as a material of this cell, for the Riemann problem at their face; it may
+        // compute in another configuration (checkConfigBoundaries admits the pairs that can)
+        const auto neighborConfig = isInternalFaceType(cellInformation[cell].faceTypes[side])
+                                        ? cellInformation[cell].neighborConfigIds[side]
+                                        : configIdOf<Cfg>();
+        const auto materialNeighbor = dispatchConfig(neighborConfig, [&](auto neighborCfg) {
+          using NeighborMaterialT = model::MaterialOf<decltype(neighborCfg)>;
+          if constexpr (model::CanNeighbor<model::MaterialOf<Cfg>, NeighborMaterialT>) {
+            return model::neighborAs<model::MaterialOf<Cfg>>(
+                dynamic_cast<const NeighborMaterialT&>(*material[cell].neighbor[side]));
+          } else {
+            logError() << "The materials" << model::MaterialOf<Cfg>::Text << "and"
+                       << NeighborMaterialT::Text << "cannot be face neighbors.";
+            return model::MaterialOf<Cfg>{};
+          }
+        });
+
         // Defines a rotation matrix for computing material properties in face-local coordinates
         // for anisotropy. It has no effect for isotropic materials.
         std::array<double, 36> nLocalData{};
         seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
         seissol::model::getTransposedGodunovState(
             seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
-            seissol::model::getRotatedMaterialCoefficients(
-                nLocalData, *dynamic_cast<model::MaterialOf<Cfg>*>(material[cell].neighbor[side])),
+            seissol::model::getRotatedMaterialCoefficients(nLocalData, materialNeighbor),
             cellInformation[cell].faceTypes[side],
             qGodLocal,
             qGodNeighbor);

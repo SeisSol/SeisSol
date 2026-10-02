@@ -17,6 +17,7 @@
 #include "GeneratedCode/init.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
+#include "Initializer/InitProcedure/Internal/ConfigBoundaryCheck.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
 #include "Initializer/InitProcedure/Internal/Recording.h"
 #include "Initializer/InitProcedure/Internal/Scratchpads.h"
@@ -443,6 +444,7 @@ void initModel(seissol::SeisSol& seissolInstance) {
 
   internal::checkFaceTypeSupport(seissolInstance.memoryManager().ltsStorage(),
                                  seissolInstance.parameters().initialization.type);
+  internal::checkConfigBoundaries(seissolInstance.memoryManager().ltsStorage());
 
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)

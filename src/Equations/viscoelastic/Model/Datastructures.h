@@ -38,6 +38,9 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::Viscoelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
+  /// The Riemann problem leaves the memory variables out: it is posed in the elastic part, with
+  /// the unrelaxed moduli.
+  using RiemannMaterial = ElasticMaterial;
   static inline const std::array<std::string, NumElasticQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 

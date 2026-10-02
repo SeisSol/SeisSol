@@ -39,6 +39,8 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
   static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::Viscoacoustic;
   static inline const std::string Text = "viscoacoustic-" + std::to_string(MechanismsP);
+  /// The Riemann problem leaves the memory variables out: it is posed in the acoustic part.
+  using RiemannMaterial = AcousticMaterial;
   static inline const std::array<std::string, NumElasticQuantities> Quantities{
       "pprime", "v1", "v2", "v3"};
 

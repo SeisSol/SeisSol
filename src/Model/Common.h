@@ -30,6 +30,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 #include <utils/logger.h>
 
 namespace seissol::model {
@@ -227,6 +228,28 @@ void getTransposedGodunovState(const Tmaterial& local,
                                Tneigh& qGodNeighbor) {
   MaterialSetup<Tmaterial>::getTransposedGodunovState(
       local, neighbor, faceType, qGodLocal, qGodNeighbor);
+}
+
+/// Whether cells of the materials `MaterialT` and `NeighborT` can be face neighbors: both pose the
+/// Riemann problem at their faces in the same material.
+template <typename MaterialT, typename NeighborT>
+constexpr bool CanNeighbor =
+    std::is_same_v<typename MaterialT::RiemannMaterial, typename NeighborT::RiemannMaterial>;
+
+/// The neighbor `neighbor` as a material `MaterialT`, for the Riemann problem at their face: with
+/// the parameters it is posed with, all others at their defaults.
+template <typename MaterialT, typename NeighborT>
+MaterialT neighborAs(const NeighborT& neighbor) {
+  static_assert(CanNeighbor<MaterialT, NeighborT>,
+                "The materials pose the Riemann problem at their faces differently.");
+  if constexpr (std::is_same_v<MaterialT, NeighborT>) {
+    return neighbor;
+  } else {
+    using RiemannMaterialT = typename MaterialT::RiemannMaterial;
+    MaterialT material{};
+    static_cast<RiemannMaterialT&>(material) = static_cast<const RiemannMaterialT&>(neighbor);
+    return material;
+  }
 }
 
 // TODO: move to materials (currently not possible due to the acoustic-in-elastic "hack")

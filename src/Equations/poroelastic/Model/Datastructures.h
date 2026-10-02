@@ -27,6 +27,9 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
   static inline const std::string Text = "poroelastic";
+  /// The material the Riemann problem at a face of a cell is posed in; the fluid takes part in
+  /// it, unlike in the elastic material this one derives from.
+  using RiemannMaterial = PoroElasticMaterial;
   static inline const std::array<std::string, NumQuantities> Quantities{"s_xx",
                                                                         "s_yy",
                                                                         "s_zz",
