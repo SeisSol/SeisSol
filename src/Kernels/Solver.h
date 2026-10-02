@@ -17,18 +17,21 @@
 
 // IWYU pragma: begin_exports
 
+// the kernels of the solvers the configurations of the build advance their cells with
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
 #include "Kernels/LinearCKAnelastic/Local.h"
 #include "Kernels/LinearCKAnelastic/Neighbor.h"
 #include "Kernels/LinearCKAnelastic/Time.h"
-#elif defined(SEISSOL_KERNELS_STP)
+#endif
+#if defined(SEISSOL_KERNELS_LINEARCK) || defined(SEISSOL_KERNELS_STP)
 #include "Kernels/LinearCK/Local.h"
 #include "Kernels/LinearCK/Neighbor.h"
-#include "Kernels/STP/Time.h"
-#else
-#include "Kernels/LinearCK/Local.h"
-#include "Kernels/LinearCK/Neighbor.h"
+#endif
+#ifdef SEISSOL_KERNELS_LINEARCK
 #include "Kernels/LinearCK/Time.h"
+#endif
+#ifdef SEISSOL_KERNELS_STP
+#include "Kernels/STP/Time.h"
 #endif
 
 // IWYU pragma: end_exports

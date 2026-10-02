@@ -42,6 +42,30 @@ from yateto.gemm_configuration import GeneratorCollection
 from yateto.metagen import MetaGenerator
 
 
+def load_configs(cmdLineArgs):
+    """The configurations to generate, in the order of their ids.
+
+    Each one names the C++ type it is generated for (`key`) and the arguments it differs in from
+    the command line. Without --configs, it is the one configuration that the command line
+    describes, generated for seissol::Config.
+    """
+    if cmdLineArgs.configs is not None:
+        with open(cmdLineArgs.configs) as file:
+            return json.load(file)
+    return [
+        {
+            "key": "seissol::Config",
+            "equations": cmdLineArgs.equations,
+            "order": cmdLineArgs.order,
+            "precision": cmdLineArgs.precision,
+            "numMechanisms": cmdLineArgs.numMechanisms,
+            "multipleSimulations": cmdLineArgs.multipleSimulations,
+            "drQuadRule": cmdLineArgs.drQuadRule,
+            "solver": cmdLineArgs.solver,
+        }
+    ]
+
+
 def main():
 
     cmdLineParser = argparse.ArgumentParser()
@@ -82,6 +106,9 @@ def main():
         "--mode", type=str, choices=["collect", "codegen"], default="codegen"
     )
     cmdLineParser.add_argument("--codegen_target", type=str, default="__all__")
+    # the configurations to generate, in the order of their ids; without it, the one that the
+    # arguments above describe, under the key seissol::Config
+    cmdLineParser.add_argument("--configs", type=str, default=None)
 
     cmdLineParser.set_defaults(enable_premultiply_flux=False)
     cmdLineArgs = cmdLineParser.parse_args()
@@ -93,47 +120,79 @@ def main():
     if cmdLineArgs.vectorsize == 0:
         cmdLineArgs.vectorsize = None
 
-    def deriveWith(vectorsize):
-        host = HostArchDefinition(
-            cmdLineArgs.host_arch, cmdLineArgs.precision, vectorsize, None
+    configs = load_configs(cmdLineArgs)
+    # the arguments of each configuration: those of the command line, overridden by the fields of
+    # the configuration
+    configArgs = [
+        argparse.Namespace(
+            **{
+                **vars(cmdLineArgs),
+                **{key: value for key, value in config.items() if key != "key"},
+            }
         )
+        for config in configs
+    ]
+
+    def deriveWith(args, vectorsize):
+        host = HostArchDefinition(args.host_arch, args.precision, vectorsize, None)
         device = None
 
-        if cmdLineArgs.device_backend != "none":
+        if args.device_backend != "none":
             device = DeviceArchDefinition(
-                cmdLineArgs.device_arch,
-                cmdLineArgs.device_vendor,
-                cmdLineArgs.device_backend,
-                cmdLineArgs.precision,
+                args.device_arch,
+                args.device_vendor,
+                args.device_backend,
+                args.precision,
                 vectorsize,
             )
 
         return deriveArchitecture(host, device), host, device
 
-    arch, host_arch, device_arch = deriveWith(cmdLineArgs.vectorsize)
+    def deriveArchitectureOf(args):
+        arch, host_arch, device_arch = deriveWith(args, args.vectorsize)
 
-    # The simulation index is the leading dimension of every fused tensor, and a
-    # leading dimension is padded to the vector size. Padded simulation lanes
-    # hold values nothing computes, and the hand-written parts of SeisSol index
-    # the fused tensors with NumSimulations as the stride, so they would read
-    # that padding as data. Narrow the vector size to the largest one the fused
-    # simulations fill instead -- 32 B for eight single precision simulations on
-    # a 64 B machine. The alignment a buffer starts on is a separate number and
-    # keeps the architecture's value, which is why the two are derived apart.
-    if cmdLineArgs.multipleSimulations > 1:
-        fusedBytes = cmdLineArgs.multipleSimulations * arch.bytesPerReal
-        vectorsize = arch.alignment
-        while fusedBytes % vectorsize != 0:
-            vectorsize //= 2
-        if vectorsize != arch.alignment:
-            print(
-                f"Reducing the vector size from {arch.alignment} B to "
-                f"{vectorsize} B, so that the {cmdLineArgs.multipleSimulations} "
-                f"fused simulations are not padded.",
-                file=sys.stderr,
-            )
-            cmdLineArgs.vectorsize = vectorsize
-            arch, host_arch, device_arch = deriveWith(vectorsize)
+        # The simulation index is the leading dimension of every fused tensor, and a
+        # leading dimension is padded to the vector size. Padded simulation lanes
+        # hold values nothing computes, and the hand-written parts of SeisSol index
+        # the fused tensors with NumSimulations as the stride, so they would read
+        # that padding as data. Narrow the vector size to the largest one the fused
+        # simulations fill instead -- 32 B for eight single precision simulations on
+        # a 64 B machine. The alignment a buffer starts on is a separate number and
+        # keeps the architecture's value, which is why the two are derived apart.
+        if args.multipleSimulations > 1:
+            fusedBytes = args.multipleSimulations * arch.bytesPerReal
+            vectorsize = arch.alignment
+            while fusedBytes % vectorsize != 0:
+                vectorsize //= 2
+            if vectorsize != arch.alignment:
+                print(
+                    f"Reducing the vector size from {arch.alignment} B to "
+                    f"{vectorsize} B, so that the {args.multipleSimulations} "
+                    f"fused simulations are not padded.",
+                    file=sys.stderr,
+                )
+                args.vectorsize = vectorsize
+                arch, host_arch, device_arch = deriveWith(args, vectorsize)
+        return arch, host_arch, device_arch
+
+    archs = [deriveArchitectureOf(args) for args in configArgs]
+    arch, host_arch, device_arch = archs[0]
+
+    # One alignment and vector size hold for all configurations: the hand-written parts of SeisSol
+    # align and pad their buffers by them.
+    memoryCharacteristics = {
+        (
+            kernels.arch.cacheline(configArch),
+            args.vectorsize or kernels.arch.vector_size(configArch),
+        )
+        for (configArch, _, _), args in zip(archs, configArgs)
+    }
+    if len(memoryCharacteristics) > 1:
+        raise RuntimeError(
+            "The configurations would need different alignments or vector sizes "
+            f"(alignment, vector size in bytes: {sorted(memoryCharacteristics)}). "
+            "Build them into executables of their own."
+        )
 
     fixArchitectureGlobal(arch)
 
@@ -142,38 +201,40 @@ def main():
         arch,
         cmdLineArgs.outputDir,
         override_alignment=cmdLineArgs.alignment,
-        override_vectorsize=cmdLineArgs.vectorsize or 0,
+        override_vectorsize=configArgs[0].vectorsize or 0,
     )
 
     # pick up the gemm tools defined by the user
     gemm_tool_list = re.split(r"[,;]", cmdLineArgs.gemm_tools.replace(" ", ""))
-    gemm_generators = []
 
-    for tool in gemm_tool_list:
-        if hasattr(gemm_configuration, tool):
-            specific_gemm_class = getattr(gemm_configuration, tool)
-            # take executable arguments, but only if they are not empty
-            if (
-                specific_gemm_class is gemm_configuration.LIBXSMM
-                and cmdLineArgs.executable_libxsmm != ""
-            ):
-                gemm_generators.append(
-                    specific_gemm_class(arch, cmdLineArgs.executable_libxsmm)
-                )
-            elif (
-                specific_gemm_class is gemm_configuration.PSpaMM
-                and cmdLineArgs.executable_pspamm != ""
-            ):
-                gemm_generators.append(
-                    specific_gemm_class(arch, cmdLineArgs.executable_pspamm)
-                )
-            else:
-                gemm_generators.append(specific_gemm_class(arch))
-        elif tool.strip().lower() == "tensorforge":
-            pass  # TODO: remove (hence differently placed than "none")
-        elif tool.strip().lower() != "none":
-            print(f'Unknown GEMM tool "{tool}". Please refer to the documentation.')
-            sys.exit("failure")
+    def gemmToolsFor(arch):
+        gemm_generators = []
+        for tool in gemm_tool_list:
+            if hasattr(gemm_configuration, tool):
+                specific_gemm_class = getattr(gemm_configuration, tool)
+                # take executable arguments, but only if they are not empty
+                if (
+                    specific_gemm_class is gemm_configuration.LIBXSMM
+                    and cmdLineArgs.executable_libxsmm != ""
+                ):
+                    gemm_generators.append(
+                        specific_gemm_class(arch, cmdLineArgs.executable_libxsmm)
+                    )
+                elif (
+                    specific_gemm_class is gemm_configuration.PSpaMM
+                    and cmdLineArgs.executable_pspamm != ""
+                ):
+                    gemm_generators.append(
+                        specific_gemm_class(arch, cmdLineArgs.executable_pspamm)
+                    )
+                else:
+                    gemm_generators.append(specific_gemm_class(arch))
+            elif tool.strip().lower() == "tensorforge":
+                pass  # TODO: remove (hence differently placed than "none")
+            elif tool.strip().lower() != "none":
+                print(f'Unknown GEMM tool "{tool}". Please refer to the documentation.')
+                sys.exit("failure")
+        return GeneratorCollection(gemm_generators)
 
     cost_estimators = BoundingBoxCostEstimator
     custom_routine_generators = {}
@@ -209,7 +270,7 @@ def main():
 
     routine_cache = GlobalRoutineCache()
 
-    gemmTools = GeneratorCollection(gemm_generators)
+    gemmTools = [gemmToolsFor(configArch) for configArch, _, _ in archs]
 
     # The code of the equation is named by the key of its configuration:
     # seissol::kernel::X<Config> is the kernel X of the configuration Config,
@@ -241,40 +302,39 @@ def main():
             name,
         )
 
-    def generate_equation(subfolders, order):
-        precision = "double" if cmdLineArgs.precision in ["d", "f64"] else "single"
+    def generate_equation(subfolders, args, arch, gemmTools, key):
+        order = args.order
+        # the tensors of the configuration are laid out for its architecture
+        fixArchitectureGlobal(arch)
+        precision = "double" if args.precision in ["d", "f64"] else "single"
         fusedSuffix = (
-            "-f" + str(cmdLineArgs.multipleSimulations)
-            if cmdLineArgs.multipleSimulations > 1
-            else ""
+            "-f" + str(args.multipleSimulations) if args.multipleSimulations > 1 else ""
         )
 
-        if cmdLineArgs.memLayout == "auto":
+        if args.memLayout == "auto":
             # TODO(Lukas) Don't hardcode this
             env = {
-                "precision": cmdLineArgs.precision,
-                "equations": cmdLineArgs.equations,
+                "precision": args.precision,
+                "equations": args.equations,
                 "order": order,
-                "arch": cmdLineArgs.host_arch,
-                "device_arch": cmdLineArgs.device_arch,
-                "multipleSimulations": cmdLineArgs.multipleSimulations,
+                "arch": args.host_arch,
+                "device_arch": args.device_arch,
+                "multipleSimulations": args.multipleSimulations,
                 "targets": targets,
                 "gemmgen": gemm_tool_list,
             }
             mem_layout = kernels.memlayout.guessMemoryLayout(env)
         else:
-            mem_layout = kernels.memlayout.resolveMemoryLayout(
-                cmdLineArgs.memLayout, targets
-            )
+            mem_layout = kernels.memlayout.resolveMemoryLayout(args.memLayout, targets)
 
-        cmdArgsDict = vars(cmdLineArgs)
+        cmdArgsDict = dict(vars(args))
         cmdArgsDict["memLayout"] = mem_layout
 
-        equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
+        equationsModuleName = f"kernels.equations.{args.equations}"
 
         equationsSpec = importlib.util.find_spec(equationsModuleName)
         if equationsSpec is None:
-            raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
+            raise RuntimeError("Could not find kernels for " + args.equations)
 
         # actually load the module
         equations = importlib.import_module(equationsModuleName)
@@ -296,19 +356,19 @@ def main():
         kernels.vtkproject.addKernels(
             generator,
             adg,
-            cmdLineArgs.PlasticityMethod,
-            cmdLineArgs.matricesDir,
+            args.PlasticityMethod,
+            args.matricesDir,
             targets,
         )
-        kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
+        kernels.vtkproject.includeTensors(args.matricesDir, include_tensors)
 
         # Common kernels
         include_tensors.update(
             kernels.dynamic_rupture.addKernels(
                 NamespacedGenerator(generator, namespace="dynamicRupture"),
                 adg,
-                cmdLineArgs.matricesDir,
-                cmdLineArgs.drQuadRule,
+                args.matricesDir,
+                args.drQuadRule,
                 targets,
                 isOldGpuInterface,
             )
@@ -317,20 +377,20 @@ def main():
         kernels.plasticity.addKernels(
             generator,
             adg,
-            cmdLineArgs.matricesDir,
-            cmdLineArgs.PlasticityMethod,
+            args.matricesDir,
+            args.PlasticityMethod,
             targets,
         )
         kernels.plasticity.includeTensors(
-            cmdLineArgs.matricesDir, adg, cmdLineArgs.PlasticityMethod, include_tensors
+            args.matricesDir, adg, args.PlasticityMethod, include_tensors
         )
 
         kernels.nodalbc.addKernels(
             generator,
             adg,
             include_tensors,
-            cmdLineArgs.matricesDir,
-            cmdLineArgs,
+            args.matricesDir,
+            args,
             targets,
         )
         kernels.surface_displacement.addKernels(
@@ -339,14 +399,18 @@ def main():
         kernels.point.addKernels(generator, adg)
 
         outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"
-        trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)
+        # configurations that differ in other respects, e.g. the solver, get one each
+        if outputDirName in subfolders:
+            outputDirName += f"-{args.solver}-m{args.numMechanisms}-{args.drQuadRule}"
+        if outputDirName in subfolders:
+            raise RuntimeError(
+                f"Two configurations would be generated into {outputDirName}."
+            )
+        trueOutputDir = os.path.join(args.outputDir, outputDirName)
         if not os.path.exists(trueOutputDir):
             os.mkdir(trueOutputDir)
 
         subfolders += [outputDirName]
-
-        # the C++ type the code of the equation is generated for
-        key = "seissol::Config"
 
         kernels.quantities.emit_header(adg, trueOutputDir, key)
 
@@ -362,14 +426,7 @@ def main():
             routine_cache=routine_cache,
         )
 
-        # Generate code (if we need to)
-        if check_run_codegen(outputDirName):
-            metagen.generate(
-                cmdLineArgs.outputDir,
-                namespace="seissol",
-                includes=["Config.h"],
-                declarationsTensors=optionalTensors,
-            )
+        return outputDirName
 
     def generate_general(subfolders):
         # we use always use double here,
@@ -397,7 +454,7 @@ def main():
             generator.generate(
                 outputDir=outputDir,
                 namespace="seissol::general",
-                gemm_cfg=gemmTools,
+                gemm_cfg=gemmTools[0],
                 cost_estimator=cost_estimators,
                 include_tensors=kernels.general.includeMatrices(
                     cmdLineArgs.matricesDir
@@ -421,7 +478,21 @@ def main():
             )
             file.writelines(["// IWYU pragma: end_exports\n"])
 
-    generate_equation(subfolders, cmdLineArgs.order)
+    equationFolders = [
+        generate_equation(subfolders, args, configArch, tools, config["key"])
+        for args, (configArch, _, _), tools, config in zip(
+            configArgs, archs, gemmTools, configs
+        )
+    ]
+
+    # Generate code (if we need to): the metagen generates the code of all configurations at once
+    if any(check_run_codegen(folder) for folder in equationFolders):
+        metagen.generate(
+            cmdLineArgs.outputDir,
+            namespace="seissol",
+            includes=["Config.h"],
+            declarationsTensors=optionalTensors,
+        )
     generate_general(subfolders)
 
     if cmdLineArgs.mode == "codegen":

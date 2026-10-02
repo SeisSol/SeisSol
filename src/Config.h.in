@@ -23,16 +23,17 @@ namespace seissol {
 // contains everything that modifies the kernels in a numerical sense
 // (i.e. for which the user might re-build)
 // TODO: make concept once we switch to C++20
-struct Config {
+template <std::size_t OrderP,
+          std::size_t MechanismsP,
+          model::MaterialType MaterialTypeP,
+          RealType PrecisionP,
+          SolverType SolverP,
+          DRQuadRuleType DRQuadRuleP,
+          std::size_t SimulationsP>
+struct ConfigOf {
     // the configuration as a runtime value; all constants below are taken from it
     static constexpr ConfigValue Value{
-        @ORDER@,                                   // convergenceOrder
-        @NUMBER_OF_MECHANISMS@,                    // relaxationMechanisms
-        model::MaterialType::@PARAMETER_MATERIAL@, // materialType
-        RealType::@PARAMETER_REALTYPE@,            // precision
-        SolverType::@PARAMETER_SOLVER@,            // solver
-        DRQuadRuleType::@PARAMETER_DRQUADRULE@,    // drQuadRule
-        @NUMBER_OF_FUSED_SIMULATIONS@};            // numSimulations
+        OrderP, MechanismsP, MaterialTypeP, PrecisionP, SolverP, DRQuadRuleP, SimulationsP};
 
     static constexpr std::size_t ConvergenceOrder = Value.convergenceOrder;
     static constexpr std::size_t RelaxationMechanisms = Value.relaxationMechanisms;
@@ -43,11 +44,18 @@ struct Config {
     static constexpr std::size_t NumSimulations = Value.numSimulations;
 };
 
+// The configurations built into the executable, in the order of their ids; a type each. The first
+// one, Config, is the one a run takes by default.
+@SEISSOL_CONFIG_STRUCTS@
 } // namespace seissol
 
 // Expands `X(Cfg)` for every configuration built into the executable, in the order of their ids.
 // A translation unit that defines templates of a configuration instantiates them through it.
-#define SEISSOL_FOR_EACH_CONFIG(X) X(::seissol::Config)
+#define SEISSOL_FOR_EACH_CONFIG(X) @SEISSOL_CONFIG_LIST@
+
+// The configurations built into the executable as a comma-separated list of types, in the order of
+// their ids.
+#define SEISSOL_CONFIG_TYPES @SEISSOL_CONFIG_TYPE_LIST@
 
 // The same, restricted to the configurations that advance their cells with the given solver; for
 // the kernels of that solver.

@@ -26,7 +26,7 @@ namespace seissol {
  * Code that depends on a configuration as a type gets there from a `ConfigId` through
  * `dispatchConfig`, and back through `configIdOf`.
  */
-using ConfigVariant = std::variant<Config>;
+using ConfigVariant = std::variant<SEISSOL_CONFIG_TYPES>;
 
 namespace internal {
 

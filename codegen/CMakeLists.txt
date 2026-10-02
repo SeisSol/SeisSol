@@ -35,6 +35,26 @@ else()
 endif()
 
 # common arguments between configure and build
+# the configurations to generate (cmake/configs.cmake), each under the C++ type it is generated for
+set(SEISSOL_CONFIGS_JSON "[")
+foreach(IDX RANGE ${SEISSOL_CONFIG_LAST})
+  foreach(FIELD TYPES MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS DRQUADRULES SIMULATIONS)
+    list(GET SEISSOL_CONFIG_${FIELD} ${IDX} CONFIG_${FIELD})
+  endforeach()
+  string(SUBSTRING ${CONFIG_PRECISIONS} 0 1 CONFIG_PRECISION_PREFIX)
+  if (IDX GREATER 0)
+    string(APPEND SEISSOL_CONFIGS_JSON ",")
+  endif()
+  string(APPEND SEISSOL_CONFIGS_JSON
+    "\n  {\"key\": \"seissol::${CONFIG_TYPES}\", \"equations\": \"${CONFIG_MATERIALS}\", "
+    "\"solver\": \"${CONFIG_SOLVERS}\", \"numMechanisms\": ${CONFIG_MECHANISMS}, "
+    "\"order\": ${CONFIG_ORDERS}, \"precision\": \"${CONFIG_PRECISION_PREFIX}\", "
+    "\"drQuadRule\": \"${CONFIG_DRQUADRULES}\", "
+    "\"multipleSimulations\": ${CONFIG_SIMULATIONS}}")
+endforeach()
+string(APPEND SEISSOL_CONFIGS_JSON "\n]\n")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/configs.json" "${SEISSOL_CONFIGS_JSON}")
+
 set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/matrices
@@ -55,6 +75,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      "--solver" ${SOLVER}
+     "--configs" "${CMAKE_CURRENT_BINARY_DIR}/configs.json"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      ${OVERRIDE_VECTORSIZE_PARAM}
      ${OVERRIDE_ALIGNMENT_PARAM})
@@ -110,6 +131,7 @@ add_custom_command(
         "${CMAKE_CURRENT_SOURCE_DIR}/kernels"
         "${CMAKE_CURRENT_SOURCE_DIR}/matrices"
         "${CMAKE_CURRENT_SOURCE_DIR}/config"
+        "${CMAKE_CURRENT_BINARY_DIR}/configs.json"
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Code generation for tensor operations..."

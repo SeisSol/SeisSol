@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Real.h"
@@ -24,14 +25,17 @@ using namespace seissol;
 
 TEST_CASE("Built configurations" * doctest::test_suite("common")) {
   REQUIRE(builtConfigCount() > 0);
+  CHECK(defaultConfig() < builtConfigCount());
 
-  const auto id = findConfig(Config::Value);
-
-  SUBCASE("The configuration of the generated code is built") {
-    REQUIRE(id.has_value());
-    CHECK(configValue(id.value()) == Config::Value);
-    CHECK(findConfig(configName(Config::Value)) == id);
-    CHECK(defaultConfig() < builtConfigCount());
+  SUBCASE("Every configuration of the generated code is built under its id") {
+    forEachConfig([](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto id = configIdOf<Cfg>();
+      CAPTURE(id);
+      CHECK(configValue(id) == Cfg::Value);
+      CHECK(findConfig(Cfg::Value) == id);
+      CHECK(findConfig(configName(Cfg::Value)) == id);
+    });
   }
 
   SUBCASE("Nothing else is found") {
@@ -43,24 +47,27 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
   }
 
   SUBCASE("The layout matches the generated code") {
-    REQUIRE(id.has_value());
-    const auto& layout = configLayout(id.value());
-    const auto order = Config::ConvergenceOrder;
-    CHECK(layout.config == Config::Value);
-    CHECK(layout.numQuantities == model::MaterialT::NumQuantities);
-    CHECK(layout.numBasisFunctions == order * (order + 1) * (order + 2) / 6);
-    CHECK(layout.basisFunctionDimension == multisim::BasisFunctionDimension);
-    CHECK(layout.dofsSize == tensor::Q<Config>::size());
-    // (the unknowns of a cell may hold fewer quantities than the material, e.g. when a solver
-    // stores the anelastic ones apart)
-    const auto storedQuantities = tensor::Q<Config>::Shape[multisim::BasisFunctionDimension + 1];
-    CHECK(storedQuantities <= layout.numQuantities);
-    CHECK(layout.dofsSize >= layout.numBasisFunctions * storedQuantities * Config::NumSimulations);
-    CHECK(layout.drNumPoints == dr::misc::NumBoundaryGaussPoints<Config>);
-    CHECK(layout.drNumPaddedPoints == dr::misc::NumPaddedPoints<Config>);
-    CHECK(layout.drNumPaddedPoints >= layout.drNumPoints * Config::NumSimulations);
-    CHECK(layout.drNumQuantities == dr::misc::NumQuantities<Config>);
-    CHECK(layout.drNumTimePoints == dr::misc::TimeSteps<Config>);
+    forEachConfig([](auto cfg) {
+      using Cfg = decltype(cfg);
+      CAPTURE(configIdOf<Cfg>());
+      const auto& layout = configLayout(configIdOf<Cfg>());
+      const auto order = Cfg::ConvergenceOrder;
+      CHECK(layout.config == Cfg::Value);
+      CHECK(layout.numQuantities == model::MaterialOf<Cfg>::NumQuantities);
+      CHECK(layout.numBasisFunctions == order * (order + 1) * (order + 2) / 6);
+      CHECK(layout.basisFunctionDimension == multisim::BasisDim<Cfg>);
+      CHECK(layout.dofsSize == tensor::Q<Cfg>::size());
+      // (the unknowns of a cell may hold fewer quantities than the material, e.g. when a solver
+      // stores the anelastic ones apart)
+      const auto storedQuantities = tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+      CHECK(storedQuantities <= layout.numQuantities);
+      CHECK(layout.dofsSize >= layout.numBasisFunctions * storedQuantities * Cfg::NumSimulations);
+      CHECK(layout.drNumPoints == dr::misc::NumBoundaryGaussPoints<Cfg>);
+      CHECK(layout.drNumPaddedPoints == dr::misc::NumPaddedPoints<Cfg>);
+      CHECK(layout.drNumPaddedPoints >= layout.drNumPoints * Cfg::NumSimulations);
+      CHECK(layout.drNumQuantities == dr::misc::NumQuantities<Cfg>);
+      CHECK(layout.drNumTimePoints == dr::misc::TimeSteps<Cfg>);
+    });
   }
 
   SUBCASE("Every layout agrees with the kernels of its id in runtime.h") {

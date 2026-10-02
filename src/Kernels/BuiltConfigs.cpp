@@ -67,27 +67,30 @@ constexpr std::size_t configsListedForSolvers() {
 static_assert(configsListedForSolvers() == std::variant_size_v<ConfigVariant>,
               "Every configuration is listed for the solver it advances its cells with.");
 
-/// The layout of the configuration the generated code of this translation unit belongs to.
+/// The layout of the configuration `Cfg`, as its generated code has it.
+template <typename Cfg>
 ConfigLayout generatedLayout() {
   ConfigLayout layout;
-  layout.config = Config::Value;
+  layout.config = Cfg::Value;
 
-  layout.numQuantities = model::MaterialT::NumQuantities;
-  layout.numBasisFunctions = tensor::Q<Config>::Shape[multisim::BasisFunctionDimension];
-  layout.basisFunctionDimension = multisim::BasisFunctionDimension;
-  layout.dofsSize = tensor::Q<Config>::size();
+  layout.numQuantities = model::MaterialOf<Cfg>::NumQuantities;
+  layout.numBasisFunctions = tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg>];
+  layout.basisFunctionDimension = multisim::BasisDim<Cfg>;
+  layout.dofsSize = tensor::Q<Cfg>::size();
 
-  layout.drNumPoints = dr::misc::NumBoundaryGaussPoints<Config>;
-  layout.drNumPaddedPoints = dr::misc::NumPaddedPoints<Config>;
-  layout.drNumQuantities = dr::misc::NumQuantities<Config>;
-  layout.drNumTimePoints = dr::misc::TimeSteps<Config>;
+  layout.drNumPoints = dr::misc::NumBoundaryGaussPoints<Cfg>;
+  layout.drNumPaddedPoints = dr::misc::NumPaddedPoints<Cfg>;
+  layout.drNumQuantities = dr::misc::NumQuantities<Cfg>;
+  layout.drNumTimePoints = dr::misc::TimeSteps<Cfg>;
   return layout;
 }
 
 } // namespace
 
 const std::vector<ConfigLayout>& builtConfigLayouts() {
-  static const std::vector<ConfigLayout> Layouts{generatedLayout()};
+#define SEISSOL_CONFIG_LAYOUT(Cfg) generatedLayout<Cfg>(),
+  static const std::vector<ConfigLayout> Layouts{SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_LAYOUT)};
+#undef SEISSOL_CONFIG_LAYOUT
   return Layouts;
 }
 
