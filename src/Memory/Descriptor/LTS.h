@@ -320,6 +320,10 @@ struct LTS {
     if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
       manager.registerData<PStrain>("pstrain", storage);
     }
+    // the time integrals of the unknowns, if the output integrates them
+    if (storage.info<Integrals>().mask == initializer::LayerMask(Ghost)) {
+      manager.registerData<Integrals>("integrals", storage);
+    }
   }
 };
 
