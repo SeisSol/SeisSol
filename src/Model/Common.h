@@ -312,29 +312,30 @@ void writeRotationBlocks(const std::array<QuantityGroup, N>& groups,
  * The inverse is not the transpose for a symmetric second-order tensor, the
  * Voigt weights differ, so each kind supplies a forward and an inverse writer.
  */
-template <typename MaterialT = seissol::model::MaterialT>
+template <typename Cfg>
 void getFaceRotationMatrix(const CoordinateT& normal,
                            const CoordinateT& tangent1,
                            const CoordinateT& tangent2,
-                           init::T<Config>::view::type& matT,
-                           init::Tinv<Config>::view::type& matTinv) {
-  using SolverT = kernels::SolverOf<Config>;
+                           typename init::T<Cfg>::view::type& matT,
+                           typename init::Tinv<Cfg>::view::type& matTinv) {
+  using MaterialT = MaterialOf<Cfg>;
+  using SolverT = kernels::SolverOf<Cfg>;
   detail::writeRotationBlocks<false>(
       MaterialT::template RotationGroups<SolverT>, normal, tangent1, tangent2, matT);
   detail::writeRotationBlocks<true>(
       MaterialT::template InverseRotationGroups<SolverT>, normal, tangent1, tangent2, matTinv);
 }
 
-template <typename MaterialT = seissol::model::MaterialT>
+template <typename Cfg>
 void getFaceRotationMatrix(const Eigen::Vector3d& normal,
                            const Eigen::Vector3d& tangent1,
                            const Eigen::Vector3d& tangent2,
-                           init::T<Config>::view::type& matT,
-                           init::Tinv<Config>::view::type& matTinv) {
+                           typename init::T<Cfg>::view::type& matT,
+                           typename init::Tinv<Cfg>::view::type& matTinv) {
   const CoordinateT n = {normal(0), normal(1), normal(2)};
   const CoordinateT s = {tangent1(0), tangent1(1), tangent1(2)};
   const CoordinateT t = {tangent2(0), tangent2(1), tangent2(2)};
-  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
+  getFaceRotationMatrix<Cfg>(n, s, t, matT, matTinv);
 }
 
 template <typename MaterialT>

@@ -391,7 +391,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
       auto faceAlignedToGlb = init::T<Config>::view::create(faceAlignedToGlbData.data());
       auto glbToFaceAligned = init::Tinv<Config>::view::create(face.glbToFaceAlignedData.data());
 
-      seissol::model::getFaceRotationMatrix(
+      seissol::model::getFaceRotationMatrix<Config>(
           faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
     }
   }

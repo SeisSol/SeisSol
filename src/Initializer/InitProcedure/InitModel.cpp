@@ -11,9 +11,9 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Constants.h"
-#include "Config.h"
 #include "Equations/Datastructures.h"
-#include "Equations/Energy.h"
+#include "Equations/Energy.h" // IWYU pragma: keep
+#include "Equations/EnergyBase.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
@@ -41,7 +41,6 @@
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "SeisSol.h"
 #include "Solver/Estimator.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <array>
 #include <cassert>
@@ -59,7 +58,6 @@ namespace seissol::initializer::initprocedure {
 
 namespace {
 
-using MaterialT = seissol::model::MaterialT;
 using Plasticity = seissol::model::Plasticity;
 
 template <typename T>
@@ -72,56 +70,33 @@ std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerato
   return vectorDB;
 }
 
-void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
+/// Sets the materials of the cells of the configuration `Cfg`, queried for the cells of the mesh
+/// given by `ctv`; the ghost cells follow the inner ones, from `ghostOffset` on.
+template <typename Cfg>
+void initializeCellMaterialOfConfig(
+    seissol::SeisSol& seissolInstance,
+    const seissol::initializer::CellToVertexArray& ctv,
+    std::size_t ghostOffset,
+    const std::unordered_map<int, std::vector<unsigned>>& ghostIdxMap) {
+  using MaterialT = seissol::model::MaterialOf<Cfg>;
   const auto& seissolParams = seissolInstance.parameters();
   const auto& meshReader = seissolInstance.meshReader();
   initializer::MemoryManager& memoryManager = seissolInstance.memoryManager();
 
-  // unpack ghost layer (merely a re-ordering operation, since the CellToVertexArray right now
-  // requires an vector there)
-  std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>> ghostVertices;
-  std::vector<int> ghostGroups;
-  std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
-  for (const auto& neighbor : meshReader.getGhostlayerMetadata()) {
-    ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
-    for (const auto& metadata : neighbor.second) {
-      ghostIdxMap[neighbor.first].push_back(ghostVertices.size());
-      auto& vertices = ghostVertices.emplace_back();
-      for (size_t i = 0; i < Cell::NumVertices; ++i) {
-        for (size_t j = 0; j < Cell::Dim; ++j) {
-          vertices[i][j] = metadata.vertices[i][j];
-        }
-      }
-      ghostGroups.push_back(metadata.group);
-    }
-  }
-
-  // just a helper function for better readability
-  const auto getBestQueryGenerator = [&](const seissol::initializer::CellToVertexArray& ctvArray) {
-    return seissol::initializer::getBestQueryGenerator(
-        seissolParams.model.useCellHomogenizedMaterial, ctvArray);
-  };
-
-  // material retrieval for copy+interior layers
-  const auto ctvInner = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
-  const auto ctvGhost =
-      seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups);
-  const auto ctv = seissol::initializer::CellToVertexArray::join({ctvInner, ctvGhost});
-  const auto ghostOffset = ctvInner.size;
-
-  const auto queryGen = getBestQueryGenerator(ctv);
+  const auto queryGen = seissol::initializer::getBestQueryGenerator(
+      seissolParams.model.useCellHomogenizedMaterial, ctv);
   auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
   // plasticity (if needed)
 
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
 
-  std::array<std::vector<Plasticity>, seissol::multisim::NumSimulations> plasticityDB;
+  std::array<std::vector<Plasticity>, Cfg::NumSimulations> plasticityDB;
 
   if (seissolParams.model.plasticity) {
 
     // plasticity information is only needed on all interior+copy cells.
-    for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
+    for (size_t i = 0; i < Cfg::NumSimulations; i++) {
       plasticityDB[i] =
           queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv, plasticityPointwise),
                               seissolParams.model.plasticityFileNames[i]);
@@ -137,9 +112,13 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
 
   for (auto& layer : memoryManager.ltsStorage().leaves()) {
+    if (layer.getIdentifier().config != configIdOf<Cfg>()) {
+      continue;
+    }
+
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-    auto* materialDataArray = layer.var<LTS::MaterialData>(Config());
+    auto* materialDataArray = layer.var<LTS::MaterialData>(Cfg());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
 
@@ -162,8 +141,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     } else {
       auto* materialArray = layer.var<LTS::Material>();
       auto* plasticityArray =
-          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>(Config()) : nullptr;
-      auto* energyDataArray = layer.var<LTS::EnergyData>(Config());
+          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>(Cfg()) : nullptr;
+      auto* energyDataArray = layer.var<LTS::EnergyData>(Cfg());
 
 #pragma omp parallel for schedule(static)
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -204,21 +183,65 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         // if enabled, set up the plasticity as well
         if (seissolParams.model.plasticity) {
           auto& plasticity = plasticityArray[cell];
-          assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
+          assert(plasticityDB.size() == Cfg::NumSimulations &&
                  "Plasticity database size mismatch with number of simulations");
-          std::array<const Plasticity*, seissol::multisim::NumSimulations> localPlasticity{};
-          for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+          std::array<const Plasticity*, Cfg::NumSimulations> localPlasticity{};
+          for (size_t i = 0; i < Cfg::NumSimulations; ++i) {
             const auto pointsPerCell =
-                plasticityPointwise ? model::PlasticityData<Config>::PointCount : 1;
+                plasticityPointwise ? model::PlasticityData<Cfg>::PointCount : 1;
             localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
           }
           initAssign(plasticity,
-                     seissol::model::PlasticityData<Config>(
+                     seissol::model::PlasticityData<Cfg>(
                          localPlasticity, material.local, plasticityPointwise));
         }
       }
     }
   }
+}
+
+void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
+  const auto& meshReader = seissolInstance.meshReader();
+  initializer::MemoryManager& memoryManager = seissolInstance.memoryManager();
+
+  // unpack ghost layer (merely a re-ordering operation, since the CellToVertexArray right now
+  // requires an vector there)
+  std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>> ghostVertices;
+  std::vector<int> ghostGroups;
+  std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
+  for (const auto& neighbor : meshReader.getGhostlayerMetadata()) {
+    ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
+    for (const auto& metadata : neighbor.second) {
+      ghostIdxMap[neighbor.first].push_back(ghostVertices.size());
+      auto& vertices = ghostVertices.emplace_back();
+      for (size_t i = 0; i < Cell::NumVertices; ++i) {
+        for (size_t j = 0; j < Cell::Dim; ++j) {
+          vertices[i][j] = metadata.vertices[i][j];
+        }
+      }
+      ghostGroups.push_back(metadata.group);
+    }
+  }
+
+  // material retrieval for copy+interior layers
+  const auto ctvInner = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
+  const auto ctvGhost =
+      seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups);
+  const auto ctv = seissol::initializer::CellToVertexArray::join({ctvInner, ctvGhost});
+  const auto ghostOffset = ctvInner.size;
+
+  // every configuration that some cells compute in sets the materials of its cells
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    bool hasCells = false;
+    for (const auto& layer : memoryManager.ltsStorage().leaves()) {
+      hasCells =
+          hasCells || (layer.getIdentifier().config == configIdOf<Cfg>() && layer.size() > 0);
+    }
+    if (hasCells) {
+      initializeCellMaterialOfConfig<Cfg>(seissolInstance, ctv, ghostOffset, ghostIdxMap);
+    }
+  });
 }
 
 void initializeCellMatrices(seissol::SeisSol& seissolInstance) {

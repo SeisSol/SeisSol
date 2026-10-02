@@ -130,7 +130,8 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
   std::mt19937 rng(20260904);
   for (int sample = 0; sample < 32; ++sample) {
     const auto frame = randomFrame(rng);
-    model::getFaceRotationMatrix(frame.normal, frame.tangent1, frame.tangent2, matT, matTinv);
+    model::getFaceRotationMatrix<Config>(
+        frame.normal, frame.tangent1, frame.tangent2, matT, matTinv);
 
     SUBCASE("the inverse inverts the quantities it spans") {
       // This is what the two writers per kind are for: for a symmetric
