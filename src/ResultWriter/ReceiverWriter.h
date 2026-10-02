@@ -64,9 +64,7 @@ class ReceiverWriter : public seissol::Module {
    *        This setup is required for receiver recording; without it, no
    *        receiver traces are produced.
    */
-  void addPoints(const seissol::geometry::MeshReader& mesh,
-                 const LTS::Backmap& backmap,
-                 const CompoundGlobalData<Config>& global);
+  void addPoints(const seissol::geometry::MeshReader& mesh, const LTS::Backmap& backmap);
 
   /**
    * \brief Returns the ReceiverCluster for a given cluster ID.
@@ -86,12 +84,16 @@ class ReceiverWriter : public seissol::Module {
 
   private:
   [[nodiscard]] std::string fileName(std::size_t pointId) const;
-  [[nodiscard]] std::vector<std::string> variableNames() const;
-  void writeHeader(std::size_t pointId, const Eigen::Vector3d& point, std::size_t globalId);
+  void writeHeader(std::size_t pointId,
+                   const Eigen::Vector3d& point,
+                   std::size_t globalId,
+                   const std::vector<std::string>& names);
 
-  //! @brief A receiver together with the number of columns one of its samples takes.
+  //! @brief A receiver together with its cluster and the number of columns one of its samples
+  //! takes.
   struct OrderedReceiver {
     kernels::Receiver* receiver{nullptr};
+    kernels::ReceiverCluster* cluster{nullptr};
     std::size_t columns{0};
   };
 
