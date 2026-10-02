@@ -8,9 +8,11 @@
 #include <doctest.h>
 
 #include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
+#include <cstddef>
 #include <string>
 #include <yaml-cpp/yaml.h>
 
@@ -64,6 +66,31 @@ TEST_CASE("readITMParameters custom values" * doctest::test_suite("initializer")
   CHECK(itm.itmDuration == doctest::Approx(5.0));
   CHECK(itm.itmVelocityScalingFactor == doctest::Approx(0.8));
   CHECK(itm.itmReflectionType == ReflectionType::Pwave);
+}
+
+// ---------------------------------------------------------------------------
+// readConfig
+// ---------------------------------------------------------------------------
+
+TEST_CASE("readConfig takes the first configuration if none is named" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    equations:
+      materialfilename: mat.yaml
+  )");
+  ParameterReader reader(node, "", false);
+  CHECK(readConfig(&reader) == defaultConfig());
+}
+
+TEST_CASE("readConfig finds every configuration built by its name" *
+          doctest::test_suite("initializer")) {
+  for (std::size_t id = 0; id < builtConfigCount(); ++id) {
+    const auto name = configName(configValue(static_cast<ConfigId>(id)));
+    CAPTURE(name);
+    const YAML::Node node = YAML::Load("equations:\n  configuration: ' " + name + " '\n");
+    ParameterReader reader(node, "", false);
+    CHECK(readConfig(&reader) == id);
+  }
 }
 
 // ---------------------------------------------------------------------------

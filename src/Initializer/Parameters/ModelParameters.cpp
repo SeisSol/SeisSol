@@ -52,6 +52,25 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
       itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
 }
 
+ConfigId readConfig(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("equations");
+  auto name = reader->read<std::string>("configuration");
+  if (!name.has_value()) {
+    return defaultConfig();
+  }
+  sanitize(name.value());
+  const auto config = findConfig(name.value());
+  if (!config.has_value()) {
+    std::string names;
+    for (std::size_t id = 0; id < builtConfigCount(); ++id) {
+      names += (id > 0 ? ", " : "") + configName(configValue(static_cast<ConfigId>(id)));
+    }
+    logError() << "The configuration" << name.value()
+               << "is not built into this executable. It has:" << names;
+  }
+  return config.value();
+}
+
 ModelParameters readModelParameters(ParameterReader* baseReader, ConfigId config) {
   auto* reader = baseReader->readSubNode("equations");
 

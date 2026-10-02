@@ -49,6 +49,9 @@ struct ModelParameters {
   ConfigId config{};
 };
 
+/// The configuration the cells of the run compute in: the one named by `configuration` in the
+/// section `equations`, or the first one built into the executable.
+ConfigId readConfig(ParameterReader* baseReader);
 ModelParameters readModelParameters(ParameterReader* baseReader, ConfigId config);
 ITMParameters readITMParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters

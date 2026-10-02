@@ -27,7 +27,7 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   // the configuration the cells of the run compute in; the parameters that depend on it, e.g. on
   // its material or on its number of fused simulations, are read for it
-  const ConfigId config = defaultConfig();
+  const ConfigId config = readConfig(parameterReader);
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
