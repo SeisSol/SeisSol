@@ -8,9 +8,9 @@
 
 #include "FreeSurfaceIntegrator.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
-#include "Config.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BoundaryHelper.h"
 #include "Initializer/Typedefs.h"
@@ -103,42 +103,48 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
 
   std::size_t surfaceCellOffset = 0; // Counts all surface cells of all layers
   std::size_t surfaceCellGlobal = 0;
-  for (auto [layer, surfaceLayer] :
+  for (auto [ltsLayer, surfaceLtsLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* faceDisplacements = layer.var<LTS::FaceDisplacements>(Config());
-    auto* faceDisplacementsDevice = layer.var<LTS::FaceDisplacementsDevice>(Config());
-    auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(Config());
-    auto* displacementDofsDevice = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(
-        Config(), initializer::AllocationPlace::Device);
-    auto* cellMaterialData = layer.var<LTS::Material>();
-    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-    auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();
+    // (lambdas cannot capture structured bindings in C++17)
+    auto& layer = ltsLayer;
+    auto& surfaceLayer = surfaceLtsLayer;
+    // the displacements of a layer are held in the configuration of the layer
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      auto* cellInformation = layer.var<LTS::CellInformation>();
+      auto* faceDisplacements = layer.var<LTS::FaceDisplacements>(cfg);
+      auto* faceDisplacementsDevice = layer.var<LTS::FaceDisplacementsDevice>(cfg);
+      auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg);
+      auto* displacementDofsDevice =
+          surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg, initializer::AllocationPlace::Device);
+      auto* cellMaterialData = layer.var<LTS::Material>();
+      auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();
 
-    auto* side = surfaceLayer.var<SurfaceLTS::Side>();
-    auto* meshId = surfaceLayer.var<SurfaceLTS::MeshId>();
-    std::size_t surfaceCell = 0;
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
-          // NOTE: assign LTS::Storage data here
-          faceDisplacements[cell][face] = displacementDofs[surfaceCell];
-          faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];
+      auto* side = surfaceLayer.var<SurfaceLTS::Side>();
+      auto* meshId = surfaceLayer.var<SurfaceLTS::MeshId>();
+      std::size_t surfaceCell = 0;
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
+            // NOTE: assign LTS::Storage data here
+            faceDisplacements[cell][face] = displacementDofs[surfaceCell];
+            faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];
 
-          side[surfaceCell] = face;
-          meshId[surfaceCell] = secondaryInformation[cell].meshId;
-          locationFlagLayer[surfaceCell] = static_cast<std::uint8_t>(
-              getLocationFlag(cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+            side[surfaceCell] = face;
+            meshId[surfaceCell] = secondaryInformation[cell].meshId;
+            locationFlagLayer[surfaceCell] = static_cast<std::uint8_t>(getLocationFlag(
+                cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
 
-          if (secondaryInformation[cell].duplicate == 0) {
-            backmap[surfaceCellOffset] = surfaceCellGlobal;
-            ++surfaceCellOffset;
+            if (secondaryInformation[cell].duplicate == 0) {
+              backmap[surfaceCellOffset] = surfaceCellGlobal;
+              ++surfaceCellOffset;
+            }
+            ++surfaceCell;
+            ++surfaceCellGlobal;
           }
-          ++surfaceCell;
-          ++surfaceCellGlobal;
         }
       }
-    }
+    });
   }
 }
 
