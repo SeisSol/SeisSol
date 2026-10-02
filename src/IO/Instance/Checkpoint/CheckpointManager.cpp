@@ -7,7 +7,8 @@
 
 #include "CheckpointManager.h"
 
-#include "Common/Constants.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
 #include "IO/Reader/Distribution.h"
@@ -34,6 +35,8 @@ namespace seissol::io::instance::checkpoint {
 std::function<writer::Writer(const std::string&, std::size_t, double)>
     CheckpointManager::makeWriter() {
   auto dataRegistry = this->dataRegistry_;
+  // the order of the configuration of the data
+  const std::size_t order = configValue(config_).convergenceOrder;
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
@@ -88,7 +91,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
         "__order",
-        writer::WriteInline::create(ConvergenceOrder)));
+        writer::WriteInline::create(order)));
     return writer;
   };
 }
@@ -104,7 +107,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   reader.openFile(file);
   reader.openGroup("checkpoint");
   const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
-  if (convergenceOrderRead != ConvergenceOrder) {
+  if (convergenceOrderRead != static_cast<int>(configValue(config_).convergenceOrder)) {
     logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
   }
   for (auto& [_, ckpTree] : dataRegistry_) {

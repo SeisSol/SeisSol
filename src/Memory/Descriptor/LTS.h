@@ -10,8 +10,9 @@
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Real.h"
-#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
@@ -230,7 +231,10 @@ struct LTS {
                           PagesizeHeap,
                           allocationModeWP(AllocationPreset::Dofs));
 
-    if (kernels::size<tensor::Qane<Config>>() > 0) {
+    // the anelastic unknowns, if any configuration has some
+    bool anelastic = false;
+    forEachConfig([&](auto cfg) { anelastic |= kernels::size<tensor::Qane<decltype(cfg)>>() > 0; });
+    if (anelastic) {
       storage.add<DofsAne>(
           LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     } else {
@@ -302,12 +306,16 @@ struct LTS {
     }
   }
 
+  /// The variables to checkpoint for cells of the configuration `config`.
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Storage& storage) {
+                                          Storage& storage,
+                                          ConfigId config) {
     manager.registerData<Dofs>("dofs", storage);
-    if constexpr (kernels::size<tensor::Qane<Config>>() > 0) {
-      manager.registerData<DofsAne>("dofsAne", storage);
-    }
+    dispatchConfig(config, [&](auto cfg) {
+      if constexpr (kernels::size<tensor::Qane<decltype(cfg)>>() > 0) {
+        manager.registerData<DofsAne>("dofsAne", storage);
+      }
+    });
     // check plasticity usage over the layer mask (for now)
     if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
       manager.registerData<Plasticity>("pstrain", storage);

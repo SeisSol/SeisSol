@@ -122,6 +122,9 @@ seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
 
 void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.outputManager().getCheckpointManager();
+  // the data of the run is checkpointed in its configuration
+  const auto config = seissolInstance.parameters().model.config;
+  checkpoint.setConfig(config);
 
   {
     auto& storage = seissolInstance.memoryManager().ltsStorage();
@@ -137,7 +140,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       offset += layer.size();
     }
     checkpoint.registerTree("lts", storage, globalIds);
-    LTS::registerCheckpointVariables(checkpoint, storage);
+    LTS::registerCheckpointVariables(checkpoint, storage, config);
   }
 
   {

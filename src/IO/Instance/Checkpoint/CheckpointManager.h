@@ -8,7 +8,8 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 #define SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 
-#include "Config.h"
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Writer/Instructions/Data.h"
@@ -43,6 +44,10 @@ struct CheckpointTree {
 
 class CheckpointManager {
   public:
+  /// The configuration of the data to checkpoint, the one of the run: the datasets hold its reals,
+  /// and its order is stored with them.
+  void setConfig(ConfigId config) { config_ = config; }
+
   template <typename VarmapT>
   void registerTree(const std::string& name,
                     initializer::Storage<VarmapT>& storage,
@@ -57,16 +62,17 @@ class CheckpointManager {
     if (storage.template info<StorageT>().mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    // The values of all layers go into one dataset, of the type the configuration of the build
-    // holds them in.
-    using ValueT = initializer::StorageType<StorageT, Config>;
-    dataRegistry_[&storage].variables.emplace_back(
-        CheckpointVariable{name,
-                           storage.template var<StorageT>(),
-                           datatype::inferDatatype<ValueT>(),
-                           datatype::inferDatatype<ValueT>(),
-                           {},
-                           {}});
+    // The values of all layers go into one dataset, of the type the configuration holds them in.
+    dispatchConfig(config_, [&](auto cfg) {
+      using ValueT = initializer::StorageType<StorageT, decltype(cfg)>;
+      dataRegistry_[&storage].variables.emplace_back(
+          CheckpointVariable{name,
+                             storage.template var<StorageT>(),
+                             datatype::inferDatatype<ValueT>(),
+                             datatype::inferDatatype<ValueT>(),
+                             {},
+                             {}});
+    });
   }
 
   template <typename S, typename T, typename VarmapT>
@@ -127,6 +133,7 @@ class CheckpointManager {
 
   private:
   std::map<void*, CheckpointTree> dataRegistry_;
+  ConfigId config_{};
 };
 
 } // namespace seissol::io::instance::checkpoint
