@@ -73,6 +73,8 @@ struct CellToVertexArray {
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
                   const std::vector<int>& groups);
   static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
+  /// The cells of `array` at `indices`, in that order.
+  static CellToVertexArray subset(const CellToVertexArray& array, std::vector<std::size_t> indices);
 };
 
 /**

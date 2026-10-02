@@ -77,11 +77,24 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // written in initIO, once the output directory exists
   auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix);
 
+  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
+    auto cloned = id;
+    cloned.halo = halo;
+    cloned.lts += offset;
+    return memoryManager.ltsStorage().getColorMap().colorId(cloned);
+  };
+
   std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
+
+  // A pair of an interior and a copy layer computes the dynamic rupture faces of its interior once.
+  // The pair is one cluster in one configuration, and its scheduler is found under the color of
+  // its interior layer.
+  std::vector<std::size_t> drCellsPerPair(memoryManager.ltsStorage().getColorMap().size());
 
   // setup DR schedulers
   for (const auto& layer : memoryManager.drStorage().leaves()) {
     drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
+    drCellsPerPair[deltaId(layer.getIdentifier(), HaloType::Interior, 0)] += layer.size();
   }
 
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
@@ -102,20 +115,13 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
-  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
+  for (const auto drCells : drCellsPerPair) {
     dynamicRuptureSchedulers_.emplace_back(
-        std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep));
+        std::make_unique<DynamicRuptureScheduler>(drCells, drOutputTimestep));
   }
 
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
       memoryManager.ltsStorage().getColorMap().size());
-
-  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
-    auto cloned = id;
-    cloned.halo = halo;
-    cloned.lts += offset;
-    return memoryManager.ltsStorage().getColorMap().colorId(cloned);
-  };
 
   // iterate over local time clusters
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
@@ -149,7 +155,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
               timeStepSize,
               timeStepRate,
               printProgress,
-              dynamicRuptureSchedulers_[clusterId].get(),
+              dynamicRuptureSchedulers_[deltaId(layer.getIdentifier(), HaloType::Interior, 0)]
+                  .get(),
               memoryManager.globalData<Cfg>(),
               &layer,
               dynRupInteriorData,

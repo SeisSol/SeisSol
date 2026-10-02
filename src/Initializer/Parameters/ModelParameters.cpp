@@ -11,6 +11,7 @@
 #include "Common/ConfigValue.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <string>
 #include <unordered_set>
@@ -19,6 +20,27 @@
 #include <vector>
 
 namespace seissol::initializer::parameters {
+
+ConfigId ModelParameters::configOfGroup(int group) const {
+  const auto found = groupConfigs.find(group);
+  return found == groupConfigs.end() ? config : found->second;
+}
+
+std::vector<ConfigId> ModelParameters::configs() const {
+  std::vector<ConfigId> ofGroups;
+  ofGroups.reserve(groupConfigs.size());
+  for (const auto& [group, groupConfig] : groupConfigs) {
+    ofGroups.push_back(groupConfig);
+  }
+  std::sort(ofGroups.begin(), ofGroups.end());
+  std::vector<ConfigId> result{config};
+  for (const auto groupConfig : ofGroups) {
+    if (std::find(result.begin(), result.end(), groupConfig) == result.end()) {
+      result.push_back(groupConfig);
+    }
+  }
+  return result;
+}
 
 ITMParameters readITMParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
@@ -152,7 +174,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader, ConfigId config
                          itmParameters,
                          flux,
                          fluxNearFault,
-                         config};
+                         config,
+                         {}};
 }
 
 std::string fluxToString(NumericalFlux flux) {

@@ -124,18 +124,19 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
-  const auto config = seissolParams.model.config;
+  // every cell computes in the configuration of its mesh group, ghost cells included
+  const auto& model = seissolParams.model;
 
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::EnumLayer<ConfigId>({config}));
+      initializer::EnumLayer<ConfigId>(model.configs()));
 
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
     const auto& element = meshReader.getElements()[i];
     const auto halo = geometry::isCopy(element, rank) ? HaloType::Copy : HaloType::Interior;
-    colors[i] = colorMap.color(halo, element.clusterId, config);
+    colors[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
   const auto ghostSize = meshReader.linearGhostlayer().size();
@@ -145,7 +146,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     const auto& element =
         meshReader.getGhostlayerMetadata().at(linearGhost.rank)[linearGhost.inRankIndices[0]];
     const auto halo = HaloType::Ghost;
-    colorsGhost[i] = colorMap.color(halo, element.clusterId, config);
+    colorsGhost[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
   const auto needsIntegration =

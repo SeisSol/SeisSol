@@ -46,6 +46,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -86,12 +87,15 @@ std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerato
   return vectorDB;
 }
 
-/// Sets the materials of the cells of the configuration `Cfg`, queried for the cells of the mesh
-/// given by `ctv`; the ghost cells follow the inner ones, from `ghostOffset` on.
+/// Sets the materials of the cells of the configuration `Cfg`. The cells of the mesh are given by
+/// `ctv`, the ghost cells following the inner ones from `ghostOffset` on; `cells` are the ones of
+/// the configuration, in increasing order. The material file is queried for them only, since
+/// another material need not be defined in the groups of the other cells.
 template <typename Cfg>
 void initializeCellMaterialOfConfig(
     seissol::SeisSol& seissolInstance,
     const seissol::initializer::CellToVertexArray& ctv,
+    const std::vector<std::size_t>& cells,
     std::size_t ghostOffset,
     const std::unordered_map<int, std::vector<unsigned>>& ghostIdxMap) {
   using MaterialT = seissol::model::MaterialOf<Cfg>;
@@ -99,8 +103,21 @@ void initializeCellMaterialOfConfig(
   const auto& meshReader = seissolInstance.meshReader();
   initializer::MemoryManager& memoryManager = seissolInstance.memoryManager();
 
+  // the position of a cell of the mesh among the queried ones
+  const bool allCells = cells.size() == ctv.size;
+  const auto ctvOfConfig =
+      allCells ? ctv : seissol::initializer::CellToVertexArray::subset(ctv, cells);
+  std::vector<std::size_t> positions;
+  if (!allCells) {
+    positions.resize(ctv.size);
+    for (std::size_t i = 0; i < cells.size(); ++i) {
+      positions[cells[i]] = i;
+    }
+  }
+  const auto position = [&](std::size_t cell) { return allCells ? cell : positions[cell]; };
+
   const auto queryGen = seissol::initializer::getBestQueryGenerator<MaterialT>(
-      seissolParams.model.useCellHomogenizedMaterial, ctv, Cfg::ConvergenceOrder);
+      seissolParams.model.useCellHomogenizedMaterial, ctvOfConfig, Cfg::ConvergenceOrder);
   auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
   // plasticity (if needed)
@@ -113,7 +130,7 @@ void initializeCellMaterialOfConfig(
 
     // plasticity information is only needed on all interior+copy cells.
     const auto plasticityGen = std::make_shared<PlasticityPointGenerator>(
-        ctv, plasticityNodes<Cfg>(), plasticityPointwise);
+        ctvOfConfig, plasticityNodes<Cfg>(), plasticityPointwise);
     for (size_t i = 0; i < Cfg::NumSimulations; i++) {
       plasticityDB[i] =
           queryDB<Plasticity>(plasticityGen, seissolParams.model.plasticityFileNames[i]);
@@ -152,7 +169,7 @@ void initializeCellMaterialOfConfig(
         const auto neighborRank = linear.rank;
         const auto neighborRankIdx = linear.inRankIndices[0];
         const auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
-        const auto& localMaterial = materialsDB[materialGhostIdx + ghostOffset];
+        const auto& localMaterial = materialsDB[position(materialGhostIdx + ghostOffset)];
         initAssign(materialData, localMaterial);
       }
     } else {
@@ -167,7 +184,7 @@ void initializeCellMaterialOfConfig(
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
         auto& material = materialArray[cell];
-        const auto& localMaterial = materialsDB[meshId];
+        const auto& localMaterial = materialsDB[position(meshId)];
         const auto& localCellInformation = cellInformation[cell];
 
         // explicitly use polymorphic pointer arithmetic here
@@ -207,7 +224,7 @@ void initializeCellMaterialOfConfig(
           for (size_t i = 0; i < Cfg::NumSimulations; ++i) {
             const auto pointsPerCell =
                 plasticityPointwise ? model::PlasticityData<Cfg>::PointCount : 1;
-            localPlasticity[i] = &plasticityDB[i][static_cast<std::size_t>(meshId) * pointsPerCell];
+            localPlasticity[i] = &plasticityDB[i][position(meshId) * pointsPerCell];
           }
           initAssign(plasticity,
                      seissol::model::PlasticityData<Cfg>(
@@ -248,7 +265,10 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   const auto ctv = seissol::initializer::CellToVertexArray::join({ctvInner, ctvGhost});
   const auto ghostOffset = ctvInner.size;
 
-  // every configuration that some cells compute in sets the materials of its cells
+  // every configuration that some cells compute in sets the materials of its cells, which are
+  // the ones of its mesh groups
+  const auto& model = seissolInstance.parameters().model;
+  const bool singleConfig = model.configs().size() == 1;
   forEachConfig([&](auto cfg) {
     using Cfg = decltype(cfg);
     bool hasCells = false;
@@ -257,7 +277,13 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           hasCells || (layer.getIdentifier().config == configIdOf<Cfg>() && layer.size() > 0);
     }
     if (hasCells) {
-      initializeCellMaterialOfConfig<Cfg>(seissolInstance, ctv, ghostOffset, ghostIdxMap);
+      std::vector<std::size_t> cells;
+      for (std::size_t cell = 0; cell < ctv.size; ++cell) {
+        if (singleConfig || model.configOfGroup(ctv.elementGroups(cell)) == configIdOf<Cfg>()) {
+          cells.push_back(cell);
+        }
+      }
+      initializeCellMaterialOfConfig<Cfg>(seissolInstance, ctv, cells, ghostOffset, ghostIdxMap);
     }
   });
 }
@@ -391,8 +417,25 @@ void initModel(seissol::SeisSol& seissolInstance) {
 
   // these four methods need to be called in this order.
   logInfo() << "Model info:";
-  logInfo() << "Configuration:"
-            << configName(configValue(seissolInstance.parameters().model.config)).c_str();
+  const auto& model = seissolInstance.parameters().model;
+  const auto configs = model.configs();
+  if (configs.size() == 1) {
+    logInfo() << "Configuration:" << configName(configValue(model.config)).c_str();
+  } else {
+    // numbered as in the output
+    const std::map<int, ConfigId> groupConfigs(model.groupConfigs.begin(),
+                                               model.groupConfigs.end());
+    for (std::size_t i = 0; i < configs.size(); ++i) {
+      std::string groups = i == 0 ? "the mesh groups without one of their own" : "the mesh groups";
+      for (const auto& [group, config] : groupConfigs) {
+        if (config == configs[i]) {
+          groups += " " + std::to_string(group);
+        }
+      }
+      logInfo() << "Configuration" << i << ":" << configName(configValue(configs[i])).c_str()
+                << "for" << groups.c_str();
+    }
+  }
   logInfo() << "Plasticity:" << (seissolInstance.parameters().model.plasticity ? "on" : "off");
   logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
   logInfo() << "Flux near fault:"

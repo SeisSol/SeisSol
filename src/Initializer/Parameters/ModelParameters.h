@@ -12,6 +12,8 @@
 #include "ParameterReader.h"
 
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -45,8 +47,16 @@ struct ModelParameters {
   ITMParameters itmParameters;
   NumericalFlux flux{NumericalFlux::Godunov};
   NumericalFlux fluxNearFault{NumericalFlux::Godunov};
-  // the configuration the cells of the run compute in
+  // the configuration the cells of the run compute in, unless their mesh group has its own
   ConfigId config{};
+  // the mesh groups whose cells compute in a configuration of their own
+  std::unordered_map<int, ConfigId> groupConfigs;
+
+  /// The configuration the cells of a mesh group compute in.
+  [[nodiscard]] ConfigId configOfGroup(int group) const;
+  /// Every configuration cells of the run may compute in: `config` first, then those of the mesh
+  /// groups in the order of their ids, each once.
+  [[nodiscard]] std::vector<ConfigId> configs() const;
 };
 
 /// The configuration the cells of the run compute in: the one named by `configuration` in the

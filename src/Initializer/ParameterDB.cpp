@@ -233,6 +233,15 @@ CellToVertexArray CellToVertexArray::join(std::vector<CellToVertexArray> arrays)
       });
 }
 
+CellToVertexArray CellToVertexArray::subset(const CellToVertexArray& array,
+                                            std::vector<std::size_t> indices) {
+  const auto shared = std::make_shared<const std::vector<std::size_t>>(std::move(indices));
+  return CellToVertexArray(
+      shared->size(),
+      [array, shared](size_t idx) { return array.elementCoordinates((*shared)[idx]); },
+      [array, shared](size_t idx) { return array.elementGroups((*shared)[idx]); });
+}
+
 easi::Query ElementBarycenterGenerator::generate() const {
   easi::Query query(cellToVertex_.size, Cell::Dim);
 
