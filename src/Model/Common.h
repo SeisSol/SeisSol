@@ -205,6 +205,14 @@ void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
                                                                                        mE);
 }
 
+/// The backend of the eigenvalue decompositions of a material, as a build with that material alone
+/// has it: LAPACK for the poroelastic material, for which Eigen computes some values incorrectly,
+/// and Eigen for every other.
+template <typename MaterialT>
+constexpr auto EigenvalueBackend =
+    MaterialT::Type == MaterialType::Poroelastic ? eigenvalues::LapackIfLinked
+                                                 : eigenvalues::Backend::Eigen3;
+
 /// The eigenpairs of the normal Jacobian of a material without relaxation, which every solver
 /// lays out as the material describes it.
 template <typename Tmaterial>
@@ -499,7 +507,7 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   }
   seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities> eigenpair;
 
-  seissol::eigenvalues::computeEigenvalues(dataA, eigenpair);
+  seissol::eigenvalues::computeEigenvalues<EigenvalueBackend<Tmaterial>>(dataA, eigenpair);
 
   // repair the eigenvector basis inside degenerate eigenspaces before anything derived from it is
   // computed; without this matR becomes numerically singular (cond ~ 1e12 instead of ~1e7)
