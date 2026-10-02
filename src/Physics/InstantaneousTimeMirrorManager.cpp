@@ -7,7 +7,7 @@
 
 #include "InstantaneousTimeMirrorManager.h"
 
-#include "Config.h"
+#include "Common/ConfigDispatch.h"
 #include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
@@ -76,9 +76,12 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
 
   // check over all cells (cheap; though it can be reduced to at most one per layer)
   for (auto& layer : ltsStorage.leaves()) {
-    for (std::size_t i = 0; i < layer.size(); ++i) {
-      checkSupported(layer.cellRef<Config>(i).get<LTS::MaterialData>(), reflectionType);
-    }
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      const auto* materials = layer.var<LTS::MaterialData>(cfg);
+      for (std::size_t i = 0; i < layer.size(); ++i) {
+        checkSupported(materials[i], reflectionType);
+      }
+    });
   }
 
   isEnabled_ = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
@@ -167,12 +170,14 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   };
 
   for (auto& layer : ltsStorage_->leaves(Ghost)) {
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      auto* materials = layer.var<LTS::MaterialData>(cfg);
 
 #pragma omp parallel for schedule(static)
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      auto& material = layer.cellRef<Config>(cell).get<LTS::MaterialData>();
-      updateMaterial(material);
-    }
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        updateMaterial(materials[cell]);
+      }
+    });
   }
 }
 

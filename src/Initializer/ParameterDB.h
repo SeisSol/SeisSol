@@ -10,12 +10,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
 
@@ -206,8 +206,10 @@ class DirichletCondition {
 
   ~DirichletCondition();
 
+  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`.
+  template <typename Cfg>
   [[nodiscard]] BoundaryFrame
-      query(const double* barycenter, real* mapTermsData, real* constantTermsData) const;
+      query(const double* barycenter, Real<Cfg>* mapTermsData, Real<Cfg>* constantTermsData) const;
 
   private:
   easi::Component* model_;

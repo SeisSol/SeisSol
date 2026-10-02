@@ -11,13 +11,11 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
-#include "Config.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Kernels/Common.h"
-#include "Kernels/Precision.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -46,13 +44,14 @@ class BucketManager {
     this->dataSize_ = ((this->dataSize_ + Alignment - 1) / Alignment) * Alignment;
   }
 
-  real* markAllocate(std::size_t size) {
+  template <typename T>
+  T* markAllocate(std::size_t size) {
     const uintptr_t offset = this->dataSize_;
     this->dataSize_ += size;
 
     // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
     // from nullptr NOLINTNEXTLINE
-    return reinterpret_cast<real*>(offset + 1);
+    return reinterpret_cast<T*>(offset + 1);
   }
 
   [[nodiscard]] std::size_t position() const { return dataSize_; }
@@ -132,23 +131,24 @@ struct LTSBuffer {
   static constexpr auto Size = SizeP;
 };
 
-template <typename F>
+/// Calls `caller` with the buffer of type `type` of a cell of the configuration `Cfg`.
+template <typename Cfg, typename F>
 constexpr auto callForBuffer(BufferType type, F caller) {
   switch (type) {
   case BufferType::Derivatives:
     caller(LTSBuffer<LTS::Derivatives,
                      LTS::DerivativesDevice,
-                     kernels::SolverOf<Config>::DerivativesSize>());
+                     kernels::SolverOf<Cfg>::DerivativesSize>());
     break;
   case BufferType::StepIntegrals:
     caller(LTSBuffer<LTS::StepIntegrals,
                      LTS::StepIntegralsDevice,
-                     kernels::SolverOf<Config>::IntegralsSize>());
+                     kernels::SolverOf<Cfg>::IntegralsSize>());
     break;
   case BufferType::AccumulatedIntegrals:
     caller(LTSBuffer<LTS::AccumulatedIntegrals,
                      LTS::AccumulatedIntegralsDevice,
-                     kernels::SolverOf<Config>::IntegralsSize>());
+                     kernels::SolverOf<Cfg>::IntegralsSize>());
     break;
   default:
     logError() << "Unknown LTS buffer type.";
@@ -156,6 +156,7 @@ constexpr auto callForBuffer(BufferType type, F caller) {
   }
 }
 
+template <typename Cfg>
 std::vector<solver::RemoteCluster> allocateTransferInfo(
     const LTS::Storage& storage, LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
   const auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -167,11 +168,11 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   const auto allocate = [&](std::size_t index, BufferType type) {
     const bool hasBuffer = cellInformation[index].ltsSetup.hasBuffer(type);
     if (hasBuffer) {
-      callForBuffer(type, [&](auto typeHelper) {
+      callForBuffer<Cfg>(type, [&](auto typeHelper) {
         using Buf = decltype(typeHelper);
-        auto* offset = manager.markAllocate(Buf::Size * typeSize);
-        layer.var<typename Buf::Type>(Config())[index] = offset;
-        layer.var<typename Buf::TypeDevice>(Config())[index] = offset;
+        auto* offset = manager.markAllocate<Real<Cfg>>(Buf::Size * typeSize);
+        layer.var<typename Buf::Type>(Cfg())[index] = offset;
+        layer.var<typename Buf::TypeDevice>(Cfg())[index] = offset;
       });
     }
   };
@@ -239,16 +240,17 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   return remoteClusters;
 }
 
+template <typename Cfg>
 void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
-  auto* buffers = layer.var<LTS::Buffers>(Config());
-  auto* buffersDevice = layer.var<LTS::Buffers>(Config(), AllocationPlace::Device);
+  auto* buffers = layer.var<LTS::Buffers>(Cfg());
+  auto* buffersDevice = layer.var<LTS::Buffers>(Cfg(), AllocationPlace::Device);
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t type = 0; type < BufferCount; ++type) {
-      callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
+      callForBuffer<Cfg>(static_cast<BufferType>(type), [&](auto typeHelper) {
         using Buf = decltype(typeHelper);
-        auto*& pointer = layer.var<typename Buf::Type>(Config())[cell];
+        auto*& pointer = layer.var<typename Buf::Type>(Cfg())[cell];
         initBucketItem(pointer, buffers, Buf::Size, true);
         assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
                    static_cast<BufferType>(type)) ||
@@ -258,9 +260,9 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
 
     if constexpr (isDeviceOn()) {
       for (std::size_t type = 0; type < BufferCount; ++type) {
-        callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
+        callForBuffer<Cfg>(static_cast<BufferType>(type), [&](auto typeHelper) {
           using Buf = decltype(typeHelper);
-          auto*& pointer = layer.var<typename Buf::TypeDevice>(Config())[cell];
+          auto*& pointer = layer.var<typename Buf::TypeDevice>(Cfg())[cell];
           initBucketItem(pointer, buffersDevice, Buf::Size, false);
           assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
                      static_cast<BufferType>(type)) ||
@@ -276,12 +278,13 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   const auto bucketSize = layer.getEntrySize<LTS::Buffers>();
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t type = 0; type < BufferCount; ++type) {
-      callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
+      callForBuffer<Cfg>(static_cast<BufferType>(type), [&](auto typeHelper) {
         using Buf = decltype(typeHelper);
         const auto address =
-            reinterpret_cast<std::uintptr_t>(layer.var<typename Buf::Type>(Config())[cell]);
+            reinterpret_cast<std::uintptr_t>(layer.var<typename Buf::Type>(Cfg())[cell]);
         const bool insideBucket =
-            address >= bucketBase && address + Buf::Size * sizeof(real) <= bucketBase + bucketSize;
+            address >= bucketBase &&
+            address + Buf::Size * sizeof(Real<Cfg>) <= bucketBase + bucketSize;
         assert(address == 0 || insideBucket);
       });
     }
@@ -314,23 +317,23 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
       if (getBCType(cellInformation[cell].faceTypes[face]) != BCType::External) {
         const auto type = cellInformation[cell].ltsSetup.neighborBuffer(face);
 
-        callForBuffer(type, [&](auto typeHandler) {
-          using Buf = decltype(typeHandler);
-
-          if (faceNeighbor == StoragePosition::NullPosition) {
-            logError() << "A face that needs the Neighbor kernel has no face neighbor.";
-          } else {
-            // the neighbor holds its buffers in the reals of its own configuration
-            const auto neighborConfig = storage.layer(faceNeighbor.color).getIdentifier().config;
-            dispatchConfig(neighborConfig, [&](auto config) {
+        if (faceNeighbor == StoragePosition::NullPosition) {
+          logError() << "A face that needs the Neighbor kernel has no face neighbor.";
+        } else {
+          // the neighbor holds its buffers in the reals of its own configuration
+          const auto neighborConfig = storage.layer(faceNeighbor.color).getIdentifier().config;
+          dispatchConfig(neighborConfig, [&](auto config) {
+            using NeighborCfg = decltype(config);
+            callForBuffer<NeighborCfg>(type, [&](auto typeHandler) {
+              using Buf = decltype(typeHandler);
               faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(config, faceNeighbor);
               if constexpr (isDeviceOn()) {
                 faceNeighborsDevice[cell][face] =
                     storage.lookup<typename Buf::TypeDevice>(config, faceNeighbor);
               }
             });
-          }
-        });
+          });
+        }
 
         assert(faceNeighbors[cell][face] != nullptr);
         if constexpr (isDeviceOn()) {
@@ -345,14 +348,18 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
 solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.getColorMap().size());
 
+  // the buffers of a layer are in the reals of its configuration
   for (auto& layer : storage.leaves()) {
-    commInfo[layer.id()] = allocateTransferInfo(storage, layer, layout[layer.id()].regions);
+    commInfo[layer.id()] = dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      return allocateTransferInfo<decltype(cfg)>(storage, layer, layout[layer.id()].regions);
+    });
   }
 
   storage.allocateBuckets();
 
   for (auto& layer : storage.leaves()) {
-    setupBuckets(layer, commInfo[layer.id()]);
+    dispatchConfig(layer.getIdentifier().config,
+                   [&](auto cfg) { setupBuckets<decltype(cfg)>(layer, commInfo[layer.id()]); });
   }
   for (auto& layer : storage.leaves(Ghost)) {
     setupFaceNeighbors(storage, layer);

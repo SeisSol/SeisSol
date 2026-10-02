@@ -22,7 +22,6 @@
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/PUMLReader.h"
-#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Plasticity.h"
 #include "Numerical/Quadrature.h"
@@ -60,6 +59,7 @@
 #endif
 
 #ifdef USE_ASAGI
+#include "Common/Real.h"
 #include "Reader/AsagiReader.h"
 #endif
 
@@ -722,9 +722,11 @@ DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) no
 
 DirichletCondition::~DirichletCondition() { delete model_; }
 
+template <typename Cfg>
 BoundaryFrame DirichletCondition::query(const double* barycenter,
-                                        real* mapTermsData,
-                                        real* constantTermsData) const {
+                                        Real<Cfg>* mapTermsData,
+                                        Real<Cfg>* constantTermsData) const {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
@@ -746,10 +748,10 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   // map_{to}_{from}, those of b const_{to}, where the quantity names are the
   // ones of the material at hand. Mirroring the x velocity at the ghost cell is
   // therefore map_v1_v1: -1.
-  const auto& varNames = model::MaterialT::Quantities;
+  const auto& varNames = model::MaterialOf<Cfg>::Quantities;
 
-  auto mapTerms = init::dirichletMapGlobal<Config>::view::create(mapTermsData);
-  auto constantTerms = init::dirichletOffsetGlobal<Config>::view::create(constantTermsData);
+  auto mapTerms = init::dirichletMapGlobal<Cfg>::view::create(mapTermsData);
+  auto constantTerms = init::dirichletOffsetGlobal<Cfg>::view::create(constantTermsData);
 
   easi::ArraysAdapter<real> adapter{};
   std::unordered_set<std::string> known;
@@ -764,7 +766,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   for (size_t i = 0; i < varNames.size(); ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
     known.insert(termName);
-    auto& term = multisim::multisimWrap<Config>(constantTerms, 0, i);
+    auto& term = multisim::multisimWrap<Cfg>(constantTerms, 0, i);
     if (supplied.count(termName) > 0) {
       adapter.addBindingPoint(termName, &term);
     } else {
@@ -810,15 +812,21 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
 
   // The condition does not depend on the simulation index, so every fused
   // simulation gets the same one.
-  for (std::size_t sim = 1; sim < multisim::NumSimulations; ++sim) {
+  for (std::size_t sim = 1; sim < Cfg::NumSimulations; ++sim) {
     for (size_t i = 0; i < varNames.size(); ++i) {
-      multisim::multisimWrap<Config>(constantTerms, sim, i) =
-          multisim::multisimWrap<Config>(constantTerms, 0, i);
+      multisim::multisimWrap<Cfg>(constantTerms, sim, i) =
+          multisim::multisimWrap<Cfg>(constantTerms, 0, i);
     }
   }
 
   return frame == 0.0 ? BoundaryFrame::Global : BoundaryFrame::FaceAligned;
 }
+
+#define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
+  template BoundaryFrame DirichletCondition::query<Cfg>(const double*, Real<Cfg>*, Real<Cfg>*)     \
+      const;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
+#undef SEISSOL_CONFIG_INSTANTIATE
 
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex) {
