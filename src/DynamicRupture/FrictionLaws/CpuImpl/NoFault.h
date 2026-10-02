@@ -9,28 +9,31 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_NOFAULT_H_
 
 #include "BaseFrictionLaw.h"
-#include "Config.h"
+#include "Common/Real.h"
 
 namespace seissol::dr::friction_law::cpu {
 /**
  * No friction computation input stress equals output
  */
-class NoFault : public BaseFrictionLaw<NoFault> {
+template <typename Cfg>
+class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
   public:
-  using BaseFrictionLaw::BaseFrictionLaw;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  using BaseFrictionLaw<Cfg, NoFault<Cfg>>::BaseFrictionLaw;
 
   static void
-      updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
-                            const FaultStresses<Executor::Host>& initialStress,
-                            TractionResults<Executor::Host>& tractionResults,
-                            std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
-                            std::array<real, misc::NumPaddedPoints<Config>>& strengthBuffer,
+      updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
+                            const FaultStresses<Cfg, Executor::Host>& initialStress,
+                            TractionResults<Cfg, Executor::Host>& tractionResults,
+                            std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                            std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
                             std::size_t ltsFace,
                             uint32_t timeIndex);
 
-  void preHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                std::size_t ltsFace) {};
-  void postHook(std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                 std::size_t ltsFace) {};
   void saveDynamicStressOutput(std::size_t ltsFace, real time) {};
 };

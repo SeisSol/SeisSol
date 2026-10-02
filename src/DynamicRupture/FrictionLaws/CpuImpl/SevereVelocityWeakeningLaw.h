@@ -8,16 +8,18 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 
-#include "Config.h"
+#include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law::cpu {
-template <class TPMethod>
+template <typename Cfg, class TPMethod>
 class SevereVelocityWeakeningLaw
-    : public RateAndStateBase<SevereVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, SevereVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  using RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -44,17 +46,16 @@ class SevereVelocityWeakeningLaw
   }
 
   struct MuDetails {
-    std::array<real, misc::NumPaddedPoints<Config>> a{};
-    std::array<real, misc::NumPaddedPoints<Config>> c{};
-    std::array<real, misc::NumPaddedPoints<Config>> f0{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> a{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> c{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> f0{};
   };
 
-  MuDetails
-      getMuDetails(std::size_t ltsFace,
-                   const std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable) {
+  MuDetails getMuDetails(std::size_t ltsFace,
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const real localA = this->a_[ltsFace][pointIndex];
       const real localSl0 = this->sl0_[ltsFace][pointIndex];
       const real c = this->b_[ltsFace][pointIndex] * localStateVariable[pointIndex] /
@@ -88,10 +89,10 @@ class SevereVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
 #pragma omp simd
-    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }

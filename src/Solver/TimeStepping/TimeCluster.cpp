@@ -29,9 +29,9 @@
 #include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
-#include "Kernels/Precision.h"
 #include "Kernels/Receiver.h"
 #include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -55,7 +55,6 @@
 #include <cstring>
 #include <utility>
 #include <utils/logger.h>
-#include <vector>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -81,8 +80,8 @@ TimeCluster<Cfg>::TimeCluster(
     LTS::Layer* clusterData,
     DynamicRupture::Layer* dynRupInteriorData,
     DynamicRupture::Layer* dynRupCopyData,
-    seissol::dr::friction_law::FrictionSolver* frictionSolverTemplate,
-    seissol::dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
+    const seissol::dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
+    const seissol::dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
     dr::output::OutputManager* faultOutputManager,
     seissol::SeisSol& seissolInstance,
     LoopStatistics* loopStatistics,
@@ -94,10 +93,11 @@ TimeCluster<Cfg>::TimeCluster(
       globalData_(globalData), clusterData_(clusterData),
       // global data
       dynRupInteriorData_(dynRupInteriorData), dynRupCopyData_(dynRupCopyData),
-      frictionSolver_(frictionSolverTemplate->clone()),
-      frictionSolverDevice_(frictionSolverTemplateDevice->clone()),
-      frictionSolverCopy_(frictionSolverTemplate->clone()),
-      frictionSolverCopyDevice_(frictionSolverTemplateDevice->clone()),
+      frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
+      frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
+      frictionSolverCopy_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
+      frictionSolverCopyDevice_(
+          dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
       faultOutputManager_(faultOutputManager),
       sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
@@ -244,7 +244,8 @@ void TimeCluster<Cfg>::computeDynamicRupture(DynamicRupture::Layer& layerData) {
       seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
 
   const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timestep);
-  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
+  const auto frictionTime =
+      seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
 
 #pragma omp parallel
   {
@@ -309,7 +310,8 @@ void TimeCluster<Cfg>::computeDynamicRuptureDevice(
         seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
 
     const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timestep);
-    const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
+    const auto frictionTime =
+        seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
 
     streamRuntime_.runGraph(
         computeGraphKey,

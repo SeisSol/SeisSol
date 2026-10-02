@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SOURCETIMEFUNCTION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SOURCETIMEFUNCTION_H_
 
-#include "Config.h"
+#include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Numerical/DeltaPulse.h"
@@ -16,11 +16,15 @@
 #include "Numerical/RegularizedYoffe.h"
 
 namespace seissol::dr::friction_law::cpu {
+template <typename Cfg>
 class YoffeSTF {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   private:
-  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Config>];
-  real (*__restrict tauS_)[misc::NumPaddedPoints<Config>];
-  real (*__restrict tauR_)[misc::NumPaddedPoints<Config>];
+  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
+  real (*__restrict tauS_)[misc::NumPaddedPoints<Cfg>];
+  real (*__restrict tauR_)[misc::NumPaddedPoints<Cfg>];
 
   public:
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
@@ -31,10 +35,14 @@ class YoffeSTF {
                 uint32_t pointIndex);
 };
 
+template <typename Cfg>
 class GaussianSTF {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   private:
-  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Config>];
-  real (*__restrict riseTime_)[misc::NumPaddedPoints<Config>];
+  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
+  real (*__restrict riseTime_)[misc::NumPaddedPoints<Cfg>];
 
   public:
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
@@ -42,9 +50,13 @@ class GaussianSTF {
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
 };
 
+template <typename Cfg>
 class DeltaSTF {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   private:
-  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Config>];
+  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
 
   public:
   void copyStorageToLocal(DynamicRupture::Layer& layerData);

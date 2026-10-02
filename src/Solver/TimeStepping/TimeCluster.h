@@ -119,10 +119,10 @@ class TimeCluster : public TimeClusterInterface {
   LTS::Layer* clusterData_;
   DynamicRupture::Layer* dynRupInteriorData_;
   DynamicRupture::Layer* dynRupCopyData_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopy_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopyDevice_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolver_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverDevice_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverCopy_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverCopyDevice_;
   dr::output::OutputManager* faultOutputManager_;
 
   seissol::kernels::PointSourceClusterPair sourceCluster_;
@@ -276,8 +276,8 @@ class TimeCluster : public TimeClusterInterface {
               LTS::Layer* clusterData,
               DynamicRupture::Layer* dynRupInteriorData,
               DynamicRupture::Layer* dynRupCopyData,
-              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplate,
-              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
+              const seissol::dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
+              const seissol::dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
               dr::output::OutputManager* faultOutputManager,
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,

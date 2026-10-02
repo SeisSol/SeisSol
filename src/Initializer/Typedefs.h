@@ -34,7 +34,9 @@
 namespace seissol {
 
 namespace kernels {
-constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+template <typename Cfg>
+constexpr std::size_t NumSpaceQuadraturePoints =
+    (Cfg::ConvergenceOrder + 1) * (Cfg::ConvergenceOrder + 1);
 } // namespace kernels
 
 /**

@@ -11,26 +11,34 @@
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/kernel.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::friction_law::cpu {
 
-void NoSpecialization::allocateAuxiliaryMemory(GlobalData<Config>* globalData) {
+template <typename Cfg>
+void NoSpecialization<Cfg>::allocateAuxiliaryMemory(GlobalData<Cfg>* globalData) {
   resampleKrnlPrototype_.bindGlobals(*globalData);
 }
 
-void NoSpecialization::resampleSlipRate(
-    real (&resampledSlipRate)[dr::misc::NumPaddedPoints<Config>],
-    const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Config>]) const {
+template <typename Cfg>
+void NoSpecialization<Cfg>::resampleSlipRate(
+    real (&resampledSlipRate)[dr::misc::NumPaddedPoints<Cfg>],
+    const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Cfg>]) const {
   auto resampleKrnl = resampleKrnlPrototype_;
   resampleKrnl.originalQ = slipRateMagnitude;
   resampleKrnl.resampledQ = resampledSlipRate;
   resampleKrnl.execute();
 }
-void BiMaterialFault::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+template <typename Cfg>
+void BiMaterialFault<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   regularizedStrength_ =
-      layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Config());
+      layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Cfg());
 }
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template class NoSpecialization<Cfg>;                                                            \
+  template class BiMaterialFault<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::dr::friction_law::cpu

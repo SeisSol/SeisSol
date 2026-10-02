@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
-#include "Config.h"
+#include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/kernel.h"
 #include "Initializer/Typedefs.h"
@@ -19,14 +19,16 @@
 
 namespace seissol::dr::friction_law::cpu {
 
-template <typename TPMethod>
+template <typename Cfg, typename TPMethod>
 class FastVelocityWeakeningLaw
-    : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  void allocateAuxiliaryMemory(GlobalData<Config>* globalData) override {
-    RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::allocateAuxiliaryMemory(globalData);
+  using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+
+  void allocateAuxiliaryMemory(GlobalData<Cfg>* globalData) override {
+    RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::allocateAuxiliaryMemory(globalData);
     resampleKrnlPrototype_.bindGlobals(*globalData);
   }
 
@@ -34,7 +36,7 @@ class FastVelocityWeakeningLaw
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
-    this->srW_ = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(Config());
+    this->srW_ = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(Cfg());
   }
 
 /**
@@ -83,25 +85,24 @@ class FastVelocityWeakeningLaw
     const real exp1m = -std::expm1(preexp1);
     const real localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
     assert((std::isfinite(localStateVariable) ||
-            pointIndex >= misc::NumBoundaryGaussPoints<Config> * multisim::NumSimulations) &&
+            pointIndex >= misc::NumBoundaryGaussPoints<Cfg> * Cfg::NumSimulations) &&
            "Inf/NaN detected");
     return localStateVariable;
   }
 
   struct MuDetails {
-    std::array<real, misc::NumPaddedPoints<Config>> a{};
-    std::array<real, misc::NumPaddedPoints<Config>> cLin{};
-    std::array<real, misc::NumPaddedPoints<Config>> cExpLog{};
-    std::array<real, misc::NumPaddedPoints<Config>> cExp{};
-    std::array<real, misc::NumPaddedPoints<Config>> acLin{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> a{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> cLin{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> cExpLog{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> cExp{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> acLin{};
   };
 
-  MuDetails
-      getMuDetails(std::size_t ltsFace,
-                   const std::array<real, misc::NumPaddedPoints<Config>>& localStateVariable) {
+  MuDetails getMuDetails(std::size_t ltsFace,
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const real localA = this->a_[ltsFace][pointIndex];
 
       const real cLin = static_cast<real>(0.5) / this->drParameters_.rsSr0;
@@ -153,12 +154,12 @@ class FastVelocityWeakeningLaw
   /**
    * Resample the state variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Config>>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
-    alignas(Alignment) std::array<real, misc::NumPaddedPoints<Config>> deltaStateVar = {0};
-    alignas(Alignment) std::array<real, misc::NumPaddedPoints<Config>> resampledDeltaStateVar = {0};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints<Cfg>> deltaStateVar = {0};
+    alignas(Alignment) std::array<real, misc::NumPaddedPoints<Cfg>> resampledDeltaStateVar = {0};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable_[ltsFace][pointIndex];
     }
@@ -168,15 +169,15 @@ class FastVelocityWeakeningLaw
     resampleKrnl.execute();
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Config>; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       this->stateVariable_[ltsFace][pointIndex] =
           this->stateVariable_[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
   protected:
-  real (*__restrict srW_)[misc::NumPaddedPoints<Config>]{nullptr};
-  dynamicRupture::kernel::resampleParameter<Config> resampleKrnlPrototype_;
+  real (*__restrict srW_)[misc::NumPaddedPoints<Cfg>]{nullptr};
+  dynamicRupture::kernel::resampleParameter<Cfg> resampleKrnlPrototype_;
 };
 } // namespace seissol::dr::friction_law::cpu
 

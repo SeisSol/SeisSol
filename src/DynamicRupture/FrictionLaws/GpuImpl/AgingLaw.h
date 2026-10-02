@@ -12,13 +12,15 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template <class TPMethod>
-class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
+template <typename Cfg, class TPMethod>
+class AgingLaw : public SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyStorageToLocal;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+  using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;
+
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  double timeIncrement) {
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const real localSlipRate = ctx.initialVariables.localSlipRate;

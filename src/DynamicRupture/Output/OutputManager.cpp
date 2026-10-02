@@ -491,12 +491,12 @@ void OutputManager::initPickpointOutput() {
                 const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>(Config());
                 const auto* riseTimes = drLayer.var<DynamicRupture::StressSourceRiseTime>(Config());
                 auto unrotatedInitialStress =
-                    dr::stressAtTime(&stresses[position.cell * sourceCount],
-                                     &riseTimes[position.cell * sourceCount],
-                                     &onsets[position.cell * sourceCount],
-                                     sourceCount,
-                                     static_cast<std::uint32_t>(receiver.gpIndex),
-                                     static_cast<real>(0.0));
+                    dr::stressAtTime<Config>(&stresses[position.cell * sourceCount],
+                                             &riseTimes[position.cell * sourceCount],
+                                             &onsets[position.cell * sourceCount],
+                                             sourceCount,
+                                             static_cast<std::uint32_t>(receiver.gpIndex),
+                                             static_cast<real>(0.0));
 
                 constexpr auto Variant = configIdOf<Config>();
                 const auto& face = outputData->topology.faces[faceId];

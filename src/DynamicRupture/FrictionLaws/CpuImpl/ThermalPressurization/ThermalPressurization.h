@@ -8,10 +8,9 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
-#include "Config.h"
+#include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 #include <array>
@@ -45,9 +44,12 @@ namespace seissol::dr::friction_law::cpu {
  * We then compute the pressure and temperature update with an inverse Fourier transform from
  * \f$\Pi, \Theta\f$.
  */
+template <typename Cfg>
 class ThermalPressurization {
   public:
-  explicit ThermalPressurization(const FrictionLawParameters& drParameters)
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  explicit ThermalPressurization(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : drParameters_(drParameters) {}
 
   /**
@@ -60,9 +62,9 @@ class ThermalPressurization {
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
-  void calcFluidPressure(const std::array<real, misc::NumPaddedPoints<Config>>& normalStress,
-                         const real (*mu)[misc::NumPaddedPoints<Config>],
-                         const std::array<real, misc::NumPaddedPoints<Config>>& slipRateMagnitude,
+  void calcFluidPressure(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                         const real (*mu)[misc::NumPaddedPoints<Cfg>],
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
                          std::size_t ltsFace);
@@ -72,15 +74,15 @@ class ThermalPressurization {
   }
 
   protected:
-  real (*__restrict temperature_)[misc::NumPaddedPoints<Config>]{};
-  real (*__restrict pressure_)[misc::NumPaddedPoints<Config>]{};
-  real (*__restrict theta_)[misc::NumTpGridPoints][misc::NumPaddedPoints<Config>]{};
-  real (*__restrict sigma_)[misc::NumTpGridPoints][misc::NumPaddedPoints<Config>]{};
-  real (*__restrict halfWidthShearZone_)[misc::NumPaddedPoints<Config>]{};
-  real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints<Config>]{};
+  real (*__restrict temperature_)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict pressure_)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict theta_)[misc::NumTpGridPoints][misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict sigma_)[misc::NumTpGridPoints][misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict halfWidthShearZone_)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints<Cfg>]{};
 
   private:
-  FrictionLawParameters drParameters_;
+  FrictionLawParameters<Real<Cfg>> drParameters_;
 };
 } // namespace seissol::dr::friction_law::cpu
 

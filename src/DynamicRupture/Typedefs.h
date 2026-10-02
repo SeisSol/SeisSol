@@ -12,10 +12,8 @@
 #include "Common/Constants.h"
 #include "Common/Executor.h"
 #include "Common/Real.h"
-#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/Precision.h"
 
 namespace seissol::dr {
 
@@ -65,13 +63,13 @@ struct ImpedanceMatrices {
   alignas(Alignment) Real<Cfg> lateralStress[3 * tensor::Zminus<Cfg>::Shape[0]] = {};
 };
 
-template <Executor Executor>
+template <typename Cfg, Executor Executor>
 struct FaultStresses;
 
-template <Executor Executor>
+template <typename Cfg, Executor Executor>
 struct TractionResults;
 
-template <Executor Executor>
+template <typename Cfg, Executor Executor>
 struct ImposedState;
 
 /**
@@ -79,12 +77,14 @@ struct ImposedState;
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
  * respective tangential vectors
  */
-template <>
-struct FaultStresses<Executor::Host> {
-  alignas(Alignment) real normalStress[misc::NumPaddedPoints<Config>]{};
-  alignas(Alignment) real traction1[misc::NumPaddedPoints<Config>]{};
-  alignas(Alignment) real traction2[misc::NumPaddedPoints<Config>]{};
-  alignas(Alignment) real fluidPressure[misc::NumPaddedPoints<Config>]{};
+template <typename Cfg>
+struct FaultStresses<Cfg, Executor::Host> {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  alignas(Alignment) real normalStress[misc::NumPaddedPoints<Cfg>]{};
+  alignas(Alignment) real traction1[misc::NumPaddedPoints<Cfg>]{};
+  alignas(Alignment) real traction2[misc::NumPaddedPoints<Cfg>]{};
+  alignas(Alignment) real fluidPressure[misc::NumPaddedPoints<Cfg>]{};
 };
 
 /**
@@ -98,20 +98,24 @@ struct FaultStresses<Executor::Host> {
  * value by common::initializeTractionResults, and a friction law only has to overwrite it if it
  * actually changes the normal stress.
  */
-template <>
-struct TractionResults<Executor::Host> {
-  alignas(Alignment) real normalStress[misc::NumPaddedPoints<Config>]{};
-  alignas(Alignment) real traction1[misc::NumPaddedPoints<Config>]{};
-  alignas(Alignment) real traction2[misc::NumPaddedPoints<Config>]{};
+template <typename Cfg>
+struct TractionResults<Cfg, Executor::Host> {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  alignas(Alignment) real normalStress[misc::NumPaddedPoints<Cfg>]{};
+  alignas(Alignment) real traction1[misc::NumPaddedPoints<Cfg>]{};
+  alignas(Alignment) real traction2[misc::NumPaddedPoints<Cfg>]{};
 };
 
 /**
  * Accumulator for the imposed state. Used after every internal timestep.
  */
-template <>
-struct ImposedState<Executor::Host> {
-  alignas(Alignment) real plus[misc::NumQuantities<Config>][misc::NumPaddedPoints<Config>]{};
-  alignas(Alignment) real minus[misc::NumQuantities<Config>][misc::NumPaddedPoints<Config>]{};
+template <typename Cfg>
+struct ImposedState<Cfg, Executor::Host> {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  alignas(Alignment) real plus[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>]{};
+  alignas(Alignment) real minus[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>]{};
 };
 
 /**
@@ -119,8 +123,10 @@ struct ImposedState<Executor::Host> {
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
  * respective tangential vectors
  */
-template <>
-struct FaultStresses<Executor::Device> {
+template <typename Cfg>
+struct FaultStresses<Cfg, Executor::Device> {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   real normalStress{};
   real traction1{};
   real traction2{};
@@ -130,11 +136,13 @@ struct FaultStresses<Executor::Device> {
 /**
  * Struct that contains all traction results
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
- * respective tangential vectors. See TractionResults<Executor::Host> for the semantics of
+ * respective tangential vectors. See TractionResults<Cfg, Executor::Host> for the semantics of
  * normalStress.
  */
-template <>
-struct TractionResults<Executor::Device> {
+template <typename Cfg>
+struct TractionResults<Cfg, Executor::Device> {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   real normalStress{};
   real traction1{};
   real traction2{};
@@ -143,10 +151,12 @@ struct TractionResults<Executor::Device> {
 /**
  * Accumulator for the imposed state. Used after every internal timestep.
  */
-template <>
-struct ImposedState<Executor::Device> {
-  real plus[misc::NumQuantities<Config>]{};
-  real minus[misc::NumQuantities<Config>]{};
+template <typename Cfg>
+struct ImposedState<Cfg, Executor::Device> {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  real plus[misc::NumQuantities<Cfg>]{};
+  real minus[misc::NumQuantities<Cfg>]{};
 };
 
 } // namespace seissol::dr

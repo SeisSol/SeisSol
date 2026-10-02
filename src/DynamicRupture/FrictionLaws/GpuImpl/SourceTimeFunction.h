@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SOURCETIMEFUNCTION_H_
 
 #include "BaseFrictionSolver.h"
-#include "Config.h"
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "FrictionSolverInterface.h"
@@ -20,16 +20,19 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
+template <typename Cfg>
+class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
   public:
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Config(), place);
-    data->tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>(Config(), place);
-    data->tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Config(), place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Cfg(), place);
+    data->tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>(Cfg(), place);
+    data->tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Cfg(), place);
   }
 
-  SEISSOL_DEVICE static real evaluateSTF(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static real evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx,
                                          real currentTime,
                                          [[maybe_unused]] real timeIncrement) {
     return regularizedYoffe::regularizedYoffe(currentTime -
@@ -39,16 +42,19 @@ class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
   }
 };
 
-class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
+template <typename Cfg>
+class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
   public:
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Config(), place);
-    data->riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(Config(), place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Cfg(), place);
+    data->riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(Cfg(), place);
   }
 
   SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext& __restrict ctx, real currentTime, real timeIncrement) {
+      evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx, real currentTime, real timeIncrement) {
     const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
         currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
         timeIncrement,
@@ -57,15 +63,18 @@ class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
   }
 };
 
-class DeltaSTF : public ImposedSlipRates<DeltaSTF> {
+template <typename Cfg>
+class DeltaSTF : public ImposedSlipRates<Cfg, DeltaSTF<Cfg>> {
   public:
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Config(), place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Cfg(), place);
   }
 
   SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext& __restrict ctx, real currentTime, real timeIncrement) {
+      evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx, real currentTime, real timeIncrement) {
     return deltaPulse::deltaPulse(currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
                                   timeIncrement);
   }

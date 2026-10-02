@@ -73,12 +73,13 @@ inline ImpedanceMatrices<Config> isotropicImpedance(real etaS) {
 
 /// Residual of tau0 = (S I + V eta_ss) n with S = strength + slope * V * (eta n)_n, relative to
 /// the trial traction. Zero for the exact solution, whatever route produced it.
-inline real slipRateResidual(ImpedanceMatrices<Config> impedanceMatrices,
-                             const seissol::dr::friction_law::common::SlipRateSolution& solution,
-                             real traction1,
-                             real traction2,
-                             real strength,
-                             real strengthSlope) {
+inline real
+    slipRateResidual(ImpedanceMatrices<Config> impedanceMatrices,
+                     const seissol::dr::friction_law::common::SlipRateSolution<Config>& solution,
+                     real traction1,
+                     real traction2,
+                     real strength,
+                     real strengthSlope) {
   const auto eta = init::eta<Config>::view::create(impedanceMatrices.eta);
   const real slip1 = solution.slipRate * solution.direction1;
   const real slip2 = solution.slipRate * solution.direction2;
@@ -125,7 +126,7 @@ TEST_CASE("Anisotropic slip rate solve" *
         const real traction1 = magnitude * std::cos(angle);
         const real traction2 = magnitude * std::sin(angle);
 
-        const auto solution = solveSlipRate(
+        const auto solution = solveSlipRate<Config>(
             impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope);
 
         REQUIRE(solution.slipRate > 0);
@@ -145,7 +146,7 @@ TEST_CASE("Anisotropic slip rate solve" *
     const real traction1 = Strength * 1.5 * std::cos(0.7);
     const real traction2 = Strength * 1.5 * std::sin(0.7);
 
-    const auto uncoupled = solveSlipRate(
+    const auto uncoupled = solveSlipRate<Config>(
         impAndEta, impedanceMatrices, traction1, traction2, Strength * 1.5, Strength, 0.0);
 
     CHECK(slipRateResidual(impedanceMatrices, uncoupled, traction1, traction2, Strength, Slope) >
@@ -162,7 +163,7 @@ TEST_CASE("Anisotropic slip rate solve" *
     const real traction1 = magnitude * std::cos(angle);
     const real traction2 = magnitude * std::sin(angle);
 
-    const auto solution = solveSlipRate(
+    const auto solution = solveSlipRate<Config>(
         impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope);
 
     CHECK(solution.slipRate == doctest::Approx((magnitude - Strength) / EtaS).epsilon(1e-5));
@@ -175,13 +176,13 @@ TEST_CASE("Anisotropic slip rate solve" *
     const auto impedanceMatrices = testImpedance();
     const real magnitude = Strength * 0.5;
 
-    const auto solution = solveSlipRate(impAndEta,
-                                        impedanceMatrices,
-                                        magnitude * std::cos(0.7),
-                                        magnitude * std::sin(0.7),
-                                        magnitude,
-                                        Strength,
-                                        Slope);
+    const auto solution = solveSlipRate<Config>(impAndEta,
+                                                impedanceMatrices,
+                                                magnitude * std::cos(0.7),
+                                                magnitude * std::sin(0.7),
+                                                magnitude,
+                                                Strength,
+                                                Slope);
 
     CHECK(solution.slipRate == static_cast<real>(0.0));
   }
@@ -190,7 +191,7 @@ TEST_CASE("Anisotropic slip rate solve" *
     const auto impedanceMatrices = testImpedance();
 
     const auto solution =
-        solveSlipRate(impAndEta, impedanceMatrices, 0.0, 0.0, 0.0, Strength, Slope);
+        solveSlipRate<Config>(impAndEta, impedanceMatrices, 0.0, 0.0, 0.0, Strength, Slope);
 
     CHECK(solution.slipRate == static_cast<real>(0.0));
     CHECK(std::isfinite(solution.direction1));
@@ -220,21 +221,21 @@ TEST_CASE("Anisotropic impedance projections" *
   const real n2 = V2 / magnitude;
 
   SUBCASE("matmulEta applies eta, not its transpose") {
-    const auto [w1, w2] = common::matmulEta(impAndEta, impedanceMatrices, V1, V2);
+    const auto [w1, w2] = common::matmulEta<Config>(impAndEta, impedanceMatrices, V1, V2);
 
     CHECK(w1 == doctest::Approx(eta(1, 1) * V1 + eta(1, 2) * V2).epsilon(1e-5));
     CHECK(w2 == doctest::Approx(eta(2, 1) * V1 + eta(2, 2) * V2).epsilon(1e-5));
   }
 
   SUBCASE("the normal coupling reads the fault-normal row") {
-    const auto wn = common::matmulEtaNormal(impAndEta, impedanceMatrices, V1, V2);
+    const auto wn = common::matmulEtaNormal<Config>(impAndEta, impedanceMatrices, V1, V2);
 
     CHECK(wn == doctest::Approx(eta(0, 1) * V1 + eta(0, 2) * V2).epsilon(1e-5));
   }
 
   SUBCASE("projectEta is the quadratic form of the shear block") {
     const auto [etaProj, invEtaProj] =
-        common::projectEta(impAndEta, impedanceMatrices, V1, V2, magnitude);
+        common::projectEta<Config>(impAndEta, impedanceMatrices, V1, V2, magnitude);
 
     const real expected =
         eta(1, 1) * n1 * n1 + (eta(1, 2) + eta(2, 1)) * n1 * n2 + eta(2, 2) * n2 * n2;

@@ -10,10 +10,10 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
-#include "Kernels/Precision.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -272,12 +272,13 @@ constexpr std::size_t MaxStressSources = MaxNucleations + 1;
  * led there, nothing accumulates, and nothing has to be carried across a restart. A ramp that is
  * not monotone, or one that returns to zero, would be as admissible here as the smooth step is.
  */
-SEISSOL_HOSTDEVICE inline real stressSourceFraction(real time, real t0, real s0) {
+template <typename RealT>
+SEISSOL_HOSTDEVICE inline RealT stressSourceFraction(RealT time, RealT t0, RealT s0) {
   if (t0 <= 0) {
     // without a rise time, a source is in full effect from its onset on
-    return time >= s0 ? static_cast<real>(1.0) : static_cast<real>(0.0);
+    return time >= s0 ? static_cast<RealT>(1.0) : static_cast<RealT>(0.0);
   }
-  return gaussianNucleationFunction::smoothStep<real>(time - s0, t0);
+  return gaussianNucleationFunction::smoothStep<RealT>(time - s0, t0);
 }
 
 /**
@@ -295,38 +296,39 @@ SEISSOL_HOSTDEVICE constexpr std::uint32_t stressSourceCount(const ParametersT& 
 }
 
 /**
- * Friction law parameters, as used in the kernels.
- * For separation of concerns (and using the `real` datatype), prefer this one
+ * Friction law parameters, as used in the kernels, in the reals `RealT` of a configuration.
+ * For separation of concerns (and using the reals of the configuration), prefer this one
  * to the one in the Initializer/Parameters.
  */
+template <typename RealT>
 struct FrictionLawParameters {
-  real healingThreshold{-1.0};
-  real tpProxyExponent{0.0};
-  real rsF0{0.0};
-  real rsB{0.0};
-  real rsSr0{0.0};
-  real rsInitialSlipRate1{0.0};
-  real rsInitialSlipRate2{0.0};
-  real muW{0.0};
-  real thermalDiffusivity{0.0};
-  real heatCapacity{0.0};
-  real undrainedTPResponse{0.0};
-  real initialTemperature{0.0};
-  real initialPressure{0.0};
+  RealT healingThreshold{-1.0};
+  RealT tpProxyExponent{0.0};
+  RealT rsF0{0.0};
+  RealT rsB{0.0};
+  RealT rsSr0{0.0};
+  RealT rsInitialSlipRate1{0.0};
+  RealT rsInitialSlipRate2{0.0};
+  RealT muW{0.0};
+  RealT thermalDiffusivity{0.0};
+  RealT heatCapacity{0.0};
+  RealT undrainedTPResponse{0.0};
+  RealT initialTemperature{0.0};
+  RealT initialPressure{0.0};
   // Prakash-Clifton regularization parameter
-  real vStar{0.0};
-  real prakashLength{0.0};
-  real terminatorSlipRateThreshold{0.0};
-  real etaDamp{1.0};
-  real etaDampEnd{std::numeric_limits<real>::infinity()};
+  RealT vStar{0.0};
+  RealT prakashLength{0.0};
+  RealT terminatorSlipRateThreshold{0.0};
+  RealT etaDamp{1.0};
+  RealT etaDampEnd{std::numeric_limits<RealT>::infinity()};
   /// rise time of the forced rupture ramp, which is not one of the stress sources
-  real forcedRuptureRiseTime{0.0};
+  RealT forcedRuptureRiseTime{0.0};
   /// the rise time and the onset of a source are fields; see StressSourceRiseTime
   std::uint32_t sourceCount{1};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
-  real rsSlipRateTolerance{1e-8};
-  real rsStateTolerance{1e-8};
+  RealT rsSlipRateTolerance{1e-8};
+  RealT rsStateTolerance{1e-8};
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
   bool energiesFromAcrossFaultVelocities{false};
@@ -343,16 +345,18 @@ struct FrictionLawParameters {
  * @param[in] riseTimes the rise time of every source of the face, at this point
  * @param[in] onsets the onset of every source of the face, at this point
  */
-inline std::array<real, 6> stressAtTime(const real (*sources)[6][misc::NumPaddedPoints<Config>],
-                                        const real (*riseTimes)[misc::NumPaddedPoints<Config>],
-                                        const real (*onsets)[misc::NumPaddedPoints<Config>],
-                                        std::uint32_t sourceCount,
-                                        std::uint32_t pointIndex,
-                                        real time) {
-  std::array<real, 6> stress{};
+template <typename Cfg>
+inline std::array<Real<Cfg>, 6>
+    stressAtTime(const Real<Cfg> (*sources)[6][misc::NumPaddedPoints<Cfg>],
+                 const Real<Cfg> (*riseTimes)[misc::NumPaddedPoints<Cfg>],
+                 const Real<Cfg> (*onsets)[misc::NumPaddedPoints<Cfg>],
+                 std::uint32_t sourceCount,
+                 std::uint32_t pointIndex,
+                 Real<Cfg> time) {
+  std::array<Real<Cfg>, 6> stress{};
   for (std::uint32_t source = 0; source < sourceCount; ++source) {
-    const real fraction =
-        stressSourceFraction(time, riseTimes[source][pointIndex], onsets[source][pointIndex]);
+    const auto fraction = stressSourceFraction<Real<Cfg>>(
+        time, riseTimes[source][pointIndex], onsets[source][pointIndex]);
     for (std::size_t component = 0; component < stress.size(); ++component) {
       stress[component] += sources[source][component][pointIndex] * fraction;
     }

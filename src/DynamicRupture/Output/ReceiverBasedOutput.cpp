@@ -97,7 +97,7 @@ void ReceiverOutput::calcFaultOutput(
 
   // the friction solve advances in the sub intervals of the time quadrature; the stored friction
   // state belongs to the last of them
-  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(
+  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT<Config>(
       seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, dt).first);
 
   const auto timeCoeffs = kernels::timeBasis<Config>().point(indt, dt);
@@ -242,12 +242,13 @@ void ReceiverOutput::calcFaultOutput(
         local.stateVariable = this->computeStateVariable(local);
 
         // the whole tensor, since the total traction output rotates it
-        const auto initialStress = stressAtTime(&stressSources[local.ltsId * sourceCount],
-                                                &stressSourceRiseTime[local.ltsId * sourceCount],
-                                                &stressSourceOnset[local.ltsId * sourceCount],
-                                                sourceCount,
-                                                static_cast<std::uint32_t>(local.gpIndex),
-                                                static_cast<real>(local.time));
+        const auto initialStress =
+            stressAtTime<Config>(&stressSources[local.ltsId * sourceCount],
+                                 &stressSourceRiseTime[local.ltsId * sourceCount],
+                                 &stressSourceOnset[local.ltsId * sourceCount],
+                                 sourceCount,
+                                 static_cast<std::uint32_t>(local.gpIndex),
+                                 static_cast<real>(local.time));
 
         local.iniTraction1 = initialStress[QuantityIndices::XY];
         local.iniTraction2 = initialStress[QuantityIndices::XZ];
