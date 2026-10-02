@@ -7,11 +7,7 @@
 
 #include "Datastructures.h"
 
-#include "Config.h"
-#include "Equations/Datastructures.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
-#include "Model/Common.h"
-#include "Model/CommonDatastructures.h"
 
 #include <array>
 #include <complex>
@@ -27,10 +23,11 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
   auto at = yateto::DenseTensorView<2, std::complex<double>>(atValues.data(),
                                                              {NumQuantities, NumQuantities});
 
-  // TODO: remove this if constexpr guard (needs multi-equation build support)
-  if constexpr (seissol::model::MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
-    seissol::model::getTransposedCoefficientMatrix<Config>(*this, 0, at);
-  }
+  // the setup of the material exists in builds with a configuration of it, which the space-time
+  // predictor advances
+#ifdef SEISSOL_KERNELS_STP
+  seissol::model::MaterialSetup<PoroElasticMaterial>::getTransposedCoefficientMatrix(*this, 0, at);
+#endif
 
   seissol::eigenvalues::computeEigenvalues(atValues, eigendecomposition);
   double maxEv = std::numeric_limits<double>::lowest();

@@ -235,7 +235,7 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
     matR(4, 8) = 1.0;
     if (faceType == FaceType::FreeSurface) {
       Matrix realR = matR.real();
-      getTransposedFreeSurfaceGodunovState(
+      getTransposedFreeSurfaceGodunovState<PoroElasticMaterial>(
           MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
     } else {
       // Only the outgoing (negative eigenvalue) projector is computed; qGodLocal is its complement.

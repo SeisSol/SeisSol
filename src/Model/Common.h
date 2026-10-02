@@ -205,7 +205,8 @@ void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
                                                                                        mE);
 }
 
-/// The eigenpairs of the normal Jacobian of a material, as the solver of the build lays it out.
+/// The eigenpairs of the normal Jacobian of a material without relaxation, which every solver
+/// lays out as the material describes it.
 template <typename Tmaterial>
 seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
     getEigenDecomposition(const Tmaterial& material, double zeroThreshold = 1e-7);
@@ -221,7 +222,8 @@ void getTransposedGodunovState(const Tmaterial& local,
 }
 
 // TODO: move to materials (currently not possible due to the acoustic-in-elastic "hack")
-template <typename T, typename Tmatrix>
+// Tmaterial is the material the state is set up for; materialtype says how to treat it.
+template <typename Tmaterial, typename T, typename Tmatrix>
 void getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
                                           T& qGodLocal,
                                           T& qGodNeighbor,
@@ -485,7 +487,9 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> dataAT;
   auto viewAT = yateto::DenseTensorView<2, std::complex<double>>(
       dataAT.data(), {Tmaterial::NumQuantities, Tmaterial::NumQuantities});
-  seissol::model::getTransposedCoefficientMatrix<seissol::Config>(material, 0, viewAT);
+  static_assert(Tmaterial::Mechanisms == 0,
+                "The solvers lay out the operators of a material with relaxation differently.");
+  MaterialSetup<Tmaterial>::getTransposedCoefficientMatrix(material, 0, viewAT);
   std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> dataA;
   // transpose dataAT to get dataA
   for (std::size_t i = 0; i < Tmaterial::NumQuantities; i++) {
@@ -542,13 +546,13 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   return eigenpair;
 };
 
-template <typename T, typename Tmatrix>
+template <typename Tmaterial, typename T, typename Tmatrix>
 void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
                                                           T& qGodLocal,
                                                           T& qGodNeighbor,
                                                           Tmatrix& matR) {
-  for (size_t i = 0; i < seissol::model::MaterialT::NumElasticQuantities; i++) {
-    for (size_t j = 0; j < seissol::model::MaterialT::NumElasticQuantities; j++) {
+  for (size_t i = 0; i < Tmaterial::NumElasticQuantities; i++) {
+    for (size_t j = 0; j < Tmaterial::NumElasticQuantities; j++) {
       qGodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
     }
   }

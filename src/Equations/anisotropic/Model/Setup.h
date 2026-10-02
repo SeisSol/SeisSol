@@ -243,7 +243,7 @@ struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<Anisotr
     getEigenBasisForAnisotropicMaterial(local, neighbor, matR);
 
     if (faceType == FaceType::FreeSurface) {
-      getTransposedFreeSurfaceGodunovState(
+      getTransposedFreeSurfaceGodunovState<AnisotropicMaterial>(
           MaterialType::Anisotropic, qGodLocal, qGodNeighbor, matR);
 
     } else {
