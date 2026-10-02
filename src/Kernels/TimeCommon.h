@@ -10,13 +10,18 @@
 #ifndef SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 #define SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 
+#include "Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 
 namespace seissol::kernels {
+/// The time integration of the neighbors of a cell of the configuration `Cfg`.
+template <typename Cfg>
 struct TimeCommon {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   /**
    * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time
    derivatives.
@@ -45,7 +50,7 @@ struct TimeCommon {
    * @param timeIntegrated pointers to the time integrated DOFs of the four neighboring cells
    *(either local integration buffer or integration buffer of input).
    **/
-  static void computeIntegrals(Time<Config>& time,
+  static void computeIntegrals(Time<Cfg>& time,
                                const LtsSetup& ltsSetup,
                                const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                const real* timeCoeffs,
@@ -54,7 +59,7 @@ struct TimeCommon {
                                const std::array<real*, Cell::NumFaces>& integrationBuffer,
                                std::array<real*, Cell::NumFaces>& timeIntegrated);
 
-  static void computeBatchedIntegrals(Time<Config>& time,
+  static void computeBatchedIntegrals(Time<Cfg>& time,
                                       const real* timeCoeffs,
                                       const real* subtimeCoeffs,
                                       recording::ConditionalPointersToRealsTable& table,

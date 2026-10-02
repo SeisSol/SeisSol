@@ -11,10 +11,10 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/LtsSetup.h"
-#include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -36,14 +36,15 @@
 #endif
 
 namespace seissol::kernels {
-void TimeCommon::computeIntegrals(Time<Config>& time,
-                                  const LtsSetup& ltsSetup,
-                                  const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                                  const real* timeCoeffs,
-                                  const real* subtimeCoeffs,
-                                  const std::array<void*, Cell::NumFaces>& timeDofs,
-                                  const std::array<real*, Cell::NumFaces>& integrationBuffer,
-                                  std::array<real*, Cell::NumFaces>& timeIntegrated) {
+template <typename Cfg>
+void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
+                                       const LtsSetup& ltsSetup,
+                                       const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                                       const real* timeCoeffs,
+                                       const real* subtimeCoeffs,
+                                       const std::array<void*, Cell::NumFaces>& timeDofs,
+                                       const std::array<real*, Cell::NumFaces>& integrationBuffer,
+                                       std::array<real*, Cell::NumFaces>& timeIntegrated) {
   // call the more general assembly
   /*
    * assert valid input.
@@ -87,8 +88,9 @@ void TimeCommon::computeIntegrals(Time<Config>& time,
   }
 }
 
-void TimeCommon::computeBatchedIntegrals(
-    SEISSOL_GPU_PARAM Time<Config>& time,
+template <typename Cfg>
+void TimeCommon<Cfg>::computeBatchedIntegrals(
+    SEISSOL_GPU_PARAM Time<Cfg>& time,
     SEISSOL_GPU_PARAM const real* timeCoeffs,
     SEISSOL_GPU_PARAM const real* subtimeCoeffs,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
@@ -124,5 +126,9 @@ void TimeCommon::computeBatchedIntegrals(
   logError() << "No GPU implementation provided";
 #endif
 }
+
+#define SEISSOL_INSTANTIATE(Cfg) template struct TimeCommon<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels

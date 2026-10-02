@@ -18,7 +18,6 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Kernels/Precision.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -45,26 +44,13 @@ GENERATE_HAS_MEMBER(I)
 
 namespace seissol::kernels {
 
-// The dynamic rupture families are indexed by the side and the face relation. Relation 0
-// addresses the plus side, relation 1 the minus side at a zero face orientation index, which the
-// canonical vertex numbering guarantees on every interior face.
-static_assert(std::size(dynamicRupture::kernel::nodalFlux<Config>::ExecutePtrs) ==
-              Cell::NumFaces * dr::misc::NumFaceRelations);
-static_assert(
-    std::size(
-        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config>::ExecutePtrs) ==
-    Cell::NumFaces * dr::misc::NumFaceRelations);
-static_assert(std::size(tensor::V3mTo2n<Config>::Size) ==
-              Cell::NumFaces * dr::misc::NumFaceRelations);
-static_assert(std::size(tensor::V3mTo2nTWDivM<Config>::Size) ==
-              Cell::NumFaces * dr::misc::NumFaceRelations);
-
 #ifdef ACL_DEVICE
 static_assert(*seissol::recording::DrFaceRelations::Count ==
               Cell::NumFaces * dr::misc::NumFaceRelations);
 #endif
 
-void DynamicRupture::setGlobalData(const CompoundGlobalData<Config>& global) {
+template <typename Cfg>
+void DynamicRupture<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -75,18 +61,30 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData<Config>& global) {
   timeKernel_.setGlobalData(global);
 }
 
-void DynamicRupture::spaceTimeInterpolation(
+template <typename Cfg>
+void DynamicRupture<Cfg>::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
-    const DRGodunovData<Config>* godunovData,
+    const DRGodunovData<Cfg>* godunovData,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[dr::misc::TimeSteps<Config>]
-                          [seissol::tensor::QInterpolated<Config>::size()],
-    real qInterpolatedMinus[dr::misc::TimeSteps<Config>]
-                           [seissol::tensor::QInterpolated<Config>::size()],
+    real qInterpolatedPlus[dr::misc::TimeSteps<Cfg>][seissol::tensor::QInterpolated<Cfg>::size()],
+    real qInterpolatedMinus[dr::misc::TimeSteps<Cfg>][seissol::tensor::QInterpolated<Cfg>::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
+  // The dynamic rupture families are indexed by the side and the face relation. Relation 0
+  // addresses the plus side, relation 1 the minus side at a zero face orientation index, which the
+  // canonical vertex numbering guarantees on every interior face.
+  static_assert(std::size(dynamicRupture::kernel::nodalFlux<Cfg>::ExecutePtrs) ==
+                Cell::NumFaces * dr::misc::NumFaceRelations);
+  static_assert(
+      std::size(
+          dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::ExecutePtrs) ==
+      Cell::NumFaces * dr::misc::NumFaceRelations);
+  static_assert(std::size(tensor::V3mTo2n<Cfg>::Size) ==
+                Cell::NumFaces * dr::misc::NumFaceRelations);
+  static_assert(std::size(tensor::V3mTo2nTWDivM<Cfg>::Size) ==
+                Cell::NumFaces * dr::misc::NumFaceRelations);
 
   // assert alignments
   assert(timeDerivativePlus != nullptr);
@@ -95,23 +93,23 @@ void DynamicRupture::spaceTimeInterpolation(
   assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Vectorsize == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Vectorsize == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Vectorsize == 0);
-  static_assert(tensor::Q<Config>::size() == tensor::I<Config>::size(),
+  static_assert(tensor::Q<Cfg>::size() == tensor::I<Cfg>::size(),
                 "The tensors Q and I need to match in size");
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q<Config>::size()];
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q<Config>::size()];
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q<Cfg>::size()];
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q<Cfg>::size()];
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config> krnl = krnlPrototype_;
-  for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps<Config>; ++timeInterval) {
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnl = krnlPrototype_;
+  for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps<Cfg>; ++timeInterval) {
     timeKernel_.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
+        &coeffs[timeInterval * Cfg::ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
     timeKernel_.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
+        &coeffs[timeInterval * Cfg::ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
-    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps<Config>)
+    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps<Cfg>)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
                                    : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps<Config>)
+    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps<Cfg>)
                                     ? &qInterpolatedMinus[timeInterval + 1][0]
                                     : timeDerivativeMinusPrefetch;
 
@@ -129,7 +127,8 @@ void DynamicRupture::spaceTimeInterpolation(
   }
 }
 
-void DynamicRupture::batchedSpaceTimeInterpolation(
+template <typename Cfg>
+void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
     SEISSOL_GPU_PARAM recording::DrConditionalPointersToRealsTable& table,
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
@@ -155,23 +154,23 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
       krnl.numElements = numElements;
 
       std::size_t offsetQDR = 0;
-      for (std::size_t s = 0; s < dr::misc::TimeSteps<Config>; ++s) {
+      for (std::size_t s = 0; s < dr::misc::TimeSteps<Cfg>; ++s) {
         krnl.QDR(s) = (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
         krnl.extraOffset_QDR(s) = offsetQDR;
-        offsetQDR += tensor::QDR<Config>::size(s);
+        offsetQDR += tensor::QDR<Cfg>::size(s);
       }
 
       std::size_t offsetDQ = 0;
-      for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
+      for (std::size_t p = 0; p < Cfg::ConvergenceOrder; ++p) {
         krnl.dQ(p) = const_cast<const real**>(
             (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
         krnl.extraOffset_dQ(p) = offsetDQ;
-        offsetDQ += tensor::dQ<Config>::size(p);
+        offsetDQ += tensor::dQ<Cfg>::size(p);
       }
 
-      for (std::size_t s = 0; s < dr::misc::TimeSteps<Config>; ++s) {
-        for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
-          krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s * ConvergenceOrder + p];
+      for (std::size_t s = 0; s < dr::misc::TimeSteps<Cfg>; ++s) {
+        for (std::size_t p = 0; p < Cfg::ConvergenceOrder; ++p) {
+          krnl.coeffDR(s * Cfg::ConvergenceOrder + p) = coeffs[s * Cfg::ConvergenceOrder + p];
         }
       }
 
@@ -189,11 +188,12 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 #endif
 }
 
-PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) const {
+template <typename Cfg>
+PerformanceEstimate DynamicRupture<Cfg>::metrics(const DRFaceInformation& faceInfo) const {
   if (isDeviceOn()) {
-    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR<Config>>(
+    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR<Cfg>>(
                faceInfo.plusSide, 0) +
-           PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR<Config>>(
+           PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR<Cfg>>(
                faceInfo.minusSide, faceInfo.faceRelation);
   } else {
     auto estimate = timeKernel_.metrics();
@@ -202,23 +202,26 @@ PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) c
     estimate *= 2;
 
     estimate += PerformanceEstimate::fromKernel<
-        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config>>(faceInfo.plusSide,
-                                                                                 0);
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>>(faceInfo.plusSide, 0);
 
     estimate += PerformanceEstimate::fromKernel<
-        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Config>>(
+        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>>(
         faceInfo.minusSide, faceInfo.faceRelation);
 
-    estimate *= dr::misc::TimeSteps<Config>;
+    estimate *= dr::misc::TimeSteps<Cfg>;
 
     // legacy CPU memory estimate
-    estimate.bytes = (tensor::TinvT<Config>::size() +
-                      tensor::QInterpolated<Config>::size() * 2 * dr::misc::TimeSteps<Config> +
-                      yateto::computeFamilySize<tensor::dQ<Config>>() * 2) *
+    estimate.bytes = (tensor::TinvT<Cfg>::size() +
+                      tensor::QInterpolated<Cfg>::size() * 2 * dr::misc::TimeSteps<Cfg> +
+                      yateto::computeFamilySize<tensor::dQ<Cfg>>() * 2) *
                      sizeof(real);
 
     return estimate;
   }
 }
+
+#define SEISSOL_INSTANTIATE(Cfg) template class DynamicRupture<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels

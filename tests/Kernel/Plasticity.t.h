@@ -28,7 +28,7 @@
 #include <vector>
 
 namespace seissol::unit_test {
-using seissol::kernels::Plasticity;
+using Plasticity = seissol::kernels::Plasticity<Config>;
 
 // ---------------------------------------------------------------------------
 // computeRelaxTime: pure constexpr math

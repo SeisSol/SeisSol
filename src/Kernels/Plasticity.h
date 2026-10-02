@@ -10,7 +10,7 @@
 #ifndef SEISSOL_SRC_KERNELS_PLASTICITY_H_
 #define SEISSOL_SRC_KERNELS_PLASTICITY_H_
 
-#include "Config.h"
+#include "Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
@@ -23,8 +23,12 @@
 
 namespace seissol::kernels {
 
+/// The plastic correction of the cells of the configuration `Cfg`.
+template <typename Cfg>
 class Plasticity {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   static constexpr double computeRelaxTime(double tV, double timestep) {
     return (tV > 0.0) ? -std::expm1(-timestep / tV) : 1.0;
   }
@@ -34,16 +38,16 @@ class Plasticity {
   static std::size_t computePlasticity(real oneMinusIntegratingFactor,
                                        real timeStepWidth,
                                        real tV,
-                                       const GlobalData<Config>* global,
-                                       const seissol::model::PlasticityData<Config>* plasticityData,
-                                       real degreesOfFreedom[tensor::Q<Config>::size()],
+                                       const GlobalData<Cfg>* global,
+                                       const seissol::model::PlasticityData<Cfg>* plasticityData,
+                                       real degreesOfFreedom[tensor::Q<Cfg>::size()],
                                        real* pstrain);
 
   static void computePlasticityBatched(real timeStepWidth,
                                        real tV,
-                                       const GlobalData<Config>* global,
+                                       const GlobalData<Cfg>* global,
                                        recording::ConditionalPointersToRealsTable& table,
-                                       seissol::model::PlasticityData<Config>* plasticityData,
+                                       seissol::model::PlasticityData<Cfg>* plasticityData,
                                        std::size_t* yieldCounter,
                                        unsigned* isAdjustableVector,
                                        seissol::parallel::runtime::StreamRuntime& runtime);

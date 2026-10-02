@@ -13,6 +13,7 @@
 
 #include "AbstractTimeCluster.h"
 #include "Common/Executor.h"
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/Typedefs.h"
@@ -46,9 +47,35 @@ class ReceiverCluster;
 namespace seissol::time_stepping {
 
 /**
- * Time cluster, which represents a collection of elements having the same time step width.
+ * What the time manager sees of a time cluster, whatever the configuration of its cells.
  **/
-class TimeCluster : public AbstractTimeCluster {
+class TimeClusterInterface : public AbstractTimeCluster {
+  public:
+  using AbstractTimeCluster::AbstractTimeCluster;
+
+  /**
+   * Sets the the cluster's point sources
+   *
+   * @param sourceCluster Contains point sources for cluster
+   */
+  virtual void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) = 0;
+
+  virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
+
+  virtual void setFaultOutputManager(dr::output::OutputManager* outputManager) = 0;
+
+  [[nodiscard]] virtual std::size_t layerId() const = 0;
+};
+
+/**
+ * Time cluster, which represents a collection of elements having the same time step width, all of
+ * the configuration `Cfg`.
+ **/
+template <typename Cfg>
+class TimeCluster : public TimeClusterInterface {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   private:
   // Last correction time of the neighboring cluster with higher dt
   double lastSubTime_{0};
@@ -63,17 +90,17 @@ class TimeCluster : public AbstractTimeCluster {
   /*
    * integrators
    */
-  kernels::Spacetime<Config> spacetimeKernel_;
+  kernels::Spacetime<Cfg> spacetimeKernel_;
   //! time kernel
-  kernels::Time<Config> timeKernel_;
+  kernels::Time<Cfg> timeKernel_;
 
   //! local kernel
-  kernels::Local<Config> localKernel_;
+  kernels::Local<Cfg> localKernel_;
 
   //! neighbor kernel
-  kernels::Neighbor<Config> neighborKernel_;
+  kernels::Neighbor<Cfg> neighborKernel_;
 
-  kernels::DynamicRupture dynamicRuptureKernel_;
+  kernels::DynamicRupture<Cfg> dynamicRuptureKernel_;
 
   seissol::parallel::runtime::StreamRuntime streamRuntime_;
 
@@ -81,7 +108,7 @@ class TimeCluster : public AbstractTimeCluster {
    * global data
    */
   //! global data structures
-  CompoundGlobalData<Config> globalData_;
+  CompoundGlobalData<Cfg> globalData_;
 #ifdef ACL_DEVICE
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
@@ -245,7 +272,7 @@ class TimeCluster : public AbstractTimeCluster {
               long timeStepRate,
               bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler,
-              CompoundGlobalData<Config> globalData,
+              CompoundGlobalData<Cfg> globalData,
               LTS::Layer* clusterData,
               DynamicRupture::Layer* dynRupInteriorData,
               DynamicRupture::Layer* dynRupCopyData,
@@ -258,18 +285,13 @@ class TimeCluster : public AbstractTimeCluster {
 
   ~TimeCluster() override = default;
 
-  /**
-   * Sets the the cluster's point sources
-   *
-   * @param sourceCluster Contains point sources for cluster
-   */
-  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
+  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) override;
 
-  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
+  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) override {
     this->receiverCluster_ = receiverCluster;
   }
 
-  void setFaultOutputManager(dr::output::OutputManager* outputManager) {
+  void setFaultOutputManager(dr::output::OutputManager* outputManager) override {
     faultOutputManager_ = outputManager;
   }
 
@@ -277,7 +299,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   void finalize() override;
 
-  [[nodiscard]] std::size_t layerId() const;
+  [[nodiscard]] std::size_t layerId() const override;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] HaloType getLayerType() const;

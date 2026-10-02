@@ -50,7 +50,7 @@ struct ProxyData {
   kernels::Time<Config> timeKernel;
   kernels::Local<Config> localKernel;
   kernels::Neighbor<Config> neighborKernel;
-  kernels::DynamicRupture dynRupKernel;
+  kernels::DynamicRupture<Config> dynRupKernel;
 
   seissol::memory::ManagedAllocator allocator;
 

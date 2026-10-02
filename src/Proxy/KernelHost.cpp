@@ -22,6 +22,7 @@
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -163,14 +164,14 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
         integrationBuffers[i] = integrationBuffer[i];
       }
 
-      seissol::kernels::TimeCommon::computeIntegrals(data.timeKernel,
-                                                     cellInformation[cell].ltsSetup,
-                                                     cellInformation[cell].faceTypes,
-                                                     timeCoeffs.data(),
-                                                     timeCoeffs.data(),
-                                                     faceNeighbors[cell],
-                                                     integrationBuffers,
-                                                     timeIntegrated);
+      seissol::kernels::TimeCommon<Config>::computeIntegrals(data.timeKernel,
+                                                             cellInformation[cell].ltsSetup,
+                                                             cellInformation[cell].faceTypes,
+                                                             timeCoeffs.data(),
+                                                             timeCoeffs.data(),
+                                                             faceNeighbors[cell],
+                                                             integrationBuffers,
+                                                             timeIntegrated);
 
       faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
                                      ? static_cast<real*>(faceNeighbors[cell][1])

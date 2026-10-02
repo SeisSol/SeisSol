@@ -9,6 +9,7 @@
 
 #include "TimeManager.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Iterator.h"
 #include "CommunicationManager.h"
 #include "DynamicRupture/Output/OutputManager.h"
@@ -118,8 +119,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   // iterate over local time clusters
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
-    auto globalData = memoryManager.globalData<Config>();
-
     const auto clusterId = layer.getIdentifier().lts;
 
     // chop off at synchronization time
@@ -137,26 +136,31 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     auto* dynRupCopyData =
         &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
 
-    auto& cluster = clusters_.emplace_back(
-        std::make_unique<TimeCluster>(clusterId,
-                                      clusterId,
-                                      profilingId,
-                                      settings,
-                                      layer.getIdentifier().halo,
-                                      timeStepSize,
-                                      timeStepRate,
-                                      printProgress,
-                                      dynamicRuptureSchedulers_[clusterId].get(),
-                                      globalData,
-                                      &layer,
-                                      dynRupInteriorData,
-                                      dynRupCopyData,
-                                      memoryManager.frictionLaw(),
-                                      memoryManager.frictionLawDevice(),
-                                      memoryManager.faultOutputManager(),
-                                      seissolInstance_,
-                                      &loopStatistics_,
-                                      &actorStateStatisticsManager_.addCluster(profilingId)));
+    // the cluster computes in the configuration of its layer
+    auto& cluster = clusters_.emplace_back(dispatchConfig(
+        layer.getIdentifier().config, [&](auto cfg) -> std::unique_ptr<TimeClusterInterface> {
+          using Cfg = decltype(cfg);
+          return std::make_unique<TimeCluster<Cfg>>(
+              clusterId,
+              clusterId,
+              profilingId,
+              settings,
+              layer.getIdentifier().halo,
+              timeStepSize,
+              timeStepRate,
+              printProgress,
+              dynamicRuptureSchedulers_[clusterId].get(),
+              memoryManager.globalData<Cfg>(),
+              &layer,
+              dynRupInteriorData,
+              dynRupCopyData,
+              memoryManager.frictionLaw(),
+              memoryManager.frictionLawDevice(),
+              memoryManager.faultOutputManager(),
+              seissolInstance_,
+              &loopStatistics_,
+              &actorStateStatisticsManager_.addCluster(profilingId));
+        }));
 
     const auto clusterSize = layer.size();
     const auto dynRupSize = memoryManager.drStorage().layer(layer.id()).size();
