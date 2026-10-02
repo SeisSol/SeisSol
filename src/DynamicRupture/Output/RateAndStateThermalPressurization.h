@@ -8,24 +8,26 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATETHERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RATEANDSTATETHERMALPRESSURIZATION_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/Output/RateAndState.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
-class RateAndStateThermalPressurization : public RateAndState {
+class RateAndStateThermalPressurization
+    : public RateAndStateImpl<RateAndStateThermalPressurization> {
   public:
-  using RateAndState::RateAndState;
-
-  protected:
-  real computeFluidPressure(LocalInfo& local) override {
+  template <typename Cfg>
+  Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& local) {
     const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
     return pressure[local.gpIndex];
   }
+
+  template <typename Cfg>
   void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& outputData,
-                       const LocalInfo& local,
+                       const LocalInfo<Cfg>& local,
                        size_t cacheLevel,
-                       size_t receiverIdx) override {
+                       size_t receiverIdx) {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
     if (tpVariables.isActive) {
       const auto* const temperature = getCellData<LTSThermalPressurization::Temperature>(local);
@@ -36,9 +38,8 @@ class RateAndStateThermalPressurization : public RateAndState {
     }
   }
 
-  public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
-    auto baseVector = RateAndState::getOutputVariables();
+    auto baseVector = RateAndStateImpl::getOutputVariables();
     baseVector.push_back(drStorage_->info<LTSThermalPressurization::Temperature>().index);
     baseVector.push_back(drStorage_->info<LTSThermalPressurization::Pressure>().index);
     return baseVector;

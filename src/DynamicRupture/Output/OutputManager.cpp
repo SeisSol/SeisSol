@@ -10,7 +10,7 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
-#include "Config.h"
+#include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
@@ -30,7 +30,6 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -479,40 +478,48 @@ void OutputManager::initPickpointOutput() {
               }
 
               // stress info
-              std::array<real, 6> rotatedInitialStress{};
+              std::array<double, 6> rotatedInitialStress{};
               {
                 const auto position = faceToLtsMap_.get(receiver.faultFaceIndex.value());
 
                 // the stress the fault starts out under, which is every source in effect then
                 const auto sourceCount =
                     dr::stressSourceCount(seissolInstance_.parameters().drParameters);
-                const auto& drLayer = drStorage_->layer(position.color);
-                const auto* stresses = drLayer.var<DynamicRupture::StressSourceInFaultCS>(Config());
-                const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>(Config());
-                const auto* riseTimes = drLayer.var<DynamicRupture::StressSourceRiseTime>(Config());
-                auto unrotatedInitialStress =
-                    dr::stressAtTime<Config>(&stresses[position.cell * sourceCount],
-                                             &riseTimes[position.cell * sourceCount],
-                                             &onsets[position.cell * sourceCount],
-                                             sourceCount,
-                                             static_cast<std::uint32_t>(receiver.gpIndex),
-                                             static_cast<real>(0.0));
-
-                constexpr auto Variant = configIdOf<Config>();
+                auto& drLayer = drStorage_->layer(position.color);
                 const auto& face = outputData->topology.faces[faceId];
-                runtime::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-                alignAlongDipAndStrikeKernel.stressRotationMatrix =
-                    runtime::init::stressRotationMatrix::view(
-                        Variant, face.stressGlbToDipStrikeAligned.data());
-                alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-                    runtime::init::reducedFaceAlignedMatrix::view(
-                        Variant, face.stressFaceAlignedToGlb.data());
+                dispatchConfig(drLayer.getIdentifier().config, [&](auto cfg) {
+                  using Cfg = decltype(cfg);
+                  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+                  const auto* stresses = drLayer.var<DynamicRupture::StressSourceInFaultCS>(cfg);
+                  const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>(cfg);
+                  const auto* riseTimes = drLayer.var<DynamicRupture::StressSourceRiseTime>(cfg);
+                  auto unrotatedInitialStress =
+                      dr::stressAtTime<Cfg>(&stresses[position.cell * sourceCount],
+                                            &riseTimes[position.cell * sourceCount],
+                                            &onsets[position.cell * sourceCount],
+                                            sourceCount,
+                                            static_cast<std::uint32_t>(receiver.gpIndex),
+                                            static_cast<real>(0.0));
 
-                alignAlongDipAndStrikeKernel.initialStress =
-                    runtime::init::initialStress::view(Variant, unrotatedInitialStress.data());
-                alignAlongDipAndStrikeKernel.rotatedStress =
-                    runtime::init::rotatedStress::view(Variant, rotatedInitialStress.data());
-                alignAlongDipAndStrikeKernel.execute(Variant);
+                  constexpr auto Variant = configIdOf<Cfg>();
+                  const auto& transform = std::get<FaceTransform<Cfg>>(face.transform);
+                  runtime::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+                  alignAlongDipAndStrikeKernel.stressRotationMatrix =
+                      runtime::init::stressRotationMatrix::view(
+                          Variant, transform.stressGlbToDipStrikeAligned.data());
+                  alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
+                      runtime::init::reducedFaceAlignedMatrix::view(
+                          Variant, transform.stressFaceAlignedToGlb.data());
+
+                  std::array<real, 6> rotatedStress{};
+                  alignAlongDipAndStrikeKernel.initialStress =
+                      runtime::init::initialStress::view(Variant, unrotatedInitialStress.data());
+                  alignAlongDipAndStrikeKernel.rotatedStress =
+                      runtime::init::rotatedStress::view(Variant, rotatedStress.data());
+                  alignAlongDipAndStrikeKernel.execute(Variant);
+                  std::copy(
+                      rotatedStress.begin(), rotatedStress.end(), rotatedInitialStress.begin());
+                });
               }
 
               {

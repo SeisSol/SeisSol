@@ -9,6 +9,7 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
@@ -18,7 +19,6 @@
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
-#include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -109,18 +109,18 @@ CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2) {
   return midPoint;
 }
 
-TriangleQuadratureData generateTriangleQuadrature() {
-  TriangleQuadratureData data{};
+template <typename Cfg>
+TriangleQuadratureData<Cfg> generateTriangleQuadrature() {
+  TriangleQuadratureData<Cfg> data{};
 
   // Generate triangle quadrature points and weights (Factory Method)
-  const auto pointsView = init::quadpoints<Config>::view::create(init::quadpoints<Config>::Values);
-  const auto weightsView =
-      init::quadweights<Config>::view::create(init::quadweights<Config>::Values);
+  const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
+  const auto weightsView = init::quadweights<Cfg>::view::create(init::quadweights<Cfg>::Values);
 
   auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
-  for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
-    reshapedPoints[i][0] = seissol::multisim::multisimTranspose<Config>(pointsView, i, 0);
-    reshapedPoints[i][1] = seissol::multisim::multisimTranspose<Config>(pointsView, i, 1);
+  for (size_t i = 0; i < seissol::dr::TriangleQuadratureData<Cfg>::Size; ++i) {
+    reshapedPoints[i][0] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 0);
+    reshapedPoints[i][1] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 1);
     data.weights[i] = weightsView(i);
   }
 
@@ -146,22 +146,20 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
   return std::make_pair(nearestPoint, shortestDistance);
 }
 
-void assignNearestGaussianPoints(Receivers& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature();
+template <typename Cfg>
+void assignNearestGaussianPoint(Receiver& geoPoint) {
+  static auto quadratureData = generateTriangleQuadrature<Cfg>();
   const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
-  for (auto& geoPoint : geoPoints) {
+  const auto targetPoint2D =
+      geometry::ReferenceFaceMap(geoPoint.localFaceSideId.value())
+          .cellToFace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
 
-    const auto targetPoint2D =
-        geometry::ReferenceFaceMap(geoPoint.localFaceSideId.value())
-            .cellToFace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
-
-    int nearestPoint{-1};
-    double shortestDistance = std::numeric_limits<double>::max();
-    std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
-        targetPoint2D.data(), trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
-    geoPoint.nearestGpIndex = nearestPoint;
-  }
+  int nearestPoint{-1};
+  double shortestDistance = std::numeric_limits<double>::max();
+  std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
+      targetPoint2D.data(), trianglePoints2D, seissol::dr::TriangleQuadratureData<Cfg>::Size);
+  geoPoint.nearestGpIndex = nearestPoint;
 }
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
@@ -228,27 +226,29 @@ double
   return sidemin;
 }
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
-                                                   const geometry::CellTransform& plusTransform,
-                                                   const geometry::CellTransform& minusTransform) {
+template <typename Cfg>
+PlusMinusBasisFunctions<Cfg>
+    getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
+                               const geometry::CellTransform& plusTransform,
+                               const geometry::CellTransform& minusTransform) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
   auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
     const auto referenceCoords = transform.spaceToRef(point);
-    const basisFunction::SampledBasisFunctions<real> sampler(
-        ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
+    const basisFunction::SampledBasisFunctions<Real<Cfg>> sampler(
+        Cfg::ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.data();
   };
 
-  PlusMinusBasisFunctions basisFunctions{};
+  PlusMinusBasisFunctions<Cfg> basisFunctions{};
   basisFunctions.plusSide = getBasisFunctions(plusTransform);
   basisFunctions.minusSide = getBasisFunctions(minusTransform);
 
   return basisFunctions;
 }
 
-real computeTriangleArea(ExtTriangle& triangle) {
+double computeTriangleArea(ExtTriangle& triangle) {
   const auto p0 = Eigen::Vector3d(triangle.point(0).data());
   const auto p1 = Eigen::Vector3d(triangle.point(1).data());
   const auto p2 = Eigen::Vector3d(triangle.point(2).data());
@@ -277,4 +277,14 @@ std::size_t globalFaceIdOfCell(const Receivers& receivers,
                                std::size_t simulationCount) {
   return receivers[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].globalFaultFaceId();
 }
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template TriangleQuadratureData<Cfg> generateTriangleQuadrature<Cfg>();                          \
+  template void assignNearestGaussianPoint<Cfg>(Receiver & geoPoint);                              \
+  template PlusMinusBasisFunctions<Cfg> getPlusMinusBasisFunctions<Cfg>(                           \
+      const CoordinateT& pointCoords,                                                              \
+      const geometry::CellTransform& plusTransform,                                                \
+      const geometry::CellTransform& minusTransform);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
+
 } // namespace seissol::dr

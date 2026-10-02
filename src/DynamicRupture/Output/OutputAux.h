@@ -42,15 +42,21 @@ CoordinateT getTrianglePointByCoords(const ExtTriangle& triangle,
 
 CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2);
 
+/// The quadrature of a fault face of the configuration `Cfg`.
+template <typename Cfg>
 struct TriangleQuadratureData {
-  static constexpr size_t Size{tensor::quadweights<Config>::Shape[0]};
+  static constexpr size_t Size{tensor::quadweights<Cfg>::Shape[0]};
   std::array<double, 2 * Size> points{};
   std::array<double, Size> weights{};
 };
 
-TriangleQuadratureData generateTriangleQuadrature();
+template <typename Cfg>
+TriangleQuadratureData<Cfg> generateTriangleQuadrature();
 
-void assignNearestGaussianPoints(Receivers& geoPoints);
+/// Assigns to the receiver the quadrature point of its face, of the configuration `Cfg`, that is
+/// nearest to it.
+template <typename Cfg>
+void assignNearestGaussianPoint(Receiver& geoPoint);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
@@ -67,11 +73,13 @@ double getDistanceFromPointToFace(const CoordinateT& point,
                                   const ExtTriangle& face,
                                   const CoordinateT& faceNormal);
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
-                                                   const geometry::CellTransform& plusTransform,
-                                                   const geometry::CellTransform& minusTransform);
+template <typename Cfg>
+PlusMinusBasisFunctions<Cfg>
+    getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
+                               const geometry::CellTransform& plusTransform,
+                               const geometry::CellTransform& minusTransform);
 
-real computeTriangleArea(ExtTriangle& triangle);
+double computeTriangleArea(ExtTriangle& triangle);
 
 /**
  * @brief The index of the first receiver an output cell owns.

@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENINGBIMATERIAL_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENINGBIMATERIAL_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
@@ -15,15 +16,18 @@
 #include <cmath>
 
 namespace seissol::dr::output {
-class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
-  protected:
-  real computeLocalStrength(LocalInfo& local) override {
+class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeakeningBimaterial> {
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
     const auto* const regularizedStrengths =
         getCellData<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(local);
     return regularizedStrengths[local.gpIndex];
   }
 
-  real computeLocalStrengthSlope(LocalInfo& local) override {
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrengthSlope(LocalInfo<Cfg>& local) {
+    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
     // The Prakash-Clifton regularization low-passes the strength, so only the fraction
     // -expm1(-(V + vStar) dt / prakashLength) of a normal stress change arrives instantaneously --
     // evaluated with the slip rate and the sub time step of the friction solve that produced the
@@ -42,9 +46,8 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
     return local.frictionCoefficient * -std::expm1(expval);
   }
 
-  public:
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
-    auto baseVector = LinearSlipWeakening::getOutputVariables();
+    auto baseVector = ReceiverOutputImpl::getOutputVariables();
     baseVector.push_back(
         drStorage_->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
     return baseVector;

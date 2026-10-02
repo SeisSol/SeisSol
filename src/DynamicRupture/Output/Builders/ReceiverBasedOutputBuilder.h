@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_
 
+#include "Common/ConfigRegistry.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -47,9 +48,13 @@ class ReceiverBasedOutputBuilder {
   void initRotationMatrices();
   void initOutputVariables(std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask);
   void initJacobian2dMatrices();
+  void assignNearestGaussianPoints();
   void assignNearestInternalGaussianPoints();
   void assignFaultTags();
   void assignFusedIndices();
+
+  /// The configuration a fault face computes in.
+  [[nodiscard]] ConfigId configOfFace(std::size_t faultFaceIndex) const;
 
   const seissol::geometry::MeshReader* meshReader_{nullptr};
   LTS::Storage* wpStorage_{nullptr};

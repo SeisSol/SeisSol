@@ -55,6 +55,14 @@ struct PerConfigValues<T, std::variant<Cfgs...>> {
   using Type = std::tuple<T<Cfgs>...>;
 };
 
+template <template <typename> typename T, typename Variant>
+struct OfConfigVariant;
+
+template <template <typename> typename T, typename... Cfgs>
+struct OfConfigVariant<T, std::variant<Cfgs...>> {
+  using Type = std::variant<T<Cfgs>...>;
+};
+
 constexpr bool forEachConfigListsVariant() {
   std::size_t index = 0;
   bool listed = true;
@@ -118,6 +126,16 @@ class PerConfig {
   private:
   typename internal::PerConfigValues<T, ConfigVariant>::Type values_;
 };
+
+/**
+ * @brief A `T<Cfg>` for one of the configurations `Cfg` built into the executable, at the index of
+ * its id.
+ *
+ * Holds what belongs to an object of some configuration, such as the transformations of a fault
+ * face.
+ */
+template <template <typename> typename T>
+using ConfigVariantOf = typename internal::OfConfigVariant<T, ConfigVariant>::Type;
 
 } // namespace seissol
 

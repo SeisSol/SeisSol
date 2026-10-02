@@ -45,7 +45,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       outputData_ = singleClusterOutputData;
       outputData_->extraRuntime.emplace(0);
 
-      assignNearestGaussianPoints(outputData_->receivers);
+      assignNearestGaussianPoints();
       assignNearestInternalGaussianPoints();
       assignFusedIndices();
       assignFaultTags();

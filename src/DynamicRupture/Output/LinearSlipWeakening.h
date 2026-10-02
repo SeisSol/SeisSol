@@ -8,14 +8,17 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENING_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENING_H_
 
-#include "Config.h"
+#include "Common/Real.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {
-class LinearSlipWeakening : public ReceiverOutput {
-  protected:
-  real computeLocalStrength(LocalInfo& local) override {
-    const auto* const cohesions = local.layer->var<LTSLinearSlipWeakening::Cohesion>(Config());
+class LinearSlipWeakening : public ReceiverOutputImpl<LinearSlipWeakening> {
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
+    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    const auto* const cohesions =
+        local.layer->template var<LTSLinearSlipWeakening::Cohesion>(Cfg());
     const auto cohesion = cohesions[local.ltsId][local.gpIndex];
 
     const auto effectiveNormalStress =
@@ -25,7 +28,9 @@ class LinearSlipWeakening : public ReceiverOutput {
            cohesion;
   }
 
-  real computeLocalStrengthSlope(LocalInfo& local) override {
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrengthSlope(LocalInfo<Cfg>& local) {
+    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return effectiveNormalStress < 0 ? local.frictionCoefficient : static_cast<real>(0.0);
