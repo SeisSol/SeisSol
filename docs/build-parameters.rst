@@ -61,6 +61,8 @@ Besides these, the host or, if enabled, the device architecture and backend are 
 Several configurations in one run
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+(NOTE: this feature is still considered highly experimental; its interface may change without notice)
+
 The cells of a mesh group can compute in another configuration built into the executable than the rest of the mesh. ``ConfigMap`` in the ``equations`` section assigns them, e.g.
 
 .. code-block:: Fortran
