@@ -326,7 +326,8 @@ TEST_CASE("Numerical/Projection: the table matches build() in the generated layo
   REQUIRE(stride >= points.size());
 
   const projection::Spec spec;
-  const projection::Table<3, 3> table(subcells, points, Degree, stride, spec, 1, ConvergenceOrder);
+  const projection::Table<3, 3, real> table(
+      subcells, points, Degree, stride, spec, 1, ConvergenceOrder);
   REQUIRE(table.subcellCount() == subcells.size());
 
   for (std::size_t subcell = 0; subcell < subcells.size(); ++subcell) {
