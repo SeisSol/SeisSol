@@ -24,6 +24,7 @@
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/FlopCounter.h"
@@ -161,7 +162,7 @@ double ReceiverCluster::calcReceivers(double time,
     }
   }
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Config>();
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     const std::size_t cellCount = receiverCells_.size();
@@ -171,9 +172,9 @@ double ReceiverCluster::calcReceivers(double time,
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint<Config>::size()]{};
       alignas(Alignment)
           real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Config>::size()]{};
-      alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize]{};
+      alignas(PagesizeStack) real timeDerivatives[SolverOf<Config>::DerivativesSize]{};
 
-      kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
+      kernels::LocalTmp<Config> tmp(seissolInstance_.gravitationSetup().acceleration);
 
       constexpr auto Variant = configIdOf<Config>();
       runtime::kernel::evaluateDOFSAtPoint krnl;

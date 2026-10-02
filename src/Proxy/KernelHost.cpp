@@ -48,7 +48,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
 #pragma omp parallel
   {
     LIKWID_MARKER_START("ader");
-    kernels::LocalTmp tmp(9.81);
+    kernels::LocalTmp<Config> tmp(9.81);
 
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
@@ -80,7 +80,7 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
 #pragma omp parallel
   {
     LIKWID_MARKER_START("localwoader");
-    kernels::LocalTmp tmp(9.81);
+    kernels::LocalTmp<Config> tmp(9.81);
 
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
@@ -117,7 +117,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 #pragma omp parallel
   {
     LIKWID_MARKER_START("local");
-    kernels::LocalTmp tmp(9.81);
+    kernels::LocalTmp<Config> tmp(9.81);
 
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
@@ -141,7 +141,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
   std::array<real*, Cell::NumFaces> timeIntegrated{};
   std::array<real*, Cell::NumFaces> faceNeighborsPrefetch{};
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Config>();
   const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
 
   // note: we use GTS here, in all cases
@@ -156,7 +156,8 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 
       // See TimeCluster: scratch for the neighbours integrated here, written
       // before it is read, one copy per thread.
-      alignas(Alignment) real integrationBuffer[Cell::NumFaces][kernels::Solver::IntegralsSize];
+      alignas(Alignment)
+          real integrationBuffer[Cell::NumFaces][kernels::SolverOf<Config>::IntegralsSize];
       std::array<real*, Cell::NumFaces> integrationBuffers{};
       for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
         integrationBuffers[i] = integrationBuffer[i];
@@ -230,7 +231,8 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
       real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Config>::size()];
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, Timestep);
-  const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);
+  const auto coeffsCollocate =
+      seissol::kernels::timeBasis<Config>().collocate(timePoints, Timestep);
 
 #pragma omp parallel for schedule(static) private(qInterpolatedPlus, qInterpolatedMinus)
   for (std::size_t face = 0; face < layerData.size(); ++face) {

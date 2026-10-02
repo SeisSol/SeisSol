@@ -65,7 +65,7 @@ class ReceiverOutput {
   ::seissol::initializer::StorageBackmap<1>* faceToLtsMap_{nullptr};
   real* deviceCopyMemory_{nullptr};
 
-  kernels::Time timeKernel_;
+  kernels::Time<Config> timeKernel_;
 
   bool printRSFWarning_{false};
 

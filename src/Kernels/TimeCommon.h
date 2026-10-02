@@ -45,7 +45,7 @@ struct TimeCommon {
    * @param timeIntegrated pointers to the time integrated DOFs of the four neighboring cells
    *(either local integration buffer or integration buffer of input).
    **/
-  static void computeIntegrals(Time& time,
+  static void computeIntegrals(Time<Config>& time,
                                const LtsSetup& ltsSetup,
                                const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                const real* timeCoeffs,
@@ -54,7 +54,7 @@ struct TimeCommon {
                                const std::array<real*, Cell::NumFaces>& integrationBuffer,
                                std::array<real*, Cell::NumFaces>& timeIntegrated);
 
-  static void computeBatchedIntegrals(Time& time,
+  static void computeBatchedIntegrals(Time<Config>& time,
                                       const real* timeCoeffs,
                                       const real* subtimeCoeffs,
                                       recording::ConditionalPointersToRealsTable& table,

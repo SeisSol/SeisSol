@@ -20,26 +20,29 @@ class LegendreBasis;
 } // namespace seissol::numerical
 
 namespace seissol::kernels::solver::linearck {
+template <typename Cfg>
 class Local;
+template <typename Cfg>
 class Neighbor;
 } // namespace seissol::kernels::solver::linearck
 
 namespace seissol::kernels::solver::stp {
 
+template <typename Cfg>
 class Spacetime;
+template <typename Cfg>
 class Time;
 
 template <typename Cfg>
 struct STPLocalData;
 
-/// The solver as a configuration `Cfg` runs it. Its kernels are those of the configuration of the
-/// build.
+/// The solver as a configuration `Cfg` runs it, with the kernels of `Cfg`.
 template <typename Cfg>
 struct Solver {
-  using SpacetimeKernelT = Spacetime;
-  using TimeKernelT = Time;
-  using LocalKernelT = linearck::Local;
-  using NeighborKernelT = linearck::Neighbor;
+  using SpacetimeKernelT = Spacetime<Cfg>;
+  using TimeKernelT = Time<Cfg>;
+  using LocalKernelT = linearck::Local<Cfg>;
+  using NeighborKernelT = linearck::Neighbor<Cfg>;
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::LegendreBasis<RealT>;

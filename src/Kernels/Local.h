@@ -9,8 +9,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LOCAL_H_
 #define SEISSOL_SRC_KERNELS_LOCAL_H_
 
-#include "Config.h"
-#include "GeneratedCode/tensor.h"
+#include "Common/Real.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
@@ -23,7 +22,11 @@
 
 namespace seissol::kernels {
 
-class LocalKernel : public Kernel {
+template <typename Cfg>
+class LocalKernel : public Kernel<Cfg> {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   protected:
   double gravitationalAcceleration_{9.81};
   const std::vector<std::unique_ptr<physics::InitialField>>* initConds_{nullptr};
@@ -57,8 +60,8 @@ class LocalKernel : public Kernel {
    * @param timeStepWidth The current time step width
    */
   virtual void computeIntegral(real* timeIntegratedDoFs,
-                               LTS::Ref<Config>& data,
-                               LocalTmp& tmp,
+                               LTS::Ref<Cfg>& data,
+                               LocalTmp<Cfg>& tmp,
                                double time,
                                double timeStepWidth) = 0;
 

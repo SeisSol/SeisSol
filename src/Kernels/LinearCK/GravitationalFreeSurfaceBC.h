@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 
-#include "Config.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
@@ -32,7 +32,12 @@
 
 namespace seissol {
 
+/// The gravitational free-surface boundary condition of the configuration `Cfg`.
+template <typename Cfg>
 class GravitationalFreeSurfaceBc {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   private:
   double gravitationalAcceleration_;
 
@@ -41,13 +46,13 @@ class GravitationalFreeSurfaceBc {
       : gravitationalAcceleration_(gravitationalAcceleration) {};
 
   constexpr static PerformanceEstimate metrics(int8_t face) {
-    return PerformanceEstimate::fromKernel<kernel::fsgKernel<Config>>(face);
+    return PerformanceEstimate::fromKernel<kernel::fsgKernel<Cfg>>(face);
   }
 
   template <typename MappingKrnl>
   void evaluate(int8_t faceIdx,
                 MappingKrnl&& fsgKernelBase,
-                const CellBoundaryMapping<Config>& boundaryMapping,
+                const CellBoundaryMapping<Cfg>& boundaryMapping,
                 real* displacementNodalData,
                 real* integratedDisplacementNodalData,
                 const real* derivatives,
@@ -56,7 +61,7 @@ class GravitationalFreeSurfaceBc {
                 CellMaterialData& materialData) {
     // The material constants are shared by every fused simulation, since those
     // share the cell they run in.
-    kernel::fsgKernel<Config> kernel = std::forward<MappingKrnl>(fsgKernelBase);
+    kernel::fsgKernel<Cfg> kernel = std::forward<MappingKrnl>(fsgKernelBase);
 
     assert(boundaryMapping.dataTinv != nullptr);
     assert(boundaryMapping.dataT != nullptr);
@@ -71,8 +76,8 @@ class GravitationalFreeSurfaceBc {
 
     kernel.fsgpower(0) = timeStepWidth;
 
-    for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
-      kernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
+    for (std::size_t i = 0; i < Cfg::ConvergenceOrder; ++i) {
+      kernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
 
       coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
       powerTmp *= timeStepWidth / static_cast<double>(i + 2);
@@ -121,16 +126,16 @@ class GravitationalFreeSurfaceBc {
       auto** integratedDisplacementNodalPtrs =
           dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
 
-      kernel::gpu_fsgKernel<Config> kernel = std::forward<MappingKrnl>(fsgKernelBase);
+      kernel::gpu_fsgKernel<Cfg> kernel = std::forward<MappingKrnl>(fsgKernelBase);
 
       kernel.invImp = const_cast<const real**>(constantData);
       kernel.rhoG = const_cast<const real**>(constantData);
       kernel.extraOffset_invImp = 0;
       kernel.extraOffset_rhoG = 1;
 
-      for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Config>>(); ++i) {
+      for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
         kernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
-        kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Config>>(1, i);
+        kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
       }
       kernel.Tinv = const_cast<const real**>(TinvDataPtrs);
       kernel.T = const_cast<const real**>(TDataPtrs);
@@ -142,7 +147,7 @@ class GravitationalFreeSurfaceBc {
 
       kernel.fsgpower(0) = timeStepWidth;
 
-      for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
+      for (std::size_t i = 0; i < Cfg::ConvergenceOrder; ++i) {
         coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
         powerTmp *= timeStepWidth / static_cast<double>(i + 2);
 

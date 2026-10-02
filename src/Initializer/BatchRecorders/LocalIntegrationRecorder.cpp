@@ -17,7 +17,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
@@ -97,7 +97,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
         stepPtr = stepIntegrals[cell];
       } else {
         stepPtr = nextIdofPtr;
-        integratedDofsAddressCounter_ += kernels::Solver::IntegralsSize;
+        integratedDofsAddressCounter_ += kernels::SolverOf<Config>::IntegralsSize;
       }
 
       idofsPtrs.push_back(stepPtr);
@@ -116,7 +116,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       } else {
         dQPtrs_[cell] = &derivativesScratch[derivativesAddressCounter_];
-        derivativesAddressCounter_ += seissol::kernels::Solver::DerivativesSize;
+        derivativesAddressCounter_ += seissol::kernels::SolverOf<Config>::DerivativesSize;
       }
 
       // stars

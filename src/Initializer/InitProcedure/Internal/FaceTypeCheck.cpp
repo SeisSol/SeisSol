@@ -11,7 +11,7 @@
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Parameters/InitializationParameters.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
@@ -82,7 +82,7 @@ void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType 
     }
 
     const auto material = model::faceTypeSupport<model::MaterialT>(faceType);
-    const auto solver = kernels::Solver::implementsFaceType(faceType);
+    const auto solver = kernels::SolverOf<Config>::implementsFaceType(faceType);
 
     if (!material.supported) {
       ++problemCount;

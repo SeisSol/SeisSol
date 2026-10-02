@@ -14,7 +14,7 @@
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -27,7 +27,7 @@
 namespace seissol::initializer::internal {
 
 void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
-  constexpr size_t TotalDerivativesSize = kernels::Solver::DerivativesSize;
+  constexpr size_t TotalDerivativesSize = kernels::SolverOf<Config>::DerivativesSize;
   constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement<Config>::size();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
@@ -96,8 +96,8 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
     const auto integratedDofsCounter =
         std::max(integratedDofsCounterLocal, integratedDofsCounterNeighbor);
 
-    layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter *
-                                                   kernels::Solver::IntegralsSize * sizeof(real));
+    layer.setEntrySize<LTS::IntegratedDofsScratch>(
+        integratedDofsCounter * kernels::SolverOf<Config>::IntegralsSize * sizeof(real));
     layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * TotalDerivativesSize *
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *

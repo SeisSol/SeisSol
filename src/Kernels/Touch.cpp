@@ -11,7 +11,7 @@
 #include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 
 #include <cstddef>
 #include <yateto.h>
@@ -38,7 +38,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     // touch derivatives
     real* derivative = derivatives[cell];
     if (derivative != nullptr) {
-      for (std::size_t dof = 0; dof < seissol::kernels::Solver::DerivativesSize; ++dof) {
+      for (std::size_t dof = 0; dof < seissol::kernels::SolverOf<Config>::DerivativesSize; ++dof) {
         derivative[dof] = static_cast<real>(0);
       }
     }

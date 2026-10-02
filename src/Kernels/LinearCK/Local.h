@@ -10,7 +10,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_LOCAL_H_
 
 #include "Common/Constants.h"
-#include "Config.h"
+#include "Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Local.h"
 #include "Monitoring/Metric.h"
@@ -28,12 +28,15 @@
 
 namespace seissol::kernels::solver::linearck {
 
-class Local : public LocalKernel {
+template <typename Cfg>
+class Local : public LocalKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData<Config>& global) override;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void computeIntegral(real* timeIntegratedDoFs,
-                       LTS::Ref<Config>& data,
-                       LocalTmp& tmp,
+                       LTS::Ref<Cfg>& data,
+                       LocalTmp<Cfg>& tmp,
                        double time,
                        double timeStepWidth) override;
 
@@ -53,24 +56,24 @@ class Local : public LocalKernel {
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
-  kernel::volume<Config> volumeKernelPrototype_;
-  kernel::localFlux<Config> localFluxKernelPrototype_;
-  kernel::localFluxNodal<Config> nodalLfKrnlPrototype_;
+  kernel::volume<Cfg> volumeKernelPrototype_;
+  kernel::localFlux<Cfg> localFluxKernelPrototype_;
+  kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
 
-  kernels::AnalyticalBoundary analyticalBoundary_;
+  kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
 
-  kernel::fsgFlux<Config> fsgFlux_;
-  kernel::dirichletFlux<Config> dirichletFlux_;
+  kernel::fsgFlux<Cfg> fsgFlux_;
+  kernel::dirichletFlux<Cfg> dirichletFlux_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volume<Config> deviceVolumeKernelPrototype_;
-  kernel::gpu_localFlux<Config> deviceLocalFluxKernelPrototype_;
-  kernel::gpu_localFluxAll<Config> deviceLocalFluxAllKernelPrototype_;
-  kernel::gpu_localFluxNodal<Config> deviceNodalLfKrnlPrototype_;
+  kernel::gpu_volume<Cfg> deviceVolumeKernelPrototype_;
+  kernel::gpu_localFlux<Cfg> deviceLocalFluxKernelPrototype_;
+  kernel::gpu_localFluxAll<Cfg> deviceLocalFluxAllKernelPrototype_;
+  kernel::gpu_localFluxNodal<Cfg> deviceNodalLfKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 
-  kernel::gpu_fsgFlux<Config> deviceFsgFlux_;
-  kernel::gpu_dirichletFlux<Config> deviceDirichletFlux_;
+  kernel::gpu_fsgFlux<Cfg> deviceFsgFlux_;
+  kernel::gpu_dirichletFlux<Cfg> deviceDirichletFlux_;
 #endif
 };
 

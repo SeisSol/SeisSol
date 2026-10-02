@@ -134,8 +134,8 @@ class ReceiverCluster {
   std::vector<Receiver> receivers_;
   std::vector<ReceiverCell> receiverCells_;
   std::unordered_map<std::size_t, std::size_t> meshToReceiverCell_;
-  seissol::kernels::Spacetime spacetimeKernel_;
-  seissol::kernels::Time timeKernel_;
+  seissol::kernels::Spacetime<Config> spacetimeKernel_;
+  seissol::kernels::Time<Config> timeKernel_;
   std::vector<std::size_t> quantities_;
   PerformanceEstimate estimatePerCell_{};
   PerformanceEstimate estimatePerCellStep_{};

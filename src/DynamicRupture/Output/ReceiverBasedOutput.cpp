@@ -100,8 +100,8 @@ void ReceiverOutput::calcFaultOutput(
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(
       seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, dt).first);
 
-  const auto timeCoeffs = kernels::timeBasis().point(indt, dt);
-  auto integrateCoeffs = kernels::timeBasis().integrate(0, indt, dt);
+  const auto timeCoeffs = kernels::timeBasis<Config>().point(indt, dt);
+  auto integrateCoeffs = kernels::timeBasis<Config>().integrate(0, indt, dt);
   for (auto& coeff : integrateCoeffs) {
     coeff = -coeff;
   }

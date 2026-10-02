@@ -7,11 +7,10 @@
 #ifndef SEISSOL_SRC_KERNELS_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_SOLVER_H_
 
-#include "Config.h"
+#include "Common/Real.h"
 #include "Kernels/Data.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
-#include "Kernels/Precision.h"
 #include "Kernels/STP/Solver.h"
 #include "Kernels/SolverSelector.h"
 #include "Numerical/TimeBasis.h"
@@ -36,17 +35,24 @@
 
 namespace seissol::kernels {
 
-// some typename shortcuts
+// the kernels of the solver of a configuration `Cfg`
 
-using Solver = SolverOf<Config>;
+template <typename Cfg>
+using Time = typename SolverOf<Cfg>::TimeKernelT;
+template <typename Cfg>
+using Spacetime = typename SolverOf<Cfg>::SpacetimeKernelT;
+template <typename Cfg>
+using Local = typename SolverOf<Cfg>::LocalKernelT;
+template <typename Cfg>
+using Neighbor = typename SolverOf<Cfg>::NeighborKernelT;
 
-using Time = Solver::TimeKernelT;
-using Spacetime = Solver::SpacetimeKernelT;
-using Local = Solver::LocalKernelT;
-using Neighbor = Solver::NeighborKernelT;
+/// The time basis the solver of the configuration `Cfg` expands in.
+template <typename Cfg>
+using TimeBasis = typename SolverOf<Cfg>::template TimeBasis<Real<Cfg>>;
 
-inline Solver::TimeBasis<real> timeBasis() {
-  return Solver::TimeBasis<real>(Config::ConvergenceOrder);
+template <typename Cfg>
+TimeBasis<Cfg> timeBasis() {
+  return TimeBasis<Cfg>(Cfg::ConvergenceOrder);
 }
 
 } // namespace seissol::kernels

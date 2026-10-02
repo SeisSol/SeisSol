@@ -49,6 +49,13 @@ else()
   message(FATAL_ERROR "Invalid SOLVER: ${SOLVER}")
 endif()
 
+# the configurations each solver advances, for the instantiation of its kernels
+set(SEISSOL_CONFIGS_LINEARCK "")
+set(SEISSOL_CONFIGS_LINEARCKANELASTIC "")
+set(SEISSOL_CONFIGS_STP "")
+string(TOUPPER ${PARAMETER_SOLVER} PARAMETER_SOLVER_UPPER)
+set(SEISSOL_CONFIGS_${PARAMETER_SOLVER_UPPER} "X(::seissol::Config)")
+
 capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
 
 if (PRECISION STREQUAL "single")

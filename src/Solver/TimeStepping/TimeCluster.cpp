@@ -237,7 +237,8 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timestep);
 
-  const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
+  const auto pointsCollocate =
+      seissol::kernels::timeBasis<Config>().collocate(timePoints, timestep);
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
 #pragma omp parallel
@@ -300,7 +301,8 @@ void TimeCluster::computeDynamicRuptureDevice(SEISSOL_GPU_PARAM DynamicRupture::
     const auto [timePoints, timeWeights] =
         seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timestep);
 
-    const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
+    const auto pointsCollocate =
+        seissol::kernels::timeBasis<Config>().collocate(timePoints, timestep);
     const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
     streamRuntime_.runGraph(
@@ -362,7 +364,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   loopStatistics_->begin(regionComputeLocalIntegration_);
 
   // local integration buffer
-  alignas(Alignment) real integrationBuffer[kernels::Solver::IntegralsSize]{};
+  alignas(Alignment) real integrationBuffer[kernels::SolverOf<Config>::IntegralsSize]{};
 
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
@@ -371,10 +373,10 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   real* const* accumulatedIntegrals = clusterData_->var<LTS::AccumulatedIntegrals>(Config());
   real* const* derivatives = clusterData_->var<LTS::Derivatives>(Config());
 
-  kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
+  kernels::LocalTmp<Config> tmp(seissolInstance_.gravitationSetup().acceleration);
 
   const auto timeStepWidth = timeStepSize();
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Config>();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
@@ -419,10 +421,10 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       if (resetBuffers) {
         std::memcpy(accumulatedIntegrals[cell],
                     bufferPointer,
-                    kernels::Solver::IntegralsSize * sizeof(real));
+                    kernels::SolverOf<Config>::IntegralsSize * sizeof(real));
       } else {
 #pragma omp simd
-        for (std::size_t dof = 0; dof < kernels::Solver::IntegralsSize; ++dof) {
+        for (std::size_t dof = 0; dof < kernels::SolverOf<Config>::IntegralsSize; ++dof) {
           accumulatedIntegrals[cell][dof] += bufferPointer[dof];
         }
       }
@@ -445,10 +447,10 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
   auto& dataTable = clusterData_->getConditionalTable<inner_keys::Wp>();
   auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
 
-  kernels::LocalTmp tmp(seissolInstance_.gravitationSetup().acceleration);
+  kernels::LocalTmp<Config> tmp(seissolInstance_.gravitationSetup().acceleration);
 
   const double timeStepWidth = timeStepSize();
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Config>();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
   // The analytical boundary conditions are evaluated in a host function that is handed the
@@ -569,7 +571,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
   const double timeStepWidth = timeStepSize();
   auto& table = clusterData_->getConditionalTable<inner_keys::Wp>();
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Config>();
   const auto timeCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
   const auto subtimeCoeffs =
       timeBasis.integrate(subTimeStart, timeStepWidth + subTimeStart, neighborTimestep_);
@@ -647,7 +649,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
     // Contribution from displacement/integrated displacement
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
-        estimate += GravitationalFreeSurfaceBc::metrics(face);
+        estimate += GravitationalFreeSurfaceBc<Config>::metrics(face);
       }
     }
   }
@@ -911,7 +913,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   const auto oneMinusIntegratingFactor =
       seissol::kernels::Plasticity::computeRelaxTime(tV, timestep);
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Config>();
   const auto timeCoeffs = timeBasis.integrate(0, timestep, timestep);
   const auto subtimeCoeffs =
       timeBasis.integrate(subTimeStart, timestep + subTimeStart, neighborTimestep_);
@@ -937,7 +939,8 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
     // Scratch for the neighbours whose time integral has to be computed here.
     // Written before it is read, so it needs no initialisation; the frame
     // holds it for the whole loop, one copy per thread.
-    alignas(Alignment) real integrationBuffer[Cell::NumFaces][kernels::Solver::IntegralsSize];
+    alignas(Alignment)
+        real integrationBuffer[Cell::NumFaces][kernels::SolverOf<Config>::IntegralsSize];
     std::array<real*, Cell::NumFaces> integrationBuffers{};
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
       integrationBuffers[i] = integrationBuffer[i];

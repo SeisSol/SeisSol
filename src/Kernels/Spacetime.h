@@ -11,8 +11,7 @@
 #ifndef SEISSOL_SRC_KERNELS_SPACETIME_H_
 #define SEISSOL_SRC_KERNELS_SPACETIME_H_
 
-#include "Config.h"
-#include "GeneratedCode/tensor.h"
+#include "Common/Real.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
@@ -27,8 +26,11 @@
 
 namespace seissol::kernels {
 
-class SpacetimeKernel : public Kernel {
+template <typename Cfg>
+class SpacetimeKernel : public Kernel<Cfg> {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   ~SpacetimeKernel() override = default;
 
   /**
@@ -52,8 +54,8 @@ class SpacetimeKernel : public Kernel {
    */
   virtual void computeAder(const real* coeffs,
                            double timeStepWidth,
-                           LTS::Ref<Config>& data,
-                           LocalTmp& tmp,
+                           LTS::Ref<Cfg>& data,
+                           LocalTmp<Cfg>& tmp,
                            real* timeIntegrated,
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
@@ -61,7 +63,7 @@ class SpacetimeKernel : public Kernel {
   virtual void computeBatchedAder(const real* coeffs,
                                   double timeStepWidth,
                                   LTS::Layer& layer,
-                                  LocalTmp& tmp,
+                                  LocalTmp<Cfg>& tmp,
                                   recording::ConditionalPointersToRealsTable& dataTable,
                                   bool updateDisplacement,
                                   seissol::parallel::runtime::StreamRuntime& runtime) = 0;

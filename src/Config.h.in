@@ -49,4 +49,10 @@ struct Config {
 // A translation unit that defines templates of a configuration instantiates them through it.
 #define SEISSOL_FOR_EACH_CONFIG(X) X(::seissol::Config)
 
+// The same, restricted to the configurations that advance their cells with the given solver; for
+// the kernels of that solver.
+#define SEISSOL_FOR_EACH_CONFIG_LINEARCK(X) @SEISSOL_CONFIGS_LINEARCK@
+#define SEISSOL_FOR_EACH_CONFIG_LINEARCKANELASTIC(X) @SEISSOL_CONFIGS_LINEARCKANELASTIC@
+#define SEISSOL_FOR_EACH_CONFIG_STP(X) @SEISSOL_CONFIGS_STP@
+
 #endif // SEISSOL_SRC_CONFIG_IN_H_

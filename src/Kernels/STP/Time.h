@@ -12,7 +12,7 @@
 #define SEISSOL_SRC_KERNELS_STP_TIME_H_
 
 #include "Common/Constants.h"
-#include "Config.h"
+#include "Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
@@ -24,20 +24,23 @@
 
 namespace seissol::kernels::solver::stp {
 
-class Spacetime : public SpacetimeKernel {
+template <typename Cfg>
+class Spacetime : public SpacetimeKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData<Config>& global) override;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
-                   LTS::Ref<Config>& data,
-                   LocalTmp& tmp,
+                   LTS::Ref<Cfg>& data,
+                   LocalTmp<Cfg>& tmp,
                    real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
                           LTS::Layer& layer,
-                          LocalTmp& tmp,
+                          LocalTmp<Cfg>& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
@@ -45,18 +48,21 @@ class Spacetime : public SpacetimeKernel {
   [[nodiscard]] PerformanceEstimate metrics() const override;
 
   private:
-  void executeSTP(double timeStepWidth, LTS::Ref<Config>& data, real* timeIntegrated, real* stp);
+  void executeSTP(double timeStepWidth, LTS::Ref<Cfg>& data, real* timeIntegrated, real* stp);
 
-  kernel::spaceTimePredictor<Config> krnlPrototype_;
+  kernel::spaceTimePredictor<Cfg> krnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor<Config> deviceKrnlPrototype_;
+  kernel::gpu_spaceTimePredictor<Cfg> deviceKrnlPrototype_;
 #endif
 };
 
-class Time : public TimeKernel {
+template <typename Cfg>
+class Time : public TimeKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData<Config>& global) override;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,

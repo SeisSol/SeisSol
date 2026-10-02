@@ -300,7 +300,7 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
       // rely on the data that is copied anyways
       // (deviceDataCollector needs to be set to avoid a nullptr call)
       outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-          std::vector<real*>{}, seissol::kernels::Solver::DerivativesSize, true);
+          std::vector<real*>{}, seissol::kernels::SolverOf<Config>::DerivativesSize, true);
     } else {
       // setup (sparse) index arrays (for receivers)
 
@@ -322,7 +322,7 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
       }
 
       outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-          indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
+          indexPtrs, seissol::kernels::SolverOf<Config>::DerivativesSize, useMPIUSM());
 
       for (const auto& variable : variables_) {
         std::size_t elementSize = 0;

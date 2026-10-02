@@ -36,7 +36,7 @@
 #endif
 
 namespace seissol::kernels {
-void TimeCommon::computeIntegrals(Time& time,
+void TimeCommon::computeIntegrals(Time<Config>& time,
                                   const LtsSetup& ltsSetup,
                                   const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                   const real* timeCoeffs,
@@ -88,7 +88,7 @@ void TimeCommon::computeIntegrals(Time& time,
 }
 
 void TimeCommon::computeBatchedIntegrals(
-    SEISSOL_GPU_PARAM Time& time,
+    SEISSOL_GPU_PARAM Time<Config>& time,
     SEISSOL_GPU_PARAM const real* timeCoeffs,
     SEISSOL_GPU_PARAM const real* subtimeCoeffs,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,

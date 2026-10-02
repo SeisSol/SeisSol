@@ -19,6 +19,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Kernels/Touch.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -71,9 +72,9 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    buffers[cell] = bucket + cell * kernels::Solver::IntegralsSize;
+    buffers[cell] = bucket + cell * kernels::SolverOf<Config>::IntegralsSize;
     derivatives[cell] = nullptr;
-    buffersDevice[cell] = bucketDevice + cell * kernels::Solver::IntegralsSize;
+    buffersDevice[cell] = bucketDevice + cell * kernels::SolverOf<Config>::IntegralsSize;
     derivativesDevice[cell] = nullptr;
 
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
@@ -111,7 +112,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
 
   kernels::fillWithStuff(
       reinterpret_cast<real*>(dofs), tensor::Q<Config>::size() * layer.size(), false);
-  kernels::fillWithStuff(bucket, kernels::Solver::IntegralsSize * layer.size(), false);
+  kernels::fillWithStuff(bucket, kernels::SolverOf<Config>::IntegralsSize * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData<Config>) / sizeof(real) * layer.size(),
                          false);
@@ -177,7 +178,8 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
-  layer.setEntrySize<LTS::Buffers>(sizeof(real) * kernels::Solver::IntegralsSize * layer.size());
+  layer.setEntrySize<LTS::Buffers>(sizeof(real) * kernels::SolverOf<Config>::IntegralsSize *
+                                   layer.size());
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
@@ -195,7 +197,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     drStorage.touchVariables();
 
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
-        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        cellCount * seissol::kernels::SolverOf<Config>::DerivativesSize * sizeof(real),
         PagesizeHeap,
         seissol::memory::Memkind::Standard));
 
@@ -205,21 +207,23 @@ void ProxyData::initDataStructures(bool enableDR) {
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
       for (std::size_t cell = 0; cell < cellCount; ++cell) {
-        for (std::size_t i = 0; i < seissol::kernels::Solver::DerivativesSize; i++) {
-          fakeDerivativesHost[cell * seissol::kernels::Solver::DerivativesSize + i] = urd(rng);
+        for (std::size_t i = 0; i < seissol::kernels::SolverOf<Config>::DerivativesSize; i++) {
+          fakeDerivativesHost[cell * seissol::kernels::SolverOf<Config>::DerivativesSize + i] =
+              urd(rng);
         }
       }
     }
 
 #ifdef ACL_DEVICE
     fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
-        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        cellCount * seissol::kernels::SolverOf<Config>::DerivativesSize * sizeof(real),
         PagesizeHeap,
         seissol::memory::Memkind::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::instance();
     device.api().copyTo(fakeDerivatives,
                         fakeDerivativesHost,
-                        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
+                        cellCount * seissol::kernels::SolverOf<Config>::DerivativesSize *
+                            sizeof(real));
 #else
     fakeDerivatives = fakeDerivativesHost;
 #endif
@@ -277,13 +281,13 @@ void ProxyData::initDataStructures(bool enableDR) {
       const auto plusCell = cellDist(rng);
       const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =
-          &fakeDerivativesHost[plusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivativesHost[plusCell * seissol::kernels::SolverOf<Config>::DerivativesSize];
       timeDerivativeHostMinus[face] =
-          &fakeDerivativesHost[minusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivativesHost[minusCell * seissol::kernels::SolverOf<Config>::DerivativesSize];
       timeDerivativePlus[face] =
-          &fakeDerivatives[plusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivatives[plusCell * seissol::kernels::SolverOf<Config>::DerivativesSize];
       timeDerivativeMinus[face] =
-          &fakeDerivatives[minusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivatives[minusCell * seissol::kernels::SolverOf<Config>::DerivativesSize];
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);

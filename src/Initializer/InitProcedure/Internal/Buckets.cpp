@@ -18,7 +18,7 @@
 #include "Initializer/TimeStepping/Halo.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
@@ -136,16 +136,19 @@ template <typename F>
 constexpr auto callForBuffer(BufferType type, F caller) {
   switch (type) {
   case BufferType::Derivatives:
-    caller(LTSBuffer<LTS::Derivatives, LTS::DerivativesDevice, kernels::Solver::DerivativesSize>());
+    caller(LTSBuffer<LTS::Derivatives,
+                     LTS::DerivativesDevice,
+                     kernels::SolverOf<Config>::DerivativesSize>());
     break;
   case BufferType::StepIntegrals:
-    caller(
-        LTSBuffer<LTS::StepIntegrals, LTS::StepIntegralsDevice, kernels::Solver::IntegralsSize>());
+    caller(LTSBuffer<LTS::StepIntegrals,
+                     LTS::StepIntegralsDevice,
+                     kernels::SolverOf<Config>::IntegralsSize>());
     break;
   case BufferType::AccumulatedIntegrals:
     caller(LTSBuffer<LTS::AccumulatedIntegrals,
                      LTS::AccumulatedIntegralsDevice,
-                     kernels::Solver::IntegralsSize>());
+                     kernels::SolverOf<Config>::IntegralsSize>());
     break;
   default:
     logError() << "Unknown LTS buffer type.";

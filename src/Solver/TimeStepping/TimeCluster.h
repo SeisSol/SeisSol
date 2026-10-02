@@ -63,15 +63,15 @@ class TimeCluster : public AbstractTimeCluster {
   /*
    * integrators
    */
-  kernels::Spacetime spacetimeKernel_;
+  kernels::Spacetime<Config> spacetimeKernel_;
   //! time kernel
-  kernels::Time timeKernel_;
+  kernels::Time<Config> timeKernel_;
 
   //! local kernel
-  kernels::Local localKernel_;
+  kernels::Local<Config> localKernel_;
 
   //! neighbor kernel
-  kernels::Neighbor neighborKernel_;
+  kernels::Neighbor<Config> neighborKernel_;
 
   kernels::DynamicRupture dynamicRuptureKernel_;
 

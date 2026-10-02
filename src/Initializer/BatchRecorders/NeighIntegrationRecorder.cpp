@@ -13,7 +13,7 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
@@ -87,7 +87,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter_ += kernels::Solver::IntegralsSize;
+                integratedDofsAddressCounter_ += kernels::SolverOf<Config>::IntegralsSize;
               } else {
                 idofsAddressRegistry_[neighborBuffer] = neighborBuffer;
               }
