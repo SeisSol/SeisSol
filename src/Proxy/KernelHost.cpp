@@ -177,8 +177,7 @@ void runNeighbor(ProxyDataImpl<Cfg>& data) {
       }
 
       seissol::kernels::TimeCommon<Cfg>::computeIntegrals(data.timeKernel,
-                                                          cellInformation[cell].ltsSetup,
-                                                          cellInformation[cell].faceTypes,
+                                                          cellInformation[cell],
                                                           timeCoeffs.data(),
                                                           timeCoeffs.data(),
                                                           faceNeighbors[cell],

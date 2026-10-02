@@ -89,7 +89,8 @@ TimeCluster<Cfg>::TimeCluster(
     : TimeClusterInterface(
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
-      settings_(settings), seissolInstance_(seissolInstance), streamRuntime_(4),
+      settings_(settings), seissolInstance_(seissolInstance),
+      configBoundary_(seissolInstance.parameters().model.configs()), streamRuntime_(4),
       globalData_(globalData), clusterData_(clusterData),
       // global data
       dynRupInteriorData_(dynRupInteriorData), dynRupCopyData_(dynRupCopyData),
@@ -959,9 +960,15 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
   const auto subtimeCoeffs =
       timeBasis.integrate(subTimeStart, timestep + subTimeStart, neighborTimestep_);
 
+  const bool configBoundary = !configBoundary_.empty();
+  if (configBoundary) {
+    configBoundary_.setIntervals(timestep, subTimeStart, neighborTimestep_);
+  }
+
 #pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                    \
                                                                     faceNeighborsPrefetch)         \
     shared(oneMinusIntegratingFactor,                                                              \
+               configBoundary,                                                                     \
                cellInformation,                                                                    \
                faceNeighbors,                                                                      \
                pstrain,                                                                            \
@@ -987,15 +994,19 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
       integrationBuffers[i] = integrationBuffer[i];
     }
 
-    seissol::kernels::TimeCommon<Cfg>::computeIntegrals(
-        timeKernel_,
-        data.template get<LTS::CellInformation>().ltsSetup,
-        data.template get<LTS::CellInformation>().faceTypes,
-        timeCoeffs.data(),
-        subtimeCoeffs.data(),
-        faceNeighbors[cell],
-        integrationBuffers,
-        timeIntegrated);
+    seissol::kernels::TimeCommon<Cfg>::computeIntegrals(timeKernel_,
+                                                        data.template get<LTS::CellInformation>(),
+                                                        timeCoeffs.data(),
+                                                        subtimeCoeffs.data(),
+                                                        faceNeighbors[cell],
+                                                        integrationBuffers,
+                                                        timeIntegrated);
+    if (configBoundary) {
+      configBoundary_.computeIntegrals(data.template get<LTS::CellInformation>(),
+                                       faceNeighbors[cell],
+                                       integrationBuffers,
+                                       timeIntegrated);
+    }
 
     faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
                                    ? static_cast<real*>(faceNeighbors[cell][1])

@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Common.t.h"
+#include "ConfigBoundary.t.h"
 #include "FlopCounting.t.h"
 #include "Plasticity.t.h"
 #include "PointSourceCluster.t.h"

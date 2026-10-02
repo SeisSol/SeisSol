@@ -266,7 +266,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
             }();
 
             secondaryCellInformation[index].faceNeighbors[face] = neighbor;
-            cellInformation[index].neighborConfigIds[face] = 0;
+            cellInformation[index].neighborConfigIds[face] =
+                ltsStorage.layer(neighbor.color).getIdentifier().config;
           } else {
             secondaryCellInformation[index].faceNeighbors[face] = StoragePosition::NullPosition;
             cellInformation[index].neighborConfigIds[face] =
@@ -298,7 +299,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           secondaryCellInformation[i].faceNeighbors[face] = neighbor;
 
           secondaryCellInformation[i].neighborRanks[face] = rank;
-          cellInformation[i].neighborConfigIds[face] = neighbor.color;
+          cellInformation[i].neighborConfigIds[face] =
+              ltsStorage.layer(neighbor.color).getIdentifier().config;
           cellInformation[i].faceTypes[face] =
               elementNeighbor.boundaries[boundaryElement.localSide];
           cellInformation[i].faceRelations[face][0] = boundaryElement.localSide;

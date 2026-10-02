@@ -12,6 +12,7 @@
 
 #include "Common/Real.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
@@ -38,8 +39,9 @@ struct TimeCommon {
    *   2 - 1: DOFs of cell 2 are integrated in time via time derivaitves.
    *   3 - 0: time itnegrated DOFs of cell 3 are copied from the buffer.
    *
-   * @param ltsSetup bitmask for the LTS setup.
-   * @param faceTypes face types of the neighboring cells.
+   * @param cellInformation the face types, the configurations of the face neighbors and the LTS
+   *setup (the bitmask above) of the cell; faces whose neighbor computes in another configuration
+   *are left to ConfigBoundary.
    * @param timeCoeffs GTS time integration basis coefficients
    * @param subtimeCoeffs LTS time integration basis coefficients (for neighbor.cluster >
    local.cluster)
@@ -51,8 +53,7 @@ struct TimeCommon {
    *(either local integration buffer or integration buffer of input).
    **/
   static void computeIntegrals(Time<Cfg>& time,
-                               const LtsSetup& ltsSetup,
-                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                               const CellLocalInformation& cellInformation,
                                const real* timeCoeffs,
                                const real* subtimeCoeffs,
                                const std::array<void*, Cell::NumFaces>& timeDofs,

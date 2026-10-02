@@ -17,6 +17,7 @@
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/ConfigBoundary.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
@@ -99,6 +100,9 @@ class TimeCluster : public TimeClusterInterface {
 
   //! neighbor kernel
   kernels::Neighbor<Cfg> neighborKernel_;
+
+  //! the neighbors of the cells that compute in other configurations
+  kernels::ConfigBoundary<Cfg> configBoundary_;
 
   kernels::DynamicRupture<Cfg> dynamicRuptureKernel_;
 

@@ -9,11 +9,13 @@
 
 #include "TimeCommon.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "Config.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Solver.h"
 #include "Parallel/Runtime/Stream.h"
@@ -38,8 +40,7 @@
 namespace seissol::kernels {
 template <typename Cfg>
 void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
-                                       const LtsSetup& ltsSetup,
-                                       const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                                       const CellLocalInformation& cellInformation,
                                        const real* timeCoeffs,
                                        const real* subtimeCoeffs,
                                        const std::array<void*, Cell::NumFaces>& timeDofs,
@@ -61,9 +62,12 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
   /*
    * set/compute time integrated DOFs.
    */
+  const auto& ltsSetup = cellInformation.ltsSetup;
   for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; ++dofneighbor) {
-    // collect information only in the case that neighboring element contributions are required
-    if (faceTypes[dofneighbor] == FaceType::Regular) {
+    // collect information only in the case that neighboring element contributions are required;
+    // a neighbor of another configuration is integrated by ConfigBoundary
+    if (cellInformation.faceTypes[dofneighbor] == FaceType::Regular &&
+        cellInformation.neighborConfigIds[dofneighbor] == configIdOf<Cfg>()) {
       // check if the time integration is already done (-> copy pointer)
       if (ltsSetup.neighborBuffer(dofneighbor) != BufferType::Derivatives) {
         timeIntegrated[dofneighbor] = static_cast<real*>(timeDofs[dofneighbor]);

@@ -83,6 +83,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = 0;
+      cellInformation[cell].neighborConfigIds[f] = configIdOf<Cfg>();
 
       const auto neighbor = cellDist(rng);
       secondaryInformation[cell].faceNeighbors[f].global = neighbor;
