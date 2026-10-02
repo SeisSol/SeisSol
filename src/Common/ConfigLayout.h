@@ -28,6 +28,8 @@ struct ConfigLayout {
 
   /// quantities of the material
   std::size_t numQuantities{};
+  /// index of the first of the three velocities among the quantities of the material
+  std::size_t velocityOffset{};
   /// basis functions of a cell, per quantity and simulation
   std::size_t numBasisFunctions{};
   /// position of the basis-function index in the tensors of a cell; fused simulations come first

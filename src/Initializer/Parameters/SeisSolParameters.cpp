@@ -7,6 +7,7 @@
 
 #include "SeisSolParameters.h"
 
+#include "Common/ConfigRegistry.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/InitializationParameters.h"
@@ -24,16 +25,21 @@ namespace seissol::initializer::parameters {
 SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   logInfo() << "Reading SeisSol parameter file...";
 
+  // the configuration the cells of the run compute in; the parameters that depend on it, e.g. on
+  // its material or on its number of fused simulations, are read for it
+  const ConfigId config = defaultConfig();
+
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
-  const DRParameters drParameters = readDRParameters(parameterReader);
+  const DRParameters drParameters = readDRParameters(parameterReader, config);
   const InitializationParameters initializationParameters =
-      readInitializationParameters(parameterReader);
+      readInitializationParameters(parameterReader, config);
   const MeshParameters meshParameters = readMeshParameters(parameterReader);
-  const ModelParameters modelParameters = readModelParameters(parameterReader);
-  const OutputParameters outputParameters = readOutputParameters(parameterReader);
+  const ModelParameters modelParameters = readModelParameters(parameterReader, config);
+  const OutputParameters outputParameters = readOutputParameters(parameterReader, config);
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);
-  const TimeSteppingParameters timeSteppingParameters = readTimeSteppingParameters(parameterReader);
+  const TimeSteppingParameters timeSteppingParameters =
+      readTimeSteppingParameters(parameterReader, config);
 
   parameterReader->warnDeprecated({"boundaries",
                                    "rffile",

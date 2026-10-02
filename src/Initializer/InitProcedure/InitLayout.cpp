@@ -124,7 +124,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
-  const auto config = defaultConfig();
+  const auto config = seissolParams.model.config;
 
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),

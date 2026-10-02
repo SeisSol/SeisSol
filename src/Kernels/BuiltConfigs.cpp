@@ -74,6 +74,7 @@ ConfigLayout generatedLayout() {
   layout.config = Cfg::Value;
 
   layout.numQuantities = model::MaterialOf<Cfg>::NumQuantities;
+  layout.velocityOffset = model::MaterialOf<Cfg>::VelocityOffset;
   layout.numBasisFunctions = tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg>];
   layout.basisFunctionDimension = multisim::BasisDim<Cfg>;
   layout.dofsSize = tensor::Q<Cfg>::size();

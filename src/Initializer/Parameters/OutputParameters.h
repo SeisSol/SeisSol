@@ -8,15 +8,16 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 
-#include "Config.h"
-#include "Equations/Datastructures.h"
+#include "Common/ConfigRegistry.h"
 #include "Initializer/InputAux.h"
-#include "Model/Plasticity.h"
+#include "Model/PlasticityQuantities.h"
 #include "ParameterReader.h"
 
+#include <array>
 #include <list>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -85,7 +86,8 @@ struct FreeSurfaceOutputParameters {
   unsigned refinement{0};
   double interval{0};
   int vtkorder{-1};
-  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask{};
+  // per quantity of the material of the configuration of the run
+  std::vector<bool> outputMask;
   ProjectionMethod projection{ProjectionMethod::L2};
   TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
 };
@@ -156,9 +158,11 @@ struct WaveFieldOutputParameters {
   double interval{0};
   VolumeRefinement refinement{VolumeRefinement::NoRefine};
   OutputBounds bounds;
-  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask{};
-  std::array<bool, seissol::model::PlasticityData<Config>::Quantities.size()> plasticityMask{};
-  std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask{};
+  // per quantity of the material of the configuration of the run
+  std::vector<bool> outputMask;
+  std::array<bool, seissol::model::PlasticityQuantityCount> plasticityMask{};
+  // per quantity of the material of the configuration of the run
+  std::vector<bool> integrationMask;
   std::unordered_set<int> groups;
   bool computeRotation{false};
   bool computeStrain{false};
@@ -210,12 +214,14 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
                                                      const std::string& defaultTimeSeries);
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader);
 FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
-                                                      const std::string& defaultTimeSeries);
+                                                      const std::string& defaultTimeSeries,
+                                                      ConfigId config);
 PickpointParameters readPickpointParameters(ParameterReader* baseReader);
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
-                                                  const std::string& defaultTimeSeries);
-OutputParameters readOutputParameters(ParameterReader* baseReader);
+                                                  const std::string& defaultTimeSeries,
+                                                  ConfigId config);
+OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config);
 } // namespace seissol::initializer::parameters
 
 #endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_

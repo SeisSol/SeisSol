@@ -374,7 +374,8 @@ void initModel(seissol::SeisSol& seissolInstance) {
 
   // these four methods need to be called in this order.
   logInfo() << "Model info:";
-  logInfo() << "Configuration:" << configName(configValue(defaultConfig())).c_str();
+  logInfo() << "Configuration:"
+            << configName(configValue(seissolInstance.parameters().model.config)).c_str();
   logInfo() << "Plasticity:" << (seissolInstance.parameters().model.plasticity ? "on" : "off");
   logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
   logInfo() << "Flux near fault:"

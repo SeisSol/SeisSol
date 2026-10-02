@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 
+#include "Common/ConfigRegistry.h"
 #include "ParameterReader.h"
 
 #include <string>
@@ -44,9 +45,11 @@ struct ModelParameters {
   ITMParameters itmParameters;
   NumericalFlux flux{NumericalFlux::Godunov};
   NumericalFlux fluxNearFault{NumericalFlux::Godunov};
+  // the configuration the cells of the run compute in
+  ConfigId config{};
 };
 
-ModelParameters readModelParameters(ParameterReader* baseReader);
+ModelParameters readModelParameters(ParameterReader* baseReader, ConfigId config);
 ITMParameters readITMParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 

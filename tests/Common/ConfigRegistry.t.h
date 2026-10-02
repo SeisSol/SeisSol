@@ -54,6 +54,7 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
       const auto order = Cfg::ConvergenceOrder;
       CHECK(layout.config == Cfg::Value);
       CHECK(layout.numQuantities == model::MaterialOf<Cfg>::NumQuantities);
+      CHECK(layout.velocityOffset == model::MaterialOf<Cfg>::VelocityOffset);
       CHECK(layout.numBasisFunctions == order * (order + 1) * (order + 2) / 6);
       CHECK(layout.basisFunctionDimension == multisim::BasisDim<Cfg>);
       CHECK(layout.dofsSize == tensor::Q<Cfg>::size());

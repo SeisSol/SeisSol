@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Common/ConfigRegistry.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
@@ -86,7 +87,7 @@ TEST_CASE("readModelParameters parses YAML" * doctest::test_suite("initializer")
       freqratio: 1
   )");
   ParameterReader reader(node, "", false);
-  auto params = readModelParameters(&reader);
+  auto params = readModelParameters(&reader, defaultConfig());
 
   CHECK(params.materialFileName == "material.yaml");
   CHECK(params.plasticity == true);
@@ -109,7 +110,7 @@ TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
       freqratio: 1
   )");
   ParameterReader reader(node, "", false);
-  auto params = readModelParameters(&reader);
+  auto params = readModelParameters(&reader, defaultConfig());
 
   // Check all defaults
   CHECK(params.plasticity == false);

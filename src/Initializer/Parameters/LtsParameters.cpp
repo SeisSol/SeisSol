@@ -7,7 +7,8 @@
 
 #include "LtsParameters.h"
 
-#include "Equations/Datastructures.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "Initializer/Clustering/ClusterCostModel.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
@@ -217,7 +218,7 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
     : vertexWeight(vertexWeight), cfl(cfl), maxTimestepWidth(maxTimestepWidth), endTime(endTime),
       lts(std::move(lts)) {}
 
-TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
+TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader, ConfigId config) {
   auto* reader = baseReader->readSubNode("discretization");
   const auto weightElement =
       static_cast<std::uint64_t>(reader->readWithDefault("vertexweightelement", 100));
@@ -228,12 +229,12 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 
-  constexpr auto IsAnelastic = seissol::model::MaterialT::Mechanisms > 0;
+  const bool isAnelastic = configValue(config).relaxationMechanisms > 0;
 
-  if constexpr (IsAnelastic) {
+  if (isAnelastic) {
     auto* modelReader = baseReader->readSubNode("equations");
-    const auto freqCentral = modelReader->readIfRequired<double>("freqcentral", IsAnelastic);
-    const auto freqRatio = modelReader->readIfRequired<double>("freqratio", IsAnelastic);
+    const auto freqCentral = modelReader->readIfRequired<double>("freqcentral", isAnelastic);
+    const auto freqRatio = modelReader->readIfRequired<double>("freqratio", isAnelastic);
     const double maxTimestepWidthDefault = 0.25 / (freqCentral * std::sqrt(freqRatio));
     maxTimestepWidth = reader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
     if (maxTimestepWidth > maxTimestepWidthDefault) {

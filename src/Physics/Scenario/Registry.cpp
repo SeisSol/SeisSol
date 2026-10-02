@@ -44,7 +44,7 @@ TravellingWaveParameters travellingWaveParameters(const Input& input) {
   parameters.origin = initialization.origin;
   parameters.kVec = initialization.kVec;
   constexpr double Eps = 1e-15;
-  for (std::size_t i = 0; i < model::MaterialT::NumQuantities; ++i) {
+  for (std::size_t i = 0; i < initialization.ampField.size(); ++i) {
     if (std::abs(initialization.ampField[i]) > Eps) {
       parameters.varField.push_back(i);
       parameters.ampField.emplace_back(initialization.ampField[i]);
