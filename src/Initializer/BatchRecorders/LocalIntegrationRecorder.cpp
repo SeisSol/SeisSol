@@ -253,7 +253,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
         static_assert(model::MaterialT::VelocityOffset + Cell::Dim <=
                       tensor::I<Config>::Shape[multisim::BasisFunctionDimension + 1]);
         iVelocitiesPtrs[face].push_back(
-            &multisim::multisimWrap(iview, 0, 0, model::MaterialT::VelocityOffset));
+            &multisim::multisimWrap<Config>(iview, 0, 0, model::MaterialT::VelocityOffset));
         displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
       }
     }

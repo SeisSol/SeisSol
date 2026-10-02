@@ -400,8 +400,8 @@ easi::Query FaultGPGenerator::generate() const {
         seissol::geometry::ReferenceFaceMap(side, sideOrientation));
     for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
       auto localPoints = seissol::geometry::FaceTransform::FaceVectorT(
-          seissol::multisim::multisimTranspose(pointsView, n, 0),
-          seissol::multisim::multisimTranspose(pointsView, n, 1));
+          seissol::multisim::multisimTranspose<Config>(pointsView, n, 0),
+          seissol::multisim::multisimTranspose<Config>(pointsView, n, 1));
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::NumBoundaryGaussPoints<Config>) {
         localPoints =
@@ -755,7 +755,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   for (size_t i = 0; i < varNames.size(); ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
     known.insert(termName);
-    auto& term = multisim::multisimWrap(constantTerms, 0, i);
+    auto& term = multisim::multisimWrap<Config>(constantTerms, 0, i);
     if (supplied.count(termName) > 0) {
       adapter.addBindingPoint(termName, &term);
     } else {
@@ -803,7 +803,8 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   // simulation gets the same one.
   for (std::size_t sim = 1; sim < multisim::NumSimulations; ++sim) {
     for (size_t i = 0; i < varNames.size(); ++i) {
-      multisim::multisimWrap(constantTerms, sim, i) = multisim::multisimWrap(constantTerms, 0, i);
+      multisim::multisimWrap<Config>(constantTerms, sim, i) =
+          multisim::multisimWrap<Config>(constantTerms, 0, i);
     }
   }
 

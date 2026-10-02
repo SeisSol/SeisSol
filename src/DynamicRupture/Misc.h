@@ -64,7 +64,7 @@ constexpr uint32_t leadDim() noexcept {
  */
 template <typename Cfg>
 inline constexpr uint32_t NumPaddedPoints =
-    multisim::MultisimHelperWrapper<Cfg::NumSimulations>::MultisimEnabled
+    multisim::MultisimHelperWrapper<Cfg>::MultisimEnabled
         ? dimSize<init::QInterpolated<Cfg>, 0>() * dimSize<init::QInterpolated<Cfg>, 1>()
         : leadDim<init::QInterpolated<Cfg>>();
 template <typename Cfg>

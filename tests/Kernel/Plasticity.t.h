@@ -184,13 +184,13 @@ class ShearedPlasticityCell {
   [[nodiscard]] double
       plasticStrain(std::size_t sim, std::size_t node, std::size_t component) const {
     auto view = init::QStressNodal<Config>::view::create(pstrain_.data());
-    return multisim::simtensor(view, static_cast<int>(sim))(node, component);
+    return multisim::simtensor<Config>(view, static_cast<int>(sim))(node, component);
   }
 
   [[nodiscard]] double eta(std::size_t sim, std::size_t node) const {
     auto view = init::QEtaNodal<Config>::view::create(pstrain_.data() +
                                                       tensor::QStressNodal<Config>::size());
-    return multisim::simtensor(view, static_cast<int>(sim))(node);
+    return multisim::simtensor<Config>(view, static_cast<int>(sim))(node);
   }
 
   private:

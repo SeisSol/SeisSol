@@ -595,8 +595,8 @@ void EnergyOutput::computeVolumeEnergies() {
 
       for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
 
-        auto linSub = multisim::simtensor(lin, sim);
-        auto quadSub = multisim::simtensor(quad, sim);
+        auto linSub = multisim::simtensor<Config>(lin, sim);
+        auto quadSub = multisim::simtensor<Config>(quad, sim);
 
         // assume _constant_ material over a cell (will need adjustments for e.g. #1297)
 
@@ -662,7 +662,7 @@ void EnergyOutput::computeVolumeEnergies() {
         const auto rho = material.getDensity();
 
         for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-          const auto squaredView = multisim::simtensor(squaredViewFused, sim);
+          const auto squaredView = multisim::simtensor<Config>(squaredViewFused, sim);
 
           // contains an elided 0.5 * 2.0 (1/2 due to energy; 2 due to surface)
           localGravitationalPotentialEnergy[sim] += rho * g * surface * squaredView(0);
@@ -690,7 +690,7 @@ void EnergyOutput::computeVolumeEnergies() {
                       NumQuadraturePointsTet);
         auto qEtaQuadView = init::QEtaNodalProject<Config>::view::create(qEtaQuad);
         for (size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
-          const auto qEtaQuadSim = multisim::simtensor(qEtaQuadView, sim);
+          const auto qEtaQuadSim = multisim::simtensor<Config>(qEtaQuadView, sim);
           double pMoment = 0;
           for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
             pMoment += quadratureWeightsTet[qp] * qEtaQuadSim(qp);

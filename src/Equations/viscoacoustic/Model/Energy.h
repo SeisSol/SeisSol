@@ -153,8 +153,8 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
 
     const auto aneFused = init::momentQaneQane<Config>::view::create(moments.ane);
     const auto crossFused = init::momentQQane<Config>::view::create(moments.cross);
-    const auto ane = multisim::simtensor(aneFused, sim);
-    const auto cross = multisim::simtensor(crossFused, sim);
+    const auto ane = multisim::simtensor<Config>(aneFused, sim);
+    const auto cross = multisim::simtensor<Config>(crossFused, sim);
 
     // Moments of the traces. The quantity is a single isotropic stress
     // component, so the trace of the tensor it stands for is three times over

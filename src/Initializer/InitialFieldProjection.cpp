@@ -152,7 +152,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 
         const CellMaterialData& materialData = material[cell];
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-          auto sub = multisim::simtensor(iniCond, s);
+          auto sub = multisim::simtensor<Config>(iniCond, s);
           iniFields[s % iniFields.size()]->evaluate(
               0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
         }
@@ -266,7 +266,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
         // TODO: multisim loop
 
         for (std::size_t s = 0; s < seissol::multisim::NumSimulations; s++) {
-          auto sub = multisim::simtensor(iniCond, s);
+          auto sub = multisim::simtensor<Config>(iniCond, s);
           for (std::size_t i = 0; i < NumQuadPoints; ++i) {
             for (std::size_t j = 0; j < quantityCount; ++j) {
               sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);

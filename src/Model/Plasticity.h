@@ -47,7 +47,7 @@ struct PlasticityData {
     auto sinAngularFrictionV = init::meanStress<Cfg>::view::create(sinAngularFriction);
     sinAngularFrictionV.setZero();
 
-    using Multisim = multisim::MultisimHelperWrapper<Cfg::NumSimulations>;
+    using Multisim = multisim::MultisimHelperWrapper<Cfg>;
     for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
       auto initialLoadingVS = Multisim::simtensor(initialLoadingV, s);
       auto cohesionTimesCosAngularFrictionVS =

@@ -236,13 +236,15 @@ double ReceiverCluster::calcReceivers(double time,
           for (auto sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
                ++sim) {
             for (auto quantity : quantities_) {
-              if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
+              if (!std::isfinite(
+                      seissol::multisim::multisimWrap<Config>(qAtPoint, sim, quantity))) {
                 logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0]
                            << "," << receiver.position[1] << "," << receiver.position[2]
                            << " in simulation" << sim << "."
                            << "Aborting.";
               }
-              receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
+              receiver.output.push_back(
+                  seissol::multisim::multisimWrap<Config>(qAtPoint, sim, quantity));
             }
             for (const auto& derived : derivedQuantities_) {
               derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
@@ -363,7 +365,7 @@ std::array<std::array<double, Cell::Dim>, Cell::Dim> velocityGradient(
   std::array<std::array<double, Cell::Dim>, Cell::Dim> gradient{};
   for (std::size_t i = 0; i < Cell::Dim; ++i) {
     for (std::size_t j = 0; j < Cell::Dim; ++j) {
-      gradient[i][j] = seissol::multisim::multisimWrap(
+      gradient[i][j] = seissol::multisim::multisimWrap<Config>(
           qDerivativeAtPoint, sim, seissol::model::MaterialT::VelocityOffset + i, j);
     }
   }

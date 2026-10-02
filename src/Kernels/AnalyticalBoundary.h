@@ -54,7 +54,7 @@ struct ApplyAnalyticalSolution {
     // (only implemented to get the build to work)
 
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
+      auto slicedBoundaryDofs = multisim::simtensor<Config>(boundaryDofs, s);
       initConditions_->at(s % initConditions_->size())
           ->evaluate(
               time, nodesVec, NodeCount, localData_.get<LTS::Material>(), slicedBoundaryDofs);

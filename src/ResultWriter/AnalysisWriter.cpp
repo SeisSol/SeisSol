@@ -191,7 +191,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         krnl.Q = runtime::init::Q::view(Variant, dofsData[cell]);
         krnl.execute(Variant);
 
-        const auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
+        const auto numSub = seissol::multisim::simtensor<Config>(numericalSolution, sim);
 
         for (size_t i = 0; i < NumQuadPoints; ++i) {
           const auto curWeight = jacobiDet * quadratureWeights[i];

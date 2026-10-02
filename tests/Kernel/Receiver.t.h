@@ -51,7 +51,8 @@ inline std::vector<double> evaluate(kernels::DerivedReceiverQuantity& derived) {
   for (auto sim = multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
       for (std::size_t j = 0; j < Cell::Dim; ++j) {
-        multisim::multisimWrap(qDerivativeAtPoint, sim, model::MaterialT::VelocityOffset + i, j) =
+        multisim::multisimWrap<Config>(
+            qDerivativeAtPoint, sim, model::MaterialT::VelocityOffset + i, j) =
             velocityGradient(sim, i, j);
       }
     }

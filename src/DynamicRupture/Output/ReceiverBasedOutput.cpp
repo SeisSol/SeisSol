@@ -692,8 +692,8 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
 
     const auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints<Config>; ++jBndGP) {
-      const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 0);
-      const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 1);
+      const real chi = seissol::multisim::multisimTranspose<Config>(chiTau2dPoints, jBndGP, 0);
+      const real tau = seissol::multisim::multisimTranspose<Config>(chiTau2dPoints, jBndGP, 1);
 
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
@@ -708,10 +708,10 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
       projectedRT[d] *= m2inv(d, d);
     }
 
-    const real chi =
-        seissol::multisim::multisimTranspose(chiTau2dPoints, local.nearestInternalGpIndex, 0);
-    const real tau =
-        seissol::multisim::multisimTranspose(chiTau2dPoints, local.nearestInternalGpIndex, 1);
+    const real chi = seissol::multisim::multisimTranspose<Config>(
+        chiTau2dPoints, local.nearestInternalGpIndex, 0);
+    const real tau = seissol::multisim::multisimTranspose<Config>(
+        chiTau2dPoints, local.nearestInternalGpIndex, 1);
     basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};

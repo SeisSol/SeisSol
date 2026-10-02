@@ -164,8 +164,8 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
 
     const auto aneFused = init::momentQaneQane<Config>::view::create(moments.ane);
     const auto crossFused = init::momentQQane<Config>::view::create(moments.cross);
-    const auto ane = multisim::simtensor(aneFused, sim);
-    const auto cross = multisim::simtensor(crossFused, sim);
+    const auto ane = multisim::simtensor<Config>(aneFused, sim);
+    const auto cross = multisim::simtensor<Config>(crossFused, sim);
 
     // Voigt order (xx, yy, zz, xy, yz, xz). The anelastic variables carry tensor
     // components, so a double contraction weights the off-diagonals by two.
