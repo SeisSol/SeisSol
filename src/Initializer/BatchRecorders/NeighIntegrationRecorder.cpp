@@ -6,13 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
@@ -25,10 +26,6 @@
 #include <yateto.h>
 
 // NOLINTBEGIN (-misc-const-correctness)
-
-namespace seissol::tensor {
-struct Qext;
-}
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
@@ -43,8 +40,8 @@ void NeighIntegrationRecorder::record(LTS::Layer& layer) {
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   auto* faceNeighborsDevice = currentLayer_->var<LTS::FaceNeighborsDevice>();
-  real* integratedDofsScratch =
-      static_cast<real*>(currentLayer_->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
+  real* integratedDofsScratch = static_cast<real*>(
+      currentLayer_->var<LTS::IntegratedDofsScratch>(Config(), AllocationPlace::Device));
 
   const auto size = currentLayer_->size();
   if (size > 0) {
@@ -54,10 +51,10 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
     std::vector<real*> gtsIDofsPtrs{};
 
     for (std::size_t cell = 0; cell < size; ++cell) {
-      auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
+      auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        real* neighborBuffer = faceNeighborsDevice[cell][face];
+        auto* neighborBuffer = static_cast<real*>(faceNeighborsDevice[cell][face]);
 
         // check whether a neighbor element idofs has not been counted twice
         if ((idofsAddressRegistry_.find(neighborBuffer) == idofsAddressRegistry_.end())) {
@@ -90,7 +87,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter_ += kernels::Solver::IntegralsSize;
+                integratedDofsAddressCounter_ += kernels::SolverOf<Config>::IntegralsSize;
               } else {
                 idofsAddressRegistry_[neighborBuffer] = neighborBuffer;
               }
@@ -130,21 +127,21 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
 
-  const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>();
+  const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>(Config());
 
-  auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
+  auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(Config(), AllocationPlace::Device);
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
-    auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
-    auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
+    auto data = currentLayer_->cellRef<Config>(cell, AllocationPlace::Device);
+    auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
 
     for (std::size_t face = 0; face < Cell::NumFaces; face++) {
       switch (dataHost.get<LTS::CellInformation>().faceTypes[face]) {
       case FaceType::Regular: {
         // compute face type relation
 
-        real* neighborBufferPtr = faceNeighborsDevice[cell][face];
+        auto* neighborBufferPtr = static_cast<real*>(faceNeighborsDevice[cell][face]);
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBufferPtr != nullptr) {
           const auto faceRelation =
@@ -160,8 +157,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
           regularPeriodicAminusT[face][faceRelation].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
           if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-            regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                         kernels::size<tensor::Qext>() * cell);
+            regularDofsExt[face][faceRelation].push_back(
+                static_cast<real*>(dofsExt) + kernels::size<tensor::Qext<Config>>() * cell);
           }
         }
         break;
@@ -178,7 +175,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
         if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
           drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                  kernels::size<tensor::Qext>() * cell);
+                                                  kernels::size<tensor::Qext<Config>>() * cell);
         }
         break;
       }

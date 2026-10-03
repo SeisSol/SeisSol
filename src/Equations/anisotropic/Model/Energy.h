@@ -7,11 +7,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ENERGY_H_
 
+#include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/pool.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 
@@ -47,13 +47,16 @@ struct EnergyCompute<AnisotropicMaterial> {
   /// No anelastic variables. See the viscoelastic specialization for the
   /// non-trivial case; the arguments are accepted uniformly so that
   /// EnergyOutput does not need to branch on the material.
+  template <typename Cfg>
   struct Moments {};
-  static Moments
-      computeMoments(const real* /*dofs*/, const real* /*dofsAne*/, const seissol::Pool& /*pool*/) {
+
+  template <typename Cfg>
+  static Moments<Cfg> computeMoments(const Real<Cfg>* /*dofs*/, const Real<Cfg>* /*dofsAne*/) {
     return {};
   }
 
-  static AnisotropicMaterial::EnergyData initEnergyData(const AnisotropicMaterial& material) {
+  template <typename Cfg>
+  static AnisotropicMaterial::EnergyData<Cfg> initEnergyData(const AnisotropicMaterial& material) {
     // The c_IJ follow *standard* Voigt numbering (1=xx, 2=yy, 3=zz, 4=yz, 5=xz,
     // 6=xy), as can be read off getTransposedCoefficientMatrix in
     // AnisotropicSetup.h. The quantity vector Q, and hence quadSub, uses
@@ -96,23 +99,23 @@ struct EnergyCompute<AnisotropicMaterial> {
                      << "). The elastic energy of such cells is not well defined and will be"
                      << "reported as zero. Further occurrences are not reported.";
       }
-      return AnisotropicEnergyData{};
+      return AnisotropicEnergyData<Cfg>{};
     }
 
     const auto inverse = stiffness.inverse().eval();
 
-    AnisotropicEnergyData data{};
+    AnisotropicEnergyData<Cfg> data{};
     std::copy_n(inverse.data(), data.matS.size(), data.matS.begin());
     return data;
   }
 
-  template <typename LinearViewT, typename QuadraticViewT>
+  template <typename Cfg, typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const AnisotropicMaterial& material,
-                      const AnisotropicMaterial::EnergyData& data,
+                      const AnisotropicMaterial::EnergyData<Cfg>& data,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
-                      const Moments& /*moments*/,
+                      const Moments<Cfg>& /*moments*/,
                       std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
 

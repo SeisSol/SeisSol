@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -33,30 +34,30 @@ inline real velocityGradient(std::size_t sim, std::size_t i, std::size_t j) {
 
 /// Evaluates a derived receiver quantity for every simulation on point values that carry the
 /// velocity gradient above and a poison value everywhere else.
-inline std::vector<real> evaluate(kernels::DerivedReceiverQuantity& derived) {
+inline std::vector<double> evaluate(const kernels::DerivedReceiverQuantity& derived) {
   // Larger than any entry of the velocity gradient, and finite, so that reading it does not depend
   // on how the floating-point mode treats NaN.
   constexpr real Poison = 1000;
-  // Twice the size of the tensors: whatever is read besides the velocity gradient -- another
+  // Twice the size of the tensor: whatever is read besides the velocity gradient -- another
   // quantity, or something past the end of the tensor -- is the poison value and spoils the result,
   // rather than being whatever happens to follow in memory.
-  std::vector<real> qAtPointData(2 * static_cast<std::size_t>(tensor::QAtPoint::size()), Poison);
   std::vector<real> qDerivativeAtPointData(
-      2 * static_cast<std::size_t>(tensor::QDerivativeAtPoint::size()), Poison);
-  auto qAtPoint = init::QAtPoint::view::create(qAtPointData.data());
-  auto qDerivativeAtPoint = init::QDerivativeAtPoint::view::create(qDerivativeAtPointData.data());
+      2 * static_cast<std::size_t>(tensor::QDerivativeAtPoint<Config>::size()), Poison);
+  auto qDerivativeAtPoint =
+      init::QDerivativeAtPoint<Config>::view::create(qDerivativeAtPointData.data());
   for (auto sim = multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
       for (std::size_t j = 0; j < Cell::Dim; ++j) {
-        multisim::multisimWrap(qDerivativeAtPoint, sim, model::MaterialT::VelocityOffset + i, j) =
+        multisim::multisimWrap<Config>(
+            qDerivativeAtPoint, sim, model::MaterialT::VelocityOffset + i, j) =
             velocityGradient(sim, i, j);
       }
     }
   }
-  std::vector<real> output;
+  std::vector<double> output;
   for (auto sim = multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
     const auto before = output.size();
-    derived.compute(sim, output, qAtPoint, qDerivativeAtPoint);
+    derived.compute(output, kernels::velocityGradient<Config>(qDerivativeAtPoint, sim));
     // ReceiverCluster::ncols reserves exactly this many columns per simulation
     REQUIRE(output.size() - before == derived.quantities().size());
   }
@@ -65,7 +66,7 @@ inline std::vector<real> evaluate(kernels::DerivedReceiverQuantity& derived) {
 } // namespace receivertest
 
 TEST_CASE("Receiver rotation is the curl of the velocity" * doctest::test_suite("kernel")) {
-  kernels::ReceiverRotation rotation;
+  const kernels::ReceiverRotation rotation;
   const auto output = receivertest::evaluate(rotation);
   for (auto sim = multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
     const auto dv = [&](std::size_t i, std::size_t j) {
@@ -82,7 +83,7 @@ TEST_CASE("Receiver rotation is the curl of the velocity" * doctest::test_suite(
 
 TEST_CASE("Receiver strain rate is the symmetric velocity gradient" *
           doctest::test_suite("kernel")) {
-  kernels::ReceiverStrain strain;
+  const kernels::ReceiverStrain strain;
   const auto output = receivertest::evaluate(strain);
   for (auto sim = multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
     const auto dv = [&](std::size_t i, std::size_t j) {

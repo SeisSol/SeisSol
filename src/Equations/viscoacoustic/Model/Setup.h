@@ -52,11 +52,12 @@ struct MaterialSetup<ViscoAcousticMaterial<N>>
     write(0, 0, material.theta[mech][0]);
   }
 
+  template <typename Tloc, typename Tneigh>
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+                                        Tloc& qGodLocal,
+                                        Tneigh& qGodNeighbor) {
     seissol::model::getTransposedGodunovState(dynamic_cast<const AcousticMaterial&>(local),
                                               dynamic_cast<const AcousticMaterial&>(neighbor),
                                               faceType,

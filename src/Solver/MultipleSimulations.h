@@ -61,7 +61,9 @@ decltype(auto) reverseCall(F&& function, Pack&&... values) {
       std::forward<F>(function), std::forward_as_tuple(std::forward<Pack>(values)...), emptytuple);
 }
 
-template <unsigned int NumSimulationsT>
+/// The helpers for the fused simulations of the configuration `Cfg`. `NumSimulationsT` only selects
+/// the case and keeps its default.
+template <typename Cfg, unsigned int NumSimulationsT = Cfg::NumSimulations>
 struct MultisimHelperWrapper {
   // the (non-?)default case: NumSimulations > 1
   constexpr static unsigned int NumSimulations = NumSimulationsT;
@@ -70,7 +72,7 @@ struct MultisimHelperWrapper {
   // The simulation index is the leading dimension of the fused tensors, and the hand-written parts
   // of SeisSol step through it with NumSimulations as the stride. So the code generator must not
   // pad it; codegen/generate.py chooses the vector size accordingly.
-  static_assert(init::Q::Stop[0] - init::Q::Start[0] == NumSimulationsT,
+  static_assert(init::Q<Cfg>::Stop[0] - init::Q<Cfg>::Start[0] == NumSimulationsT,
                 "The simulation dimension of the fused tensors is padded. Choose a vector size "
                 "that divides the fused simulations (in bytes).");
 
@@ -105,13 +107,13 @@ struct MultisimHelperWrapper {
         [&](auto... args) { return tensor.subtensor(sim, args...); }, ::yateto::slice<>());
   }
 
-  constexpr static size_t MultisimStart = init::QAtPoint::Start[0];
-  constexpr static size_t MultisimEnd = init::QAtPoint::Stop[0];
+  constexpr static size_t MultisimStart = init::QAtPoint<Cfg>::Start[0];
+  constexpr static size_t MultisimEnd = init::QAtPoint<Cfg>::Stop[0];
   constexpr static bool MultisimEnabled = true;
 };
 
-template <>
-struct MultisimHelperWrapper<1> {
+template <typename Cfg>
+struct MultisimHelperWrapper<Cfg, 1> {
   constexpr static unsigned int NumSimulations = 1;
   constexpr static unsigned int BasisFunctionDimension = 0;
 
@@ -148,57 +150,65 @@ struct MultisimHelperWrapper<1> {
   constexpr static bool MultisimEnabled = false;
 };
 
-// short-hand definitions
-using MultisimHelper = MultisimHelperWrapper<Config::NumSimulations>;
+// short-hand definitions, for the configuration of the build
+using MultisimHelper = MultisimHelperWrapper<Config>;
 
 constexpr unsigned int NumSimulations = MultisimHelper::NumSimulations;
 constexpr unsigned int BasisFunctionDimension = MultisimHelper::BasisFunctionDimension;
 
+/// The dimension of the basis functions in the tensors of the configuration `Cfg`.
+template <typename Cfg>
+constexpr unsigned int BasisDim = MultisimHelperWrapper<Cfg>::BasisFunctionDimension;
+
+// The functions below take the configuration whose fused simulations they work on.
+
 #ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
 #endif
-template <typename F, typename... Args>
+template <typename Cfg, typename F, typename... Args>
 decltype(auto) multisimWrap(F&& function, size_t sim, Args&&... args) {
-  return MultisimHelper::multisimWrap(std::forward<F>(function), sim, std::forward<Args>(args)...);
+  return MultisimHelperWrapper<Cfg>::multisimWrap(
+      std::forward<F>(function), sim, std::forward<Args>(args)...);
 }
 
 #ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
 #endif
-template <typename T, typename F, typename... Args>
+template <typename Cfg, typename T, typename F, typename... Args>
 decltype(auto) multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
-  return MultisimHelper::multisimObjectWrap(
+  return MultisimHelperWrapper<Cfg>::multisimObjectWrap(
       std::forward<F>(func), obj, sim, std::forward<Args>(args)...);
 }
 
 #ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
 #endif
-template <typename F, typename... Args>
+template <typename Cfg, typename F, typename... Args>
 decltype(auto) multisimTranspose(F&& function, Args&&... args) {
-  return MultisimHelper::multisimTranspose(std::forward<F>(function), std::forward<Args>(args)...);
+  return MultisimHelperWrapper<Cfg>::multisimTranspose(std::forward<F>(function),
+                                                       std::forward<Args>(args)...);
 }
 
-template <typename TensorViewT>
+template <typename Cfg, typename TensorViewT>
 decltype(auto) simtensor(TensorViewT& tensor, int sim) {
-  return MultisimHelper::simtensor(tensor, sim);
+  return MultisimHelperWrapper<Cfg>::simtensor(tensor, sim);
 }
 constexpr size_t MultisimStart = MultisimHelper::MultisimStart;
 constexpr size_t MultisimEnd = MultisimHelper::MultisimEnd;
 constexpr bool MultisimEnabled = MultisimHelper::MultisimEnabled;
 
-template <typename Tensor>
+template <typename Cfg, typename Tensor>
 constexpr size_t leadDim() {
-  if constexpr (MultisimEnabled) {
+  if constexpr (MultisimHelperWrapper<Cfg>::MultisimEnabled) {
     return Tensor::Stop[1] - Tensor::Start[1];
   } else {
     return Tensor::Stop[0] - Tensor::Start[0];
   }
 }
 
-template <typename Tensor>
+template <typename Cfg, typename Tensor>
 constexpr size_t linearDim() {
-  if constexpr (MultisimEnabled) {
+  if constexpr (MultisimHelperWrapper<Cfg>::MultisimEnabled) {
     return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
   } else {
     return Tensor::Stop[0] - Tensor::Start[0];

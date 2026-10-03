@@ -6,6 +6,8 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-kernels OBJECT
+    BuiltConfigs.cpp
+    ConfigBoundary.cpp
     DynamicRupture.cpp
     Plasticity.cpp
     PointSourceClusterOnDevice.cpp

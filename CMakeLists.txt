@@ -59,6 +59,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #       derived input: WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
+include(cmake/configs.cmake)
 
 if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   message(STATUS "Enable coverage computation.")
@@ -282,7 +283,7 @@ if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
 endif()
 
 # needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
-if((${EQUATIONS} STREQUAL "poroelastic"))
+if("poroelastic" IN_LIST SEISSOL_CONFIG_MATERIALS)
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)

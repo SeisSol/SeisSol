@@ -11,9 +11,8 @@
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
-#include "Kernels/SolverSelector.h"
+#include "GeneratedCode/general/init.h"
+#include "GeneratedCode/general/kernel.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -34,16 +33,18 @@ struct ElasticMaterial : Material {
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Elastic;
   static inline const std::string Text = "elastic";
+  /// The material the Riemann problem at a face of a cell is posed in. Cells of different
+  /// configurations can neighbor each other if their materials pose it in the same one.
+  using RiemannMaterial = ElasticMaterial;
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
-  /// The scheme this build advances cells with. The material does not pick
-  /// it; which combinations are allowed is checked when the build is
-  /// configured. It cannot live on the base material, because Config.h
-  /// includes CommonDatastructures.h.
-  using Solver = kernels::SolverSelector<Config::Solver>::Type;
 
   static constexpr auto PrimaryGroups = ElasticQuantities;
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
   static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
   static constexpr auto InverseRotationGroups = PrimaryGroups;
 
   /// Where the velocity components start. Everything reaching for them --
@@ -62,6 +63,7 @@ struct ElasticMaterial : Material {
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
+  template <typename Cfg>
   using EnergyData = std::monostate;
 
   double lambda{};

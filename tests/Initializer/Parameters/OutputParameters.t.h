@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Common/ConfigRegistry.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
@@ -24,7 +25,7 @@ TEST_CASE("readOutputParameters: time series defaults to snapshots" *
       ioutputmask: '1'
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader);
+  const auto params = readOutputParameters(&reader, defaultConfig());
 
   CHECK(params.waveFieldParameters.timeSeries == TimeSeriesMode::Snapshot);
   CHECK(params.freeSurfaceParameters.timeSeries == TimeSeriesMode::Snapshot);
@@ -41,7 +42,7 @@ TEST_CASE("readOutputParameters: one setting reaches every mesh output" *
       outputtimeseries: 'monolith'
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader);
+  const auto params = readOutputParameters(&reader, defaultConfig());
 
   CHECK(params.waveFieldParameters.timeSeries == TimeSeriesMode::Monolith);
   CHECK(params.freeSurfaceParameters.timeSeries == TimeSeriesMode::Monolith);
@@ -62,7 +63,7 @@ TEST_CASE("readOutputParameters: an output keeps its own setting" *
       timeseries: 'monolith'
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader);
+  const auto params = readOutputParameters(&reader, defaultConfig());
 
   CHECK(params.waveFieldParameters.timeSeries == TimeSeriesMode::Monolith);
   CHECK(params.freeSurfaceParameters.timeSeries == TimeSeriesMode::Snapshot);
@@ -83,7 +84,7 @@ TEST_CASE("readOutputParameters: the fault output follows the shared setting" *
       vtkorder: 2
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader);
+  const auto params = readOutputParameters(&reader, defaultConfig());
 
   CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Incremental);
 }

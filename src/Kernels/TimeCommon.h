@@ -10,13 +10,19 @@
 #ifndef SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 #define SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 
+#include "Common/Real.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 
 namespace seissol::kernels {
+/// The time integration of the neighbors of a cell of the configuration `Cfg`.
+template <typename Cfg>
 struct TimeCommon {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   /**
    * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time
    derivatives.
@@ -33,28 +39,28 @@ struct TimeCommon {
    *   2 - 1: DOFs of cell 2 are integrated in time via time derivaitves.
    *   3 - 0: time itnegrated DOFs of cell 3 are copied from the buffer.
    *
-   * @param ltsSetup bitmask for the LTS setup.
-   * @param faceTypes face types of the neighboring cells.
+   * @param cellInformation the face types, the configurations of the face neighbors and the LTS
+   *setup (the bitmask above) of the cell; faces whose neighbor computes in another configuration
+   *are left to ConfigBoundary.
    * @param timeCoeffs GTS time integration basis coefficients
    * @param subtimeCoeffs LTS time integration basis coefficients (for neighbor.cluster >
    local.cluster)
    * @param timeDofs pointers to time integrated buffers or time derivatives of the four neighboring
-   *cells.
+   *cells, in the reals and the layout the cell computes in.
    * @param integrationBuffer memory where the time integration goes if derived from derivatives.
    *Ensure thread safety!
    * @param timeIntegrated pointers to the time integrated DOFs of the four neighboring cells
    *(either local integration buffer or integration buffer of input).
    **/
-  static void computeIntegrals(Time& time,
-                               const LtsSetup& ltsSetup,
-                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
+  static void computeIntegrals(Time<Cfg>& time,
+                               const CellLocalInformation& cellInformation,
                                const real* timeCoeffs,
                                const real* subtimeCoeffs,
-                               const std::array<real*, Cell::NumFaces>& timeDofs,
+                               const std::array<void*, Cell::NumFaces>& timeDofs,
                                const std::array<real*, Cell::NumFaces>& integrationBuffer,
                                std::array<real*, Cell::NumFaces>& timeIntegrated);
 
-  static void computeBatchedIntegrals(Time& time,
+  static void computeBatchedIntegrals(Time<Cfg>& time,
                                       const real* timeCoeffs,
                                       const real* subtimeCoeffs,
                                       recording::ConditionalPointersToRealsTable& table,

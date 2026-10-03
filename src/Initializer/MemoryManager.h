@@ -11,6 +11,8 @@
 #ifndef SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 #define SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "DynamicRupture/Factory.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/ParameterDB.h"
@@ -50,23 +52,24 @@ class MemoryManager {
   /*
    * Cross-cluster
    */
-  //! global data
-  GlobalData globalDataOnHost_;
-  GlobalData globalDataOnDevice_;
+  //! global data of every configuration
+  PerConfig<GlobalData> globalDataOnHost_;
+  PerConfig<GlobalData> globalDataOnDevice_;
 
   //! Memory organization storage
   LTS::Storage ltsStorage_;
   LTS::Backmap backmap_;
 
-  std::vector<std::unique_ptr<physics::InitialField>> iniConds_;
+  // the initial conditions of the cells of each configuration, by its id
+  std::vector<std::vector<std::unique_ptr<physics::InitialField>>> iniConds_;
 
   DynamicRupture::Backmap drBackmap_;
 
   DynamicRupture::Storage drStorage_;
   std::unique_ptr<DynamicRupture> dynRup_ = nullptr;
   std::unique_ptr<dr::initializer::BaseDRInitializer> drInitializer_ = nullptr;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionLaw_ = nullptr;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionLawDevice_ = nullptr;
+  dr::friction_law::FrictionSolverFactory frictionLaw_;
+  dr::friction_law::FrictionSolverFactory frictionLawDevice_;
   std::unique_ptr<dr::output::OutputManager> faultOutputManager_ = nullptr;
 
   Boundary::Storage boundaryStorage_;
@@ -87,14 +90,15 @@ class MemoryManager {
   void initialize();
 
   /**
-   * Gets the global data on both host and device.
+   * Gets the global data of the configuration `Cfg` on both host and device.
    **/
-  CompoundGlobalData globalData() {
-    CompoundGlobalData global{};
-    global.onHost = &globalDataOnHost_;
+  template <typename Cfg>
+  CompoundGlobalData<Cfg> globalData() {
+    CompoundGlobalData<Cfg> global{};
+    global.onHost = &globalDataOnHost_.get<Cfg>();
     global.onDevice = nullptr;
     if constexpr (seissol::isDeviceOn()) {
-      global.onDevice = &globalDataOnDevice_;
+      global.onDevice = &globalDataOnDevice_.get<Cfg>();
     }
     return global;
   }
@@ -117,16 +121,24 @@ class MemoryManager {
 
   Boundary::Storage& boundaryStorage() { return boundaryStorage_; }
 
-  void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
-    iniConds_ = std::move(iniConds);
+  /// Sets the initial conditions of the cells of the configuration `config`.
+  void setInitialConditions(ConfigId config,
+                            std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
+    iniConds_.at(config) = std::move(iniConds);
   }
 
-  const std::vector<std::unique_ptr<physics::InitialField>>& initialConditions() {
+  /// The initial conditions of the cells of the configuration `config`; the reference stays valid.
+  const std::vector<std::unique_ptr<physics::InitialField>>& initialConditions(ConfigId config) {
+    return iniConds_.at(config);
+  }
+
+  /// The initial conditions of the cells of every configuration, by its id.
+  const std::vector<std::vector<std::unique_ptr<physics::InitialField>>>& initialConditions() {
     return iniConds_;
   }
 
-  dr::friction_law::FrictionSolver* frictionLaw() { return frictionLaw_.get(); }
-  dr::friction_law::FrictionSolver* frictionLawDevice() { return frictionLawDevice_.get(); }
+  const dr::friction_law::FrictionSolverFactory& frictionLaw() { return frictionLaw_; }
+  const dr::friction_law::FrictionSolverFactory& frictionLawDevice() { return frictionLawDevice_; }
   seissol::dr::output::OutputManager* faultOutputManager() { return faultOutputManager_.get(); }
 
   void initializeFrictionLaw();

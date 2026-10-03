@@ -30,8 +30,8 @@ namespace dr::factory {
 struct DynamicRuptureTuple {
   std::unique_ptr<seissol::DynamicRupture> storage;
   std::unique_ptr<seissol::dr::initializer::BaseDRInitializer> initializer;
-  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
-  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLawDevice;
+  seissol::dr::friction_law::FrictionSolverFactory frictionLaw;
+  seissol::dr::friction_law::FrictionSolverFactory frictionLawDevice;
   std::unique_ptr<seissol::dr::output::OutputManager> output;
 };
 

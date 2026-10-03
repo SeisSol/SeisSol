@@ -8,10 +8,16 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INPUTAUX_H_
 #define SEISSOL_SRC_INITIALIZER_INPUTAUX_H_
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <fstream>
 #include <iterator>
 #include <list>
 #include <sstream>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
 #include <utils/logger.h>
 #include <vector>
 
@@ -65,17 +71,18 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
  * \throws runtime_error if the input string contains parameters, which can not be converted to T.
  * Or if the length is not equal to n (unless ignored).
  * */
-template <typename T, size_t N>
-std::array<T, N> convertStringToArray(const std::string& inputString,
-                                      bool exactLength = true,
-                                      bool skipEmpty = true,
-                                      char delimiter = ' ') {
-  auto result = std::array<T, N>();
+template <typename T>
+std::vector<T> convertStringToVector(const std::string& inputString,
+                                     std::size_t n,
+                                     bool exactLength = true,
+                                     bool skipEmpty = true,
+                                     char delimiter = ' ') {
+  auto result = std::vector<T>(n);
   if (inputString.empty()) {
-    if (exactLength && N > 0) {
+    if (exactLength && n > 0) {
       throw std::runtime_error(
           std::string("Insufficient number of elements in array. Given: 0. Required: ") +
-          std::to_string(N) + std::string("."));
+          std::to_string(n) + std::string("."));
     } else {
       return result;
     }
@@ -107,7 +114,7 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
       if (s == State::Word || !skipEmpty) {
         result.at(wordCount) = convert(begin, i);
         ++wordCount;
-        if (wordCount >= N) {
+        if (wordCount >= n) {
           break;
         }
       }
@@ -122,17 +129,32 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
 
   // handle rest. Note that if a line ends with a delimiter, we consider the last element to be an
   // empty one again.
-  if ((s == State::Word || !skipEmpty) && wordCount < N) {
+  if ((s == State::Word || !skipEmpty) && wordCount < n) {
     result.at(wordCount) = convert(begin, inputString.size());
     ++wordCount;
   }
 
-  if (wordCount != N && exactLength) {
+  if (wordCount != n && exactLength) {
     throw std::runtime_error(std::string("Insufficient number of elements in array. Given: ") +
                              std::to_string(wordCount) + std::string(". Required: ") +
-                             std::to_string(N));
+                             std::to_string(n));
   }
 
+  return result;
+}
+
+/**
+ * \brief Converts an input string to an array of the datatype T and length N, as
+ * `convertStringToVector` does.
+ * */
+template <typename T, size_t N>
+std::array<T, N> convertStringToArray(const std::string& inputString,
+                                      bool exactLength = true,
+                                      bool skipEmpty = true,
+                                      char delimiter = ' ') {
+  const auto values = convertStringToVector<T>(inputString, N, exactLength, skipEmpty, delimiter);
+  auto result = std::array<T, N>();
+  std::copy(values.begin(), values.end(), result.begin());
   return result;
 }
 //

@@ -10,13 +10,14 @@
 
 #include "GeneratedCode/init.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 
 #include <array>
 #include <cstddef>
 
 namespace seissol::physics {
 
+/// A field that is known analytically. It is evaluated in the reals of whoever asks: into views of
+/// float and of double alike.
 class InitialField {
   public:
   virtual ~InitialField() = default;
@@ -24,16 +25,45 @@ class InitialField {
                         const std::array<double, 3>* points,
                         std::size_t count,
                         const CellMaterialData& materialData,
-                        yateto::DenseTensorView<2, real, unsigned>& dofsQP) const = 0;
+                        yateto::DenseTensorView<2, float, unsigned>& dofsQP) const = 0;
+  virtual void evaluate(double time,
+                        const std::array<double, 3>* points,
+                        std::size_t count,
+                        const CellMaterialData& materialData,
+                        yateto::DenseTensorView<2, double, unsigned>& dofsQP) const = 0;
 };
 
-class ZeroField : public InitialField {
+/// Implements `evaluate` of `Base`, an `InitialField`, for both types of reals by `evaluateIn` of
+/// `Derived`, a template of the type of the reals.
+template <typename Derived, typename Base = InitialField>
+class InitialFieldOf : public Base {
   public:
-  void evaluate(double /*time*/,
-                const std::array<double, 3>* /*points*/,
-                std::size_t /*count*/,
-                const CellMaterialData& /*materialData*/,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
+  using Base::Base;
+
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, float, unsigned>& dofsQP) const override {
+    static_cast<const Derived*>(this)->evaluateIn(time, points, count, materialData, dofsQP);
+  }
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, double, unsigned>& dofsQP) const override {
+    static_cast<const Derived*>(this)->evaluateIn(time, points, count, materialData, dofsQP);
+  }
+};
+
+class ZeroField : public InitialFieldOf<ZeroField> {
+  public:
+  template <typename RealT>
+  void evaluateIn(double /*time*/,
+                  const std::array<double, 3>* /*points*/,
+                  std::size_t /*count*/,
+                  const CellMaterialData& /*materialData*/,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
     dofsQP.setZero();
   }
 };

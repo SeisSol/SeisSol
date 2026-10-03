@@ -235,21 +235,42 @@ void computeEigenvaluesWithLapack(std::array<std::complex<T>, Dim * Dim>& m,
     }
   }
 }
-
-template <typename T, size_t Dim>
-void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
-                        Eigenpair<std::complex<T>, Dim>& output) {
-  computeEigenvaluesWithLapack(m, output);
-}
-} // namespace seissol::eigenvalues
-#else
-namespace seissol::eigenvalues {
-template <typename T, size_t Dim>
-void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
-                        Eigenpair<std::complex<T>, Dim>& output) {
-  computeEigenvaluesWithEigen3(m, output);
-}
 } // namespace seissol::eigenvalues
 #endif // USE_LAPACK
+
+namespace seissol::eigenvalues {
+
+/**
+ * The libraries computeEigenvalues can use. LAPACK is linked into a build with a poroelastic
+ * configuration only.
+ */
+enum class Backend { Eigen3, Lapack };
+
+#ifdef USE_LAPACK
+constexpr Backend LapackIfLinked = Backend::Lapack;
+#else
+constexpr Backend LapackIfLinked = Backend::Eigen3;
+#endif
+
+/**
+ * Computes the eigenvalue decomposition of a dim x dim matrix of type T with the backend B
+ * The eigenvalues are sorted by their real parts
+ * @param M: Dense matrix of size dim x dim, stored in column-major format
+ * @param output: Reference to an Eigenpair to store the eigenvalue decomposition
+ */
+template <Backend B, typename T, size_t Dim>
+void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
+                        Eigenpair<std::complex<T>, Dim>& output) {
+  if constexpr (B == Backend::Lapack) {
+#ifdef USE_LAPACK
+    computeEigenvaluesWithLapack(m, output);
+#else
+    static_assert(B != Backend::Lapack, "LAPACK is not linked into this build.");
+#endif
+  } else {
+    computeEigenvaluesWithEigen3(m, output);
+  }
+}
+} // namespace seissol::eigenvalues
 
 #endif // SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_

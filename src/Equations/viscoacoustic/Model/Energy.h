@@ -8,14 +8,20 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_ENERGY_H_
 
 #include "Common/Constants.h"
+#include "Common/Typedefs.h"
+#include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/viscoacoustic/Model/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
-#include "GeneratedCode/pool.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
+
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+#include "Common/ConfigDispatch.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/runtime.h"
+#include "GeneratedCode/tensor.h"
 #include "Solver/MultipleSimulations.h"
+#endif
 
 #include <array>
 #include <cmath>
@@ -58,33 +64,47 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
 
   /**
    * Cell moments involving the anelastic variables, see codegen kernels
-   * `momentQaneQaneCompute` and `momentQQaneCompute`.
+   * `momentQaneQaneCompute` and `momentQQaneCompute`, for a configuration with the anelastic
+   * solver. With the solver linearck, the anelastic variables are among the unknowns, so that their
+   * moments are second moments of the unknowns, which computeEnergies gets anyway.
    */
-  struct Moments {
-    alignas(Alignment) real ane[tensor::momentQaneQane::size()]{};
-    alignas(Alignment) real cross[tensor::momentQQane::size()]{};
+  template <typename Cfg, bool Anelastic = Cfg::Solver == SolverType::LinearCKAnelastic>
+  struct Moments {};
+
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+  template <typename Cfg>
+  struct Moments<Cfg, true> {
+    alignas(Alignment) Real<Cfg> ane[tensor::momentQaneQane<Cfg>::size()]{};
+    alignas(Alignment) Real<Cfg> cross[tensor::momentQQane<Cfg>::size()]{};
   };
+#endif
 
-  static Moments computeMoments(const real* dofs, const real* dofsAne, const seissol::Pool& pool) {
-    Moments moments{};
+  template <typename Cfg>
+  static Moments<Cfg> computeMoments([[maybe_unused]] const Real<Cfg>* dofs,
+                                     [[maybe_unused]] const Real<Cfg>* dofsAne) {
+    Moments<Cfg> moments{};
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+    if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
+      constexpr auto Variant = configIdOf<Cfg>();
 
-    kernel::momentQaneQaneCompute aneKrnl;
-    aneKrnl.bindGlobals(pool);
-    aneKrnl.Qane = dofsAne;
-    aneKrnl.momentQaneQane = moments.ane;
-    aneKrnl.execute();
+      runtime::kernel::momentQaneQaneCompute aneKrnl;
+      aneKrnl.Qane = runtime::init::Qane::view(Variant, dofsAne);
+      aneKrnl.momentQaneQane = runtime::init::momentQaneQane::view(Variant, moments.ane);
+      aneKrnl.execute(Variant);
 
-    kernel::momentQQaneCompute crossKrnl;
-    crossKrnl.bindGlobals(pool);
-    crossKrnl.Q = dofs;
-    crossKrnl.Qane = dofsAne;
-    crossKrnl.momentQQane = moments.cross;
-    crossKrnl.execute();
-
+      runtime::kernel::momentQQaneCompute crossKrnl;
+      crossKrnl.Q = runtime::init::Q::view(Variant, dofs);
+      crossKrnl.Qane = runtime::init::Qane::view(Variant, dofsAne);
+      crossKrnl.momentQQane = runtime::init::momentQQane::view(Variant, moments.cross);
+      crossKrnl.execute(Variant);
+    }
+#endif
     return moments;
   }
 
-  static typename ViscoMaterial::EnergyData initEnergyData(const ViscoMaterial& /*material*/) {
+  template <typename Cfg>
+  static typename ViscoMaterial::template EnergyData<Cfg>
+      initEnergyData(const ViscoMaterial& /*material*/) {
     return {};
   }
 
@@ -122,14 +142,51 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
    * Everything below evaluates these in a volumetric/deviatoric split, which
    * avoids inverting any 6x6 matrix.
    */
-  template <typename LinearViewT, typename QuadraticViewT>
+  template <typename Cfg, typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const ViscoMaterial& material,
-                      const typename ViscoMaterial::EnergyData& /*data*/,
+                      const typename ViscoMaterial::template EnergyData<Cfg>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
-                      const Moments& moments,
-                      std::size_t sim) {
+                      [[maybe_unused]] const Moments<Cfg>& moments,
+                      [[maybe_unused]] std::size_t sim) {
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+    if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
+      const auto aneFused = init::momentQaneQane<Cfg>::view::create(moments.ane);
+      const auto crossFused = init::momentQQane<Cfg>::view::create(moments.cross);
+      const auto ane = multisim::simtensor<Cfg>(aneFused, sim);
+      const auto cross = multisim::simtensor<Cfg>(crossFused, sim);
+      return computeEnergiesFrom(material, linSub, quadSub, cross, ane);
+    } else
+#endif
+    {
+      // the anelastic variables follow the elastic quantities among the unknowns, a block per
+      // mechanism
+      const auto anelasticIndex = [](std::size_t component, std::size_t mechanism) {
+        return ViscoMaterial::NumElasticQuantities + mechanism * ViscoMaterial::NumberPerMechanism +
+               component;
+      };
+      const auto cross = [&](std::size_t i, std::size_t j, std::size_t m) {
+        return quadSub(i, anelasticIndex(j, m));
+      };
+      const auto ane = [&](std::size_t i, std::size_t j, std::size_t m, std::size_t n) {
+        return quadSub(anelasticIndex(i, m), anelasticIndex(j, n));
+      };
+      return computeEnergiesFrom(material, linSub, quadSub, cross, ane);
+    }
+  }
+
+  /**
+   * The energies of a cell, given the moments of its anelastic variables: cross(i, j, m) the one of
+   * quantity i and component j of mechanism m, ane(i, j, m, n) the one of component i of mechanism
+   * m and component j of mechanism n.
+   */
+  template <typename LinearViewT, typename QuadraticViewT, typename CrossT, typename AneT>
+  static std::array<double, EnergyCount> computeEnergiesFrom(const ViscoMaterial& material,
+                                                             const LinearViewT& linSub,
+                                                             const QuadraticViewT& quadSub,
+                                                             const CrossT& cross,
+                                                             const AneT& ane) {
     std::array<double, EnergyCount> output{};
 
     constexpr auto UIdx = ViscoMaterial::VelocityOffset;
@@ -148,11 +205,6 @@ struct EnergyCompute<ViscoAcousticMaterial<Mechanisms>> {
     output[MomentumXIdx] = rho * u;
     output[MomentumYIdx] = rho * v;
     output[MomentumZIdx] = rho * w;
-
-    const auto aneFused = init::momentQaneQane::view::create(moments.ane);
-    const auto crossFused = init::momentQQane::view::create(moments.cross);
-    const auto ane = multisim::simtensor(aneFused, sim);
-    const auto cross = multisim::simtensor(crossFused, sim);
 
     // Moments of the traces. The quantity is a single isotropic stress
     // component, so the trace of the tensor it stands for is three times over

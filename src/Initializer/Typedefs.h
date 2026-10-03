@@ -14,6 +14,8 @@
 #include "Alignment.h"
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
+#include "Common/Real.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/pool.h"
@@ -21,6 +23,7 @@
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "Kernels/Data.h"
+#include "Kernels/SolverSelector.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
@@ -31,42 +34,49 @@
 namespace seissol {
 
 namespace kernels {
-constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+template <typename Cfg>
+constexpr std::size_t NumSpaceQuadraturePoints =
+    (Cfg::ConvergenceOrder + 1) * (Cfg::ConvergenceOrder + 1);
 } // namespace kernels
 
 /**
- * The generated constant matrices, as one table of pointers into the pool.
+ * The generated constant matrices of the configuration `Cfg`, as one table of pointers into the
+ * pool of its generator.
  *
- * There are two of these: one built on the image in this binary, one on a
- * copy of it in device memory. Which entries a table holds is decided by the
- * code generator, so adding a matrix no longer means touching this file.
+ * There are two of these per configuration: one built on the image in this binary, one on a
+ * copy of it in device memory. Which entries a table holds is decided by the code generator.
  **/
-using GlobalData = seissol::Pool;
+template <typename Cfg>
+using GlobalData = seissol::Pool<Cfg>;
 
+/// The global data of the configuration `Cfg` on the host and, in a GPU build, on the device.
+template <typename Cfg>
 struct CompoundGlobalData {
-  GlobalData* onHost{nullptr};
-  GlobalData* onDevice{nullptr};
+  GlobalData<Cfg>* onHost{nullptr};
+  GlobalData<Cfg>* onDevice{nullptr};
 };
 
 // data for the cell local integration
+template <typename Cfg>
 struct alignas(Alignment) LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::tensor::star::size(0)]{};
+  Real<Cfg> starMatrices[3][seissol::tensor::star<Cfg>::size(0)]{};
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::tensor::AplusT::size()]{};
+  Real<Cfg> nApNm1[4][seissol::tensor::AplusT<Cfg>::size()]{};
 
   // solver-specific data
-  seissol::model::MaterialT::Solver::LocalData specific;
+  typename seissol::kernels::SolverOf<Cfg>::LocalData specific;
 };
 
 // data for the neighboring boundary integration
+template <typename Cfg>
 struct alignas(Alignment) NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::tensor::AminusT::size()]{};
+  Real<Cfg> nAmNm1[4][seissol::tensor::AminusT<Cfg>::size()]{};
 
   // solver-specific data
-  seissol::model::MaterialT::Solver::NeighborData specific;
+  typename seissol::kernels::SolverOf<Cfg>::NeighborData specific;
 };
 
 // material constants per cell
@@ -83,10 +93,11 @@ struct DRFaceInformation {
   bool plusSideOnThisRank{};
 };
 
+template <typename Cfg>
 struct DRGodunovData {
-  real dataTinvT[seissol::tensor::TinvT::size()]{};
-  real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()]{};
-  real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()]{};
+  Real<Cfg> dataTinvT[seissol::tensor::TinvT<Cfg>::size()]{};
+  Real<Cfg> tractionPlusMatrix[seissol::tensor::tractionPlusMatrix<Cfg>::size()]{};
+  Real<Cfg> tractionMinusMatrix[seissol::tensor::tractionMinusMatrix<Cfg>::size()]{};
   // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of
@@ -99,11 +110,12 @@ struct DRGodunovData {
   double doubledSurfaceArea{};
 };
 
+template <typename Cfg>
 struct DREnergyOutput {
-  real slip[seissol::tensor::slipInterpolated::size()]{};
-  real accumulatedSlip[seissol::dr::misc::NumPaddedPoints]{};
-  real frictionalEnergy[seissol::dr::misc::NumPaddedPoints]{};
-  real timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints]{};
+  Real<Cfg> slip[seissol::tensor::slipInterpolated<Cfg>::size()]{};
+  Real<Cfg> accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
+  Real<Cfg> frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
+  Real<Cfg> timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
 
   static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {
     return {
@@ -127,33 +139,36 @@ struct DREnergyOutput {
   }
 };
 
+template <typename Cfg>
 struct CellDRMapping {
   std::int8_t side{};
   std::int8_t faceRelation{};
-  real* godunov{nullptr};
-  real* fluxSolver{nullptr};
+  Real<Cfg>* godunov{nullptr};
+  Real<Cfg>* fluxSolver{nullptr};
 };
 
+template <typename Cfg>
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
-  real dataT[seissol::tensor::T::size()]{};
-  real dataTinv[seissol::tensor::Tinv::size()]{};
-  real dirichletOffset[seissol::tensor::dirichletOffset::size()]{};
-  real dirichletMap[seissol::tensor::dirichletMap::size()]{};
-  real fsgData[3]{};
+  Real<Cfg> nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] * 3]{};
+  Real<Cfg> dataT[seissol::tensor::T<Cfg>::size()]{};
+  Real<Cfg> dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
+  Real<Cfg> dirichletOffset[seissol::tensor::dirichletOffset<Cfg>::size()]{};
+  Real<Cfg> dirichletMap[seissol::tensor::dirichletMap<Cfg>::size()]{};
+  Real<Cfg> fsgData[3]{};
 };
 
+template <typename Cfg>
 struct CellBoundaryMapping {
-  real* nodes{nullptr};
-  real* dataT{nullptr};
-  real* dataTinv{nullptr};
-  real* dirichletOffset{nullptr};
-  real* dirichletMap{nullptr};
-  real* fsgData{nullptr};
+  Real<Cfg>* nodes{nullptr};
+  Real<Cfg>* dataT{nullptr};
+  Real<Cfg>* dataTinv{nullptr};
+  Real<Cfg>* dirichletOffset{nullptr};
+  Real<Cfg>* dirichletMap{nullptr};
+  Real<Cfg>* fsgData{nullptr};
 
   CellBoundaryMapping() = default;
-  explicit CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
+  explicit CellBoundaryMapping(BoundaryFaceInformation<Cfg>& faceInfo)
       : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
         dirichletOffset(faceInfo.dirichletOffset), dirichletMap(faceInfo.dirichletMap),
         fsgData(faceInfo.fsgData) {}

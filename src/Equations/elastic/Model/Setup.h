@@ -165,7 +165,8 @@ struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMate
     if (faceType == FaceType::FreeSurface) {
       const MaterialType materialtype =
           testIfAcoustic(local.mu) ? MaterialType::Acoustic : MaterialType::Elastic;
-      getTransposedFreeSurfaceGodunovState(materialtype, qGodLocal, qGodNeighbor, matR);
+      getTransposedFreeSurfaceGodunovState<ElasticMaterial>(
+          materialtype, qGodLocal, qGodNeighbor, matR);
     } else {
       // chi selects the waves travelling away from the local cell; everything else (the incoming
       // waves and the non-propagating null-space modes) belongs to the local subsystem. Since the

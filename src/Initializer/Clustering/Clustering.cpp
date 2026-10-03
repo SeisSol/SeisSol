@@ -7,6 +7,7 @@
 
 #include "Initializer/Clustering/Clustering.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
 #include "Geometry/PUMLReader.h"
@@ -47,10 +48,15 @@ const ClusteringResult&
                         const seissol::geometry::PumlMesh& meshGeometry,
                         const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
   bool continueComputation = true;
-  if (!model::MaterialT::SupportsLTS) {
-    logInfo() << "The material" << model::MaterialT::Text
-              << "does not support LTS. Switching to GTS.";
-    continueComputation = false;
+  // the materials of all configurations of the run
+  for (const auto config : seissolInstance_.parameters().model.configs()) {
+    dispatchConfig(config, [&](auto cfg) {
+      using MaterialT = model::MaterialOf<decltype(cfg)>;
+      if (!MaterialT::SupportsLTS) {
+        logInfo() << "The material" << MaterialT::Text << "does not support LTS. Switching to GTS.";
+        continueComputation = false;
+      }
+    });
   }
   if (rate_.empty() || (rate_.size() == 1 && rate_[0] == 1)) {
     logInfo() << "GTS has been selected.";

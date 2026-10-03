@@ -11,7 +11,7 @@
 #ifndef SEISSOL_SRC_KERNELS_TIME_H_
 #define SEISSOL_SRC_KERNELS_TIME_H_
 
-#include "GeneratedCode/tensor.h"
+#include "Common/Real.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Kernel.h"
 #include "Monitoring/Metric.h"
@@ -24,8 +24,11 @@
 
 namespace seissol::kernels {
 
-class TimeKernel : public Kernel {
+template <typename Cfg>
+class TimeKernel : public Kernel<Cfg> {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   ~TimeKernel() override = default;
 
   /**

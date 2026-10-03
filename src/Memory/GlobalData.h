@@ -23,17 +23,20 @@ namespace matrixmanip {
  * is one allocation and one copy for the whole image, whatever it contains.
  * */
 struct OnHost {
-  static GlobalData pool(memory::ManagedAllocator& allocator, memory::Memkind memkind);
+  template <typename Cfg>
+  static GlobalData<Cfg> pool(memory::ManagedAllocator& allocator, memory::Memkind memkind);
 };
 
 struct OnDevice {
-  static GlobalData pool(memory::ManagedAllocator& allocator, memory::Memkind memkind);
+  template <typename Cfg>
+  static GlobalData<Cfg> pool(memory::ManagedAllocator& allocator, memory::Memkind memkind);
 };
 } // namespace matrixmanip
 
 template <typename MatrixManipPolicyT>
 struct GlobalDataInitializer {
-  static void init(GlobalData& globalData,
+  template <typename Cfg>
+  static void init(GlobalData<Cfg>& globalData,
                    memory::ManagedAllocator& memoryAllocator,
                    enum memory::Memkind memkind);
 };

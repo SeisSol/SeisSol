@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_KERNELS_ANALYTICALBOUNDARY_H_
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -28,17 +29,20 @@ namespace seissol::kernels {
 /**
  * Samples the analytical solution of the scenario at the given nodes and time.
  */
+template <typename Cfg>
 struct ApplyAnalyticalSolution {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
-                          LTS::Ref& data)
+                          LTS::Ref<Cfg>& data)
       : initConditions_(initConditions), localData_(data) {}
 
   void operator()(const real* nodes,
                   double time,
-                  seissol::init::INodal::view::type& boundaryDofs) const {
+                  typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) const {
     assert(initConditions_ != nullptr);
 
-    constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
+    constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
     alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
 
 #pragma omp simd
@@ -51,17 +55,20 @@ struct ApplyAnalyticalSolution {
     // NOTE: not yet tested for multisim setups
     // (only implemented to get the build to work)
 
-    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
+    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+      auto slicedBoundaryDofs = multisim::simtensor<Cfg>(boundaryDofs, s);
       initConditions_->at(s % initConditions_->size())
-          ->evaluate(
-              time, nodesVec, NodeCount, localData_.get<LTS::Material>(), slicedBoundaryDofs);
+          ->evaluate(time,
+                     nodesVec,
+                     NodeCount,
+                     localData_.template get<LTS::Material>(),
+                     slicedBoundaryDofs);
     }
   }
 
   private:
   const std::vector<std::unique_ptr<physics::InitialField>>* initConditions_;
-  LTS::Ref& localData_;
+  LTS::Ref<Cfg>& localData_;
 };
 
 /**
@@ -69,46 +76,49 @@ struct ApplyAnalyticalSolution {
  * timestep. The condition is a function of position and time alone; one that also
  * depended on the interior state would need the time-integrated DOFs passed in.
  */
+template <typename Cfg>
 class AnalyticalBoundary {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   AnalyticalBoundary() {
-    quadrature::GaussLegendre(quadPoints_.data(), quadWeights_.data(), ConvergenceOrder);
+    quadrature::GaussLegendre(quadPoints_.data(), quadWeights_.data(), Cfg::ConvergenceOrder);
   }
 
   template <typename Func>
-  void evaluate(const CellBoundaryMapping& boundaryMapping,
+  void evaluate(const CellBoundaryMapping<Cfg>& boundaryMapping,
                 const Func& evaluateBoundaryCondition,
                 real* dofsFaceBoundaryNodal,
                 double startTime,
                 double timeStepWidth) const {
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
+    auto boundaryDofs = init::INodal<Cfg>::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
-                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
+    static_assert(nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] ==
+                      tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
 
     // Compute quad points/weights for interval [t, t+dt]
-    double timePoints[ConvergenceOrder];
-    double timeWeights[ConvergenceOrder];
-    for (unsigned point = 0; point < ConvergenceOrder; ++point) {
+    double timePoints[Cfg::ConvergenceOrder];
+    double timeWeights[Cfg::ConvergenceOrder];
+    for (unsigned point = 0; point < Cfg::ConvergenceOrder; ++point) {
       timePoints[point] = (timeStepWidth * quadPoints_[point] + 2 * startTime + timeStepWidth) / 2;
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights_[point];
     }
 
-    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
-    auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
+    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal<Cfg>::size()];
+    auto boundaryDofsTmp = init::INodal<Cfg>::view::create(dofsFaceBoundaryNodalTmp);
 
     boundaryDofs.setZero();
     boundaryDofsTmp.setZero();
 
-    auto updateKernel = kernel::updateINodal{};
+    auto updateKernel = kernel::updateINodal<Cfg>{};
     updateKernel.INodal = dofsFaceBoundaryNodal;
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
 
-    for (unsigned i = 0; i < ConvergenceOrder; ++i) {
+    for (unsigned i = 0; i < Cfg::ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
       evaluateBoundaryCondition(boundaryMapping.nodes, timePoints[i], boundaryDofsTmp);
 
@@ -118,8 +128,8 @@ class AnalyticalBoundary {
   }
 
   private:
-  std::array<double, ConvergenceOrder> quadPoints_{};
-  std::array<double, ConvergenceOrder> quadWeights_{};
+  std::array<double, Cfg::ConvergenceOrder> quadPoints_{};
+  std::array<double, Cfg::ConvergenceOrder> quadWeights_{};
 };
 
 } // namespace seissol::kernels

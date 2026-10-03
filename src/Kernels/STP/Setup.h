@@ -8,7 +8,10 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SETUP_H_
 #define SEISSOL_SRC_KERNELS_STP_SETUP_H_
 
+#include "Common/Real.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/quantities.h"
+#include "Kernels/STP/Data.h"
 #include "Kernels/STP/Solver.h"
 #include "Model/Common.h"
 
@@ -29,16 +32,17 @@ constexpr bool isStiffRow(std::size_t quantity) {
   return false;
 }
 
-template <typename Tview>
-inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
+template <typename Cfg, typename Tview>
+inline void calcZinv(yateto::DenseTensorView<2, Real<Cfg>, unsigned>& zInv,
                      const Tview& sourceMatrix,
                      size_t quantity,
                      bool isStiff,
                      double timeStepWidth) {
-  using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
-  using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
+  constexpr auto Order = Cfg::ConvergenceOrder;
+  using Matrix = Eigen::Matrix<Real<Cfg>, Order, Order>;
+  using Vector = Eigen::Matrix<Real<Cfg>, Order, 1>;
 
-  Matrix matZ{init::Z::Values};
+  Matrix matZ{init::Z<Cfg>::Values};
   // Only a stiff row carries a diagonal source entry. The check is not
   // cosmetic: for every other row the source matrix has no entry at
   // (quantity, quantity), so the lookup itself would be out of pattern.
@@ -47,11 +51,11 @@ inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
   }
 
   auto solver = matZ.colPivHouseholderQr();
-  for (std::size_t col = 0; col < ConvergenceOrder; col++) {
+  for (std::size_t col = 0; col < Order; col++) {
     Vector rhs = Vector::Zero();
     rhs(col) = 1.0;
     auto zInvCol = solver.solve(rhs);
-    for (std::size_t row = 0; row < ConvergenceOrder; row++) {
+    for (std::size_t row = 0; row < Order; row++) {
       // save as transposed
       zInv(col, row) = zInvCol(row);
     }
@@ -59,14 +63,14 @@ inline void calcZinv(yateto::DenseTensorView<2, real, unsigned>& zInv,
 }
 
 // constexpr for loop since we need to instatiate the view templates
-template <typename MaterialT, size_t Istart, size_t Iend, typename Tview>
+template <typename Cfg, typename MaterialT, size_t Istart, size_t Iend, typename Tview>
 struct ZInvInitializer {
-  ZInvInitializer(real* zInvData, const Tview& sourceMatrix, real timeStepWidth) {
-    auto zInv = init::Zinv::view<Istart>::create(zInvData);
-    calcZinv(zInv, sourceMatrix, Istart, isStiffRow<MaterialT>(Istart), timeStepWidth);
+  ZInvInitializer(Real<Cfg>* zInvData, const Tview& sourceMatrix, Real<Cfg> timeStepWidth) {
+    auto zInv = init::Zinv<Cfg>::template view<Istart>::create(zInvData);
+    calcZinv<Cfg>(zInv, sourceMatrix, Istart, isStiffRow<MaterialT>(Istart), timeStepWidth);
     if constexpr (Istart < Iend - 1) {
-      auto* nextZInvData = zInvData + init::Zinv::size(Istart);
-      ZInvInitializer<MaterialT, Istart + 1, Iend, Tview>(
+      auto* nextZInvData = zInvData + init::Zinv<Cfg>::size(Istart);
+      ZInvInitializer<Cfg, MaterialT, Istart + 1, Iend, Tview>(
           nextZInvData, sourceMatrix, timeStepWidth);
     }
   };
@@ -78,20 +82,21 @@ struct ZInvInitializer {
  * the off-diagonal entries they feed back. Which rows those are comes from the
  * material.
  */
-template <typename MaterialT>
-struct SolverSetup<kernels::solver::stp::Solver, MaterialT>
-    : public SolverSetupDefaults<kernels::solver::stp::Solver, MaterialT> {
+template <typename Cfg, typename MaterialT>
+struct SolverSetup<kernels::solver::stp::Solver<Cfg>, MaterialT>
+    : public SolverSetupDefaults<kernels::solver::stp::Solver<Cfg>, MaterialT> {
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
-                                          typename MaterialT::Solver::LocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+                                          kernels::solver::stp::STPLocalData<Cfg>* localData) {
+    auto sourceMatrix = init::ET<Cfg>::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
     MaterialSetup<MaterialT>::getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-    ZInvInitializer<MaterialT, 0, MaterialT::NumQuantities, decltype(sourceMatrix)>(
+    ZInvInitializer<Cfg, MaterialT, 0, MaterialT::NumQuantities, decltype(sourceMatrix)>(
         localData->Zinv, sourceMatrix, timeStepWidth);
 
-    static_assert(MaterialT::StiffSourceRows.size() == generated::StiffSourceRowCount,
+    static_assert(MaterialT::StiffSourceRows.size() ==
+                      generated::Quantities<Cfg>::StiffSourceRowCount,
                   "the material and the generated kernels disagree on the stiff rows");
     for (std::size_t i = 0; i < MaterialT::StiffSourceRows.size(); ++i) {
       const auto& row = MaterialT::StiffSourceRows[i];

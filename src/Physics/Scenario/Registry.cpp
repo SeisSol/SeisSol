@@ -7,13 +7,14 @@
 
 #include "Registry.h"
 
-#include "Equations/Datastructures.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/MaterialType.h"
 #include "Physics/InitialField.h"
 #include "Physics/Scenario/Scenarios.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
 #include <array>
@@ -32,10 +33,20 @@ using initializer::parameters::InitializationType;
 
 using FieldList = std::vector<std::unique_ptr<InitialField>>;
 
-// The material models a scenario is formulated for. Kept as a compile-time condition rather
-// than a runtime check, since the material is fixed when the binary is built.
-constexpr bool Anelastic = model::MaterialT::Mechanisms > 0;
-constexpr bool Poroelastic = model::MaterialT::Type == model::MaterialType::Poroelastic;
+// The material models a scenario is formulated for.
+enum class MaterialRequirement { None, NotAnelastic, Poroelastic };
+
+bool fulfills(const ConfigValue& config, MaterialRequirement requirement) {
+  switch (requirement) {
+  case MaterialRequirement::NotAnelastic:
+    return config.relaxationMechanisms == 0;
+  case MaterialRequirement::Poroelastic:
+    return config.materialType == model::MaterialType::Poroelastic;
+  case MaterialRequirement::None:
+    break;
+  }
+  return true;
+}
 
 TravellingWaveParameters travellingWaveParameters(const Input& input) {
   const auto& initialization = input.parameters.initialization;
@@ -44,7 +55,7 @@ TravellingWaveParameters travellingWaveParameters(const Input& input) {
   parameters.origin = initialization.origin;
   parameters.kVec = initialization.kVec;
   constexpr double Eps = 1e-15;
-  for (std::size_t i = 0; i < model::MaterialT::NumQuantities; ++i) {
+  for (std::size_t i = 0; i < initialization.ampField.size(); ++i) {
     if (std::abs(initialization.ampField[i]) > Eps) {
       parameters.varField.push_back(i);
       parameters.ampField.emplace_back(initialization.ampField[i]);
@@ -68,10 +79,11 @@ AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(const Input
 // Fused simulations are offset against each other in phase, so that they do not all carry the
 // same wave.
 template <typename FieldT, typename... Args>
-FieldList perSimulation(const Args&... args) {
+FieldList perSimulation(const Input& input, const Args&... args) {
   FieldList fields;
-  for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
-    const double phase = (2.0 * M_PI * sim) / multisim::NumSimulations;
+  const auto numSimulations = configValue(input.config).numSimulations;
+  for (std::size_t sim = 0; sim < numSimulations; ++sim) {
+    const double phase = (2.0 * M_PI * sim) / numSimulations;
     fields.emplace_back(std::make_unique<FieldT>(args..., phase));
   }
   return fields;
@@ -87,8 +99,8 @@ FieldList single(Args&&... args) {
 struct Entry {
   InitializationType type;
   std::string_view name;
-  // Whether the scenario is defined for the material this binary was built for.
-  bool definedForMaterial;
+  // What the material has to be for the scenario to be defined.
+  MaterialRequirement requirement;
   // Full clause, used as-is in the diagnostic when the scenario is unavailable.
   std::string_view materialRequirement;
   // Whether the scenario can be evaluated at arbitrary times, which an analytical boundary
@@ -100,33 +112,38 @@ struct Entry {
 constexpr std::array<Entry, 12> Registry = {{
     {InitializationType::Zero,
      "zero",
-     true,
+     MaterialRequirement::None,
      "",
      true,
      [](const Input&) { return single<ZeroField>(); }},
     {InitializationType::Planarwave,
      "planar wave",
-     true,
+     MaterialRequirement::None,
      "",
      true,
-     [](const Input& input) { return perSimulation<Planarwave>(input.materialData); }},
+     [](const Input& input) {
+       return perSimulation<Planarwave>(input, input.materialData, input.config);
+     }},
     {InitializationType::SuperimposedPlanarwave,
      "super-imposed planar wave",
-     true,
+     MaterialRequirement::None,
      "",
      true,
-     [](const Input& input) { return perSimulation<SuperimposedPlanarwave>(input.materialData); }},
+     [](const Input& input) {
+       return perSimulation<SuperimposedPlanarwave>(input, input.materialData, input.config);
+     }},
     {InitializationType::Travelling,
      "travelling wave",
-     !Anelastic,
+     MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
      [](const Input& input) {
-       return single<TravellingWave>(input.materialData, travellingWaveParameters(input));
+       return single<TravellingWave>(
+           input.materialData, input.config, travellingWaveParameters(input));
      }},
     {InitializationType::AcousticTravellingWithITM,
      "acoustic travelling wave with ITM",
-     !Anelastic,
+     MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
      [](const Input& input) {
@@ -135,42 +152,48 @@ constexpr std::array<Entry, 12> Registry = {{
      }},
     {InitializationType::Scholte,
      "Scholte wave (elastic-acoustic)",
-     !Anelastic,
+     MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
      [](const Input&) { return single<ScholteWave>(); }},
     {InitializationType::Snell,
      "Snell's law (elastic-acoustic)",
-     !Anelastic,
+     MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
      [](const Input&) { return single<SnellsLaw>(); }},
     {InitializationType::Ocean0,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 0)",
-     !Anelastic,
+     MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
-     [](const Input& input) { return single<Ocean>(0, input.gravitation.acceleration); }},
+     [](const Input& input) {
+       return single<Ocean>(0, input.gravitation.acceleration, input.config);
+     }},
     {InitializationType::Ocean1,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 1)",
-     !Anelastic,
+     MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
-     [](const Input& input) { return single<Ocean>(1, input.gravitation.acceleration); }},
+     [](const Input& input) {
+       return single<Ocean>(1, input.gravitation.acceleration, input.config);
+     }},
     {InitializationType::Ocean2,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 2)",
-     !Anelastic,
+     MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
-     [](const Input& input) { return single<Ocean>(2, input.gravitation.acceleration); }},
+     [](const Input& input) {
+       return single<Ocean>(2, input.gravitation.acceleration, input.config);
+     }},
     {InitializationType::PressureInjection,
      "pressure injection",
-     Poroelastic,
+     MaterialRequirement::Poroelastic,
      "it is formulated for a poroelastic material",
      true,
      [](const Input& input) { return single<PressureInjection>(input.parameters.initialization); }},
     // Read from a file, and hence known at t = 0 only.
-    {InitializationType::Easi, "easi file", true, {}, false, nullptr},
+    {InitializationType::Easi, "easi file", MaterialRequirement::None, {}, false, nullptr},
 }};
 
 const Entry* find(InitializationType type) {
@@ -186,19 +209,19 @@ std::string_view name(InitializationType type) {
   return entry == nullptr ? "unknown" : entry->name;
 }
 
-Availability availability(InitializationType type) {
+Availability availability(InitializationType type, ConfigId config) {
   const auto* entry = find(type);
   if (entry == nullptr) {
     return {false, "it is not a known scenario"};
   }
-  if (!entry->definedForMaterial) {
+  if (!fulfills(configValue(config), entry->requirement)) {
     return {false, entry->materialRequirement};
   }
   return {};
 }
 
-Availability analyticalBoundaryAvailability(InitializationType type) {
-  const auto general = availability(type);
+Availability analyticalBoundaryAvailability(InitializationType type, ConfigId config) {
+  const auto general = availability(type, config);
   if (!general.available) {
     return general;
   }

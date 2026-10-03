@@ -7,7 +7,9 @@
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
+#include "Cfg.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cmath>
@@ -33,18 +35,22 @@ auto getrange(std::size_t size, std::size_t numElements) {
   }
 }
 
-void plasticityNonlinear(real** __restrict nodalStressTensors,
-                         real** __restrict pstrainPtr,
+template <typename Cfg>
+void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
+                         Real<Cfg>** __restrict pstrainPtr,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
-                         const seissol::model::PlasticityData* __restrict plasticity,
-                         real oneMinusIntegratingFactor,
-                         real tV,
-                         real timeStepWidth,
+                         const seissol::model::PlasticityData<Cfg>* __restrict plasticity,
+                         Real<Cfg> oneMinusIntegratingFactor,
+                         Real<Cfg> tV,
+                         Real<Cfg> timeStepWidth,
                          const size_t numElements,
                          void* streamPtr) {
-  constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
-                                init::QStressNodal::Start[multisim::BasisFunctionDimension];
+
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisFunctionDimension] -
+                                init::QStressNodal<Cfg>::Start[multisim::BasisFunctionDimension];
 
   auto queue = reinterpret_cast<sycl::queue*>(streamPtr);
   auto rng = getrange(NumNodes, numElements);
@@ -59,7 +65,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       real* qStressNodal = nodalStressTensors[wid];
       real localStresses[NumStressComponents];
 
-      constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
+      constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal<Cfg>>();
 #pragma unroll
       for (int i = 0; i < NumStressComponents; ++i) {
         localStresses[i] = qStressNodal[tid + ElementTensorsColumn * i];
@@ -107,7 +113,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       if (isAdjusted[0]) {
         const real factor = plasticity[wid].mufactor / (tV * oneMinusIntegratingFactor);
 
-        real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal::size();
+        real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal<Cfg>::size();
         real* __restrict localPstrain = pstrainPtr[wid];
 
         real dudtUpdate = 0;
@@ -143,5 +149,20 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
     });
   });
 }
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void plasticityNonlinear<Cfg>(                                                          \
+      Real<Cfg> * * __restrict nodalStressTensors,                                                 \
+      Real<Cfg> * * __restrict pstrainPtr,                                                         \
+      unsigned* __restrict isAdjustableVector,                                                     \
+      std::size_t* __restrict yieldCounter,                                                        \
+      const seissol::model::PlasticityData<Cfg>* __restrict plasticity,                            \
+      Real<Cfg> oneMinusIntegratingFactor,                                                         \
+      Real<Cfg> tV,                                                                                \
+      Real<Cfg> timeStepWidth,                                                                     \
+      size_t numElements,                                                                          \
+      void* streamPtr);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels::device::aux::plasticity

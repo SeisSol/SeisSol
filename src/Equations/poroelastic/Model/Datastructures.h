@@ -9,7 +9,6 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -28,6 +27,9 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
   static inline const std::string Text = "poroelastic";
+  /// The material the Riemann problem at a face of a cell is posed in; the fluid takes part in
+  /// it, unlike in the elastic material this one derives from.
+  using RiemannMaterial = PoroElasticMaterial;
   static inline const std::array<std::string, NumQuantities> Quantities{"s_xx",
                                                                         "s_yy",
                                                                         "s_zz",
@@ -41,15 +43,14 @@ struct PoroElasticMaterial : public ElasticMaterial {
                                                                         "v1_f",
                                                                         "v2_f",
                                                                         "v3_f"};
-  /// The scheme this build advances cells with. The material does not pick
-  /// it; which combinations are allowed is checked when the build is
-  /// configured. It cannot live on the base material, because Config.h
-  /// includes CommonDatastructures.h.
-  using Solver = kernels::SolverSelector<Config::Solver>::Type;
 
   static constexpr auto PrimaryGroups =
       detail::concat(ElasticQuantities, PoroelasticExtraQuantities);
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
   static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
   static constexpr auto InverseRotationGroups = PrimaryGroups;
 
   /// The fluid velocities relax against the solid ones through Biot drag.
@@ -72,6 +73,7 @@ struct PoroElasticMaterial : public ElasticMaterial {
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
+  template <typename Cfg>
   using EnergyData = std::monostate;
 
   double bulkSolid{};

@@ -13,7 +13,6 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
 
@@ -22,6 +21,7 @@
 #include <string>
 
 namespace seissol::model {
+template <typename Cfg>
 struct AnisotropicEnergyData;
 
 struct AnisotropicMaterial : public Material {
@@ -31,16 +31,18 @@ struct AnisotropicMaterial : public Material {
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Anisotropic;
   static inline const std::string Text = "anisotropic";
+  /// The material the Riemann problem at a face of a cell is posed in. Cells of different
+  /// configurations can neighbor each other if their materials pose it in the same one.
+  using RiemannMaterial = AnisotropicMaterial;
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
-  /// The scheme this build advances cells with. The material does not pick
-  /// it; which combinations are allowed is checked when the build is
-  /// configured. It cannot live on the base material, because Config.h
-  /// includes CommonDatastructures.h.
-  using Solver = kernels::SolverSelector<Config::Solver>::Type;
 
   static constexpr auto PrimaryGroups = ElasticQuantities;
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
   static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
   static constexpr auto InverseRotationGroups = PrimaryGroups;
 
   /// Where the velocity components start. Everything reaching for them --
@@ -59,7 +61,8 @@ struct AnisotropicMaterial : public Material {
   using LocalSpecificData = std::monostate;
   using NeighborSpecificData = std::monostate;
 
-  using EnergyData = AnisotropicEnergyData;
+  template <typename Cfg>
+  using EnergyData = AnisotropicEnergyData<Cfg>;
 
   double c11{};
   double c12{};

@@ -6,12 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "FaceTypeCheck.h"
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Parameters/InitializationParameters.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
@@ -24,6 +26,7 @@
 #include <mpi.h>
 #include <sstream>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer::internal {
 
@@ -38,32 +41,48 @@ struct FaceTypeCensus {
   std::uint32_t cellRejected{0};
 };
 
-FaceTypeCensus collectFaceTypes(LTS::Storage& storage) {
-  FaceTypeCensus census;
+/// The face types of the cells of each configuration, by the id of the configuration.
+std::vector<FaceTypeCensus> collectFaceTypes(LTS::Storage& storage) {
+  std::vector<FaceTypeCensus> census(builtConfigCount());
 
   const LayerMask ghostMask(Ghost);
   for (auto& layer : storage.leaves(ghostMask)) {
-    const auto* cellInformation = layer.var<LTS::CellInformation>();
-    const auto* materialData = layer.var<LTS::MaterialData>();
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        const auto faceType = cellInformation[cell].faceTypes[face];
-        census.present |= faceTypeBit(faceType);
-        // NOLINTNEXTLINE
-        if (!model::faceTypeCellAdmissible<model::MaterialT>(faceType, materialData[cell])) {
-          census.cellRejected |= faceTypeBit(faceType);
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      auto& configCensus = census[configIdOf<Cfg>()];
+      const auto* cellInformation = layer.var<LTS::CellInformation>();
+      const auto* materialData = layer.var<LTS::MaterialData>(Cfg());
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          const auto faceType = cellInformation[cell].faceTypes[face];
+          configCensus.present |= faceTypeBit(faceType);
+          // NOLINTNEXTLINE
+          if (!model::faceTypeCellAdmissible<model::MaterialOf<Cfg>>(faceType,
+                                                                     materialData[cell])) {
+            configCensus.cellRejected |= faceTypeBit(faceType);
+          }
         }
       }
-    }
+    });
   }
 
   // A rank without a face of some type must not conclude that the type is absent; all ranks
   // have to reach the same verdict, or the run deadlocks instead of aborting.
-  std::array<std::uint32_t, 2> reduced{census.present, census.cellRejected};
-  MPI_Allreduce(
-      MPI_IN_PLACE, reduced.data(), reduced.size(), MPI_UINT32_T, MPI_BOR, Mpi::mpi.comm());
-  census.present = reduced[0];
-  census.cellRejected = reduced[1];
+  std::vector<std::uint32_t> reduced;
+  for (const auto& configCensus : census) {
+    reduced.push_back(configCensus.present);
+    reduced.push_back(configCensus.cellRejected);
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                reduced.data(),
+                static_cast<int>(reduced.size()),
+                Mpi::castToMpiType<std::uint32_t>(),
+                MPI_BOR,
+                Mpi::mpi.comm());
+  for (std::size_t config = 0; config < census.size(); ++config) {
+    census[config].present = reduced[2 * config];
+    census[config].cellRejected = reduced[2 * config + 1];
+  }
 
   return census;
 }
@@ -76,36 +95,46 @@ void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType 
   std::stringstream problems;
   std::size_t problemCount = 0;
 
-  for (const auto faceType : FaceTypes) {
-    if ((census.present & faceTypeBit(faceType)) == 0) {
-      continue;
-    }
+  // the cells of a configuration have to support the face types they have
+  for (ConfigId config = 0; config < census.size(); ++config) {
+    dispatchConfig(config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using MaterialT = model::MaterialOf<Cfg>;
+      const auto& configCensus = census[config];
+      for (const auto faceType : FaceTypes) {
+        if ((configCensus.present & faceTypeBit(faceType)) == 0) {
+          continue;
+        }
 
-    const auto material = model::faceTypeSupport<model::MaterialT>(faceType);
-    const auto solver = kernels::Solver::implementsFaceType(faceType);
+        const auto material = model::faceTypeSupport<MaterialT>(faceType);
+        const auto solver = kernels::SolverOf<Cfg>::implementsFaceType(faceType);
 
-    if (!material.supported) {
-      ++problemCount;
-      problems << "\n  " << faceTypeName(faceType) << ": not defined for material "
-               << model::MaterialT::Text << " (" << material.reason << ")";
-    } else if (!solver.supported) {
-      ++problemCount;
-      problems << "\n  " << faceTypeName(faceType) << ": not implemented by the solver used for "
-               << model::MaterialT::Text << " (" << solver.reason << ")";
-    } else if ((census.cellRejected & faceTypeBit(faceType)) != 0) {
-      ++problemCount;
-      const auto requirement = model::faceTypeCellRequirement<model::MaterialT>(faceType);
-      problems << "\n  " << faceTypeName(faceType) << ": present on a cell that does not qualify ("
-               << requirement.reason << ")";
-    } else if (faceType == FaceType::Analytical) {
-      const auto scenario = physics::scenario::analyticalBoundaryAvailability(scenarioType);
-      if (!scenario.available) {
-        ++problemCount;
-        problems << "\n  " << faceTypeName(faceType) << ": the configured scenario "
-                 << physics::scenario::name(scenarioType) << " cannot serve it, "
-                 << scenario.reason;
+        if (!material.supported) {
+          ++problemCount;
+          problems << "\n  " << faceTypeName(faceType) << ": not defined for material "
+                   << MaterialT::Text << " (" << material.reason << ")";
+        } else if (!solver.supported) {
+          ++problemCount;
+          problems << "\n  " << faceTypeName(faceType)
+                   << ": not implemented by the solver used for " << MaterialT::Text << " ("
+                   << solver.reason << ")";
+        } else if ((configCensus.cellRejected & faceTypeBit(faceType)) != 0) {
+          ++problemCount;
+          const auto requirement = model::faceTypeCellRequirement<MaterialT>(faceType);
+          problems << "\n  " << faceTypeName(faceType)
+                   << ": present on a cell that does not qualify (" << requirement.reason << ")";
+        } else if (faceType == FaceType::Analytical) {
+          const auto scenario =
+              physics::scenario::analyticalBoundaryAvailability(scenarioType, config);
+          if (!scenario.available) {
+            ++problemCount;
+            problems << "\n  " << faceTypeName(faceType) << ": the configured scenario "
+                     << physics::scenario::name(scenarioType) << " cannot serve it, "
+                     << scenario.reason;
+          }
+        }
       }
-    }
+    });
   }
 
   if (problemCount > 0) {

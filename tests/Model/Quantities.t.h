@@ -5,8 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
+#include "Kernels/SolverSelector.h"
 #include "Model/Common.h"
 #include "Model/Quantities.h"
 
@@ -81,7 +85,7 @@ bool insideAGroup(const std::array<model::QuantityGroup, N>& groups,
 TEST_CASE("Quantity groups describe the configured material" * doctest::test_suite("model")) {
   using namespace quantities;
 
-  constexpr auto Groups = model::MaterialT::RotationGroups;
+  constexpr auto Groups = model::MaterialT::RotationGroups<kernels::SolverOf<Config>>;
 
   // Each declaration has to account for every quantity its matrix covers, and
   // may nominate at most one traction and one velocity group. Getting this
@@ -91,20 +95,21 @@ TEST_CASE("Quantity groups describe the configured material" * doctest::test_sui
   // T and Tinv are checked separately because they need not span the same
   // quantities: a solver keeping the mechanism index in its own tensor
   // dimension rotates one anelastic block forwards and none back.
-  static_assert(model::quantitiesWellFormed(Groups, tensor::T::Shape[0]),
+  static_assert(model::quantitiesWellFormed(Groups, tensor::T<Config>::Shape[0]),
                 "the quantity groups do not describe the rotation matrix");
-  static_assert(
-      model::quantitiesWellFormed(model::MaterialT::InverseRotationGroups, tensor::Tinv::Shape[0]),
-      "the quantity groups do not describe the inverse rotation matrix");
-  static_assert(tensor::T::Shape[0] == tensor::T::Shape[1]);
-  static_assert(tensor::Tinv::Shape[0] == tensor::Tinv::Shape[1]);
-  static_assert(tensor::Tinv::Shape[0] <= tensor::T::Shape[0]);
+  static_assert(model::quantitiesWellFormed(
+                    model::MaterialT::InverseRotationGroups<kernels::SolverOf<Config>>,
+                    tensor::Tinv<Config>::Shape[0]),
+                "the quantity groups do not describe the inverse rotation matrix");
+  static_assert(tensor::T<Config>::Shape[0] == tensor::T<Config>::Shape[1]);
+  static_assert(tensor::Tinv<Config>::Shape[0] == tensor::Tinv<Config>::Shape[1]);
+  static_assert(tensor::Tinv<Config>::Shape[0] <= tensor::T<Config>::Shape[0]);
 
   // The velocity components start where the declaration says they do; the rest
   // of the code reaches for them through this offset.
   static_assert(model::roleOffset(model::MaterialT::PrimaryGroups, model::FaceRole::Velocity) ==
                 model::MaterialT::VelocityOffset);
-  static_assert(model::MaterialT::VelocityOffset < tensor::Tinv::Shape[0]);
+  static_assert(model::MaterialT::VelocityOffset < tensor::Tinv<Config>::Shape[0]);
   static_assert(model::MaterialT::TractionComponents > 0);
 }
 
@@ -112,20 +117,21 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
   using namespace quantities;
 
   constexpr double Epsilon = 1e4 * std::numeric_limits<real>::epsilon();
-  constexpr std::size_t Size = tensor::T::Shape[0];
-  constexpr std::size_t InverseSize = tensor::Tinv::Shape[0];
+  constexpr std::size_t Size = tensor::T<Config>::Shape[0];
+  constexpr std::size_t InverseSize = tensor::Tinv<Config>::Shape[0];
 
-  std::vector<real> matTData(tensor::T::size());
-  std::vector<real> matTinvData(tensor::Tinv::size());
-  auto matT = init::T::view::create(matTData.data());
-  auto matTinv = init::Tinv::view::create(matTinvData.data());
+  std::vector<real> matTData(tensor::T<Config>::size());
+  std::vector<real> matTinvData(tensor::Tinv<Config>::size());
+  auto matT = init::T<Config>::view::create(matTData.data());
+  auto matTinv = init::Tinv<Config>::view::create(matTinvData.data());
 
   // deterministic on purpose, so that a failure can be reproduced
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng(20260904);
   for (int sample = 0; sample < 32; ++sample) {
     const auto frame = randomFrame(rng);
-    model::getFaceRotationMatrix(frame.normal, frame.tangent1, frame.tangent2, matT, matTinv);
+    model::getFaceRotationMatrix<Config>(
+        frame.normal, frame.tangent1, frame.tangent2, matT, matTinv);
 
     SUBCASE("the inverse inverts the quantities it spans") {
       // This is what the two writers per kind are for: for a symmetric
@@ -149,14 +155,15 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
     SUBCASE("nothing is written outside the declared blocks") {
       for (std::size_t i = 0; i < Size; ++i) {
         for (std::size_t j = 0; j < Size; ++j) {
-          if (!insideAGroup(model::MaterialT::RotationGroups, i, j)) {
+          if (!insideAGroup(model::MaterialT::RotationGroups<kernels::SolverOf<Config>>, i, j)) {
             CHECK(matT(i, j) == static_cast<real>(0.0));
           }
         }
       }
       for (std::size_t i = 0; i < InverseSize; ++i) {
         for (std::size_t j = 0; j < InverseSize; ++j) {
-          if (!insideAGroup(model::MaterialT::InverseRotationGroups, i, j)) {
+          if (!insideAGroup(
+                  model::MaterialT::InverseRotationGroups<kernels::SolverOf<Config>>, i, j)) {
             CHECK(matTinv(i, j) == static_cast<real>(0.0));
           }
         }
@@ -165,7 +172,7 @@ TEST_CASE("Face rotation follows the quantity groups" * doctest::test_suite("mod
 
     SUBCASE("scalar groups do not rotate") {
       std::size_t offset = 0;
-      for (const auto& group : model::MaterialT::RotationGroups) {
+      for (const auto& group : model::MaterialT::RotationGroups<kernels::SolverOf<Config>>) {
         if (group.kind == model::QuantityKind::Scalar) {
           CHECK(std::abs(static_cast<double>(matT(offset, offset)) - 1.0) < Epsilon);
           if (offset < InverseSize) {

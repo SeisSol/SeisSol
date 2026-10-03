@@ -30,13 +30,14 @@ inline auto allocationModeBoundary() {
 }
 
 struct Boundary {
-  struct FaceInformation : public initializer::Variable<BoundaryFaceInformation> {};
+  struct FaceInformation : public initializer::VariantVariable<BoundaryFaceInformation> {};
 
   struct BoundaryVarmap : public initializer::SpecificVarmap<FaceInformation> {};
 
   using Storage = initializer::Storage<BoundaryVarmap>;
   using Layer = initializer::Layer<BoundaryVarmap>;
-  using Ref = initializer::Layer<BoundaryVarmap>::CellRef;
+  template <typename Cfg>
+  using Ref = initializer::Layer<BoundaryVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<1>;
 
   static void addTo(Storage& storage) {

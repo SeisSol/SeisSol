@@ -51,9 +51,34 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``double``: use double precision. Recommended, if your simulation fails with Inf/NaN errors in single precision builds. See also https://github.com/SeisSol/SeisSol/issues/200 .
 
 - ``NUMBER_OF_FUSED_SIMULATIONS``: the number of simulations run simultaneously.
+- ``EXTRA_CONFIGS``: further configurations to build into the same executable, next to the one the parameters above describe, as a list of their names, e.g. ``elastic-linearck-o4-f32-stroud``. A name reads ``<material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<dr quadrature rule>[-s<fused simulations>]``. A run chooses its configuration with ``Configuration`` in the ``equations`` section of the parameter file and takes the first one otherwise; with ``ConfigMap``, mesh groups compute in configurations of their own (see :ref:`several_configurations`). All configurations share the alignment and the vector size of the host architecture.
 - ``NEW_BINARY_NAMING``: (default on) use an updated binary naming scheme which uses lower-case letters and a shorter notation
 
 Besides these, the host or, if enabled, the device architecture and backend are also encoded in the name of the executable.
+
+.. _several_configurations:
+
+Several configurations in one run
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(NOTE: this feature is still considered highly experimental; its interface may change without notice)
+
+The cells of a mesh group can compute in another configuration built into the executable than the rest of the mesh. ``ConfigMap`` in the ``equations`` section assigns them, e.g.
+
+.. code-block:: Fortran
+
+  &equations
+  Configuration = 'elastic-linearck-o4-f64-stroud'
+  ConfigMap = '2,3:viscoelastic-linearckanelastic-m3-o4-f64-stroud; 4:elastic-linearck-o5-f64-stroud'
+  /
+
+computes the groups 2 and 3 viscoelastically, the group 4 with order 5, and all other groups in the configuration of the run.
+
+- The material file is queried for the cells of each configuration separately, with the material of that configuration. A group only has to define the parameters of the material it computes with.
+- At a face between cells of different configurations, each cell reads the time integral of its neighbor converted into its own configuration: quantities with the same name are taken over, all others are zero; the precision is converted; a neighbor of a lower order is padded with zeros, and the trace of a neighbor of a higher order is projected to the face basis of the cell. So both cells see the exact traces of each other. The neighbor enters the Riemann problem with the parameters it is posed with.
+- Such faces are possible between configurations whose materials pose the Riemann problem in the same material (elastic and viscoelastic; acoustic and viscoacoustic; each other material only with itself), and that fuse the same number of simulations. All configurations of a run have to fuse the same number of simulations. Dynamic rupture faces between configurations, runs with several configurations on GPUs, and checkpoints of such runs are not supported yet.
+- The initial condition is set up for each configuration. Configurations with the same material set it up alike, from the material of the same cell. A planar wave is therefore an exact solution across configurations of the same material only.
+- The wave field and the free surface are written into one output for all configurations. A quantity is written once for the cells of all configurations that have it, and as NaN for the others; the cell data ``config`` gives the position of the configuration of a cell in the list of the run: 0 for ``Configuration``, then the ones of ``ConfigMap`` in the order of the build. The log lists the configurations of the run. The analysis output writes one file per configuration.
 
 Generic parameters
 ------------------

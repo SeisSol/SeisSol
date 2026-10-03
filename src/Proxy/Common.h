@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_PROXY_COMMON_H_
 #define SEISSOL_SRC_PROXY_COMMON_H_
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Executor.h"
 
 #include <string>
@@ -25,6 +26,8 @@ struct ProxyConfig {
   std::vector<Kernel> kernels;
   bool verbose{true};
   Executor executor;
+  //! The configuration the kernels run in.
+  ConfigId config{defaultConfig()};
 };
 
 struct ProxyOutput {

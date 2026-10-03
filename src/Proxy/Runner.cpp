@@ -8,7 +8,6 @@
 
 #include "Runner.h"
 
-#include "GeneratedCode/kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
 #include "Kernels/Common.h"
@@ -73,7 +72,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
     std::cerr << "Allocating fake data... ";
   }
 
-  auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
+  auto data = makeProxyData(config.config, config.cells, enableDynamicRupture);
 
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 

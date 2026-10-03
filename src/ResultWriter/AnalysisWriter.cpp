@@ -8,9 +8,12 @@
 #include "AnalysisWriter.h"
 
 #include "Alignment.h"
-#include "Common/Constants.h"
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
+#include "Common/Real.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -21,13 +24,12 @@
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
-#include "Physics/InitialField.h"
+#include "Physics/InitialField.h" // IWYU pragma: keep
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -45,8 +47,6 @@
 namespace seissol::writer {
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
-  const auto& mpi = seissol::Mpi::mpi;
-
   const auto initialConditionType = seissolInstance_.parameters().initialization.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
       initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
@@ -58,37 +58,85 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   logInfo() << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
             << " at time " << simulationTime;
 
-  const auto& iniFields = seissolInstance_.memoryManager().initialConditions();
+  // every configuration of the run is compared on its own cells, in its quantities
+  const auto configs = seissolInstance_.memoryManager().ltsStorage().configs();
+  for (const auto config : configs) {
+    dispatchConfig(config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if (configs.size() == 1) {
+        printAnalysisOf<Cfg>(simulationTime, "", fileNamePrefix_ + "-analysis.csv");
+      } else {
+        const auto name = configName(configValue(config));
+        printAnalysisOf<Cfg>(simulationTime,
+                             " (configuration " + name + ")",
+                             fileNamePrefix_ + "-analysis-" + name + ".csv");
+      }
+    });
+  }
+}
 
-  const auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
-  const auto* globalData = seissolInstance_.memoryManager().globalData().onHost;
+template <typename Cfg>
+void AnalysisWriter::printAnalysisOf(double simulationTime,
+                                     const std::string& configLabel,
+                                     const std::string& fileName) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  const auto& mpi = seissol::Mpi::mpi;
+  const auto initialConditionType = seissolInstance_.parameters().initialization.type;
+
+  // the cells of the configuration
+  std::vector<const LTS::Layer*> layers;
+  for (const auto& layer : seissolInstance_.memoryManager().ltsStorage().leaves(Ghost)) {
+    if (layer.getIdentifier().config == configIdOf<Cfg>()) {
+      layers.push_back(&layer);
+    }
+  }
+
+  const auto& iniFields = seissolInstance_.memoryManager().initialConditions(configIdOf<Cfg>());
+
+  constexpr auto Variant = configIdOf<Cfg>();
 
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
   const std::vector<Element>& elements = meshReader_->getElements();
 
   constexpr auto NumQuantities =
-      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+      tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
-    data = initializer::projectEasiFields({seissolInstance_.parameters().initialization.filename},
-                                          simulationTime,
-                                          *meshReader_,
-                                          seissolInstance_.parameters().initialization.hasTime);
+    data =
+        initializer::projectEasiFields<Cfg>({seissolInstance_.parameters().initialization.filename},
+                                            simulationTime,
+                                            *meshReader_,
+                                            seissolInstance_.parameters().initialization.hasTime);
   }
 
   const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
   const auto& quadraturePoints = rule.first;
   const auto& quadratureWeights = rule.second;
 
-  for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
-    logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
+  // the errors of all simulations, gathered on rank 0 as they are printed; "LInf_rel" is the
+  // longest norm name
+  seissol::io::instance::point::Csv table("analysis");
+  table.addColumn<std::int32_t>("variable");
+  table.addColumn<std::uint64_t>("simulation_index");
+  table.addTextColumn("norm", 8);
+  table.addColumn<double>("error");
+  const auto addObservation =
+      [&table](std::size_t variable, std::size_t sim, const std::string& norm, double error) {
+        table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
+        table.addCell<std::uint64_t>(sim);
+        table.addText(norm);
+        table.addCell<double>(error);
+      };
+
+  for (unsigned sim = 0; sim < Cfg::NumSimulations; ++sim) {
+    logInfo() << "Analysis for simulation" << sim << configLabel.c_str() << ": absolute, relative";
     logInfo() << "--------------------------";
 
     using ErrorArrayT = std::array<double, NumQuantities>;
@@ -118,10 +166,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     // cells that are duplicates.
     std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
 
-    for (const auto& layer : ltsStorage.leaves(Ghost)) {
-      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      const auto* materialData = layer.var<LTS::Material>();
-      const auto* dofsData = layer.var<LTS::Dofs>();
+    for (const auto& layer : layers) {
+      const auto* secondaryInformation = layer->var<LTS::SecondaryInformation>();
+      const auto* materialData = layer->var<LTS::Material>();
+      const auto* dofsData = layer->var<LTS::Dofs>(Cfg());
 
 #if !NVHPC_AVOID_OMP
       // Note: Adding default(none) leads error when using gcc-8
@@ -129,7 +177,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     vertices,                                                      \
                                     iniFields,                                                     \
                                     quadraturePoints,                                              \
-                                    globalData,                                                    \
                                     errsLInfLocal,                                                 \
                                     simulationTime,                                                \
                                     sim,                                                           \
@@ -141,7 +188,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     analyticalsL2Local,                                            \
                                     analyticalsLInfLocal) firstprivate(quadraturePointsXyz)
 #endif
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (std::size_t cell = 0; cell < layer->size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {
           // skip duplicate cells
           continue;
@@ -149,10 +196,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         const auto meshId = secondaryInformation[cell].meshId;
         const int curThreadId = OpenMP::threadId();
 
-        alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()]{};
+        alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Cfg>::size()]{};
         alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities]{};
 
-        auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+        auto numericalSolution = init::dofsQP<Cfg>::view::create(numericalSolutionData);
         auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
                                                                    {NumQuadPoints, NumQuantities});
 
@@ -185,13 +232,12 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         }
 
         // Evaluate numerical solution at quad. nodes
-        kernel::evalAtQP krnl;
-        krnl.bindGlobals(*globalData);
-        krnl.dofsQP = numericalSolutionData;
-        krnl.Q = dofsData[cell];
-        krnl.execute();
+        runtime::kernel::evalAtQP krnl;
+        krnl.dofsQP = runtime::init::dofsQP::view(Variant, numericalSolutionData);
+        krnl.Q = runtime::init::Q::view(Variant, dofsData[cell]);
+        krnl.execute(Variant);
 
-        const auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
+        const auto numSub = seissol::multisim::simtensor<Cfg>(numericalSolution, sim);
 
         for (size_t i = 0; i < NumQuadPoints; ++i) {
           const auto curWeight = jacobiDet * quadratureWeights[i];
@@ -282,18 +328,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                0,
                comm);
 
-    // the errors, gathered on rank 0 as they are printed; "LInf_rel" is the longest norm name
-    seissol::io::instance::point::Csv table("analysis");
-    table.addColumn<std::int32_t>("variable");
-    table.addTextColumn("norm", 8);
-    table.addColumn<double>("error");
-    const auto addObservation =
-        [&table](std::size_t variable, const std::string& norm, double error) {
-          table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
-          table.addText(norm);
-          table.addCell<double>(error);
-        };
-
     for (std::size_t i = 0; i < NumQuantities; ++i) {
       CoordinateT centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
@@ -322,18 +356,18 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "at rank "
                   << errLInfRecv[i].rank << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1]
                   << ",\t" << centerRecv[2] << "\t]";
-        addObservation(i, "L1", errL1);
-        addObservation(i, "L2", errL2);
-        addObservation(i, "LInf", errLInf);
-        addObservation(i, "L1_rel", errL1Rel);
-        addObservation(i, "L2_rel", errL2Rel);
-        addObservation(i, "LInf_rel", errLInfRel);
+        addObservation(i, sim, "L1", errL1);
+        addObservation(i, sim, "L2", errL2);
+        addObservation(i, sim, "LInf", errLInf);
+        addObservation(i, sim, "L1_rel", errL1Rel);
+        addObservation(i, sim, "L2_rel", errL2Rel);
+        addObservation(i, sim, "LInf_rel", errLInfRel);
       }
     }
+  }
 
-    if (mpi.rank() == 0) {
-      table.writeFile(fileName_);
-    }
+  if (mpi.rank() == 0) {
+    table.writeFile(fileName);
   }
 }
 } // namespace seissol::writer

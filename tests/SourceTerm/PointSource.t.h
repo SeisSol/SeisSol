@@ -5,7 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
 #include "SourceTerm/PointSource.h"
 #include "TestHelper.h"
@@ -36,16 +38,16 @@ TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
   const double localPressureComponent = 0.0;
   const double localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
-  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update::Size>{};
+  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update<Config>::Size>{};
 
-  seissol::sourceterm::transformMomentTensor(localMomentTensorXY,
-                                             localSolidVelocityComponent,
-                                             localPressureComponent,
-                                             localFluidVelocityComponent,
-                                             strike,
-                                             dip,
-                                             rake,
-                                             momentTensor.data());
+  seissol::sourceterm::transformMomentTensor<Config>(localMomentTensorXY,
+                                                     localSolidVelocityComponent,
+                                                     localPressureComponent,
+                                                     localFluidVelocityComponent,
+                                                     strike,
+                                                     dip,
+                                                     rake,
+                                                     momentTensor.data());
 
   // Compare to hand-computed reference solution
   CHECK(momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
@@ -76,14 +78,14 @@ TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
       {0.602398893453385, 1.572402458710038, 2.769437029884877},
   };
 
-  seissol::sourceterm::transformMomentTensor(localMomentTensorXZ,
-                                             localSolidVelocityComponent,
-                                             localPressureComponent,
-                                             localFluidVelocityComponent,
-                                             strike,
-                                             dip,
-                                             rake,
-                                             momentTensor.data());
+  seissol::sourceterm::transformMomentTensor<Config>(localMomentTensorXZ,
+                                                     localSolidVelocityComponent,
+                                                     localPressureComponent,
+                                                     localFluidVelocityComponent,
+                                                     strike,
+                                                     dip,
+                                                     rake,
+                                                     momentTensor.data());
 
   // Compare to hand-computed reference solution
   CHECK(momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(Epsilon));

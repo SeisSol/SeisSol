@@ -27,41 +27,42 @@ target_link_libraries(seissol-lib PUBLIC seissol-config)
 
 # include necessary kernel files (we can't include all of them right now, because of some undefined kernels + tensors)
 
-if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "${EQUATIONS}" STREQUAL "anisotropic")
+# the kernels of the solvers the configurations advance their cells with (cmake/configs.cmake);
+# stp takes the local and neighbor kernels of linearck
+if ("linearck" IN_LIST SEISSOL_SOLVERS_USED OR "stp" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Local.cpp
     Kernels/LinearCK/Neighbor.cpp
+    )
+endif()
+if ("linearck" IN_LIST SEISSOL_SOLVERS_USED)
+  target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Time.cpp
     )
-  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
-  if (SOLVER STREQUAL "linearckanelastic")
-    target_sources(seissol-lib PRIVATE
-      Kernels/LinearCKAnelastic/Neighbor.cpp
-      Kernels/LinearCKAnelastic/Local.cpp
-      Kernels/LinearCKAnelastic/Time.cpp
-    )
-    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
-  else()
-    target_sources(seissol-lib PRIVATE
-      Kernels/LinearCK/Local.cpp
-      Kernels/LinearCK/Neighbor.cpp
-      Kernels/LinearCK/Time.cpp
-    )
-    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
-  endif()
-  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
-
-elseif ("${EQUATIONS}" STREQUAL "poroelastic")
+endif()
+if ("linearckanelastic" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Local.cpp
+    Kernels/LinearCKAnelastic/Neighbor.cpp
+    Kernels/LinearCKAnelastic/Local.cpp
+    Kernels/LinearCKAnelastic/Time.cpp
+    )
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
+endif()
+if ("stp" IN_LIST SEISSOL_SOLVERS_USED)
+  target_sources(seissol-lib PRIVATE
     Kernels/STP/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
+    )
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_STP)
+endif()
+
+# the material headers of the equation of the first configuration
+if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "${EQUATIONS}" STREQUAL "anisotropic")
+  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
+elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
+  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
+elseif ("${EQUATIONS}" STREQUAL "poroelastic")
+  target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
 endif()
 
 

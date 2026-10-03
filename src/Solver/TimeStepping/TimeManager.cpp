@@ -9,6 +9,7 @@
 
 #include "TimeManager.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Iterator.h"
 #include "CommunicationManager.h"
 #include "DynamicRupture/Output/OutputManager.h"
@@ -76,11 +77,24 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // written in initIO, once the output directory exists
   auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix);
 
+  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
+    auto cloned = id;
+    cloned.halo = halo;
+    cloned.lts += offset;
+    return memoryManager.ltsStorage().getColorMap().colorId(cloned);
+  };
+
   std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
+
+  // A pair of an interior and a copy layer computes the dynamic rupture faces of its interior once.
+  // The pair is one cluster in one configuration, and its scheduler is found under the color of
+  // its interior layer.
+  std::vector<std::size_t> drCellsPerPair(memoryManager.ltsStorage().getColorMap().size());
 
   // setup DR schedulers
   for (const auto& layer : memoryManager.drStorage().leaves()) {
     drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
+    drCellsPerPair[deltaId(layer.getIdentifier(), HaloType::Interior, 0)] += layer.size();
   }
 
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
@@ -101,25 +115,16 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
-  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
+  for (const auto drCells : drCellsPerPair) {
     dynamicRuptureSchedulers_.emplace_back(
-        std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep));
+        std::make_unique<DynamicRuptureScheduler>(drCells, drOutputTimestep));
   }
 
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
       memoryManager.ltsStorage().getColorMap().size());
 
-  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
-    auto cloned = id;
-    cloned.halo = halo;
-    cloned.lts += offset;
-    return memoryManager.ltsStorage().getColorMap().colorId(cloned);
-  };
-
   // iterate over local time clusters
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
-    auto globalData = memoryManager.globalData();
-
     const auto clusterId = layer.getIdentifier().lts;
 
     // chop off at synchronization time
@@ -137,26 +142,32 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     auto* dynRupCopyData =
         &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
 
-    auto& cluster = clusters_.emplace_back(
-        std::make_unique<TimeCluster>(clusterId,
-                                      clusterId,
-                                      profilingId,
-                                      settings,
-                                      layer.getIdentifier().halo,
-                                      timeStepSize,
-                                      timeStepRate,
-                                      printProgress,
-                                      dynamicRuptureSchedulers_[clusterId].get(),
-                                      globalData,
-                                      &layer,
-                                      dynRupInteriorData,
-                                      dynRupCopyData,
-                                      memoryManager.frictionLaw(),
-                                      memoryManager.frictionLawDevice(),
-                                      memoryManager.faultOutputManager(),
-                                      seissolInstance_,
-                                      &loopStatistics_,
-                                      &actorStateStatisticsManager_.addCluster(profilingId)));
+    // the cluster computes in the configuration of its layer
+    auto& cluster = clusters_.emplace_back(dispatchConfig(
+        layer.getIdentifier().config, [&](auto cfg) -> std::unique_ptr<TimeClusterInterface> {
+          using Cfg = decltype(cfg);
+          return std::make_unique<TimeCluster<Cfg>>(
+              clusterId,
+              clusterId,
+              profilingId,
+              settings,
+              layer.getIdentifier().halo,
+              timeStepSize,
+              timeStepRate,
+              printProgress,
+              dynamicRuptureSchedulers_[deltaId(layer.getIdentifier(), HaloType::Interior, 0)]
+                  .get(),
+              memoryManager.globalData<Cfg>(),
+              &layer,
+              dynRupInteriorData,
+              dynRupCopyData,
+              memoryManager.frictionLaw(),
+              memoryManager.frictionLawDevice(),
+              memoryManager.faultOutputManager(),
+              seissolInstance_,
+              &loopStatistics_,
+              &actorStateStatisticsManager_.addCluster(profilingId));
+        }));
 
     const auto clusterSize = layer.size();
     const auto dynRupSize = memoryManager.drStorage().layer(layer.id()).size();

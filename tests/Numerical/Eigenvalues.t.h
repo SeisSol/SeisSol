@@ -48,8 +48,14 @@ TEST_CASE("Eigenvalues are correctly computed" * doctest::test_suite("numerical"
     }};
     for (auto& m : matrices) {
       seissol::eigenvalues::Eigenpair<std::complex<double>, Dim> eigenpair{};
-      seissol::eigenvalues::computeEigenvalues(m, eigenpair);
+      seissol::eigenvalues::computeEigenvalues<seissol::eigenvalues::Backend::Eigen3>(m, eigenpair);
       testResidual<Dim>(m, eigenpair);
+#ifdef USE_LAPACK
+      seissol::eigenvalues::Eigenpair<std::complex<double>, Dim> eigenpairLapack{};
+      seissol::eigenvalues::computeEigenvalues<seissol::eigenvalues::Backend::Lapack>(
+          m, eigenpairLapack);
+      testResidual<Dim>(m, eigenpairLapack);
+#endif
     }
   }
 }

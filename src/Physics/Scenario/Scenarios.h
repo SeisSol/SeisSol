@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
 #define SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
 
+#include "Common/ConfigRegistry.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Physics/InitialField.h"
 
 #include <Eigen/Dense>
@@ -23,65 +23,71 @@
 
 namespace seissol::physics {
 
-class PressureInjection : public InitialField {
+class PressureInjection : public InitialFieldOf<PressureInjection> {
   public:
   explicit PressureInjection(
       const seissol::initializer::parameters::InitializationParameters& initializationParameters);
 
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 
   private:
   seissol::initializer::parameters::InitializationParameters parameters_;
 };
 
 // A planar wave travelling in direction kVec
-class Planarwave : public InitialField {
+class Planarwave : public InitialFieldOf<Planarwave> {
   public:
-  // Choose phase in [0, 2*pi]
+  // Choose phase in [0, 2*pi]; the wave is set up for the material of the configuration `config`
   Planarwave(const CellMaterialData& materialData,
+             ConfigId config,
              double phase,
              Eigen::Vector3d kVec,
              std::vector<int> varField,
              std::vector<std::complex<double>> ampField);
-  explicit Planarwave(const CellMaterialData& materialData,
-                      double phase = 0.0,
-                      Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
+  Planarwave(const CellMaterialData& materialData,
+             ConfigId config,
+             double phase = 0.0,
+             Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
 
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 
   protected:
   std::vector<int> varField_;
   std::vector<std::complex<double>> ampField_;
   double phase_;
   Eigen::Vector3d kVec_;
-  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> lambdaA_;
-  std::array<std::complex<double>,
-             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
-      eigenvectors_;
+  // the quantities of the material, and the eigenvalues and eigenvectors of the plane wave
+  // operator for them
+  std::size_t numQuantities_{};
+  std::vector<std::complex<double>> lambdaA_;
+  std::vector<std::complex<double>> eigenvectors_;
 
   private:
-  void init(const CellMaterialData& materialData);
+  void init(const CellMaterialData& materialData, ConfigId config);
 };
 
 // superimpose three planar waves travelling into different directions
-class SuperimposedPlanarwave : public InitialField {
+class SuperimposedPlanarwave : public InitialFieldOf<SuperimposedPlanarwave> {
   public:
   //! Choose phase in [0, 2*pi]
-  explicit SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
+  SuperimposedPlanarwave(const CellMaterialData& materialData, ConfigId config, double phase = 0.0);
 
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 
   private:
   std::array<Eigen::Vector3d, 3> kVec_;
@@ -89,31 +95,34 @@ class SuperimposedPlanarwave : public InitialField {
 };
 
 // A part of a planar wave travelling in one direction
-class TravellingWave : public Planarwave {
+class TravellingWave : public InitialFieldOf<TravellingWave, Planarwave> {
   public:
   TravellingWave(const CellMaterialData& materialData,
+                 ConfigId config,
                  const TravellingWaveParameters& travellingWaveParameters);
 
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 
   private:
   Eigen::Vector3d origin_;
 };
 
-class AcousticTravellingWaveITM : public InitialField {
+class AcousticTravellingWaveITM : public InitialFieldOf<AcousticTravellingWaveITM> {
   public:
   AcousticTravellingWaveITM(
       const CellMaterialData& materialData,
       const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 
   private:
   void init(const CellMaterialData& materialData);
@@ -126,23 +135,25 @@ class AcousticTravellingWaveITM : public InitialField {
   double n_;
 };
 
-class ScholteWave : public InitialField {
+class ScholteWave : public InitialFieldOf<ScholteWave> {
   public:
   ScholteWave() = default;
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 };
-class SnellsLaw : public InitialField {
+class SnellsLaw : public InitialFieldOf<SnellsLaw> {
   public:
   SnellsLaw() = default;
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 };
 /*
  * From
@@ -154,18 +165,23 @@ class SnellsLaw : public InitialField {
  * High-order finite difference modeling of tsunami generation in a compressible ocean from offshore
  * earthquakes. Computational Geosciences, 19(2), 327-340.
  */
-class Ocean : public InitialField {
+class Ocean : public InitialFieldOf<Ocean> {
   private:
   int mode_;
   double gravitationalAcceleration_;
+  // whether the material of the configuration is elastic (and not acoustic), and the index of its
+  // first velocity
+  bool elastic_;
+  std::size_t velocityOffset_;
 
   public:
-  Ocean(int mode, double gravitationalAcceleration);
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+  Ocean(int mode, double gravitationalAcceleration, ConfigId config);
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 };
 
 } // namespace seissol::physics

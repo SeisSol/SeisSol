@@ -190,11 +190,12 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
     ET(12, 12) = e2;
   }
 
+  template <typename Tloc, typename Tneigh>
   static void getTransposedGodunovState(const PoroElasticMaterial& local,
                                         const PoroElasticMaterial& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+                                        Tloc& qGodLocal,
+                                        Tneigh& qGodNeighbor) {
     // Will be used to check, whether numbers are (numerically) zero
     constexpr auto ZeroThreshold = 1e-7;
     using CMatrix = Eigen::Matrix<std::complex<double>,
@@ -234,7 +235,7 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
     matR(4, 8) = 1.0;
     if (faceType == FaceType::FreeSurface) {
       Matrix realR = matR.real();
-      getTransposedFreeSurfaceGodunovState(
+      getTransposedFreeSurfaceGodunovState<PoroElasticMaterial>(
           MaterialType::Poroelastic, qGodLocal, qGodNeighbor, realR);
     } else {
       // Only the outgoing (negative eigenvalue) projector is computed; qGodLocal is its complement.

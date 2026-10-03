@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_PHYSICS_SCENARIO_REGISTRY_H_
 #define SEISSOL_SRC_PHYSICS_SCENARIO_REGISTRY_H_
 
+#include "Common/ConfigRegistry.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
@@ -27,6 +28,8 @@ struct Input {
   const initializer::parameters::SeisSolParameters& parameters;
   const CellMaterialData& materialData;
   GravitationSetup gravitation;
+  // the configuration the scenario is set up for: its material and its fused simulations
+  ConfigId config{};
 };
 
 /**
@@ -43,15 +46,16 @@ struct Availability {
 std::string_view name(initializer::parameters::InitializationType type);
 
 /**
- * Whether the scenario is known and defined for the material this binary was built for.
+ * Whether the scenario is known and defined for the material of the configuration `config`.
  */
-Availability availability(initializer::parameters::InitializationType type);
+Availability availability(initializer::parameters::InitializationType type, ConfigId config);
 
 /**
  * Whether the configured scenario can serve an analytical boundary condition, which needs the
  * solution at arbitrary times rather than only at t = 0.
  */
-Availability analyticalBoundaryAvailability(initializer::parameters::InitializationType type);
+Availability analyticalBoundaryAvailability(initializer::parameters::InitializationType type,
+                                            ConfigId config);
 
 /**
  * Constructs the scenario, one instance per fused simulation. Only call after availability()

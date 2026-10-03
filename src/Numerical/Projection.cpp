@@ -7,7 +7,6 @@
 
 #include "Projection.h"
 
-#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 
@@ -632,14 +631,14 @@ template DenseMatrix build<3, 3>(const std::vector<std::array<double, 3>>&,
                                  const AffineMap<3, 3>&,
                                  const Spec&);
 
-template <std::size_t From, std::size_t To>
-Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
-                       const std::vector<std::array<double, From>>& referenceTargetPoints,
-                       std::size_t targetDegree,
-                       std::size_t leadingDimension,
-                       const Spec& spec,
-                       std::size_t minOrder,
-                       std::size_t maxOrder)
+template <std::size_t From, std::size_t To, typename RealT>
+Table<From, To, RealT>::Table(const std::vector<AffineMap<From, To>>& subcells,
+                              const std::vector<std::array<double, From>>& referenceTargetPoints,
+                              std::size_t targetDegree,
+                              std::size_t leadingDimension,
+                              const Spec& spec,
+                              std::size_t minOrder,
+                              std::size_t maxOrder)
     : subcellCount_(subcells.size()), minOrder_(minOrder), maxOrder_(maxOrder),
       leadingDimension_(leadingDimension) {
   assert(minOrder >= 1 && minOrder <= maxOrder);
@@ -660,7 +659,7 @@ Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
   }
 
   storage_.resize(subcellCount_ * subcellStride_);
-  std::fill(storage_.begin(), storage_.end(), static_cast<real>(0));
+  std::fill(storage_.begin(), storage_.end(), static_cast<RealT>(0));
 
   for (std::size_t subcell = 0; subcell < subcellCount_; ++subcell) {
     for (std::size_t order = minOrder; order <= maxOrder; ++order) {
@@ -671,16 +670,19 @@ Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
       auto* target = storage_.data() + this->offset(subcell, order);
       for (std::size_t p = 0; p < matrix.rows(); ++p) {
         for (std::size_t b = 0; b < matrix.cols(); ++b) {
-          target[p + b * leadingDimension] = static_cast<real>(matrix(p, b));
+          target[p + b * leadingDimension] = static_cast<RealT>(matrix(p, b));
         }
       }
     }
   }
 }
 
-template class Table<2, 2>;
-template class Table<2, 3>;
-template class Table<3, 3>;
+template class Table<2, 2, float>;
+template class Table<2, 3, float>;
+template class Table<3, 3, float>;
+template class Table<2, 2, double>;
+template class Table<2, 3, double>;
+template class Table<3, 3, double>;
 
 } // namespace projection
 

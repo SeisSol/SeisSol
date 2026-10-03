@@ -9,13 +9,14 @@
 
 #include "TimeCommon.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
-#include "GeneratedCode/tensor.h"
+#include "Config.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
-#include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -37,14 +38,14 @@
 #endif
 
 namespace seissol::kernels {
-void TimeCommon::computeIntegrals(Time& time,
-                                  const LtsSetup& ltsSetup,
-                                  const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                                  const real* timeCoeffs,
-                                  const real* subtimeCoeffs,
-                                  const std::array<real*, Cell::NumFaces>& timeDofs,
-                                  const std::array<real*, Cell::NumFaces>& integrationBuffer,
-                                  std::array<real*, Cell::NumFaces>& timeIntegrated) {
+template <typename Cfg>
+void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
+                                       const CellLocalInformation& cellInformation,
+                                       const real* timeCoeffs,
+                                       const real* subtimeCoeffs,
+                                       const std::array<void*, Cell::NumFaces>& timeDofs,
+                                       const std::array<real*, Cell::NumFaces>& integrationBuffer,
+                                       std::array<real*, Cell::NumFaces>& timeIntegrated) {
   // call the more general assembly
   /*
    * assert valid input.
@@ -61,12 +62,15 @@ void TimeCommon::computeIntegrals(Time& time,
   /*
    * set/compute time integrated DOFs.
    */
+  const auto& ltsSetup = cellInformation.ltsSetup;
   for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; ++dofneighbor) {
-    // collect information only in the case that neighboring element contributions are required
-    if (faceTypes[dofneighbor] == FaceType::Regular) {
+    // collect information only in the case that neighboring element contributions are required;
+    // a neighbor of another configuration is integrated by ConfigBoundary
+    if (cellInformation.faceTypes[dofneighbor] == FaceType::Regular &&
+        cellInformation.neighborConfigIds[dofneighbor] == configIdOf<Cfg>()) {
       // check if the time integration is already done (-> copy pointer)
       if (ltsSetup.neighborBuffer(dofneighbor) != BufferType::Derivatives) {
-        timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
+        timeIntegrated[dofneighbor] = static_cast<real*>(timeDofs[dofneighbor]);
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
@@ -78,7 +82,9 @@ void TimeCommon::computeIntegrals(Time& time,
         // relation" instead; then everything will work again.
 
         const auto* coeffs = ltsSetup.neighborGTSRelation(dofneighbor) ? timeCoeffs : subtimeCoeffs;
-        time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);
+        time.evaluate(coeffs,
+                      static_cast<const real*>(timeDofs[dofneighbor]),
+                      integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
       }
@@ -86,8 +92,9 @@ void TimeCommon::computeIntegrals(Time& time,
   }
 }
 
-void TimeCommon::computeBatchedIntegrals(
-    SEISSOL_GPU_PARAM Time& time,
+template <typename Cfg>
+void TimeCommon<Cfg>::computeBatchedIntegrals(
+    SEISSOL_GPU_PARAM Time<Cfg>& time,
     SEISSOL_GPU_PARAM const real* timeCoeffs,
     SEISSOL_GPU_PARAM const real* subtimeCoeffs,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
@@ -123,5 +130,9 @@ void TimeCommon::computeBatchedIntegrals(
   logError() << "No GPU implementation provided";
 #endif
 }
+
+#define SEISSOL_INSTANTIATE(Cfg) template struct TimeCommon<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels

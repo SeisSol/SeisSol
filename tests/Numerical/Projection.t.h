@@ -8,6 +8,7 @@
 #include "doctest.h"
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/FaceTransform.h"
@@ -39,16 +40,16 @@ constexpr double GeneratedTolerance =
 // For fused simulations the code generator transposes everything in the `nodal` namespace
 // (cf. kernels/aderdg.py); detect that from a matrix whose shape is not square.
 inline bool nodalTransposed() {
-  return static_cast<std::size_t>(nodal::tensor::nodes2D::Shape[0]) !=
+  return static_cast<std::size_t>(nodal::tensor::nodes2D<Config>::Shape[0]) !=
          projection::modalSize(2, ConvergenceOrder);
 }
 
 // The nodal point set of the volume follows the PLASTICITY_METHOD build option: "nb" ships a
 // unisolvent warp&blend set, "ip" the conical-product quadrature points.
-constexpr auto VolumeNodalSet =
-    static_cast<std::size_t>(tensor::vNodes::Shape[0]) == projection::modalSize(3, ConvergenceOrder)
-        ? projection::NodalSet::WarpBlend
-        : projection::NodalSet::Stroud;
+constexpr auto VolumeNodalSet = static_cast<std::size_t>(tensor::vNodes<Config>::Shape[0]) ==
+                                        projection::modalSize(3, ConvergenceOrder)
+                                    ? projection::NodalSet::WarpBlend
+                                    : projection::NodalSet::Stroud;
 
 using Tet = std::array<std::array<double, 3>, 4>;
 
@@ -151,7 +152,8 @@ inline seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
 TEST_CASE("Numerical/Projection: nodal point sets match the generated ones") {
   SUBCASE("2D face nodes vs. nodes2D") {
     const auto points = projection::nodalPoints2D(ConvergenceOrder);
-    const auto nodes = nodal::init::nodes2D::view::create(nodal::init::nodes2D::Values);
+    const auto nodes =
+        nodal::init::nodes2D<Config>::view::create(nodal::init::nodes2D<Config>::Values);
     const auto transposed = nodalTransposed();
     for (std::size_t p = 0; p < points.size(); ++p) {
       for (std::size_t d = 0; d < 2; ++d) {
@@ -166,8 +168,8 @@ TEST_CASE("Numerical/Projection: nodal point sets match the generated ones") {
 
   SUBCASE("3D volume nodes vs. vNodes") {
     const auto points = projection::nodalPoints3D(ConvergenceOrder, VolumeNodalSet);
-    const auto nodes = init::vNodes::view::create(init::vNodes::Values);
-    REQUIRE(points.size() == static_cast<std::size_t>(tensor::vNodes::Shape[0]));
+    const auto nodes = init::vNodes<Config>::view::create(init::vNodes<Config>::Values);
+    REQUIRE(points.size() == static_cast<std::size_t>(tensor::vNodes<Config>::Shape[0]));
     for (std::size_t p = 0; p < points.size(); ++p) {
       for (std::size_t d = 0; d < 3; ++d) {
         const auto reference = nodes.isInRange(p, d) ? nodes(p, d) : 0.0;
@@ -183,7 +185,8 @@ TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated o
     // MV2nTo2m is stored as [modalBasis][node]
     const auto matrix =
         projection::nodalToModal<2>(ConvergenceOrder, projection::NodalSet::WarpBlend);
-    const auto reference = nodal::init::MV2nTo2m::view::create(nodal::init::MV2nTo2m::Values);
+    const auto reference =
+        nodal::init::MV2nTo2m<Config>::view::create(nodal::init::MV2nTo2m<Config>::Values);
     const auto transposed = nodalTransposed();
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
       for (std::size_t n = 0; n < matrix.cols(); ++n) {
@@ -198,7 +201,7 @@ TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated o
 
   SUBCASE("3D vs. vInv") {
     const auto matrix = projection::nodalToModal<3>(ConvergenceOrder, VolumeNodalSet);
-    const auto reference = init::vInv::view::create(init::vInv::Values);
+    const auto reference = init::vInv<Config>::view::create(init::vInv<Config>::Values);
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
       for (std::size_t n = 0; n < matrix.cols(); ++n) {
         const auto expected = reference.isInRange(b, n) ? reference(b, n) : 0.0;
@@ -317,12 +320,14 @@ TEST_CASE("Numerical/Projection: the table matches build() in the generated layo
   subcells =
       io::instance::geometry::subdivideMaps(subcells, io::instance::geometry::TetrahedronRefine4);
 
-  const auto index = tensor::collvv::index(ConvergenceOrder, Degree);
-  const std::size_t stride = tensor::collvv::Size[index] / tensor::collvv::Shape[index][1];
+  const auto index = tensor::collvv<Config>::index(ConvergenceOrder, Degree);
+  const std::size_t stride =
+      tensor::collvv<Config>::Size[index] / tensor::collvv<Config>::Shape[index][1];
   REQUIRE(stride >= points.size());
 
   const projection::Spec spec;
-  const projection::Table<3, 3> table(subcells, points, Degree, stride, spec, 1, ConvergenceOrder);
+  const projection::Table<3, 3, real> table(
+      subcells, points, Degree, stride, spec, 1, ConvergenceOrder);
   REQUIRE(table.subcellCount() == subcells.size());
 
   for (std::size_t subcell = 0; subcell < subcells.size(); ++subcell) {

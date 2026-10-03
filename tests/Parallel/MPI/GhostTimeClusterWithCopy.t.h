@@ -49,7 +49,7 @@ inline double haloValue(int sender, std::size_t region, int step, std::size_t in
 }
 
 inline void exchangeRing(bool persistent) {
-  auto& device = ::device::DeviceInstance::getInstance();
+  auto& device = ::device::DeviceInstance::instance();
   const int rank = seissol::Mpi::mpi.rank();
   const int size = seissol::Mpi::mpi.size();
 
@@ -67,8 +67,8 @@ inline void exchangeRing(bool persistent) {
   solver::HaloCommunication halo(1, std::vector<solver::RemoteClusterPair>(1));
   for (std::size_t region = 0; region < RegionCount; ++region) {
     const auto bytes = regionSizes[region] * sizeof(double);
-    copyDevice[region] = device.api->allocGlobMem(bytes);
-    ghostDevice[region] = device.api->allocGlobMem(bytes);
+    copyDevice[region] = device.api().allocGlobMem(bytes);
+    ghostDevice[region] = device.api().allocGlobMem(bytes);
     halo[0][0].copy.emplace_back(
         copyDevice[region], regionSizes[region], RealType::F64, sendTo[region], region);
     halo[0][0].ghost.emplace_back(
@@ -89,10 +89,10 @@ inline void exchangeRing(bool persistent) {
           copyHost[i] = haloValue(rank, region, step, i);
         }
         const std::vector<double> ghostHost(regionSizes[region], -1.0);
-        device.api->copyTo(copyDevice[region], copyHost.data(), bytes);
-        device.api->copyTo(ghostDevice[region], ghostHost.data(), bytes);
+        device.api().copyTo(copyDevice[region], copyHost.data(), bytes);
+        device.api().copyTo(ghostDevice[region], ghostHost.data(), bytes);
       }
-      device.api->syncDevice();
+      device.api().syncDevice();
 
       cluster.receiveGhostLayer();
       cluster.sendCopyLayer();
@@ -105,7 +105,7 @@ inline void exchangeRing(bool persistent) {
 
       for (std::size_t region = 0; region < RegionCount; ++region) {
         std::vector<double> ghostHost(regionSizes[region]);
-        device.api->copyFrom(
+        device.api().copyFrom(
             ghostHost.data(), ghostDevice[region], regionSizes[region] * sizeof(double));
         std::size_t mismatches = 0;
         for (std::size_t i = 0; i < ghostHost.size(); ++i) {
@@ -123,8 +123,8 @@ inline void exchangeRing(bool persistent) {
   }
 
   for (std::size_t region = 0; region < RegionCount; ++region) {
-    device.api->freeGlobMem(copyDevice[region]);
-    device.api->freeGlobMem(ghostDevice[region]);
+    device.api().freeGlobMem(copyDevice[region]);
+    device.api().freeGlobMem(ghostDevice[region]);
   }
 }
 
@@ -133,9 +133,9 @@ inline void exchangeRing(bool persistent) {
 using namespace ghosttimeclusterwithcopytest;
 
 TEST_CASE("Ghost clusters exchange device halos through host memory" * doctest::test_suite("mpi")) {
-  auto& device = ::device::DeviceInstance::getInstance();
-  device.api->setDevice(0);
-  device.api->initialize();
+  auto& device = ::device::DeviceInstance::instance();
+  device.api().setDevice(0);
+  device.api().initialize();
 
   for (const bool persistent : {true, false}) {
     CAPTURE(persistent);
@@ -143,7 +143,7 @@ TEST_CASE("Ghost clusters exchange device halos through host memory" * doctest::
   }
 
   // as in main(); otherwise, the device is torn down only by static destructors at exit
-  device.api->finalize();
+  device.api().finalize();
 }
 
 } // namespace seissol::unit_test

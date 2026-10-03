@@ -7,10 +7,11 @@
 
 #include "OutputParameters.h"
 
-#include "Equations/Datastructures.h"
+#include "Common/ConfigLayout.h"
+#include "Common/ConfigRegistry.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
-#include "Model/Plasticity.h"
+#include "Model/PlasticityQuantities.h"
 
 #include <algorithm>
 #include <array>
@@ -146,7 +147,8 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
 }
 
 FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
-                                                      const std::string& defaultTimeSeries) {
+                                                      const std::string& defaultTimeSeries,
+                                                      ConfigId config) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("surfaceoutput", false);
@@ -168,15 +170,15 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
   const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
 
   // handle acoustic and elastic
+  const auto& layout = configLayout(config);
   std::string velocities;
-  for (std::size_t i = 0; i < seissol::model::MaterialT::VelocityOffset; ++i) {
+  for (std::size_t i = 0; i < layout.velocityOffset; ++i) {
     velocities += "0 ";
   }
   velocities += "1 1 1";
   const auto surfaceOutputMaskString = reader->readWithDefault("surfaceoutputmask", velocities);
-  const std::array<bool, seissol::model::MaterialT::NumQuantities> surfaceOutputMask =
-      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(surfaceOutputMaskString,
-                                                                           false);
+  const auto surfaceOutputMask =
+      convertStringToVector<bool>(surfaceOutputMaskString, layout.numQuantities, false);
 
   // The free-surface output has always been an average over each output subcell (cf. the former
   // FreeSurfaceIntegrator::computeSubTriangleAverages), i.e. an L2 projection.
@@ -267,7 +269,8 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
-                                                  const std::string& defaultTimeSeries) {
+                                                  const std::string& defaultTimeSeries,
+                                                  ConfigId config) {
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = false;
@@ -311,20 +314,18 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
-  const std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask =
-      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(outputMaskString, false);
+  const auto numQuantities = configLayout(config).numQuantities;
+  const auto outputMask = convertStringToVector<bool>(outputMaskString, numQuantities, false);
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const std::array<bool, seissol::model::PlasticityData::Quantities.size()> plasticityMask =
-      convertStringToArray<bool, seissol::model::PlasticityData::Quantities.size()>(
-          plasticityMaskString, false);
+  const auto plasticityMask = convertStringToArray<bool, seissol::model::PlasticityQuantityCount>(
+      plasticityMaskString, false);
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  const std::array<bool, seissol::model::MaterialT::NumQuantities> integrationMask =
-      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(integrationMaskString,
-                                                                           false);
+  const auto integrationMask =
+      convertStringToVector<bool>(integrationMaskString, numQuantities, false);
 
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());
@@ -359,7 +360,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                    timeSeries};
 }
 
-OutputParameters readOutputParameters(ParameterReader* baseReader) {
+OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config) {
   auto* reader = baseReader->readSubNode("output");
 
   const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
@@ -388,10 +389,11 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   const auto checkpointParameters = readCheckpointParameters(baseReader);
   const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
   const auto energyParameters = readEnergyParameters(baseReader);
-  const auto freeSurfaceParameters = readFreeSurfaceParameters(baseReader, defaultTimeSeries);
+  const auto freeSurfaceParameters =
+      readFreeSurfaceParameters(baseReader, defaultTimeSeries, config);
   const auto pickpointParameters = readPickpointParameters(baseReader);
   const auto receiverParameters = readReceiverParameters(baseReader);
-  const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries);
+  const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries, config);
 
   reader->warnDeprecated({"projection",
                           "rotation",

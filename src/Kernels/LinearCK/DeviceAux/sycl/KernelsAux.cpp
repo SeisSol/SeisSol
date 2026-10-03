@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -57,9 +58,6 @@ static void taylorSumInner(sycl::nd_item<1>& item,
   constexpr std::size_t SourceMemSize = SourceStride * Quantities;
   constexpr bool UseShared = MemorySize >= RestMemSize;
   constexpr std::size_t LoadSize = UseShared ? RestMemSize : SourceMemSize;
-
-  static_assert(seissol::tensor::dQ::size(ThisOrder) == SourceMemSize,
-                "Tensor size mismatch in explicit kernel.");
 
   if constexpr (LoadSize > 0) {
     item.barrier();
@@ -158,15 +156,29 @@ static void taylorSumInternal(std::size_t count,
 } // namespace
 
 namespace seissol::kernels::time::aux {
-void taylorSum(
-    std::size_t count, real** target, const real** source, const real* coeffs, void* stream) {
-  taylorSumInternal<seissol::model::MaterialT::NumQuantities,
-                    seissol::model::MaterialT::NumQuantities,
-                    real,
-                    real,
-                    ConvergenceOrder,
-                    ConvergenceOrder>(
-      count, target, source, coeffs, stream, std::make_index_sequence<ConvergenceOrder>());
+template <typename Cfg>
+void taylorSum(std::size_t count,
+               Real<Cfg>** target,
+               const Real<Cfg>** source,
+               const Real<Cfg>* coeffs,
+               void* stream) {
+  taylorSumInternal<seissol::model::MaterialOf<Cfg>::NumQuantities,
+                    seissol::model::MaterialOf<Cfg>::NumQuantities,
+                    Real<Cfg>,
+                    Real<Cfg>,
+                    Cfg::ConvergenceOrder,
+                    Cfg::ConvergenceOrder>(
+      count, target, source, coeffs, stream, std::make_index_sequence<Cfg::ConvergenceOrder>());
 }
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void taylorSum<Cfg>(std::size_t count,                                                  \
+                               Real<Cfg>** target,                                                 \
+                               const Real<Cfg>** source,                                           \
+                               const Real<Cfg>* coeffs,                                            \
+                               void* stream);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
+
 } // namespace seissol::kernels::time::aux
 #endif

@@ -9,25 +9,30 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_IMPOSEDSLIPRATES_H_
 
 #include "BaseFrictionSolver.h"
+#include "Common/Real.h"
 
 namespace seissol::dr::friction_law::gpu {
 /**
  * Slip rates are set fixed values
  */
-template <typename STF>
-class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
+template <typename Cfg, typename STF>
+class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, STF>> {
   public:
-  using BaseFrictionSolver<ImposedSlipRates>::BaseFrictionSolver;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  using BaseFrictionSolver<Cfg, ImposedSlipRates>::BaseFrictionSolver;
+
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(place);
-    data->imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(place);
+    data->imposedSlipDirection1 =
+        layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg(), place);
+    data->imposedSlipDirection2 =
+        layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Cfg(), place);
     STF::copyStorageToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& __restrict ctx,
                                                    uint32_t timeIndex) {
     const real timeIncrement = ctx.args->deltaT[timeIndex];
     real currentTime = ctx.args->fullUpdateTime;
@@ -42,17 +47,17 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     const auto evalCardinal2 =
         ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
 
-    const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
-                                              ctx.data->impedanceMatrices[ctx.ltsFace],
-                                              evalCardinal1,
-                                              evalCardinal2);
+    const auto [tU1, tU2] = common::matmulEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                   evalCardinal1,
+                                                   evalCardinal2);
 
     // the prescribed slip rate also changes the fault-normal traction if the impedance couples the
     // normal and the tangential directions (anisotropy); zero otherwise
-    const auto tUN = common::matmulEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
-                                             ctx.data->impedanceMatrices[ctx.ltsFace],
-                                             evalCardinal1,
-                                             evalCardinal2);
+    const auto tUN = common::matmulEtaNormal<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                  evalCardinal1,
+                                                  evalCardinal2);
 
     const auto traction1 = ctx.faultStresses.traction1 - tU1;
     const auto traction2 = ctx.faultStresses.traction2 - tU2;
@@ -81,10 +86,10 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     ctx.tractionResults.traction2 = traction2;
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
                                                      real time) {}
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& __restrict ctx) {}
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& __restrict ctx) {}
+  SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& __restrict ctx) {}
+  SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& __restrict ctx) {}
 };
 
 } // namespace seissol::dr::friction_law::gpu

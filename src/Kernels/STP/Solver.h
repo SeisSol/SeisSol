@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Kernels/Common.h"
 
@@ -19,26 +20,29 @@ class LegendreBasis;
 } // namespace seissol::numerical
 
 namespace seissol::kernels::solver::linearck {
+template <typename Cfg>
 class Local;
+template <typename Cfg>
 class Neighbor;
 } // namespace seissol::kernels::solver::linearck
 
-namespace seissol::tensor {
-struct spaceTimePredictor;
-} // namespace seissol::tensor
-
 namespace seissol::kernels::solver::stp {
 
+template <typename Cfg>
 class Spacetime;
+template <typename Cfg>
 class Time;
 
+template <typename Cfg>
 struct STPLocalData;
 
+/// The solver as a configuration `Cfg` runs it, with the kernels of `Cfg`.
+template <typename Cfg>
 struct Solver {
-  using SpacetimeKernelT = Spacetime;
-  using TimeKernelT = Time;
-  using LocalKernelT = linearck::Local;
-  using NeighborKernelT = linearck::Neighbor;
+  using SpacetimeKernelT = Spacetime<Cfg>;
+  using TimeKernelT = Time<Cfg>;
+  using LocalKernelT = linearck::Local<Cfg>;
+  using NeighborKernelT = linearck::Neighbor<Cfg>;
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::LegendreBasis<RealT>;
@@ -52,10 +56,13 @@ struct Solver {
     return faceTypeSupported();
   }
 
-  static constexpr std::size_t IntegralsSize = tensor::I::size();
-  static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor>();
+  /// Only the linear Cauchy-Kovalevskaya solver puts memory variables on the quantity axis.
+  static constexpr bool FusedMechanisms = false;
 
-  using LocalData = STPLocalData;
+  static constexpr std::size_t IntegralsSize = tensor::I<Cfg>::size();
+  static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor<Cfg>>();
+
+  using LocalData = STPLocalData<Cfg>;
   using NeighborData = std::monostate;
 };
 

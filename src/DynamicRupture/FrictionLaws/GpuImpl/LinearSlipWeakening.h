@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -18,22 +19,21 @@ namespace seissol::dr::friction_law::gpu {
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
-template <typename Derived>
-class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
+template <typename Cfg, typename Derived>
+class LinearSlipWeakeningBase
+    : public BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>> {
   public:
-  explicit LinearSlipWeakeningBase(const FrictionLawParameters& drParameters)
-      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters) {};
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  std::unique_ptr<FrictionSolver> clone() override {
-    return std::make_unique<Derived>(*static_cast<Derived*>(this));
-  }
+  explicit LinearSlipWeakeningBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters) {};
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     Derived::copySpecificStorageDataToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& __restrict ctx,
                                                    uint32_t timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
     Derived::calcStrengthHook(ctx, timeIndex);
@@ -48,7 +48,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext<Cfg>& __restrict ctx,
                                                      uint32_t timeIndex) {
     const auto deltaT{ctx.args->deltaT[timeIndex]};
 
@@ -61,11 +61,11 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     const real totalStress2 = ctx.initialStress.traction2 + faultStresses.traction2;
     const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
 
-    const auto [eta, invEta] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
-                                                  ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                  totalStress1,
-                                                  totalStress2,
-                                                  absoluteShearStress);
+    const auto [eta, invEta] = common::projectEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                                       ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                       totalStress1,
+                                                       totalStress2,
+                                                       absoluteShearStress);
 
     // the direction along which the slip rate is decomposed further down; scaled such that
     // dividing by `divisor` yields the unit slip direction
@@ -74,14 +74,14 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     real etaEff = eta;
     real slipRateMagnitude{};
 
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-      const auto solution = common::solveSlipRate(ctx.data->impAndEta[ctx.ltsFace],
-                                                  ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                  totalStress1,
-                                                  totalStress2,
-                                                  absoluteShearStress,
-                                                  strength,
-                                                  ctx.strengthSlopeBuffer);
+    if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
+      const auto solution = common::solveSlipRate<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                                       ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                       totalStress1,
+                                                       totalStress2,
+                                                       absoluteShearStress,
+                                                       strength,
+                                                       ctx.strengthSlopeBuffer);
       slipRateMagnitude = solution.slipRate;
       etaEff = solution.etaEff;
 
@@ -99,15 +99,16 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] = slipRateMagnitude * dirStress1 / divisor;
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRateMagnitude * dirStress2 / divisor;
 
-    const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
-                                              ctx.data->impedanceMatrices[ctx.ltsFace],
-                                              ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
-                                              ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
+    const auto [tU1, tU2] =
+        common::matmulEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                               ctx.data->impedanceMatrices[ctx.ltsFace],
+                               ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
+                               ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 
-    const auto tUN = common::matmulEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
-                                             ctx.data->impedanceMatrices[ctx.ltsFace],
-                                             ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
-                                             ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
+    const auto tUN = common::matmulEtaNormal<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                  ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
+                                                  ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 
     // calculate traction
     // the normal stress written here is the *dynamic* normal traction, using the slip rate just
@@ -128,7 +129,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
-  SEISSOL_DEVICE static void frictionFunctionHook(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void frictionFunctionHook(FrictionLawContext<Cfg>& __restrict ctx) {
     auto& stateVariable = ctx.stateVariableBuffer;
     ctx.data->mu[ctx.ltsFace][ctx.pointIndex] =
         ctx.data->muS[ctx.ltsFace][ctx.pointIndex] -
@@ -148,7 +149,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    * currently only for linear slip weakening
    */
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
                                                      real time) {
     if (ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
         std::fabs(ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex]) >=
@@ -158,37 +159,39 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     }
   }
 
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& __restrict ctx) {}
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& __restrict ctx) {}
+  SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& __restrict ctx) {}
+  SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& __restrict ctx) {}
 
   protected:
   static constexpr real U0 = 10e-14;
 };
 
-template <class SpecializationT>
+template <typename Cfg, class SpecializationT>
 class LinearSlipWeakeningLaw
-    : public LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>> {
+    : public LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>> {
   public:
-  explicit LinearSlipWeakeningLaw(const FrictionLawParameters& drParameters)
-      : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  explicit LinearSlipWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>>(drParameters),
         specialization_(drParameters) {};
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
-    data->dC =
-        layerData.var<LTSLinearSlipWeakening::DC>(seissol::initializer::AllocationPlace::Device);
-    data->muS =
-        layerData.var<LTSLinearSlipWeakening::MuS>(seissol::initializer::AllocationPlace::Device);
-    data->muD =
-        layerData.var<LTSLinearSlipWeakening::MuD>(seissol::initializer::AllocationPlace::Device);
+    data->dC = layerData.var<LTSLinearSlipWeakening::DC>(
+        Cfg(), seissol::initializer::AllocationPlace::Device);
+    data->muS = layerData.var<LTSLinearSlipWeakening::MuS>(
+        Cfg(), seissol::initializer::AllocationPlace::Device);
+    data->muD = layerData.var<LTSLinearSlipWeakening::MuD>(
+        Cfg(), seissol::initializer::AllocationPlace::Device);
     data->cohesion = layerData.var<LTSLinearSlipWeakening::Cohesion>(
-        seissol::initializer::AllocationPlace::Device);
+        Cfg(), seissol::initializer::AllocationPlace::Device);
     data->forcedRuptureTime = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>(
-        seissol::initializer::AllocationPlace::Device);
+        Cfg(), seissol::initializer::AllocationPlace::Device);
     SpecializationT::copyStorageToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void calcStrengthHook(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void calcStrengthHook(FrictionLawContext<Cfg>& __restrict ctx,
                                               uint32_t timeIndex) {
 
     const auto deltaT{ctx.args->deltaT[timeIndex]};
@@ -216,7 +219,7 @@ class LinearSlipWeakeningLaw
                                       vStar,
                                       prakashLength);
 
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
       // d(strength) / d(-sigma_eff). Zero while the normal stress is clamped; the clamp is
       // evaluated at the uncorrected normal stress, which is second order in the coupling.
       ctx.strengthSlopeBuffer = (totalNormalStress < 0 ? ctx.data->mu[ctx.ltsFace][ctx.pointIndex]
@@ -229,7 +232,7 @@ class LinearSlipWeakeningLaw
     }
   }
 
-  SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext<Cfg>& __restrict ctx,
                                                    uint32_t timeIndex) {
     const auto t0{ctx.data->drParameters.forcedRuptureRiseTime};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
@@ -269,26 +272,29 @@ class LinearSlipWeakeningLaw
   SpecializationT specialization_;
 };
 
+template <typename Cfg>
 class NoSpecialization {
   public:
-  explicit NoSpecialization(const FrictionLawParameters& parameters) {};
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
+  explicit NoSpecialization(const FrictionLawParameters<Real<Cfg>>& parameters) {};
+
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static real
-      resampleSlipRate(FrictionLawContext& __restrict ctx,
-                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+      resampleSlipRate(FrictionLawContext<Cfg>& __restrict ctx,
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Cfg>]) {
     return resampleVariable(ctx, slipRateMagnitude[ctx.pointIndex]);
   };
 
-  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& /*ctx*/,
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext<Cfg>& /*ctx*/,
                                                real localAccumulatedSlip,
                                                real localDc,
                                                real /*tpProxyExponent*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
-  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& /*ctx*/,
+  SEISSOL_DEVICE static real strengthHook(FrictionLawContext<Cfg>& /*ctx*/,
                                           real strength,
                                           real /*localSlipRate*/,
                                           real /*deltaT*/,
@@ -310,30 +316,33 @@ class NoSpecialization {
   };
 };
 
+template <typename Cfg>
 class BiMaterialFault {
   public:
-  explicit BiMaterialFault(const FrictionLawParameters& parameters) {};
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
+  explicit BiMaterialFault(const FrictionLawParameters<Real<Cfg>>& parameters) {};
+
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     data->regularizedStrength =
         layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(
-            seissol::initializer::AllocationPlace::Device);
+            Cfg(), seissol::initializer::AllocationPlace::Device);
   }
 
   SEISSOL_DEVICE static real
-      resampleSlipRate(FrictionLawContext& __restrict ctx,
-                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+      resampleSlipRate(FrictionLawContext<Cfg>& __restrict ctx,
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Cfg>]) {
     return slipRateMagnitude[ctx.pointIndex];
   };
 
-  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& /*ctx*/,
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext<Cfg>& /*ctx*/,
                                                real localAccumulatedSlip,
                                                real localDc,
                                                real /*tpProxyExponent*/) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
-  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static real strengthHook(FrictionLawContext<Cfg>& __restrict ctx,
                                           real faultStrength,
                                           real localSlipRate,
                                           real deltaT,
@@ -364,19 +373,22 @@ class BiMaterialFault {
   };
 };
 
+template <typename Cfg>
 class TPApprox {
   public:
-  explicit TPApprox(const FrictionLawParameters& parameters) {};
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
+  explicit TPApprox(const FrictionLawParameters<Real<Cfg>>& parameters) {};
+
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static real
-      resampleSlipRate(FrictionLawContext& __restrict ctx,
-                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+      resampleSlipRate(FrictionLawContext<Cfg>& __restrict ctx,
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Cfg>]) {
     return slipRateMagnitude[ctx.pointIndex];
   };
 
-  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& /*ctx*/,
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext<Cfg>& /*ctx*/,
                                                real localAccumulatedSlip,
                                                real localDc,
                                                real tpProxyExponent) {
@@ -384,7 +396,7 @@ class TPApprox {
     return static_cast<real>(1.0) - std::pow(factor, -tpProxyExponent);
   };
 
-  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& /*ctx*/,
+  SEISSOL_DEVICE static real strengthHook(FrictionLawContext<Cfg>& /*ctx*/,
                                           real strength,
                                           real /*localSlipRate*/,
                                           real /*deltaT*/,

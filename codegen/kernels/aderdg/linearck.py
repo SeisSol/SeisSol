@@ -6,7 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
@@ -58,10 +58,12 @@ class LinearCK(ADERDGBase):
         generator.add(
             "projectIniCond",
             self.Q["kp"] <= self.db.projectQP[self.t("kl")] * iniCond["lp"],
+            attrs=cold_kernel_attrs(),
         )
         generator.add(
             "evalAtQP",
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
+            attrs=cold_kernel_attrs(),
         )
 
     def addLocal(self, generator, targets):

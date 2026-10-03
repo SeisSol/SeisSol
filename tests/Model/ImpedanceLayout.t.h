@@ -10,6 +10,7 @@
 
 #include <doctest.h>
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h" // IWYU pragma: keep
 #include "Equations/ImpedanceBase.h"
@@ -56,15 +57,15 @@ void checkInterfaceQuantities() {
       }
     };
 
-    check(init::extractTractions::Values,
-          tensor::extractTractions::Shape,
-          init::extractTractions::Start,
-          init::extractTractions::Stop,
+    check(init::extractTractions<Config>::Values,
+          tensor::extractTractions<Config>::Shape,
+          init::extractTractions<Config>::Start,
+          init::extractTractions<Config>::Stop,
           ImpedanceCompute::TractionIndices);
-    check(init::extractVelocities::Values,
-          tensor::extractVelocities::Shape,
-          init::extractVelocities::Start,
-          init::extractVelocities::Stop,
+    check(init::extractVelocities<Config>::Values,
+          tensor::extractVelocities<Config>::Shape,
+          init::extractVelocities<Config>::Start,
+          init::extractVelocities<Config>::Stop,
           ImpedanceCompute::VelocityIndices);
   }
 }

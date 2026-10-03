@@ -7,11 +7,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_ENERGY_H_
 
+#include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
-#include "GeneratedCode/pool.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 
@@ -52,23 +52,27 @@ struct EnergyCompute<PoroElasticMaterial> {
   /// No anelastic variables. See the viscoelastic specialization for the
   /// non-trivial case; the arguments are accepted uniformly so that
   /// EnergyOutput does not need to branch on the material.
+  template <typename Cfg>
   struct Moments {};
-  static Moments
-      computeMoments(const real* /*dofs*/, const real* /*dofsAne*/, const seissol::Pool& /*pool*/) {
+
+  template <typename Cfg>
+  static Moments<Cfg> computeMoments(const Real<Cfg>* /*dofs*/, const Real<Cfg>* /*dofsAne*/) {
     return {};
   }
 
-  static PoroElasticMaterial::EnergyData initEnergyData(const PoroElasticMaterial& /*material*/) {
+  template <typename Cfg>
+  static PoroElasticMaterial::EnergyData<Cfg>
+      initEnergyData(const PoroElasticMaterial& /*material*/) {
     return {};
   }
 
-  template <typename LinearViewT, typename QuadraticViewT>
+  template <typename Cfg, typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const PoroElasticMaterial& material,
-                      const PoroElasticMaterial::EnergyData& /*data*/,
+                      const PoroElasticMaterial::EnergyData<Cfg>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
-                      const Moments& /*moments*/,
+                      const Moments<Cfg>& /*moments*/,
                       std::size_t /*sim*/) {
     std::array<double, EnergyCount> output{};
 

@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
@@ -45,67 +46,83 @@ struct DynamicRupture {
       : stressSourceCount(dr::stressSourceCount(*parameters)) {}
 
   virtual ~DynamicRupture() = default;
-  struct TimeDofsPlus : public initializer::Variable<real*> {};
-  struct TimeDofsMinus : public initializer::Variable<real*> {};
-  struct TimeDerivativePlus : public initializer::Variable<real*> {};
-  struct TimeDerivativeMinus : public initializer::Variable<real*> {};
-  struct TimeDerivativePlusDevice : public initializer::Variable<real*> {};
-  struct TimeDerivativeMinusDevice : public initializer::Variable<real*> {};
-  struct ImposedStatePlus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
-  struct ImposedStateMinus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
-  struct GodunovData : public initializer::Variable<DRGodunovData> {};
-  struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
-  struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
+
+  // The data of a fault face are held in the reals and the layout of the configuration of its
+  // layer.
+  template <typename Cfg>
+  using RealPtr = Real<Cfg>*;
+  template <typename Cfg>
+  using PointReals = Real<Cfg>[dr::misc::NumPaddedPoints<Cfg>];
+  template <typename Cfg>
+  using PointFlags = bool[dr::misc::NumPaddedPoints<Cfg>];
+  template <typename Cfg>
+  using PointStresses = Real<Cfg>[6][dr::misc::NumPaddedPoints<Cfg>];
+  template <typename Cfg>
+  using QInterpolatedArray = Real<Cfg>[tensor::QInterpolated<Cfg>::size()];
+  template <typename Cfg>
+  using QInterpolatedTimeArray =
+      Real<Cfg>[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
+  template <typename Cfg>
+  using FluxSolverArray = Real<Cfg>[tensor::fluxSolver<Cfg>::size()];
+
+  struct TimeDofsPlus : public initializer::VariantVariable<RealPtr> {};
+  struct TimeDofsMinus : public initializer::VariantVariable<RealPtr> {};
+  struct TimeDerivativePlus : public initializer::VariantVariable<RealPtr> {};
+  struct TimeDerivativeMinus : public initializer::VariantVariable<RealPtr> {};
+  struct TimeDerivativePlusDevice : public initializer::VariantVariable<RealPtr> {};
+  struct TimeDerivativeMinusDevice : public initializer::VariantVariable<RealPtr> {};
+  struct ImposedStatePlus : public initializer::VariantVariable<QInterpolatedArray> {};
+  struct ImposedStateMinus : public initializer::VariantVariable<QInterpolatedArray> {};
+  struct GodunovData : public initializer::VariantVariable<DRGodunovData> {};
+  struct FluxSolverPlus : public initializer::VariantVariable<FluxSolverArray> {};
+  struct FluxSolverMinus : public initializer::VariantVariable<FluxSolverArray> {};
   struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
   struct WaveSpeedsPlus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
   struct WaveSpeedsMinus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
-  struct DREnergyOutputVar : public initializer::Variable<DREnergyOutput> {};
+  struct DREnergyOutputVar : public initializer::VariantVariable<DREnergyOutput> {};
 
-  struct ImpAndEta : public initializer::Variable<seissol::dr::ImpedancesAndEta> {};
-  struct ImpedanceMatrices : public initializer::Variable<seissol::dr::ImpedanceMatrices> {};
+  struct ImpAndEta : public initializer::VariantVariable<seissol::dr::ImpedancesAndEta> {};
+  struct ImpedanceMatrices : public initializer::VariantVariable<seissol::dr::ImpedanceMatrices> {};
   // size padded for vectorization
   // CS = coordinate system
   /// the stress of every source of this face, the initial state first; see dr::stressSourceCount
-  struct StressSourceInFaultCS : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {
-  };
+  struct StressSourceInFaultCS : public initializer::VariantVariable<PointStresses> {};
   // will be always zero, if not using poroelasticity
-  struct StressSourcePressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct StressSourcePressure : public initializer::VariantVariable<PointReals> {};
   /// the onset of every source of this face, per point; see dr::stressSourceCount
-  struct StressSourceOnset : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct StressSourceOnset : public initializer::VariantVariable<PointReals> {};
   /// the rise time of every source of this face, per point; see dr::stressSourceCount
-  struct StressSourceRiseTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Mu : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct AccumulatedSlipMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
-  };
+  struct StressSourceRiseTime : public initializer::VariantVariable<PointReals> {};
+  struct Mu : public initializer::VariantVariable<PointReals> {};
+  struct AccumulatedSlipMagnitude : public initializer::VariantVariable<PointReals> {};
   // slip at given fault node along local direction 1
-  struct Slip1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Slip1 : public initializer::VariantVariable<PointReals> {};
   // slip at given fault node along local direction 2
-  struct Slip2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct SlipRateMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Slip2 : public initializer::VariantVariable<PointReals> {};
+  struct SlipRateMagnitude : public initializer::VariantVariable<PointReals> {};
   // slip rate at given fault node along local direction 1
-  struct SlipRate1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct SlipRate1 : public initializer::VariantVariable<PointReals> {};
   // slip rate at given fault node along local direction 2
-  struct SlipRate2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct RuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct DynStressTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct RuptureTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
-  struct DynStressTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
-  struct PeakSlipRate : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Traction1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Traction2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct QInterpolatedPlus
-      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
-  struct QInterpolatedMinus
-      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
+  struct SlipRate2 : public initializer::VariantVariable<PointReals> {};
+  struct RuptureTime : public initializer::VariantVariable<PointReals> {};
+  struct DynStressTime : public initializer::VariantVariable<PointReals> {};
+  struct RuptureTimePending : public initializer::VariantVariable<PointFlags> {};
+  struct DynStressTimePending : public initializer::VariantVariable<PointFlags> {};
+  struct PeakSlipRate : public initializer::VariantVariable<PointReals> {};
+  struct Traction1 : public initializer::VariantVariable<PointReals> {};
+  struct Traction2 : public initializer::VariantVariable<PointReals> {};
+  struct QInterpolatedPlus : public initializer::VariantVariable<QInterpolatedTimeArray> {};
+  struct QInterpolatedMinus : public initializer::VariantVariable<QInterpolatedTimeArray> {};
 
-  struct IdofsPlusOnDevice : public initializer::Scratchpad<real> {};
-  struct IdofsMinusOnDevice : public initializer::Scratchpad<real> {};
+  struct IdofsPlusOnDevice : public initializer::VariantScratchpad<Real> {};
+  struct IdofsMinusOnDevice : public initializer::VariantScratchpad<Real> {};
 
   struct DynrupVarmap : public initializer::GenericVarmap {};
 
   using Storage = initializer::Storage<DynrupVarmap>;
   using Layer = initializer::Layer<DynrupVarmap>;
-  using Ref = initializer::Layer<DynrupVarmap>::CellRef;
+  template <typename Cfg>
+  using Ref = initializer::Layer<DynrupVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<1>;
 
   virtual void addTo(Storage& storage) {
@@ -177,11 +194,11 @@ struct DynamicRupture {
 };
 
 struct LTSLinearSlipWeakening : public DynamicRupture {
-  struct DC : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct MuS : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct MuD : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Cohesion : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct ForcedRuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct DC : public initializer::VariantVariable<PointReals> {};
+  struct MuS : public initializer::VariantVariable<PointReals> {};
+  struct MuD : public initializer::VariantVariable<PointReals> {};
+  struct Cohesion : public initializer::VariantVariable<PointReals> {};
+  struct ForcedRuptureTime : public initializer::VariantVariable<PointReals> {};
 
   explicit LTSLinearSlipWeakening(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -198,7 +215,7 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
 };
 
 struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
-  struct RegularizedStrength : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RegularizedStrength : public initializer::VariantVariable<PointReals> {};
 
   explicit LTSLinearSlipWeakeningBimaterial(const initializer::parameters::DRParameters* parameters)
       : LTSLinearSlipWeakening(parameters) {}
@@ -217,14 +234,14 @@ struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
 };
 
 struct LTSRateAndState : public DynamicRupture {
-  struct RsA : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct RsSl0 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct StateVariable : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct RsF0 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct RsMuW : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct RsB : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct ConvergenceInner : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
-  struct ConvergenceOuter : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
+  struct RsA : public initializer::VariantVariable<PointReals> {};
+  struct RsSl0 : public initializer::VariantVariable<PointReals> {};
+  struct StateVariable : public initializer::VariantVariable<PointReals> {};
+  struct RsF0 : public initializer::VariantVariable<PointReals> {};
+  struct RsMuW : public initializer::VariantVariable<PointReals> {};
+  struct RsB : public initializer::VariantVariable<PointReals> {};
+  struct ConvergenceInner : public initializer::VariantVariable<PointFlags> {};
+  struct ConvergenceOuter : public initializer::VariantVariable<PointFlags> {};
 
   explicit LTSRateAndState(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -252,7 +269,7 @@ struct LTSRateAndState : public DynamicRupture {
 };
 
 struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
-  struct RsSrW : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RsSrW : public initializer::VariantVariable<PointReals> {};
 
   explicit LTSRateAndStateFastVelocityWeakening(
       const initializer::parameters::DRParameters* parameters)
@@ -266,14 +283,17 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
 };
 
 struct LTSThermalPressurization {
-  struct Temperature : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Pressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Theta : public initializer::Variable<
-                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> {};
-  struct Sigma : public initializer::Variable<
-                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> {};
-  struct HalfWidthShearZone : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct HydraulicDiffusivity : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  template <typename Cfg>
+  using PointReals = DynamicRupture::PointReals<Cfg>;
+  template <typename Cfg>
+  using GridPointReals = Real<Cfg>[dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints<Cfg>];
+
+  struct Temperature : public initializer::VariantVariable<PointReals> {};
+  struct Pressure : public initializer::VariantVariable<PointReals> {};
+  struct Theta : public initializer::VariantVariable<GridPointReals> {};
+  struct Sigma : public initializer::VariantVariable<GridPointReals> {};
+  struct HalfWidthShearZone : public initializer::VariantVariable<PointReals> {};
+  struct HydraulicDiffusivity : public initializer::VariantVariable<PointReals> {};
 
   void addTo(DynamicRupture::Storage& storage) {
     const auto mask = initializer::LayerMask(Ghost);
@@ -332,9 +352,9 @@ struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
 };
 
 struct LTSImposedSlipRates : public DynamicRupture {
-  struct ImposedSlipDirection1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct ImposedSlipDirection2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct OnsetTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct ImposedSlipDirection1 : public initializer::VariantVariable<PointReals> {};
+  struct ImposedSlipDirection2 : public initializer::VariantVariable<PointReals> {};
+  struct OnsetTime : public initializer::VariantVariable<PointReals> {};
 
   explicit LTSImposedSlipRates(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -349,8 +369,8 @@ struct LTSImposedSlipRates : public DynamicRupture {
 };
 
 struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
-  struct TauS : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct TauR : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct TauS : public initializer::VariantVariable<PointReals> {};
+  struct TauR : public initializer::VariantVariable<PointReals> {};
 
   explicit LTSImposedSlipRatesYoffe(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}
@@ -364,7 +384,7 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
 };
 
 struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
-  struct RiseTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RiseTime : public initializer::VariantVariable<PointReals> {};
 
   explicit LTSImposedSlipRatesGaussian(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}
