@@ -249,11 +249,12 @@ void Spacetime<Cfg>::computeBatchedAder(
     krnl.streamPtr = runtime.stream();
 
     // TODO: integrate into the following kernel
-    device.algorithms().setToValue(krnl.spaceTimePredictor,
-                                   static_cast<real>(0.0),
-                                   tensor::spaceTimePredictor<Cfg>::size(),
-                                   krnl.numElements,
-                                   krnl.streamPtr);
+    device::DeviceInstance::instance().algorithms().setToValue(
+        krnl.spaceTimePredictor,
+        static_cast<real>(0.0),
+        tensor::spaceTimePredictor<Cfg>::size(),
+        krnl.numElements,
+        krnl.streamPtr);
 
     krnl.execute();
   }
