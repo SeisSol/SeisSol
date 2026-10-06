@@ -58,6 +58,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #
 #       derived input: WITH_GPU, DEVICE_VENDOR
 #
+include(cmake/confignames.cmake)
 include(cmake/process_users_input.cmake)
 include(cmake/configs.cmake)
 
