@@ -5,9 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
 #include "Equations/EnergyBase.h"
 #include "ResultWriter/EnergyOutput.h"
+#include "TestConfigs.h"
 
 #include <algorithm>
 #include <array>
@@ -96,8 +98,10 @@ TEST_CASE("EnergiesStorage multi-simulation indexing") {
   }
 }
 
-TEST_CASE("Energy descriptors of the configured material are well formed") {
-  using Compute = seissol::model::EnergyCompute<seissol::model::MaterialT>;
+TEST_CASE_TEMPLATE_DEFINE("Energy descriptors of the configured material are well formed",
+                          Cfg,
+                          EnergyDescriptorsWellFormed) {
+  using Compute = seissol::model::EnergyCompute<seissol::model::MaterialOf<Cfg>>;
 
   SUBCASE("EnergyCount matches the descriptor list") {
     CHECK(Compute::EnergyCount == Compute::Energies.size());
@@ -158,8 +162,12 @@ TEST_CASE("Energy descriptors of the configured material are well formed") {
   }
 }
 
-TEST_CASE("The stored potential energy is fully accounted for") {
-  using Compute = seissol::model::EnergyCompute<seissol::model::MaterialT>;
+TEST_CASE_TEMPLATE_APPLY(EnergyDescriptorsWellFormed, MaterialConfigs);
+
+TEST_CASE_TEMPLATE_DEFINE("The stored potential energy is fully accounted for",
+                          Cfg,
+                          StoredPotentialEnergyAccountedFor) {
+  using Compute = seissol::model::EnergyCompute<seissol::model::MaterialOf<Cfg>>;
 
   const auto groupOf = [](std::string_view name) -> std::string_view {
     for (const auto& descriptor : Compute::Energies) {
@@ -201,5 +209,7 @@ TEST_CASE("The stored potential energy is fully accounted for") {
     }
   }
 }
+
+TEST_CASE_TEMPLATE_APPLY(StoredPotentialEnergyAccountedFor, MaterialConfigs);
 
 } // namespace seissol::unit_test

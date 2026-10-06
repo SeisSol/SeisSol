@@ -8,7 +8,6 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
-#include "Config.h"
 
 #include <cstddef>
 #include <variant>
@@ -28,9 +27,12 @@ TEST_CASE("Configuration dispatch" * doctest::test_suite("common")) {
     }
   }
 
-  SUBCASE("The type leads back to its id") {
-    static_assert(configIdOf<Config>() < std::variant_size_v<ConfigVariant>);
-    CHECK(findConfig(Config::Value) == configIdOf<Config>());
+  SUBCASE("Every type leads back to its id") {
+    forEachConfig([](auto config) {
+      using Cfg = decltype(config);
+      static_assert(configIdOf<Cfg>() < std::variant_size_v<ConfigVariant>);
+      CHECK(findConfig(Cfg::Value) == configIdOf<Cfg>());
+    });
   }
 
   SUBCASE("An id outside the build is rejected") {

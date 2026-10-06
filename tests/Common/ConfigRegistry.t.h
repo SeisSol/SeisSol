@@ -9,7 +9,6 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Real.h"
-#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/runtime.h"
@@ -39,7 +38,7 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
   }
 
   SUBCASE("Nothing else is found") {
-    auto other = Config::Value;
+    auto other = configValue(defaultConfig());
     other.convergenceOrder += 10;
     CHECK_FALSE(findConfig(other).has_value());
     CHECK_FALSE(findConfig(configName(other)).has_value());

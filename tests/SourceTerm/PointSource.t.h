@@ -5,23 +5,28 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
 #include "SourceTerm/PointSource.h"
+#include "TestConfigs.h"
 #include "TestHelper.h"
 
 #include <memory>
 
 namespace seissol::unit_test {
 
-TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
+TEST_CASE_TEMPLATE("Transform moment tensor" * doctest::test_suite("sourceterm"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   // the acoustic and the viscoacoustic material carry a single isotropic stress, the pressure,
   // so only the first diagonal entry of the moment tensor makes it into the source
-  constexpr bool ScalarStress = model::MaterialT::TractionComponents == 1;
+  constexpr bool ScalarStress = model::MaterialOf<Cfg>::TractionComponents == 1;
 
   // strike = dip = rake = pi / 3
   double strike = M_PI / 3.0;
@@ -38,16 +43,16 @@ TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
   const double localPressureComponent = 0.0;
   const double localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
-  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update<Config>::Size>{};
+  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update<Cfg>::Size>{};
 
-  seissol::sourceterm::transformMomentTensor<Config>(localMomentTensorXY,
-                                                     localSolidVelocityComponent,
-                                                     localPressureComponent,
-                                                     localFluidVelocityComponent,
-                                                     strike,
-                                                     dip,
-                                                     rake,
-                                                     momentTensor.data());
+  seissol::sourceterm::transformMomentTensor<Cfg>(localMomentTensorXY,
+                                                  localSolidVelocityComponent,
+                                                  localPressureComponent,
+                                                  localFluidVelocityComponent,
+                                                  strike,
+                                                  dip,
+                                                  rake,
+                                                  momentTensor.data());
 
   // Compare to hand-computed reference solution
   CHECK(momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
@@ -78,14 +83,14 @@ TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
       {0.602398893453385, 1.572402458710038, 2.769437029884877},
   };
 
-  seissol::sourceterm::transformMomentTensor<Config>(localMomentTensorXZ,
-                                                     localSolidVelocityComponent,
-                                                     localPressureComponent,
-                                                     localFluidVelocityComponent,
-                                                     strike,
-                                                     dip,
-                                                     rake,
-                                                     momentTensor.data());
+  seissol::sourceterm::transformMomentTensor<Cfg>(localMomentTensorXZ,
+                                                  localSolidVelocityComponent,
+                                                  localPressureComponent,
+                                                  localFluidVelocityComponent,
+                                                  strike,
+                                                  dip,
+                                                  rake,
+                                                  momentTensor.data());
 
   // Compare to hand-computed reference solution
   CHECK(momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(Epsilon));
