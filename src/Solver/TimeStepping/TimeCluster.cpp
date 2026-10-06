@@ -12,6 +12,7 @@
 #include "TimeCluster.h"
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
 #include "Common/Marker.h"
@@ -22,6 +23,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/LtsSetup.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/DynamicRupture.h"
@@ -127,6 +129,16 @@ TimeCluster<Cfg>::TimeCluster(
   localKernel_.setGravitationalAcceleration(seissolInstance_.gravitationSetup().acceleration);
   neighborKernel_.setGlobalData(globalData);
   dynamicRuptureKernel_.setGlobalData(globalData);
+  if constexpr (seissol::isDeviceOn()) {
+    // the device kernels of the faces between configurations read the constants of both
+    for (const auto config : seissolInstance_.parameters().model.configs()) {
+      dispatchConfig(config, [&](auto configCfg) {
+        using ConfigCfg = decltype(configCfg);
+        configBoundary_.template setDeviceGlobalData<ConfigCfg>(
+            seissolInstance_.memoryManager().template globalData<ConfigCfg>().onDevice);
+      });
+    }
+  }
 
   frictionSolver_->allocateAuxiliaryMemory(globalData_.onHost);
   frictionSolverCopy_->allocateAuxiliaryMemory(globalData_.onHost);
@@ -594,6 +606,10 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
 
   seissol::kernels::TimeCommon<Cfg>::computeBatchedIntegrals(
       timeKernel_, timeCoeffs.data(), subtimeCoeffs.data(), table, streamRuntime_);
+  if (!configBoundary_.empty()) {
+    configBoundary_.setIntervals(timeStepWidth, subTimeStart, neighborTimestep_);
+    configBoundary_.computeBatchedIntegrals(table, streamRuntime_);
+  }
 
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);

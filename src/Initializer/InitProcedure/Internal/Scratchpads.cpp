@@ -14,6 +14,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Common.h"
+#include "Kernels/ConfigBoundary.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -47,6 +48,8 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
   std::size_t nodalDisplacementsCounter{0};
   std::size_t analyticCounter = 0;
   std::size_t numPlasticCells = 0;
+  // at most, as each face counts here, but a neighbor (and side) only once in the recorder
+  std::size_t configBoundaryBytes = 0;
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     const bool needsScratchMemForDerivatives =
@@ -64,9 +67,15 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
 
       const auto* neighborBuffer = static_cast<const real*>(faceNeighbors[cell][face]);
+      const auto neighborConfig = cellInformation[cell].neighborConfigIds[face];
+      const bool configBoundary = cellInformation[cell].faceTypes[face] == FaceType::Regular &&
+                                  neighborBuffer != nullptr && neighborConfig != configIdOf<Cfg>();
 
-      // check whether a neighbor element idofs has not been counted twice
-      if ((registry.find(neighborBuffer) == registry.end())) {
+      if (configBoundary) {
+        // its time integral goes into the scratch of the faces between configurations
+        configBoundaryBytes += kernels::ConfigBoundary<Cfg>::scratchBytes(neighborConfig);
+      } else if (registry.find(neighborBuffer) == registry.end()) {
+        // the time integral of each neighbor counts once
 
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBuffer != nullptr) {
@@ -123,6 +132,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
 
   layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal<Cfg>::size() *
                                            sizeof(real));
+  layer.setEntrySize<LTS::ConfigBoundaryScratch>(configBoundaryBytes);
 
   if (plasticity) {
     layer.setEntrySize<LTS::FlagScratch>(numPlasticCells * sizeof(unsigned));

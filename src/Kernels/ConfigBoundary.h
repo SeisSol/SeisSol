@@ -8,13 +8,18 @@
 #ifndef SEISSOL_SRC_KERNELS_CONFIGBOUNDARY_H_
 #define SEISSOL_SRC_KERNELS_CONFIGBOUNDARY_H_
 
+#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/configboundary.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/Typedefs.h"
 #include "Model/Common.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cstddef>
@@ -45,6 +50,39 @@ constexpr bool Convertible =
     generated::ConfigBoundaryKernels<NeighborCfg>::Host &&
     model::CanNeighbor<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
     Cfg::NumSimulations == NeighborCfg::NumSimulations;
+
+/// Whether the conversion of Convertible exists on the device as well.
+template <typename Cfg, typename NeighborCfg>
+constexpr bool DeviceConvertible =
+    Convertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::Device &&
+    generated::ConfigBoundaryKernels<NeighborCfg>::Device;
+
+/// Whether the conversion from the configuration `neighbor` into `cell` exists on the device.
+bool deviceConvertible(ConfigId cell, ConfigId neighbor);
+
+namespace configboundary {
+
+/// The batch of the time integrals of the neighbors of the configuration `neighbor` that provide
+/// derivatives, with the GTS relation (`gts`) or the LTS one.
+recording::ConditionalKey timeKey(ConfigId neighbor, bool gts);
+
+/// The batch of the conversion of the time integrals of the neighbors of the configuration
+/// `neighbor` into the canonical form.
+recording::ConditionalKey toCanonicalKey(ConfigId neighbor);
+
+/// The batch of the conversion from the canonical form, for the neighbors that touch the cell with
+/// their side `side`.
+recording::ConditionalKey fromCanonicalKey(std::size_t side);
+
+/// The alignment of each part of the device scratch of a face.
+constexpr std::size_t ScratchAlignment = 256;
+
+/// `bytes`, rounded up to the alignment of the scratch.
+constexpr std::size_t alignScratch(std::size_t bytes) {
+  return (bytes + ScratchAlignment - 1) / ScratchAlignment * ScratchAlignment;
+}
+
+} // namespace configboundary
 
 /**
  * @brief The faces of the cells of the configuration `Cfg` whose neighbor computes in another
@@ -84,6 +122,28 @@ class ConfigBoundary {
                         const std::array<real*, Cell::NumFaces>& integrationBuffer,
                         std::array<real*, Cell::NumFaces>& timeIntegrated) const;
 
+  /**
+   * The bytes of device scratch that a face of a cell towards a neighbor of the configuration
+   * `neighbor` takes at most: for the time integral of the neighbor in its configuration, in the
+   * canonical form, and converted into the configuration of the cell.
+   */
+  static std::size_t scratchBytes(ConfigId neighbor);
+
+  /// Sets the constants the device kernels of the configuration `NeighborCfg` read.
+  template <typename NeighborCfg>
+  void setDeviceGlobalData(const GlobalData<NeighborCfg>* globalData) {
+    devicePools_.at(configIdOf<NeighborCfg>()) = globalData;
+  }
+
+  /**
+   * The batched counterpart of computeIntegrals for the cells of a layer, with the batches that
+   * `table` holds (see NeighIntegrationRecorder): computes the time integrals of the neighbors of
+   * other configurations in their configuration, converts them into the canonical form, and from
+   * there into the configuration of the cells.
+   */
+  void computeBatchedIntegrals(recording::ConditionalPointersToRealsTable& table,
+                               seissol::parallel::runtime::StreamRuntime& runtime) const;
+
   private:
   struct Neighbor {
     // the coefficients of the time basis of the neighbor for its step relation to the cell (GTS)
@@ -101,8 +161,16 @@ class ConfigBoundary {
                               const void* timeDofs,
                               real* integrationBuffer);
 
+  /// The batched counterpart of computeIntegral, up to the canonical form.
+  template <typename NeighborCfg>
+  void computeBatchedCanonical(recording::ConditionalPointersToRealsTable& table,
+                               const Neighbor& neighbor,
+                               seissol::parallel::runtime::StreamRuntime& runtime) const;
+
   // indexed by the configuration of the neighbor
   std::vector<std::optional<Neighbor>> neighbors_;
+  // the constants of the device kernels, as the GlobalData of each configuration
+  std::vector<const void*> devicePools_;
   bool empty_{true};
 };
 

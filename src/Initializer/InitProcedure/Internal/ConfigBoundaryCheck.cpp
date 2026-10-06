@@ -13,6 +13,7 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Kernels/Common.h"
+#include "Kernels/ConfigBoundary.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
@@ -96,12 +97,14 @@ void checkConfigBoundaries(LTS::Storage& storage) {
       const auto& firstValue = configValue(first);
       const auto& secondValue = configValue(second);
       const auto pair = "between " + configName(firstValue) + " and " + configName(secondValue);
-      if (!materialsCanNeighbor(first, second)) {
+      const bool canNeighbor = materialsCanNeighbor(first, second);
+      if (!canNeighbor) {
         ++problemCount;
         problems << "\n  faces " << pair
                  << ": the materials pose the Riemann problem at their faces differently";
       }
-      if (firstValue.numSimulations != secondValue.numSimulations) {
+      const bool sameSimulations = firstValue.numSimulations == secondValue.numSimulations;
+      if (!sameSimulations) {
         ++problemCount;
         problems << "\n  faces " << pair << ": they fuse a different number of simulations";
       }
@@ -109,9 +112,12 @@ void checkConfigBoundaries(LTS::Storage& storage) {
         ++problemCount;
         problems << "\n  dynamic rupture faces " << pair << ": not supported";
       }
-      if (isDeviceOn()) {
+      if (isDeviceOn() && canNeighbor && sameSimulations &&
+          !(kernels::deviceConvertible(first, second) &&
+            kernels::deviceConvertible(second, first))) {
         ++problemCount;
-        problems << "\n  faces " << pair << ": not supported on GPUs yet";
+        problems << "\n  faces " << pair
+                 << ": their conversion is generated for GPUs with TensorForge only";
       }
     }
   }

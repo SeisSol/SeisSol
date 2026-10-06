@@ -26,6 +26,8 @@
 #include "Parallel/Helper.h"
 #include "Solver/Settings.h"
 
+#include <cstdint>
+
 namespace seissol {
 
 struct LTS {
@@ -165,6 +167,10 @@ struct LTS {
 
   struct ZinvExtra : public initializer::VariantScratchpad<Real> {};
 
+  // the time integrals of the neighbors of other configurations, in their configuration, in the
+  // canonical form, and converted (see kernels::ConfigBoundary); in bytes, as they mix reals
+  struct ConfigBoundaryScratch : public initializer::Scratchpad<std::uint8_t> {};
+
   struct Integrals : public initializer::VariantVariable<DofsArray> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
@@ -205,7 +211,8 @@ struct LTS {
                                                         QStressNodalScratch,
                                                         Integrals,
                                                         EnergyData,
-                                                        ZinvExtra> {};
+                                                        ZinvExtra,
+                                                        ConfigBoundaryScratch> {};
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
@@ -305,6 +312,7 @@ struct LTS {
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
 
       storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
+      storage.add<ConfigBoundaryScratch>(LayerMask(), Alignment, mode);
     }
   }
 

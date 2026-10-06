@@ -48,6 +48,8 @@ struct Wp {
     Analytical,
     QEtaNodal,
     Integrals,
+    // a time integral of a neighbor of another configuration in the canonical form of the family
+    CanonicalIdofs,
     Count
   };
 };
@@ -87,6 +89,8 @@ enum struct KernelNames : size_t {
   Plasticity = 1 << 5,
   DrSpaceMap = 1 << 6,
   BoundaryConditions = 1 << 7,
+  // the time integrals of the neighbors of another configuration
+  ConfigBoundary = 1 << 8,
   Count = 9,
   Any = encodeAny(Count)
 };

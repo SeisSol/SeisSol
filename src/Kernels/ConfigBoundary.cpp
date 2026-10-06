@@ -12,6 +12,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
@@ -20,10 +21,14 @@
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Solver.h"
 #include "Kernels/SolverSelector.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
 #include <array>
@@ -32,6 +37,15 @@
 #include <type_traits>
 #include <utils/logger.h>
 #include <vector>
+
+#ifdef ACL_DEVICE
+#include "Initializer/Typedefs.h"
+
+#include <Device/device.h>
+#include <cstdint>
+#include <functional>
+#include <utility>
+#endif
 
 namespace seissol::kernels {
 
@@ -71,6 +85,30 @@ void convertNeighborIntegral(const Real<NeighborCfg>* integral,
   fromCanonical.execute(neighborSide);
 }
 
+#ifdef ACL_DEVICE
+/// Runs `execute` for the device kernel `krnl` of `numElements` elements with the temporary memory
+/// it needs.
+template <typename Kernel, typename F>
+void executeWithTemporaries(Kernel& krnl,
+                            std::size_t numElements,
+                            seissol::parallel::runtime::StreamRuntime& runtime,
+                            F&& execute) {
+  krnl.numElements = numElements;
+  krnl.streamPtr = runtime.stream();
+  void* temporaries = nullptr;
+  if constexpr (Kernel::TmpMaxMemRequiredInBytes > 0) {
+    auto& device = ::device::DeviceInstance::instance();
+    temporaries = device.api().allocMemAsync(Kernel::TmpMaxMemRequiredInBytes * numElements,
+                                             runtime.stream());
+    krnl.linearAllocator.initialize(static_cast<std::int8_t*>(temporaries));
+  }
+  std::invoke(std::forward<F>(execute));
+  if (temporaries != nullptr) {
+    ::device::DeviceInstance::instance().api().freeMemAsync(temporaries, runtime.stream());
+  }
+}
+#endif
+
 template <typename Cfg>
 constexpr bool CanonicalOfMaterial = !generated::ConfigBoundaryKernels<Cfg>::Host ||
                                      generated::ConfigBoundaryKernels<Cfg>::CanonicalQuantities ==
@@ -78,9 +116,39 @@ constexpr bool CanonicalOfMaterial = !generated::ConfigBoundaryKernels<Cfg>::Hos
 
 } // namespace
 
+bool deviceConvertible(ConfigId cell, ConfigId neighbor) {
+  return dispatchConfig(cell, [&](auto cellCfg) {
+    return dispatchConfig(neighbor, [&](auto neighborCfg) {
+      return DeviceConvertible<decltype(cellCfg), decltype(neighborCfg)>;
+    });
+  });
+}
+
+namespace configboundary {
+
+recording::ConditionalKey timeKey(ConfigId neighbor, bool gts) {
+  using namespace seissol::recording;
+  return ConditionalKey(*KernelNames::ConfigBoundary,
+                        gts ? *ComputationKind::WithGtsDerivatives
+                            : *ComputationKind::WithLtsDerivatives,
+                        neighbor);
+}
+
+recording::ConditionalKey toCanonicalKey(ConfigId neighbor) {
+  using namespace seissol::recording;
+  return ConditionalKey(*KernelNames::ConfigBoundary, *ComputationKind::None, neighbor);
+}
+
+recording::ConditionalKey fromCanonicalKey(std::size_t side) {
+  using namespace seissol::recording;
+  return ConditionalKey(*KernelNames::ConfigBoundary, *ComputationKind::None, *FaceId::Any, side);
+}
+
+} // namespace configboundary
+
 template <typename Cfg>
 ConfigBoundary<Cfg>::ConfigBoundary(const std::vector<ConfigId>& configs)
-    : neighbors_(builtConfigCount()) {
+    : neighbors_(builtConfigCount()), devicePools_(builtConfigCount(), nullptr) {
   for (const auto config : configs) {
     if (config != configIdOf<Cfg>()) {
       neighbors_.at(config) = Neighbor{};
@@ -169,6 +237,112 @@ void ConfigBoundary<Cfg>::computeIntegral(const CellLocalInformation& cellInform
     convertNeighborIntegral<Cfg, NeighborCfg>(
         integral, integrationBuffer, cellInformation.faceRelations[face][0]);
   }
+}
+
+template <typename Cfg>
+std::size_t ConfigBoundary<Cfg>::scratchBytes(ConfigId neighbor) {
+  return dispatchConfig(neighbor, [&](auto neighborCfg) -> std::size_t {
+    using NeighborCfg = decltype(neighborCfg);
+    if constexpr (DeviceConvertible<Cfg, NeighborCfg>) {
+      using configboundary::alignScratch;
+      return alignScratch(SolverOf<NeighborCfg>::IntegralsSize * sizeof(Real<NeighborCfg>)) +
+             alignScratch(tensor::canonicalI<NeighborCfg>::size() * sizeof(double)) +
+             alignScratch(SolverOf<Cfg>::IntegralsSize * sizeof(real));
+    } else {
+      return 0;
+    }
+  });
+}
+
+template <typename Cfg>
+void ConfigBoundary<Cfg>::computeBatchedIntegrals(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) const {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
+  // into the canonical form, per configuration of the neighbors
+  for (ConfigId config = 0; config < neighbors_.size(); ++config) {
+    if (neighbors_[config].has_value()) {
+      dispatchConfig(config, [&](auto neighborCfg) {
+        using NeighborCfg = decltype(neighborCfg);
+        if constexpr (!std::is_same_v<NeighborCfg, Cfg> && DeviceConvertible<Cfg, NeighborCfg>) {
+          computeBatchedCanonical<NeighborCfg>(table, neighbors_[config].value(), runtime);
+        }
+      });
+    }
+  }
+
+  // from the canonical form, per side of the neighbors
+  if constexpr (generated::ConfigBoundaryKernels<Cfg>::Device) {
+    const auto* pool = static_cast<const GlobalData<Cfg>*>(devicePools_.at(configIdOf<Cfg>()));
+    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+      const auto key = configboundary::fromCanonicalKey(side);
+      if (table.find(key) != table.end()) {
+        auto& entry = table.at(key);
+        auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+        auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
+        assert(pool != nullptr);
+        kernel::gpu_fromCanonical<Cfg> krnl;
+        krnl.bindGlobals(*pool);
+        krnl.canonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
+        krnl.I = integrals->getDeviceDataPtr();
+        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(side); });
+      }
+    }
+  }
+#else
+  logError() << "No GPU implementation provided";
+#endif
+}
+
+template <typename Cfg>
+template <typename NeighborCfg>
+void ConfigBoundary<Cfg>::computeBatchedCanonical(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM const Neighbor& neighbor,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) const {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+  using NeighborReal = Real<NeighborCfg>;
+
+  // the time integrals of the neighbors that provide derivatives, in their time basis
+  for (const bool gts : {true, false}) {
+    const ConditionalKey key = configboundary::timeKey(configIdOf<NeighborCfg>(), gts);
+    if (table.find(key) != table.end()) {
+      auto& entry = table.at(key);
+      const auto& coeffs = gts ? neighbor.timeCoeffs : neighbor.subtimeCoeffs;
+      std::array<NeighborReal, NeighborCfg::ConvergenceOrder> neighborCoeffs{};
+      assert(coeffs.size() == neighborCoeffs.size());
+      std::transform(coeffs.begin(), coeffs.end(), neighborCoeffs.begin(), [](double coeff) {
+        return static_cast<NeighborReal>(coeff);
+      });
+      auto* derivatives = entry.get<NeighborReal*>(inner_keys::Wp::Id::Derivatives);
+      auto* integrals = entry.get<NeighborReal*>(inner_keys::Wp::Id::Idofs);
+      Time<NeighborCfg> time;
+      time.evaluateBatched(neighborCoeffs.data(),
+                           const_cast<const NeighborReal**>(derivatives->getDeviceDataPtr()),
+                           integrals->getDeviceDataPtr(),
+                           integrals->getSize(),
+                           runtime);
+    }
+  }
+
+  const ConditionalKey key = configboundary::toCanonicalKey(configIdOf<NeighborCfg>());
+  if (table.find(key) != table.end()) {
+    auto& entry = table.at(key);
+    auto* integrals = entry.get<NeighborReal*>(inner_keys::Wp::Id::Idofs);
+    auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+    const auto* pool =
+        static_cast<const GlobalData<NeighborCfg>*>(devicePools_.at(configIdOf<NeighborCfg>()));
+    assert(pool != nullptr);
+    kernel::gpu_toCanonical<NeighborCfg> krnl;
+    krnl.bindGlobals(*pool);
+    krnl.I = const_cast<const NeighborReal**>(integrals->getDeviceDataPtr());
+    krnl.canonicalI = canonical->getDeviceDataPtr();
+    executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(); });
+  }
+#endif
 }
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
