@@ -9,358 +9,258 @@
 Curvilinear elements
 ====================
 
-Nothing in the code does this yet. This page records what a curved element
-asks of the discretisation, which of those pieces already exist, and the three
-things about it that are easy to get wrong. It is written so that whoever picks
-the work up does not have to rediscover the measurements.
+A build with ``CURVILINEAR=ON`` lets a cell be curved. This page says what the
+scheme does with a curved cell, where that needs data per point -- per point
+the operator is formed at, per node of a face -- and where it does not, which
+parts of the code had to learn about it, and what is not done yet. The
+measurements behind the choices are summarised here; the commit messages of the
+series carry the details.
 
-File references are to ``davschneller/nodal`` at ``a1cc532e5``; line numbers
-are a hint, the symbol is the thing to look for.
+Building and feeding it
+-----------------------
 
-What changes
-------------
+``CURVILINEAR=ON`` needs ``MATERIAL_NODAL=ON`` and
+``MATERIAL_OPERATOR=assembled``, runs on the CPU, and takes the media whose flux
+decomposes into scalars per face node: elastic, acoustic and the attenuating
+variants of both, not the anisotropic or the poroelastic one. cmake and the code
+generator refuse the rest. A material that does not vary is carried as samples
+that agree.
 
-A cell is given by a map :math:`x(\xi)` from the reference tetrahedron. For an
-affine map the Jacobian :math:`J = \partial x / \partial \xi` is one matrix for
-the whole cell; for a curved map it is a function of :math:`\xi`. Everything
-else follows from that.
+Which cells are curved, the mesh decides. A reader hands them over through
+``MeshReader::setCurvedGeometry``: the nodes of every local cell on the
+equispaced lattice of the geometry order
+(``IsoparametricTransform::latticeNodes``; order two adds the six edge midpoints
+to the vertices), the vertices first and in the vertex order the reader keeps.
+The call checks that the vertices are the cell's and that the cell is not
+turned inside out anywhere on a lattice of twice its order. **No reader does
+this yet**; a higher-order mesh through PUMgen and the PUML format is the next
+step, in the mesh toolchain. A build without ``CURVILINEAR`` refuses a curved
+mesh.
 
-The volume term of the DG formulation is
+On a straight-sided mesh a ``CURVILINEAR`` build computes what the build without
+it computes: a plane wave through a cube gives the same error norms to
+:math:`10^{-12}` and the same energies to :math:`10^{-15}`.
 
-.. math::
+At order 4 a cell carries 9.0 kB of metric at the 125 operator points and 14.4 kB
+of face rotations at the 10 nodes of each face, against 72 B and 1.4 kB for a
+straight-sided cell.
 
-  \int_T \frac{\partial \varphi_k}{\partial \xi_e}\,
-         G_{ed}(\xi)\, A_d\, q \; \mathrm{d}\xi ,
-  \qquad
-  G = \det(J)\, J^{-1} ,
+The scheme on a curved cell
+---------------------------
 
-and the mass matrix is :math:`M_{kl} = \int_T \varphi_k \varphi_l \det J \,
-\mathrm{d}\xi`. With an affine map both :math:`G` and :math:`\det J` are
-constants and pull out of the integral, which is why the reference matrices in
-``codegen/matrices/aderdg-N.xml`` suffice and a cell carries only the three
-rows of :math:`J^{-1}`. With a curved map they do not.
+A cell is a map :math:`x(\xi)` from the reference tetrahedron, its Jacobian
+:math:`J = \partial x / \partial \xi` varies inside it, and so does the metric
+:math:`J^{-1}`, whose rows are the gradients of the reference coordinates. For
+an isoparametric map of order :math:`g`, :math:`\det J` has the degree
+:math:`3(g-1)` and the cofactor matrix :math:`\det(J)\,J^{-1}` the degree
+:math:`2(g-1)`.
 
-For an isoparametric P2 map the quantities involved are polynomials: :math:`J`
-is linear, :math:`\det J` is cubic, and :math:`G`, being the cofactor matrix,
-is quadratic. Nothing is approximated by writing them down; what changes is
-that they can no longer be factored out.
-
-What is already in place
-------------------------
-
-Considerably more than one would expect, because three unrelated pieces of work
-left exactly the right seams.
-
-.. list-table::
-  :header-rows: 1
-  :widths: 24 30 46
-
-  * - Piece
-    - Where
-    - What it gives
-  * - Geometry abstraction
-    - ``src/Geometry/CellTransform.h``, ``src/Geometry/FaceTransform.h``
-    - ``CellTransform::refToSpaceJacobian(point)`` is virtual and takes a
-      reference coordinate; ``FaceTransform::normal(faceCoord)`` is
-      point-dependent and unnormalised, with its norm being the surface
-      Jacobian. A curved cell is a new subclass, not a new interface.
-  * - The metric as an operand
-    - ``referenceGradients(dim)`` in ``codegen/kernels/aderdg/aderdg.py``
-      (~335), ``LocalIntegrationData::referenceGradients`` in
-      ``src/Initializer/Typedefs.h`` (~61)
-    - A cell carries the three rows of :math:`J^{-1}` apart from the material,
-      instead of a star matrix with both folded together. Filled in
-      ``src/Initializer/Model/CellLocalMatrices.cpp`` (~299) from
-      ``refToSpaceJacobianInverse(ReferenceBarycenter)``, with a comment
-      marking that an affine map is what permits a single point there.
-  * - An operator formed per sample point
-    - ``MATERIAL_OPERATOR=assembled`` → ``starAtPoint(dim)``,
-      ``aderdg.py`` (~456, ~851)
-    - ``starAtPoint[dim][n,q,p]`` is an operator per point. A point-varying
-      metric needs exactly this shape; the factored form's economy is that the
-      Jacobian rows fold once per cell, which a curved cell denies.
-  * - A time integration that tolerates a degree-raising operator
-    - ``codegen/kernels/aderdg/linearck.py`` (~309),
-      ``codegen/kernels/aderdg/stp.py``
-    - The derivative chain keeps every mode instead of narrowing, and the
-      space-time predictor is a Picard fixed point instead of a block sweep over
-      degrees. See `The degree cascade does not survive`_ for why this is not
-      optional.
-  * - A flux that varies along a face
-    - ``fluxScalarsOfNode`` in ``CellLocalMatrices.cpp``,
-      ``nodalFlux`` in ``aderdg.py`` (~647)
-    - The flux operator of a face is carried as scalars per face node, and the
-      material of both sides is read per node. The surface Jacobian already
-      rides on those scalars through ``fluxScale``.
-  * - Point location for output
-    - ``CellTransform::spaceToRef``
-    - Receivers and output points need :math:`\xi` from :math:`x`; for a curved
-      map this is a Newton iteration, and the virtual method is the place for it.
-
-Three things that are easy to miss
-----------------------------------
-
-All three are measured, not argued. The scripts are small and self-contained;
-they use SeisSol's own basis and quadrature, read from the collocation data on
-``davschneller/config``.
-
-The degree cascade does not survive
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ADER time integration rests on the spatial operator lowering the polynomial
-degree: the derivative of a degree-:math:`n` field is degree :math:`n-1`, so the
-derivative chain narrows and the space-time predictor can be solved one degree
-block at a time. A polynomial metric destroys that property, because
-:math:`\partial \varphi_k / \partial \xi_e \, G_{ed}` raises the degree by as
-much as :math:`G` carries.
-
-Measured on ``kDivM``: the largest entry in the degree blocks that a
-degree-lowering operator must leave empty, relative to the largest entry
-overall.
+**The volume term is the strong form.** The predictor and the volume term of the
+corrector both differentiate the field in reference coordinates, evaluate that
+at the points the operator is formed at, apply the operator there --
+:math:`\sum_j (J^{-1})_{ej}(\xi_n) A_j(\xi_n)`, the metric at the point together
+with the material at the point, folded once per kernel -- and project back.
+That is what a nodal material build did already for the predictor; the corrector
+used the weak derivative instead, and with an operator that varies inside a cell
+that is not consistent: the weak derivative is the derivative less the lift of
+the cell's own trace, the operator inside the cell multiplies that lift, and the
+face flux takes the trace off again with the operator at the face. The two only
+cancel where they are one operator. Measured on one cell (scalar advection,
+order 4, relative error of :math:`\partial_t q`):
 
 .. list-table::
   :header-rows: 1
-  :widths: 50 50
+  :widths: 28 18 18 18 18
 
-  * - Cell
-    - Outside the degree-lowering structure
-  * - affine, :math:`J = I`
-    - 1.9e-16
-  * - affine, general :math:`J`
-    - 2.2e-16
-  * - P2-curved, :math:`\varepsilon = 0.05`
-    - 7.7e-03
-  * - P2-curved, :math:`\varepsilon = 0.2`
-    - 4.2e-02
+  * - :math:`h`
+    - 0.4
+    - 0.2
+    - 0.1
+    - 0.05
+  * - curved, weak form
+    - 7.7e+1
+    - 7.1e+0
+    - 5.9e+0
+    - 5.5e+0
+  * - curved, strong form
+    - 1.0e-1
+    - 9.4e-4
+    - 1.2e-4
+    - 1.5e-5
+  * - varying material, weak form
+    - 7.4e-1
+    - 6.5e-1
+    - 6.1e-1
+    - 5.9e-1
+  * - varying material, strong form
+    - 4.4e-4
+    - 4.3e-5
+    - 4.7e-6
+    - 5.4e-7
 
-So a curved build has to take the non-narrowing derivative chain and the
-fixed-point predictor. Those exist, but they are switched on by
-``MATERIAL_NODAL`` — by a statement about the *material*. Curvilinear is a
-second, independent reason for the same switch, and the condition wants to be
-named after what it asserts ("the operator does not lower the degree") rather
-than after one of its causes. This is the one code generator change beyond the
-matrices themselves.
+So the strong form is not a choice for curved cells, and it is the fix for the
+nodal material as well: through the whole code, a constant state in a smoothly
+varying medium drifted by 2 to 18 percent within 0.1 s with the weak form, and
+by about as much on a mesh twice as fine; with the strong form it stays
+constant to :math:`10^{-14}`. The local flux of every face now takes off the
+normal flux of the cell's own trace (``toCorrectorForm``), a fault face
+included, whose local flux is that subtraction alone.
 
-The mass matrix becomes dense
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+**The mass matrix stays the one of the reference cell.** The scheme tests with
+the basis functions divided by :math:`\det J`. A point source then is
+:math:`\varphi(\xi_s) / \det J(\xi_s)`, the initial state is the projection of
+its values at the quadrature points, and the face terms take on
+:math:`|n| / \det J` at every face node, :math:`|n|` the surface Jacobian -- for
+a straight-sided cell that is the flux scale :math:`2|S| / |J|` it always had.
+Nothing that has the inverse mass matrix folded in -- ``kDivMT``, ``rDivM``,
+``fMrT``, ``project2nFaceTo3m``, ``M3inv``, ``V3mTo2nTWDivM`` -- changes, and no
+cell carries a dense mass matrix. The price is exact conservation, which the
+scheme for a material that varies inside a cell does not have either, and
+stability is not proven the way it is for the Galerkin scheme with
+:math:`M_J`. Measured instead: the spectrum of the semi-discrete operator of 1D
+acoustics on curved cells, with a varying material and the Godunov flux, has no
+eigenvalue with a positive real part beyond round-off at orders 4 and 6, and in
+3D a constant state stays constant on curved meshes.
 
-The modal basis is orthogonal on the reference tetrahedron, so :math:`M` is
-diagonal there. With :math:`\det J` under the integral it is not. Measured
-occupancy, order 4: **5 % → 100 %**, at an essentially unchanged condition
-number (84 → 80).
+**A curved face has its rotation and its scale per node.** Its normal turns
+along it, so the rotation into face coordinates is one per node (``TNodes``),
+taken from the frame the face has at the node, and so is the scale. The flux
+scalars are formed per node as before.
 
-:math:`M^{-1}` is therefore a dense matrix per cell, and it is folded into more
-places than the volume term. See `Where the inverse mass matrix is implicit`_.
+**The time step** of a curved cell is the one of its vertices times its
+relative thickness (``relativeThickness``): the smallest singular value of the
+Jacobian over the one of the straight-sided cell, where it is smallest. A cell
+squeezed to 5 percent of its straight Jacobian determinant blew up with any CFL
+down to 0.1 before this.
 
-The quadrature is one degree short
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The 44-point volume rule shipped for order 4 is exact to degree 8 — ample for
-the affine integrands (:math:`\varphi \varphi` is degree 6). The curved mass
-matrix integrand is :math:`\varphi \varphi \det J`, degree 9 for a P2 map, so it
-is under-integrated. Measured against an exact rule:
-
-.. list-table::
-  :header-rows: 1
-  :widths: 50 50
-
-  * - Cell
-    - Error in :math:`M`, relative
-  * - affine
-    - 2.7e-15
-  * - P2-curved, :math:`\varepsilon = 0.05`
-    - 3.2e-07
-  * - P2-curved, :math:`\varepsilon = 0.2`
-    - 2.0e-05
-
-This is below the discretisation error, so it will not visibly break anything —
-which is exactly why it is worth writing down. It costs exact conservation and
-it is avoidable: the rule needs :math:`2p + \deg \det J` rather than
-:math:`2p`, which for a P\ :sub:`g` map is :math:`2p + 3(g-1)`.
-
-Two formulations, and the storage they cost
---------------------------------------------
-
-There are two ways to carry a curved cell's operator, and they compute the same
-thing. The choice is a memory-against-flops trade and deserves a measurement on
-the target machine rather than a preference.
-
-**Per-cell matrices.** Integrate the metric into the cell's own copies of the
-six reference families in ``codegen/matrices/aderdg-N.xml`` — ``kDivM``,
-``kDivMT``, ``rDivM``, ``fMrT``, ``rT``, ``fP`` — and let the cell's star be the
-raw directional matrices :math:`A_d^T`. The kernels then look exactly as they do
-today; only their operands become per-cell. This is what ``davschneller/config``
-implements.
-
-**Per-point metric.** Keep the reference matrices and carry the metric at the
-sample points, applied the way the material coefficients already are, with one
-dense :math:`M^{-1}` per cell for the projection back. This is the shape
-``MATERIAL_OPERATOR=assembled`` already generates.
-
-Storage per cell, f64, elastic:
+Where it has to be per point
+----------------------------
 
 .. list-table::
   :header-rows: 1
-  :widths: 16 14 24 24 22
+  :widths: 22 14 64
 
-  * - Order
-    - DOFs ``Q``
-    - Per-cell matrices
-    - :math:`M^{-1}` only
-    - Metric at ``nb`` points
+  * - Part
+    - Per point?
+    - Why
+  * - Face flux
+    - yes, per node
+    - Rotated, the operator of a curved face is not one matrix of the face
+      times one matrix of the quantities, so neither the rotation nor the scale
+      can be folded into what a face stores. This is the one place where it has
+      to be pointwise in any formulation.
+  * - Volume operator, predictor and corrector
+    - yes, per operator point
+    - The metric multiplies the derivative at the point. One could integrate it
+      into per-cell matrices instead (``davschneller/config`` does), which are
+      dense and 40.6 kB per cell at order 4; with the nodal operator already
+      formed at points, the metric rides along in the assembly.
+  * - Mass matrix
+    - no
+    - The reference mass matrix stays, see above. The Galerkin mass matrix
+      :math:`M_J` would be dense per cell and folded into six matrix families.
+  * - Point sources
+    - one point
+    - :math:`1 / \det J` at the source.
+  * - Energies, error norms
+    - per quadrature point
+    - :math:`\det J` weighs every point.
+  * - Material, initial state, receivers, output
+    - through the map
+    - Points are placed through the cell's map; a receiver finds its reference
+      point by Newton's method, and derived output takes the metric at each
+      point.
+  * - Plasticity
+    - no
+    - It acts on values at points and does not differentiate.
+  * - Dynamic rupture
+    - would be per point
+    - The fault rotates its state with one rotation per face and lifts it with
+      one scale. Not done; refused on a curved mesh.
+  * - Boundary conditions with a ghost state
+    - would be per node
+    - Analytical, Dirichlet and gravity state a ghost cell and apply one matrix
+      per face. Not done; refused on a curved mesh. Free surface and outflow are
+      part of the flux and work.
+
+What is not done
+----------------
+
+- A mesh reader that delivers curved cells (PUMgen, PUML), and with it the
+  transforms for the time step at partitioning time (``CellToVertexArray``,
+  which ``fromPUML`` builds straight-sided).
+- Dynamic rupture and the boundary conditions with a ghost state on curved
+  faces, see above.
+- Ghost cells on other ranks are sampled straight-sided: their metadata carries
+  their vertices only, so the material a face reads from a neighbour on
+  another rank comes from sample points placed by the straight-sided map.
+- The device path. A curved face's rotation per node has not been generated or
+  checked with tensorforge.
+- ``MATERIAL_OPERATOR=factored``, which would fold the metric at every
+  application.
+- Memory: the metric could be carried at the material samples and
+  interpolated, as the material is, instead of at the operator points; the face
+  rotation could be built in the kernel from a normal per node.
+
+Checks
+------
+
+Unit checks, in either build where they apply: a straight-sided cell evaluated
+at every point carries what it carries as one cell; the isoparametric map passes
+through its nodes, its Jacobian is its derivative, its cofactor matrix is free
+of divergence and gives the face normal (Nanson); on a curved cell the face
+scale and frame per node agree with differencing the map; the volume term
+differentiates a linear field exactly on a curved cell -- with the metric of one
+point for the whole cell, a mode that has to vanish comes out at a sizeable
+fraction of the derivative -- and a constant state stays constant; the strong
+form with its face terms is the weak form for one material per cell, a fault
+face included.
+
+End to end, with a hook that is not part of the series: a cube of
+:math:`n^3` hexahedra cut into six tetrahedra each, its vertices moved by the
+smooth map :math:`x + \varepsilon \sin(\pi x)\sin(\pi y)\sin(\pi z)\,(1, 0.7,
+-0.5)` with :math:`\varepsilon = 0.06`, which leaves its boundary where it is,
+and either straight edges between them or the edge midpoints where the map puts
+them, curving the cells. A Gaussian pulse runs for 0.15 s with outflow on the
+boundary; four receivers inside are compared with a straight-sided mesh of
+:math:`24^3` hexahedra, as the relative L2 difference of their time series
+(largest over the receivers):
+
+.. list-table::
+  :header-rows: 1
+  :widths: 20 20 20 20 20
+
+  * - :math:`n`
+    - straight edges, constant material
+    - curved, constant material
+    - straight edges, varying material
+    - curved, varying material
   * - 4
-    - 1.4 kB
-    - 40.6 kB
-    - 3.1 kB
-    - 1.4 kB
-  * - 6
-    - 3.9 kB
-    - 271.0 kB
-    - 24.5 kB
-    - 3.9 kB
+    - 1.9e-2
+    - 2.2e-2
+    - 2.0e-2
+    - 2.3e-2
+  * - 8
+    - 1.5e-3
+    - 1.4e-3
+    - 1.6e-3
+    - 1.6e-3
+  * - 12
+    - 3.1e-4
+    - 3.1e-4
+    - 3.4e-4
+    - 3.6e-4
 
-A factor of roughly nine at order 4 and ten at order 6, against more work per
-application. Note also that the per-cell matrices are dense in the curved case —
-the degree structure that makes the affine ``kDivM`` sparse is the same structure
-the metric destroys.
-
-The face rotation is a cost in either formulation. A curved face has a normal
-that varies along it, so ``T`` and its inverse become per node:
-``faceRotation[side]`` in ``src/Initializer/Typedefs.h`` (~90) and
-``rotation["qk"]`` / ``rotation["pl"]`` in ``nodalFlux``. Stored as a matrix per
-node that is 14.1 kB per cell at order 4 and 29.5 kB at order 6, against 1.4 kB
-per face today. ``T`` has 45 stored entries but only three degrees of freedom
-per node, so keeping the normal per node and building the rotation in the kernel
-is about fifteen times cheaper in memory and correspondingly more work in the
-kernel.
-
-Where the inverse mass matrix is implicit
-------------------------------------------
-
-This is the part that is easy to underestimate. :math:`M^{-1}` is not a matrix
-the code multiplies by; it is pre-multiplied into the checked-in reference
-matrices, and those reach the kernels through the generated pool rather than
-through an operand the host sets. Every one of these has to learn about a
-per-cell mass matrix.
-
-.. list-table::
-  :header-rows: 1
-  :widths: 26 32 42
-
-  * - Matrix
-    - Named in
-    - Reaches
-  * - ``kDivM``, ``kDivMT``
-    - ``aderdg/{aderdg,linearck,linearckanelastic,stp}.py``
-    - volume term, derivative chain, space-time predictor
-  * - ``rDivM``, ``fMrT``
-    - ``aderdg/{aderdg,linearck,linearckanelastic}.py``
-    - local and neighbour flux
-  * - ``project2nFaceTo3m``
-    - ``nodalbc.py``, the three solvers
-    - nodal boundary conditions, the nodal flux lift
-  * - ``V3mTo2nTWDivM``
-    - ``dynamic_rupture.py``
-    - the dynamic rupture flux
-  * - ``M3inv``
-    - ``point.py``
-    - point sources
-  * - ``M2inv``
-    - ``aderdg/aderdg.py``
-    - the face reparametrisation check
-  * - ``M2``, ``MV2nTo2m``
-    - ``surface_displacement.py``
-    - free-surface displacement — a face integral, so it wants the curved
-      surface Jacobian rather than the volume mass matrix
-
-Three more places integrate or evaluate over a cell without naming one of these,
-and want checking rather than assuming: plasticity (``plasticity.py``, which
-transforms modal to nodal with ``evalAtQP``/``vInv`` and accumulates plastic
-strain), the energy output, and the initial-condition projection. The output
-projection in ``vtkproject.py`` evaluates basis functions at points and needs no
-mass matrix, but it does need ``spaceToRef`` for a curved map.
-
-A route through it
-------------------
-
-Ordered so that each step can be checked against the affine result before the
-next one starts. An affine transform evaluated at many points must reproduce,
-bit for bit, what one evaluated at the barycenter produces — that comparison is
-the test harness for the whole series.
-
-1. **Bring the branch up to master.** ``davschneller/nodal`` has the geometry
-   abstraction and the refactored boundary conditions through its merge base, but
-   master keeps moving.
-
-2. **Give the metric a point index.** ``referenceGradients`` gains a point
-   index, ``MATERIAL_OPERATOR=assembled`` becomes the required form, and
-   ``CellLocalMatrices.cpp`` fills it from ``refToSpaceJacobianInverse`` at each
-   sample point instead of at the barycenter. Check: an ``AffineTransform``
-   sampled at every point against the current path.
-
-3. **Separate the degree condition from the material.** The non-narrowing
-   derivative chain and the fixed-point predictor are selected by
-   ``self.nodalMaterial`` today; curvilinear needs the same behaviour for a
-   different reason. One predicate, two causes.
-
-4. **A per-cell inverse mass matrix, and then the survey above.** Expect this to
-   be the longest step — not the kernels, but the places :math:`M^{-1}` has been
-   folded into.
-
-5. **The face rotation per node.** ``FaceTransform::faceAlignedBasis()`` is the
-   one accessor on that interface that does not yet take a point, while
-   ``normal(input)`` and ``surfaceJacobian(input)`` do. Then
-   ``MeshTools::normalAndTangents`` in ``CellLocalMatrices.cpp`` (~365) gives way
-   to the transform, and ``fluxScale`` (~393) becomes a per-node quantity rather
-   than a single ratio of face area to cell volume.
-
-6. **A curved transform, and a mesh that carries one.** Only now does a
-   non-affine ``CellTransform``/``FaceTransform`` subclass become useful, and
-   with it the question of where curved geometry enters — PUMgen, the PUML
-   format, and a higher-order mesh from the mesher.
-
-Steps 2, 3 and 5 are each small and well-bounded. Step 4 is a survey. Step 6 is
-a separate project in the mesh toolchain.
-
-Two notes on the sample points. The ``nb`` set has one point per basis function
-and its face traces are the two-dimensional nodal set, so the same samples serve
-the volume metric and the face rotation; the ``ip`` set integrates products
-further but has no point on a face, so a curved build wants ``nb`` unless the
-face nodes are sampled separately. And a curved geometry raises the degree under
-every integral, which is the quadrature point above.
+Both converge at the rate of the order, and the curved cells are as accurate as
+the straight ones. The mesh, the parameters and the hook are with the
+measurement scripts that accompany the series.
 
 What ``davschneller/config`` holds
 -----------------------------------
 
-The branch is a prototype of the per-cell-matrix formulation. Its merge base is
-well behind master and its own ``CellTransform`` has been superseded by the one
-in ``src/Geometry``, so it is more useful read than merged. What is in it and
-nowhere else:
-
-- ``codegen/kernels/elementwise.py`` — a generated ``bootstrap`` kernel that
-  assembles a cell's ``M``, ``k``, ``kT``, ``r`` from quadrature weights times a
-  point-sampled metric. This is the piece worth taking.
-- ``codegen/matrices/elemwise-collocate-pN.json`` — basis values and
-  derivatives at volume and face quadrature points, which is what any
-  formulation needs to sample a metric. Regenerate these a degree higher; see
-  the quadrature note above.
-- ``MatrixBootstrap::sampleBasis`` — ``det(J)`` and ``det(J) J^{-1}`` per
-  quadrature point, with a rescaling of the weights for conditioning that
-  cancels later.
-- ``Config::GlobalElementwise`` and the ``LTS`` variables that hold the per-cell
-  families, as a worked example of the plumbing.
-
-Open decisions
---------------
-
-- Which formulation. The storage table above is the argument; the flop count on
-  the target machine is the other half, and it has not been measured.
-- Whether the face rotation is stored per node or rebuilt in the kernel from a
-  stored normal.
-- Which geometric order to support. P2 is the natural first step and fixes the
-  polynomial degrees used throughout this page; anything higher scales the
-  quadrature requirement as :math:`2p + 3(g-1)`.
-- Whether a curved build must also be a ``MATERIAL_NODAL`` build. The two share
-  the per-point operator machinery, but a curved cell with a constant material is
-  a legitimate and cheaper configuration, and keeping it separate is what step 3
-  above is for.
+A prototype of the per-cell-matrix formulation: a generated ``bootstrap`` kernel
+that assembles a cell's ``M``, ``k``, ``kT``, ``r`` from quadrature weights times
+a point-sampled metric, and the collocation data it needs. With the reference
+mass matrix kept and the metric applied at the operator points, none of it is
+needed here; it remains the reference for that formulation, should its flop
+count win on some machine.
