@@ -117,16 +117,49 @@ std::set<std::string> suppliedParameters(reader::scripting::DataReader& model) {
   return {outputs.begin(), outputs.end()};
 }
 
-/// Binds the point set of a query: `coordinate(index, d)` gives coordinate d of point `index`, and
-/// `group(index)` its group. The table refers to whatever the two callbacks capture. `sim` is left
-/// to the consumer, which knows the simulation.
+/// Binds the point set of a query, computed a range of points at a time: `coordinates(first,
+/// count, xyz)` writes the coordinates of the points [first, first + count) to xyz[i * 3 + d], and
+/// `groups(first, count, out)` their groups. Nothing is materialised; the table refers to whatever
+/// the two callbacks capture. `sim` is left to the consumer, which knows the simulation.
 template <typename CoordinateFn, typename GroupFn>
-void bindPointSet(reader::scripting::DataTable& table, CoordinateFn coordinate, GroupFn group) {
-  const auto shared = std::make_shared<CoordinateFn>(std::move(coordinate));
-  table.bindComputed("x", [shared](std::size_t index) -> double { return (*shared)(index, 0); });
-  table.bindComputed("y", [shared](std::size_t index) -> double { return (*shared)(index, 1); });
-  table.bindComputed("z", [shared](std::size_t index) -> double { return (*shared)(index, 2); });
-  table.bindComputed("group", [group](std::size_t index) -> std::int32_t { return group(index); });
+void bindPointSet(reader::scripting::DataTable& table, CoordinateFn coordinates, GroupFn groups) {
+  const auto shared = std::make_shared<CoordinateFn>(std::move(coordinates));
+  for (std::size_t d = 0; d < Cell::Dim; ++d) {
+    table.bindComputedBatch<double>(std::string(1, "xyz"[d]),
+                                    [shared, d](std::size_t first, std::size_t count, double* out) {
+                                      thread_local std::vector<double> xyz;
+                                      xyz.resize(count * Cell::Dim);
+                                      (*shared)(first, count, xyz.data());
+                                      for (std::size_t i = 0; i < count; ++i) {
+                                        out[i] = xyz[i * Cell::Dim + d];
+                                      }
+                                    });
+  }
+  table.bindComputedBatch<std::int32_t>("group", std::move(groups));
+}
+
+/// Points given per cell in reference coordinates, `pointsPerCell` of them for every cell of
+/// `cells`: the transformation of a cell is set up once per range and cell rather than per point.
+void cellPointCoordinates(const CellToVertexArray& cells,
+                          const std::vector<std::array<double, Cell::Dim>>& referencePoints,
+                          std::size_t first,
+                          std::size_t count,
+                          double* xyz) {
+  const auto pointsPerCell = referencePoints.size();
+  std::optional<seissol::geometry::AffineTransform> transform;
+  std::size_t transformCell = 0;
+  for (std::size_t i = 0; i < count; ++i) {
+    const auto point = first + i;
+    const auto cell = point / pointsPerCell;
+    if (!transform.has_value() || transformCell != cell) {
+      transform.emplace(cells.elementCoordinates(cell));
+      transformCell = cell;
+    }
+    const auto transformed = transform->refToSpace(referencePoints[point % pointsPerCell]);
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      xyz[i * Cell::Dim + d] = transformed[d];
+    }
+  }
 }
 
 } // namespace
@@ -244,11 +277,21 @@ reader::scripting::DataTable ElementBarycenterGenerator::generate() const {
   reader::scripting::DataTable table(cellToVertex_.size);
   bindPointSet(
       table,
-      [this](std::size_t index, std::size_t d) {
-        const auto vertices = cellToVertex_.elementCoordinates(index);
-        return (vertices[0](d) + vertices[1](d) + vertices[2](d) + vertices[3](d)) * 0.25;
+      [this](std::size_t first, std::size_t count, double* xyz) {
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto vertices = cellToVertex_.elementCoordinates(first + i);
+          const Eigen::Vector3d barycenter =
+              (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
+          for (std::size_t d = 0; d < Cell::Dim; ++d) {
+            xyz[i * Cell::Dim + d] = barycenter(d);
+          }
+        }
       },
-      [this](std::size_t index) { return cellToVertex_.elementGroups(index); });
+      [this](std::size_t first, std::size_t count, std::int32_t* out) {
+        for (std::size_t i = 0; i < count; ++i) {
+          out[i] = cellToVertex_.elementGroups(first + i);
+        }
+      });
   return table;
 }
 
@@ -274,13 +317,13 @@ reader::scripting::DataTable ElementAverageGenerator::generate() const {
   reader::scripting::DataTable table(cellToVertex_.size * numQuadpoints);
   bindPointSet(
       table,
-      [this, numQuadpoints](std::size_t index, std::size_t d) {
-        const auto transform = seissol::geometry::AffineTransform(
-            cellToVertex_.elementCoordinates(index / numQuadpoints));
-        return transform.refToSpace(quadraturePoints_[index % numQuadpoints])[d];
+      [this](std::size_t first, std::size_t count, double* xyz) {
+        cellPointCoordinates(cellToVertex_, quadraturePoints_, first, count, xyz);
       },
-      [this, numQuadpoints](std::size_t index) {
-        return cellToVertex_.elementGroups(index / numQuadpoints);
+      [this, numQuadpoints](std::size_t first, std::size_t count, std::int32_t* out) {
+        for (std::size_t i = 0; i < count; ++i) {
+          out[i] = cellToVertex_.elementGroups((first + i) / numQuadpoints);
+        }
       });
   return table;
 }
@@ -299,14 +342,14 @@ reader::scripting::DataTable PlasticityPointGenerator::generate() const {
   reader::scripting::DataTable table(cellToVertex_.size * pointsPerCell);
   bindPointSet(
       table,
-      [this, pointsPerCell, referencePoints = std::move(referencePoints)](std::size_t index,
-                                                                          std::size_t d) {
-        const auto transform = seissol::geometry::AffineTransform(
-            cellToVertex_.elementCoordinates(index / pointsPerCell));
-        return transform.refToSpace(referencePoints[index % pointsPerCell])[d];
+      [this, referencePoints = std::move(referencePoints)](
+          std::size_t first, std::size_t count, double* xyz) {
+        cellPointCoordinates(cellToVertex_, referencePoints, first, count, xyz);
       },
-      [this, pointsPerCell](std::size_t index) {
-        return cellToVertex_.elementGroups(index / pointsPerCell);
+      [this, pointsPerCell](std::size_t first, std::size_t count, std::int32_t* out) {
+        for (std::size_t i = 0; i < count; ++i) {
+          out[i] = cellToVertex_.elementGroups((first + i) / pointsPerCell);
+        }
       });
   return table;
 }
@@ -316,7 +359,7 @@ reader::scripting::DataTable FaultGPGenerator<Cfg>::generate() const {
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
 
   // element, side and the face transform of each fault face managed by this generator (we have
-  // one generator per LTS layer), set up front rather than once per point and column
+  // one generator per LTS layer), set up once rather than per point and column
   struct FaultFace {
     std::size_t element;
     std::int8_t side;
@@ -353,22 +396,31 @@ reader::scripting::DataTable FaultGPGenerator<Cfg>::generate() const {
   reader::scripting::DataTable table(NumPoints * faceIDs_.size());
   bindPointSet(
       table,
-      [faces](std::size_t index, std::size_t d) {
+      [faces](std::size_t first, std::size_t count, double* xyz) {
         const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
-        const auto n = index % NumPoints;
-        auto localPoints = seissol::geometry::FaceTransform::FaceVectorT(
-            seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 0),
-            seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 1));
-        // padded points are in the middle of the tetrahedron
-        if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
-          localPoints =
-              seissol::geometry::FaceTransform::FaceVectorT(Face::ReferenceBarycenter.data());
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto q = first + i;
+          const auto n = q % NumPoints;
+          auto localPoints = seissol::geometry::FaceTransform::FaceVectorT(
+              seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 0),
+              seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 1));
+          // padded points are in the middle of the tetrahedron
+          if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
+            localPoints =
+                seissol::geometry::FaceTransform::FaceVectorT(Face::ReferenceBarycenter.data());
+          }
+          const auto point = (*faces)[q / NumPoints].transform.refToSpace(localPoints);
+          for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+            xyz[i * Cell::Dim + dim] = point(dim);
+          }
         }
-        return (*faces)[index / NumPoints].transform.refToSpace(localPoints)(d);
       },
-      [faces, &elements = meshReader_.getElements()](std::size_t index) {
-        const auto& face = (*faces)[index / NumPoints];
-        return elements[face.element].faultTags[face.side];
+      [faces, &elements = meshReader_.getElements()](
+          std::size_t first, std::size_t count, std::int32_t* out) {
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto& face = (*faces)[(first + i) / NumPoints];
+          out[i] = elements[face.element].faultTags[face.side];
+        }
       });
   return table;
 }

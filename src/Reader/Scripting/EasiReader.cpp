@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <easi/Query.h>
 #include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
@@ -31,6 +32,36 @@
 namespace seissol::reader::scripting {
 
 namespace {
+
+constexpr std::size_t QueryChunkSize = 4096;
+
+template <typename T>
+void readRangeAs(const DataEntry& entry, std::size_t first, std::size_t count, double* out) {
+  std::vector<T> values(count);
+  entry.getValues<T>(first, count, values.data());
+  for (std::size_t i = 0; i < count; ++i) {
+    out[i] = static_cast<double>(values[i]);
+  }
+}
+
+/// The values of [first, first + count) of `entry`, converted to double.
+void readRange(const DataEntry& entry, std::size_t first, std::size_t count, double* out) {
+  switch (entry.datatype) {
+  case DataType::F32:
+    readRangeAs<float>(entry, first, count, out);
+    return;
+  case DataType::F64:
+    entry.getValues<double>(first, count, out);
+    return;
+  case DataType::I32:
+    readRangeAs<std::int32_t>(entry, first, count, out);
+    return;
+  case DataType::I64:
+    readRangeAs<std::int64_t>(entry, first, count, out);
+    return;
+  }
+}
+
 // helper class to be independent from adapting single structs/arrays only
 class MixedResultsAdapter : public easi::ResultAdapter {
   public:
@@ -180,15 +211,24 @@ void EasiReader::call(const scripting::DataTable& table) {
 
     auto adapter = MixedResultsAdapter(batch * CallBatchSize, entries, outVars_);
 
+    // Read in chunks rather than per point, so a batch-computed column is asked once per chunk.
+    const std::size_t chunks = (size + QueryChunkSize - 1) / QueryChunkSize;
 #pragma omp parallel for schedule(static)
-    for (std::size_t point = 0; point < size; ++point) {
+    for (std::size_t chunk = 0; chunk < chunks; ++chunk) {
+      const std::size_t first = chunk * QueryChunkSize;
+      const std::size_t count = std::min(QueryChunkSize, size - first);
+      std::vector<double> values(count);
       for (std::size_t i = 0; i < inVars_.size(); ++i) {
-        const auto& entry = entries[inVarToEntry[i]];
-        query.x(point, i) = entry.getValueAs<double>(base + point);
+        readRange(entries[inVarToEntry[i]], base + first, count, values.data());
+        for (std::size_t point = 0; point < count; ++point) {
+          query.x(first + point, i) = values[point];
+        }
       }
       if (groupEntry.has_value()) {
-        const auto& entry = entries[groupEntry.value()];
-        query.group(point) = entry.getValueAs<int32_t>(base + point);
+        readRange(entries[groupEntry.value()], base + first, count, values.data());
+        for (std::size_t point = 0; point < count; ++point) {
+          query.group(first + point) = static_cast<int>(values[point]);
+        }
       }
     }
 

@@ -248,6 +248,44 @@ TEST_SUITE("ExprBinding") {
     }
   }
 
+  TEST_CASE("a batch-computed column is asked for whole runs, also under a permutation") {
+    const Program program = compileSderiv("x + group", "out");
+    constexpr std::size_t NumPoints = 8;
+
+    // two groups, interleaved in pairs: the permutation then consists of runs of two
+    const std::vector<std::int32_t> group = {1, 1, 2, 2, 1, 1, 2, 2};
+    std::vector<double> out(NumPoints, -1.0);
+    std::vector<std::size_t> runLengths;
+
+    DataTable table(NumPoints);
+    table.bindComputedBatch<double>(
+        "x", [&runLengths](std::size_t first, std::size_t count, double* values) {
+          runLengths.push_back(count);
+          for (std::size_t i = 0; i < count; ++i) {
+            values[i] = 10.0 * static_cast<double>(first + i);
+          }
+        });
+    table.bindViewConst<std::int32_t>("group", Direction::In, group.data());
+    table.bindView<double>("out", Direction::Out, out.data());
+
+    const Binding binding = Binding::bind(program, table);
+    REQUIRE(binding.permutation().size() == NumPoints);
+    CHECK_FALSE(binding.addressable());
+
+    const std::size_t xi = inputIndex(program, "x");
+    std::vector<double> tile(program.inputs().size() * NumPoints, 0.0);
+    binding.gather(table, 0, NumPoints, tile.data());
+
+    for (std::size_t lane = 0; lane < NumPoints; ++lane) {
+      CHECK(tile[xi * NumPoints + lane] == 10.0 * static_cast<double>(binding.permutation()[lane]));
+    }
+    // four runs of two points each, rather than eight single-point calls
+    CHECK(runLengths == std::vector<std::size_t>{2, 2, 2, 2});
+
+    // the per-point accessor is the same function with a count of one
+    CHECK(table.dataEntries()[0].getValue<double>(5) == 50.0);
+  }
+
 } // TEST_SUITE
 
 } // namespace seissol::expr::test

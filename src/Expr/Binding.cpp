@@ -54,13 +54,44 @@ const char* name(DataType type) {
 // getValueAs ends in a bare `throw;` outside any catch, which terminates rather
 // than diagnoses if the enum ever grows a value. Naming the column type here
 // means the exhaustive switch lives at one site instead of at every call.
+// A batch-computed column is asked for whole contiguous runs of points: the run itself when the
+// point set is unpermuted, and each maximal contiguous stretch of the permutation otherwise --
+// which, since the permutation is a stable sort by group, is usually most of the tile.
+template <typename Tile, typename Col>
+void gatherBatchColumn(const DataEntry& entry,
+                       const std::vector<std::size_t>& permutation,
+                       std::size_t first,
+                       std::size_t count,
+                       Tile* dst) {
+  thread_local std::vector<Col> scratch;
+  if (scratch.size() < count) {
+    scratch.resize(count);
+  }
+  std::size_t lane = 0;
+  while (lane < count) {
+    const std::size_t begin = permutation.empty() ? first + lane : permutation[first + lane];
+    std::size_t run = 1;
+    while (lane + run < count &&
+           (permutation.empty() || permutation[first + lane + run] == begin + run)) {
+      ++run;
+    }
+    entry.batchAccessor(begin, run, scratch.data());
+    for (std::size_t i = 0; i < run; ++i) {
+      dst[lane + i] = static_cast<Tile>(scratch[i]);
+    }
+    lane += run;
+  }
+}
+
 template <typename Tile, typename Col>
 void gatherColumn(const DataEntry& entry,
                   const std::vector<std::size_t>& permutation,
                   std::size_t first,
                   std::size_t count,
                   Tile* dst) {
-  if (permutation.empty()) {
+  if (entry.batchAccessor) {
+    gatherBatchColumn<Tile, Col>(entry, permutation, first, count, dst);
+  } else if (permutation.empty()) {
     for (std::size_t lane = 0; lane < count; ++lane) {
       dst[lane] = static_cast<Tile>(entry.getValue<Col>(first + lane));
     }

@@ -10,6 +10,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -70,8 +71,11 @@ struct DataEntry {
   DataType datatype{DataType::F64};
   std::function<void(std::size_t, void*)> accessor;
   std::function<void(std::size_t, const void*)> setter;
-  /// Empty for bindComputed; set by every other bind form.
+  /// Empty for bindComputed and bindComputedBatch; set by every other bind form.
   std::optional<StridedView> view;
+  /// Fills the contiguous range [first, first + count) at once, in the column's own type. Set by
+  /// bindComputedBatch only; the per-point `accessor` is then the same function with count 1.
+  std::function<void(std::size_t first, std::size_t count, void* out)> batchAccessor;
 
   template <typename T>
   [[nodiscard]] T getValue(std::size_t index) const {
@@ -80,6 +84,26 @@ struct DataEntry {
     T out{};
     accessor(index, &out);
     return out;
+  }
+
+  /// The values of [first, first + count), in the column's own type: one call for a batch-computed
+  /// column, a strided copy for a view, and one accessor call per point otherwise.
+  template <typename T>
+  void getValues(std::size_t first, std::size_t count, T* out) const {
+    assert(DataTypeTraits<T>::Type == datatype);
+
+    if (batchAccessor) {
+      batchAccessor(first, count, out);
+    } else if (view.has_value()) {
+      const auto* bytes = static_cast<const char*>(view->base) + view->byteOffset;
+      for (std::size_t i = 0; i < count; ++i) {
+        std::memcpy(out + i, bytes + (first + i) * view->byteStride, sizeof(T));
+      }
+    } else {
+      for (std::size_t i = 0; i < count; ++i) {
+        accessor(first + i, out + i);
+      }
+    }
   }
 
   template <typename T>
@@ -146,7 +170,8 @@ class DataTable {
                                         DataTypeTraits<T>::Type,
                                         accessor,
                                         setter,
-                                        makeView(base, stride, offset, true)});
+                                        makeView(base, stride, offset, true),
+                                        nullptr});
   }
 
   /// A value that is the same at every point.
@@ -166,7 +191,7 @@ class DataTable {
     view.byteOffset = 0;
     view.writable = false;
     dataEntries_.emplace_back(DataEntry{
-        std::move(name), Direction::In, DataTypeTraits<T>::Type, accessor, nullptr, view});
+        std::move(name), Direction::In, DataTypeTraits<T>::Type, accessor, nullptr, view, nullptr});
     constants_.push_back(std::move(held));
   }
 
@@ -187,7 +212,8 @@ class DataTable {
                                         DataTypeTraits<T>::Type,
                                         accessor,
                                         nullptr,
-                                        makeView(base, stride, offset, false)});
+                                        makeView(base, stride, offset, false),
+                                        nullptr});
   }
 
   // View-on-existing-struct
@@ -207,7 +233,8 @@ class DataTable {
                                         DataTypeTraits<T>::Type,
                                         accessor,
                                         setter,
-                                        makeMemberView(base, member, true)});
+                                        makeMemberView(base, member, true),
+                                        nullptr});
   }
 
   // View-on-existing-struct
@@ -223,7 +250,8 @@ class DataTable {
                                         DataTypeTraits<T>::Type,
                                         accessor,
                                         nullptr,
-                                        makeMemberView(base, member, false)});
+                                        makeMemberView(base, member, false),
+                                        nullptr});
   }
 
   // Lazy/computed (only called when reading)
@@ -245,7 +273,35 @@ class DataTable {
                                         DataTypeTraits<ReturnT>::Type,
                                         accessor,
                                         nullptr,
-                                        std::nullopt});
+                                        std::nullopt,
+                                        nullptr});
+  }
+
+  /// Computed, a contiguous range at a time: `fn(first, count, out)` writes the values of the
+  /// points [first, first + count) to out[0 .. count). Consumers that work in tiles call it once
+  /// per tile, which amortises the call -- and lets the producer share work between neighbouring
+  /// points, such as the transformation of a cell across its quadrature points -- without
+  /// materialising the whole column. Like bindComputed, it has no address arithmetic behind it and
+  /// hence cannot reach a device kernel. `fn` has to be safe to call concurrently on disjoint
+  /// ranges.
+  template <typename T, typename F>
+  void bindComputedBatch(std::string name, F&& fn) {
+    auto batch = std::make_shared<std::decay_t<F>>(std::forward<F>(fn));
+
+    const auto accessor = [batch](std::size_t idx, void* out) {
+      (*batch)(idx, std::size_t{1}, reinterpret_cast<T*>(out));
+    };
+    const auto batchAccessor = [batch](std::size_t first, std::size_t count, void* out) {
+      (*batch)(first, count, reinterpret_cast<T*>(out));
+    };
+
+    dataEntries_.emplace_back(DataEntry{std::move(name),
+                                        Direction::In,
+                                        DataTypeTraits<T>::Type,
+                                        accessor,
+                                        nullptr,
+                                        std::nullopt,
+                                        batchAccessor});
   }
 
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
