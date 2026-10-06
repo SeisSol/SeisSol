@@ -14,6 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -345,11 +346,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         subcells.size(),
 
         [=](double* target, std::size_t index, std::size_t subcell) {
-          const auto transform =
-              seissol::geometry::AffineTransform::fromMeshCell(cellIndices[index], meshReader);
+          const auto transform = seissol::geometry::cellTransformOf(cellIndices[index], meshReader);
 
           for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
-            const auto xyz = transform.refToSpace(truePoints[subcell][i]);
+            const auto xyz = transform->refToSpace(truePoints[subcell][i]);
             std::copy_n(xyz.begin(), Cell::Dim, &target[i * 3]);
           }
         });
@@ -405,15 +405,19 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         projectVolume(dataY.data(), dofsSingleQuantity, (*projD[1])(subcell, ConvergenceOrder));
         projectVolume(dataZ.data(), dofsSingleQuantity, (*projD[2])(subcell, ConvergenceOrder));
 
-        const auto transform =
-            seissol::geometry::AffineTransform::fromMeshCell(cellIndices[index], meshReader);
+        const auto transform = seissol::geometry::cellTransformOf(cellIndices[index], meshReader);
 
-        // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
-        // (the rows of the inverse Jacobian are grad xi, grad eta, grad zeta)
-        const auto grad = transform.refToSpaceJacobianInverse(
+        // the rows of the inverse Jacobian are grad xi, grad eta, grad zeta; one matrix for a
+        // straight-sided cell, and one per output point for a curved one
+        const bool curved = meshReader.geometryOrder() > 1;
+        auto grad = transform->refToSpaceJacobianInverse(
             seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
 
         for (std::size_t i = 0; i < dataBase.size(); ++i) {
+          if (curved) {
+            grad = transform->refToSpaceJacobianInverse(
+                seissol::geometry::CellTransform::VectorEigenT(truePoints[subcell][i].data()));
+          }
           target[i] = dataX[i] * grad(0, dir) + dataY[i] * grad(1, dir) + dataZ[i] * grad(2, dir);
         }
       };
@@ -669,11 +673,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         [=, &freeSurfaceIntegrator](double* target, std::size_t index, std::size_t subcell) {
           auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
           auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-          const auto face =
-              seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, meshReader);
+          const auto face = seissol::geometry::faceTransformOf(meshId, side, meshReader);
 
           for (std::size_t i = 0; i < truePoints[subcell].size(); ++i) {
-            const auto xyz = face.refToSpace(
+            const auto xyz = face->refToSpace(
                 seissol::geometry::FaceTransform::FaceVectorT(truePoints[subcell][i].data()));
             for (std::size_t d = 0; d < Cell::Dim; ++d) {
               target[i * 3 + d] = xyz(d);

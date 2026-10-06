@@ -18,6 +18,7 @@
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -142,8 +143,17 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 
 CellToVertexArray::CellToVertexArray(size_t size,
                                      const CellToVertexFunction& elementCoordinates,
-                                     const CellToGroupFunction& elementGroups)
-    : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups) {}
+                                     const CellToGroupFunction& elementGroups,
+                                     const CellToTransformFunction& elementTransform)
+    : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups),
+      elementTransform(elementTransform) {
+  if (!this->elementTransform) {
+    this->elementTransform = [coordinates = this->elementCoordinates](size_t index) {
+      return std::unique_ptr<seissol::geometry::CellTransform>(
+          std::make_unique<seissol::geometry::AffineTransform>(coordinates(index)));
+    };
+  }
+}
 
 CellToVertexArray
     CellToVertexArray::fromMeshReader(const seissol::geometry::MeshReader& meshReader) {
@@ -161,7 +171,8 @@ CellToVertexArray
         }
         return verts;
       },
-      [&](size_t index) { return elements[index].group; });
+      [&](size_t index) { return elements[index].group; },
+      [&](size_t index) { return seissol::geometry::cellTransformOf(index, meshReader); });
 }
 
 #ifdef USE_HDF
@@ -233,6 +244,14 @@ CellToVertexArray CellToVertexArray::join(std::vector<CellToVertexArray> arrays)
           }
         }
         throw std::out_of_range(std::to_string(idx) + " vs " + std::to_string(totalSize));
+      },
+      [=](size_t idx) {
+        for (std::size_t i = 0; i < sizes.size(); ++i) {
+          if (idx < sizes[i]) {
+            return arrays[i].elementTransform(idx - offsets[i]);
+          }
+        }
+        throw std::out_of_range(std::to_string(idx) + " vs " + std::to_string(totalSize));
       });
 }
 
@@ -272,10 +291,9 @@ easi::Query ElementAverageGenerator::generate() const {
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
-    auto vertices = cellToVertex_.elementCoordinates(elem);
-    const auto transform = seissol::geometry::AffineTransform(vertices);
+    const auto transform = cellToVertex_.elementTransform(elem);
     for (std::size_t i = 0; i < NumQuadpoints; ++i) {
-      const auto transformed = transform.refToSpace(quadraturePoints_[i]);
+      const auto transformed = transform->refToSpace(quadraturePoints_[i]);
       for (std::size_t d = 0; d < Cell::Dim; ++d) {
         query.x(elem * NumQuadpoints + i, d) = transformed[d];
       }
@@ -349,8 +367,7 @@ easi::Query NodalPointGenerator::generate() const {
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
 
-    const auto vertices = cellToVertex_.elementCoordinates(elem);
-    const auto transform = seissol::geometry::AffineTransform(vertices);
+    const auto transform = cellToVertex_.elementTransform(elem);
 
     for (std::size_t i = 0; i < pointsPerCell; ++i) {
 
@@ -364,7 +381,7 @@ easi::Query NodalPointGenerator::generate() const {
 
       const auto pointIdx = elem * pointsPerCell + i;
 
-      const auto transformed = transform.refToSpace(point);
+      const auto transformed = transform->refToSpace(point);
 
       for (std::size_t d = 0; d < Cell::Dim; ++d) {
         query.x(pointIdx, d) = transformed[d];

@@ -12,6 +12,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
@@ -156,16 +157,16 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
                                                                    {NumQuadPoints, NumQuantities});
 
-        // Needed to weight the integral.
+        // Needed to weight the integral. A curved cell weighs every point with the Jacobian
+        // determinant there.
         const auto volume = MeshTools::volume(elements[meshId], vertices);
         const auto jacobiDet = 6 * volume;
+        const auto transform = seissol::geometry::cellTransformOf(meshId, *meshReader_);
+        const bool curved = meshReader_->geometryOrder() > 1;
 
         if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
           // Compute global position of quadrature points.
-          const auto transform =
-              seissol::geometry::AffineTransform::fromMeshCell(meshId, *meshReader_);
-
-          transform.refToSpace(
+          transform->refToSpace(
               quadraturePoints.data(), quadraturePointsXyz.data(), quadraturePoints.size());
 
           // Evaluate analytical solution at quad. nodes
@@ -194,7 +195,14 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         const auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
 
         for (size_t i = 0; i < NumQuadPoints; ++i) {
-          const auto curWeight = jacobiDet * quadratureWeights[i];
+          const auto curWeight =
+              (curved ? std::abs(
+                            transform
+                                ->refToSpaceJacobian(seissol::geometry::CellTransform::VectorEigenT(
+                                    quadraturePoints[i].data()))
+                                .determinant())
+                      : jacobiDet) *
+              quadratureWeights[i];
           for (size_t v = 0; v < NumQuantities; ++v) {
             const double curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
             const double curAnalytical = std::abs(analyticalSolution(i, v));

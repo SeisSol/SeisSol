@@ -14,6 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PreProcessorMacros.h"
@@ -143,8 +144,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto meshId = secondaryInformation[cell].meshId;
-        const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
-        transform.refToSpace(
+        const auto transform = seissol::geometry::cellTransformOf(meshId, meshReader);
+        transform->refToSpace(
             quadraturePoints.data(), quadraturePointsXyz.data(), quadraturePoints.size());
 
         const CellMaterialData& materialData = material[cell];
@@ -183,9 +184,9 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 
 #pragma omp parallel for schedule(static)
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(elem, meshReader);
+      const auto transform = seissol::geometry::cellTransformOf(elem, meshReader);
       for (size_t i = 0; i < NumQuadPoints; ++i) {
-        const auto transformed = transform.refToSpace(quadraturePoints[i]);
+        const auto transformed = transform->refToSpace(quadraturePoints[i]);
         for (std::size_t d = 0; d < Cell::Dim; ++d) {
           query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
         }

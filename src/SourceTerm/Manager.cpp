@@ -18,6 +18,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -44,6 +45,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <memory>
@@ -82,13 +84,17 @@ void computeMInvJInvPhisAtSources(
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
-  const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
-  const auto xiEtaZeta = transform.spaceToRef(center);
+  const auto transform = seissol::geometry::cellTransformOf(meshId, mesh);
+  const auto xiEtaZeta = transform->spaceToRef(center);
   const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
+  // A point source is a delta in space, and in reference coordinates a delta divided by the
+  // Jacobian determinant at the point; for a straight-sided cell that is six times its volume.
   const double volume = MeshTools::volume(elements[meshId], vertices);
-  const double jInv = 1.0 / (6.0 * volume);
+  const double jInv = mesh.geometryOrder() > 1
+                          ? 1.0 / std::abs(transform->refToSpaceJacobian(xiEtaZeta).determinant())
+                          : 1.0 / (6.0 * volume);
 
   kernel::computeMInvJInvPhisAtSources krnl;
   krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data().data();

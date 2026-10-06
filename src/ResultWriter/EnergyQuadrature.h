@@ -121,6 +121,19 @@ class EnergyQuadrature {
                                      const real* dofsAne,
                                      const seissol::Pool& pool,
                                      std::array<double, Points>& shearModulus) const {
+    std::array<double, Points> unit{};
+    unit.fill(1.0);
+    return energies(samples, dofs, dofsAne, pool, shearModulus, unit);
+  }
+
+  /// The same with every point weighted by `jacobians` as well: the Jacobian determinant of a
+  /// curved cell, which varies from point to point.
+  std::array<double, Count> energies(const std::array<MaterialT, Samples>& samples,
+                                     const real* dofs,
+                                     const real* dofsAne,
+                                     const seissol::Pool& pool,
+                                     std::array<double, Points>& shearModulus,
+                                     const std::array<double, Points>& jacobians) const {
     std::array<double, Count> result{};
 
     alignas(Alignment) real dofsAtPointsData[tensor::dofsQP::size()];
@@ -152,7 +165,7 @@ class EnergyQuadrature {
 
         const auto local = Energy::computeEnergies(material, data, linear, quadratic, moments, sim);
         for (std::size_t i = 0; i < local.size(); ++i) {
-          result[local.size() * sim + i] += weights_[point] * local[i];
+          result[local.size() * sim + i] += weights_[point] * jacobians[point] * local[i];
         }
       }
     }

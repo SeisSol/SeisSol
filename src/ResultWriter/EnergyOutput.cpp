@@ -18,6 +18,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "IO/Writer/File/RunFiles.h"
@@ -623,8 +624,23 @@ void EnergyOutput::computeVolumeEnergies() {
       const auto& cellInformation = cellInformationData[cell];
       const auto& faceDisplacements = faceDisplacementsData[cell];
 
-      // Needed to weight the integral.
-      const auto jacobiDet = 6 * volume;
+      // Needed to weight the integral. A curved cell weighs every point of the quadrature with the
+      // Jacobian determinant there instead.
+      auto jacobiDet = 6 * volume;
+      std::array<double, NumQuadraturePointsTet> jacobians{};
+      jacobians.fill(1.0);
+      if (meshReader_->geometryOrder() > 1) {
+        const auto transform = seissol::geometry::cellTransformOf(elementId, *meshReader_);
+        for (std::size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
+          jacobians[qp] =
+              std::abs(transform
+                           ->refToSpaceJacobian(Eigen::Vector3d(quadratureTet.first[qp][0],
+                                                                quadratureTet.first[qp][1],
+                                                                quadratureTet.first[qp][2]))
+                           .determinant());
+        }
+        jacobiDet = 1.0;
+      }
 
       // the shear modulus the plastic strain is weighted with at each point of
       // the quadrature, where the material varies inside the cell
@@ -637,7 +653,8 @@ void EnergyOutput::computeVolumeEnergies() {
                                        dofsData[cell],
                                        dofsAneData != nullptr ? dofsAneData[cell] : nullptr,
                                        *global_,
-                                       shearModulus);
+                                       shearModulus,
+                                       jacobians);
         for (std::size_t i = 0; i < values.size(); ++i) {
           energyValues[i] += jacobiDet * values[i];
         }
@@ -766,8 +783,8 @@ void EnergyOutput::computeVolumeEnergies() {
           const auto qEtaQuadSim = multisim::simtensor(qEtaQuadView, sim);
           double pMoment = 0;
           for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
-            pMoment +=
-                quadratureWeightsTet[qp] * qEtaQuadSim(qp) * (pointwise ? shearModulus[qp] : 1.0);
+            pMoment += quadratureWeightsTet[qp] * jacobians[qp] * qEtaQuadSim(qp) *
+                       (pointwise ? shearModulus[qp] : 1.0);
           }
           localPlasticMoment[sim] += (pointwise ? 1.0 : mu) * jacobiDet * pMoment;
         }

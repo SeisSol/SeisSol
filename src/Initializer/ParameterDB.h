@@ -12,6 +12,7 @@
 
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/Typedefs.h"
@@ -46,14 +47,21 @@ class QueryGenerator;
 struct CellToVertexArray {
   using CellToVertexFunction = std::function<std::array<Eigen::Vector3d, 4>(size_t)>;
   using CellToGroupFunction = std::function<int(size_t)>;
+  using CellToTransformFunction =
+      std::function<std::unique_ptr<seissol::geometry::CellTransform>(size_t)>;
 
+  /// `elementTransform` maps the reference cell onto a cell; left out, the cell is the
+  /// straight-sided one through its vertices
   CellToVertexArray(size_t size,
                     const CellToVertexFunction& elementCoordinates,
-                    const CellToGroupFunction& elementGroups);
+                    const CellToGroupFunction& elementGroups,
+                    const CellToTransformFunction& elementTransform = {});
 
   size_t size;
   CellToVertexFunction elementCoordinates;
   CellToGroupFunction elementGroups;
+  /// what is sampled inside a cell is sampled through this map, which is curved where the cell is
+  CellToTransformFunction elementTransform;
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF

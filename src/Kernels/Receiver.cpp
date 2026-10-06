@@ -14,6 +14,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -94,7 +95,7 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
                                   const LTS::Backmap& backmap) {
-  const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
+  const auto transform = seissol::geometry::cellTransformOf(meshId, mesh);
 
   if (!extraRuntime_.has_value()) {
     // use an extra stream if we have receivers
@@ -121,7 +122,7 @@ void ReceiverCluster::addReceiver(std::size_t meshId,
 
   receiverCells_[meshToReceiverCell_.at(meshId)].receiverIds.emplace_back(receivers_.size());
 
-  receivers_.emplace_back(pointId, point, transform, reserved);
+  receivers_.emplace_back(pointId, point, *transform, reserved);
 }
 
 double ReceiverCluster::calcReceivers(double time,
