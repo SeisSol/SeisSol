@@ -32,14 +32,37 @@ two steps, each one generated for a single configuration:
 Hence the number of kernels grows linearly with the number of configurations,
 and the kernels of a configuration only depend on the canonical form of its
 family.
+
+A solid and a fluid pose the Riemann problem in different materials, but their
+cells can be face neighbors as well: their families are coupled. A cell of the
+one converts the time integral of a neighbor of the other from the canonical
+form of the family of the neighbor:
+
+- fromCoupledCanonical(side): as fromCanonical, from the canonical form of the
+  coupled family, with the quantities mapped across. A solid takes the pressure
+  of a fluid as an isotropic stress. A fluid takes the normal stress of a solid
+  on the shared face as its pressure, with weights that the face gives (the
+  runtime tensor normalStress). The velocities carry over. If the order of the
+  configuration is the larger one, the basis is padded instead of lifted. As
+  in fromCanonical, a configuration in single precision narrows first.
+
+For that, toCanonical exists for the configurations of a family whose coupled
+family is in the build, too.
 """
 
 import os
+from typing import NamedTuple, Optional
 
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from kernels.quantities import layout, total_extent
+from kernels.quantities import (
+    FaceRole,
+    QuantityGroup,
+    QuantityKind,
+    layout,
+    total_extent,
+)
 from yateto import Tensor, simpleParameterSpace
 from yateto.functions import cast
 from yateto.input import parseXMLMatrixFile
@@ -58,25 +81,75 @@ RIEMANN_MATERIAL = {
 }
 
 
+#: The Riemann materials whose cells are face neighbors although they pose the
+#: Riemann problem in different materials: a solid and a fluid (cf.
+#: model::CanNeighbor).
+COUPLED = {"elastic": "acoustic", "acoustic": "elastic"}
+
+#: The quantities of the Riemann problem of the coupled Riemann materials, as
+#: their equations lay them out.
+RIEMANN_GROUPS = {
+    "elastic": (
+        QuantityGroup("s", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
+        QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+    ),
+    "acoustic": (
+        QuantityGroup("pprime", QuantityKind.SCALAR, FaceRole.TRACTION),
+        QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+    ),
+}
+
+
 def family(args):
     """What the configurations whose cells can be face neighbors share."""
     return (RIEMANN_MATERIAL[args.equations], args.multipleSimulations)
 
 
-def canonical_orders(config_args):
-    """Per configuration: the order of the canonical form of its family, i.e.
-    the largest order of the family in the build; None for a configuration
-    whose family has no other configuration in the build."""
+class Plan(NamedTuple):
+    """The kernels of a configuration for its faces towards others."""
+
+    #: the order of the canonical form of the family, which toCanonical
+    #: converts to; None if toCanonical is not generated
+    canonical_order: Optional[int]
+    #: whether fromCanonical, from the canonical form of the family, is
+    #: generated
+    from_family: bool
+    #: the order of the canonical form of the coupled family, which
+    #: fromCoupledCanonical converts from; None if that is not generated
+    coupled_order: Optional[int]
+
+
+def plans(config_args):
+    """Per configuration: its Plan. The canonical form of a family has the
+    largest order of the family in the build. toCanonical and fromCanonical
+    exist for the configurations of a family with more than one configuration in
+    the build; toCanonical and fromCoupledCanonical for those of a family whose
+    coupled family is in the build as well."""
     orders = {}
     counts = {}
     for args in config_args:
         key = family(args)
         orders[key] = max(orders.get(key, 0), args.order)
         counts[key] = counts.get(key, 0) + 1
-    return [
-        orders[family(args)] if counts[family(args)] > 1 else None
-        for args in config_args
-    ]
+
+    result = []
+    for args in config_args:
+        material, simulations = family(args)
+        coupled = (COUPLED.get(material), simulations)
+        with_family = counts[(material, simulations)] > 1
+        with_coupled = coupled in counts
+        result.append(
+            Plan(
+                canonical_order=(
+                    orders[(material, simulations)]
+                    if with_family or with_coupled
+                    else None
+                ),
+                from_family=with_family,
+                coupled_order=orders[coupled] if with_coupled else None,
+            )
+        )
+    return result
 
 
 def num_bases(order):
@@ -125,9 +198,51 @@ def canonical_quantities(aderdg):
     return total_extent(layout(aderdg.primaryGroups()))
 
 
-def add_kernels(generator, aderdg, matrices_dir, canonical_order, precision, targets):
-    """Adds toCanonical and the family fromCanonical (over the side of the
-    neighbor) of the configuration of `aderdg` for `targets`."""
+def _fused(integral, name, shape, datatype=Datatype.F64, **kwargs):
+    """A tensor with the fused simulations of `integral`, in double precision
+    unless `datatype` says otherwise."""
+    return OptionalDimTensor(
+        name,
+        integral.optName(),
+        integral.optSize(),
+        integral.optPos(),
+        shape,
+        datatype=datatype,
+        **kwargs,
+    )
+
+
+def add_kernels(generator, aderdg, matrices_dir, plan, material, precision, targets):
+    """Adds the kernels that `plan` names (see Plan) of the configuration of
+    `aderdg`, whose equations pose the Riemann problem in `material`, for
+    `targets`."""
+    if plan.canonical_order is not None:
+        _add_family_kernels(
+            generator,
+            aderdg,
+            matrices_dir,
+            plan.canonical_order,
+            plan.from_family,
+            precision,
+            targets,
+        )
+    if plan.coupled_order is not None:
+        _add_coupled_kernels(
+            generator,
+            aderdg,
+            matrices_dir,
+            plan.coupled_order,
+            material,
+            precision,
+            targets,
+        )
+
+
+def _add_family_kernels(
+    generator, aderdg, matrices_dir, canonical_order, from_family, precision, targets
+):
+    """Adds toCanonical and, if `from_family`, the family fromCanonical (over
+    the side of the neighbor)."""
     real = Datatype.F64 if precision == "double" else Datatype.F32
     f64 = Datatype.F64
 
@@ -138,16 +253,8 @@ def add_kernels(generator, aderdg, matrices_dir, canonical_order, precision, tar
     canonical_count = canonical_quantities(aderdg)
     assert bases <= canonical_bases and canonical_count <= quantities
 
-    def fused(name, shape, datatype=f64, **kwargs):
-        return OptionalDimTensor(
-            name,
-            integral.optName(),
-            integral.optSize(),
-            integral.optPos(),
-            shape,
-            datatype=datatype,
-            **kwargs,
-        )
+    def fused(name, shape, **kwargs):
+        return _fused(integral, name, shape, **kwargs)
 
     # unpadded, so that all configurations of a family lay it out alike
     canonical = fused("canonicalI", (canonical_bases, canonical_count))
@@ -171,7 +278,7 @@ def add_kernels(generator, aderdg, matrices_dir, canonical_order, precision, tar
         "canonicalSelectT", select.T.shape, select.T, CSCMemoryLayout, datatype=real
     )
     lift = None
-    if padded:
+    if padded and from_family:
         lift = [
             Tensor(
                 f"canonicalLift({side})",
@@ -233,20 +340,148 @@ def add_kernels(generator, aderdg, matrices_dir, canonical_order, precision, tar
                 product = narrow["kq"] * selectFrom["qp"]
             return narrowing + [integral["kp"] <= product]
 
+        if from_family:
+            generator.addFamily(
+                f"{prefix}fromCanonical",
+                simpleParameterSpace(4),
+                fromCanonical,
+                target=target,
+            )
+
+
+def _add_coupled_kernels(
+    generator, aderdg, matrices_dir, coupled_order, material, precision, targets
+):
+    """Adds the family fromCoupledCanonical (over the side of the neighbor)."""
+    real = Datatype.F64 if precision == "double" else Datatype.F32
+    f64 = Datatype.F64
+
+    integral = aderdg.I
+    order = aderdg.order
+    bases = aderdg.num3DBasisFunctions()
+    quantities = aderdg.numQuantities()
+
+    groups = tuple(aderdg.primaryGroups())
+    assert groups == RIEMANN_GROUPS[material]
+    blocks = layout(groups)
+    coupled_blocks = layout(RIEMANN_GROUPS[COUPLED[material]])
+    coupled_count = total_extent(coupled_blocks)
+    coupled_bases = num_bases(coupled_order)
+
+    coupled = _fused(integral, "coupledCanonicalI", (coupled_bases, coupled_count))
+
+    # the quantities: what carries over as it is, and the traction of a fluid as
+    # the isotropic stress of a solid; the traction of a solid becomes the
+    # pressure of a fluid with the weights of the face
+    mapping = np.zeros((coupled_count, quantities))
+    pressure = None
+    for block in blocks:
+        (source,) = [
+            other for other in coupled_blocks if other.group.role is block.group.role
+        ]
+        if block.group.kind is source.group.kind:
+            for component in range(block.extent):
+                mapping[source.offset + component, block.offset + component] = 1
+        elif source.group.kind is QuantityKind.SCALAR:
+            assert block.group.kind is QuantityKind.SYM_TENSOR2
+            # the normal components, xx, yy and zz
+            for component in range(3):
+                mapping[source.offset, block.offset + component] = 1
+        else:
+            assert source.group.kind is QuantityKind.SYM_TENSOR2
+            assert block.group.kind is QuantityKind.SCALAR
+            pressure = np.zeros((1, quantities))
+            pressure[0, block.offset] = 1
+
+    # in the precision of the configuration, as fromCoupledCanonical computes
+    mappingTensor = Tensor(
+        "coupledMap", mapping.shape, mapping, CSCMemoryLayout, datatype=real
+    )
+    weights = None
+    pressureTensor = None
+    if pressure is not None:
+        # per face: the weights of the stress components in the normal stress
+        weights = Tensor("normalStress", (coupled_count, 1), datatype=real)
+        pressureTensor = Tensor(
+            "coupledPressure",
+            pressure.shape,
+            pressure,
+            CSCMemoryLayout,
+            datatype=real,
+        )
+
+    # the basis: lifted from a larger order as in fromCanonical, padded from a
+    # smaller one
+    lift = None
+    if coupled_order > order:
+        lift = [
+            Tensor(
+                f"coupledLift({side})",
+                (bases, coupled_bases),
+                values,
+                datatype=real,
+            )
+            for side, values in enumerate(lifts(matrices_dir, order, coupled_order))
+        ]
+    elif coupled_order < order:
+        embed = Tensor(
+            "coupledEmbed",
+            (bases, coupled_bases),
+            np.eye(bases, coupled_bases),
+            CSCMemoryLayout,
+            datatype=real,
+        )
+        lift = [embed] * 4
+
+    for target in targets:
+        prefix = generate_kernel_name_prefix(target)
+
+        def fromCoupledCanonical(side):
+            if real != f64:
+                narrow = _fused(
+                    integral,
+                    f"{prefix}narrowCoupledCanonicalI",
+                    (coupled_bases, coupled_count),
+                    datatype=real,
+                    temporary=True,
+                )
+                narrowing = [narrow["lq"] <= cast(coupled["lq"], real)]
+            else:
+                narrow = coupled
+                narrowing = []
+
+            def basis(right):
+                if lift is None:
+                    return narrow["kq"] * right
+                return lift[side]["kl"] * narrow["lq"] * right
+
+            product = basis(mappingTensor["qp"])
+            if weights is not None:
+                product = product + basis(weights["qa"] * pressureTensor["ap"])
+            return narrowing + [integral["kp"] <= product]
+
         generator.addFamily(
-            f"{prefix}fromCanonical",
+            f"{prefix}fromCoupledCanonical",
             simpleParameterSpace(4),
-            fromCanonical,
+            fromCoupledCanonical,
             target=target,
         )
 
 
-def emit_header(aderdg, output_dir, key, canonical_order, targets):
-    """Tells the C++ side whether the kernels of the configuration `key` exist,
-    and for which canonical form."""
-    host = canonical_order is not None and "cpu" in targets
-    device = canonical_order is not None and "gpu" in targets
-    count = canonical_quantities(aderdg) if canonical_order is not None else 0
+def emit_header(aderdg, output_dir, key, plan, material, targets):
+    """Tells the C++ side which kernels of the configuration `key` exist, and
+    for which canonical forms."""
+    to_canonical = plan.canonical_order is not None
+    coupled = plan.coupled_order is not None
+    count = canonical_quantities(aderdg) if to_canonical else 0
+    coupled_count = (
+        total_extent(layout(RIEMANN_GROUPS[COUPLED[material]])) if coupled else 0
+    )
+    # a fluid weighs the stress of a solid with the normal of the face
+    normal_stress = (
+        coupled
+        and RIEMANN_GROUPS[COUPLED[material]][0].kind is QuantityKind.SYM_TENSOR2
+    )
 
     def boolean(value):
         return "true" if value else "false"
@@ -265,14 +500,26 @@ def emit_header(aderdg, output_dir, key, canonical_order, targets):
         "template <typename Cfg>",
         "struct ConfigBoundaryKernels;",
         "",
-        "/// Whether the kernels toCanonical and fromCanonical exist on the host and on the device, and",
-        "/// the canonical form they convert to and from: its order and its number of quantities.",
+        "/// Which kernels of the faces towards other configurations exist on the host and on the device,",
+        "/// and the canonical forms they convert to and from: their order and their number of quantities.",
         "template <>",
         f"struct ConfigBoundaryKernels<{key}> {{",
-        f"  static constexpr bool Host = {boolean(host)};",
-        f"  static constexpr bool Device = {boolean(device)};",
-        f"  static constexpr std::size_t CanonicalOrder = {canonical_order or 0};",
+        "  // toCanonical and fromCanonical, into and from the canonical form of the family",
+        f"  static constexpr bool Host = {boolean(plan.from_family and 'cpu' in targets)};",
+        f"  static constexpr bool Device = {boolean(plan.from_family and 'gpu' in targets)};",
+        "  // toCanonical alone, which the configurations of the coupled family read as well",
+        f"  static constexpr bool ToCanonicalHost = {boolean(to_canonical and 'cpu' in targets)};",
+        f"  static constexpr bool ToCanonicalDevice = {boolean(to_canonical and 'gpu' in targets)};",
+        f"  static constexpr std::size_t CanonicalOrder = {plan.canonical_order or 0};",
         f"  static constexpr std::size_t CanonicalQuantities = {count};",
+        "  // fromCoupledCanonical, from the canonical form of the coupled family (a solid and a fluid)",
+        f"  static constexpr bool CoupledHost = {boolean(coupled and 'cpu' in targets)};",
+        f"  static constexpr bool CoupledDevice = {boolean(coupled and 'gpu' in targets)};",
+        f"  static constexpr std::size_t CoupledCanonicalOrder = {plan.coupled_order or 0};",
+        f"  static constexpr std::size_t CoupledCanonicalQuantities = {coupled_count};",
+        "  // whether fromCoupledCanonical reads the weights of the stress components in the normal",
+        "  // stress of the face (normalStress)",
+        f"  static constexpr bool NormalStress = {boolean(normal_stress)};",
         "};",
         "",
         "} // namespace seissol::generated",

@@ -285,6 +285,7 @@ def main():
     # (`void`), which kernels::size and kernels::familySize count as empty.
     optionalTensors = [
         "canonicalI",
+        "coupledCanonicalI",
         "E",
         "ET",
         "Iane",
@@ -294,6 +295,7 @@ def main():
         "Zinv",
         "dQane",
         "dQext",
+        "normalStress",
         "spaceTimePredictor",
         "w",
     ]
@@ -304,14 +306,14 @@ def main():
             name,
         )
 
-    # the canonical form of the faces between configurations, per configuration
-    canonicalOrders = kernels.configboundary.canonical_orders(configArgs)
+    # the kernels of the faces between configurations, per configuration
+    boundaryPlans = kernels.configboundary.plans(configArgs)
     # the conversion casts between precisions, which only TensorForge generates on GPUs
     boundaryTargets = [
         target for target in targets if target == "cpu" or not isOldGpuInterface
     ]
 
-    def generate_equation(subfolders, args, arch, gemmTools, key, canonicalOrder):
+    def generate_equation(subfolders, args, arch, gemmTools, key, boundaryPlan):
         order = args.order
         # the tensors of the configuration are laid out for its architecture
         fixArchitectureGlobal(arch)
@@ -407,15 +409,16 @@ def main():
         )
         kernels.point.addKernels(generator, adg)
 
-        if canonicalOrder is not None:
-            kernels.configboundary.add_kernels(
-                generator,
-                adg,
-                args.matricesDir,
-                canonicalOrder,
-                precision,
-                boundaryTargets,
-            )
+        riemannMaterial = kernels.configboundary.RIEMANN_MATERIAL[args.equations]
+        kernels.configboundary.add_kernels(
+            generator,
+            adg,
+            args.matricesDir,
+            boundaryPlan,
+            riemannMaterial,
+            precision,
+            boundaryTargets,
+        )
 
         outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"
         # configurations that differ in other respects, e.g. the solver, get one each
@@ -433,7 +436,7 @@ def main():
 
         kernels.quantities.emit_header(adg, trueOutputDir, key)
         kernels.configboundary.emit_header(
-            adg, trueOutputDir, key, canonicalOrder, boundaryTargets
+            adg, trueOutputDir, key, boundaryPlan, riemannMaterial, boundaryTargets
         )
 
         metagen.add_generator(
@@ -502,10 +505,10 @@ def main():
 
     equationFolders = [
         generate_equation(
-            subfolders, args, configArch, tools, config["key"], canonicalOrder
+            subfolders, args, configArch, tools, config["key"], boundaryPlan
         )
-        for args, (configArch, _, _), tools, config, canonicalOrder in zip(
-            configArgs, archs, gemmTools, configs, canonicalOrders
+        for args, (configArch, _, _), tools, config, boundaryPlan in zip(
+            configArgs, archs, gemmTools, configs, boundaryPlans
         )
     ]
 
@@ -516,12 +519,14 @@ def main():
             namespace="seissol",
             includes=["Config.h"],
             declarationsTensors=optionalTensors,
-            # only the configurations of a family with others have them
+            # only some configurations have them (see kernels.configboundary.plans)
             declarationsKernels=[
                 "toCanonical",
                 "fromCanonical",
+                "fromCoupledCanonical",
                 "gpu_toCanonical",
                 "gpu_fromCanonical",
+                "gpu_fromCoupledCanonical",
             ],
         )
     generate_general(subfolders)
