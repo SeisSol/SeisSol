@@ -25,6 +25,7 @@
 
 #include <array>
 #include <cstring>
+#include <limits>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -298,6 +299,31 @@ TEST_SUITE("Expr::Interp") {
     CHECK(chooseTileSize(100000, ComputeType::F64, 16384) == MinTileSize);
     CHECK(chooseTileSize(1, ComputeType::F64, 1u << 30U) == MaxTileSize);
     CHECK(chooseTileSize(7, ComputeType::F64, 16384) % TileLaneGranularity == 0);
+  }
+
+  TEST_CASE("Mod is Lua's floored remainder") {
+    // The results of Lua 5.4's `%` on floats, sign of zero included; fmod alone differs on every
+    // pair with operands of opposite signs.
+    constexpr double Inf = std::numeric_limits<double>::infinity();
+    const std::array<std::array<double, 3>, 12> cases{{{-1.0, -3.0, -1.0},
+                                                       {-1.0, 3.0, 2.0},
+                                                       {1.0, -3.0, -2.0},
+                                                       {5.5, -2.0, -0.5},
+                                                       {-5.5, 2.0, 0.5},
+                                                       {0.0, -2.0, 0.0},
+                                                       {-0.0, 2.0, -0.0},
+                                                       {3.0, Inf, 3.0},
+                                                       {-3.0, Inf, Inf},
+                                                       {3.0, -Inf, -Inf},
+                                                       {-6.0, 3.0, -0.0},
+                                                       {6.0, -3.0, 0.0}}};
+    for (const auto& [a, b, expected] : cases) {
+      const std::array<double, 2> args{a, b};
+      const double result = applyPw<double>(Fn::Mod, args.data());
+      CAPTURE(a);
+      CAPTURE(b);
+      CHECK(std::memcmp(&result, &expected, sizeof(double)) == 0);
+    }
   }
 
   TEST_CASE("matches the scalar reference bit for bit") {

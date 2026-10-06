@@ -55,6 +55,10 @@ namespace seissol::expr {
 //     interpreter and has to say so.
 //   * Eq is an exact floating-point comparison, so NaN != NaN. It exists for
 //     integer-valued channels (group, fault tag), where it is exact and safe.
+//   * Mod is Lua's `%`: the remainder of the floored division, i.e. fmod pulled
+//     onto the sign of the divisor where the two differ. fmod alone is C's
+//     truncated remainder, which differs from `%` whenever the operands have
+//     opposite signs; and x - floor(x/y)*y is not it either, as it rounds.
 #define SEISSOL_EXPR_PW_LIST(UNARY, BINARY, TERNARY)                                               \
   UNARY(Neg, (-x))                                                                                 \
   UNARY(Sqrt, (std::sqrt(x)))                                                                      \
@@ -89,7 +93,10 @@ namespace seissol::expr {
   BINARY(Min, (std::fmin(x, y)))                                                                   \
   BINARY(Max, (std::fmax(x, y)))                                                                   \
   BINARY(Atan2, (std::atan2(x, y)))                                                                \
-  BINARY(Mod, (std::fmod(x, y)))                                                                   \
+  BINARY(Mod,                                                                                      \
+         ((std::fmod(x, y) != T(0) && ((std::fmod(x, y) < T(0)) != (y < T(0))))                    \
+              ? std::fmod(x, y) + y                                                                \
+              : std::fmod(x, y)))                                                                  \
   BINARY(Lt, (x < y ? T(1) : T(0)))                                                                \
   BINARY(Le, (x <= y ? T(1) : T(0)))                                                               \
   BINARY(Eq, (x == y ? T(1) : T(0)))                                                               \
