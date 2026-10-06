@@ -341,7 +341,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 
   const auto timeSeries = readTimeSeriesMode(reader, "wavefieldtimeseries", defaultTimeSeries);
 
-  const auto script = reader->readWithDefault("wavefieldscript", std::string());
+  const auto script = reader->readPath("wavefieldscript").value_or("");
 
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
