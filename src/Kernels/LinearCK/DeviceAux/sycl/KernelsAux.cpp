@@ -5,12 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
-#include "Kernels/Precision.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cstdio>

@@ -14,10 +14,10 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
-#include "Kernels/Precision.h"
 
 #include <cassert>
 #include <cstdlib>
+#include <memory>
 #include <vector>
 
 #ifdef USE_MEMKIND
@@ -31,13 +31,14 @@
 
 namespace seissol::memory {
 #ifdef ACL_DEVICE
-using AllocatorT = device::UsmAllocator<real>;
+template <typename T>
+using AllocatorT = device::UsmAllocator<T>;
 #else
-using AllocatorT = std::allocator<real>;
+template <typename T>
+using AllocatorT = std::allocator<T>;
 #endif
 template <typename T>
-using VectorT =
-    std::vector<T, typename std::allocator_traits<AllocatorT>::template rebind_alloc<T>>;
+using VectorT = std::vector<T, AllocatorT<T>>;
 
 template <typename T, std::size_t N>
 class AlignedArray {

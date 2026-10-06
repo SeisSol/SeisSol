@@ -7,12 +7,12 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_ENERGY_H_
 
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
 #include "GeneratedCode/init.h"
-#include "Kernels/Precision.h"
 #include "Model/Common.h"
 
 #include <Eigen/Dense>

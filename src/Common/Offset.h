@@ -15,6 +15,8 @@ namespace seissol {
 // NOLINTBEGIN (bugprone-macro-parentheses)
 
 // IMPORTANT: these macros use member names directly; and thus cannot be safeguarded by parentheses.
+// They count in the type `real` of the scope they are expanded in, e.g. the reals of the
+// configuration of a kernel.
 
 #define SEISSOL_STRINGIFY_INTERNAL(x) #x
 #define SEISSOL_STRINGIFY(x) SEISSOL_STRINGIFY_INTERNAL(x)

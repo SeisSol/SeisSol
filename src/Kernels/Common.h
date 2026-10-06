@@ -15,7 +15,6 @@
 #include "Common/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
-#include "Kernels/Precision.h"
 
 #include <algorithm>
 #include <cassert>

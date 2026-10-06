@@ -8,8 +8,6 @@
 #ifndef SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_
 #define SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_
 
-#include "Kernels/Precision.h"
-
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <numeric>

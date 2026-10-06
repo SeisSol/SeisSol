@@ -12,7 +12,7 @@
 # rule>[-s<fused simulations>], e.g. elastic-linearck-o4-f32-stroud.
 #
 # Sets, as lists with one entry per configuration:
-#   SEISSOL_CONFIG_TYPES (the C++ type: Config, Config1, ...), SEISSOL_CONFIG_MATERIALS,
+#   SEISSOL_CONFIG_TYPES (the C++ type: Config0, Config1, ...), SEISSOL_CONFIG_MATERIALS,
 #   SEISSOL_CONFIG_SOLVERS, SEISSOL_CONFIG_MECHANISMS, SEISSOL_CONFIG_ORDERS,
 #   SEISSOL_CONFIG_PRECISIONS (single or double), SEISSOL_CONFIG_DRQUADRULES,
 #   SEISSOL_CONFIG_SIMULATIONS;
@@ -38,7 +38,7 @@ function(seissol_config_name output material solver mechanisms order precision d
   set(${output} "${_name}" PARENT_SCOPE)
 endfunction()
 
-set(SEISSOL_CONFIG_TYPES Config)
+set(SEISSOL_CONFIG_TYPES Config0)
 set(SEISSOL_CONFIG_MATERIALS ${EQUATIONS})
 set(SEISSOL_CONFIG_SOLVERS ${SOLVER})
 set(SEISSOL_CONFIG_MECHANISMS ${NUMBER_OF_MECHANISMS})

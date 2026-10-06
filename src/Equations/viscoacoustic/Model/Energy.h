@@ -8,11 +8,11 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOACOUSTIC_MODEL_ENERGY_H_
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Common/Typedefs.h"
 #include "Config.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/viscoacoustic/Model/Datastructures.h"
-#include "Kernels/Precision.h"
 #include "Model/Common.h"
 
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC

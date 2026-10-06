@@ -47,14 +47,14 @@ def load_configs(cmdLineArgs):
 
     Each one names the C++ type it is generated for (`key`) and the arguments it differs in from
     the command line. Without --configs, it is the one configuration that the command line
-    describes, generated for seissol::Config.
+    describes, generated for seissol::Config0.
     """
     if cmdLineArgs.configs is not None:
         with open(cmdLineArgs.configs) as file:
             return json.load(file)
     return [
         {
-            "key": "seissol::Config",
+            "key": "seissol::Config0",
             "equations": cmdLineArgs.equations,
             "order": cmdLineArgs.order,
             "precision": cmdLineArgs.precision,
@@ -107,7 +107,7 @@ def main():
     )
     cmdLineParser.add_argument("--codegen_target", type=str, default="__all__")
     # the configurations to generate, in the order of their ids; without it, the one that the
-    # arguments above describe, under the key seissol::Config
+    # arguments above describe, under the key seissol::Config0
     cmdLineParser.add_argument("--configs", type=str, default=None)
 
     cmdLineParser.set_defaults(enable_premultiply_flux=False)
@@ -273,8 +273,8 @@ def main():
     gemmTools = [gemmToolsFor(configArch) for configArch, _, _ in archs]
 
     # The code of the equation is named by the key of its configuration:
-    # seissol::kernel::X<Config> is the kernel X of the configuration Config,
-    # and seissol::Pool<Config> the pool it binds. runtime.h reaches the
+    # seissol::kernel::X<Cfg> is the kernel X of the configuration Cfg,
+    # and seissol::Pool<Cfg> the pool it binds. runtime.h reaches the
     # kernels as well, by the variant of their configuration, with operands as
     # views where they are to take them so (see kernels.common.cold_kernel_attrs).
     metagen = MetaGenerator(["typename"])

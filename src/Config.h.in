@@ -45,7 +45,7 @@ struct ConfigOf {
 };
 
 // The configurations built into the executable, in the order of their ids; a type each. The first
-// one, Config, is the one a run takes by default.
+// one, Config0, is the one a run takes by default.
 @SEISSOL_CONFIG_STRUCTS@
 } // namespace seissol
 

@@ -150,12 +150,6 @@ struct MultisimHelperWrapper<Cfg, 1> {
   constexpr static bool MultisimEnabled = false;
 };
 
-// short-hand definitions, for the configuration of the build
-using MultisimHelper = MultisimHelperWrapper<Config>;
-
-constexpr unsigned int NumSimulations = MultisimHelper::NumSimulations;
-constexpr unsigned int BasisFunctionDimension = MultisimHelper::BasisFunctionDimension;
-
 /// The dimension of the basis functions in the tensors of the configuration `Cfg`.
 template <typename Cfg>
 constexpr unsigned int BasisDim = MultisimHelperWrapper<Cfg>::BasisFunctionDimension;
@@ -193,10 +187,6 @@ template <typename Cfg, typename TensorViewT>
 decltype(auto) simtensor(TensorViewT& tensor, int sim) {
   return MultisimHelperWrapper<Cfg>::simtensor(tensor, sim);
 }
-constexpr size_t MultisimStart = MultisimHelper::MultisimStart;
-constexpr size_t MultisimEnd = MultisimHelper::MultisimEnd;
-constexpr bool MultisimEnabled = MultisimHelper::MultisimEnabled;
-
 template <typename Cfg, typename Tensor>
 constexpr size_t leadDim() {
   if constexpr (MultisimHelperWrapper<Cfg>::MultisimEnabled) {

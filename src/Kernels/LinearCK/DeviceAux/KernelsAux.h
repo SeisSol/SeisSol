@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 
+#include "Common/Real.h"
 #include "GeneratedCode/init.h"
-#include "Kernels/Precision.h"
 
 namespace seissol::kernels::time::aux {
 template <typename Cfg>
