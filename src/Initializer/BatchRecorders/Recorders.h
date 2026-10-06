@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 
+#include "Common/Real.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/Interface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -69,8 +70,12 @@ class CompositeRecorder : public AbstractRecorder<VarmapT> {
   std::vector<std::shared_ptr<AbstractRecorder<VarmapT>>> concreteRecorders_;
 };
 
+/// Records the batches of the local integration of a layer of the configuration `Cfg`.
+template <typename Cfg>
 class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   explicit LocalIntegrationRecorder(double g) : g_(g) {}
 
   void record(LTS::Layer& layer) override;
@@ -99,8 +104,12 @@ class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   size_t derivativesAddressCounter_{0};
 };
 
+/// Records the batches of the neighbor integration of a layer of the configuration `Cfg`.
+template <typename Cfg>
 class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   void record(LTS::Layer& layer) override;
 
   protected:
@@ -116,7 +125,12 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   size_t integratedDofsAddressCounter_{0};
 };
 
+/// Records the batches of the plasticity of a layer of the configuration `Cfg`.
+template <typename Cfg>
 class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   protected:
   void setUpContext(LTS::Layer& layer) override { AbstractRecorder::setUpContext(layer); }
 
@@ -124,8 +138,12 @@ class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   void record(LTS::Layer& layer) override;
 };
 
+/// Records the batches of a layer of dynamic rupture faces of the configuration `Cfg`.
+template <typename Cfg>
 class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVarmap> {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   void record(DynamicRupture::Layer& layer) override;
 
   protected:
