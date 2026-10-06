@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mpi.h>
@@ -31,7 +32,6 @@
 #include <string>
 #include <utility>
 #include <utils/logger.h>
-#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::io::instance::mesh {
@@ -327,8 +327,8 @@ void XdmfWriter::addData(const std::string& name,
     result.datatype = data->datatype();
     result.format = binary ? "Binary" : "HDF";
 
-    const auto filenameParts = utils::StringUtils::split(preFilename, '/');
-    const auto& filename = filenameParts.back();
+    // (the separators of the platform are understood here; e.g. also backslashes on Windows)
+    const auto filename = std::filesystem::path(preFilename).filename().string();
 
     // for both binary and HDF5: append to the same dataset (add a dummy dimension)
 
