@@ -171,7 +171,16 @@ void emitStageBody(std::ostringstream& out,
       out << indent << dst << " = " << addressing.loadInput(inst.imm) << ";\n";
       break;
     case Opcode::LoadPersistent:
-      out << indent << dst << " = " << addressing.loadPersistent(inst.imm) << ";\n";
+      if (inst.imm < addressing.stateSlots) {
+        if (addressing.loadState == nullptr) {
+          throw std::invalid_argument(
+              "expr: a state reached a code generator that cannot address states");
+        }
+        out << indent << dst << " = " << addressing.loadState(inst.imm) << ";\n";
+      } else {
+        out << indent << dst << " = " << addressing.loadPersistent(inst.imm - addressing.stateSlots)
+            << ";\n";
+      }
       break;
     case Opcode::Pw: {
       const std::string a0 = slotName(operands[inst.operandBegin]);
@@ -201,7 +210,18 @@ void emitStageBody(std::ostringstream& out,
     out << indent << addressing.storeOutput(store.target, slotName(store.source)) << ";\n";
   }
   for (const Store& store : stage.persistent) {
-    out << indent << addressing.storePersistent(store.target, slotName(store.source)) << ";\n";
+    if (store.target < addressing.stateSlots) {
+      if (addressing.storeState == nullptr) {
+        throw std::invalid_argument(
+            "expr: a state reached a code generator that cannot address states");
+      }
+      out << indent << addressing.storeState(store.target, slotName(store.source)) << ";\n";
+    } else {
+      out << indent
+          << addressing.storePersistent(store.target - addressing.stateSlots,
+                                        slotName(store.source))
+          << ";\n";
+    }
   }
 }
 

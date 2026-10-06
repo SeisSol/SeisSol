@@ -50,11 +50,17 @@ using reader::scripting::DataTable;
 std::string cpuLoadInput(std::int32_t index) {
   return "inputTile[" + std::to_string(index) + "ul * count + l]";
 }
+std::string cpuLoadState(std::int32_t state) {
+  return "stateTile[" + std::to_string(state) + "ul * count + l]";
+}
 std::string cpuLoadPersistent(std::int32_t slot) {
   return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l]";
 }
 std::string cpuStoreOutput(std::int32_t index, const std::string& value) {
   return "outputTile[" + std::to_string(index) + "ul * count + l] = " + value;
+}
+std::string cpuStoreState(std::int32_t state, const std::string& value) {
+  return "stateTile[" + std::to_string(state) + "ul * count + l] = " + value;
 }
 std::string cpuStorePersistent(std::int32_t slot, const std::string& value) {
   return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l] = " + value;
@@ -120,10 +126,12 @@ void emitStage(std::ostringstream& out,
                const char* name,
                const StageCode& stage,
                const std::vector<std::int32_t>& operands,
+               std::int32_t stateSlots,
                const std::string& computeType,
                const codegen::ContractAddressing& contract) {
   out << "extern \"C\" void " << name << "(const " << computeType << "* __restrict inputTile,\n"
       << "                                 " << computeType << "* __restrict outputTile,\n"
+      << "                                 " << computeType << "* __restrict stateTile,\n"
       << "                                 " << computeType << "* __restrict persistent,\n"
       << "                                 unsigned long numPoints,\n"
       << "                                 unsigned long first,\n"
@@ -131,17 +139,22 @@ void emitStage(std::ostringstream& out,
       << "                                 const void* const* matrices,\n"
       << "                                 const SeissolExprBlock* blocks,\n"
       << "                                 const unsigned long* pointIndex) {\n"
-      << "  (void)matrices; (void)blocks; (void)pointIndex;\n";
+      << "  (void)matrices; (void)blocks; (void)pointIndex; (void)stateTile;\n";
   if (stage.code.empty() && stage.outputs.empty() && stage.persistent.empty()) {
     out << "  (void)inputTile; (void)outputTile; (void)persistent;\n"
         << "  (void)numPoints; (void)first; (void)count;\n}\n\n";
     return;
   }
 
+  // The states come in a tile of their own, gathered and scattered around the call like the
+  // inputs and outputs; the hoisted values are read where they lie.
   codegen::StageAddressing addressing;
   addressing.loadInput = cpuLoadInput;
+  addressing.stateSlots = stateSlots;
+  addressing.loadState = cpuLoadState;
   addressing.loadPersistent = cpuLoadPersistent;
   addressing.storeOutput = cpuStoreOutput;
+  addressing.storeState = cpuStoreState;
   addressing.storePersistent = cpuStorePersistent;
   addressing.contract = &contract;
 
@@ -305,6 +318,7 @@ template <typename T>
 using StageFn = void (*)(const T*,
                          T*,
                          T*,
+                         T*,
                          unsigned long,
                          unsigned long,
                          unsigned long,
@@ -326,6 +340,8 @@ class RtcCpuKernel final : public Kernel {
                    tileSize),
         outputTile_(static_cast<std::size_t>(std::max<std::size_t>(1, binding.outputs().size())) *
                     tileSize),
+        stateTile_(static_cast<std::size_t>(std::max<std::size_t>(1, binding.states().size())) *
+                   tileSize),
         needsPrecompute_(lowered_.hasPrecompute()) {}
 
   void precompute(const DataTable& table) override {
@@ -389,6 +405,20 @@ class RtcCpuKernel final : public Kernel {
         binding->scatter(*table, first, count, src);
       }
     }
+    void gatherState(std::size_t first, std::size_t count, T* dst) const {
+      if (args != nullptr) {
+        binding->gatherState(args->states, args->stateCount, first, count, dst);
+      } else {
+        binding->gatherState(nullptr, 0, first, count, dst);
+      }
+    }
+    void scatterState(std::size_t first, std::size_t count, const T* src) const {
+      if (args != nullptr) {
+        binding->scatterState(args->states, args->stateCount, first, count, src);
+      } else {
+        binding->scatterState(nullptr, 0, first, count, src);
+      }
+    }
 
     const Binding* binding;
     const DataTable* table;
@@ -430,12 +460,18 @@ class RtcCpuKernel final : public Kernel {
                                              blocks[i].cellIndex};
     }
     const auto& permutation = binding_->permutation();
+    // only the run stage reads and writes the states
+    const bool stateful = fn == run_ && !binding_->states().empty();
 
     for (std::size_t first = begin; first < end; first += tileSize_) {
       const std::size_t count = std::min(tileSize_, end - first);
       io.gather(first, count, inputTile_.data());
+      if (stateful) {
+        io.gatherState(first, count, stateTile_.data());
+      }
       fn(inputTile_.data(),
          outputTile_.data(),
+         stateTile_.data(),
          persistent(),
          binding_->numPoints(),
          first,
@@ -444,6 +480,9 @@ class RtcCpuKernel final : public Kernel {
          blockDescriptors_.data(),
          permutation.empty() ? nullptr : permutation.data() + first);
       io.scatter(first, count, outputTile_.data());
+      if (stateful) {
+        io.scatterState(first, count, stateTile_.data());
+      }
     }
   }
 
@@ -456,6 +495,7 @@ class RtcCpuKernel final : public Kernel {
   std::size_t tileSize_{0};
   std::vector<T> inputTile_;
   std::vector<T> outputTile_;
+  std::vector<T> stateTile_;
   std::vector<const void*> matrixBases_;
   std::vector<BlockDescriptor> blockDescriptors_;
   bool needsPrecompute_{false};
@@ -530,9 +570,16 @@ std::string emitCpuSourceFor(const Program& program,
             "seissol_expr_precompute",
             lowered.precompute(),
             lowered.operands(),
+            lowered.stateSlotCount(),
             computeType,
             contract);
-  emitStage(out, "seissol_expr_run", lowered.run(), lowered.operands(), computeType, contract);
+  emitStage(out,
+            "seissol_expr_run",
+            lowered.run(),
+            lowered.operands(),
+            lowered.stateSlotCount(),
+            computeType,
+            contract);
   return out.str();
 }
 

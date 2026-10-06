@@ -213,6 +213,11 @@ class TileIo {
   // contractions ask; the default refuses.
   [[nodiscard]] virtual ContractOperands contraction(MatrixId matrix, BlockId block) const;
 
+  // The declared states of the points of the tile at `first`, dst[state * count + lane], and back
+  // after the tile. Only programs with state ask; the default refuses.
+  virtual void gatherState(std::size_t first, std::size_t count, T* dst) const;
+  virtual void scatterState(std::size_t first, std::size_t count, const T* src);
+
   // The point of each lane of the tile starting at `first`, for a reordered point set; null when
   // lane l is point first + l.
   [[nodiscard]] virtual const std::size_t* points(std::size_t /*first*/) const { return nullptr; }
@@ -265,6 +270,9 @@ class TileInterpreter {
   // slots. Must happen once, before the first run(), and again after anything
   // that invalidates the invariants it was told about. Explicit rather than lazy
   // on purpose: the cost belongs in the profile where it is spent.
+  //
+  // `persistent` holds the hoisted values, persistent[(slot - stateSlots) * numPoints + point];
+  // the states come and go through the TileIo.
   void precompute(const TileIo<T>& io,
                   std::size_t numPoints,
                   T* persistent,
@@ -283,6 +291,7 @@ class TileInterpreter {
                 const TileIo<T>& io,
                 const T* inputTile,
                 T* outputTile,
+                T* stateTile,
                 T* persistent,
                 std::size_t numPoints,
                 std::size_t first,
@@ -294,16 +303,17 @@ class TileInterpreter {
   std::vector<T> scratch_;
   std::vector<T> inputTile_;
   std::vector<T> outputTile_;
+  std::vector<T> stateTile_;
   std::int32_t numInputs_{0};
   std::int32_t numOutputs_{0};
+  std::int32_t stateSlots_{0};
 };
 
 extern template class TileInterpreter<double>;
 extern template class TileInterpreter<float>;
 
-// Fills the declared state slots from StateSpec::initial. Binding owns the
-// buffer and calls this on bind; exposed here so the storage layout has exactly
-// one definition. Persistent slots [0, state().size()) are the declared states.
+// Fills the declared states, slot-major over `numPoints` points, from StateSpec::initial. Binding
+// calls this for the states it keeps; exposed here so the layout has exactly one definition.
 template <typename T>
 void initialiseState(const Program& program, T* persistent, std::size_t numPoints);
 

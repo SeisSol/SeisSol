@@ -282,6 +282,7 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
   }
 
   binding.resolveContractions(program, table);
+  binding.resolveStates(program, table);
 
   binding.addressable_ = true;
   for (const auto* set : {&binding.inputs_, &binding.outputs_}) {
@@ -459,29 +460,155 @@ void Binding::allocatePersistent(const Program& program, std::int32_t slotCount)
   // an RTC kernel over one Binding would otherwise reset the state slots in
   // between -- and the differential check that compares two backends is exactly
   // the case that does it.
-  if (slotCount == persistentSlotCount_ && !persistent_.empty()) {
+  if (persistentAllocated_ && slotCount == persistentSlotCount_) {
     return;
   }
+  persistentAllocated_ = true;
   persistentSlotCount_ = slotCount;
-  if (slotCount <= 0) {
-    persistent_.clear();
-    persistent_.shrink_to_fit();
-    return;
-  }
 
-  const std::size_t elements = static_cast<std::size_t>(slotCount) * numPoints_;
   const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
-  persistent_.assign(elements * width, std::byte{0});
+  const std::size_t stateSlots = program.state().size();
+  const std::size_t slots = slotCount > 0 ? static_cast<std::size_t>(slotCount) : 0;
+  // Only the states have a defined initial value; the hoisted values are written by the
+  // Precompute stage before the first run(), and reading one before that is a lowering bug rather
+  // than something to paper over with a default here.
+  persistent_.assign(slots > stateSlots ? (slots - stateSlots) * numPoints_ * width : 0,
+                     std::byte{0});
 
-  // Only the state slots have a defined initial value; the hoisted ones are
-  // written by the Precompute stage before the first run(), and reading one
-  // before that is a lowering bug rather than something to paper over with a
-  // default here.
-  if (computeType_ == ComputeType::F32) {
-    initialiseState<float>(program, persistentF32(), numPoints_);
-  } else {
-    initialiseState<double>(program, persistentF64(), numPoints_);
+  const bool ownsState =
+      std::any_of(stateKept_.begin(), stateKept_.end(), [](bool kept) { return !kept; });
+  ownState_.assign(ownsState ? stateSlots * numPoints_ * width : 0, std::byte{0});
+  if (ownsState) {
+    if (computeType_ == ComputeType::F32) {
+      initialiseState<float>(program, reinterpret_cast<float*>(ownState_.data()), numPoints_);
+    } else {
+      initialiseState<double>(program, reinterpret_cast<double*>(ownState_.data()), numPoints_);
+    }
   }
+}
+
+void Binding::resolveStates(const Program& program, const DataTable& table) {
+  const auto computeData = computeType_ == ComputeType::F32 ? DataType::F32 : DataType::F64;
+  const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  states_.clear();
+  stateKept_.clear();
+  for (const auto& spec : program.state()) {
+    const reader::scripting::StateEntry* found = nullptr;
+    for (const auto& entry : table.stateEntries()) {
+      if (entry.name == spec.name) {
+        if (found != nullptr) {
+          throw std::invalid_argument("expr: the data table keeps the state '" + spec.name +
+                                      "' twice");
+        }
+        found = &entry;
+      }
+    }
+    if (found == nullptr) {
+      // kept here, at slot * numPoints + point
+      reader::scripting::StateInput own;
+      own.cellStride = width;
+      own.type = computeData;
+      states_.push_back(own);
+      stateKept_.push_back(false);
+      continue;
+    }
+    const auto& input = found->input;
+    if (input.type != computeData) {
+      throw std::invalid_argument("expr: the data table keeps the state '" + spec.name + "' as " +
+                                  name(input.type) + ", but the program computes in " +
+                                  name(computeData));
+    }
+    if (input.base == nullptr) {
+      throw std::invalid_argument("expr: the data table keeps the state '" + spec.name +
+                                  "' at a null address");
+    }
+    if (input.pointsPerCell == 0 || numPoints_ % input.pointsPerCell != 0) {
+      throw std::invalid_argument("expr: the data table keeps the state '" + spec.name +
+                                  "' per cell of " + std::to_string(input.pointsPerCell) +
+                                  " points, which do not divide the point set");
+    }
+    // A device kernel accesses it through a typed pointer.
+    if (input.cellStride % width != 0 || input.pointStride % width != 0) {
+      throw std::invalid_argument("expr: the data table keeps the state '" + spec.name +
+                                  "' with strides that are not whole elements");
+    }
+    states_.push_back(input);
+    stateKept_.push_back(true);
+  }
+}
+
+void* Binding::stateBase(std::size_t state, void* moved) const {
+  if (stateKept_[state]) {
+    return moved != nullptr ? moved : states_[state].base;
+  }
+  const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  return ownState_.empty() ? nullptr : ownState_.data() + state * numPoints_ * width;
+}
+
+template <typename Tile>
+void Binding::gatherStateImpl(void* const* bases,
+                              std::size_t baseCount,
+                              std::size_t first,
+                              std::size_t count,
+                              Tile* dst) const {
+  for (std::size_t s = 0; s < states_.size(); ++s) {
+    const auto& state = states_[s];
+    const auto* base = static_cast<const char*>(
+        stateBase(s, bases != nullptr && s < baseCount ? bases[s] : nullptr));
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      const std::size_t point = permutation_.empty() ? first + lane : permutation_[first + lane];
+      std::memcpy(dst + s * count + lane, base + state.offset(point), sizeof(Tile));
+    }
+  }
+}
+
+template <typename Tile>
+void Binding::scatterStateImpl(void* const* bases,
+                               std::size_t baseCount,
+                               std::size_t first,
+                               std::size_t count,
+                               const Tile* src) const {
+  for (std::size_t s = 0; s < states_.size(); ++s) {
+    const auto& state = states_[s];
+    auto* base =
+        static_cast<char*>(stateBase(s, bases != nullptr && s < baseCount ? bases[s] : nullptr));
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      const std::size_t point = permutation_.empty() ? first + lane : permutation_[first + lane];
+      std::memcpy(base + state.offset(point), src + s * count + lane, sizeof(Tile));
+    }
+  }
+}
+
+void Binding::gatherState(void* const* bases,
+                          std::size_t baseCount,
+                          std::size_t first,
+                          std::size_t count,
+                          double* dst) const {
+  gatherStateImpl(bases, baseCount, first, count, dst);
+}
+
+void Binding::gatherState(void* const* bases,
+                          std::size_t baseCount,
+                          std::size_t first,
+                          std::size_t count,
+                          float* dst) const {
+  gatherStateImpl(bases, baseCount, first, count, dst);
+}
+
+void Binding::scatterState(void* const* bases,
+                           std::size_t baseCount,
+                           std::size_t first,
+                           std::size_t count,
+                           const double* src) const {
+  scatterStateImpl(bases, baseCount, first, count, src);
+}
+
+void Binding::scatterState(void* const* bases,
+                           std::size_t baseCount,
+                           std::size_t first,
+                           std::size_t count,
+                           const float* src) const {
+  scatterStateImpl(bases, baseCount, first, count, src);
 }
 
 double* Binding::persistentF64() {

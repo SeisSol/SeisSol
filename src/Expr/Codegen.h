@@ -67,7 +67,13 @@ struct ContractAddressing {
 struct StageAddressing {
   /// Expression for `LoadInput` with slot `i`, e.g. "inputTile[3ul * count + l]".
   std::string (*loadInput)(std::int32_t index){nullptr};
-  /// Expression for `LoadPersistent` with slot `i`.
+  /// The persistent slots below this are the declared states, which loadState and storeState
+  /// read and write; the others hold hoisted values, and loadPersistent and storePersistent get
+  /// their index among those (the slot less stateSlots).
+  std::int32_t stateSlots{0};
+  /// Expression for `LoadPersistent` of a declared state.
+  std::string (*loadState)(std::int32_t state){nullptr};
+  /// Expression for `LoadPersistent` of hoisted value `i`.
   std::string (*loadPersistent)(std::int32_t slot){nullptr};
   /// The COMPLETE store statement, without the trailing semicolon, given the
   /// name of the local holding the value.
@@ -77,6 +83,7 @@ struct StageAddressing {
   /// that wanted `store(...) = v` would need a second store form. Handing the
   /// value in lets each target spell the store however it can.
   std::string (*storeOutput)(std::int32_t index, const std::string& value){nullptr};
+  std::string (*storeState)(std::int32_t state, const std::string& value){nullptr};
   std::string (*storePersistent)(std::int32_t slot, const std::string& value){nullptr};
   /// Null for a target that cannot read blocks; a contraction then throws.
   const ContractAddressing* contract{nullptr};

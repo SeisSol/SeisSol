@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Expr/RtcGpu.h"
 
+#include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Codegen.h"
 #include "Expr/Lower.h"
@@ -66,6 +67,9 @@ std::string gpuLoadInput(std::int32_t index) {
   const std::string i = std::to_string(index);
   return "LOAD_IN" + i + "(a, p)";
 }
+std::string gpuLoadState(std::int32_t state) {
+  return "(*STATE_AT" + std::to_string(state) + "(a, p))";
+}
 std::string gpuLoadPersistent(std::int32_t slot) {
   return "a->persistent[" + std::to_string(slot) + " * a->numPoints + p]";
 }
@@ -73,6 +77,9 @@ std::string gpuStoreOutput(std::int32_t index, const std::string& value) {
   const std::string i = std::to_string(index);
   return "store_out" + i + "(a->out" + i + ", a->stride_out" + i + ", a->offset_out" + i + ", p, " +
          value + ")";
+}
+std::string gpuStoreState(std::int32_t state, const std::string& value) {
+  return "*STATE_AT" + std::to_string(state) + "(a, p) = " + value;
 }
 std::string gpuStorePersistent(std::int32_t slot, const std::string& value) {
   return "a->persistent[" + std::to_string(slot) + " * a->numPoints + p] = " + value;
@@ -192,6 +199,24 @@ void emitAccessors(std::ostringstream& out,
         << "  *(" << global << element << "*)bytes = (" << element << ")v;\n"
         << "}\n";
   }
+  if (layout.states > 0) {
+    // A state lies per cell, like a block, and is read and written in place.
+    out << fn << " " << global << computeType << "* state_at(" << global
+        << "void* base, SeissolU64 pointsPerCell,\n"
+        << "    SeissolU64 cellStride, SeissolU64 pointStride, " << global
+        << "const unsigned int* cellIndex, SeissolU64 p) {\n"
+        << "  const SeissolU64 c = p / pointsPerCell;\n"
+        << "  const SeissolU64 m = cellIndex != 0 ? (SeissolU64)cellIndex[c] : c;\n"
+        << "  return (" << global << computeType << "*)((" << global
+        << "char*)base + m * cellStride + (p - c * pointsPerCell) * pointStride);\n"
+        << "}\n";
+    for (std::size_t i = 0; i < layout.states; ++i) {
+      const std::string n = std::to_string(i);
+      out << "#define STATE_AT" << n << "(a, p) state_at((a)->state" << n << ", (a)->ppc_state" << n
+          << ", (a)->cellStride_state" << n << ", (a)->pointStride_state" << n
+          << ", (a)->cellIndex_state" << n << ", p)\n";
+    }
+  }
   out << "\n";
 }
 
@@ -242,6 +267,13 @@ void emitArgumentStruct(std::ostringstream& out,
         << "  SeissolU64 modeStride_block" << i << ";\n"
         << "  " << global << "const unsigned int* cellIndex_block" << i << ";\n";
   }
+  for (std::size_t i = 0; i < layout.states; ++i) {
+    out << "  " << global << "void* state" << i << ";\n"
+        << "  SeissolU64 ppc_state" << i << ";\n"
+        << "  SeissolU64 cellStride_state" << i << ";\n"
+        << "  SeissolU64 pointStride_state" << i << ";\n"
+        << "  " << global << "const unsigned int* cellIndex_state" << i << ";\n";
+  }
   out << "  " << global << computeType << "* persistent;\n"
       << "  SeissolU64 numPoints;\n"
       << "  SeissolU64 first;\n"
@@ -273,6 +305,11 @@ void emitFlatParameters(std::ostringstream& out,
         << ", SeissolU64 modeStride_block" << i << ", __global const unsigned int* cellIndex_block"
         << i << ",\n";
   }
+  for (std::size_t i = 0; i < layout.states; ++i) {
+    out << "    __global void* state" << i << ", SeissolU64 ppc_state" << i
+        << ", SeissolU64 cellStride_state" << i << ", SeissolU64 pointStride_state" << i
+        << ", __global const unsigned int* cellIndex_state" << i << ",\n";
+  }
   out << "    __global " << computeType << "* persistent, SeissolU64 numPoints,\n"
       << "    SeissolU64 first, SeissolU64 count";
 }
@@ -301,6 +338,12 @@ void emitFlatGather(std::ostringstream& out, const GpuLayout& layout) {
         << " = cellStride_block" << i << "; a.modeStride_block" << i << " = modeStride_block" << i
         << "; a.cellIndex_block" << i << " = cellIndex_block" << i << ";\n";
   }
+  for (std::size_t i = 0; i < layout.states; ++i) {
+    out << "  a.state" << i << " = state" << i << "; a.ppc_state" << i << " = ppc_state" << i
+        << "; a.cellStride_state" << i << " = cellStride_state" << i << "; a.pointStride_state" << i
+        << " = pointStride_state" << i << "; a.cellIndex_state" << i << " = cellIndex_state" << i
+        << ";\n";
+  }
   out << "  a.persistent = persistent; a.numPoints = numPoints;\n"
       << "  a.first = first; a.count = count;\n";
 }
@@ -328,8 +371,11 @@ void emitStage(std::ostringstream& out,
 
   codegen::StageAddressing addressing;
   addressing.loadInput = gpuLoadInput;
+  addressing.stateSlots = static_cast<std::int32_t>(layout.states);
+  addressing.loadState = gpuLoadState;
   addressing.loadPersistent = gpuLoadPersistent;
   addressing.storeOutput = gpuStoreOutput;
+  addressing.storeState = gpuStoreState;
   addressing.storePersistent = gpuStorePersistent;
   addressing.contract = &contract;
 
@@ -398,9 +444,10 @@ GpuRejection gpuRejection(const Program& program,
     return GpuRejection::Permuted;
   }
   // Hoisted slots are fine: the buffer is zeroed and precompute writes them.
-  // Declared state is only fine when zero-initialised, for want of a fill.
-  for (const auto& state : program.state()) {
-    if (state.initial != 0.0) {
+  // A state the kernel keeps itself is only fine when zero-initialised, for want of a fill; one
+  // the table keeps is the table's to initialise.
+  for (std::size_t i = 0; i < program.state().size(); ++i) {
+    if (!binding.stateKept(i) && program.state()[i].initial != 0.0) {
       return GpuRejection::StatefulProgram;
     }
   }
@@ -438,6 +485,14 @@ GpuRejection gpuRejection(const Program& program,
         return GpuRejection::HostPointer;
       }
     }
+    for (std::size_t i = 0; i < binding.states().size(); ++i) {
+      const auto& state = binding.states()[i];
+      if (binding.stateKept(i) &&
+          (!deviceAccessible(state.base) ||
+           (state.cellIndex != nullptr && !deviceAccessible(state.cellIndex)))) {
+        return GpuRejection::HostPointer;
+      }
+    }
   }
   return GpuRejection::None;
 }
@@ -463,6 +518,7 @@ std::uint64_t GpuLayout::fingerprint() const {
   for (const auto type : blocks) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
   }
+  hash = mix(hash, states);
   return hash;
 }
 
@@ -483,6 +539,7 @@ GpuLayout gpuLayoutOf(const Binding& binding) {
   for (const auto& block : binding.blocks()) {
     layout.blocks.push_back(block.type);
   }
+  layout.states = binding.states().size();
   return layout;
 }
 
@@ -538,6 +595,18 @@ std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string
     arg("const unsigned int* const");
     out << ",\n";
   }
+  for (std::size_t i = 0; i < layout.states; ++i) {
+    arg("void* const");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ", ";
+    arg("const unsigned int* const");
+    out << ",\n";
+  }
   out << "    *(" << computeType << "* const*)a[" << k++ << "],\n";
   arg("const SeissolU64");
   out << ", ";
@@ -548,7 +617,10 @@ std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string
   return out.str();
 }
 
-GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void* persistent) {
+GpuArguments::GpuArguments(const Binding& binding,
+                           const KernelArgs& args,
+                           void* persistent,
+                           void* ownState) {
   // The byte image of the emitted SeissolExprArgs, in declaration order. Every
   // field is eight bytes wide and eight-byte aligned, which is why a flat
   // append works and no padding has to be reasoned about: pointers are 64-bit
@@ -560,7 +632,7 @@ GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void*
   }
   const std::size_t fields = 3 * (binding.inputs().size() + binding.outputs().size()) +
                              2 * perCellInputs + binding.matrices().size() +
-                             4 * binding.blocks().size() + 4;
+                             4 * binding.blocks().size() + 5 * binding.states().size() + 4;
   image_.reserve(fields * sizeof(std::uint64_t));
 
   const auto appendPointer = [this](const void* value) { append(&value, sizeof(value)); };
@@ -596,6 +668,27 @@ GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void*
     appendScalar(block.cellStride);
     appendScalar(block.modeStride);
     appendPointer(block.cellIndex);
+  }
+  // A state the table keeps where the call or the binding puts it; the others in `ownState`,
+  // slot-major over the point set, like the Binding keeps them on the host.
+  const std::size_t width =
+      binding.states().empty() || binding.states().front().type == reader::scripting::DataType::F64
+          ? sizeof(double)
+          : sizeof(float);
+  for (std::size_t i = 0; i < binding.states().size(); ++i) {
+    const auto& state = binding.states()[i];
+    if (binding.stateKept(i)) {
+      const bool moved = i < args.stateCount && args.states != nullptr && args.states[i] != nullptr;
+      appendPointer(moved ? args.states[i] : state.base);
+    } else {
+      appendPointer(ownState == nullptr
+                        ? nullptr
+                        : static_cast<char*>(ownState) + i * binding.numPoints() * width);
+    }
+    appendScalar(state.pointsPerCell);
+    appendScalar(state.cellStride);
+    appendScalar(state.pointStride);
+    appendPointer(state.cellIndex);
   }
   appendPointer(persistent);
   appendScalar(binding.numPoints());

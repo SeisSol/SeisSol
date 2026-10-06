@@ -108,29 +108,65 @@ class Binding {
 
   // --- persistent storage ---
   //
-  // Program.h puts the state next to the point set and the permutation it is
-  // indexed by, i.e. here; Interp.h expects a raw pointer with
-  // slot-major layout, persistent[slot * numPoints + point]. The buffer cannot
-  // be sized in bind(), because the slot count is a property of the LOWERING
-  // (state slots plus hoisted values) and bind() sees only the Program. Hence a
-  // second, explicit call once the lowering exists, rather than a hidden resize
-  // on first use: the allocation is numPoints * slots * sizeof(ComputeType) and
-  // belongs where a profile can see it.
+  // The hoisted values live here, slot-major over the point set:
+  // persistent[(slot - stateSlots) * numPoints + point], for the persistent slots past the
+  // declared states. The buffer cannot be sized in bind(), because the slot count is a property of
+  // the LOWERING and bind() sees only the Program. Hence a second, explicit call once the lowering
+  // exists, rather than a hidden resize on first use: the allocation is
+  // numPoints * slots * sizeof(ComputeType) and belongs where a profile can see it.
   //
-  // Re-allocating resets the state to StateSpec::initial. That is the documented
-  // meaning of a rebind -- a state slot is tied to the identity of the point set
-  // it was allocated for, and a new point set has no history to carry.
-  // A no-op when the shape already matches, so two kernels over one Binding
-  // share the state instead of the second resetting it to StateSpec::initial.
+  // The same call allocates the states the table does not keep (see below), and sets them to
+  // StateSpec::initial. That is the documented meaning of a rebind -- a state slot is tied to the
+  // identity of the point set it was allocated for, and a new point set has no history to carry.
+  // A no-op when the shape already matches, so two kernels over one Binding share the state
+  // instead of the second resetting it to StateSpec::initial.
   void allocatePersistent(const Program& program, std::int32_t slotCount);
   [[nodiscard]] std::int32_t persistentSlotCount() const { return persistentSlotCount_; }
 
-  // Typed views of the buffer above. Not a template, for the reason the gather
+  // Typed views of the hoisted values. Not a template, for the reason the gather
   // overloads are not: the compute type is fixed per Program, so the choice is
   // made once by the caller that already switched on it to pick an interpreter.
   // Both log an error when asked for the type the Program does not compute in.
+  // Null without hoisted values.
   [[nodiscard]] double* persistentF64();
   [[nodiscard]] float* persistentF32();
+
+  // --- states ---
+  //
+  // Where the declared states live, in Program::state() order. A table can keep a state itself
+  // (DataTable::bindState) -- a consumer that writes it to checkpoints, say -- and the Binding
+  // keeps the others, slot-major over the point set like the hoisted values. Either way, the
+  // state of point p lies StateInput::offset(p) bytes past stateBase(state). A point is the one
+  // a column would read, i.e. past the permutation.
+  [[nodiscard]] const std::vector<reader::scripting::StateInput>& states() const { return states_; }
+  /// Whether the table keeps state `state`.
+  [[nodiscard]] bool stateKept(std::size_t state) const { return stateKept_[state]; }
+  /// The base of state `state`: `moved` if the table keeps the state and it is non-null, the base
+  /// the table bound otherwise, or the Binding's own storage.
+  [[nodiscard]] void* stateBase(std::size_t state, void* moved = nullptr) const;
+
+  // The states of the points of the tile at `first`, dst[state * count + lane], and back: from and
+  // to the bases given for this call where non-null (cf. KernelArgs::states).
+  void gatherState(void* const* bases,
+                   std::size_t baseCount,
+                   std::size_t first,
+                   std::size_t count,
+                   double* dst) const;
+  void gatherState(void* const* bases,
+                   std::size_t baseCount,
+                   std::size_t first,
+                   std::size_t count,
+                   float* dst) const;
+  void scatterState(void* const* bases,
+                    std::size_t baseCount,
+                    std::size_t first,
+                    std::size_t count,
+                    const double* src) const;
+  void scatterState(void* const* bases,
+                    std::size_t baseCount,
+                    std::size_t first,
+                    std::size_t count,
+                    const float* src) const;
 
   // Gather `count` points starting at `first` into `dst`, one contiguous lane
   // block per input channel: dst[channel * count + lane]. Scatter is the
@@ -194,6 +230,20 @@ class Binding {
   private:
   void buildGroupRanges(const Program& program, const reader::scripting::DataTable& table);
   void resolveContractions(const Program& program, const reader::scripting::DataTable& table);
+  void resolveStates(const Program& program, const reader::scripting::DataTable& table);
+
+  template <typename Tile>
+  void gatherStateImpl(void* const* bases,
+                       std::size_t baseCount,
+                       std::size_t first,
+                       std::size_t count,
+                       Tile* dst) const;
+  template <typename Tile>
+  void scatterStateImpl(void* const* bases,
+                        std::size_t baseCount,
+                        std::size_t first,
+                        std::size_t count,
+                        const Tile* src) const;
 
   template <typename Tile>
   void gatherFromImpl(const void* const* inputs,
@@ -219,6 +269,12 @@ class Binding {
   bool hostAddressable_{false};
   std::vector<std::byte> persistent_;
   std::int32_t persistentSlotCount_{0};
+  bool persistentAllocated_{false};
+  std::vector<reader::scripting::StateInput> states_;
+  std::vector<bool> stateKept_;
+  // The states the table does not keep, slot-major over the point set. Mutable like a table's
+  // storage: a const Binding still evaluates, and evaluating writes the state.
+  mutable std::vector<std::byte> ownState_;
   ComputeType computeType_{ComputeType::F64};
 };
 

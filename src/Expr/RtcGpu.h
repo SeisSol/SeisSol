@@ -139,6 +139,9 @@ struct GpuLayout {
   std::vector<reader::scripting::DataType> outputs;
   std::vector<reader::scripting::DataType> matrices;
   std::vector<reader::scripting::DataType> blocks;
+  /// The declared states, each read and written through its base, its cell and point strides,
+  /// its points per cell and its cell index -- in the compute type.
+  std::size_t states{0};
 
   [[nodiscard]] std::uint64_t fingerprint() const;
 };
@@ -159,9 +162,12 @@ struct GpuLayout {
 /// one entry and this object holds that struct's byte image.
 class GpuArguments {
   public:
-  /// `persistent` may be null when the lowering has no persistent slots, which
-  /// gpuRejection() already guarantees for a program that reaches a device.
-  GpuArguments(const Binding& binding, const KernelArgs& args, void* persistent);
+  /// `persistent` holds the hoisted values and `ownState` the states the table does not keep,
+  /// slot-major over the point set; either may be null when there is nothing in it.
+  GpuArguments(const Binding& binding,
+               const KernelArgs& args,
+               void* persistent,
+               void* ownState = nullptr);
 
   /// The cuLaunchKernel view: one entry, pointing at the argument struct.
   [[nodiscard]] void** data() { return pointers_.data(); }

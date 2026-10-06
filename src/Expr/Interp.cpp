@@ -108,6 +108,16 @@ ContractOperands TileIo<T>::contraction(MatrixId /*matrix*/, BlockId /*block*/) 
   fail("the program contracts a block, but its tile source binds no blocks");
 }
 
+template <typename T>
+void TileIo<T>::gatherState(std::size_t /*first*/, std::size_t /*count*/, T* /*dst*/) const {
+  fail("the program declares state, but its tile source keeps none");
+}
+
+template <typename T>
+void TileIo<T>::scatterState(std::size_t /*first*/, std::size_t /*count*/, const T* /*src*/) {
+  fail("the program declares state, but its tile source keeps none");
+}
+
 std::size_t chooseTileSize(std::int32_t peakSlots, ComputeType type, std::size_t budgetBytes) {
   const std::size_t element = (type == ComputeType::F32) ? sizeof(float) : sizeof(double);
   const auto slots = static_cast<std::size_t>(std::max<std::int32_t>(peakSlots, 1));
@@ -123,7 +133,8 @@ TileInterpreter<T>::TileInterpreter(const Program& program,
                                     const InterpreterOptions& options)
     : lowered_(&lowered), sampler_(sampler),
       numInputs_(static_cast<std::int32_t>(program.inputs().size())),
-      numOutputs_(static_cast<std::int32_t>(program.outputs().size())) {
+      numOutputs_(static_cast<std::int32_t>(program.outputs().size())),
+      stateSlots_(lowered.stateSlotCount()) {
   const bool wantsF32 = program.computeType() == ComputeType::F32;
   if (wantsF32 != std::is_same_v<T, float>) {
     fail("interpreter instantiated for the wrong compute type");
@@ -135,6 +146,7 @@ TileInterpreter<T>::TileInterpreter(const Program& program,
   scratch_.assign(static_cast<std::size_t>(std::max(lowered.peakSlotCount(), 1)) * tileSize_, T(0));
   inputTile_.assign(static_cast<std::size_t>(std::max(numInputs_, 1)) * tileSize_, T(0));
   outputTile_.assign(static_cast<std::size_t>(std::max(numOutputs_, 1)) * tileSize_, T(0));
+  stateTile_.assign(static_cast<std::size_t>(std::max(stateSlots_, 1)) * tileSize_, T(0));
 }
 
 // One switch per instruction, amortised over `count` lanes. The lane loops are
@@ -146,6 +158,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
                                   const TileIo<T>& io,
                                   const T* inputTile,
                                   T* outputTile,
+                                  T* stateTile,
                                   T* persistent,
                                   std::size_t numPoints,
                                   std::size_t first,
@@ -177,8 +190,11 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
       break;
     }
     case Opcode::LoadPersistent: {
+      // a declared state from the tile, a hoisted value from the persistent buffer
       const T* const __restrict src =
-          persistent + static_cast<std::size_t>(inst.imm) * numPoints + first;
+          inst.imm < stateSlots_
+              ? stateTile + static_cast<std::size_t>(inst.imm) * count
+              : persistent + static_cast<std::size_t>(inst.imm - stateSlots_) * numPoints + first;
 #pragma omp simd
       for (std::size_t l = 0; l < count; ++l) {
         dst[l] = src[l];
@@ -258,7 +274,9 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
   for (const Store& store : stage.persistent) {
     const T* const __restrict src = slotPtr(store.source);
     T* const __restrict out =
-        persistent + static_cast<std::size_t>(store.target) * numPoints + first;
+        store.target < stateSlots_
+            ? stateTile + static_cast<std::size_t>(store.target) * count
+            : persistent + static_cast<std::size_t>(store.target - stateSlots_) * numPoints + first;
     for (std::size_t l = 0; l < count; ++l) {
       out[l] = src[l];
     }
@@ -289,10 +307,12 @@ void TileInterpreter<T>::precompute(const TileIo<T>& io,
     for (std::size_t first = range.begin; first < range.end; first += tileSize_) {
       const std::size_t count = std::min(tileSize_, range.end - first);
       io.gather(first, count, inputTile_.data());
+      // the precompute stage hoists invariant values only, so it never reads a state
       runStage(lowered_->precompute(),
                io,
                inputTile_.data(),
                outputTile_.data(),
+               nullptr,
                persistent,
                numPoints,
                first,
@@ -310,15 +330,22 @@ void TileInterpreter<T>::run(TileIo<T>& io,
     for (std::size_t first = range.begin; first < range.end; first += tileSize_) {
       const std::size_t count = std::min(tileSize_, range.end - first);
       io.gather(first, count, inputTile_.data());
+      if (stateSlots_ > 0) {
+        io.gatherState(first, count, stateTile_.data());
+      }
       runStage(lowered_->run(),
                io,
                inputTile_.data(),
                outputTile_.data(),
+               stateTile_.data(),
                persistent,
                numPoints,
                first,
                count);
       io.scatter(first, count, outputTile_.data());
+      if (stateSlots_ > 0) {
+        io.scatterState(first, count, stateTile_.data());
+      }
     }
   }
 }

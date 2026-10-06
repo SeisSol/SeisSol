@@ -58,6 +58,11 @@ struct KernelArgs {
   std::size_t matrixCount{0};
   std::size_t blockCount{0};
 
+  /// The same for the states a table keeps (DataTable::bindState), in Program::state() order. A
+  /// state the Binding keeps itself ignores its entry.
+  void* const* states{nullptr};
+  std::size_t stateCount{0};
+
   /// Point range, in the Binding's (possibly permuted) index space.
   /// count == 1 is the element-wise form; nothing about the kernel changes.
   std::size_t first{0};

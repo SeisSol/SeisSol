@@ -158,6 +158,14 @@ class RawTileIo final : public TileIo<T> {
     return binding_->permutation().empty() ? nullptr : binding_->permutation().data() + first;
   }
 
+  void gatherState(std::size_t first, std::size_t count, T* dst) const override {
+    binding_->gatherState(args_->states, args_->stateCount, first, count, dst);
+  }
+
+  void scatterState(std::size_t first, std::size_t count, const T* src) override {
+    binding_->scatterState(args_->states, args_->stateCount, first, count, src);
+  }
+
   private:
   const Binding* binding_;
   const KernelArgs* args_;
@@ -186,6 +194,14 @@ class BoundTileIo final : public TileIo<T> {
 
   [[nodiscard]] const std::size_t* points(std::size_t first) const override {
     return binding_->permutation().empty() ? nullptr : binding_->permutation().data() + first;
+  }
+
+  void gatherState(std::size_t first, std::size_t count, T* dst) const override {
+    binding_->gatherState(nullptr, 0, first, count, dst);
+  }
+
+  void scatterState(std::size_t first, std::size_t count, const T* src) override {
+    binding_->scatterState(nullptr, 0, first, count, src);
   }
 
   private:

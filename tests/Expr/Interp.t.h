@@ -90,7 +90,8 @@ class ToySampler : public GridSampler {
   }
 };
 
-// Plain SoA arrays behind the Binding::gather / Binding::scatter contract.
+// Plain SoA arrays behind the Binding::gather / Binding::scatter contract, and the states
+// slot-major over the points.
 template <typename T>
 class ArrayTileIo : public TileIo<T> {
   public:
@@ -98,9 +99,10 @@ class ArrayTileIo : public TileIo<T> {
               std::vector<T>& outputs,
               std::size_t numPoints,
               std::size_t numInputs,
-              std::size_t numOutputs)
+              std::size_t numOutputs,
+              std::vector<T>* state = nullptr)
       : inputs_(inputs), outputs_(outputs), numPoints_(numPoints), numInputs_(numInputs),
-        numOutputs_(numOutputs) {}
+        numOutputs_(numOutputs), state_(state) {}
 
   void gather(std::size_t first, std::size_t count, T* dst) const override {
     for (std::size_t i = 0; i < numInputs_; ++i) {
@@ -116,6 +118,20 @@ class ArrayTileIo : public TileIo<T> {
       }
     }
   }
+  void gatherState(std::size_t first, std::size_t count, T* dst) const override {
+    for (std::size_t s = 0; s < state_->size() / numPoints_; ++s) {
+      for (std::size_t l = 0; l < count; ++l) {
+        dst[s * count + l] = (*state_)[s * numPoints_ + first + l];
+      }
+    }
+  }
+  void scatterState(std::size_t first, std::size_t count, const T* src) override {
+    for (std::size_t s = 0; s < state_->size() / numPoints_; ++s) {
+      for (std::size_t l = 0; l < count; ++l) {
+        (*state_)[s * numPoints_ + first + l] = src[s * count + l];
+      }
+    }
+  }
 
   private:
   const std::vector<T>& inputs_;
@@ -123,6 +139,7 @@ class ArrayTileIo : public TileIo<T> {
   std::size_t numPoints_;
   std::size_t numInputs_;
   std::size_t numOutputs_;
+  std::vector<T>* state_;
 };
 
 // Point-at-a-time evaluation of the DAG. Arena ids are topologically ordered, so
@@ -434,14 +451,16 @@ TEST_SUITE("Expr::Interp") {
     REQUIRE(lowered.stateSlotCount() == 2);
 
     std::vector<double> outputs(numPoints, 0.0);
-    ArrayTileIo<double> io(inputs, outputs, numPoints, 1, 1);
+    std::vector<double> state(2 * numPoints, 0.0);
+    initialiseState<double>(program, state.data(), numPoints);
+    ArrayTileIo<double> io(inputs, outputs, numPoints, 1, 1, &state);
     InterpreterOptions options;
     options.tileSize = 5;
     TileInterpreter<double> interp(program, lowered, nullptr, options);
 
-    std::vector<double> persistent(
-        static_cast<std::size_t>(lowered.persistentSlotCount()) * numPoints, 0.0);
-    initialiseState<double>(program, persistent.data(), numPoints);
+    // the states come through the tile source; nothing is hoisted
+    REQUIRE(lowered.persistentSlotCount() == lowered.stateSlotCount());
+    std::vector<double> persistent(1, 0.0);
 
     std::vector<double> referenceState(2 * numPoints, 0.0);
     initialiseState<double>(program, referenceState.data(), numPoints);
@@ -452,13 +471,13 @@ TEST_SUITE("Expr::Interp") {
           referenceEvaluate<double>(program, inputs, numPoints, nullptr, &referenceState);
       INFO("call=" << call);
       CHECK_FALSE(firstDifference(expected, outputs).any);
-      CHECK_FALSE(firstDifference(referenceState, persistent).any);
+      CHECK_FALSE(firstDifference(referenceState, state).any);
     }
 
     // acc starts at 1 and gains f on every call; prev trails it by one.
     for (std::size_t p = 0; p < numPoints; ++p) {
-      CHECK(persistent[p] == doctest::Approx(1.0 + 6.0 * inputs[p]));
-      CHECK(persistent[numPoints + p] == doctest::Approx(1.0 + 5.0 * inputs[p]));
+      CHECK(state[p] == doctest::Approx(1.0 + 6.0 * inputs[p]));
+      CHECK(state[numPoints + p] == doctest::Approx(1.0 + 5.0 * inputs[p]));
     }
   }
 

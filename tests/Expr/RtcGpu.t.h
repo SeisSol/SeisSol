@@ -303,6 +303,102 @@ TEST_SUITE("ExprRtcGpu") {
     }
   }
 
+  TEST_CASE("the emitted device kernel reads and writes a state the table keeps in place") {
+    // Compiled for the host and called through GpuArguments: the state descriptors in the
+    // argument block, a gathered subset of cells, and a non-zero initial value, which a state the
+    // kernel kept itself could not have.
+    const Program program = compileSderivModule("state peak = -1.0\n"
+                                                "state total = 0.5\n"
+                                                "out def peak = max(peak, x)\n"
+                                                "out def ratio = total / (1.0 + abs(peak))\n"
+                                                "def total = total + x * y\n");
+    constexpr std::size_t Rows = 2;
+    constexpr std::size_t NumPoints = 3 * Rows;
+    constexpr std::size_t CellValues = 2 * Rows;
+    const std::vector<std::uint32_t> cellIndex = {2, 0, 3};
+    std::vector<double> x(NumPoints);
+    std::vector<double> y(NumPoints);
+    const auto keptStates = [&]() {
+      std::vector<double> storage(4 * CellValues);
+      for (std::size_t cell = 0; cell < 4; ++cell) {
+        for (std::size_t row = 0; row < Rows; ++row) {
+          storage[cell * CellValues + row] = program.state()[0].initial;
+          storage[cell * CellValues + Rows + row] = program.state()[1].initial;
+        }
+      }
+      return storage;
+    };
+    std::vector<double> interpretedStates = keptStates();
+    std::vector<double> emittedStates = keptStates();
+
+    std::vector<double> interpreted(2 * NumPoints, -1.0);
+    DataTable table(NumPoints);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindViewConst<double>("y", Direction::In, y.data());
+    table.bindView<double>("peak", Direction::Out, interpreted.data());
+    table.bindView<double>("ratio", Direction::Out, interpreted.data() + NumPoints);
+    table.bindState<double>(
+        "peak", interpretedStates.data(), Rows, CellValues, 1, cellIndex.data());
+    table.bindState<double>(
+        "total", interpretedStates.data() + Rows, Rows, CellValues, 1, cellIndex.data());
+    Binding binding = Binding::bind(program, table);
+    REQUIRE(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::None);
+    df::GridStore store;
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+
+    const GpuLayout layout = gpuLayoutOf(binding);
+    CHECK(layout.states == 2);
+    const std::string generated = std::string(HostShim) +
+                                  emitGpuSource(program, lower(program), layout, GpuTarget::Cuda) +
+                                  emitGpuHostTrampoline(layout, "double");
+    void* handle = compileForHost(generated);
+    if (handle == nullptr) {
+      WARN_MESSAGE(false, "no usable C++ compiler; the device code generator was not executed");
+      return;
+    }
+    auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+    REQUIRE(invoke != nullptr);
+
+    std::vector<double> emitted(2 * NumPoints, -1.0);
+    for (std::size_t call = 0; call < 3; ++call) {
+      CAPTURE(call);
+      for (std::size_t p = 0; p < NumPoints; ++p) {
+        x[p] = std::cos(0.9 * static_cast<double>(call + p)) * static_cast<double>(p);
+        y[p] = 0.3 * static_cast<double>(call) - 0.1 * static_cast<double>(p);
+      }
+      kernel->run(table);
+
+      KernelArgs args{};
+      std::vector<void*> outputs = {emitted.data(), emitted.data() + NumPoints};
+      std::vector<void*> states = {emittedStates.data(), emittedStates.data() + Rows};
+      args.outputs = outputs.data();
+      args.outputCount = outputs.size();
+      args.states = states.data();
+      args.stateCount = states.size();
+      args.first = 0;
+      args.count = NumPoints;
+      GpuArguments packed(binding, args, nullptr);
+      invoke(packed.data());
+      // five fields per state in the argument block
+      CHECK(packed.fieldCount() == 3 * (2 + 2) + 5 * 2 + 4);
+
+      CHECK(unit_test::bitwiseEqual(interpreted.data(), emitted.data(), interpreted.size()));
+      CHECK(unit_test::bitwiseEqual(
+          interpretedStates.data(), emittedStates.data(), interpretedStates.size()));
+    }
+
+    // a state with a non-zero initial value that the kernel had to keep itself
+    DataTable own(NumPoints);
+    own.bindViewConst<double>("x", Direction::In, x.data());
+    own.bindViewConst<double>("y", Direction::In, y.data());
+    own.bindView<double>("peak", Direction::Out, interpreted.data());
+    own.bindView<double>("ratio", Direction::Out, interpreted.data() + NumPoints);
+    const Binding ownBinding = Binding::bind(program, own);
+    CHECK(gpuRejection(program, lower(program), ownBinding, nullptr) ==
+          GpuRejection::StatefulProgram);
+  }
+
   TEST_CASE("the emitted device kernel contracts bit for bit as the interpreter does") {
     // A contraction compiled for the host and called through GpuArguments: covers the block and
     // matrix descriptors in the argument block as well as the loop.

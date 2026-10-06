@@ -571,18 +571,24 @@ class RtcGpuKernel final : public Kernel {
                void* queue)
       : binding_(&binding), lowered_(std::move(lowered)), function_(function), target_(target),
         queue_(queue) {
-    const auto slots = static_cast<std::size_t>(lowered_.persistentSlotCount());
-    persistentBytes_ = slots * binding.numPoints() * elementWidth;
-    if (persistentBytes_ > 0) {
-      persistent_ = allocFor(target_, persistentBytes_, queue_);
-      if (persistent_ == nullptr) {
-        logError() << "expr: could not allocate" << persistentBytes_
-                   << "bytes of device memory for the persistent buffer.";
-      }
+    // The hoisted values, and the states the table does not keep; both zeroed by allocFor, which
+    // is all a zero-initialised state needs (gpuRejection refuses the others).
+    const auto stateSlots = static_cast<std::size_t>(lowered_.stateSlotCount());
+    const auto hoisted = static_cast<std::size_t>(lowered_.persistentSlotCount()) - stateSlots;
+    persistent_ = allocate(hoisted * binding.numPoints() * elementWidth, "hoisted values");
+    bool ownsState = false;
+    for (std::size_t i = 0; i < binding.states().size(); ++i) {
+      ownsState |= !binding.stateKept(i);
+    }
+    if (ownsState) {
+      ownState_ = allocate(stateSlots * binding.numPoints() * elementWidth, "states");
     }
   }
 
-  ~RtcGpuKernel() override { freeFor(target_, persistent_, queue_); }
+  ~RtcGpuKernel() override {
+    freeFor(target_, persistent_, queue_);
+    freeFor(target_, ownState_, queue_);
+  }
 
   RtcGpuKernel(const RtcGpuKernel&) = delete;
   RtcGpuKernel& operator=(const RtcGpuKernel&) = delete;
@@ -601,7 +607,7 @@ class RtcGpuKernel final : public Kernel {
     KernelArgs args{};
     args.first = 0;
     args.count = binding_->numPoints();
-    GpuArguments packed(*binding_, args, persistent_);
+    GpuArguments packed(*binding_, args, persistent_, ownState_);
     if (!launchFor(target_, function_.precompute, packed, args.count, streamFor(args))) {
       logError() << "expr: launching the device precompute stage failed.";
     }
@@ -626,7 +632,7 @@ class RtcGpuKernel final : public Kernel {
       logError() << "expr: the kernel has a precompute stage that was never run; call "
                     "Kernel::precompute() from prepare().";
     }
-    GpuArguments packed(*binding_, args, persistent_);
+    GpuArguments packed(*binding_, args, persistent_, ownState_);
     if (!launchFor(target_, function_.function, packed, args.count, streamFor(args))) {
       logError() << "expr: launching the compiled device kernel failed.";
     }
@@ -645,6 +651,18 @@ class RtcGpuKernel final : public Kernel {
   }
 
   private:
+  [[nodiscard]] void* allocate(std::size_t bytes, const char* what) const {
+    if (bytes == 0) {
+      return nullptr;
+    }
+    void* pointer = allocFor(target_, bytes, queue_);
+    if (pointer == nullptr) {
+      logError() << "expr: could not allocate" << bytes << "bytes of device memory for the" << what
+                 << ".";
+    }
+    return pointer;
+  }
+
   /// The OpenCL path enqueues on the queue it was BUILT against -- the kernel
   /// bundle belongs to that queue's context -- so a per-call stream would have
   /// to come from the same context anyway. Everywhere else the per-call stream
@@ -662,7 +680,7 @@ class RtcGpuKernel final : public Kernel {
   GpuTarget target_;
   void* queue_{nullptr};
   void* persistent_{nullptr};
-  std::size_t persistentBytes_{0};
+  void* ownState_{nullptr};
   bool precomputed_{false};
 };
 

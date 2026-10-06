@@ -109,9 +109,36 @@ struct MatrixInput {
   std::size_t leadingDimension{0};
 };
 
+/// Where a declared state of a program lives when the consumer keeps it: per cell of the point
+/// set, like a block. The state of point p lies at
+///   base + index(c) * cellStride + (p - c * pointsPerCell) * pointStride   (in bytes),
+/// with c = p / pointsPerCell and index(c) = cellIndex[c] if given and c otherwise, stored in the
+/// compute type of the program. A state that no table keeps lives in the Binding instead.
+struct StateInput {
+  void* base{nullptr};
+  std::size_t pointsPerCell{1};
+  std::size_t cellStride{0};
+  std::size_t pointStride{0};
+  /// Cell of the point set -> cell in memory, for a gathered subset of cells; null is the identity.
+  const std::uint32_t* cellIndex{nullptr};
+  DataType type{DataType::F64};
+
+  /// The offset of the state of point `point` from the base, in bytes.
+  [[nodiscard]] std::size_t offset(std::size_t point) const {
+    const std::size_t cell = point / pointsPerCell;
+    const std::size_t memoryCell = cellIndex == nullptr ? cell : cellIndex[cell];
+    return memoryCell * cellStride + (point - cell * pointsPerCell) * pointStride;
+  }
+};
+
 struct BlockEntry {
   std::string name;
   BlockInput input;
+};
+
+struct StateEntry {
+  std::string name;
+  StateInput input;
 };
 
 struct MatrixEntry {
@@ -417,7 +444,30 @@ class DataTable {
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
 
   [[nodiscard]] const std::vector<DataEntry>& dataEntries() const { return dataEntries_; }
+  /// Keeps the state `name` of a program at `base` (cf. StateInput); strides in elements of T.
+  template <typename T>
+  void bindState(std::string name,
+                 T* base,
+                 std::size_t pointsPerCell,
+                 std::size_t cellStride,
+                 std::size_t pointStride,
+                 const std::uint32_t* cellIndex = nullptr) {
+    StateInput input;
+    input.base = base;
+    input.pointsPerCell = pointsPerCell;
+    input.cellStride = cellStride * sizeof(T);
+    input.pointStride = pointStride * sizeof(T);
+    input.cellIndex = cellIndex;
+    input.type = DataTypeTraits<T>::Type;
+    stateEntries_.push_back(StateEntry{std::move(name), input});
+  }
+
+  void bindState(std::string name, const StateInput& input) {
+    stateEntries_.push_back(StateEntry{std::move(name), input});
+  }
+
   [[nodiscard]] const std::vector<BlockEntry>& blockEntries() const { return blockEntries_; }
+  [[nodiscard]] const std::vector<StateEntry>& stateEntries() const { return stateEntries_; }
   [[nodiscard]] const std::vector<MatrixEntry>& matrixEntries() const { return matrixEntries_; }
 
   private:
@@ -454,6 +504,7 @@ class DataTable {
   std::vector<DataEntry> dataEntries_;
   std::vector<BlockEntry> blockEntries_;
   std::vector<MatrixEntry> matrixEntries_;
+  std::vector<StateEntry> stateEntries_;
 };
 
 } // namespace seissol::reader::scripting
