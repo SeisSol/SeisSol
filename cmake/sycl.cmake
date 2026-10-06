@@ -72,5 +72,6 @@ elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
 endif()
 
 function(make_device_hostapi_lib NAME FILES)
-    make_device_api(${NAME} ${FILES})
+    # the host side of the device code is SYCL code as well
+    make_device_lib(${NAME} "${FILES}")
 endfunction()
