@@ -150,3 +150,56 @@ High-Order VTKHDF Output
 ------------------------
 
 The high-order wavefield output can be enabled by setting ``wavefieldvtkorder`` in the ``output`` section to a positive value, corresponding to the order of the output polynomial per cell.
+
+Derived outputs
+---------------
+
+``wavefieldscript`` names a program whose outputs are written along with the wavefield, at the
+same points. It is an sderiv module (``sderiv:file`` or a ``.sderiv`` file) or a Lua module
+(``lua:file`` or a ``.lua`` file), written pointwise. A program reads the quantities by name:
+
+| ``q`` -- a quantity of the solution, e.g. ``v1`` or ``s_xx``
+| ``q_r0``, ``q_r1``, ``q_r2`` -- its derivative along the reference coordinates of the cell
+| ``dx_q``, ``dy_q``, ``dz_q`` -- its derivative in space
+| ``int_q`` -- the time integral of ``q`` (and its derivatives as above, e.g. ``dx_int_v1``)
+| ``ep_xx`` ... ``eta`` -- the plastic strain, with plasticity
+| ``jinv00`` ... ``jinv22`` -- the inverse Jacobian of the cell, ``jinvkd`` = d xi_k / d x_d
+| ``x``, ``y``, ``z``, ``t`` -- the output point and the time
+| ``dt`` -- the time since the previous evaluation of the point
+
+The values and derivatives are taken from the coefficients of the cell directly, so a program
+pays for each of them once however many outputs read it. The built-in outputs (the quantities,
+``int-`` quantities, strain, rotation and plastic strain) are computed the same way.
+
+A program without state is evaluated when the output is written. A program with state follows
+every time step of the cells (on the CPU; on a GPU, it is evaluated when written), so that e.g. a
+maximum over time does not miss what happens between two outputs:
+
+.. code-block:: text
+
+   # pgv.sderiv
+   state pgv = 0.0
+   out def pgv = max(pgv, sqrt(v1*v1 + v2*v2 + v3*v3))
+   # the displacement, integrated over the time steps
+   state u1 = 0.0
+   out def u1 = u1 + v1 * dt
+   out def divv = dx_v1 + dy_v2 + dz_v3
+
+The same in Lua; a returned table names the outputs, and ``M.state`` declares the state:
+
+.. code-block:: lua
+
+   local M = {}
+   M.state = { pgv = 0.0 }
+   function M.evaluate(fields, v1, v2, v3, pgv)
+     return { pgv = math.max(pgv, math.sqrt(v1*v1 + v2*v2 + v3*v3)) }
+   end
+   return M
+
+.. code-block:: Fortran
+
+   &Output
+   wavefieldscript = 'sderiv:pgv.sderiv'
+   /
+
+A state is not written to checkpoints; a restarted run starts it over.
