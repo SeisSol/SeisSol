@@ -10,6 +10,7 @@
 #include "ParameterDB.h"
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
@@ -361,8 +362,8 @@ reader::scripting::DataTable FaultGPGenerator<Cfg>::generate() const {
   // element, side and the face transform of each fault face managed by this generator (we have
   // one generator per LTS layer), set up once rather than per point and column
   struct FaultFace {
-    std::size_t element;
-    std::int8_t side;
+    std::size_t element{0};
+    std::int8_t side{0};
     seissol::geometry::AffineFaceTransform transform;
   };
   const std::vector<Fault>& fault = meshReader_.getFault();

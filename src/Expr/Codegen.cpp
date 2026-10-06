@@ -9,6 +9,7 @@
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
+#include "Reader/Scripting/DataTable.h"
 
 #include <array>
 #include <cctype>

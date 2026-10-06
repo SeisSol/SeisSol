@@ -15,6 +15,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>

@@ -8,6 +8,7 @@
 #include "InstantaneousTimeMirrorManager.h"
 
 #include "Common/ConfigDispatch.h"
+#include "Common/Constants.h"
 #include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"

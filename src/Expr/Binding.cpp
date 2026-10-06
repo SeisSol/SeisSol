@@ -7,6 +7,7 @@
 #include "Expr/Binding.h"
 
 #include "Expr/Interp.h"
+#include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
@@ -15,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <new>
 #include <numeric>
 #include <stdexcept>

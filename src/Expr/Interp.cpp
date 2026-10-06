@@ -10,6 +10,7 @@
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
 #include <algorithm>

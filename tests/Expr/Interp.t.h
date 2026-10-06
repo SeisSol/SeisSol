@@ -22,6 +22,7 @@
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "TestHelper.h"
 
 #include <array>
 #include <cstring>
@@ -317,12 +318,14 @@ TEST_SUITE("Expr::Interp") {
                                                        {3.0, -Inf, -Inf},
                                                        {-6.0, 3.0, -0.0},
                                                        {6.0, -3.0, 0.0}}};
-    for (const auto& [a, b, expected] : cases) {
+    for (const auto& operands : cases) {
+      const double a = operands[0];
+      const double b = operands[1];
       const std::array<double, 2> args{a, b};
-      const double result = applyPw<double>(Fn::Mod, args.data());
+      const auto result = applyPw<double>(Fn::Mod, args.data());
       CAPTURE(a);
       CAPTURE(b);
-      CHECK(std::memcmp(&result, &expected, sizeof(double)) == 0);
+      CHECK(unit_test::bitwiseEqual(result, operands[2]));
     }
   }
 

@@ -31,8 +31,6 @@
 
 namespace seissol::expr::test {
 
-namespace {
-
 namespace df = reader::datafield;
 using reader::scripting::DataTable;
 using reader::scripting::DataType;
@@ -52,7 +50,7 @@ constexpr std::size_t CellStride = 2 * PaddedCols;
 
 /// Deterministic, not nice values: a contraction that silently reads the wrong coefficient or
 /// sums in another order has to show up.
-double value(std::size_t i, double scale) {
+inline double value(std::size_t i, double scale) {
   return scale * std::sin(1.3 * static_cast<double>(i) + 0.7) + 1e-3 * static_cast<double>(i % 7);
 }
 
@@ -107,7 +105,7 @@ const char* const Model = "def a = 2.0 * v - w * t\n"
                           "out def u = a * a + sqrt(abs(v))\n"
                           "out def r = select(lt(v, w), v, w) + t\n";
 
-Program contracted() {
+inline Program contracted() {
   Program program = compileSderivModule(Model);
   const auto matrix = program.internMatrix("proj", MatrixShape{Rows, Cols, Ld});
   const auto v = program.internBlock("v", Cols);
@@ -116,10 +114,10 @@ Program contracted() {
   return program;
 }
 
-std::vector<double> evaluate(const Program& program,
-                             const Fixture& fixture,
-                             BackendKind backend,
-                             BackendKind* used = nullptr) {
+inline std::vector<double> evaluate(const Program& program,
+                                    const Fixture& fixture,
+                                    BackendKind backend,
+                                    BackendKind* used = nullptr) {
   const std::size_t outputs = program.outputs().size();
   std::vector<double> out(outputs * NumPoints, -1.0);
   DataTable table(NumPoints);
@@ -141,11 +139,9 @@ std::vector<double> evaluate(const Program& program,
   return out;
 }
 
-bool sameBits(const std::vector<double>& a, const std::vector<double>& b) {
+inline bool sameBits(const std::vector<double>& a, const std::vector<double>& b) {
   return a.size() == b.size() && std::memcmp(a.data(), b.data(), a.size() * sizeof(double)) == 0;
 }
-
-} // namespace
 
 TEST_SUITE("ExprContract") {
 

@@ -9,6 +9,7 @@
 #include "Expr/Binding.h"
 #include "Expr/Cost.h"
 #include "Expr/Interp.h"
+#include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Expr/RtcCpu.h"

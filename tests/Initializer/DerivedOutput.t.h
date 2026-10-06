@@ -29,13 +29,13 @@
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/LuaTracer.h"
 #include "Solver/MultipleSimulations.h"
+#include "TestHelper.h"
 
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
-#include <cstring>
 #include <limits>
 #include <memory>
 #include <random>
@@ -119,8 +119,9 @@ struct Cells {
 };
 
 /// The quantities and their time integrals, as a configuration offers them.
-std::vector<DerivedSource> sources() {
+inline std::vector<DerivedSource> sources() {
   std::vector<DerivedSource> result;
+  result.reserve(2 * MaterialT::Quantities.size());
   for (const auto& name : MaterialT::Quantities) {
     result.push_back(DerivedSource{name, false});
   }
@@ -130,7 +131,7 @@ std::vector<DerivedSource> sources() {
   return result;
 }
 
-DerivedGeometry refinedGeometry(std::size_t degree) {
+inline DerivedGeometry refinedGeometry(std::size_t degree) {
   DerivedGeometry geometry;
   geometry.subcells = io::instance::geometry::subdivideMaps(
       io::instance::geometry::unrefined<3>(), io::instance::geometry::TetrahedronRefine4);
@@ -199,9 +200,9 @@ struct Evaluation {
   }
 };
 
-std::unique_ptr<expr::Kernel> kernelFor(Evaluation& evaluation,
-                                        expr::BackendKind backend,
-                                        reader::datafield::GridStore& store) {
+inline std::unique_ptr<expr::Kernel> kernelFor(Evaluation& evaluation,
+                                               expr::BackendKind backend,
+                                               reader::datafield::GridStore& store) {
   expr::BackendOptions options;
   options.preferred = backend;
   auto kernel = expr::makeKernel(evaluation.derived->program(), evaluation.binding, store, options);
@@ -264,8 +265,7 @@ class HandWritten {
     projectVolume(dataY.data(), dofsSingleQuantity, (*projD_[1])(subcell, Cfg::ConvergenceOrder));
     projectVolume(dataZ.data(), dofsSingleQuantity, (*projD_[2])(subcell, Cfg::ConvergenceOrder));
     for (std::size_t i = 0; i < pointsPerSubcell_; ++i) {
-      target[i] = dataX[i] * grad[0 * 3 + dir] + dataY[i] * grad[1 * 3 + dir] +
-                  dataZ[i] * grad[2 * 3 + dir];
+      target[i] = dataX[i] * grad[dir] + dataY[i] * grad[3 + dir] + dataZ[i] * grad[6 + dir];
     }
   }
 
@@ -319,7 +319,7 @@ class HandWritten {
   std::array<std::shared_ptr<projection::Table<3, 3, RealT>>, 3> projD_;
 };
 
-WaveFieldSelection fullSelection() {
+inline WaveFieldSelection fullSelection() {
   WaveFieldSelection selection;
   selection.quantities.assign(MaterialT::Quantities.begin(), MaterialT::Quantities.end());
   selection.velocityOffset = MaterialT::VelocityOffset;
@@ -387,18 +387,16 @@ TEST_CASE("DerivedOutput: the built-in program reproduces the hand-written wave 
   }
 }
 
-namespace {
 // Products and sums through volatile, so that the reference rounds every operation on its own,
 // like the interpreter, whatever this translation unit is compiled with.
-double multiply(double a, double b) {
+inline double multiply(double a, double b) {
   const volatile double product = a * b;
   return product;
 }
-double add(double a, double b) {
+inline double add(double a, double b) {
   const volatile double sum = a + b;
   return sum;
 }
-} // namespace
 
 TEST_CASE("DerivedOutput: contractions, chain rule and stacking are exact") {
   constexpr std::size_t Degree = 1;
@@ -415,9 +413,8 @@ TEST_CASE("DerivedOutput: contractions, chain rule and stacking are exact") {
 
   // the compiled kernel against the interpreter, where there is a compiler
   if (compiledKernel->kind() == expr::BackendKind::RtcCpu) {
-    CHECK(std::memcmp(interpreted.values.data(),
-                      compiled.values.data(),
-                      interpreted.values.size() * sizeof(double)) == 0);
+    CHECK(
+        bitwiseEqual(interpreted.values.data(), compiled.values.data(), interpreted.values.size()));
   }
 
   // and the interpreter against the formula, in double, summed in ascending order
@@ -517,8 +514,7 @@ TEST_CASE("DerivedOutput: a program written in sderiv gives the built-in outputs
   kernelFor(first, expr::BackendKind::Interpreter, store)->run(first.table);
   kernelFor(second, expr::BackendKind::Interpreter, store)->run(second.table);
   REQUIRE(first.values.size() == second.values.size());
-  CHECK(std::memcmp(
-            first.values.data(), second.values.data(), first.values.size() * sizeof(double)) == 0);
+  CHECK(bitwiseEqual(first.values.data(), second.values.data(), first.values.size()));
 }
 
 TEST_CASE("DerivedOutput: a maximum over time follows a hand-kept reference") {
@@ -526,9 +522,9 @@ TEST_CASE("DerivedOutput: a maximum over time follows a hand-kept reference") {
   const auto geometry = refinedGeometry(Degree);
   Cells cells(4, 4);
 
-  const std::string v1 = MaterialT::Quantities[MaterialT::VelocityOffset];
-  const std::string v2 = MaterialT::Quantities[MaterialT::VelocityOffset + 1];
-  const std::string v3 = MaterialT::Quantities[MaterialT::VelocityOffset + 2];
+  const std::string& v1 = MaterialT::Quantities[MaterialT::VelocityOffset];
+  const std::string& v2 = MaterialT::Quantities[MaterialT::VelocityOffset + 1];
+  const std::string& v3 = MaterialT::Quantities[MaterialT::VelocityOffset + 2];
   const std::string speed =
       "sqrt(" + v1 + "*" + v1 + " + " + v2 + "*" + v2 + " + " + v3 + "*" + v3 + ")";
   const DerivedProgram derived(expr::compileSderivModule("state pgv = 0.0\n"
@@ -560,9 +556,9 @@ TEST_CASE("DerivedOutput: a Lua program computes what its sderiv counterpart doe
   const auto geometry = refinedGeometry(Degree);
   Cells cells(3, 6);
 
-  const std::string v1 = MaterialT::Quantities[MaterialT::VelocityOffset];
-  const std::string v2 = MaterialT::Quantities[MaterialT::VelocityOffset + 1];
-  const std::string v3 = MaterialT::Quantities[MaterialT::VelocityOffset + 2];
+  const std::string& v1 = MaterialT::Quantities[MaterialT::VelocityOffset];
+  const std::string& v2 = MaterialT::Quantities[MaterialT::VelocityOffset + 1];
+  const std::string& v3 = MaterialT::Quantities[MaterialT::VelocityOffset + 2];
   const std::string lua = "local M = {}\n"
                           "M.state = { pgv = 0.0 }\n"
                           "function M.evaluate(fields, " +
@@ -600,9 +596,7 @@ TEST_CASE("DerivedOutput: a Lua program computes what its sderiv counterpart doe
     secondKernel->run(second.table);
     for (const auto* output : {"pgv", "divv"}) {
       for (std::size_t point = 0; point < first.numPoints; ++point) {
-        const double a = first.value(output, point);
-        const double b = second.value(output, point);
-        REQUIRE(std::memcmp(&a, &b, sizeof(double)) == 0);
+        REQUIRE(bitwiseEqual(first.value(output, point), second.value(output, point)));
       }
     }
   }

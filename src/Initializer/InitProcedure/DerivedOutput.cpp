@@ -15,6 +15,7 @@
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Ir.h"
+#include "Expr/Program.h"
 #include "Expr/Rewrite.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
@@ -22,8 +23,10 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
+#include "Numerical/Projection.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Datafield/Grid.h"
+#include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
@@ -32,7 +35,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <limits>
 #include <map>
 #include <memory>

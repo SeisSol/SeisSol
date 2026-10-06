@@ -21,8 +21,6 @@
 
 namespace seissol::unit_test::script_field {
 
-namespace {
-
 /// A script written to a file of its own, removed again when done.
 class ScriptFile {
   public:
@@ -46,7 +44,7 @@ class ScriptFile {
 const std::vector<std::string> Quantities{
     "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 
-std::vector<std::array<double, 3>> randomPoints(std::size_t count, unsigned seed) {
+inline std::vector<std::array<double, 3>> randomPoints(std::size_t count, unsigned seed) {
   std::mt19937 rng(seed);
   std::uniform_real_distribution<double> value(-2.0, 2.0);
   std::vector<std::array<double, 3>> points(count);
@@ -55,8 +53,6 @@ std::vector<std::array<double, 3>> randomPoints(std::size_t count, unsigned seed
   }
   return points;
 }
-
-} // namespace
 
 TEST_CASE("ScriptField: a compiled script gives the quantities at any points and times" *
           doctest::test_suite("physics")) {

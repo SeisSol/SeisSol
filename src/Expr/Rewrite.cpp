@@ -9,8 +9,10 @@
 
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Reader/Scripting/DataTable.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <stdexcept>
 #include <string>

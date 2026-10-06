@@ -10,6 +10,7 @@
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Program.h"
+#include "Initializer/Typedefs.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataReader.h"
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -263,13 +265,13 @@ void ScriptField::evaluateValues(double time,
         thread.inputBases[i] = &impl_->simulation;
         break;
       case Input::Density:
-        thread.inputBases[i] = &material[0];
+        thread.inputBases[i] = material.data();
         break;
       case Input::Mu:
-        thread.inputBases[i] = &material[1];
+        thread.inputBases[i] = material.data() + 1;
         break;
       case Input::Lambda:
-        thread.inputBases[i] = &material[2];
+        thread.inputBases[i] = material.data() + 2;
         break;
       }
     }

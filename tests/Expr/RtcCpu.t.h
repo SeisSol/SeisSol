@@ -146,7 +146,10 @@ TEST_SUITE("ExprRtcCpu") {
         {"a shared subexpression", "def a = sqrt(abs(x))\nout def u = a+a*a\nout def v = a*a*a\n"},
     };
 
-    for (const auto& [label, source] : programs) {
+    for (const auto& program : programs) {
+      // (a structured binding cannot be captured where OpenMP is enabled)
+      const char* const label = program.first;
+      const char* const source = program.second;
       CAPTURE(label);
       const bool same = agreesBitwise(source, compiled);
       if (!compiled) {

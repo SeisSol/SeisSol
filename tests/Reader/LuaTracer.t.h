@@ -29,6 +29,7 @@
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/LuaReader.h"
 #include "Reader/Scripting/LuaTracer.h"
+#include "TestHelper.h"
 
 #include <algorithm>
 #include <cmath>
@@ -403,7 +404,7 @@ struct Agreement {
       for (std::size_t point = 0; point < numPoints; ++point) {
         CAPTURE(program.outputs()[i].name);
         CAPTURE(point);
-        CHECK(std::memcmp(&traced[i][point], &expected[i][point], sizeof(double)) == 0);
+        CHECK(bitwiseEqual(traced[i][point], expected[i][point]));
       }
     }
   }

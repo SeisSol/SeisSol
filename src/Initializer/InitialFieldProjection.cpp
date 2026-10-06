@@ -11,6 +11,7 @@
 #include "Alignment.h"
 #include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"

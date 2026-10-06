@@ -22,19 +22,15 @@
 
 namespace seissol::expr::test {
 
-namespace {
-
 namespace df = reader::datafield;
 using reader::scripting::DataTable;
 using reader::scripting::Direction;
 
-bool hasInput(const Program& program, const std::string& name) {
+inline bool hasInput(const Program& program, const std::string& name) {
   return std::any_of(program.inputs().begin(), program.inputs().end(), [&](const VarSpec& v) {
     return v.name == name;
   });
 }
-
-} // namespace
 
 TEST_SUITE("ExprState") {
 

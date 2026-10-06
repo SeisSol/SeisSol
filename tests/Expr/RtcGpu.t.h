@@ -15,6 +15,7 @@
 #include "Expr/SderivFrontend.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
+#include "TestHelper.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -288,7 +289,10 @@ TEST_SUITE("ExprRtcGpu") {
     };
 
     bool ran = false;
-    for (const auto& [label, source] : programs) {
+    for (const auto& program : programs) {
+      // (a structured binding cannot be captured where OpenMP is enabled)
+      const char* const label = program.first;
+      const char* const source = program.second;
       CAPTURE(label);
       const bool same = deviceCodeAgrees(source, ran);
       if (!ran) {
@@ -315,7 +319,8 @@ TEST_SUITE("ExprRtcGpu") {
     substituteByContraction(program, matrix, {{"v", v}, {"w", w}});
 
     std::vector<double> m(Ld * Cols);
-    std::vector<float> dofs(4 * 2 * Cols); // f32 coefficients, [cell][quantity][coefficient]
+    std::vector<float> dofs(std::size_t{4} * 2 *
+                            Cols); // f32 coefficients, [cell][quantity][coefficient]
     std::vector<double> x(NumPoints);
     for (std::size_t i = 0; i < m.size(); ++i) {
       m[i] = 0.25 * static_cast<double>(i) - 1.3;
@@ -416,7 +421,7 @@ TEST_SUITE("ExprRtcGpu") {
     args.count = NumPoints;
     GpuArguments packed(binding, args, nullptr);
     invoke(packed.data());
-    CHECK(std::memcmp(interpreted.data(), emitted.data(), NumPoints * sizeof(double)) == 0);
+    CHECK(unit_test::bitwiseEqual(interpreted.data(), emitted.data(), NumPoints));
     // a column per cell carries its divisor and index along
     CHECK(packed.fieldCount() == 3 * 3 + 2 + 4);
   }
