@@ -26,6 +26,8 @@
 #include "SeisSol.h"
 #include "TestHelper.h"
 
+#include <PUML/DataHandle.h>
+#include <PUML/Hdf5Reader.h>
 #include <PUML/PUML.h>
 #include <PUML/PartitionGraph.h>
 #include <algorithm>
@@ -44,9 +46,14 @@ namespace vertexorderinvariancetest {
 // as PUMLReader reads a mesh without periodic identification
 inline void readPumlMesh(seissol::geometry::PumlMesh& mesh, const std::string& file) {
   mesh.setComm(seissol::Mpi::mpi.comm());
-  mesh.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
-  mesh.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
-  mesh.addData<std::uint32_t>((file + ":/boundary").c_str(), PUML::CELL, {});
+  {
+    PUML::Hdf5Reader<seissol::geometry::PumlTopology> reader(mesh);
+    reader.open(file + ":/connect", file + ":/geometry");
+    reader.addData<int>(
+        seissol::geometry::pumldata::Group, file + ":/group", PUML::DataType::Cell, {});
+    reader.addData<std::uint32_t>(
+        seissol::geometry::pumldata::Boundary, file + ":/boundary", PUML::DataType::Cell, {});
+  }
   mesh.generateMesh();
 }
 

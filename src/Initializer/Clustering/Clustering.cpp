@@ -163,12 +163,12 @@ std::vector<std::uint64_t>
   const auto& cells = mesh.cells();
 
   std::vector<std::uint64_t> cellCosts(cells.size());
-  const void* boundaryCond = mesh.cellData(1);
+  const void* boundaryCond = seissol::geometry::boundaryTagsOf(mesh, boundaryFormat_);
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     std::uint64_t dynamicRupture = 0;
     std::uint64_t freeSurfaceWithGravity = 0;
 
-    unsigned int faceids[Cell::NumFaces];
+    PUML::LocalId faceids[Cell::NumFaces];
     PUML::Downward::faces(mesh, cells[cell], faceids);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {

@@ -179,7 +179,7 @@ CellToVertexArray
 CellToVertexArray
     CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh& mesh,
                                 const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
-  const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
+  const int* groups = seissol::geometry::groupsOf(mesh);
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
   assert(vertexOrders.size() == elements.size());
@@ -187,7 +187,7 @@ CellToVertexArray
       elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
-        unsigned vertLids[Cell::NumVertices]{};
+        PUML::LocalId vertLids[Cell::NumVertices]{};
         PUML::Downward::vertices(mesh, elements[cell], vertLids);
         const auto& order = vertexOrders[cell];
         for (std::size_t vtx = 0; vtx < Cell::NumVertices; ++vtx) {
