@@ -601,9 +601,12 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
           ? options.tileSize
           : chooseTileSize(lowered.peakSlotCount(), program.computeType(), DefaultTileBudgetBytes);
 
-  logInfo() << "expr: compiled CPU kernel --" << lowered.summary().c_str() << "--"
-            << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
-            << "-- with" << flags;
+  if (!options.quiet) {
+    logInfo()
+        << "expr: compiled CPU kernel --" << lowered.summary().c_str() << "--"
+        << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
+        << "-- with" << flags;
+  }
 
   if (program.computeType() == ComputeType::F32) {
     return std::make_unique<RtcCpuKernel<float>>(binding, std::move(lowered), artifact, tileSize);

@@ -737,9 +737,12 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
     return nullptr;
   }
 
-  logInfo() << "expr: compiled device kernel --" << lowered.summary().c_str() << "--"
-            << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
-            << "-- for" << arch;
+  if (!options.quiet) {
+    logInfo()
+        << "expr: compiled device kernel --" << lowered.summary().c_str() << "--"
+        << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
+        << "-- for" << arch;
+  }
   const std::size_t width = program.computeType() == ComputeType::F32 ? 4 : 8;
   return std::make_unique<RtcGpuKernel>(
       binding, std::move(lowered), function, target, width, options.deviceQueue);

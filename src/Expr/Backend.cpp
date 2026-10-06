@@ -316,8 +316,11 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
                                         GridStore& grids,
                                         const BackendOptions& options) {
   LoweredProgram lowered = lower(program, options.lowering);
-  logInfo() << "expr: interpreter kernel --" << lowered.summary().c_str() << "--"
-            << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str();
+  if (!options.quiet) {
+    logInfo()
+        << "expr: interpreter kernel --" << lowered.summary().c_str() << "--"
+        << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str();
+  }
 
   binding.allocatePersistent(program, lowered.persistentSlotCount());
 

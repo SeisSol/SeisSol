@@ -177,6 +177,10 @@ struct BackendOptions {
   // made the safe default the only reachable one, and the analytic boundary
   // condition in Package 6 is the case the hoisting exists for.
   LowerOptions lowering;
+
+  /// Skip the summary line a kernel logs when it is made: for the second and later kernels of
+  /// one program, e.g. one per thread.
+  bool quiet{false};
 };
 
 // Chooses a backend, compiles if needed, and returns the prepared kernel.
