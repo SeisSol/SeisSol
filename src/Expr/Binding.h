@@ -108,8 +108,8 @@ class Binding {
 
   // --- persistent storage ---
   //
-  // ADDED (reported). Program.h puts the state next to the point set and the
-  // permutation it is indexed by, i.e. here; Interp.h expects a raw pointer with
+  // Program.h puts the state next to the point set and the permutation it is
+  // indexed by, i.e. here; Interp.h expects a raw pointer with
   // slot-major layout, persistent[slot * numPoints + point]. The buffer cannot
   // be sized in bind(), because the slot count is a property of the LOWERING
   // (state slots plus hoisted values) and bind() sees only the Program. Hence a

@@ -91,16 +91,13 @@ enum class GpuRejection : std::uint8_t {
   Permuted,
   /// Declares state with a non-zero initial value.
   ///
-  /// NARROWED (reported, Package 5). This used to refuse any persistent slot at
-  /// all, which also refused HOISTING -- and hoisting is precisely what a
+  /// Persistent slots as such are fine: hoisting is precisely what a
   /// material-dependent boundary condition needs, since wave speeds are
   /// time-independent and recomputing them every step is most of the work
-  /// (measured: 114 weighted ops per point against 54 when hoisted).
-  ///
-  /// The device buffer is zeroed on allocation and the precompute stage writes
-  /// the hoisted slots, so hoisting needs nothing else. What is still missing
-  /// is a fill for declared state whose initial value is not zero; that wants a
-  /// small kernel and no program in sight uses it.
+  /// (measured: 114 weighted ops per point against 54 when hoisted). The device
+  /// buffer is zeroed on allocation and the precompute stage writes the hoisted
+  /// slots, so hoisting needs nothing else. What is missing is a fill for
+  /// declared state whose initial value is not zero; that wants a small kernel.
   StatefulProgram,
   /// At least one base pointer is not device-accessible.
   HostPointer,

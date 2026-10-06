@@ -380,9 +380,9 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
   //
   // `delta` is the FIRST SPACING, v[1] - v[0], and the reciprocal is formed as
   // 1.0 / delta. This is easi's derivation, and matching it is the whole point:
-  // on a float32 coordinate axis the endpoint average (v[n-1]-v[0])/(n-1) --
-  // which this file used to compute -- lands up to a full cell away, i.e. reads
-  // the wrong material. See the geometry-derivation note in Grid.h.
+  // on a float32 coordinate axis the endpoint average (v[n-1]-v[0])/(n-1)
+  // lands up to a full cell away, i.e. reads the wrong material. See the
+  // geometry-derivation note in Grid.h.
   for (std::size_t i = 0; i < ndims_; ++i) {
     ScaleNameSink sink;
     H5DSiterate_scales(dsetRaw, static_cast<unsigned>(i), nullptr, collectFirstScale, &sink);

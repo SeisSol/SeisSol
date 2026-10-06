@@ -169,8 +169,6 @@ TEST_SUITE("SderivFrontend") {
   TEST_CASE("backslashes and quotes survive a file path") {
     const auto program = mustCompile(EscapedPath);
     REQUIRE(program.grids().size() == 1);
-    // GridDesc::file became GridDesc::path in Package 4, when the frontends
-    // were ported onto Grid.h's contract.
     CHECK(program.grids().at(0).path == R"(C:\models\a"b.nc)");
   }
 
@@ -304,7 +302,7 @@ out def b = y
     // Both forms at once would leave it open which one is "the" output.
     CHECK_THROWS_AS(compileSderivModule("out def a = x\nx + 1.0\n"), SderivError);
 
-    // A duplicate plain def used to be taken last-wins, silently.
+    // A duplicate plain def is an error, not last-wins.
     CHECK_THROWS_AS(compileSderivModule("def a = x\ndef a = y\nout def b = a\n"), SderivError);
   }
 

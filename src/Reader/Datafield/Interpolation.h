@@ -82,12 +82,11 @@ class SampleScratch {
 /// Batch sample. One pointer per axis and one per component, each addressing a
 /// contiguous run of `count` values: x[axis][lane], out[component][lane].
 ///
-/// CHANGED (reported): both used to be flat blocks, x[axis * count + lane] and
-/// out[component * count + lane]. Pointer arrays because every caller that
-/// matters holds these runs SEPARATELY -- the interpreter keeps each coordinate
-/// in its own transient slot and wants each result in its own -- so a flat block
-/// forced a copy of dimension * count values in and components * count out, per
-/// tile, purely to satisfy the signature.
+/// Pointer arrays rather than flat blocks (x[axis * count + lane]), because every
+/// caller that matters holds these runs SEPARATELY -- the interpreter keeps each
+/// coordinate in its own transient slot and wants each result in its own -- so a
+/// flat block would force a copy of dimension * count values in and
+/// components * count out, per tile, purely to satisfy the signature.
 ///
 /// `out[c] == nullptr` skips component c entirely: it is neither gathered nor
 /// reduced. This is not a micro-optimisation. A Kind::Lookup node names ONE

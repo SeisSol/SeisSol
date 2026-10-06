@@ -10,14 +10,6 @@
 // Backends turn a (Program, Binding) pair into something callable. Everything
 // above this line is backend-agnostic; everything below it is free to be as
 // specialised as it likes, because the tile layout is fixed by Binding.
-//
-// Note on reuse from the derived-output side: rtc.hpp and cache.hpp are reusable
-// as MECHANISM but not as-is. CpuProgram hardcodes three entry points
-// (init_state / perstep_cell / finalize_cell) that only make sense for the
-// stateful temporal-reduction kernel; the scripting path wants a single
-// stateless `evaluate`. Both need to be parameterised on an entry-point list.
-// KernelCache is generic in `Program` but its key derivation goes through
-// ir_hash(Arena, Plan) — that becomes Program::fingerprint() here.
 
 #include "Expr/Binding.h"
 #include "Expr/Lower.h"
@@ -98,10 +90,10 @@ class Kernel {
   // Fill the hoisted persistent slots. Must run once before the first run(),
   // and again after anything invalidating the invariants LowerOptions declared.
   //
-  // ADDED (reported, Package 4). Lower.h splits the program into a Precompute
-  // and a Run stage, and the split is worthless if nothing triggers the first.
-  // It is a Kernel entry point rather than something makeKernel does, for the
-  // simple reason that it needs the DataTable and makeKernel does not get one.
+  // Lower.h splits the program into a Precompute and a Run stage, and the split
+  // is worthless if nothing triggers the first. It is a Kernel entry point
+  // rather than something makeKernel does, for the simple reason that it needs
+  // the DataTable and makeKernel does not get one.
   // Explicit rather than lazy on first run(): the cost is a full pass over the
   // point set including every hoisted grid lookup, and it belongs in a profile
   // where it is spent -- see the note on precompute() in Interp.h.
@@ -109,13 +101,12 @@ class Kernel {
 
   // Evaluate every point of the table.
   //
-  // CHANGED (reported): this used to promise internal parallelisation. The
-  // interpreter does not parallelise -- its tile scratch is per-instance state,
-  // so two threads in one run() would share one buffer. Calling run() on one
-  // Kernel from several threads is therefore undefined, and a caller wanting
-  // parallelism builds one Kernel per thread. An RTC backend may parallelise
-  // internally later; that would be a strengthening of this contract, not a
-  // change to it.
+  // Not parallelised internally: the tile scratch of the interpreter is
+  // per-instance state, so two threads in one run() would share one buffer.
+  // Calling run() on one Kernel from several threads is therefore undefined, and
+  // a caller wanting parallelism builds one Kernel per thread. An RTC backend may
+  // parallelise internally later; that would be a strengthening of this
+  // contract, not a change to it.
   //
   // Guarded: running a program with a Precompute stage before precompute() has
   // filled it reads uninitialised persistent slots, which is a silently wrong
@@ -124,13 +115,12 @@ class Kernel {
 
   // Evaluate a range, with the column BASES supplied per call.
   //
-  // ADDED (reported, Package 5). run(table) evaluates a whole table, which is
-  // the wrong shape for the consumer that matters: EasiBoundary::query is
-  // called once per face and builds a DataTable each time. Measured, that costs
-  // 0.4 us per face to build plus 0.4 us to bind, against 0.3 us to evaluate --
-  // so today the setup already costs more than the arithmetic, and with a
-  // compiled kernel it would be 87% of the total. Compiling is pointless until
-  // the setup leaves the per-face loop.
+  // run(table) evaluates a whole table, which is the wrong shape for a consumer
+  // that asks for a few points many times, such as a boundary condition per face
+  // and time step. Building a DataTable per face costs about 0.4 us, binding it
+  // another 0.4 us, against 0.3 us to evaluate it -- the setup would cost more
+  // than the arithmetic, and with a compiled kernel it would be 87% of the
+  // total.
   //
   // So: bind ONCE against a representative table, then call this per face with
   // only the bases moved. Strides, offsets and types stay in the Binding, where
@@ -169,13 +159,12 @@ struct BackendOptions {
   /// picks its own default.
   std::string arch;
 
-  // ADDED (reported, Package 4). makeKernel owns the lowering -- a backend
-  // consumes a LoweredProgram, not a Program -- so the only way a caller can
-  // declare what is invariant is through here. Lower.h makes hoisting opt-in
-  // precisely because the failure mode of getting it wrong is a stale value
-  // rather than a crash; leaving these options out of the interface would have
-  // made the safe default the only reachable one, and the analytic boundary
-  // condition in Package 6 is the case the hoisting exists for.
+  // makeKernel owns the lowering -- a backend consumes a LoweredProgram, not a
+  // Program -- so the only way a caller can declare what is invariant is through
+  // here. Lower.h makes hoisting opt-in precisely because the failure mode of
+  // getting it wrong is a stale value rather than a crash; the analytic boundary
+  // condition, with its points fixed and its time moving, is the case the
+  // hoisting exists for.
   LowerOptions lowering;
 
   /// Skip the summary line a kernel logs when it is made: for the second and later kernels of
@@ -185,8 +174,8 @@ struct BackendOptions {
 
 // Chooses a backend, compiles if needed, and returns the prepared kernel.
 // Never returns null: on a compilation failure with allowFallback it logs a
-// warning and returns the interpreter.
-// CHANGED (reported): `binding` is non-const, and `grids` is interned into.
+// warning and returns the interpreter. Writes to `binding` and `grids`, see
+// below.
 //
 // The persistent buffer is sized here because its slot count is a property of
 // the LOWERING (declared state plus hoisted values) and Binding::bind() sees

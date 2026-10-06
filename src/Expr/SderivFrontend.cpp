@@ -261,15 +261,10 @@ const std::unordered_map<std::string, Fn> Builtins = {
     {"le", Fn::Le},       {"eq", Fn::Eq},        {"land", Fn::And},    {"lor", Fn::Or},
     {"atan", Fn::Atan},   {"select", Fn::Select}};
 
-// ADDED (reported, Package 5). The header promises that these names are spelled
-// exactly as the Lua-side ssol.* ones so a model transliterates, but `gt`, `ge`
-// and `lnot` were missing -- the three the Lua tracer builds by rewriting rather
-// than by naming an Fn. They are rewrites here too, for the same reason: the IR
-// has Lt and Le and no Gt or Ge, because a > b IS b < a and a second node kind
-// would be a second thing for every consumer to handle.
-//
-// `atan` was missing outright, although Fn::Atan exists and the interpreter
-// implements it.
+// The names are spelled exactly as the Lua-side ssol.* ones, so a model
+// transliterates. `gt`, `ge` and `lnot` are rewrites, as in the Lua tracer: the
+// IR has Lt and Le and no Gt or Ge, because a > b IS b < a and a second node
+// kind would be a second thing for every consumer to handle.
 const std::unordered_map<std::string, Fn> SwappedComparisons = {{"gt", Fn::Lt}, {"ge", Fn::Le}};
 
 // The grid vocabularies are closed, so a swapped file/interpolation pair fails

@@ -77,11 +77,10 @@ struct TraceState {
   // report a cause instead of guessing from the message text.
   Cause cause{Cause::UntracedOperator};
 
-  // the script line the raise came from. fail() used to set
-  // only `cause`, so every TraceFailure from a net carried line == -1 and the
-  // diagnostic pointed at the file but not into it. Captured in fail() because
-  // that is the only place the Lua stack is still standing -- after lua_error
-  // unwinds there is nothing left to ask.
+  // The script line the raise came from, so that a diagnostic points into the
+  // file and not only at it. Captured in fail() because that is the only place
+  // the Lua stack is still standing -- after lua_error unwinds there is nothing
+  // left to ask.
   int line{-1};
 };
 
@@ -819,10 +818,10 @@ void lineHook(lua_State* luaState, lua_Debug* debug) {
 }
 
 // The ladder, not the count, is what decides whether a branch is seen: a probe
-// only observes a threshold it straddles. A first version used four
-// "interesting" vectors and missed `if z > -1000` because every draw sat above
-// it. Any threshold strictly between two neighbouring rungs is caught; one
-// beyond the ends is not, which is why net 4 exists.
+// only observes a threshold it straddles, and a few "interesting" vectors miss
+// `if z > -1000` as soon as every draw sits above it. Any threshold strictly
+// between two neighbouring rungs is caught; one beyond the ends is not, which
+// is why net 4 exists.
 const std::vector<double>& probeLadder() {
   static const std::vector<double> rungs = {
       -1e9, -1e6, -1e3, -1.0, -1e-3, 0.0, 1e-3, 1.0, 1e3, 1e6, 1e9};

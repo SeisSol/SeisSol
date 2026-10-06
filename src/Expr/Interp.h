@@ -13,17 +13,15 @@
 //
 // Dispatch is per instruction per tile, not per point: one switch amortised over
 // `tileSize` lanes, with the lane loop left in a shape the vectoriser can take.
-// That is the same structure as the sderiv interp.cpp, minus its text program
-// format — the instruction stream arrives already lowered, already slot-
-// allocated, and already split into stages.
+// The instruction stream arrives already lowered, already slot-allocated, and
+// already split into stages.
 //
-// SEAMS. Two things this pass needs do not exist yet, so both enter through a
-// narrow interface rather than a #include:
-//   * GridSampler is Kind::Lookup's landing site and collapses into
-//     datafield::Grid::sampleBatch when Paket 3 lands.
+// SEAMS. Two things enter through a narrow interface rather than a #include:
+//   * GridSampler is Kind::Lookup's landing site, adapted onto
+//     datafield::Grid::sampleBatch by the backend.
 //   * TileIo is exactly Binding::gather / Binding::scatter, including the
-//     dst[channel * count + lane] layout. Paket 4 supplies a two-line adapter
-//     holding a (Binding, DataTable) pair.
+//     dst[channel * count + lane] layout, adapted by a (Binding, DataTable)
+//     pair.
 
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
@@ -223,7 +221,7 @@ class TileIo {
 extern template class TileIo<double>;
 extern template class TileIo<float>;
 
-// A contiguous run of points the tiling must not cross. Paket 4 fills this from
+// A contiguous run of points the tiling must not cross, from
 // Binding::groupRanges(); a program without a group input gets one range.
 struct PointRange {
   std::size_t begin{0};

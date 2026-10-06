@@ -154,8 +154,8 @@ void walk(const Program& program,
   }
   // A cycle is unreachable by construction: a node can only reference ids that
   // already existed when it was interned, so the arena is topologically ordered
-  // by id. The check that used to be needed on the sderiv side (check_acyclic)
-  // belongs to its *pre*-interning surface IR, not here.
+  // by id. An acyclicity check belongs to a surface IR before interning, not
+  // here.
   std::vector<NodeId> stack{root};
   std::vector<NodeId> kids;
   while (!stack.empty()) {

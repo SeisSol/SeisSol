@@ -495,8 +495,7 @@ TEST_SUITE("LuaTracer") {
     const auto failure = mustRefuse(RawIfGreater);
     CHECK(failure.cause == Cause::UntracedOperator);
     // Line 6, not 5: the raw string literal opens with a newline, so `local M`
-    // is the chunk's second line. The expectation said 5 and was never checked,
-    // because this file did not compile until Package 4.
+    // is the chunk's second line.
     CHECK(failure.line == 6);
   }
 
@@ -666,15 +665,9 @@ return M
   // ------------------------------------------------------ differential -----
 
   TEST_CASE("the traced program agrees with the interpreted reader") {
-    // This is the acceptance criterion for the package, and the same check
-    // CompiledReader::prepare runs at init before trusting a kernel.
-    // Deliberately not only at "nice" coordinates: the ladder is where the
-    // interesting disagreements live.
-    //
-    // this case was written against a DataTable with
-    // addInput/addOutput/get/set, which does not exist -- the real ABI binds
-    // views onto caller storage. It never compiled, so the whole Reader test
-    // target did not build.
+    // The same check CompiledReader::prepare runs at init before trusting a
+    // kernel. Deliberately not only at "nice" coordinates: the ladder is where
+    // the interesting disagreements live.
     const std::vector<double> ladder = {-1e6, -1e3, -1.0, -1e-3, 0.0, 1e-3, 1.0, 1e3, 1e6};
     const std::size_t numPoints = ladder.size();
 

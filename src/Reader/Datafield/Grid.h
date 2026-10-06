@@ -189,10 +189,9 @@ inline constexpr std::size_t DefaultWindowMemoryBudget = 1ULL << 30; // 1 GiB
 // is why there is no separate bounds()/timeSpacing() virtual -- one export, one
 // place for a backend to get it wrong.
 // Surface-syntax names for the two closed vocabularies above. Both frontends
-// (sderiv grid declarations, Lua field_specs) spell these as strings, and both
-// used to carry their own mapping -- which is how "linear" and Interpolation
-// could drift apart between the traced and the interpreted path. One mapping,
-// here, next to the enums it maps onto.
+// (sderiv grid declarations, Lua field_specs) spell these as strings; a mapping
+// in each would let "linear" and Interpolation drift apart between the traced
+// and the interpreted path. One mapping, here, next to the enums it maps onto.
 //
 // std::nullopt rather than a default on an unknown name: the sderiv frontend
 // reports it with a source position, the Lua tracer as a TraceFailure, and
@@ -276,12 +275,12 @@ class Grid {
   // contiguous run of `count`: x[axis][lane], out[comp][lane]. `out` has
   // components() entries; a null entry skips that component entirely.
   //
-  // CHANGED (reported, Package 4). Both sides used to be flat blocks. Pointer
-  // arrays because the caller this interface exists for -- the Lookup lowering
-  // -- holds each coordinate in its own transient slot and wants each result in
-  // its own, so flat blocks cost a copy of dimension * count values in and
-  // components * count out on every tile, purely to satisfy the signature. With
-  // pointer arrays a Lookup is zero-copy end to end in the f64 path.
+  // Pointer arrays rather than flat blocks, because the caller this interface
+  // exists for -- the Lookup lowering -- holds each coordinate in its own
+  // transient slot and wants each result in its own, so flat blocks would cost a
+  // copy of dimension * count values in and components * count out on every
+  // tile, purely to satisfy the signature. With pointer arrays a Lookup is
+  // zero-copy end to end in the f64 path.
   //
   // The null-skip is the other half of the same decision. A Lookup node names
   // ONE component, so the alternative -- returning every component and letting

@@ -11,12 +11,11 @@
 // DAG root per named output, the inferred input/output signature, and the list
 // of external data grids the DAG references.
 //
-// SIGNATURE IS INFERRED, NOT DECLARED. The current readers take
-// `M.input_parameters` / `M.output_parameters` on trust and match them against
-// DataTable column names inside every call(); every mismatch found so far in
-// that code was a variant of "the name silently resolved to the wrong column".
-// Here the frontend reports what the DAG actually reads and writes, and Binding
-// checks it against the table once.
+// SIGNATURE IS INFERRED, NOT DECLARED. A reader that takes
+// `M.input_parameters` / `M.output_parameters` on trust matches them against
+// DataTable column names inside every call(), and a mismatch silently resolves
+// a name to the wrong column. Here the frontend reports what the DAG actually
+// reads and writes, and Binding checks it against the table once.
 //
 // TYPING: there is deliberately no per-node type. Everything inside a Program is
 // computed in ONE type, chosen per Program; conversion happens only at the
@@ -49,8 +48,8 @@ struct VarSpec {
   reader::scripting::DataType type{reader::scripting::DataType::F64};
 };
 
-// ADDED (reported). A state slot is a program-owned, point-indexed value that
-// survives across run() calls. It exists because a script can *invent* an
+// A state slot is a program-owned, point-indexed value that survives across
+// run() calls. It exists because a script can *invent* an
 // accumulator that no consumer knows about: `acc = acc + f(x,t)*dt` has no
 // DataTable column to bind to, and Binding::bind would reject it as "required
 // input with no matching column". That would break exactly the property this
@@ -145,13 +144,12 @@ class Program {
   // Stable, backend-independent fingerprint of the whole program. Used as the
   // kernel-cache key and as the identity for "have I already compiled this".
   //
-  // CHANGED (reported): this is the hash of canonicalForm(), and the cache is
-  // expected to keep the bytes and compare them on a hit rather than trusting
-  // 64 bits. A fingerprint collision does not produce a diagnostic, it produces
-  // a silently wrong kernel; the string compare costs nothing at cache-lookup
-  // frequency. Lowering options (LICM configuration) are deliberately NOT in
-  // here — they shape the kernel but not the program, and the cache mixes them
-  // in alongside arch and backend, exactly as cache.hpp already does.
+  // This is the hash of canonicalForm(), and the cache is expected to keep the
+  // bytes and compare them on a hit rather than trusting 64 bits. A fingerprint
+  // collision does not produce a diagnostic, it produces a silently wrong kernel;
+  // the string compare costs nothing at cache-lookup frequency. Lowering options
+  // (LICM configuration) are deliberately NOT in here — they shape the kernel but
+  // not the program, and the cache mixes them in alongside arch and backend.
   [[nodiscard]] std::uint64_t fingerprint() const;
 
   // --- construction (frontends only) ---
@@ -184,15 +182,13 @@ class Program {
 // matching length, arities match, and the program does not require state or an
 // element context that the scripting path cannot supply.
 //
-// CHANGED (reported): the last clause used to be spelled as a list of forbidden
-// kinds (Dx, Cumint, Fold, Sample). It is now expressed through two predicates
-// over Kind — requiresImplicitState() and requiresElementContext() — so that a
-// new node kind is classified once, at the enum, instead of every site that
-// happens to enumerate the forbidden set. Cumint and Fold are rejected because
-// they need per-point state and a dt that does not exist at a boundary node
-// under LTS; Dx and Sample because they need modal DOFs and an output cadence
-// respectively. Declared state (Program::state()) is the supported way to keep
-// a value across calls.
+// The last clause is expressed through two predicates over Kind —
+// requiresImplicitState() and requiresElementContext() — rather than as a list
+// of forbidden kinds, so that a new node kind is classified once, at the enum,
+// instead of at every site that happens to enumerate the forbidden set. Cumint and Fold are
+// rejected because they need per-point state and a dt that does not exist at a boundary node under
+// LTS; Dx and Sample because they need modal DOFs and an output cadence respectively. Declared
+// state (Program::state()) is the supported way to keep a value across calls.
 //
 // Throws std::invalid_argument; the caller turns that into logError.
 void validate(const Program& program);

@@ -47,11 +47,11 @@ enum class Direction : std::uint8_t { In, Out, InOut };
 /// The address arithmetic behind a bound column, for consumers that cannot go
 /// through the accessor.
 ///
-/// ADDED (reported, Package 5). Two of them need it. A compiled kernel called
-/// once per element must not pay a std::function per point -- measured at 0.4 us
-/// per face just to BUILD the table, against 0.3 us to evaluate it, so the
-/// indirection already costs more than the arithmetic. And a device kernel
-/// cannot call a std::function at all, at any price.
+/// Two of them need it. A compiled kernel called once per element must not pay a
+/// std::function per point -- measured at 0.4 us per face just to BUILD the
+/// table, against 0.3 us to evaluate it, so the indirection already costs more
+/// than the arithmetic. And a device kernel cannot call a std::function at all,
+/// at any price.
 ///
 /// Only the view forms can fill this in: bindView and bindMemberView are both
 /// `base + index * byteStride + byteOffset` once the element type is erased,
@@ -248,13 +248,11 @@ class DataTable {
         std::move(name), Direction::In, DataTypeTraits<T>::Type, accessor, nullptr, view, nullptr});
   }
 
-  /// A value that is the same at every point.
-  ///
-  /// ADDED (reported, Package 5). Expressible today only as bindComputed, which
-  /// is the one form with no address arithmetic behind it -- so a table that
-  /// merely names a constant (`group`, `sim` in EasiBoundary::query) cannot
-  /// reach a device kernel. As a stride-0 view it can, and it is the same shape
-  /// Package 2 chose for folding script parameters in as Const.
+  /// A value that is the same at every point, copied when bound: a stride-0 view
+  /// onto a copy the table holds, so that a table that merely names a constant
+  /// (such as `sim`) can still reach a device kernel, which bindComputed, with
+  /// no address arithmetic behind it, cannot. For a value that changes from
+  /// call to call, bind a stride-0 view onto the caller's variable instead.
   template <typename T>
   void bindConstant(std::string name, const T& value) {
     auto held = std::make_shared<T>(value);

@@ -37,9 +37,8 @@ std::string stripPrefix(const std::string& path) {
 std::string readFile(const std::string& path) {
   std::ifstream file(path);
   if (!file) {
-    // FIXED (Package 4): this used to open `path` WITH the "lua:" prefix still
-    // on it and never check the stream, so a mistyped path produced an empty
-    // script and a reader that silently returned nothing.
+    // an unchecked stream would give an empty script, and a reader that
+    // silently returns nothing
     logError() << "Could not open the script" << path << ".";
   }
   std::stringstream code;

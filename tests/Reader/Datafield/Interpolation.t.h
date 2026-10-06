@@ -194,11 +194,11 @@ void oracle(const ArrayView& v, Interpolation type, const double* x, std::size_t
   }
 }
 
-// The kernel takes a pointer per axis and per component now (see
-// Interpolation.h); these tests were written against the flat blocks and the
-// two describe the same memory, so the adapter is address arithmetic only. The
-// pointer-array behaviour that the flat form CANNOT express -- skipping a
-// component, aliasing out onto x -- gets its own cases below.
+// The kernel takes a pointer per axis and per component (see Interpolation.h);
+// these tests are written against flat blocks, and the two describe the same
+// memory, so the adapter is address arithmetic only. The pointer-array
+// behaviour that the flat form CANNOT express -- skipping a component, aliasing
+// out onto x -- gets its own cases below.
 template <typename Out>
 std::size_t sampleBatchFlat(const ArrayView& v,
                             Interpolation t,

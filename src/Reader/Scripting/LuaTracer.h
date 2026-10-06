@@ -42,10 +42,11 @@
 // under the sderiv names: ssol.sign, ssol.mod (Lua's `%`), ssol.atan2,
 // ssol.pow, and the constants ssol.pi and ssol.g.
 //
-// WHAT CHANGES: M.input_parameters is no longer read. The input signature comes
-// from the PARAMETER NAMES of M.evaluate, via lua_getlocal(L, nullptr, i) on the
-// function object. Measured behaviour (5.4.6), which is why this needs three
-// guards rather than a bare read:
+// SIGNATURE. M.input_parameters is not read: the input signature comes from the
+// PARAMETER NAMES of M.evaluate, via lua_getlocal(L, nullptr, i) on the
+// function object (and so does the one of the interpreted reader, unless the
+// module declares M.input_parameters). Measured behaviour (5.4.6), which is why
+// this needs three guards rather than a bare read:
 //   - locals are NOT leaked; exactly the parameters come back
 //   - `function M:evaluate(...)` inserts `self` as parameter 1, shifting every
 //     name by one -> require names[0] == "fields"
@@ -54,12 +55,12 @@
 //   - a stripped chunk yields no names while lua_getinfo still reports the
 //     count -> require names.size() == nparams. luaL_loadbufferx(mode="t")
 //     already refuses binary chunks, so this is belt and braces.
-// That removes one of the two hand-maintained declarations whose
-// runtime string matching has repeatedly resolved to the wrong column. The
-// other one, M.output_parameters, CANNOT be inferred: Lua returns values
-// positionally and there is no name to recover. It stays, but the tracer knows
-// the number of returned values and so a count mismatch is now a load-time
-// error instead of a silent misbinding.
+// That removes a hand-maintained declaration whose runtime string matching
+// resolves to the wrong column as soon as it drifts from the code. Positional
+// results cannot be named that way, so they take M.output_parameters; but the
+// tracer knows the number of returned values, so a count mismatch is a
+// load-time error instead of a silent misbinding -- and a returned table names
+// its values itself (see above).
 //
 // ==== WHY TRACING NEEDS FOUR NETS, NOT ONE ==================================
 //
@@ -88,12 +89,12 @@
 //      concrete numbers, under lua_sethook(LUA_MASKLINE), once per rung of a
 //      geometric ladder (±1e9 … ±1e-3, 0). Two runs whose visited-line
 //      sequences differ prove a data-dependent branch, whatever mechanism
-//      produced it. The ladder, not the count, is what matters: an earlier
-//      version used four "interesting" vectors and missed `if z > -1000`
-//      because every draw sat above the threshold. LIMIT: a threshold beyond
-//      the ends of the ladder is not straddled and is not caught here.
+//      produced it. The ladder, not the count, is what matters: a few
+//      "interesting" vectors miss `if z > -1000` as soon as every draw sits
+//      above the threshold. LIMIT: a threshold beyond the ends of the ladder is
+//      not straddled and is not caught here.
 //
-//   4. DIFFERENTIAL CHECK (CompiledReader::prepare, Package 4). The traced
+//   4. DIFFERENTIAL CHECK (CompiledReader::prepare). The traced
 //      program is evaluated against the interpreted LuaReader on a sample of
 //      the REAL point set. This is the only net that uses the actual data
 //      distribution, and it is what should gate the fallback to the
@@ -154,11 +155,9 @@ namespace seissol::reader::scripting {
 // Install the concrete `ssol` vocabulary -- lt/le/gt/ge/eq/land/lor/lnot/select
 // -- as a global table in `luaState`.
 //
-// `ssol` used to exist only inside the tracer,
-// which quietly broke the fallback the whole design rests on: ReaderBuilder
-// falls back to the interpreted LuaReader when a trace fails, and a script
-// written for the tracer -- i.e. one using ssol.select instead of `if` -- could
-// not run there at all. It failed on every point and wrote nothing.
+// ReaderBuilder falls back to the interpreted LuaReader when a trace fails, and
+// a script written for the tracer -- i.e. one using ssol.select instead of `if`
+// -- has to run there as well.
 //
 // These are the SAME functions the tracer already uses for its concrete probe
 // runs, exported rather than reimplemented: a second implementation of `select`
@@ -217,18 +216,16 @@ struct TraceFailure {
     traceLuaModule(const std::string& code, const TraceOptions& options, TraceFailure& failure);
 
 // --- script parameters -------------------------------------------------------
-// OPEN DECISION FROM THE HANDOVER, resolved as follows: the choice does not
-// belong at trace time. Tracing is the expensive and fragile step and should
-// happen once per script, not once per parametrisation. So parameters named in
-// TraceOptions are folded to Const during the trace (Feature B: the built-in
-// ICs, constant per run, few variants — a specialised kernel each), and a
-// script that wants one kernel across parametrisations simply declares them as
-// ordinary inputs and leaves TraceOptions::parameters empty.
+// Whether a parameter is folded does not belong at trace time. Tracing is the
+// expensive and fragile step and should happen once per script, not once per
+// parametrisation. So parameters named in TraceOptions are folded to Const
+// during the trace (for values constant per run with few variants -- a
+// specialised kernel each), and a script that wants one kernel across
+// parametrisations simply declares them as ordinary inputs and leaves
+// TraceOptions::parameters empty.
 //
 // Nothing in Ir.h changes for this: an unfolded parameter is a Kind::Field on a
-// channel whose Binding is broadcast rather than per-point. That does require
-// Binding to grow a stride-0 column; it is the only place the two forms differ,
-// and it is a smaller change than a new node kind.
+// channel bound as a stride-0 column rather than per point.
 
 } // namespace seissol::reader::scripting
 

@@ -7,22 +7,20 @@
 #ifndef SEISSOL_SRC_EXPR_IR_H_
 #define SEISSOL_SRC_EXPR_IR_H_
 
-// Shared expression IR. Derived from the derived-output `sderiv` IR (hash-consed
-// Arena, Node, Fn/Red enums) with the additions the scripting path needs.
+// Shared expression IR: a hash-consed Arena of Nodes, with pointwise ops (Fn)
+// and the derived-output temporal reducers (Red).
 //
-// DELTAS AGAINST THE EXISTING sderiv/ir.hpp — each one is a mechanical but
-// non-local change to the existing port; see the porting notes at the bottom.
-//   1. `arity(Fn)` is a table, not `f <= Fn::Sign`. The Fn enum is no longer
-//      split in half, because Select is ternary and the comparison ops sit
-//      between the old unary and binary blocks.
-//   2. `Node` gains a third fixed child `c` (Select) and an (argBegin,argCount)
-//      span for variable-arity nodes (Lookup coordinates, d = 1..6).
-//   3. New `Kind::Lookup`: sample an external data grid. This is NOT the same
-//      thing as `Kind::Sample`, which stays what it was in sderiv (materialize
-//      at the output cadence). The names are close enough to be dangerous —
-//      hence the split of the *word* "field": in this IR `Kind::Field` is a
-//      named input channel, and an ASAGI-style data grid is a "grid" everywhere.
-//   4. Const interning keys on the bit pattern, not on `==` (see NodeEq).
+//   * `arity(Fn)` is a table: Select is ternary, and the comparison ops sit
+//     between the unary and the binary ones, so the enum order carries no
+//     meaning.
+//   * `Node` has a third fixed child `c` (Select) and an (argBegin,argCount)
+//     span for variable-arity nodes (Lookup coordinates, d = 1..6).
+//   * `Kind::Lookup` samples an external data grid. This is NOT the same thing
+//     as `Kind::Sample`, which materializes at the output cadence. The names are
+//     close enough to be dangerous — hence the split of the *word* "field": in
+//     this IR `Kind::Field` is a named input channel, and an ASAGI-style data
+//     grid is a "grid" everywhere.
+//   * Const interning keys on the bit pattern, not on `==` (see NodeEq).
 
 #include <cstddef>
 #include <cstdint>
@@ -177,10 +175,10 @@ struct Node {
 
 class Arena;
 
-// Structural equality / hash, keyed per kind. Const compares BIT PATTERNS: the
-// sderiv version used `x.value == y.value`, which makes the relation
-// non-reflexive for NaN (a NaN key can never be found again in the pool) and
-// leaves the 0.0/-0.0 hash-vs-equal agreement up to the standard library.
+// Structural equality / hash, keyed per kind. Const compares BIT PATTERNS:
+// `x.value == y.value` would make the relation non-reflexive for NaN (a NaN key
+// could never be found again in the pool) and leave the 0.0/-0.0
+// hash-vs-equal agreement up to the standard library.
 struct NodeEq {
   const Arena* arena{nullptr};
   bool operator()(const Node& x, const Node& y) const;
@@ -194,8 +192,8 @@ struct NodeHash {
 // subtrees get equal ids, so CSE falls out of construction and both the plan
 // builder and the linearizer keep working on plain id equality.
 //
-// CHANGED against the handed-over header (reported): the copy/move operations
-// are explicit. NodeHash/NodeEq hold a back-pointer to the owning Arena — they
+// The copy/move operations are explicit. NodeHash/NodeEq hold a back-pointer to
+// the owning Arena — they
 // need it to reach args_ for Lookup nodes — and that pointer is not reachable
 // after the map has been constructed (unordered_map::hash_function() returns a
 // copy). A defaulted move would therefore carry pool_ over with a hasher still
@@ -258,27 +256,5 @@ bool fnFromName(const std::string& s, Fn& out);
 bool redFromName(const std::string& s, Red& out);
 
 } // namespace seissol::expr
-
-// ---------------------------------------------------------------------------
-// PORTING NOTES for the existing sderiv sources (all mechanical):
-//
-//   ir.hpp        replaced by this header. `is_unary(f)` disappears; call sites
-//                 become `arity(f) == 1`.
-//   lower.cpp     no change beyond the namespace and `is_unary`. `Kind::Lookup`
-//                 must be added to the switches; treat it exactly like a leaf
-//                 for cadence purposes if a grid is time-independent, and like
-//                 a `t`-dependent node otherwise.
-//   linearize.cpp add `lookup` and `select` instructions; the existing `memo`
-//                 already handles sharing correctly.
-//   codegen.hpp   Codegen::cx() is RECURSIVE WITHOUT MEMOISATION. On a DAG with
-//                 shared subexpressions it re-expands each shared node inline at
-//                 every reference, so the emitted source is exponential in the
-//                 depth of the sharing (a diamond of depth d costs 2^d). This is
-//                 already latent in the current code — linearize.cpp gets it
-//                 right via `memo`, codegen does not. It must be fixed before
-//                 the emitter is shared: emit SSA temporaries in linearized
-//                 order instead of one nested expression.
-//   interp.cpp    add the new Fn cases; the LANES/omp-simd structure is unchanged.
-// ---------------------------------------------------------------------------
 
 #endif // SEISSOL_SRC_EXPR_IR_H_

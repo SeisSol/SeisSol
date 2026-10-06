@@ -36,10 +36,10 @@ using reader::scripting::DataTable;
 
 // --- grid sampling seam -----------------------------------------------------
 
-// Interp.h's GridSampler over a GridStore. Since Package 4 changed
-// Grid::sampleBatch to pointer arrays with a null-skip, this is genuinely an
-// adapter and not a staging buffer: the coordinate pointers go straight through
-// and the one requested component points straight at the destination slot.
+// Interp.h's GridSampler over a GridStore. Grid::sampleBatch takes pointer
+// arrays with a null-skip, so this is an adapter and not a staging buffer: the
+// coordinate pointers go straight through and the one requested component
+// points straight at the destination slot.
 //
 // The f32 path is the exception, and deliberately so. Grid.h fixes coordinates
 // at f64 because index arithmetic in f32 loses exactness long before the value
@@ -416,17 +416,6 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
     }
     return makeInterpreter(program, binding, grids, forFallback(options));
   }
-    // Package 5. Not a stub that pretends: with allowFallback the caller gets a
-    // working kernel and a warning naming what it did not get, which is the
-    // behaviour makeKernel promises ("never returns null").
-    if (options.allowFallback) {
-      logWarning() << "expr: backend" << name(options.preferred)
-                   << "is not implemented yet; using the interpreter instead.";
-      return makeInterpreter(program, binding, grids, options);
-    }
-    logError() << "expr: backend" << name(options.preferred)
-               << "is not implemented and fallback was disabled.";
-    return nullptr;
   case BackendKind::Texture:
     return makeTextureKernel(program, binding, grids);
   case BackendKind::Distributed:

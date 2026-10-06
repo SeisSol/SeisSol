@@ -226,8 +226,8 @@ std::size_t sampleBatchTyped(const ArrayView& view,
   // accumulator, so an in-place pass would zero the k == 0 term before reading
   // it. See the note on sampleBatch in Grid.h — the failure is invisible in 1-D.
   //
-  // The final pass writes STRAIGHT INTO out when the caller wants f64, which is
-  // what removes the copy loop this function used to end with. At d == 0 the
+  // The final pass writes STRAIGHT INTO out when the caller wants f64, so there
+  // is no copy loop at the end. At d == 0 the
   // pass produces cnt == 1 block per component, i.e. exactly one run of `count`
   // per component -- the shape out already has. For an f32 caller the store has
   // to convert, so the pass lands in scratch and the conversion is the only

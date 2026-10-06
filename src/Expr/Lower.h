@@ -7,9 +7,7 @@
 #ifndef SEISSOL_SRC_EXPR_LOWER_H_
 #define SEISSOL_SRC_EXPR_LOWER_H_
 
-// DAG -> straight-line SSA, with liveness-based slot reuse. This is the pass the
-// handover calls "eigenes Lowering"; it is NOT the sderiv lower.hpp, which is
-// the derived-output cadence/region planner and stays where it is.
+// DAG -> straight-line SSA, with liveness-based slot reuse.
 //
 // Two things make this more than a flattening:
 //
@@ -23,8 +21,8 @@
 // code motion across the timestep loop rather than inside it. For the analytic
 // boundary condition this is the whole ballgame: x, y and z are fixed for the
 // life of the run, so every grid Lookup on them is invariant, and the width^d
-// random-access gather that Paket 3 identifies as the expensive part happens
-// once instead of once per timestep.
+// random-access gather, which is the expensive part, happens once instead of
+// once per timestep.
 //
 // Hoisting is opt-in and conservative by default: LowerOptions names what the
 // caller *knows* to be constant, and an empty option set hoists nothing. The
@@ -125,7 +123,7 @@ struct LowerOptions {
 
   // Identity of the lowering configuration. NOT part of Program::fingerprint():
   // options shape the kernel but not the program, so the kernel cache mixes this
-  // in next to arch and backend, the way cache.hpp already mixes those.
+  // in next to arch and backend.
   [[nodiscard]] std::uint64_t fingerprint() const;
 };
 

@@ -197,7 +197,7 @@ Arena& Arena::operator=(Arena&& other) noexcept {
 // pool_ cannot simply be carried across: its hasher and comparator hold a
 // back-pointer to the owning Arena, and unordered_map offers no way to re-aim
 // them after construction. Rebuilding from nodes_ is O(n) and happens once per
-// Program handover, which is not a hot path.
+// move or copy of a Program, which is not a hot path.
 void Arena::rebuildPool() {
   pool_ = std::unordered_map<Node, NodeId, NodeHash, NodeEq>(
       nodes_.size(), NodeHash{this}, NodeEq{this});
