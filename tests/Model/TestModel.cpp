@@ -15,6 +15,7 @@
 #include "GodunovState.t.h"
 #include "ImpedanceLayout.t.h" // IWYU pragma: keep
 #include "MaterialSampling.t.h"
+#include "NodalCorrector.t.h"
 #include "NodalEnergy.t.h"
 #include "NodalFlux.t.h"
 #include "NodalVolume.t.h"

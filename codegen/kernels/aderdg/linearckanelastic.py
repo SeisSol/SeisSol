@@ -289,7 +289,9 @@ class LinearCKAnelastic(ADERDGBase):
                 name_prefix = generate_kernel_name_prefix(target)
 
                 if self.nodalMaterial:
-                    volumeExpr = self.nodalApply(self.I, self.Qext, self.db.kDivM)
+                    volumeExpr = self.nodalApply(
+                        self.I, self.Qext, self.nodalVolumeDerivatives()
+                    )
                 else:
                     volumeSum = Accumulate(ops.Add())
                     for i in range(3):

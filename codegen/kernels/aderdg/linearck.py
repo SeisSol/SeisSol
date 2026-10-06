@@ -79,7 +79,9 @@ class LinearCK(ADERDGBase):
                         alignStride=True,
                         temporary=True,
                     )
-                    volumeExpr = self.nodalApply(self.I, volumeUpdate, self.db.kDivM)
+                    volumeExpr = self.nodalApply(
+                        self.I, volumeUpdate, self.nodalVolumeDerivatives()
+                    )
                     volumeExpr += [self.Q["kp"] <= self.Q["kp"] + volumeUpdate["kp"]]
                     volumeExpr += self.sourceTerm(self.I, self.Q)
                 else:

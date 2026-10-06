@@ -20,6 +20,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/OperatorLayout.h"
 #include "Recorders.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -204,8 +205,9 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
       auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
 
-      // no element local contribution in the case of dynamic rupture boundary conditions
-      if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+      // no element local contribution in the case of dynamic rupture boundary conditions, unless
+      // the corrector is the strong form (appliesLocalFlux); the key keeps its name either way
+      if (appliesLocalFlux(dataHost.get<LTS::CellInformation>().faceTypes[face])) {
         idofsPtrs.push_back(idofsAddressRegistry_[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));

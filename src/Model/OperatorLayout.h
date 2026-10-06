@@ -10,6 +10,7 @@
 #include "Common/Typedefs.h"
 #include "Config.h"
 #include "GeneratedCode/coefficients.h"
+#include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>
 
@@ -70,6 +71,21 @@ constexpr bool NodalFlux = NodalMaterial && FluxCoefficientCount > 0;
 /// carries those at its points; otherwise it carries one matrix per side.
 constexpr std::size_t FaultFluxCoefficientCount = generated::FaultFluxNumCoefficients;
 constexpr bool NodalFaultFlux = NodalMaterial && FaultFluxCoefficientCount > 0;
+
+/// Whether the corrector applies its volume term in the strong form. It does wherever the operator
+/// varies inside a cell: the weak form lifts the cell's own trace with the operator inside the
+/// cell, while the flux states it at the face, and the two only cancel where they are the same
+/// operator. In the strong form the local flux of every face subtracts the normal flux of the
+/// cell's own trace instead (see initializer::toCorrectorForm, and nodalVolumeDerivatives in the
+/// generator).
+constexpr bool StrongCorrector = NodalMaterial;
+
+/// Whether the local flux of a face of this type is applied. A fault face supplies its flux
+/// through the fault, so in the weak form it has no local flux at all; in the strong form its
+/// local flux is the subtraction of the normal flux alone.
+constexpr bool appliesLocalFlux(FaceType faceType) {
+  return StrongCorrector || faceType != FaceType::DynamicRupture;
+}
 
 } // namespace seissol
 

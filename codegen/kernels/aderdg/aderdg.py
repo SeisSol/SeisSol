@@ -918,6 +918,29 @@ class ADERDGBase(ABC):
         )
         return statements
 
+    def nodalVolumeDerivatives(self):
+        """The derivative matrices the volume term of the corrector applies
+        where the operator varies inside the cell: the strong ones, the same
+        the derivative chain applies.
+
+        The weak ones differentiate the test function, so what they return is
+        the derivative of the field less the lift of its trace on the four
+        faces. With one operator per cell that lift cancels against the part of
+        the local flux the cell's own trace contributes, and the two forms are
+        the same scheme. With an operator that varies inside the cell it does
+        not cancel: the lift is multiplied by the operator at the points inside
+        the cell, while the flux states the operator at the face. A constant
+        state then no longer stays constant, by an amount that does not shrink
+        with the mesh -- for a material that varies smoothly inside the cell
+        as much as for a cell whose metric varies.
+
+        The strong form takes the trace out of the volume term and puts it
+        where the operator is stated at the face: the local flux of every face
+        subtracts the normal flux of the cell's own trace, a fault face
+        included, whose local flux is that subtraction alone. The host does
+        that subtraction; this side only takes the other derivative."""
+        return self.db.kDivMT
+
     def sourceTerm(self, source, target):
         """The source term added to a target, in whichever shape this build
         forms it: from the matrix a cell carries, or from the scalars it
@@ -1232,6 +1255,10 @@ class ADERDGBase(ABC):
         if self.nodalMaterial:
             for tensor in self.operatorExports:
                 include_tensors.add(tensor)
+            # the weak derivative matrices, which no kernel of such a build
+            # applies any more; the strong form is checked against them
+            for member in self.db.kDivM.values():
+                include_tensors.add(member)
         if self.nodalFaceFlux:
             include_tensors.add(self.db.M2)
             # the nodal flux is checked against the matrix form, which is

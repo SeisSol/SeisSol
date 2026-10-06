@@ -25,6 +25,7 @@
 #include "Kernels/StarOperands.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/OperatorLayout.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -93,8 +94,9 @@ void Local::computeIntegral(
   volKrnl.execute();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+    // no element local contribution in the case of dynamic rupture boundary conditions, unless
+    // the corrector is the strong form (appliesLocalFlux)
+    if (appliesLocalFlux(data.get<LTS::CellInformation>().faceTypes[face])) {
       kernels::bindLocalFluxOperands(lfKrnl, data.get<LTS::LocalIntegration>(), face);
       lfKrnl.execute(face);
     }
@@ -373,9 +375,10 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
   }
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // Local flux is executed for all faces that are not dynamic rupture.
-    // For those cells, the flux is taken into account during the neighbor kernel.
-    if (faceTypes[face] != FaceType::DynamicRupture && !CombineLocalFlux) {
+    // Local flux is executed for all faces that are not dynamic rupture, and for those as well
+    // where the corrector is the strong form (appliesLocalFlux). The flux of the fault itself is
+    // taken into account during the neighbor kernel.
+    if (appliesLocalFlux(faceTypes[face]) && !CombineLocalFlux) {
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFlux>(face);
     }
 

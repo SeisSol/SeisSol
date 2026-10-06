@@ -14,6 +14,7 @@
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Kernels/StarOperands.h"
+#include "Model/OperatorLayout.h"
 #include "Monitoring/Metric.h"
 
 #include <cassert>
@@ -77,8 +78,9 @@ void Local::computeIntegral(
   const auto& materialData = data.get<LTS::Material>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+    // no element local contribution in the case of dynamic rupture boundary conditions, unless
+    // the corrector is the strong form (appliesLocalFlux)
+    if (appliesLocalFlux(data.get<LTS::CellInformation>().faceTypes[face])) {
       kernels::bindLocalFluxOperands(lfKrnl, data.get<LTS::LocalIntegration>(), face);
       lfKrnl.execute(face);
     }
@@ -162,7 +164,7 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
     estimate += PerformanceEstimate::fromKernel<seissol::kernel::fluxLocalAll>();
   } else {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      if (faceTypes[face] != FaceType::DynamicRupture) {
+      if (appliesLocalFlux(faceTypes[face])) {
         estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
       }
       switch (faceTypes[face]) {
