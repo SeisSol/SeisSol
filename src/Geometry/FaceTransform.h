@@ -125,6 +125,17 @@ class FaceTransform {
    * material models are defined against.
    */
   [[nodiscard]] auto faceAlignedBasis() const -> std::array<VectorT, Cell::Dim>;
+
+  /**
+   * The same basis at a point of the face, given as a **face** coordinate.
+   *
+   * On a curved face the normal turns from point to point, so the basis does too: the normal is
+   * the one at the point, tangent1 is the first face edge projected onto the plane the face has
+   * there, and tangent2 completes the right-handed system. Like the basis above it is not
+   * normalized. Where the face is straight, it is that basis wherever it is evaluated.
+   */
+  [[nodiscard]] auto faceAlignedBasis(const FaceVectorT& input) const
+      -> std::array<VectorT, Cell::Dim>;
 };
 
 /// A face transform derived from an AffineTransform; its Jacobian is constant.

@@ -169,6 +169,21 @@ TEST_CASE("Affine face transform" * doctest::test_suite("geometry")) {
     }
   }
 
+  SUBCASE("Its face-aligned basis is the same at every point of the face") {
+    const auto points = samplePointsOnReferenceFace(rng, 20);
+    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+      const AffineFaceTransform face(cell, ReferenceFaceMap(side));
+      const auto basis = face.faceAlignedBasis();
+      for (const auto& point : points) {
+        const auto atPoint = face.faceAlignedBasis(point);
+        for (std::size_t i = 0; i < Cell::Dim; ++i) {
+          REQUIRE((atPoint[i] - basis[i]).norm() ==
+                  AbsApprox(0.0).epsilon(Epsilon * (1.0 + basis[i].norm())));
+        }
+      }
+    }
+  }
+
   SUBCASE("Both sides of a shared face describe the same surface") {
     // Two cells sharing a triangle enumerate it differently. Combining the neighbor's side with
     // the matching orientation has to put the same face coordinate at the same point in space --

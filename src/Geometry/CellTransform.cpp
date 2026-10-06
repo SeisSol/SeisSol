@@ -15,6 +15,7 @@
 #include <Eigen/LU>
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <utils/logger.h>
 #include <vector>
 
@@ -58,8 +59,11 @@ auto CellTransform::spaceToRef(const VectorEigenT& input) const -> VectorEigenT 
   // start at the barycenter of the reference cell, so that the first iterate is inside the cell
   auto iterate = VectorEigenT(Cell::ReferenceBarycenter.data());
 
-  // the residual lives in space coordinates, hence the tolerance has to scale with them
-  const double eps = 1e-12 * (1.0 + input.norm());
+  // The residual lives in space coordinates, hence the tolerance has to scale with them. It
+  // scales with the round-off of the map, not more: a cell far away from the origin is small
+  // compared to its coordinates, and a looser bound would leave the reference coordinate off by
+  // that ratio.
+  const double eps = 64 * std::numeric_limits<double>::epsilon() * (1.0 + input.norm());
   constexpr std::size_t Tries = 100;
   for (std::size_t i = 0; i < Tries; ++i) {
     const VectorEigenT residual = refToSpace(iterate) - input;

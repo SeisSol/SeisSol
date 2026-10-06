@@ -148,6 +148,15 @@ auto FaceTransform::faceAlignedBasis() const -> std::array<VectorT, Cell::Dim> {
   return {faceNormal, tangent1, VectorT(faceNormal.cross(tangent1))};
 }
 
+auto FaceTransform::faceAlignedBasis(const FaceVectorT& input) const
+    -> std::array<VectorT, Cell::Dim> {
+  const auto corners = vertices();
+  const VectorT faceNormal = normal(input);
+  const VectorT edge = corners[1] - corners[0];
+  const VectorT tangent1 = edge - (edge.dot(faceNormal) / faceNormal.squaredNorm()) * faceNormal;
+  return {faceNormal, tangent1, VectorT(faceNormal.cross(tangent1))};
+}
+
 AffineFaceTransform::AffineFaceTransform(const AffineTransform& cell,
                                          const ReferenceFaceMap& embedding)
     : map_(embedding), cell_(cell) {
