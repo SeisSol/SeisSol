@@ -27,6 +27,7 @@
 #include "Numerical/Projection.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/LuaTracer.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
@@ -539,6 +540,59 @@ TEST_CASE("DerivedOutput: a maximum over time follows a hand-kept reference") {
     for (std::size_t point = 0; point < evaluation.numPoints; ++point) {
       reference[point] = std::max(reference[point], evaluation.value("speed", point));
       REQUIRE(evaluation.value("pgv", point) == reference[point]);
+    }
+  }
+}
+
+TEST_CASE("DerivedOutput: a Lua program computes what its sderiv counterpart does") {
+  constexpr std::size_t Degree = 1;
+  const auto geometry = refinedGeometry(Degree);
+  Cells cells(3, 6);
+
+  const std::string v1 = MaterialT::Quantities[MaterialT::VelocityOffset];
+  const std::string v2 = MaterialT::Quantities[MaterialT::VelocityOffset + 1];
+  const std::string v3 = MaterialT::Quantities[MaterialT::VelocityOffset + 2];
+  const std::string lua = "local M = {}\n"
+                          "M.state = { pgv = 0.0 }\n"
+                          "function M.evaluate(fields, " +
+                          v1 + ", " + v2 + ", " + v3 + ", dx_" + v1 + ", dy_" + v2 + ", dz_" + v3 +
+                          ", pgv)\n"
+                          "  return { pgv = math.max(pgv, math.sqrt(" +
+                          v1 + "*" + v1 + " + " + v2 + "*" + v2 + " + " + v3 + "*" + v3 +
+                          ")),\n"
+                          "           divv = dx_" +
+                          v1 + " + dy_" + v2 + " + dz_" + v3 +
+                          " }\n"
+                          "end\n"
+                          "return M\n";
+  const std::string sderiv = "state pgv = 0.0\n"
+                             "out def pgv = max(pgv, sqrt(" +
+                             v1 + "*" + v1 + " + " + v2 + "*" + v2 + " + " + v3 + "*" + v3 +
+                             "))\n"
+                             "out def divv = dx_" +
+                             v1 + " + dy_" + v2 + " + dz_" + v3 + "\n";
+
+  reader::scripting::TraceFailure failure;
+  auto traced = reader::scripting::traceLuaModule(lua, {}, failure);
+  REQUIRE_MESSAGE(traced.has_value(), failure.reason);
+  const DerivedProgram fromLua(std::move(*traced), sources(), geometry);
+  const DerivedProgram fromSderiv(expr::compileSderivModule(sderiv), sources(), geometry);
+
+  Evaluation first(fromLua, cells);
+  Evaluation second(fromSderiv, cells);
+  reader::datafield::GridStore store;
+  auto firstKernel = kernelFor(first, expr::BackendKind::Interpreter, store);
+  auto secondKernel = kernelFor(second, expr::BackendKind::Interpreter, store);
+  for (unsigned call = 0; call < 3; ++call) {
+    cells.perturb(200 + call);
+    firstKernel->run(first.table);
+    secondKernel->run(second.table);
+    for (const auto* output : {"pgv", "divv"}) {
+      for (std::size_t point = 0; point < first.numPoints; ++point) {
+        const double a = first.value(output, point);
+        const double b = second.value(output, point);
+        REQUIRE(std::memcmp(&a, &b, sizeof(double)) == 0);
+      }
     }
   }
 }
