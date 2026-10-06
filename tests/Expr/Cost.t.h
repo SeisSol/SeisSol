@@ -16,14 +16,14 @@ TEST_SUITE("ExprCost") {
     // Exact rather than estimated: after lowering there is no branching left,
     // so the instruction list IS the execution.
     const Program simple = compileSderivModule("out def u = x + 1.0\n");
-    const auto one = cost(lower(simple), simple.computeType());
+    const auto one = cost(simple, lower(simple), simple.computeType());
     CHECK(one.run.additive == 1);
     CHECK(one.run.transcendentals == 0);
     CHECK(one.run.stores == 1);
 
     const Program wave =
         compileSderivModule("def phi = x + y\nout def u = sin(phi)\nout def v = cos(phi)\n");
-    const auto two = cost(lower(wave), wave.computeType());
+    const auto two = cost(wave, lower(wave), wave.computeType());
     CHECK(two.run.transcendentals == 2);
     // A transcendental is weighted, so it dominates a handful of adds -- which
     // is the whole reason the weighted figure exists.
@@ -33,7 +33,7 @@ TEST_SUITE("ExprCost") {
   TEST_CASE("a Select costs both arms") {
     // Interp.h evaluates both, so the count has to as well.
     const Program program = compileSderivModule("out def u = select(lt(x,y), sqrt(x), sqrt(y))\n");
-    const auto costs = cost(lower(program), program.computeType());
+    const auto costs = cost(program, lower(program), program.computeType());
     CHECK(costs.run.transcendentals == 2);
   }
 
@@ -42,11 +42,11 @@ TEST_SUITE("ExprCost") {
                          "out def u = rho*vp*sin(x - vp*t)\n";
     const Program program = compileSderivModule(source);
 
-    const auto plain = cost(lower(program), program.computeType());
+    const auto plain = cost(program, lower(program), program.computeType());
     LowerOptions options;
     options.invariantInputs = {"rho", "mu", "lambda"};
     options.hoistThreshold = 1;
-    const auto hoisted = cost(lower(program, options), program.computeType());
+    const auto hoisted = cost(program, lower(program, options), program.computeType());
 
     CHECK(hoisted.precompute.operations() > 0);
     CHECK(hoisted.run.weighted() < plain.run.weighted());
@@ -58,7 +58,7 @@ TEST_SUITE("ExprCost") {
     const Program program =
         compileSderivModule("grid m = \"asagi\", \"model.nc\", \"linear\", \"rho\"\n"
                             "out def u = m_rho(x, y, z)\n");
-    const auto costs = cost(lower(program), program.computeType());
+    const auto costs = cost(program, lower(program), program.computeType());
     CHECK(costs.run.lookups == 1);
     CHECK(costs.run.weighted() == 0);
   }

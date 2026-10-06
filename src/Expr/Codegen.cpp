@@ -27,6 +27,43 @@ bool identifierChar(char c) {
   return (std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_';
 }
 
+void emitContraction(std::ostringstream& out,
+                     const Instruction& inst,
+                     const std::string& dst,
+                     const std::string& computeType,
+                     const ContractAddressing& contract,
+                     const char* indent) {
+  const auto& shape = contract.shapes.at(static_cast<std::size_t>(inst.matrix));
+  const auto& matrixType = contract.matrixTypes.at(static_cast<std::size_t>(inst.matrix));
+  const auto& blockType = contract.blockTypes.at(static_cast<std::size_t>(inst.block));
+  const auto& index = contract.indexType;
+  const auto& global = contract.global;
+  const std::string inner = std::string(indent) + "  ";
+
+  // C-style casts and no initializer syntax, so that the text is valid C++ and OpenCL C alike.
+  out << indent << "{\n"
+      << inner << "const " << index << " c_cell = (" << contract.point << ") / " << shape.rows
+      << ";\n"
+      << inner << "const " << index << " c_row = (" << contract.point << ") - c_cell * "
+      << shape.rows << ";\n"
+      << inner << global << "const unsigned int* c_index = " << contract.cellIndex(inst.block)
+      << ";\n"
+      << inner << global << "const char* c_block = (" << global << "const char*)("
+      << contract.blockBase(inst.block) << ") + (c_index != 0 ? (" << index
+      << ")c_index[c_cell] : c_cell) * (" << contract.cellStride(inst.block) << ");\n"
+      << inner << "const " << index << " c_step = " << contract.modeStride(inst.block) << ";\n"
+      << inner << global << "const " << matrixType << "* c_matrix = (" << global << "const "
+      << matrixType << "*)(" << contract.matrix(inst.matrix) << ") + c_row;\n"
+      << inner << computeType << " c_sum = (" << computeType << ")0;\n"
+      << inner << "for (" << index << " c_m = 0; c_m < " << shape.cols << "; ++c_m) {\n"
+      << inner << "  c_sum += (" << computeType << ")c_matrix[c_m * " << shape.leadingDimension
+      << "] * (" << computeType << ")(*(" << global << "const " << blockType
+      << "*)(c_block + c_m * c_step));\n"
+      << inner << "}\n"
+      << inner << dst << " = c_sum;\n"
+      << indent << "}\n";
+}
+
 } // namespace
 
 const char* expressionText(Fn fn) {
@@ -143,6 +180,13 @@ void emitStageBody(std::ostringstream& out,
     case Opcode::Lookup:
       throw std::invalid_argument(
           "expr: a grid lookup reached the code generator; gate on containsLookup() first");
+    case Opcode::Contract:
+      if (addressing.contract == nullptr) {
+        throw std::invalid_argument(
+            "expr: a contraction reached a code generator that cannot address blocks");
+      }
+      emitContraction(out, inst, dst, computeType, *addressing.contract, indent);
+      break;
     }
   }
 
@@ -163,6 +207,31 @@ bool containsLookup(const LoweredProgram& lowered) {
     }
   }
   return false;
+}
+
+bool containsContraction(const LoweredProgram& lowered) {
+  for (const auto* stage : {&lowered.precompute(), &lowered.run()}) {
+    for (const Instruction& inst : stage->code) {
+      if (inst.op == Opcode::Contract) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+const char* elementTypeName(reader::scripting::DataType type) {
+  switch (type) {
+  case reader::scripting::DataType::F32:
+    return "float";
+  case reader::scripting::DataType::F64:
+    return "double";
+  case reader::scripting::DataType::I32:
+    return "int";
+  case reader::scripting::DataType::I64:
+    return "long long";
+  }
+  return "double";
 }
 
 } // namespace seissol::expr::codegen

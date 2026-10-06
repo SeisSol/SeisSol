@@ -72,6 +72,37 @@ struct StateSpec {
   NodeId root{NoNode}; // DAG root producing the value for the next call
 };
 
+// The form of a matrix a Kind::Contract node contracts against: `rows` points per cell (the row is
+// the point within its cell), `cols` coefficients per cell, entry (p, m) at p + m *
+// leadingDimension -- the point-fastest layout of numerical::projection::Table.
+//
+// Only the form is part of the program, because loop bounds and addressing depend on it; the
+// matrix itself is bound like a column base, so the subcells of a refined output share one program
+// and change one pointer between calls.
+struct MatrixShape {
+  std::size_t rows{0};
+  std::size_t cols{0};
+  std::size_t leadingDimension{0};
+
+  bool operator==(const MatrixShape& other) const {
+    return rows == other.rows && cols == other.cols && leadingDimension == other.leadingDimension;
+  }
+  bool operator!=(const MatrixShape& other) const { return !(*this == other); }
+};
+
+struct MatrixSpec {
+  std::string name; // what the binding resolves it by
+  MatrixShape shape;
+};
+
+// A vector of `length` coefficients per cell for ONE named quantity. One block per quantity rather
+// than one block with a component index: the contraction stays binary, and quantities may live in
+// different arrays.
+struct BlockSpec {
+  std::string name; // what the binding resolves it by
+  std::size_t length{0};
+};
+
 class Program {
   public:
   [[nodiscard]] const Arena& arena() const { return arena_; }
@@ -86,6 +117,16 @@ class Program {
 
   // Every external grid the DAG references, in GridId order.
   [[nodiscard]] const std::vector<reader::datafield::GridDesc>& grids() const { return grids_; }
+
+  // The matrices and blocks contractions read, in MatrixId and BlockId order.
+  [[nodiscard]] const std::vector<MatrixSpec>& matrices() const { return matrices_; }
+  [[nodiscard]] const std::vector<BlockSpec>& blocks() const { return blocks_; }
+
+  // Points per cell of the point set, as the matrices fix it (their row count, the same for all of
+  // them); 0 for a program without matrices, whose points need not form cells.
+  [[nodiscard]] std::size_t pointsPerCell() const {
+    return matrices_.empty() ? 0 : matrices_.front().shape.rows;
+  }
 
   [[nodiscard]] ComputeType computeType() const { return computeType_; }
   void setComputeType(ComputeType t) { computeType_ = t; }
@@ -119,6 +160,12 @@ class Program {
   void addState(const std::string& name, double initial, NodeId root);
   GridId internGrid(const reader::datafield::GridDesc& desc);
 
+  // Returns the id of the matrix or block of that name, declaring it first if needed. Throws
+  // std::invalid_argument if the name is known with another shape or length, and for a matrix whose
+  // row count differs from the ones already declared: the point set has one cell structure.
+  MatrixId internMatrix(const std::string& name, const MatrixShape& shape);
+  BlockId internBlock(const std::string& name, std::size_t length);
+
   private:
   Arena arena_;
   std::vector<VarSpec> inputs_;
@@ -126,13 +173,16 @@ class Program {
   std::vector<StateSpec> state_;
   std::vector<NodeId> roots_;
   std::vector<reader::datafield::GridDesc> grids_;
+  std::vector<MatrixSpec> matrices_;
+  std::vector<BlockSpec> blocks_;
   ComputeType computeType_{ComputeType::F64};
 };
 
 // Structural checks that do not need a DataTable: every Field channel is
 // declared as an input or a state, every root is in range, no Lookup references
-// an out-of-range GridId, arities match, and the program does not require state
-// or an element context that the scripting path cannot supply.
+// an out-of-range GridId, every contraction names a declared matrix and block of
+// matching length, arities match, and the program does not require state or an
+// element context that the scripting path cannot supply.
 //
 // CHANGED (reported): the last clause used to be spelled as a list of forbidden
 // kinds (Dx, Cumint, Fold, Sample). It is now expressed through two predicates

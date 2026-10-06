@@ -48,6 +48,8 @@ const char* name(Kind kind) {
     return "pw";
   case Kind::Lookup:
     return "lookup";
+  case Kind::Contract:
+    return "contract";
   case Kind::Dx:
     return "dx";
   case Kind::Cumint:
@@ -89,6 +91,8 @@ bool NodeEq::operator()(const Node& x, const Node& y) const {
     }
     return true;
   }
+  case Kind::Contract:
+    return x.matrix == y.matrix && x.block == y.block;
   case Kind::Dx:
     return x.axis == y.axis && x.a == y.a;
   case Kind::Cumint:
@@ -131,6 +135,10 @@ std::size_t NodeHash::operator()(const Node& n) const {
     }
     break;
   }
+  case Kind::Contract:
+    h = mix(h, static_cast<std::size_t>(n.matrix));
+    h = mix(h, static_cast<std::size_t>(n.block));
+    break;
   case Kind::Dx:
     h = mix(h, static_cast<std::size_t>(n.axis));
     h = mix(h, static_cast<std::size_t>(n.a));
@@ -308,6 +316,14 @@ NodeId Arena::lookup(GridId grid, std::int32_t component, const std::vector<Node
   return id;
 }
 
+NodeId Arena::contract(MatrixId matrix, BlockId block) {
+  Node n;
+  n.kind = Kind::Contract;
+  n.matrix = matrix;
+  n.block = block;
+  return intern(n);
+}
+
 NodeId Arena::dx(int axis, NodeId x) {
   Node n;
   n.kind = Kind::Dx;
@@ -344,6 +360,7 @@ void Arena::children(NodeId id, std::vector<NodeId>& out) const {
   switch (n.kind) {
   case Kind::Const:
   case Kind::Field:
+  case Kind::Contract:
     return;
   case Kind::PW: {
     const int a = arity(n.fn);

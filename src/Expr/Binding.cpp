@@ -274,6 +274,8 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
     binding.outputs_.push_back(column);
   }
 
+  binding.resolveContractions(program, table);
+
   binding.addressable_ = true;
   for (const auto* set : {&binding.inputs_, &binding.outputs_}) {
     for (const auto& column : *set) {
@@ -285,6 +287,98 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
 
   binding.buildGroupRanges(program, table);
   return binding;
+}
+
+void Binding::resolveContractions(const Program& program, const DataTable& table) {
+  const auto checkType = [](DataType type, const std::string& what) {
+    if (type != DataType::F32 && type != DataType::F64) {
+      throw std::invalid_argument("expr: " + what + " is stored as " + name(type) +
+                                  "; contractions read f32 or f64");
+    }
+  };
+
+  blocks_.clear();
+  for (const auto& spec : program.blocks()) {
+    const reader::scripting::BlockEntry* found = nullptr;
+    for (const auto& entry : table.blockEntries()) {
+      if (entry.name == spec.name) {
+        if (found != nullptr) {
+          throw std::invalid_argument("expr: the data table declares the block '" + spec.name +
+                                      "' twice");
+        }
+        found = &entry;
+      }
+    }
+    if (found == nullptr) {
+      throw std::invalid_argument("expr: the program contracts the block '" + spec.name +
+                                  "', which the data table does not provide");
+    }
+    if (found->input.length < spec.length) {
+      throw std::invalid_argument("expr: the program contracts " + std::to_string(spec.length) +
+                                  " coefficients of the block '" + spec.name +
+                                  "', but the data table offers " +
+                                  std::to_string(found->input.length));
+    }
+    checkType(found->input.type, "the block '" + spec.name + "'");
+    blocks_.push_back(found->input);
+  }
+
+  matrices_.clear();
+  for (const auto& spec : program.matrices()) {
+    const reader::scripting::MatrixEntry* found = nullptr;
+    for (const auto& entry : table.matrixEntries()) {
+      if (entry.name == spec.name) {
+        if (found != nullptr) {
+          throw std::invalid_argument("expr: the data table declares the matrix '" + spec.name +
+                                      "' twice");
+        }
+        found = &entry;
+      }
+    }
+    if (found == nullptr) {
+      throw std::invalid_argument("expr: the program contracts against the matrix '" + spec.name +
+                                  "', which the data table does not provide");
+    }
+    const auto& input = found->input;
+    if (input.rows != spec.shape.rows || input.cols != spec.shape.cols ||
+        input.leadingDimension != spec.shape.leadingDimension) {
+      throw std::invalid_argument(
+          "expr: the matrix '" + spec.name + "' is bound as " + std::to_string(input.rows) + "x" +
+          std::to_string(input.cols) + " with leading dimension " +
+          std::to_string(input.leadingDimension) + ", but the program expects " +
+          std::to_string(spec.shape.rows) + "x" + std::to_string(spec.shape.cols) +
+          " with leading dimension " + std::to_string(spec.shape.leadingDimension));
+    }
+    checkType(input.type, "the matrix '" + spec.name + "'");
+    matrices_.push_back(input);
+  }
+
+  const auto pointsPerCell = program.pointsPerCell();
+  if (pointsPerCell > 0 && numPoints_ % pointsPerCell != 0) {
+    throw std::invalid_argument("expr: the point set has " + std::to_string(numPoints_) +
+                                " points, which is not a whole number of cells of " +
+                                std::to_string(pointsPerCell) + " points");
+  }
+}
+
+ContractOperands Binding::contraction(MatrixId matrix,
+                                      BlockId block,
+                                      const void* matrixBase,
+                                      const void* blockBase) const {
+  const auto& m = matrices_.at(static_cast<std::size_t>(matrix));
+  const auto& b = blocks_.at(static_cast<std::size_t>(block));
+  ContractOperands operands;
+  operands.matrix = matrixBase != nullptr ? matrixBase : m.base;
+  operands.matrixType = m.type;
+  operands.rows = m.rows;
+  operands.cols = m.cols;
+  operands.leadingDimension = m.leadingDimension;
+  operands.block = blockBase != nullptr ? blockBase : b.base;
+  operands.blockType = b.type;
+  operands.cellStride = b.cellStride;
+  operands.modeStride = b.modeStride;
+  operands.cellIndex = b.cellIndex;
+  return operands;
 }
 
 void Binding::buildGroupRanges(const Program& program, const DataTable& table) {

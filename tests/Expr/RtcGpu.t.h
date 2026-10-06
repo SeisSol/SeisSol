@@ -10,6 +10,7 @@
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Lower.h"
+#include "Expr/Rewrite.h"
 #include "Expr/RtcGpu.h"
 #include "Expr/SderivFrontend.h"
 #include "Reader/Datafield/Grid.h"
@@ -296,6 +297,80 @@ TEST_SUITE("ExprRtcGpu") {
       }
       CHECK(same);
     }
+  }
+
+  TEST_CASE("the emitted device kernel contracts bit for bit as the interpreter does") {
+    // A contraction compiled for the host and called through GpuArguments: covers the block and
+    // matrix descriptors in the argument block as well as the loop.
+    Program program =
+        compileSderivModule("out def u = 2.0 * v - w * x\nout def r = sqrt(abs(v))\n");
+    constexpr std::size_t Rows = 2;
+    constexpr std::size_t Cols = 3;
+    constexpr std::size_t Ld = 4;
+    constexpr std::size_t NumCells = 3;
+    constexpr std::size_t NumPoints = Rows * NumCells;
+    const auto matrix = program.internMatrix("proj", MatrixShape{Rows, Cols, Ld});
+    const auto v = program.internBlock("v", Cols);
+    const auto w = program.internBlock("w", Cols);
+    substituteByContraction(program, matrix, {{"v", v}, {"w", w}});
+
+    std::vector<double> m(Ld * Cols);
+    std::vector<float> dofs(4 * 2 * Cols); // f32 coefficients, [cell][quantity][coefficient]
+    std::vector<double> x(NumPoints);
+    for (std::size_t i = 0; i < m.size(); ++i) {
+      m[i] = 0.25 * static_cast<double>(i) - 1.3;
+    }
+    for (std::size_t i = 0; i < dofs.size(); ++i) {
+      dofs[i] = static_cast<float>(1.7 * static_cast<double>(i % 5) - 2.1);
+    }
+    for (std::size_t i = 0; i < x.size(); ++i) {
+      x[i] = 0.5 + static_cast<double>(i);
+    }
+    const std::vector<std::uint32_t> cellIndex = {3, 0, 2};
+
+    std::vector<double> interpreted(2 * NumPoints, -1.0);
+    std::vector<double> emitted(2 * NumPoints, -1.0);
+    DataTable table(NumPoints);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindBlock<float>("v", dofs.data(), Cols, 2 * Cols, 1, cellIndex.data());
+    table.bindBlock<float>("w", dofs.data() + Cols, Cols, 2 * Cols, 1, cellIndex.data());
+    table.bindMatrix<double>("proj", m.data(), Rows, Cols, Ld);
+    table.bindView<double>("u", Direction::Out, interpreted.data());
+    table.bindView<double>("r", Direction::Out, interpreted.data() + NumPoints);
+
+    Binding binding = Binding::bind(program, table);
+    REQUIRE(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::None);
+    df::GridStore store;
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+    kernel->run(table);
+
+    const GpuLayout layout = gpuLayoutOf(binding);
+    const std::string generated = std::string(HostShim) +
+                                  emitGpuSource(program, lower(program), layout, GpuTarget::Cuda) +
+                                  emitGpuHostTrampoline(layout, "double");
+    void* handle = compileForHost(generated);
+    if (handle == nullptr) {
+      WARN_MESSAGE(false, "no usable C++ compiler; the device code generator was not executed");
+      return;
+    }
+    auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+    REQUIRE(invoke != nullptr);
+
+    KernelArgs args{};
+    std::vector<void*> bases = {emitted.data(), emitted.data() + NumPoints};
+    args.outputs = bases.data();
+    args.outputCount = 2;
+    args.first = 0;
+    args.count = NumPoints;
+    GpuArguments packed(binding, args, nullptr);
+    invoke(packed.data());
+
+    CHECK(std::memcmp(interpreted.data(), emitted.data(), interpreted.size() * sizeof(double)) ==
+          0);
+
+    // one pointer per matrix and four fields per block in the argument block
+    CHECK(packed.fieldCount() == 3 * (1 + 2) + 1 + 4 * 2 + 4);
   }
 
   TEST_CASE("the kernel splits into a point function and a wrapper") {

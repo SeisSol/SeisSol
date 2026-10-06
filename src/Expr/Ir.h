@@ -40,6 +40,13 @@ inline constexpr NodeId NoNode = -1;
 using GridId = std::int32_t;
 inline constexpr GridId NoGrid = -1;
 
+// A bound projection matrix and a bound per-cell coefficient vector, see Kind::Contract.
+using MatrixId = std::int32_t;
+inline constexpr MatrixId NoMatrix = -1;
+
+using BlockId = std::int32_t;
+inline constexpr BlockId NoBlock = -1;
+
 // Upper bound on Lookup coordinate count, from the grid dimensionality easi
 // supports. Bounded so a Lookup's argument span always fits a small stack array.
 inline constexpr std::int32_t MaxLookupDimension = 6;
@@ -48,7 +55,13 @@ enum class Kind : std::uint8_t {
   Const,  // literal
   Field,  // named input channel (vx, x, t, group, …) — resolved via Binding
   PW,     // pointwise op, arity from the Fn
-  Lookup, // sample an external data grid at the given coordinates  [NEW]
+  Lookup, // sample an external data grid at the given coordinates
+  // A value the point obtains from a contraction rather than from a column:
+  //   value[p] = sum_m M[p mod rows][m] * block[cell(p)][m],  cell(p) = p / rows
+  // with M a bound matrix (MatrixId) and the block a bound vector per cell (BlockId). A leaf:
+  // both operands are bound inputs, not DAG values. Every point computes its own dot product,
+  // so points stay independent of each other.
+  Contract,
   Dx,     // physical-space derivative                       [derived-output]
   Cumint, // cumulative time integral                        [derived-output]
   Fold,   // temporal reducer                                [derived-output]
@@ -146,17 +159,19 @@ enum class Red : std::uint8_t { Max, Min, Int, Sum, Mean, Rms, ArgMax, ArgMin, L
 
 struct Node {
   Kind kind{};
-  Fn fn{};                  // PW
-  Red red{};                // Fold
-  std::int32_t axis{};      // Dx
-  std::int32_t ch{};        // Field: interned channel id
-  GridId grid{NoGrid};      // Lookup
-  std::int32_t comp{};      // Lookup: component within the grid
-  double value{};           // Const
-  NodeId a{NoNode};         // PW arg0 / Dx.x / Cumint.x / Fold.x / Sample.x
-  NodeId b{NoNode};         // PW arg1
-  NodeId c{NoNode};         // PW arg2 (Select only)
-  std::int32_t argBegin{0}; // Lookup: coordinate children, span into Arena::args_
+  Fn fn{};                   // PW
+  Red red{};                 // Fold
+  std::int32_t axis{};       // Dx
+  std::int32_t ch{};         // Field: interned channel id
+  GridId grid{NoGrid};       // Lookup
+  std::int32_t comp{};       // Lookup: component within the grid
+  MatrixId matrix{NoMatrix}; // Contract
+  BlockId block{NoBlock};    // Contract
+  double value{};            // Const
+  NodeId a{NoNode};          // PW arg0 / Dx.x / Cumint.x / Fold.x / Sample.x
+  NodeId b{NoNode};          // PW arg1
+  NodeId c{NoNode};          // PW arg2 (Select only)
+  std::int32_t argBegin{0};  // Lookup: coordinate children, span into Arena::args_
   std::int32_t argCount{0};
 };
 
@@ -213,6 +228,7 @@ class Arena {
   NodeId pw(Fn f, NodeId x, NodeId y);
   NodeId pw(Fn f, NodeId x, NodeId y, NodeId z);
   NodeId lookup(GridId grid, std::int32_t component, const std::vector<NodeId>& coords);
+  NodeId contract(MatrixId matrix, BlockId block);
   NodeId dx(int axis, NodeId x);
   NodeId cumint(NodeId x);
   NodeId fold(Red r, NodeId x);

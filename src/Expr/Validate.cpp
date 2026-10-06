@@ -115,6 +115,24 @@ void checkNode(const Program& program, NodeId id, const std::unordered_set<int>&
            std::to_string(MaxLookupDimension));
     }
     break;
+  case Kind::Contract: {
+    if (n.matrix < 0 || static_cast<std::size_t>(n.matrix) >= program.matrices().size()) {
+      fail("contraction references matrix id " + std::to_string(n.matrix) +
+           ", but the program declares " + std::to_string(program.matrices().size()));
+    }
+    if (n.block < 0 || static_cast<std::size_t>(n.block) >= program.blocks().size()) {
+      fail("contraction references block id " + std::to_string(n.block) +
+           ", but the program declares " + std::to_string(program.blocks().size()));
+    }
+    const MatrixSpec& matrix = program.matrices()[n.matrix];
+    const BlockSpec& block = program.blocks()[n.block];
+    if (matrix.shape.cols != block.length) {
+      fail("block '" + block.name + "' has " + std::to_string(block.length) +
+           " coefficients per cell, but matrix '" + matrix.name + "' has " +
+           std::to_string(matrix.shape.cols) + " columns");
+    }
+    break;
+  }
   case Kind::Dx:
   case Kind::Cumint:
   case Kind::Fold:

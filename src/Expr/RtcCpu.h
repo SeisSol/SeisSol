@@ -46,8 +46,11 @@
 namespace seissol::expr {
 
 /// The C++ source for a lowered program. Exposed for tests and for a dump flag;
-/// nothing else needs it.
+/// nothing else needs it. Without a binding, the matrices and blocks of the
+/// contractions are taken to be stored in the compute type.
 [[nodiscard]] std::string emitCpuSource(const Program& program, const LoweredProgram& lowered);
+[[nodiscard]] std::string
+    emitCpuSource(const Program& program, const LoweredProgram& lowered, const Binding& binding);
 
 /// True when this lowering can be compiled at all — today, when it contains no
 /// Opcode::Lookup.

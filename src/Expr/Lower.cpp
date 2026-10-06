@@ -36,8 +36,9 @@ constexpr std::int32_t NoSlot = -1;
 // Rough relative cost of recomputing one node. The absolute scale is meaningless
 // and only the ratios against LowerOptions::hoistThreshold matter. A Lookup is
 // weighted heavily on purpose: it is a width^d random-access gather, which is
-// the single most expensive thing this IR can do per point.
-std::int64_t weight(const Node& n) {
+// the single most expensive thing this IR can do per point. A contraction costs
+// one multiply-add per coefficient.
+std::int64_t weight(const Program& program, const Node& n) {
   switch (n.kind) {
   case Kind::Const:
     return 0;
@@ -45,6 +46,8 @@ std::int64_t weight(const Node& n) {
     return 1;
   case Kind::Lookup:
     return 32;
+  case Kind::Contract:
+    return static_cast<std::int64_t>(program.matrices()[n.matrix].shape.cols);
   case Kind::PW:
     switch (n.fn) {
     case Fn::Exp:
@@ -172,7 +175,7 @@ Analysis analyse(const Program& program, const LowerOptions& options, const Chan
 
     bool inv = true;
     Space sp = Space::Uniform;
-    std::int64_t c = weight(node);
+    std::int64_t c = weight(program, node);
     for (const NodeId k : kids) {
       inv = inv && an.invariant[k] != 0;
       sp = join(sp, an.space[k], id);
@@ -201,6 +204,11 @@ Analysis analyse(const Program& program, const LowerOptions& options, const Chan
     }
     case Kind::Lookup:
       inv = inv && invariantGrids.count(node.grid) != 0;
+      sp = Space::Point;
+      break;
+    case Kind::Contract:
+      // the blocks are the evolving state of the solver, never invariant across calls
+      inv = false;
       sp = Space::Point;
       break;
     case Kind::PW:
@@ -328,6 +336,11 @@ class Emitter {
           inst.grid = node.grid;
           inst.comp = node.comp;
           break;
+        case Kind::Contract:
+          inst.op = Opcode::Contract;
+          inst.matrix = node.matrix;
+          inst.block = node.block;
+          break;
         default:
           fail(std::string("node kind '") + name(node.kind) + "' reached the emitter");
         }
@@ -433,6 +446,8 @@ const char* name(Opcode op) {
     return "pw";
   case Opcode::Lookup:
     return "lookup";
+  case Opcode::Contract:
+    return "contract";
   }
   return "?";
 }
@@ -498,6 +513,9 @@ std::string LoweredProgram::dump() const {
       }
       if (i.op == Opcode::Lookup) {
         out += " g" + std::to_string(i.grid) + ":" + std::to_string(i.comp);
+      }
+      if (i.op == Opcode::Contract) {
+        out += " m" + std::to_string(i.matrix) + " b" + std::to_string(i.block);
       }
       for (std::int32_t k = 0; k < i.operandCount; ++k) {
         out += " t" + std::to_string(operands_[i.operandBegin + k]);

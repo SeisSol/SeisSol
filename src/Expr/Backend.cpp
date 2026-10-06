@@ -143,6 +143,20 @@ class RawTileIo final : public TileIo<T> {
     binding_->scatterTo(args_->outputs, args_->outputCount, first, count, src);
   }
 
+  [[nodiscard]] ContractOperands contraction(MatrixId matrix, BlockId block) const override {
+    const auto m = static_cast<std::size_t>(matrix);
+    const auto b = static_cast<std::size_t>(block);
+    return binding_->contraction(
+        matrix,
+        block,
+        m < args_->matrixCount && args_->matrices != nullptr ? args_->matrices[m] : nullptr,
+        b < args_->blockCount && args_->blocks != nullptr ? args_->blocks[b] : nullptr);
+  }
+
+  [[nodiscard]] const std::size_t* points(std::size_t first) const override {
+    return binding_->permutation().empty() ? nullptr : binding_->permutation().data() + first;
+  }
+
   private:
   const Binding* binding_;
   const KernelArgs* args_;
@@ -163,6 +177,14 @@ class BoundTileIo final : public TileIo<T> {
 
   void scatter(std::size_t first, std::size_t count, const T* src) override {
     binding_->scatter(*table_, first, count, src);
+  }
+
+  [[nodiscard]] ContractOperands contraction(MatrixId matrix, BlockId block) const override {
+    return binding_->contraction(matrix, block);
+  }
+
+  [[nodiscard]] const std::size_t* points(std::size_t first) const override {
+    return binding_->permutation().empty() ? nullptr : binding_->permutation().data() + first;
   }
 
   private:
@@ -295,7 +317,7 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
                                         const BackendOptions& options) {
   LoweredProgram lowered = lower(program, options.lowering);
   logInfo() << "expr: interpreter kernel --" << lowered.summary().c_str() << "--"
-            << cost(lowered, program.computeType()).summary(program.computeType()).c_str();
+            << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str();
 
   binding.allocatePersistent(program, lowered.persistentSlotCount());
 

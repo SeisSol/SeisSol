@@ -156,6 +156,38 @@ class GridSampler {
                            float* dst) const = 0;
 };
 
+// Everything one contraction reads, resolved for one call: the matrix and the block with their
+// layouts (cf. reader::scripting::MatrixInput and BlockInput). Binding produces it.
+struct ContractOperands {
+  const void* matrix{nullptr};
+  reader::scripting::DataType matrixType{reader::scripting::DataType::F64};
+  std::size_t rows{0};
+  std::size_t cols{0};
+  std::size_t leadingDimension{0};
+  const void* block{nullptr};
+  reader::scripting::DataType blockType{reader::scripting::DataType::F64};
+  std::size_t cellStride{0};
+  std::size_t modeStride{0};
+  const std::uint32_t* cellIndex{nullptr};
+};
+
+// The reference contraction, which every backend is checked against bit for bit:
+//   dst[lane] = sum_m T(M[row][m]) * T(block[cell][m]),  cell = p / rows, row = p mod rows,
+// for the point p = points[lane] (or first + lane when `points` is null), summed one coefficient
+// after the other in ascending m, in the compute type, without fused multiply-adds. One point is
+// one dot product; there is nothing to reorder.
+template <typename T>
+void contractLanes(const ContractOperands& operands,
+                   const std::size_t* points,
+                   std::size_t first,
+                   std::size_t count,
+                   T* dst);
+
+extern template void contractLanes<double>(
+    const ContractOperands&, const std::size_t*, std::size_t, std::size_t, double*);
+extern template void contractLanes<float>(
+    const ContractOperands&, const std::size_t*, std::size_t, std::size_t, float*);
+
 // Binding::gather / Binding::scatter, with the table already bound in.
 template <typename T>
 class TileIo {
@@ -171,7 +203,18 @@ class TileIo {
   virtual void gather(std::size_t first, std::size_t count, T* dst) const = 0;
   // src[outputIndex * count + lane]
   virtual void scatter(std::size_t first, std::size_t count, const T* src) = 0;
+
+  // The operands of the contraction of `block` against `matrix` for this call. Only programs with
+  // contractions ask; the default refuses.
+  [[nodiscard]] virtual ContractOperands contraction(MatrixId matrix, BlockId block) const;
+
+  // The point of each lane of the tile starting at `first`, for a reordered point set; null when
+  // lane l is point first + l.
+  [[nodiscard]] virtual const std::size_t* points(std::size_t /*first*/) const { return nullptr; }
 };
+
+extern template class TileIo<double>;
+extern template class TileIo<float>;
 
 // A contiguous run of points the tiling must not cross. Paket 4 fills this from
 // Binding::groupRanges(); a program without a group input gets one range.
@@ -232,6 +275,7 @@ class TileInterpreter {
 
   private:
   void runStage(const StageCode& stage,
+                const TileIo<T>& io,
                 const T* inputTile,
                 T* outputTile,
                 T* persistent,

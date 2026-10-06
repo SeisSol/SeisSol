@@ -18,6 +18,7 @@
 
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
+#include "Expr/Program.h"
 
 #include <cstdint>
 #include <sstream>
@@ -33,6 +34,30 @@ enum class MathStyle : std::uint8_t {
   /// `sqrt(...)`. Device code, where the built-ins are unqualified and NVRTC
   /// has no <cmath> to pull `std` in from.
   Unqualified
+};
+
+/// How a target spells the operands of a contraction, and what it has to know
+/// about them: the form of every matrix, and the element types the binding
+/// stores the matrices and blocks in -- those are baked into the source like the
+/// column types of a device kernel.
+struct ContractAddressing {
+  std::vector<MatrixShape> shapes;      // by MatrixId
+  std::vector<std::string> matrixTypes; // element type names, by MatrixId
+  std::vector<std::string> blockTypes;  // element type names, by BlockId
+  /// The point index of the lane at hand.
+  std::string point;
+  /// The dialect's unsigned 64-bit integer type.
+  std::string indexType;
+  /// The address-space qualifier of global memory ("__global " in OpenCL C, empty elsewhere).
+  std::string global;
+  /// Expressions for the operands: a pointer to the matrix, a pointer to the block data, the
+  /// block's cell and coefficient strides in bytes, and its cell index (a pointer to unsigned
+  /// int that may be null at run time).
+  std::string (*matrix)(std::int32_t matrix){nullptr};
+  std::string (*blockBase)(std::int32_t block){nullptr};
+  std::string (*cellStride)(std::int32_t block){nullptr};
+  std::string (*modeStride)(std::int32_t block){nullptr};
+  std::string (*cellIndex)(std::int32_t block){nullptr};
 };
 
 /// Where an instruction reads its inputs from and writes its outputs to. The
@@ -53,6 +78,8 @@ struct StageAddressing {
   /// value in lets each target spell the store however it can.
   std::string (*storeOutput)(std::int32_t index, const std::string& value){nullptr};
   std::string (*storePersistent)(std::int32_t slot, const std::string& value){nullptr};
+  /// Null for a target that cannot read blocks; a contraction then throws.
+  const ContractAddressing* contract{nullptr};
 };
 
 /// The expression text for `fn`, straight out of the interpreter's table, with
@@ -91,6 +118,11 @@ struct StageAddressing {
 /// cannot see through, and turning them into SSA locals is what lets the
 /// vectoriser work at all.
 ///
+/// A contraction is emitted as the same loop the interpreter runs -- ascending
+/// over the coefficients, one multiply-add after the other -- so a target that
+/// compiles without contraction of floating-point expressions agrees with the
+/// interpreter bit for bit.
+///
 /// Throws std::invalid_argument on Opcode::Lookup -- callers gate on
 /// containsLookup() first, and reaching here with one is a programming error
 /// rather than an unsupported model.
@@ -105,6 +137,12 @@ void emitStageBody(std::ostringstream& out,
 /// True when either stage samples a grid. No compiled backend supports that
 /// yet: a lookup is a batch call into GridSampler, not a lane-local expression.
 [[nodiscard]] bool containsLookup(const LoweredProgram& lowered);
+
+/// True when either stage contracts a block.
+[[nodiscard]] bool containsContraction(const LoweredProgram& lowered);
+
+/// The C name of an element type, for the types the binding may store data in.
+[[nodiscard]] const char* elementTypeName(reader::scripting::DataType type);
 
 } // namespace seissol::expr::codegen
 

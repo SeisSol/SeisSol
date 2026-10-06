@@ -18,10 +18,18 @@ add_library(seissol-expr OBJECT
     Validate.cpp
     Lower.cpp
     Interp.cpp
+    Rewrite.cpp
     SderivFrontend.cpp
 )
 
 target_link_libraries(seissol-expr PUBLIC seissol-common-properties)
+
+# The interpreter is the reference the compiled backends are checked against bit for bit, and they
+# are compiled without contraction of floating-point expressions; so is it. Otherwise a contraction
+# a*b + c may become a fused multiply-add here and not there.
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+    target_compile_options(seissol-expr PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-ffp-contract=off>)
+endif()
 
 # The compiled CPU backend loads its artifact with dlopen. It degrades to the
 # interpreter at run time when the toolchain is unusable, so this is the only

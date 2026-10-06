@@ -59,18 +59,79 @@ std::string cpuStoreOutput(std::int32_t index, const std::string& value) {
 std::string cpuStorePersistent(std::int32_t slot, const std::string& value) {
   return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l] = " + value;
 }
+std::string cpuMatrix(std::int32_t matrix) { return "matrices[" + std::to_string(matrix) + "]"; }
+std::string cpuBlockBase(std::int32_t block) {
+  return "blocks[" + std::to_string(block) + "].base";
+}
+std::string cpuCellStride(std::int32_t block) {
+  return "blocks[" + std::to_string(block) + "].cellStride";
+}
+std::string cpuModeStride(std::int32_t block) {
+  return "blocks[" + std::to_string(block) + "].modeStride";
+}
+std::string cpuCellIndex(std::int32_t block) {
+  return "blocks[" + std::to_string(block) + "].cellIndex";
+}
+
+/// The host-side image of the emitted SeissolExprBlock; the two have to agree field by field.
+struct BlockDescriptor {
+  const void* base;
+  unsigned long cellStride;
+  unsigned long modeStride;
+  const std::uint32_t* cellIndex;
+};
+
+/// The element types the matrices and blocks are bound with: baked into the source, hence part of
+/// the cache key.
+struct ContractLayout {
+  std::vector<reader::scripting::DataType> matrices;
+  std::vector<reader::scripting::DataType> blocks;
+
+  [[nodiscard]] std::uint64_t fingerprint() const {
+    std::uint64_t hash = 0xcbf29ce484222325ULL;
+    const auto mix = [&hash](std::uint64_t value) {
+      hash ^= value;
+      hash *= 0x100000001b3ULL;
+    };
+    mix(matrices.size());
+    for (const auto type : matrices) {
+      mix(static_cast<std::uint64_t>(type));
+    }
+    mix(blocks.size());
+    for (const auto type : blocks) {
+      mix(static_cast<std::uint64_t>(type));
+    }
+    return hash;
+  }
+};
+
+ContractLayout contractLayoutOf(const Binding& binding) {
+  ContractLayout layout;
+  for (const auto& matrix : binding.matrices()) {
+    layout.matrices.push_back(matrix.type);
+  }
+  for (const auto& block : binding.blocks()) {
+    layout.blocks.push_back(block.type);
+  }
+  return layout;
+}
 
 void emitStage(std::ostringstream& out,
                const char* name,
                const StageCode& stage,
                const std::vector<std::int32_t>& operands,
-               const std::string& computeType) {
+               const std::string& computeType,
+               const codegen::ContractAddressing& contract) {
   out << "extern \"C\" void " << name << "(const " << computeType << "* __restrict inputTile,\n"
       << "                                 " << computeType << "* __restrict outputTile,\n"
       << "                                 " << computeType << "* __restrict persistent,\n"
       << "                                 unsigned long numPoints,\n"
       << "                                 unsigned long first,\n"
-      << "                                 unsigned long count) {\n";
+      << "                                 unsigned long count,\n"
+      << "                                 const void* const* matrices,\n"
+      << "                                 const SeissolExprBlock* blocks,\n"
+      << "                                 const unsigned long* pointIndex) {\n"
+      << "  (void)matrices; (void)blocks; (void)pointIndex;\n";
   if (stage.code.empty() && stage.outputs.empty() && stage.persistent.empty()) {
     out << "  (void)inputTile; (void)outputTile; (void)persistent;\n"
         << "  (void)numPoints; (void)first; (void)count;\n}\n\n";
@@ -82,6 +143,7 @@ void emitStage(std::ostringstream& out,
   addressing.loadPersistent = cpuLoadPersistent;
   addressing.storeOutput = cpuStoreOutput;
   addressing.storePersistent = cpuStorePersistent;
+  addressing.contract = &contract;
 
   out << "  for (unsigned long l = 0; l < count; ++l) {\n";
   codegen::emitStageBody(
@@ -217,12 +279,13 @@ Artifact compileAndLoad(const std::string& source, const std::string& flags) {
 struct CacheKey {
   std::uint64_t program{0};
   std::uint64_t lowering{0};
+  std::uint64_t contraction{0};
   ComputeType type{ComputeType::F64};
   std::string flags;
 
   bool operator<(const CacheKey& other) const {
-    return std::tie(program, lowering, type, flags) <
-           std::tie(other.program, other.lowering, other.type, other.flags);
+    return std::tie(program, lowering, contraction, type, flags) <
+           std::tie(other.program, other.lowering, other.contraction, other.type, other.flags);
   }
 };
 
@@ -239,7 +302,15 @@ std::map<CacheKey, Artifact>& cache() {
 // --- kernel -----------------------------------------------------------------
 
 template <typename T>
-using StageFn = void (*)(const T*, T*, T*, unsigned long, unsigned long, unsigned long);
+using StageFn = void (*)(const T*,
+                         T*,
+                         T*,
+                         unsigned long,
+                         unsigned long,
+                         unsigned long,
+                         const void* const*,
+                         const BlockDescriptor*,
+                         const unsigned long*);
 
 template <typename T>
 class RtcCpuKernel final : public Kernel {
@@ -262,7 +333,7 @@ class RtcCpuKernel final : public Kernel {
       return;
     }
     const BoundIo io(*binding_, &table, nullptr);
-    sweep(precompute_, io, 0, binding_->numPoints());
+    sweep(precompute_, io, nullptr, 0, binding_->numPoints());
     precomputed_ = true;
   }
 
@@ -270,7 +341,7 @@ class RtcCpuKernel final : public Kernel {
     guard();
     const BoundIo io(*binding_, &table, nullptr);
     // The dense path may thread; the element-wise one below may not.
-    sweep(run_, io, 0, binding_->numPoints());
+    sweep(run_, io, nullptr, 0, binding_->numPoints());
   }
 
   void run(const KernelArgs& args) override {
@@ -281,7 +352,7 @@ class RtcCpuKernel final : public Kernel {
     }
     guard();
     const BoundIo io(*binding_, nullptr, &args);
-    sweep(run_, io, args.first, args.first + args.count);
+    sweep(run_, io, &args, args.first, args.first + args.count);
   }
 
   [[nodiscard]] BackendKind kind() const override { return BackendKind::RtcCpu; }
@@ -331,14 +402,47 @@ class RtcCpuKernel final : public Kernel {
     }
   }
 
-  void sweep(StageFn<T> fn, const BoundIo& io, std::size_t begin, std::size_t end) {
+  void sweep(StageFn<T> fn,
+             const BoundIo& io,
+             const KernelArgs* args,
+             std::size_t begin,
+             std::size_t end) {
     if (fn == nullptr) {
       return;
     }
+    // The bases of the matrices and blocks for this call: the bound ones, or the ones the call
+    // moves. A handful of entries, rebuilt per call.
+    const auto& matrices = binding_->matrices();
+    const auto& blocks = binding_->blocks();
+    matrixBases_.resize(matrices.size());
+    for (std::size_t i = 0; i < matrices.size(); ++i) {
+      const bool moved = args != nullptr && i < args->matrixCount && args->matrices != nullptr &&
+                         args->matrices[i] != nullptr;
+      matrixBases_[i] = moved ? args->matrices[i] : matrices[i].base;
+    }
+    blockDescriptors_.resize(blocks.size());
+    for (std::size_t i = 0; i < blocks.size(); ++i) {
+      const bool moved = args != nullptr && i < args->blockCount && args->blocks != nullptr &&
+                         args->blocks[i] != nullptr;
+      blockDescriptors_[i] = BlockDescriptor{moved ? args->blocks[i] : blocks[i].base,
+                                             blocks[i].cellStride,
+                                             blocks[i].modeStride,
+                                             blocks[i].cellIndex};
+    }
+    const auto& permutation = binding_->permutation();
+
     for (std::size_t first = begin; first < end; first += tileSize_) {
       const std::size_t count = std::min(tileSize_, end - first);
       io.gather(first, count, inputTile_.data());
-      fn(inputTile_.data(), outputTile_.data(), persistent(), binding_->numPoints(), first, count);
+      fn(inputTile_.data(),
+         outputTile_.data(),
+         persistent(),
+         binding_->numPoints(),
+         first,
+         count,
+         matrixBases_.data(),
+         blockDescriptors_.data(),
+         permutation.empty() ? nullptr : permutation.data() + first);
       io.scatter(first, count, outputTile_.data());
     }
   }
@@ -352,6 +456,8 @@ class RtcCpuKernel final : public Kernel {
   std::size_t tileSize_{0};
   std::vector<T> inputTile_;
   std::vector<T> outputTile_;
+  std::vector<const void*> matrixBases_;
+  std::vector<BlockDescriptor> blockDescriptors_;
   bool needsPrecompute_{false};
   bool precomputed_{false};
 };
@@ -383,18 +489,68 @@ std::string defaultFlags(const BackendOptions& options) {
 
 bool cpuCompilable(const LoweredProgram& lowered) { return !codegen::containsLookup(lowered); }
 
-std::string emitCpuSource(const Program& program, const LoweredProgram& lowered) {
+namespace {
+
+std::string emitCpuSourceFor(const Program& program,
+                             const LoweredProgram& lowered,
+                             const ContractLayout& layout) {
   const std::string computeType = program.computeType() == ComputeType::F32 ? "float" : "double";
+
+  codegen::ContractAddressing contract;
+  for (const auto& matrix : program.matrices()) {
+    contract.shapes.push_back(matrix.shape);
+  }
+  for (const auto type : layout.matrices) {
+    contract.matrixTypes.emplace_back(codegen::elementTypeName(type));
+  }
+  for (const auto type : layout.blocks) {
+    contract.blockTypes.emplace_back(codegen::elementTypeName(type));
+  }
+  contract.point = "pointIndex != 0 ? pointIndex[l] : first + l";
+  contract.indexType = "unsigned long";
+  contract.matrix = cpuMatrix;
+  contract.blockBase = cpuBlockBase;
+  contract.cellStride = cpuCellStride;
+  contract.modeStride = cpuModeStride;
+  contract.cellIndex = cpuCellIndex;
 
   std::ostringstream out;
   out << "// Generated by seissol::expr for program fingerprint 0x" << std::hex
       << program.fingerprint() << std::dec << ".\n"
       << "// The arithmetic below is stringified from SEISSOL_EXPR_PW_LIST, the same\n"
       << "// table the interpreter evaluates, so the two cannot disagree.\n"
-      << "#include <cmath>\n\n";
-  emitStage(out, "seissol_expr_precompute", lowered.precompute(), lowered.operands(), computeType);
-  emitStage(out, "seissol_expr_run", lowered.run(), lowered.operands(), computeType);
+      << "#include <cmath>\n\n"
+      << "struct SeissolExprBlock {\n"
+      << "  const char* base;\n"
+      << "  unsigned long cellStride;\n"
+      << "  unsigned long modeStride;\n"
+      << "  const unsigned int* cellIndex;\n"
+      << "};\n\n";
+  emitStage(out,
+            "seissol_expr_precompute",
+            lowered.precompute(),
+            lowered.operands(),
+            computeType,
+            contract);
+  emitStage(out, "seissol_expr_run", lowered.run(), lowered.operands(), computeType, contract);
   return out.str();
+}
+
+} // namespace
+
+std::string emitCpuSource(const Program& program, const LoweredProgram& lowered) {
+  // Without a binding, the matrices and blocks are taken to be stored in the compute type.
+  ContractLayout layout;
+  const auto type = program.computeType() == ComputeType::F32 ? reader::scripting::DataType::F32
+                                                              : reader::scripting::DataType::F64;
+  layout.matrices.assign(program.matrices().size(), type);
+  layout.blocks.assign(program.blocks().size(), type);
+  return emitCpuSourceFor(program, lowered, layout);
+}
+
+std::string
+    emitCpuSource(const Program& program, const LoweredProgram& lowered, const Binding& binding) {
+  return emitCpuSourceFor(program, lowered, contractLayoutOf(binding));
 }
 
 std::size_t rtcCpuCacheSize() {
@@ -413,8 +569,12 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
   }
 
   const std::string flags = defaultFlags(options);
-  const CacheKey key{
-      program.fingerprint(), options.lowering.fingerprint(), program.computeType(), flags};
+  const ContractLayout layout = contractLayoutOf(binding);
+  const CacheKey key{program.fingerprint(),
+                     options.lowering.fingerprint(),
+                     layout.fingerprint(),
+                     program.computeType(),
+                     flags};
 
   Artifact artifact;
   {
@@ -426,7 +586,7 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
     const std::lock_guard<std::mutex> lock(cacheMutex());
     auto found = cache().find(key);
     if (found == cache().end()) {
-      const std::string source = emitCpuSource(program, lowered);
+      const std::string source = emitCpuSourceFor(program, lowered, layout);
       found = cache().emplace(key, compileAndLoad(source, flags)).first;
     }
     artifact = found->second;
@@ -442,7 +602,7 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
           : chooseTileSize(lowered.peakSlotCount(), program.computeType(), DefaultTileBudgetBytes);
 
   logInfo() << "expr: compiled CPU kernel --" << lowered.summary().c_str() << "--"
-            << cost(lowered, program.computeType()).summary(program.computeType()).c_str()
+            << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
             << "-- with" << flags;
 
   if (program.computeType() == ComputeType::F32) {

@@ -75,6 +75,17 @@ std::string gpuStoreOutput(std::int32_t index, const std::string& value) {
 std::string gpuStorePersistent(std::int32_t slot, const std::string& value) {
   return "a->persistent[" + std::to_string(slot) + " * a->numPoints + p] = " + value;
 }
+std::string gpuMatrix(std::int32_t matrix) { return "a->matrix" + std::to_string(matrix); }
+std::string gpuBlockBase(std::int32_t block) { return "a->block" + std::to_string(block); }
+std::string gpuCellStride(std::int32_t block) {
+  return "a->cellStride_block" + std::to_string(block);
+}
+std::string gpuModeStride(std::int32_t block) {
+  return "a->modeStride_block" + std::to_string(block);
+}
+std::string gpuCellIndex(std::int32_t block) {
+  return "a->cellIndex_block" + std::to_string(block);
+}
 
 /// OpenCL C needs an address space on every pointer that reaches global
 /// memory; CUDA and HIP infer it. Emitted rather than hardcoded so the rest of
@@ -196,6 +207,17 @@ void emitArgumentStruct(std::ostringstream& out,
         << "  SeissolU64 stride_out" << i << ";\n"
         << "  SeissolU64 offset_out" << i << ";\n";
   }
+  // The matrices are pointers only: their form is baked in. A block is its base, its two strides
+  // and its cell index.
+  for (std::size_t i = 0; i < layout.matrices.size(); ++i) {
+    out << "  " << global << "const void* matrix" << i << ";\n";
+  }
+  for (std::size_t i = 0; i < layout.blocks.size(); ++i) {
+    out << "  " << global << "const void* block" << i << ";\n"
+        << "  SeissolU64 cellStride_block" << i << ";\n"
+        << "  SeissolU64 modeStride_block" << i << ";\n"
+        << "  " << global << "const unsigned int* cellIndex_block" << i << ";\n";
+  }
   out << "  " << global << computeType << "* persistent;\n"
       << "  SeissolU64 numPoints;\n"
       << "  SeissolU64 first;\n"
@@ -215,6 +237,14 @@ void emitFlatParameters(std::ostringstream& out,
     out << "    __global void* out" << i << ", SeissolU64 stride_out" << i
         << ", SeissolU64 offset_out" << i << ",\n";
   }
+  for (std::size_t i = 0; i < layout.matrices.size(); ++i) {
+    out << "    __global const void* matrix" << i << ",\n";
+  }
+  for (std::size_t i = 0; i < layout.blocks.size(); ++i) {
+    out << "    __global const void* block" << i << ", SeissolU64 cellStride_block" << i
+        << ", SeissolU64 modeStride_block" << i << ", __global const unsigned int* cellIndex_block"
+        << i << ",\n";
+  }
   out << "    __global " << computeType << "* persistent, SeissolU64 numPoints,\n"
       << "    SeissolU64 first, SeissolU64 count";
 }
@@ -231,6 +261,14 @@ void emitFlatGather(std::ostringstream& out, const GpuLayout& layout) {
     out << "  a.out" << i << " = out" << i << "; a.stride_out" << i << " = stride_out" << i
         << "; a.offset_out" << i << " = offset_out" << i << ";\n";
   }
+  for (std::size_t i = 0; i < layout.matrices.size(); ++i) {
+    out << "  a.matrix" << i << " = matrix" << i << ";\n";
+  }
+  for (std::size_t i = 0; i < layout.blocks.size(); ++i) {
+    out << "  a.block" << i << " = block" << i << "; a.cellStride_block" << i
+        << " = cellStride_block" << i << "; a.modeStride_block" << i << " = modeStride_block" << i
+        << "; a.cellIndex_block" << i << " = cellIndex_block" << i << ";\n";
+  }
   out << "  a.persistent = persistent; a.numPoints = numPoints;\n"
       << "  a.first = first; a.count = count;\n";
 }
@@ -241,7 +279,8 @@ void emitStage(std::ostringstream& out,
                const std::vector<std::int32_t>& operands,
                const GpuLayout& layout,
                const std::string& computeType,
-               GpuTarget target) {
+               GpuTarget target,
+               const codegen::ContractAddressing& contract) {
   // Emitted in two pieces, and that split is the interesting part.
   //
   // The POINT function is the expression and nothing else: no loop, no launch
@@ -260,6 +299,7 @@ void emitStage(std::ostringstream& out,
   addressing.loadPersistent = gpuLoadPersistent;
   addressing.storeOutput = gpuStoreOutput;
   addressing.storePersistent = gpuStorePersistent;
+  addressing.contract = &contract;
 
   codegen::emitStageBody(
       out, stage, operands, computeType, codegen::MathStyle::Unqualified, addressing, "  ");
@@ -340,12 +380,29 @@ GpuRejection gpuRejection(const Program& program,
       }
     }
   }
+  for (const auto& block : binding.blocks()) {
+    const std::size_t element = elementSize(block.type);
+    if (block.cellStride % element != 0 || block.modeStride % element != 0) {
+      return GpuRejection::Misaligned;
+    }
+  }
   if (deviceAccessible != nullptr) {
     for (const auto* set : {&binding.inputs(), &binding.outputs()}) {
       for (const auto& column : *set) {
         if (!deviceAccessible(column.view->base)) {
           return GpuRejection::HostPointer;
         }
+      }
+    }
+    for (const auto& matrix : binding.matrices()) {
+      if (!deviceAccessible(matrix.base)) {
+        return GpuRejection::HostPointer;
+      }
+    }
+    for (const auto& block : binding.blocks()) {
+      if (!deviceAccessible(block.base) ||
+          (block.cellIndex != nullptr && !deviceAccessible(block.cellIndex))) {
+        return GpuRejection::HostPointer;
       }
     }
   }
@@ -362,6 +419,14 @@ std::uint64_t GpuLayout::fingerprint() const {
   for (const auto type : outputs) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
   }
+  hash = mix(hash, matrices.size());
+  for (const auto type : matrices) {
+    hash = mix(hash, static_cast<std::uint64_t>(type));
+  }
+  hash = mix(hash, blocks.size());
+  for (const auto type : blocks) {
+    hash = mix(hash, static_cast<std::uint64_t>(type));
+  }
   return hash;
 }
 
@@ -374,6 +439,12 @@ GpuLayout gpuLayoutOf(const Binding& binding) {
   layout.outputs.reserve(binding.outputs().size());
   for (const auto& column : binding.outputs()) {
     layout.outputs.push_back(column.tableType);
+  }
+  for (const auto& matrix : binding.matrices()) {
+    layout.matrices.push_back(matrix.type);
+  }
+  for (const auto& block : binding.blocks()) {
+    layout.blocks.push_back(block.type);
   }
   return layout;
 }
@@ -410,6 +481,20 @@ std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string
     arg("const SeissolU64");
     out << ",\n";
   }
+  for (std::size_t i = 0; i < layout.matrices.size(); ++i) {
+    arg("const void* const");
+    out << ",\n";
+  }
+  for (std::size_t i = 0; i < layout.blocks.size(); ++i) {
+    arg("const void* const");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ", ";
+    arg("const SeissolU64");
+    out << ", ";
+    arg("const unsigned int* const");
+    out << ",\n";
+  }
   out << "    *(" << computeType << "* const*)a[" << k++ << "],\n";
   arg("const SeissolU64");
   out << ", ";
@@ -426,7 +511,8 @@ GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void*
   // append works and no padding has to be reasoned about: pointers are 64-bit
   // on every target this runs on, and the scalars are `unsigned long long` for
   // exactly that reason.
-  const std::size_t fields = 3 * (binding.inputs().size() + binding.outputs().size()) + 4;
+  const std::size_t fields = 3 * (binding.inputs().size() + binding.outputs().size()) +
+                             binding.matrices().size() + 4 * binding.blocks().size() + 4;
   image_.reserve(fields * sizeof(std::uint64_t));
 
   const auto appendPointer = [this](const void* value) { append(&value, sizeof(value)); };
@@ -445,6 +531,19 @@ GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void*
                                                                        : column.view->base);
     appendScalar(column.view->byteStride);
     appendScalar(column.view->byteOffset);
+  }
+  for (std::size_t i = 0; i < binding.matrices().size(); ++i) {
+    const bool moved =
+        i < args.matrixCount && args.matrices != nullptr && args.matrices[i] != nullptr;
+    appendPointer(moved ? args.matrices[i] : binding.matrices()[i].base);
+  }
+  for (std::size_t i = 0; i < binding.blocks().size(); ++i) {
+    const auto& block = binding.blocks()[i];
+    const bool moved = i < args.blockCount && args.blocks != nullptr && args.blocks[i] != nullptr;
+    appendPointer(moved ? args.blocks[i] : block.base);
+    appendScalar(block.cellStride);
+    appendScalar(block.modeStride);
+    appendPointer(block.cellIndex);
   }
   appendPointer(persistent);
   appendScalar(binding.numPoints());
@@ -468,6 +567,27 @@ std::string emitGpuSource(const Program& program,
                           GpuTarget target) {
   const std::string computeType = program.computeType() == ComputeType::F32 ? "float" : "double";
 
+  // Every thread computes one point, so the lanes of one cell read the same block coefficient in
+  // the same step: a broadcast rather than a gather, with no shared memory involved.
+  codegen::ContractAddressing contract;
+  for (const auto& matrix : program.matrices()) {
+    contract.shapes.push_back(matrix.shape);
+  }
+  for (const auto type : layout.matrices) {
+    contract.matrixTypes.emplace_back(codegen::elementTypeName(type));
+  }
+  for (const auto type : layout.blocks) {
+    contract.blockTypes.emplace_back(codegen::elementTypeName(type));
+  }
+  contract.point = "p";
+  contract.indexType = "SeissolU64";
+  contract.global = globalQualifier(target);
+  contract.matrix = gpuMatrix;
+  contract.blockBase = gpuBlockBase;
+  contract.cellStride = gpuCellStride;
+  contract.modeStride = gpuModeStride;
+  contract.cellIndex = gpuCellIndex;
+
   std::ostringstream out;
   emitPrologue(out, target);
   emitAccessors(out, layout, computeType, target);
@@ -479,10 +599,17 @@ std::string emitGpuSource(const Program& program,
               lowered.operands(),
               layout,
               computeType,
-              target);
+              target,
+              contract);
   }
-  emitStage(
-      out, "seissol_expr_run", lowered.run(), lowered.operands(), layout, computeType, target);
+  emitStage(out,
+            "seissol_expr_run",
+            lowered.run(),
+            lowered.operands(),
+            layout,
+            computeType,
+            target,
+            contract);
   return out.str();
 }
 

@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -174,6 +175,12 @@ class CanonicalWalk {
       appendInt(text_, n.comp);
       appendOperands(id);
       break;
+    case Kind::Contract:
+      text_ += ' ';
+      appendInt(text_, n.matrix);
+      text_ += ':';
+      appendInt(text_, n.block);
+      break;
     case Kind::Dx:
       text_ += ' ';
       appendInt(text_, n.axis);
@@ -224,6 +231,25 @@ std::string Program::canonicalForm() const {
     header += grids_[i].canonicalKey();
     header += '\n';
   }
+  // Matrices and blocks by index and form only: their names reach the binding, not the emitter.
+  for (std::size_t i = 0; i < matrices_.size(); ++i) {
+    header += "matrix ";
+    appendInt(header, static_cast<std::int64_t>(i));
+    header += ' ';
+    appendInt(header, static_cast<std::int64_t>(matrices_[i].shape.rows));
+    header += 'x';
+    appendInt(header, static_cast<std::int64_t>(matrices_[i].shape.cols));
+    header += '/';
+    appendInt(header, static_cast<std::int64_t>(matrices_[i].shape.leadingDimension));
+    header += '\n';
+  }
+  for (std::size_t i = 0; i < blocks_.size(); ++i) {
+    header += "block ";
+    appendInt(header, static_cast<std::int64_t>(i));
+    header += ' ';
+    appendInt(header, static_cast<std::int64_t>(blocks_[i].length));
+    header += '\n';
+  }
 
   // Roots first, then state roots, both in declaration order: the two lists are
   // separate targets and swapping one for the other is a different kernel.
@@ -257,6 +283,46 @@ void Program::addInput(const std::string& name, reader::scripting::DataType type
 
 void Program::addState(const std::string& name, double initial, NodeId root) {
   state_.push_back(StateSpec{name, initial, root});
+}
+
+MatrixId Program::internMatrix(const std::string& name, const MatrixShape& shape) {
+  if (shape.rows == 0 || shape.cols == 0 || shape.leadingDimension < shape.rows) {
+    throw std::invalid_argument("expr: matrix '" + name + "' has the invalid form " +
+                                std::to_string(shape.rows) + "x" + std::to_string(shape.cols) +
+                                " with leading dimension " +
+                                std::to_string(shape.leadingDimension));
+  }
+  for (std::size_t i = 0; i < matrices_.size(); ++i) {
+    if (matrices_[i].name == name) {
+      if (matrices_[i].shape != shape) {
+        throw std::invalid_argument("expr: matrix '" + name + "' is declared with two forms");
+      }
+      return static_cast<MatrixId>(i);
+    }
+  }
+  if (!matrices_.empty() && matrices_.front().shape.rows != shape.rows) {
+    throw std::invalid_argument("expr: matrix '" + name + "' has " + std::to_string(shape.rows) +
+                                " rows, but the point set has " +
+                                std::to_string(matrices_.front().shape.rows) + " points per cell");
+  }
+  matrices_.push_back(MatrixSpec{name, shape});
+  return static_cast<MatrixId>(matrices_.size() - 1);
+}
+
+BlockId Program::internBlock(const std::string& name, std::size_t length) {
+  if (length == 0) {
+    throw std::invalid_argument("expr: block '" + name + "' has no coefficients");
+  }
+  for (std::size_t i = 0; i < blocks_.size(); ++i) {
+    if (blocks_[i].name == name) {
+      if (blocks_[i].length != length) {
+        throw std::invalid_argument("expr: block '" + name + "' is declared with two lengths");
+      }
+      return static_cast<BlockId>(i);
+    }
+  }
+  blocks_.push_back(BlockSpec{name, length});
+  return static_cast<BlockId>(blocks_.size() - 1);
 }
 
 GridId Program::internGrid(const reader::datafield::GridDesc& desc) {

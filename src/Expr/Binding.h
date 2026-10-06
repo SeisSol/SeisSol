@@ -26,6 +26,7 @@
 // Switch does with subsetAdapter, one level lower. Programs without a group
 // input get a single partition covering all points.
 
+#include "Expr/Interp.h"
 #include "Expr/Program.h"
 #include "Reader/Scripting/DataTable.h"
 
@@ -68,16 +69,32 @@ struct GroupRange {
 
 class Binding {
   public:
-  // Validates the Program against the table and resolves every column.
-  // Throws std::invalid_argument on: a required input with no matching column,
-  // an output bound to an In-only column, a duplicate column name, or a point
-  // count of zero. Note that an *extra* table column is not an error — the
-  // consumer is allowed to offer more than the program reads.
+  // Validates the Program against the table and resolves every column, block
+  // and matrix. Throws std::invalid_argument on: a required input with no
+  // matching column, an output bound to an In-only column, a duplicate column
+  // name, a point count of zero, a block or matrix the table does not offer or
+  // offers with a smaller length or another form, or a point count that is not
+  // a whole number of cells. Note that an *extra* table column is not an error
+  // — the consumer is allowed to offer more than the program reads.
   static Binding bind(const Program& program, const reader::scripting::DataTable& table);
 
   [[nodiscard]] const std::vector<ColumnBinding>& inputs() const { return inputs_; }
   [[nodiscard]] const std::vector<ColumnBinding>& outputs() const { return outputs_; }
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
+
+  // The blocks and matrices contractions read, in Program::blocks() and Program::matrices()
+  // order, as the table binds them.
+  [[nodiscard]] const std::vector<reader::scripting::BlockInput>& blocks() const { return blocks_; }
+  [[nodiscard]] const std::vector<reader::scripting::MatrixInput>& matrices() const {
+    return matrices_;
+  }
+
+  // The operands of the contraction of `block` against `matrix`, with the bound bases or, where
+  // non-null, the ones given for this call.
+  [[nodiscard]] ContractOperands contraction(MatrixId matrix,
+                                             BlockId block,
+                                             const void* matrixBase = nullptr,
+                                             const void* blockBase = nullptr) const;
 
   // Present only when the program reads a `group` channel; empty otherwise.
   [[nodiscard]] const std::vector<GroupRange>& groupRanges() const { return groupRanges_; }
@@ -166,6 +183,7 @@ class Binding {
 
   private:
   void buildGroupRanges(const Program& program, const reader::scripting::DataTable& table);
+  void resolveContractions(const Program& program, const reader::scripting::DataTable& table);
 
   template <typename Tile>
   void gatherFromImpl(const void* const* inputs,
@@ -182,6 +200,8 @@ class Binding {
 
   std::vector<ColumnBinding> inputs_;
   std::vector<ColumnBinding> outputs_;
+  std::vector<reader::scripting::BlockInput> blocks_;
+  std::vector<reader::scripting::MatrixInput> matrices_;
   std::vector<GroupRange> groupRanges_;
   std::vector<std::size_t> permutation_;
   std::size_t numPoints_{0};

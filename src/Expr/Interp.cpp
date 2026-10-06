@@ -16,6 +16,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -27,7 +28,84 @@ namespace {
 
 [[noreturn]] void fail(const std::string& what) { throw std::invalid_argument("expr: " + what); }
 
+using reader::scripting::DataType;
+
+template <typename T, typename MatrixT, typename BlockT>
+void contractTyped(const ContractOperands& operands,
+                   const std::size_t* points,
+                   std::size_t first,
+                   std::size_t count,
+                   T* dst) {
+  const auto* matrix = static_cast<const MatrixT*>(operands.matrix);
+  const auto* block = static_cast<const char*>(operands.block);
+  const std::size_t rows = operands.rows;
+  const std::size_t cols = operands.cols;
+  const std::size_t leadingDimension = operands.leadingDimension;
+  for (std::size_t lane = 0; lane < count; ++lane) {
+    const std::size_t point = points == nullptr ? first + lane : points[lane];
+    const std::size_t cell = point / rows;
+    const std::size_t row = point - cell * rows;
+    const std::size_t memoryCell =
+        operands.cellIndex == nullptr ? cell : static_cast<std::size_t>(operands.cellIndex[cell]);
+    const char* coefficients = block + memoryCell * operands.cellStride;
+    const MatrixT* matrixRow = matrix + row;
+    T sum = T(0);
+    for (std::size_t m = 0; m < cols; ++m) {
+      BlockT coefficient{};
+      std::memcpy(&coefficient, coefficients + m * operands.modeStride, sizeof(BlockT));
+      sum += static_cast<T>(matrixRow[m * leadingDimension]) * static_cast<T>(coefficient);
+    }
+    dst[lane] = sum;
+  }
+}
+
+template <typename T, typename MatrixT>
+void contractBlockTyped(const ContractOperands& operands,
+                        const std::size_t* points,
+                        std::size_t first,
+                        std::size_t count,
+                        T* dst) {
+  switch (operands.blockType) {
+  case DataType::F32:
+    contractTyped<T, MatrixT, float>(operands, points, first, count, dst);
+    return;
+  case DataType::F64:
+    contractTyped<T, MatrixT, double>(operands, points, first, count, dst);
+    return;
+  default:
+    fail("a contraction block has to be stored as f32 or f64");
+  }
+}
+
 } // namespace
+
+template <typename T>
+void contractLanes(const ContractOperands& operands,
+                   const std::size_t* points,
+                   std::size_t first,
+                   std::size_t count,
+                   T* dst) {
+  switch (operands.matrixType) {
+  case DataType::F32:
+    contractBlockTyped<T, float>(operands, points, first, count, dst);
+    return;
+  case DataType::F64:
+    contractBlockTyped<T, double>(operands, points, first, count, dst);
+    return;
+  default:
+    fail("a contraction matrix has to be stored as f32 or f64");
+  }
+}
+
+template void contractLanes<double>(
+    const ContractOperands&, const std::size_t*, std::size_t, std::size_t, double*);
+template void contractLanes<float>(
+    const ContractOperands&, const std::size_t*, std::size_t, std::size_t, float*);
+
+template <typename T>
+ContractOperands TileIo<T>::contraction(MatrixId /*matrix*/, BlockId /*block*/) const {
+  fail("the program contracts a block, but its tile source binds no blocks");
+}
 
 std::size_t chooseTileSize(std::int32_t peakSlots, ComputeType type, std::size_t budgetBytes) {
   const std::size_t element = (type == ComputeType::F32) ? sizeof(float) : sizeof(double);
@@ -64,6 +142,7 @@ TileInterpreter<T>::TileInterpreter(const Program& program,
 // them.
 template <typename T>
 void TileInterpreter<T>::runStage(const StageCode& stage,
+                                  const TileIo<T>& io,
                                   const T* inputTile,
                                   T* outputTile,
                                   T* persistent,
@@ -114,6 +193,11 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
         coords[static_cast<std::size_t>(k)] = slotPtr(operands[inst.operandBegin + k]);
       }
       sampler_->sampleBatch(inst.grid, inst.comp, coords.data(), inst.operandCount, count, dst);
+      break;
+    }
+    case Opcode::Contract: {
+      contractLanes<T>(
+          io.contraction(inst.matrix, inst.block), io.points(first), first, count, dst);
       break;
     }
     case Opcode::Pw: {
@@ -205,6 +289,7 @@ void TileInterpreter<T>::precompute(const TileIo<T>& io,
       const std::size_t count = std::min(tileSize_, range.end - first);
       io.gather(first, count, inputTile_.data());
       runStage(lowered_->precompute(),
+               io,
                inputTile_.data(),
                outputTile_.data(),
                persistent,
@@ -225,6 +310,7 @@ void TileInterpreter<T>::run(TileIo<T>& io,
       const std::size_t count = std::min(tileSize_, range.end - first);
       io.gather(first, count, inputTile_.data());
       runStage(lowered_->run(),
+               io,
                inputTile_.data(),
                outputTile_.data(),
                persistent,
@@ -247,6 +333,8 @@ void initialiseState(const Program& program, T* persistent, std::size_t numPoint
   }
 }
 
+template class TileIo<double>;
+template class TileIo<float>;
 template class TileInterpreter<double>;
 template class TileInterpreter<float>;
 template void initialiseState<double>(const Program&, double*, std::size_t);

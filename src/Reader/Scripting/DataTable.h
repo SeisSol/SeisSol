@@ -65,6 +65,47 @@ struct StridedView {
   bool writable{false};
 };
 
+/// A vector of coefficients per cell, for one named quantity -- what a contraction
+/// (expr::Kind::Contract) reads instead of a column. Coefficient m of cell c lies at
+///   base + index(c) * cellStride + m * modeStride   (in bytes),
+/// with index(c) = cellIndex[c] if given and c otherwise; the cells are those of the point set,
+/// point p belonging to cell p / pointsPerCell.
+///
+/// One input per quantity: an interleaved layout dofs[cell][mode][quantity] binds quantity q at
+/// base + q * paddedModes * sizeof(T) with modeStride = sizeof(T), and a fused simulation s at
+/// base + s * sizeof(T) with modeStride = NumSimulations * sizeof(T).
+struct BlockInput {
+  const void* base{nullptr};
+  std::size_t cellStride{0};
+  std::size_t modeStride{0};
+  /// Cell of the point set -> cell in memory, for a gathered subset of cells; null is the identity.
+  const std::uint32_t* cellIndex{nullptr};
+  DataType type{DataType::F64};
+  /// Coefficients available per cell; at least as many as a program contracts over.
+  std::size_t length{0};
+};
+
+/// A matrix blocks are contracted against: entry (row, m) at base[row + m * leadingDimension], one
+/// row per point of a cell and one column per coefficient -- the layout of
+/// numerical::projection::Table.
+struct MatrixInput {
+  const void* base{nullptr};
+  DataType type{DataType::F64};
+  std::size_t rows{0};
+  std::size_t cols{0};
+  std::size_t leadingDimension{0};
+};
+
+struct BlockEntry {
+  std::string name;
+  BlockInput input;
+};
+
+struct MatrixEntry {
+  std::string name;
+  MatrixInput input;
+};
+
 struct DataEntry {
   std::string name;
   Direction direction;
@@ -304,9 +345,49 @@ class DataTable {
                                         batchAccessor});
   }
 
+  /// A block of `length` coefficients per cell; strides in elements of T (cf. BlockInput).
+  template <typename T>
+  void bindBlock(std::string name,
+                 const T* base,
+                 std::size_t length,
+                 std::size_t cellStride,
+                 std::size_t modeStride = 1,
+                 const std::uint32_t* cellIndex = nullptr) {
+    BlockInput input;
+    input.base = base;
+    input.cellStride = cellStride * sizeof(T);
+    input.modeStride = modeStride * sizeof(T);
+    input.cellIndex = cellIndex;
+    input.type = DataTypeTraits<T>::Type;
+    input.length = length;
+    blockEntries_.push_back(BlockEntry{std::move(name), input});
+  }
+
+  void bindBlock(std::string name, const BlockInput& input) {
+    blockEntries_.push_back(BlockEntry{std::move(name), input});
+  }
+
+  /// A matrix with `rows` points per cell and `cols` coefficients (cf. MatrixInput).
+  template <typename T>
+  void bindMatrix(std::string name,
+                  const T* base,
+                  std::size_t rows,
+                  std::size_t cols,
+                  std::size_t leadingDimension) {
+    MatrixInput input;
+    input.base = base;
+    input.type = DataTypeTraits<T>::Type;
+    input.rows = rows;
+    input.cols = cols;
+    input.leadingDimension = leadingDimension;
+    matrixEntries_.push_back(MatrixEntry{std::move(name), input});
+  }
+
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
 
   [[nodiscard]] const std::vector<DataEntry>& dataEntries() const { return dataEntries_; }
+  [[nodiscard]] const std::vector<BlockEntry>& blockEntries() const { return blockEntries_; }
+  [[nodiscard]] const std::vector<MatrixEntry>& matrixEntries() const { return matrixEntries_; }
 
   private:
   /// Element-typed stride/offset erased to bytes, which is what both consumers
@@ -340,6 +421,8 @@ class DataTable {
   std::vector<std::shared_ptr<void>> constants_;
   std::size_t numPoints_;
   std::vector<DataEntry> dataEntries_;
+  std::vector<BlockEntry> blockEntries_;
+  std::vector<MatrixEntry> matrixEntries_;
 };
 
 } // namespace seissol::reader::scripting

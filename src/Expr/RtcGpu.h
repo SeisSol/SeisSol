@@ -131,11 +131,14 @@ enum class GpuRejection : std::uint8_t {
                                         const Binding& binding,
                                         bool (*deviceAccessible)(const void*));
 
-/// One column's element type and role, in Binding slot order. Part of the
-/// kernel cache key: the types are baked into the emitted source.
+/// One column's element type and role, in Binding slot order, and the element
+/// types of the matrices and blocks of the contractions. Part of the kernel cache
+/// key: the types are baked into the emitted source.
 struct GpuLayout {
   std::vector<reader::scripting::DataType> inputs;
   std::vector<reader::scripting::DataType> outputs;
+  std::vector<reader::scripting::DataType> matrices;
+  std::vector<reader::scripting::DataType> blocks;
 
   [[nodiscard]] std::uint64_t fingerprint() const;
 };

@@ -53,12 +53,16 @@ struct StageCost {
   /// Grid samples. Counted separately because their cost is a stencil gather
   /// and a tensor-product reduction, not an instruction -- see Interpolation.h.
   std::uint64_t lookups{0};
+  /// The multiply-adds of the contractions, one per coefficient. A contraction
+  /// also loads one matrix entry and one block coefficient per multiply-add,
+  /// which are counted under `loads`.
+  std::uint64_t fma{0};
   /// Loads from the gathered tile or the persistent buffer, and stores back.
   std::uint64_t loads{0};
   std::uint64_t stores{0};
 
   [[nodiscard]] std::uint64_t operations() const {
-    return additive + multiplicative + divisions + transcendentals;
+    return additive + multiplicative + divisions + transcendentals + fma;
   }
 
   /// Operations with the expensive ones weighted, for a single comparable
@@ -69,7 +73,7 @@ struct StageCost {
   static constexpr std::uint64_t TranscendentalWeight = 20;
 
   [[nodiscard]] std::uint64_t weighted() const {
-    return additive + multiplicative + DivisionWeight * divisions +
+    return additive + multiplicative + fma + DivisionWeight * divisions +
            TranscendentalWeight * transcendentals;
   }
 
@@ -93,8 +97,10 @@ struct ProgramCost {
 };
 
 /// Count what one point costs. Exact for everything except a lookup, whose cost
-/// is reported as a count rather than folded in.
-[[nodiscard]] ProgramCost cost(const LoweredProgram& lowered, ComputeType type);
+/// is reported as a count rather than folded in. `program` supplies the forms of
+/// the matrices a contraction runs over.
+[[nodiscard]] ProgramCost
+    cost(const Program& program, const LoweredProgram& lowered, ComputeType type);
 
 } // namespace seissol::expr
 

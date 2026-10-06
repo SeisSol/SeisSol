@@ -58,6 +58,14 @@ struct KernelArgs {
   std::size_t inputCount{0};
   std::size_t outputCount{0};
 
+  /// The same for the matrices and blocks of the contractions, in Program::matrices() and
+  /// Program::blocks() order. Moving the matrix base is how the subcells of a refined output share
+  /// one program: only the pointer changes between the calls.
+  const void* const* matrices{nullptr};
+  const void* const* blocks{nullptr};
+  std::size_t matrixCount{0};
+  std::size_t blockCount{0};
+
   /// Point range, in the Binding's (possibly permuted) index space.
   /// count == 1 is the element-wise form; nothing about the kernel changes.
   std::size_t first{0};

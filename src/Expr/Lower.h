@@ -67,7 +67,8 @@ enum class Opcode : std::uint8_t {
   LoadInput,      // imm = input index in the gathered tile
   LoadPersistent, // imm = persistent slot (state slot or hoisted value)
   Pw,             // fn, arity(fn) operands
-  Lookup          // grid, comp, argCount coordinate operands
+  Lookup,         // grid, comp, argCount coordinate operands
+  Contract        // matrix, block; no operands
 };
 
 const char* name(Opcode op);
@@ -86,6 +87,8 @@ struct Instruction {
   double value{0.0};
   GridId grid{NoGrid};
   std::int32_t comp{0};
+  MatrixId matrix{NoMatrix};
+  BlockId block{NoBlock};
   std::int32_t operandBegin{0};
   std::int32_t operandCount{0};
   std::int32_t dst{0}; // transient slot

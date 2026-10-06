@@ -78,7 +78,7 @@ Class classify(Fn fn) {
   return Class::Additive;
 }
 
-StageCost countStage(const StageCode& stage) {
+StageCost countStage(const Program& program, const StageCode& stage) {
   StageCost costs;
   for (const Instruction& inst : stage.code) {
     switch (inst.op) {
@@ -93,6 +93,12 @@ StageCost countStage(const StageCode& stage) {
     case Opcode::Lookup:
       ++costs.lookups;
       break;
+    case Opcode::Contract: {
+      const auto cols = program.matrices()[inst.matrix].shape.cols;
+      costs.fma += cols;
+      costs.loads += 2 * cols;
+      break;
+    }
     case Opcode::Pw:
       switch (classify(inst.fn)) {
       case Class::Additive:
@@ -135,6 +141,9 @@ std::string ProgramCost::summary(ComputeType type) const {
     out << label << ": " << costs.operations() << " ops (" << costs.additive << "+/-, "
         << costs.multiplicative << "*, " << costs.divisions << "/, " << costs.transcendentals
         << " transc.";
+    if (costs.fma > 0) {
+      out << ", " << costs.fma << " fma";
+    }
     if (costs.lookups > 0) {
       out << ", " << costs.lookups << " lookups";
     }
@@ -150,10 +159,10 @@ std::string ProgramCost::summary(ComputeType type) const {
   return out.str();
 }
 
-ProgramCost cost(const LoweredProgram& lowered, ComputeType /*type*/) {
+ProgramCost cost(const Program& program, const LoweredProgram& lowered, ComputeType /*type*/) {
   ProgramCost costs;
-  costs.precompute = countStage(lowered.precompute());
-  costs.run = countStage(lowered.run());
+  costs.precompute = countStage(program, lowered.precompute());
+  costs.run = countStage(program, lowered.run());
   return costs;
 }
 
