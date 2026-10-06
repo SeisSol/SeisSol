@@ -66,6 +66,9 @@ struct Cells {
   std::vector<RealT> dofs;
   std::vector<RealT> integrals;
   std::vector<double> jacobians; // 9 per cell, row-major d xi_k / d x_d
+  std::vector<seissol::geometry::AffineTransform> shapes;
+  // 12 per cell: the origin, then the images of the reference unit vectors less the origin
+  std::vector<double> transforms;
 
   Cells(std::size_t count, unsigned seed) : count(count) {
     std::mt19937 rng(seed);
@@ -94,6 +97,13 @@ struct Cells {
       for (std::size_t k = 0; k < 3; ++k) {
         for (std::size_t d = 0; d < 3; ++d) {
           jacobians.push_back(inverse(k, d));
+        }
+      }
+      shapes.push_back(transform);
+      transforms.insert(transforms.end(), origin.begin(), origin.end());
+      for (std::size_t k = 1; k < 4; ++k) {
+        for (std::size_t d = 0; d < 3; ++d) {
+          transforms.push_back(vertices[k][d] - origin[d]);
         }
       }
     }
@@ -158,6 +168,7 @@ struct Evaluation {
                              CellStride,
                              Simulations);
     }
+    program.bindGeometry(table, cells.transforms.data());
     if (program.readsJacobian()) {
       for (std::size_t k = 0; k < 3; ++k) {
         for (std::size_t d = 0; d < 3; ++d) {
@@ -642,6 +653,29 @@ TEST_CASE("DerivedOutput: the vocabulary is checked") {
   CHECK(readsTimeIntegral("int_v1_r2"));
   CHECK_FALSE(readsTimeIntegral("dy_v1"));
   CHECK_FALSE(readsTimeIntegral("v1"));
+}
+
+TEST_CASE("DerivedOutput: the coordinates are the affine map of the cell at its points") {
+  const auto program =
+      expr::compileSderivModule("out def px = x\nout def py = y\nout def pz = z\n");
+  const auto geometry = refinedGeometry(2);
+  Cells cells(5, 8);
+  const DerivedProgram derived(program, sources(), geometry);
+  CHECK(derived.readsCoordinates());
+  CHECK(derived.program().inputs().empty());
+  Evaluation evaluation(derived, cells);
+  reader::datafield::GridStore store;
+  kernelFor(evaluation, expr::BackendKind::Interpreter, store)->run(evaluation.table);
+  const auto& reference = derived.referencePoints();
+  for (std::size_t cell = 0; cell < cells.count; ++cell) {
+    for (std::size_t p = 0; p < reference.size(); ++p) {
+      const auto expected = cells.shapes[cell].refToSpace(reference[p]);
+      const std::size_t point = cell * reference.size() + p;
+      REQUIRE(evaluation.value("px", point) == doctest::Approx(expected[0]).epsilon(1e-14));
+      REQUIRE(evaluation.value("py", point) == doctest::Approx(expected[1]).epsilon(1e-14));
+      REQUIRE(evaluation.value("pz", point) == doctest::Approx(expected[2]).epsilon(1e-14));
+    }
+  }
 }
 
 TEST_CASE("DerivedOutput: the strain and rotation cost less than by hand" * doctest::skip(true)) {

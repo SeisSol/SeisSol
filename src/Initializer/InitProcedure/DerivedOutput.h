@@ -28,7 +28,9 @@
 // against a projection matrix (expr::Kind::Contract), so the program never sees a basis function
 // and the coefficients are not projected into a buffer first. Interning makes a contraction one
 // node however many outputs read it: the strain and rotation outputs together need the nine
-// reference derivatives of the velocities once, not once per output.
+// reference derivatives of the velocities once, not once per output. The coordinates are a
+// contraction as well, of the affine map of the cell against its reference points, so that a
+// program reads nothing that a device kernel could not.
 //
 // The subcells of a refined output are stacked into the rows of one matrix: the points of a cell
 // are its subcells times the output points of a subcell, so one program and one call cover them
@@ -94,7 +96,9 @@ class DerivedProgram {
   [[nodiscard]] std::size_t pointsPerSubcell() const { return pointsPerSubcell_; }
 
   /// The sources the program reads, as indices into the list it was prepared with, in the order
-  /// of Program::blocks() -- i.e. block i of the program is source usedSources()[i].
+  /// of Program::blocks(): block i is source usedSources()[i]. If the program reads the
+  /// coordinates, the blocks end with the affine map of the cell along x, y and z (see
+  /// bindGeometry()).
   [[nodiscard]] const std::vector<std::size_t>& usedSources() const { return usedSources_; }
 
   [[nodiscard]] bool readsJacobian() const { return readsJacobian_; }
@@ -109,6 +113,11 @@ class DerivedProgram {
 
   /// Binds the projection matrices, which this object owns, to `table`.
   void bindMatrices(reader::scripting::DataTable& table) const;
+
+  /// Binds the affine maps of the cells if the program reads the coordinates: 12 per cell in the
+  /// order of the point set, the origin, then the images of the reference unit vectors less the
+  /// origin.
+  void bindGeometry(reader::scripting::DataTable& table, const double* transforms) const;
 
   private:
   struct Matrix {

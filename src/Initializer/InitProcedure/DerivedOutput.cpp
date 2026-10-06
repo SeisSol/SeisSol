@@ -63,6 +63,13 @@ constexpr std::array<char, 3> AxisNames{'x', 'y', 'z'};
 /// The prefix of a quantity that names its time integral.
 const std::string IntegralPrefix = "int_";
 
+/// The affine map of a cell is contracted against the matrix of this name, whose row p is
+/// (1, xi_0, xi_1, xi_2) for output point p, and the blocks of this prefix, one per axis.
+const std::string GeometryMatrix = "geometry";
+const std::string GeometryPrefix = "geometry_";
+constexpr std::size_t GeometryColumns = 4;
+constexpr std::size_t TransformSize = GeometryColumns * 3;
+
 std::string jacobianName(std::size_t row, std::size_t column) {
   return "jinv" + std::to_string(row) + std::to_string(column);
 }
@@ -306,9 +313,36 @@ DerivedProgram::DerivedProgram(expr::Program program,
     }
   }
 
-  // Values and reference derivatives become contractions; a physical derivative becomes the
-  // chain rule over the reference derivatives, summed in the order of the reference directions
-  // and with the derivative on the left, as the hand-written outputs did.
+  referencePoints_.reserve(pointsPerCell_);
+  for (const auto& subcell : geometry.subcells) {
+    for (const auto& point : geometry.dataBase) {
+      referencePoints_.push_back(subcell(point));
+    }
+  }
+
+  // The coordinates are the affine map of the cell at its reference points.
+  expr::MatrixId geometryMatrix = expr::NoMatrix;
+  std::array<expr::BlockId, 3> geometryBlocks{expr::NoBlock, expr::NoBlock, expr::NoBlock};
+  if (readsCoordinates_) {
+    geometryMatrix = program_.internMatrix(
+        GeometryMatrix, expr::MatrixShape{pointsPerCell_, GeometryColumns, pointsPerCell_});
+    std::vector<double> values(pointsPerCell_ * GeometryColumns);
+    for (std::size_t point = 0; point < pointsPerCell_; ++point) {
+      values[point] = 1.0;
+      for (std::size_t direction = 0; direction < 3; ++direction) {
+        values[point + (1 + direction) * pointsPerCell_] = referencePoints_[point][direction];
+      }
+    }
+    matrices_.push_back(Matrix{GeometryMatrix, std::move(values), GeometryColumns});
+    for (std::size_t axis = 0; axis < 3; ++axis) {
+      geometryBlocks[axis] =
+          program_.internBlock(GeometryPrefix + AxisNames[axis], GeometryColumns);
+    }
+  }
+
+  // Values, reference derivatives and coordinates become contractions; a physical derivative
+  // becomes the chain rule over the reference derivatives, summed in the order of the reference
+  // directions and with the derivative on the left, as the hand-written outputs did.
   std::map<std::string, expr::ChannelBuilder> builders;
   for (const auto& [name, channel] : channels) {
     const auto block = channel.kind == Kind::Value || channel.kind == Kind::Reference ||
@@ -344,6 +378,13 @@ DerivedProgram::DerivedProgram(expr::Program program,
       });
       break;
     }
+    case Kind::Coordinate: {
+      const auto axisBlock = geometryBlocks[channel.direction];
+      builders.emplace(name, [geometryMatrix, axisBlock](Arena& arena) {
+        return arena.contract(geometryMatrix, axisBlock);
+      });
+      break;
+    }
     default:
       break;
     }
@@ -351,19 +392,22 @@ DerivedProgram::DerivedProgram(expr::Program program,
   if (!builders.empty()) {
     expr::substituteChannels(program_, builders);
   }
-
-  referencePoints_.reserve(pointsPerCell_);
-  for (const auto& subcell : geometry.subcells) {
-    for (const auto& point : geometry.dataBase) {
-      referencePoints_.push_back(subcell(point));
-    }
-  }
 }
 
 void DerivedProgram::bindMatrices(DataTable& table) const {
   for (const auto& matrix : matrices_) {
     table.bindMatrix<double>(
         matrix.name, matrix.values.data(), pointsPerCell_, matrix.cols, pointsPerCell_);
+  }
+}
+
+void DerivedProgram::bindGeometry(DataTable& table, const double* transforms) const {
+  if (!readsCoordinates_) {
+    return;
+  }
+  for (std::size_t axis = 0; axis < 3; ++axis) {
+    table.bindBlock<double>(
+        GeometryPrefix + AxisNames[axis], transforms + axis, GeometryColumns, TransformSize, 3);
   }
 }
 
@@ -713,7 +757,7 @@ DerivedVolumeOutput<Cfg>::DerivedVolumeOutput(seissol::SeisSol& seissolInstance,
     const auto barycenter =
         seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data());
     jacobians_.resize(written.size() * 9);
-    transforms_.resize(written.size() * 12);
+    transforms_.resize(written.size() * TransformSize);
     for (std::size_t i = 0; i < written.size(); ++i) {
       const auto transform =
           seissol::geometry::AffineTransform::fromMeshCell(cells[written[i].index], meshReader);
@@ -726,14 +770,14 @@ DerivedVolumeOutput<Cfg>::DerivedVolumeOutput(seissol::SeisSol& seissolInstance,
       }
       const auto origin = transform.refToSpace(std::array<double, 3>{0, 0, 0});
       for (std::size_t axis = 0; axis < 3; ++axis) {
-        transforms_[i * 12 + axis] = origin[axis];
+        transforms_[i * TransformSize + axis] = origin[axis];
       }
       for (std::size_t direction = 0; direction < 3; ++direction) {
         std::array<double, 3> unit{0, 0, 0};
         unit[direction] = 1;
         const auto image = transform.refToSpace(unit);
         for (std::size_t axis = 0; axis < 3; ++axis) {
-          transforms_[i * 12 + 3 + direction * 3 + axis] = image[axis] - origin[axis];
+          transforms_[i * TransformSize + 3 + direction * 3 + axis] = image[axis] - origin[axis];
         }
       }
     }
@@ -784,22 +828,7 @@ DerivedVolumeOutput<Cfg>::DerivedVolumeOutput(seissol::SeisSol& seissolInstance,
         }
       }
     }
-    if (derived_.readsCoordinates()) {
-      for (std::size_t axis = 0; axis < 3; ++axis) {
-        table.bindComputedBatch<double>(
-            std::string(1, AxisNames[axis]),
-            [this, axis, pointsPerCell](std::size_t first, std::size_t count, double* out) {
-              const auto& reference = derived_.referencePoints();
-              for (std::size_t i = 0; i < count; ++i) {
-                const std::size_t point = first + i;
-                const double* transform = transforms_.data() + (point / pointsPerCell) * 12;
-                const auto& xi = reference[point % pointsPerCell];
-                out[i] = transform[axis] + transform[3 + axis] * xi[0] +
-                         transform[6 + axis] * xi[1] + transform[9 + axis] * xi[2];
-              }
-            });
-      }
-    }
+    derived_.bindGeometry(table, transforms_.data());
     if (timeInput_.has_value()) {
       table.bindViewConst<double>("t", Direction::In, &boundTime_, 0);
     }
@@ -873,6 +902,7 @@ void DerivedVolumeOutput<Cfg>::evaluate(const std::vector<std::size_t>& runs, do
       expr::KernelArgs args;
       args.inputs = inputs.data();
       args.inputCount = inputs.size();
+      // the blocks of the affine maps come after those of the sources, and stay where bound
       args.blocks = run.blocks[item.simulation].data();
       args.blockCount = run.blocks[item.simulation].size();
       args.first = item.firstCell * pointsPerCell;
