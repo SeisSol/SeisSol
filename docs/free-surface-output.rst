@@ -61,6 +61,30 @@ It has the value 2 for an ordinary free surface boundary condition and the value
 boundary condition.
 This value can be used to filter the output (which contains all these surfaces), for example using Paraview's Threshold filter.
 
+Derived outputs
+---------------
+
+``surfacescript`` names a program whose outputs are written along with the free surface, at the
+same points; it is written like the one of the wavefield output (see :ref:`derived_outputs`). On a
+face, a program reads the quantities of the cell the face belongs to, with their derivatives, and
+in addition the displacement of the face, ``u1``, ``u2``, ``u3`` (without derivatives); ``x``,
+``y``, ``z`` are the output points on the face. The built-in outputs are computed the same way.
+
+.. code-block:: text
+
+   # surface.sderiv: the peak ground displacement and velocity, and the divergence of the velocity
+   state pgd = 0.0
+   state pgv = 0.0
+   out def pgd = max(pgd, sqrt(u1*u1 + u2*u2 + u3*u3))
+   out def pgv = max(pgv, sqrt(v1*v1 + v2*v2 + v3*v3))
+   out def divv = dx_v1 + dy_v2 + dz_v3
+
+.. code-block:: Fortran
+
+   &Output
+   surfacescript = 'sderiv:surface.sderiv'
+   /
+
 High-Order VTKHDF Output
 ------------------------
 

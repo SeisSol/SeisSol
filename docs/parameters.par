@@ -207,6 +207,7 @@ SurfaceOutputMask = 0 0 0 0 0 0 1 1 1
 surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
 
 surfaceprojection = 'l2' ! as wavefieldprojection, for the free-surface output
+! surfacescript = 'sderiv:surface.sderiv' ! (optional) further outputs, computed by a program
 
 surfacetimeseries = 'snapshot' ! overrides outputtimeseries for the free-surface output
 

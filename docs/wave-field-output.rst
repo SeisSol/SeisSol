@@ -151,6 +151,8 @@ High-Order VTKHDF Output
 
 The high-order wavefield output can be enabled by setting ``wavefieldvtkorder`` in the ``output`` section to a positive value, corresponding to the order of the output polynomial per cell.
 
+.. _derived_outputs:
+
 Derived outputs
 ---------------
 
@@ -161,7 +163,8 @@ same points. It is an sderiv module (``sderiv:file`` or a ``.sderiv`` file) or a
 | ``q`` -- a quantity of the solution, e.g. ``v1`` or ``s_xx``
 | ``q_r0``, ``q_r1``, ``q_r2`` -- its derivative along the reference coordinates of the cell
 | ``dx_q``, ``dy_q``, ``dz_q`` -- its derivative in space
-| ``int_q`` -- the time integral of ``q`` (and its derivatives as above, e.g. ``dx_int_v1``)
+| ``int_q`` -- the time integral of ``q`` since the start, as the ``int-`` outputs write it (and
+  its derivatives as above, e.g. ``dx_int_v1``)
 | ``ep_xx`` ... ``eta`` -- the plastic strain, with plasticity
 | ``jinv00`` ... ``jinv22`` -- the inverse Jacobian of the cell, ``jinvkd`` = d xi_k / d x_d
 | ``x``, ``y``, ``z``, ``t`` -- the output point and the time

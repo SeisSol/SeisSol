@@ -186,8 +186,10 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
 
+  const auto script = reader->readPath("surfacescript").value_or("");
+
   return FreeSurfaceOutputParameters{
-      enabled, refinement, interval, vtkorder, surfaceOutputMask, projection, timeSeries};
+      enabled, refinement, interval, vtkorder, surfaceOutputMask, projection, timeSeries, script};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {

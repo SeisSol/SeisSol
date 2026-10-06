@@ -150,7 +150,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     colorsGhost[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
-  const auto needsIntegration = waveFieldOutputReadsIntegrals(seissolInstance);
+  const auto needsIntegration = derivedOutputsReadIntegrals(seissolInstance);
   const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
 
   logInfo() << "Creating mesh layout...";

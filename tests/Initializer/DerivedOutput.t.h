@@ -20,6 +20,7 @@
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "IO/Instance/Geometry/Points.h"
 #include "IO/Instance/Geometry/Refinement.h"
 #include "Initializer/InitProcedure/DerivedOutput.h"
@@ -41,6 +42,7 @@
 #include <random>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test::derived_output {
@@ -123,10 +125,10 @@ inline std::vector<DerivedSource> sources() {
   std::vector<DerivedSource> result;
   result.reserve(2 * MaterialT::Quantities.size());
   for (const auto& name : MaterialT::Quantities) {
-    result.push_back(DerivedSource{name, false});
+    result.push_back(DerivedSource{name, Representation::Modal});
   }
   for (const auto& name : MaterialT::Quantities) {
-    result.push_back(DerivedSource{"int_" + name, false});
+    result.push_back(DerivedSource{"int_" + name, Representation::Modal});
   }
   return result;
 }
@@ -141,41 +143,127 @@ inline DerivedGeometry refinedGeometry(std::size_t degree) {
   return geometry;
 }
 
+// the coefficients of the displacement of a face: from one face to the next, and from one
+// component to the next
+constexpr std::size_t FaceStride = tensor::faceDisplacement<Cfg>::size();
+constexpr std::size_t ComponentStride =
+    tensor::faceDisplacement<Cfg>::Size /
+    tensor::faceDisplacement<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+
+/// Faces of the free surface: face i lies on side i % 4 of cell i, and has a random displacement.
+struct Faces {
+  Cells cells;
+  std::vector<RealT> displacements;
+  std::vector<seissol::geometry::AffineFaceTransform> shapes;
+  // 12 per face: the origin, then the images of the two reference unit vectors of the face less
+  // the origin, and zeros
+  std::vector<double> transforms;
+
+  Faces(std::size_t count, unsigned seed) : cells(count, seed) {
+    std::mt19937 rng(seed + 1000);
+    std::uniform_real_distribution<double> value(-1.0, 1.0);
+    displacements.resize(count * FaceStride);
+    for (auto& entry : displacements) {
+      entry = static_cast<RealT>(value(rng));
+    }
+    using FaceVectorT = seissol::geometry::FaceTransform::FaceVectorT;
+    for (std::size_t face = 0; face < count; ++face) {
+      shapes.emplace_back(cells.shapes[face], seissol::geometry::ReferenceFaceMap(side(face)));
+      const auto origin = shapes.back().refToSpace(FaceVectorT(0.0, 0.0));
+      const auto first = shapes.back().refToSpace(FaceVectorT(1.0, 0.0));
+      const auto second = shapes.back().refToSpace(FaceVectorT(0.0, 1.0));
+      for (std::size_t d = 0; d < 3; ++d) {
+        transforms.push_back(origin(d));
+      }
+      for (std::size_t d = 0; d < 3; ++d) {
+        transforms.push_back(first(d) - origin(d));
+      }
+      for (std::size_t d = 0; d < 3; ++d) {
+        transforms.push_back(second(d) - origin(d));
+      }
+      for (std::size_t d = 0; d < 3; ++d) {
+        transforms.push_back(0.0);
+      }
+    }
+  }
+
+  [[nodiscard]] static std::size_t side(std::size_t face) { return face % Cell::NumFaces; }
+};
+
+/// The quantities a face offers: those of its cell, and its displacement.
+inline std::vector<DerivedSource> surfaceSources() {
+  auto result = sources();
+  for (const auto* name : {"u1", "u2", "u3"}) {
+    result.push_back(DerivedSource{name, Representation::FaceNodal});
+  }
+  return result;
+}
+
+inline DerivedSurfaceGeometry surfaceGeometry(std::size_t degree, std::size_t refinement) {
+  DerivedSurfaceGeometry geometry;
+  for (std::size_t i = 0; i < refinement; ++i) {
+    geometry.subcells = io::instance::geometry::subdivideMaps(
+        geometry.subcells, io::instance::geometry::TriangleRefine4);
+  }
+  geometry.dataBase = io::instance::geometry::pointsTriangle(degree);
+  geometry.dataOrder = degree;
+  geometry.order = Cfg::ConvergenceOrder;
+  return geometry;
+}
+
 /// A program bound to cells, as the volume output binds it: one block per quantity, the inverse
-/// Jacobian per cell, and one column per output.
+/// Jacobian per cell, and one column per output. With `faces`, bound to the faces as the free
+/// surface output binds them, and run face by face with the matrices of the side of the face.
 struct Evaluation {
   const DerivedProgram* derived;
+  const Faces* faces;
   std::size_t numPoints;
   std::vector<double> values;
   DataTable table;
   expr::Binding binding;
 
-  Evaluation(const DerivedProgram& program, Cells& cells, std::size_t simulation = 0)
-      : derived(&program), numPoints(cells.count * program.pointsPerCell()),
+  Evaluation(const DerivedProgram& program,
+             Cells& cells,
+             std::size_t simulation = 0,
+             const Faces* faces = nullptr)
+      : derived(&program), faces(faces), numPoints(cells.count * program.pointsPerElement()),
         values(program.program().outputs().size() * numPoints,
                std::numeric_limits<double>::quiet_NaN()),
         table(numPoints), binding(bindAll(program, cells, simulation)) {}
 
   expr::Binding bindAll(const DerivedProgram& program, Cells& cells, std::size_t simulation) {
-    const auto all = sources();
+    constexpr std::size_t Quantities = MaterialT::Quantities.size();
     program.bindMatrices(table);
     for (std::size_t b = 0; b < program.usedSources().size(); ++b) {
       const std::size_t source = program.usedSources()[b];
-      const std::size_t quantity = source % MaterialT::Quantities.size();
-      const auto& storage = source < MaterialT::Quantities.size() ? cells.dofs : cells.integrals;
-      table.bindBlock<RealT>(program.program().blocks()[b].name,
-                             storage.data() + quantity * QuantityStride + simulation,
-                             program.program().blocks()[b].length,
-                             CellStride,
-                             Simulations);
+      const auto& block = program.program().blocks()[b];
+      if (source < 2 * Quantities) {
+        const std::size_t quantity = source % Quantities;
+        const auto& storage = source < Quantities ? cells.dofs : cells.integrals;
+        table.bindBlock<RealT>(block.name,
+                               storage.data() + quantity * QuantityStride + simulation,
+                               block.length,
+                               CellStride,
+                               Simulations);
+      } else {
+        REQUIRE(faces != nullptr);
+        const std::size_t component = source - 2 * Quantities;
+        table.bindBlock<RealT>(block.name,
+                               faces->displacements.data() + component * ComponentStride +
+                                   simulation,
+                               block.length,
+                               FaceStride,
+                               Simulations);
+      }
     }
-    program.bindGeometry(table, cells.transforms.data());
+    program.bindGeometry(table,
+                         faces != nullptr ? faces->transforms.data() : cells.transforms.data());
     if (program.readsJacobian()) {
       for (std::size_t k = 0; k < 3; ++k) {
         for (std::size_t d = 0; d < 3; ++d) {
           table.bindCellView<double>("jinv" + std::to_string(k) + std::to_string(d),
                                      cells.jacobians.data(),
-                                     program.pointsPerCell(),
+                                     program.pointsPerElement(),
                                      9,
                                      k * 3 + d);
         }
@@ -186,6 +274,23 @@ struct Evaluation {
           program.program().outputs()[j].name, Direction::Out, values.data() + j * numPoints);
     }
     return expr::Binding::bind(program.program(), table);
+  }
+
+  void run(expr::Kernel& kernel) const {
+    if (faces == nullptr) {
+      kernel.run(table);
+      return;
+    }
+    const std::size_t pointsPerElement = derived->pointsPerElement();
+    for (std::size_t face = 0; face < numPoints / pointsPerElement; ++face) {
+      const auto matrices = derived->matrixBases(Faces::side(face));
+      expr::KernelArgs args;
+      args.matrices = matrices.data();
+      args.matrixCount = matrices.size();
+      args.first = face * pointsPerElement;
+      args.count = pointsPerElement;
+      kernel.run(args);
+    }
   }
 
   [[nodiscard]] double value(const std::string& output, std::size_t point) const {
@@ -319,6 +424,111 @@ class HandWritten {
   std::array<std::shared_ptr<projection::Table<3, 3, RealT>>, 3> projD_;
 };
 
+/// The affine embedding of the reference triangle into side `side` of the reference tetrahedron,
+/// as the free surface output of master built it.
+inline numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
+  const std::array<std::array<double, 2>, 3> corners = {
+      std::array<double, 2>{0, 0}, std::array<double, 2>{1, 0}, std::array<double, 2>{0, 1}};
+  const auto faceMap = seissol::geometry::ReferenceFaceMap(side);
+  std::vector<std::array<double, 3>> vertices;
+  vertices.reserve(corners.size());
+  for (const auto& chiTau : corners) {
+    const auto xez =
+        faceMap.faceToCell(seissol::geometry::ReferenceFaceMap::FaceVectorT(chiTau.data()));
+    vertices.push_back({xez(0), xez(1), xez(2)});
+  }
+  return numerical::AffineMap<2, 3>::fromVertices(vertices);
+}
+
+/// The free surface outputs as master computed them, through the generated kernels, kept
+/// verbatim apart from the plumbing.
+class HandWrittenSurface {
+  public:
+  HandWrittenSurface(const DerivedSurfaceGeometry& geometry, std::size_t degree)
+      : degree_(degree), pointsPerSubcell_(geometry.dataBase.size()) {
+    // volume basis -> face points, one table per side of the reference tetrahedron
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+      const auto embedding = faceEmbedding(f);
+      std::vector<numerical::AffineMap<2, 3>> embedded;
+      embedded.reserve(geometry.subcells.size());
+      for (const auto& subcell : geometry.subcells) {
+        embedded.emplace_back(embedding.compose(subcell));
+      }
+      projection::Spec spec;
+      spec.target = geometry.target;
+      proj_[f] = std::make_shared<projection::Table<2, 3, RealT>>(embedded,
+                                                                  geometry.dataBase,
+                                                                  geometry.dataOrder,
+                                                                  stride<tensor::collvf<Cfg>>(),
+                                                                  spec,
+                                                                  1,
+                                                                  Cfg::ConvergenceOrder);
+    }
+    // face nodes -> face points
+    projection::Spec faceSpec;
+    faceSpec.source = projection::Source::Nodal;
+    faceSpec.target = geometry.target;
+    faceSpec.nodalSet = projection::NodalSet::WarpBlend;
+    projf_ = std::make_shared<projection::Table<2, 2, RealT>>(geometry.subcells,
+                                                              geometry.dataBase,
+                                                              geometry.dataOrder,
+                                                              stride<tensor::collnf<Cfg>>(),
+                                                              faceSpec,
+                                                              1,
+                                                              Cfg::ConvergenceOrder);
+  }
+
+  void value(double* target,
+             const RealT* dofsSingleQuantity,
+             std::size_t side,
+             std::size_t subcell) const {
+    constexpr auto Variant = configIdOf<Cfg>();
+    runtime::kernel::projectBasisToVtkFaceFromVolume vtkproj{};
+    memory::AlignedArray<RealT, Cfg::NumSimulations> simselect{};
+    alignas(Alignment) std::array<RealT, MaxVtk2dPoints> alignedTarget{};
+    simselect[0] = 1;
+    vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
+    vtkproj.qb = runtime::init::qb::view(Variant, dofsSingleQuantity);
+    vtkproj.xf(degree_) = runtime::init::xf::view(Variant, degree_, alignedTarget.data());
+    vtkproj.collvf(Cfg::ConvergenceOrder, degree_) = runtime::init::collvf::view(
+        Variant, Cfg::ConvergenceOrder, degree_, (*proj_[side])(subcell, Cfg::ConvergenceOrder));
+    vtkproj.execute(Variant, degree_);
+    std::copy_n(alignedTarget.data(), pointsPerSubcell_, target);
+  }
+
+  void displacement(double* target,
+                    const RealT* faceDisplacementVariable,
+                    std::size_t subcell) const {
+    constexpr auto Variant = configIdOf<Cfg>();
+    runtime::kernel::projectNodalToVtkFace vtkproj{};
+    memory::AlignedArray<RealT, Cfg::NumSimulations> simselect{};
+    alignas(Alignment) std::array<RealT, MaxVtk2dPoints> alignedTarget{};
+    simselect[0] = 1;
+    vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
+    vtkproj.pn = runtime::init::pn::view(Variant, faceDisplacementVariable);
+    vtkproj.xf(degree_) = runtime::init::xf::view(Variant, degree_, alignedTarget.data());
+    vtkproj.collnf(Cfg::ConvergenceOrder, degree_) = runtime::init::collnf::view(
+        Variant, Cfg::ConvergenceOrder, degree_, (*projf_)(subcell, Cfg::ConvergenceOrder));
+    vtkproj.execute(Variant, degree_);
+    std::copy_n(alignedTarget.data(), pointsPerSubcell_, target);
+  }
+
+  static constexpr std::size_t MaxVtk2dPoints = tensor::vtk2d<Cfg>::Shape
+      [(sizeof(tensor::vtk2d<Cfg>::Shape) / sizeof(tensor::vtk2d<Cfg>::Shape[0])) - 1][1];
+
+  private:
+  template <typename TensorT>
+  [[nodiscard]] std::size_t stride() const {
+    const auto index = TensorT::index(Cfg::ConvergenceOrder, degree_);
+    return TensorT::Size[index] / TensorT::Shape[index][1];
+  }
+
+  std::size_t degree_;
+  std::size_t pointsPerSubcell_;
+  std::array<std::shared_ptr<projection::Table<2, 3, RealT>>, Cell::NumFaces> proj_;
+  std::shared_ptr<projection::Table<2, 2, RealT>> projf_;
+};
+
 inline WaveFieldSelection fullSelection() {
   WaveFieldSelection selection;
   selection.quantities.assign(MaterialT::Quantities.begin(), MaterialT::Quantities.end());
@@ -349,7 +559,7 @@ TEST_CASE("DerivedOutput: the built-in program reproduces the hand-written wave 
   Cells cells(7, 1);
 
   const DerivedProgram derived(waveFieldProgram(fullSelection()), sources(), geometry);
-  REQUIRE(derived.pointsPerCell() == geometry.subcells.size() * geometry.dataBase.size());
+  REQUIRE(derived.pointsPerElement() == geometry.subcells.size() * geometry.dataBase.size());
   Evaluation evaluation(derived, cells);
   reader::datafield::GridStore store;
   kernelFor(evaluation, expr::BackendKind::Interpreter, store)->run(evaluation.table);
@@ -359,7 +569,7 @@ TEST_CASE("DerivedOutput: the built-in program reproduces the hand-written wave 
   std::vector<double> reference(pointsPerSubcell);
   const auto check = [&](const std::string& output, std::size_t cell, std::size_t subcell) {
     for (std::size_t i = 0; i < pointsPerSubcell; ++i) {
-      const std::size_t point = cell * derived.pointsPerCell() + subcell * pointsPerSubcell + i;
+      const std::size_t point = cell * derived.pointsPerElement() + subcell * pointsPerSubcell + i;
       REQUIRE(evaluation.value(output, point) == doctest::Approx(reference[i]).epsilon(Tolerance));
     }
   };
@@ -451,7 +661,8 @@ TEST_CASE("DerivedOutput: contractions, chain rule and stacking are exact") {
         return base + (MaterialT::VelocityOffset + i) * QuantityStride;
       };
       for (std::size_t p = 0; p < pointsPerSubcell; ++p) {
-        const std::size_t point = cell * derived.pointsPerCell() + subcell * pointsPerSubcell + p;
+        const std::size_t point =
+            cell * derived.pointsPerElement() + subcell * pointsPerSubcell + p;
         for (const auto& [name, i, j] : StrainIndices) {
           const double first = derivative(velocity(integrals, i), p, j);
           const double expected =
@@ -640,7 +851,7 @@ TEST_CASE("DerivedOutput: the vocabulary is checked") {
   CHECK(derived.readsTime());
   CHECK(derived.readsTimeStep());
   CHECK(derived.usedSources() == std::vector<std::size_t>{0});
-  CHECK(derived.referencePoints().size() == derived.pointsPerCell());
+  CHECK(VolumePoints(geometry).referencePoints().size() == derived.pointsPerElement());
 
   CHECK(readsTimeIntegral("int_v1"));
   CHECK(readsTimeIntegral("dy_int_v1"));
@@ -649,27 +860,155 @@ TEST_CASE("DerivedOutput: the vocabulary is checked") {
   CHECK_FALSE(readsTimeIntegral("v1"));
 }
 
-TEST_CASE("DerivedOutput: the coordinates are the affine map of the cell at its points") {
-  const auto program =
-      expr::compileSderivModule("out def px = x\nout def py = y\nout def pz = z\n");
-  const auto geometry = refinedGeometry(2);
-  Cells cells(5, 8);
-  const DerivedProgram derived(program, sources(), geometry);
-  CHECK(derived.readsCoordinates());
-  CHECK(derived.program().inputs().empty());
-  Evaluation evaluation(derived, cells);
-  reader::datafield::GridStore store;
-  kernelFor(evaluation, expr::BackendKind::Interpreter, store)->run(evaluation.table);
-  const auto& reference = derived.referencePoints();
-  for (std::size_t cell = 0; cell < cells.count; ++cell) {
-    for (std::size_t p = 0; p < reference.size(); ++p) {
-      const auto expected = cells.shapes[cell].refToSpace(reference[p]);
-      const std::size_t point = cell * reference.size() + p;
-      REQUIRE(evaluation.value("px", point) == doctest::Approx(expected[0]).epsilon(1e-14));
-      REQUIRE(evaluation.value("py", point) == doctest::Approx(expected[1]).epsilon(1e-14));
-      REQUIRE(evaluation.value("pz", point) == doctest::Approx(expected[2]).epsilon(1e-14));
+TEST_CASE("DerivedOutput: the built-in surface program reproduces the hand-written outputs") {
+  // the unrefined default of the free surface output, and a refined higher-order one
+  for (const auto& levels :
+       {std::pair<std::size_t, std::size_t>{0, 0}, std::pair<std::size_t, std::size_t>{2, 1}}) {
+    // (a structured binding cannot be captured where OpenMP is enabled)
+    const std::size_t degree = levels.first;
+    const std::size_t refinement = levels.second;
+    CAPTURE(degree);
+    const auto geometry = surfaceGeometry(degree, refinement);
+    Faces faces(8, 7 + static_cast<unsigned>(degree));
+
+    const std::vector<std::string> quantities(MaterialT::Quantities.begin(),
+                                              MaterialT::Quantities.end());
+    const DerivedProgram derived(
+        surfaceProgram(quantities, std::vector<bool>(quantities.size(), true)),
+        surfaceSources(),
+        SurfacePoints(geometry));
+    REQUIRE(derived.pointsPerElement() == geometry.subcells.size() * geometry.dataBase.size());
+    Evaluation evaluation(derived, faces.cells, 0, &faces);
+    reader::datafield::GridStore store;
+    evaluation.run(*kernelFor(evaluation, expr::BackendKind::Interpreter, store));
+
+    const HandWrittenSurface master(geometry, degree);
+    const std::size_t pointsPerSubcell = derived.pointsPerSubcell();
+    std::vector<double> reference(pointsPerSubcell);
+    const auto check = [&](const std::string& output, std::size_t face, std::size_t subcell) {
+      for (std::size_t i = 0; i < pointsPerSubcell; ++i) {
+        const std::size_t point =
+            face * derived.pointsPerElement() + subcell * pointsPerSubcell + i;
+        REQUIRE(evaluation.value(output, point) ==
+                doctest::Approx(reference[i]).epsilon(Tolerance));
+      }
+    };
+
+    for (std::size_t face = 0; face < faces.cells.count; ++face) {
+      const RealT* dofs = faces.cells.dofs.data() + face * CellStride;
+      const RealT* displacement = faces.displacements.data() + face * FaceStride;
+      for (std::size_t subcell = 0; subcell < geometry.subcells.size(); ++subcell) {
+        for (std::size_t q = 0; q < MaterialT::Quantities.size(); ++q) {
+          master.value(reference.data(), dofs + q * QuantityStride, Faces::side(face), subcell);
+          check(MaterialT::Quantities[q], face, subcell);
+        }
+        for (std::size_t component = 0; component < 3; ++component) {
+          master.displacement(
+              reference.data(), displacement + component * ComponentStride, subcell);
+          check("u" + std::to_string(component + 1), face, subcell);
+        }
+      }
     }
   }
+}
+
+TEST_CASE("DerivedOutput: a derivative on a face is the one in the cell at the same points") {
+  // with point evaluation on both, a face output point is a cell output point like any other
+  auto geometry = surfaceGeometry(2, 1);
+  geometry.target = projection::Target::Interpolate;
+  Faces faces(8, 11);
+
+  const std::string& quantity = MaterialT::Quantities[MaterialT::VelocityOffset];
+  const auto program = expr::compileSderivModule("out def a = dx_" + quantity + " * dz_int_" +
+                                                 quantity + " + dy_" + quantity + "\n");
+  const DerivedProgram onFaces(program, surfaceSources(), SurfacePoints(geometry));
+  Evaluation surface(onFaces, faces.cells, 0, &faces);
+  reader::datafield::GridStore store;
+  surface.run(*kernelFor(surface, expr::BackendKind::Interpreter, store));
+
+  const auto reference = SurfacePoints(geometry).referencePoints();
+  for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+    DerivedGeometry inCell;
+    inCell.order = Cfg::ConvergenceOrder;
+    inCell.dataBase.clear();
+    for (const auto& point : reference) {
+      inCell.dataBase.push_back(faceEmbedding(side)({point[0], point[1]}));
+    }
+    const DerivedProgram inCells(program, sources(), inCell);
+    Evaluation volume(inCells, faces.cells);
+    volume.run(*kernelFor(volume, expr::BackendKind::Interpreter, store));
+    for (std::size_t face = side; face < faces.cells.count; face += Cell::NumFaces) {
+      for (std::size_t p = 0; p < reference.size(); ++p) {
+        const std::size_t point = face * reference.size() + p;
+        REQUIRE(surface.value("a", point) ==
+                doctest::Approx(volume.value("a", point)).epsilon(1e-12));
+      }
+    }
+  }
+}
+
+TEST_CASE("DerivedOutput: the coordinates are the affine map of the element at its points") {
+  const auto program =
+      expr::compileSderivModule("out def px = x\nout def py = y\nout def pz = z\n");
+  reader::datafield::GridStore store;
+
+  // the cells of the wave field
+  const auto volumeGeometry = refinedGeometry(2);
+  Cells cells(5, 8);
+  const DerivedProgram inCells(program, sources(), volumeGeometry);
+  CHECK(inCells.readsCoordinates());
+  CHECK(inCells.program().inputs().empty());
+  Evaluation volume(inCells, cells);
+  volume.run(*kernelFor(volume, expr::BackendKind::Interpreter, store));
+  const auto cellPoints = VolumePoints(volumeGeometry).referencePoints();
+  for (std::size_t cell = 0; cell < cells.count; ++cell) {
+    for (std::size_t p = 0; p < cellPoints.size(); ++p) {
+      const auto expected = cells.shapes[cell].refToSpace(cellPoints[p]);
+      const std::size_t point = cell * cellPoints.size() + p;
+      REQUIRE(volume.value("px", point) == doctest::Approx(expected[0]).epsilon(1e-14));
+      REQUIRE(volume.value("py", point) == doctest::Approx(expected[1]).epsilon(1e-14));
+      REQUIRE(volume.value("pz", point) == doctest::Approx(expected[2]).epsilon(1e-14));
+    }
+  }
+
+  // the faces of the free surface
+  const auto surfaceGeometryRefined = surfaceGeometry(2, 1);
+  Faces faces(8, 9);
+  const DerivedProgram onFaces(program, surfaceSources(), SurfacePoints(surfaceGeometryRefined));
+  Evaluation surface(onFaces, faces.cells, 0, &faces);
+  surface.run(*kernelFor(surface, expr::BackendKind::Interpreter, store));
+  const auto facePoints = SurfacePoints(surfaceGeometryRefined).referencePoints();
+  for (std::size_t face = 0; face < faces.cells.count; ++face) {
+    for (std::size_t p = 0; p < facePoints.size(); ++p) {
+      const auto expected = faces.shapes[face].refToSpace(
+          seissol::geometry::FaceTransform::FaceVectorT(facePoints[p][0], facePoints[p][1]));
+      const std::size_t point = face * facePoints.size() + p;
+      REQUIRE(surface.value("px", point) == doctest::Approx(expected(0)).epsilon(1e-14));
+      REQUIRE(surface.value("py", point) == doctest::Approx(expected(1)).epsilon(1e-14));
+      REQUIRE(surface.value("pz", point) == doctest::Approx(expected(2)).epsilon(1e-14));
+    }
+  }
+}
+
+TEST_CASE("DerivedOutput: the displacement is read on faces, and without derivatives") {
+  const auto reads = [](const std::string& expression) {
+    return expr::compileSderivModule("out def a = " + expression + "\n");
+  };
+  const auto faceGeometry = surfaceGeometry(1, 0);
+  // a cell has no face nodes
+  CHECK_THROWS_AS(DerivedProgram(reads("u1"), surfaceSources(), refinedGeometry(1)),
+                  std::invalid_argument);
+  // the face nodes give no derivatives across the face
+  CHECK_THROWS_AS(DerivedProgram(reads("dz_u2"), surfaceSources(), SurfacePoints(faceGeometry)),
+                  std::invalid_argument);
+  CHECK_THROWS_AS(DerivedProgram(reads("u3_r0"), surfaceSources(), SurfacePoints(faceGeometry)),
+                  std::invalid_argument);
+  // the derivatives of the quantities of the cell are there
+  const DerivedProgram derived(
+      reads("u1 + dx_" + MaterialT::Quantities[0]), surfaceSources(), SurfacePoints(faceGeometry));
+  CHECK(derived.readsJacobian());
+  CHECK(derived.matrixBases(3).size() == derived.program().matrices().size());
+  CHECK(derived.matrixBases(0) != derived.matrixBases(3));
 }
 
 TEST_CASE("DerivedOutput: the strain and rotation cost less than by hand" * doctest::skip(true)) {
