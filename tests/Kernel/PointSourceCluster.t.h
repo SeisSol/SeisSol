@@ -9,18 +9,20 @@
 #include <doctest.h>
 
 #include "Kernels/PointSourceCluster.h"
-#include "Kernels/Precision.h"
 
 #include <cmath>
 #include <vector>
 
 namespace seissol::unit_test {
-TEST_CASE("computeSampleTimeIntegral" * doctest::test_suite("kernel")) {
+TEST_CASE_TEMPLATE("computeSampleTimeIntegral" * doctest::test_suite("kernel"),
+                   RealT,
+                   float,
+                   double) {
   constexpr double Pi = 3.14159265358979323846264338327950;
 
   std::size_t sampleSize = 1000;
   double samplingInterval = 1.0 / (sampleSize - 1);
-  auto sr = std::vector<real>(sampleSize);
+  auto sr = std::vector<RealT>(sampleSize);
   for (std::size_t i = 0; i < sampleSize; ++i) {
     sr[i] = std::sin(Pi * i * samplingInterval);
   }

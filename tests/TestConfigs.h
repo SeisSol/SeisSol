@@ -16,6 +16,7 @@
 #include <doctest.h>
 
 #include "Common/ConfigValue.h"
+#include "Common/Typedefs.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Model/MaterialType.h"
@@ -73,6 +74,12 @@ struct MaterialIs {
   using Pred = std::bool_constant<Cfg::MaterialType == Type>;
 };
 
+template <SolverType Type>
+struct SolverIs {
+  template <typename Cfg>
+  using Pred = std::bool_constant<Cfg::Solver == Type>;
+};
+
 template <typename Cfg>
 struct SupportsDynamicRupture : std::bool_constant<model::MaterialOf<Cfg>::SupportsDR> {};
 
@@ -91,6 +98,10 @@ using ConfigsWhere = typename internal::ConfigFilter<Pred, SEISSOL_CONFIG_TYPES>
 /// The configurations built into the executable whose material is of the type `Type`.
 template <model::MaterialType Type>
 using ConfigsOfMaterial = ConfigsWhere<internal::MaterialIs<Type>::template Pred>;
+
+/// The configurations built into the executable that advance their cells with the solver `Type`.
+template <SolverType Type>
+using ConfigsOfSolver = ConfigsWhere<internal::SolverIs<Type>::template Pred>;
 
 /// The configurations built into the executable whose material supports dynamic rupture.
 using DynamicRuptureConfigs = ConfigsWhere<internal::SupportsDynamicRupture>;

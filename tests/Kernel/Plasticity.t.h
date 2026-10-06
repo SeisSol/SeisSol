@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Alignment.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -15,10 +16,10 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Plasticity.h"
-#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Plasticity.h"
 #include "Solver/MultipleSimulations.h"
+#include "TestConfigs.h"
 
 #include <algorithm>
 #include <array>
@@ -28,13 +29,15 @@
 #include <vector>
 
 namespace seissol::unit_test {
-using Plasticity = seissol::kernels::Plasticity<Config>;
 
 // ---------------------------------------------------------------------------
 // computeRelaxTime: pure constexpr math
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Plasticity computeRelaxTime" * doctest::test_suite("kernel")) {
+TEST_CASE_TEMPLATE("Plasticity computeRelaxTime" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  using Plasticity = seissol::kernels::Plasticity<Cfg>;
   SUBCASE("tV = 0 → factor = 1 (instantaneous relaxation)") {
     CHECK(Plasticity::computeRelaxTime(0.0, 1.0) == doctest::Approx(1.0));
     CHECK(Plasticity::computeRelaxTime(0.0, 0.5) == doctest::Approx(1.0));
@@ -99,7 +102,10 @@ TEST_CASE("Plasticity computeRelaxTime" * doctest::test_suite("kernel")) {
 // flopsPlasticity: generated code constants
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Plasticity metrics" * doctest::test_suite("kernel")) {
+TEST_CASE_TEMPLATE("Plasticity metrics" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  using Plasticity = seissol::kernels::Plasticity<Cfg>;
   const auto [metricsCheck, metricsYield] = Plasticity::metrics();
 
   SUBCASE("Check flops are positive") {
@@ -126,9 +132,13 @@ TEST_CASE("Plasticity metrics" * doctest::test_suite("kernel")) {
 // sigma_xy = ShearStress at every node. The mean stress then vanishes and tau = ShearStress at
 // every node, and with zero bulk friction the yield stress of a node is its cohesion. Each node is
 // given a cohesion of either half or twice ShearStress, so it is chosen exactly which nodes yield.
+template <typename Cfg>
 class ShearedPlasticityCell {
   public:
-  static constexpr std::size_t NumNodes = model::PlasticityData<Config>::PointCount;
+  using Plasticity = seissol::kernels::Plasticity<Cfg>;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  static constexpr std::size_t NumNodes = model::PlasticityData<Cfg>::PointCount;
   static constexpr std::size_t ComponentXY = 3;
 
   static constexpr double ShearStress = 1.0e6;
@@ -151,17 +161,17 @@ class ShearedPlasticityCell {
       parameters[node].plastCo = yields(node) ? ShearStress / 2 : ShearStress * 2;
       parameters[node].sXY = ShearStress;
     }
-    std::array<const model::Plasticity*, multisim::NumSimulations> perSimulation{};
+    std::array<const model::Plasticity*, Cfg::NumSimulations> perSimulation{};
     perSimulation.fill(parameters.data());
 
     model::ElasticMaterial material;
     material.mu = Mu;
     material.lambda = Mu;
-    const model::PlasticityData<Config> plasticityData(perSimulation, &material, true);
+    const model::PlasticityData<Cfg> plasticityData(perSimulation, &material, true);
 
     dofs_.fill(0);
     pstrain_.fill(0);
-    const GlobalData<Config> global = seissol::Pool<Config>::host();
+    const GlobalData<Cfg> global = seissol::Pool<Cfg>::host();
     return Plasticity::computePlasticity(
         static_cast<real>(Plasticity::computeRelaxTime(RelaxationTime, TimeStep)),
         static_cast<real>(TimeStep),
@@ -183,31 +193,34 @@ class ShearedPlasticityCell {
   // pstrain_ holds the plastic strain (in the layout of QStressNodal), followed by eta
   [[nodiscard]] double
       plasticStrain(std::size_t sim, std::size_t node, std::size_t component) const {
-    auto view = init::QStressNodal<Config>::view::create(pstrain_.data());
-    return multisim::simtensor<Config>(view, static_cast<int>(sim))(node, component);
+    auto view = init::QStressNodal<Cfg>::view::create(pstrain_.data());
+    return multisim::simtensor<Cfg>(view, static_cast<int>(sim))(node, component);
   }
 
   [[nodiscard]] double eta(std::size_t sim, std::size_t node) const {
-    auto view = init::QEtaNodal<Config>::view::create(pstrain_.data() +
-                                                      tensor::QStressNodal<Config>::size());
-    return multisim::simtensor<Config>(view, static_cast<int>(sim))(node);
+    auto view =
+        init::QEtaNodal<Cfg>::view::create(pstrain_.data() + tensor::QStressNodal<Cfg>::size());
+    return multisim::simtensor<Cfg>(view, static_cast<int>(sim))(node);
   }
 
   private:
   // the kernel reads and writes the six stress quantities of the DOFs, via the tensor QStress
   static constexpr std::size_t DofsSize =
-      std::max(tensor::Q<Config>::size(), tensor::QStress<Config>::size());
+      std::max(tensor::Q<Cfg>::size(), tensor::QStress<Cfg>::size());
 
   alignas(Alignment) std::array<real, DofsSize> dofs_{};
-  alignas(Alignment) std::array<real,
-                                tensor::QStressNodal<Config>::size() +
-                                    tensor::QEtaNodal<Config>::size()> pstrain_{};
+  alignas(Alignment)
+      std::array<real,
+                 tensor::QStressNodal<Cfg>::size() + tensor::QEtaNodal<Cfg>::size()> pstrain_{};
 };
 
-TEST_CASE("Plasticity computePlasticity corrects every cell with a yielding node" *
-          doctest::test_suite("kernel")) {
-  constexpr auto NumNodes = ShearedPlasticityCell::NumNodes;
-  ShearedPlasticityCell cell;
+TEST_CASE_TEMPLATE("Plasticity computePlasticity corrects every cell with a yielding node" *
+                       doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  using Cell = ShearedPlasticityCell<Cfg>;
+  constexpr auto NumNodes = Cell::NumNodes;
+  Cell cell;
 
   SUBCASE("No node yields: the cell stays unchanged") {
     CHECK(cell.run([](std::size_t /*node*/) { return false; }) == 0);
@@ -222,16 +235,14 @@ TEST_CASE("Plasticity computePlasticity corrects every cell with a yielding node
       CAPTURE(yieldingNode);
       CHECK(cell.run([&](std::size_t node) { return node == yieldingNode; }) == 1);
       CHECK_FALSE(cell.dofsUnchanged());
-      for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+      for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
         for (std::size_t node = 0; node < NumNodes; ++node) {
           if (node == yieldingNode) {
-            CHECK(cell.plasticStrain(sim, node, ShearedPlasticityCell::ComponentXY) /
-                      ShearedPlasticityCell::YieldingNodeStrainXY ==
+            CHECK(cell.plasticStrain(sim, node, Cell::ComponentXY) / Cell::YieldingNodeStrainXY ==
                   doctest::Approx(1.0));
-            CHECK(cell.eta(sim, node) / ShearedPlasticityCell::YieldingNodeEta ==
-                  doctest::Approx(1.0));
+            CHECK(cell.eta(sim, node) / Cell::YieldingNodeEta == doctest::Approx(1.0));
           } else {
-            CHECK(cell.plasticStrain(sim, node, ShearedPlasticityCell::ComponentXY) == 0);
+            CHECK(cell.plasticStrain(sim, node, Cell::ComponentXY) == 0);
             CHECK(cell.eta(sim, node) == 0);
           }
         }
@@ -242,10 +253,10 @@ TEST_CASE("Plasticity computePlasticity corrects every cell with a yielding node
   SUBCASE("Every node yields") {
     CHECK(cell.run([](std::size_t /*node*/) { return true; }) == 1);
     CHECK_FALSE(cell.dofsUnchanged());
-    for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+    for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
       for (std::size_t node = 0; node < NumNodes; ++node) {
         CAPTURE(node);
-        CHECK(cell.eta(sim, node) / ShearedPlasticityCell::YieldingNodeEta == doctest::Approx(1.0));
+        CHECK(cell.eta(sim, node) / Cell::YieldingNodeEta == doctest::Approx(1.0));
       }
     }
   }
