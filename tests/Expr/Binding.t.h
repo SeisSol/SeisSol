@@ -286,6 +286,54 @@ TEST_SUITE("ExprBinding") {
     CHECK(table.dataEntries()[0].getValue<double>(5) == 50.0);
   }
 
+  TEST_CASE("a column per cell reads the element of its cell, also through a cell index") {
+    const Program program = compileSderiv("x * j", "out");
+    constexpr std::size_t PointsPerCell = 3;
+    constexpr std::size_t NumPoints = 4 * PointsPerCell;
+
+    std::vector<double> x(NumPoints);
+    for (std::size_t p = 0; p < NumPoints; ++p) {
+      x[p] = 1.0 + static_cast<double>(p);
+    }
+    // two values per cell in memory; the column reads the second one
+    const std::vector<double> perCell = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0, 0.0, 50.0};
+    const std::vector<std::uint32_t> cellIndex = {4, 0, 2, 1};
+    std::vector<double> out(NumPoints, -1.0);
+
+    for (const bool indexed : {false, true}) {
+      CAPTURE(indexed);
+      DataTable table(NumPoints);
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindCellView<double>(
+          "j", perCell.data(), PointsPerCell, 2, 1, indexed ? cellIndex.data() : nullptr);
+      table.bindView<double>("out", Direction::Out, out.data());
+
+      const Binding binding = Binding::bind(program, table);
+      CHECK(binding.addressable());
+      const std::size_t ji = inputIndex(program, "j");
+      std::vector<double> tile(program.inputs().size() * NumPoints, 0.0);
+      binding.gather(table, 0, NumPoints, tile.data());
+      std::vector<double> viaViews(program.inputs().size() * NumPoints, 0.0);
+      binding.gatherFrom(nullptr, 0, 0, NumPoints, viaViews.data());
+      for (std::size_t p = 0; p < NumPoints; ++p) {
+        const std::size_t cell = indexed ? cellIndex[p / PointsPerCell] : p / PointsPerCell;
+        CHECK(tile[ji * NumPoints + p] == perCell[2 * cell + 1]);
+        CHECK(viaViews[ji * NumPoints + p] == perCell[2 * cell + 1]);
+      }
+    }
+  }
+
+  TEST_CASE("an output cannot be bound per cell") {
+    // several points would write the same element
+    const Program program = compileSderiv("x", "out");
+    std::vector<double> x(4);
+    std::vector<double> out(2);
+    DataTable table(4);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindCellView<double>("out", out.data(), 2);
+    CHECK_THROWS_AS(Binding::bind(program, table), std::invalid_argument);
+  }
+
 } // TEST_SUITE
 
 } // namespace seissol::expr::test

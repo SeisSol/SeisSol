@@ -61,8 +61,10 @@ const char* elementType(DataType type) {
 // lane-relative index the output tile would have used on the CPU. Only `p`
 // appears here, because there is no tile.
 std::string gpuLoadInput(std::int32_t index) {
+  // The accessor of a column per cell takes its divisor and index as well; which one a column
+  // has is decided when the accessors are emitted, so the call goes through a macro.
   const std::string i = std::to_string(index);
-  return "load_in" + i + "(a->in" + i + ", a->stride_in" + i + ", a->offset_in" + i + ", p)";
+  return "LOAD_IN" + i + "(a, p)";
 }
 std::string gpuLoadPersistent(std::int32_t slot) {
   return "a->persistent[" + std::to_string(slot) + " * a->numPoints + p]";
@@ -152,16 +154,34 @@ void emitAccessors(std::ostringstream& out,
 
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
     const char* element = elementType(layout.inputs[i]);
+    const bool perCell = i < layout.inputPerCell.size() && layout.inputPerCell[i];
     out << fn << " " << computeType << " load_in" << i << "(" << global
-        << "const void* base, SeissolU64 stride, SeissolU64 offset, SeissolU64 p) {\n"
-        // A typed load, not a byte copy. gpuRejection() has already established
-        // that stride and offset are element multiples, so the address is
-        // aligned -- and __builtin_memcpy is not something every device
-        // frontend is guaranteed to lower well.
-        << "  " << global << "const char* bytes = (" << global
-        << "const char*)base + offset + p * stride;\n"
+        << "const void* base, SeissolU64 stride, SeissolU64 offset, ";
+    if (perCell) {
+      out << "SeissolU64 divisor, " << global << "const unsigned int* index, ";
+    }
+    out << "SeissolU64 p) {\n";
+    if (perCell) {
+      // A column per cell: the point reads the element of its cell.
+      out << "  const SeissolU64 e = index != 0 ? (SeissolU64)index[p / divisor] : p / divisor;\n";
+    } else {
+      out << "  const SeissolU64 e = p;\n";
+    }
+    // A typed load, not a byte copy. gpuRejection() has already established
+    // that stride and offset are element multiples, so the address is
+    // aligned -- and __builtin_memcpy is not something every device
+    // frontend is guaranteed to lower well.
+    out << "  " << global << "const char* bytes = (" << global
+        << "const char*)base + offset + e * stride;\n"
         << "  return (" << computeType << ")(*(" << global << "const " << element << "*)bytes);\n"
         << "}\n";
+    const std::string n = std::to_string(i);
+    out << "#define LOAD_IN" << n << "(a, p) load_in" << n << "((a)->in" << n << ", (a)->stride_in"
+        << n << ", (a)->offset_in" << n;
+    if (perCell) {
+      out << ", (a)->divisor_in" << n << ", (a)->index_in" << n;
+    }
+    out << ", p)\n";
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     const char* element = elementType(layout.outputs[i]);
@@ -201,6 +221,10 @@ void emitArgumentStruct(std::ostringstream& out,
     out << "  " << global << "const void* in" << i << ";\n"
         << "  SeissolU64 stride_in" << i << ";\n"
         << "  SeissolU64 offset_in" << i << ";\n";
+    if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
+      out << "  SeissolU64 divisor_in" << i << ";\n"
+          << "  " << global << "const unsigned int* index_in" << i << ";\n";
+    }
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     out << "  " << global << "void* out" << i << ";\n"
@@ -232,6 +256,10 @@ void emitFlatParameters(std::ostringstream& out,
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
     out << "    __global const void* in" << i << ", SeissolU64 stride_in" << i
         << ", SeissolU64 offset_in" << i << ",\n";
+    if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
+      out << "    SeissolU64 divisor_in" << i << ", __global const unsigned int* index_in" << i
+          << ",\n";
+    }
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     out << "    __global void* out" << i << ", SeissolU64 stride_out" << i
@@ -256,6 +284,10 @@ void emitFlatGather(std::ostringstream& out, const GpuLayout& layout) {
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
     out << "  a.in" << i << " = in" << i << "; a.stride_in" << i << " = stride_in" << i
         << "; a.offset_in" << i << " = offset_in" << i << ";\n";
+    if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
+      out << "  a.divisor_in" << i << " = divisor_in" << i << "; a.index_in" << i << " = index_in"
+          << i << ";\n";
+    }
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     out << "  a.out" << i << " = out" << i << "; a.stride_out" << i << " = stride_out" << i
@@ -389,7 +421,8 @@ GpuRejection gpuRejection(const Program& program,
   if (deviceAccessible != nullptr) {
     for (const auto* set : {&binding.inputs(), &binding.outputs()}) {
       for (const auto& column : *set) {
-        if (!deviceAccessible(column.view->base)) {
+        if (!deviceAccessible(column.view->base) ||
+            (column.view->index != nullptr && !deviceAccessible(column.view->index))) {
           return GpuRejection::HostPointer;
         }
       }
@@ -415,6 +448,9 @@ std::uint64_t GpuLayout::fingerprint() const {
   for (const auto type : inputs) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
   }
+  for (const bool perCell : inputPerCell) {
+    hash = mix(hash, perCell ? 1 : 0);
+  }
   hash = mix(hash, outputs.size());
   for (const auto type : outputs) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
@@ -435,6 +471,7 @@ GpuLayout gpuLayoutOf(const Binding& binding) {
   layout.inputs.reserve(binding.inputs().size());
   for (const auto& column : binding.inputs()) {
     layout.inputs.push_back(column.tableType);
+    layout.inputPerCell.push_back(column.view.has_value() && !column.view->pointwise());
   }
   layout.outputs.reserve(binding.outputs().size());
   for (const auto& column : binding.outputs()) {
@@ -472,6 +509,12 @@ std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string
     out << ", ";
     arg("const SeissolU64");
     out << ",\n";
+    if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
+      arg("const SeissolU64");
+      out << ", ";
+      arg("const unsigned int* const");
+      out << ",\n";
+    }
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     arg("void* const");
@@ -511,8 +554,13 @@ GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void*
   // append works and no padding has to be reasoned about: pointers are 64-bit
   // on every target this runs on, and the scalars are `unsigned long long` for
   // exactly that reason.
+  std::size_t perCellInputs = 0;
+  for (const auto& column : binding.inputs()) {
+    perCellInputs += column.view->pointwise() ? 0 : 1;
+  }
   const std::size_t fields = 3 * (binding.inputs().size() + binding.outputs().size()) +
-                             binding.matrices().size() + 4 * binding.blocks().size() + 4;
+                             2 * perCellInputs + binding.matrices().size() +
+                             4 * binding.blocks().size() + 4;
   image_.reserve(fields * sizeof(std::uint64_t));
 
   const auto appendPointer = [this](const void* value) { append(&value, sizeof(value)); };
@@ -524,6 +572,10 @@ GpuArguments::GpuArguments(const Binding& binding, const KernelArgs& args, void*
                                                                      : column.view->base);
     appendScalar(column.view->byteStride);
     appendScalar(column.view->byteOffset);
+    if (!column.view->pointwise()) {
+      appendScalar(column.view->divisor);
+      appendPointer(column.view->index);
+    }
   }
   for (std::size_t i = 0; i < binding.outputs().size(); ++i) {
     const auto& column = binding.outputs()[i];

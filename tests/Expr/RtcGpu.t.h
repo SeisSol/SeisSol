@@ -373,6 +373,54 @@ TEST_SUITE("ExprRtcGpu") {
     CHECK(packed.fieldCount() == 3 * (1 + 2) + 1 + 4 * 2 + 4);
   }
 
+  TEST_CASE("a column per cell reaches the device kernel with its divisor and index") {
+    const Program program = compileSderivModule("out def u = x * j\n");
+    constexpr std::size_t PointsPerCell = 2;
+    constexpr std::size_t NumPoints = 3 * PointsPerCell;
+    std::vector<double> x = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+    const std::vector<float> j = {10.0F, 20.0F, 30.0F, 40.0F};
+    const std::vector<std::uint32_t> cellIndex = {3, 1, 0};
+    std::vector<double> interpreted(NumPoints, -1.0);
+    std::vector<double> emitted(NumPoints, -1.0);
+
+    DataTable table(NumPoints);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindCellView<float>("j", j.data(), PointsPerCell, 1, 0, cellIndex.data());
+    table.bindView<double>("u", Direction::Out, interpreted.data());
+    Binding binding = Binding::bind(program, table);
+    REQUIRE(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::None);
+    df::GridStore store;
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+    kernel->run(table);
+    for (std::size_t p = 0; p < NumPoints; ++p) {
+      CHECK(interpreted[p] == x[p] * j[cellIndex[p / PointsPerCell]]);
+    }
+
+    const GpuLayout layout = gpuLayoutOf(binding);
+    const std::string generated = std::string(HostShim) +
+                                  emitGpuSource(program, lower(program), layout, GpuTarget::Cuda) +
+                                  emitGpuHostTrampoline(layout, "double");
+    void* handle = compileForHost(generated);
+    if (handle == nullptr) {
+      WARN_MESSAGE(false, "no usable C++ compiler; the device code generator was not executed");
+      return;
+    }
+    auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+    REQUIRE(invoke != nullptr);
+    KernelArgs args{};
+    void* base = emitted.data();
+    args.outputs = &base;
+    args.outputCount = 1;
+    args.first = 0;
+    args.count = NumPoints;
+    GpuArguments packed(binding, args, nullptr);
+    invoke(packed.data());
+    CHECK(std::memcmp(interpreted.data(), emitted.data(), NumPoints * sizeof(double)) == 0);
+    // a column per cell carries its divisor and index along
+    CHECK(packed.fieldCount() == 3 * 3 + 2 + 4);
+  }
+
   TEST_CASE("the kernel splits into a point function and a wrapper") {
     // The split is what lets a kernel that already owns a loop over the same
     // points -- a batched contraction, say -- call the expression from inside,

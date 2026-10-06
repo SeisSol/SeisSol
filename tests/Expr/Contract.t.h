@@ -395,6 +395,50 @@ TEST_SUITE("ExprContract") {
     CHECK_THROWS_AS(Binding::bind(program, missing), std::invalid_argument);
   }
 
+  TEST_CASE("a channel can be replaced by an expression over new channels") {
+    // the physical derivative of v by the chain rule over reference derivatives and the rows of
+    // the inverse Jacobian -- the form the derived output offers dx_<quantity> in
+    Program program = compileSderivModule("out def u = dx_v * 2.0 + w\n");
+    std::map<std::string, ChannelBuilder> builders;
+    builders.emplace("dx_v", [](Arena& arena) {
+      NodeId sum = NoNode;
+      for (int k = 0; k < 3; ++k) {
+        // one statement per channel: the order of evaluation of call arguments is unspecified
+        const NodeId jinv = arena.field("jinv" + std::to_string(k) + "0");
+        const NodeId derivative = arena.field("v_r" + std::to_string(k));
+        const NodeId term = arena.pw(Fn::Mul, jinv, derivative);
+        sum = sum == NoNode ? term : arena.pw(Fn::Add, sum, term);
+      }
+      return sum;
+    });
+    substituteChannels(program, builders);
+
+    std::vector<std::string> inputs;
+    for (const auto& input : program.inputs()) {
+      inputs.push_back(input.name);
+    }
+    // w stays, dx_v goes, the new channels come in creation order
+    CHECK(inputs ==
+          std::vector<std::string>{"w", "jinv00", "v_r0", "jinv10", "v_r1", "jinv20", "v_r2"});
+
+    // and evaluates as the expression it was replaced by
+    std::vector<double> values(inputs.size());
+    DataTable table(1);
+    for (std::size_t i = 0; i < inputs.size(); ++i) {
+      values[i] = 0.5 + static_cast<double>(i);
+      table.bindViewConst<double>(inputs[i], Direction::In, &values[i]);
+    }
+    double u = -1.0;
+    table.bindView<double>("u", Direction::Out, &u);
+    Binding binding = Binding::bind(program, table);
+    df::GridStore store;
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+    kernel->run(table);
+    const double dxv = values[1] * values[2] + values[3] * values[4] + values[5] * values[6];
+    CHECK(u == doctest::Approx(dxv * 2.0 + values[0]));
+  }
+
   TEST_CASE("a contraction costs one multiply-add and two loads per coefficient") {
     Program program = compileSderivModule("out def u = v\n");
     const auto matrix = program.internMatrix("proj", MatrixShape{Rows, Cols, Ld});

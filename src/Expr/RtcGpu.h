@@ -136,6 +136,9 @@ enum class GpuRejection : std::uint8_t {
 /// key: the types are baked into the emitted source.
 struct GpuLayout {
   std::vector<reader::scripting::DataType> inputs;
+  /// Per input: whether it is a column per cell (StridedView::divisor and index), which reads
+  /// its element through two more fields.
+  std::vector<bool> inputPerCell;
   std::vector<reader::scripting::DataType> outputs;
   std::vector<reader::scripting::DataType> matrices;
   std::vector<reader::scripting::DataType> blocks;

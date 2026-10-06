@@ -52,14 +52,7 @@ std::vector<char> reachable(const Program& program) {
 
 } // namespace
 
-void substituteByContraction(Program& program,
-                             MatrixId matrix,
-                             const std::map<std::string, BlockId>& blocks) {
-  if (matrix < 0 || static_cast<std::size_t>(matrix) >= program.matrices().size()) {
-    throw std::invalid_argument("expr: contraction against the undeclared matrix id " +
-                                std::to_string(matrix));
-  }
-
+void substituteChannels(Program& program, const std::map<std::string, ChannelBuilder>& builders) {
   const Arena& old = program.arena();
   std::unordered_set<std::string> inputs;
   for (const auto& input : program.inputs()) {
@@ -95,10 +88,9 @@ void substituteByContraction(Program& program,
       break;
     case Kind::Field: {
       const std::string& name = old.channelName(node.ch);
-      const auto block = blocks.find(name);
-      map[id] = (block != blocks.end() && inputs.count(name) != 0)
-                    ? arena.contract(matrix, block->second)
-                    : arena.field(name);
+      const auto builder = builders.find(name);
+      map[id] = (builder != builders.end() && inputs.count(name) != 0) ? builder->second(arena)
+                                                                       : arena.field(name);
       break;
     }
     case Kind::PW:
@@ -141,10 +133,21 @@ void substituteByContraction(Program& program,
     }
   }
 
-  // The signature in its old order, minus the inputs nothing reads any more.
+  // The signature in its old order, minus the inputs nothing reads any more, plus the channels
+  // the builders introduced, in the order they were created.
+  std::unordered_set<std::string> states;
+  for (const auto& state : program.state()) {
+    states.insert(state.name);
+  }
   for (const auto& input : program.inputs()) {
     if (arena.findChannel(input.name) >= 0) {
       rebuilt.addInput(input.name, input.type);
+    }
+  }
+  for (std::size_t ch = 0; ch < arena.channelCount(); ++ch) {
+    const std::string& name = arena.channelName(static_cast<int>(ch));
+    if (inputs.count(name) == 0 && states.count(name) == 0) {
+      rebuilt.addInput(name, reader::scripting::DataType::F64);
     }
   }
   for (const auto& state : program.state()) {
@@ -157,6 +160,21 @@ void substituteByContraction(Program& program,
 
   validate(rebuilt);
   program = std::move(rebuilt);
+}
+
+void substituteByContraction(Program& program,
+                             MatrixId matrix,
+                             const std::map<std::string, BlockId>& blocks) {
+  if (matrix < 0 || static_cast<std::size_t>(matrix) >= program.matrices().size()) {
+    throw std::invalid_argument("expr: contraction against the undeclared matrix id " +
+                                std::to_string(matrix));
+  }
+  std::map<std::string, ChannelBuilder> builders;
+  for (const auto& [name, block] : blocks) {
+    builders.emplace(
+        name, [matrix, block = block](Arena& arena) { return arena.contract(matrix, block); });
+  }
+  substituteChannels(program, builders);
 }
 
 } // namespace seissol::expr

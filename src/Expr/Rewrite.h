@@ -18,10 +18,25 @@
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 
+#include <functional>
 #include <map>
 #include <string>
 
 namespace seissol::expr {
+
+/// Builds the replacement of a channel in the arena of the rewritten program.
+using ChannelBuilder = std::function<NodeId(Arena& arena)>;
+
+/// Replaces every read of an input channel named in `builders` by the node its builder makes in
+/// the rewritten arena -- an expression over other channels, a contraction, a constant. The
+/// replacement is not rewritten again, so a builder may read the channel it replaces.
+///
+/// State channels are never replaced, and a name the program does not read is not an error.
+/// Inputs nothing reads any more are dropped from the signature, and the channels the builders
+/// introduce are added to it, in the order they are first created; the result is validated again.
+///
+/// Throws std::invalid_argument when the rewritten program does not validate.
+void substituteChannels(Program& program, const std::map<std::string, ChannelBuilder>& builders);
 
 /// Replaces every read of an input channel named in `blocks` by a contraction of the block mapped
 /// to it against `matrix` (cf. Kind::Contract). A mapping, not a list: the assignment is by name.

@@ -63,6 +63,19 @@ struct StridedView {
   std::size_t byteStride{0};
   std::size_t byteOffset{0};
   bool writable{false};
+  /// Points per element: point p reads element p / divisor -- 1 for a column per point, the
+  /// points per cell for a column per cell (bindCellView).
+  std::size_t divisor{1};
+  /// Optional: element of the point set -> element in memory, for a gathered subset.
+  const std::uint32_t* index{nullptr};
+
+  /// The element point `point` reads; base + element * byteStride + byteOffset is its address.
+  [[nodiscard]] std::size_t element(std::size_t point) const {
+    const std::size_t local = point / divisor;
+    return index == nullptr ? local : static_cast<std::size_t>(index[local]);
+  }
+  /// Whether the view maps points onto elements one to one, in order.
+  [[nodiscard]] bool pointwise() const { return divisor == 1 && index == nullptr; }
 };
 
 /// A vector of coefficients per cell, for one named quantity -- what a contraction
@@ -138,7 +151,7 @@ struct DataEntry {
     } else if (view.has_value()) {
       const auto* bytes = static_cast<const char*>(view->base) + view->byteOffset;
       for (std::size_t i = 0; i < count; ++i) {
-        std::memcpy(out + i, bytes + (first + i) * view->byteStride, sizeof(T));
+        std::memcpy(out + i, bytes + view->element(first + i) * view->byteStride, sizeof(T));
       }
     } else {
       for (std::size_t i = 0; i < count; ++i) {
@@ -213,6 +226,26 @@ class DataTable {
                                         setter,
                                         makeView(base, stride, offset, true),
                                         nullptr});
+  }
+
+  /// A column that is constant per cell of `pointsPerCell` points: point p reads
+  /// base[c * stride + offset] with c = p / pointsPerCell, or c = cellIndex[p / pointsPerCell]
+  /// for a gathered subset of cells. Input only.
+  template <typename T>
+  void bindCellView(std::string name,
+                    const T* base,
+                    std::size_t pointsPerCell,
+                    std::size_t stride = 1,
+                    std::size_t offset = 0,
+                    const std::uint32_t* cellIndex = nullptr) {
+    auto view = makeView(base, stride, offset, false);
+    view.divisor = pointsPerCell;
+    view.index = cellIndex;
+    const auto accessor = [=](std::size_t idx, void* out) {
+      *reinterpret_cast<T*>(out) = base[view.element(idx) * stride + offset];
+    };
+    dataEntries_.emplace_back(DataEntry{
+        std::move(name), Direction::In, DataTypeTraits<T>::Type, accessor, nullptr, view, nullptr});
   }
 
   /// A value that is the same at every point.

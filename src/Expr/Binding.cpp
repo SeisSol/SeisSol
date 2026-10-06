@@ -265,6 +265,10 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
       throw std::invalid_argument("expr: the program writes '" + spec.name +
                                   "', which is bound as a read-only view");
     }
+    if (entry.view.has_value() && !entry.view->pointwise()) {
+      throw std::invalid_argument("expr: the program writes '" + spec.name +
+                                  "', which is bound per cell rather than per point");
+    }
     ColumnBinding column;
     column.entry = found->second;
     column.slot = static_cast<int>(i);
@@ -496,7 +500,7 @@ void gatherView(const reader::scripting::StridedView& view,
   for (std::size_t lane = 0; lane < count; ++lane) {
     const std::size_t point = permutation.empty() ? first + lane : permutation[first + lane];
     Col value{};
-    std::memcpy(&value, bytes + point * view.byteStride, sizeof(Col));
+    std::memcpy(&value, bytes + view.element(point) * view.byteStride, sizeof(Col));
     dst[lane] = static_cast<Tile>(value);
   }
 }
