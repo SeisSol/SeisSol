@@ -21,8 +21,22 @@ ParameterReader::ParameterReader(const YAML::Node& node, const std::string& root
     : node_(node), rootPath_(rootPath), empty_(empty) {}
 
 std::optional<std::string> ParameterReader::readPath(const std::string& field) {
-  const auto fileName = read<std::string>(field);
-  if (fileName.has_value()) {
+  const auto rawName = read<std::string>(field);
+  // A script keeps the prefix that names its kind; the file after it resolves like any other.
+  std::string prefix;
+  std::optional<std::string> fileName = rawName;
+  if (rawName.has_value()) {
+    for (const std::string kind : {"easi:", "lua:", "sderiv:"}) {
+      if (rawName->compare(0, kind.size(), kind) == 0) {
+        prefix = kind;
+        fileName = rawName->substr(kind.size());
+      }
+    }
+  }
+  const auto resolved = [&]() -> std::optional<std::string> {
+    if (!fileName.has_value()) {
+      return {};
+    }
     const auto lastPath = filesystem::path(rootPath_);
     auto nextPath = filesystem::path(fileName.value());
     const auto loadFileName = [&]() {
@@ -35,16 +49,18 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
     }();
     // try to get the full file name (if that works)
     if (filesystem::exists(loadFileName)) {
-      return filesystem::canonical(loadFileName);
+      return filesystem::canonical(loadFileName).string();
     } else if (filesystem::exists(nextPath)) {
-      return filesystem::canonical(nextPath);
+      return filesystem::canonical(nextPath).string();
     } else {
       // otherwise, just return the string (TODO: or should be fail here then?)
-      return nextPath;
+      return nextPath.string();
     }
-  } else {
+  }();
+  if (!resolved.has_value()) {
     return {};
   }
+  return prefix + resolved.value();
 }
 
 std::string ParameterReader::readPathOrFail(const std::string& field,
