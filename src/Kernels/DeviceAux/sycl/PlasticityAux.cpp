@@ -17,19 +17,11 @@
 
 namespace seissol::kernels::device::aux::plasticity {
 
-template <typename Tensor>
-constexpr size_t leadDim() {
-  if constexpr (multisim::MultisimEnabled) {
-    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
+template <typename Cfg>
 auto getrange(std::size_t size, std::size_t numElements) {
-  if constexpr (multisim::MultisimEnabled) {
-    return sycl::nd_range<1>({numElements * multisim::NumSimulations * size},
-                             {multisim::NumSimulations * size});
+  if constexpr (Cfg::NumSimulations > 1) {
+    return sycl::nd_range<1>({numElements * Cfg::NumSimulations * size},
+                             {Cfg::NumSimulations * size});
   } else {
     return sycl::nd_range<1>({numElements * size}, {size});
   }
@@ -49,11 +41,11 @@ void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
 
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisFunctionDimension] -
-                                init::QStressNodal<Cfg>::Start[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
+                                init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
 
   auto queue = reinterpret_cast<sycl::queue*>(streamPtr);
-  auto rng = getrange(NumNodes, numElements);
+  auto rng = getrange<Cfg>(NumNodes, numElements);
 
   queue->submit([&](sycl::handler& cgh) {
     sycl::local_accessor<int> isAdjusted(1, cgh);
@@ -63,11 +55,11 @@ void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
       auto tid = item.get_local_id(0);
 
       real* qStressNodal = nodalStressTensors[wid];
-      real localStresses[NumStressComponents];
+      real localStresses[NumStressComponents<Cfg>];
 
-      constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal<Cfg>>();
+      constexpr auto ElementTensorsColumn = multisim::linearDim<Cfg, init::QStressNodal<Cfg>>();
 #pragma unroll
-      for (int i = 0; i < NumStressComponents; ++i) {
+      for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
         localStresses[i] = qStressNodal[tid + ElementTensorsColumn * i];
       }
 
@@ -119,7 +111,7 @@ void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
         real dudtUpdate = 0;
 
 #pragma unroll
-        for (int i = 0; i < NumStressComponents; ++i) {
+        for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
           const int q = tid + ElementTensorsColumn * i;
 
           const auto updatedStressNodal = localStresses[i] * yieldfactor;

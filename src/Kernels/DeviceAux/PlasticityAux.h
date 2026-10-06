@@ -16,7 +16,9 @@
 #include <stddef.h>
 
 namespace seissol::kernels::device::aux::plasticity {
-constexpr static int NumStressComponents = model::MaterialT::TractionComponents;
+/// The stress components of the material of the configuration `Cfg`, which plasticity adjusts.
+template <typename Cfg>
+constexpr int NumStressComponents = model::MaterialOf<Cfg>::TractionComponents;
 
 template <typename Cfg>
 void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
