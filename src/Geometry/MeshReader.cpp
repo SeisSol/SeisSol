@@ -151,9 +151,10 @@ void MeshReader::setCurvedGeometry(std::size_t order, const std::vector<Coordina
 #pragma omp critical
       correct = false;
     }
-    // and the cell may be curved, but not turned inside out
+    // and the cell may be curved, but not turned inside out -- checked on a lattice finer than the
+    // one of its nodes, since the determinant has the degree 3 * (order - 1)
     const IsoparametricTransform transform(order, cellNodes);
-    auto points = lattice;
+    auto points = IsoparametricTransform::latticeNodes(2 * order);
     points.emplace_back(Cell::ReferenceBarycenter.data());
     for (const auto& point : points) {
       if (transform.refToSpaceJacobian(point).determinant() <= 0) {

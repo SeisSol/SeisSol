@@ -12,6 +12,10 @@
 #include "Geometry/IsoparametricTransform.h"
 #include "Geometry/MeshReader.h"
 
+#include <Eigen/Dense>
+#include <Eigen/SVD>
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <vector>
@@ -49,6 +53,27 @@ auto faceTransformOf(std::size_t id,
   }
   return std::make_unique<IsoparametricFaceTransform>(isoparametricOf(id, mesh),
                                                       ReferenceFaceMap(side, orientation));
+}
+
+auto relativeThickness(const CellTransform& transform,
+                       const std::array<CellTransform::VectorEigenT, Cell::NumVertices>& vertices)
+    -> double {
+  if (dynamic_cast<const AffineTransform*>(&transform) != nullptr) {
+    return 1.0;
+  }
+  const auto smallestSingularValue = [](const CellTransform::MatrixEigenT& jacobian) {
+    return Eigen::JacobiSVD<CellTransform::MatrixEigenT>(jacobian).singularValues().minCoeff();
+  };
+  const double straight = smallestSingularValue(AffineTransform(vertices).jacobian());
+  // the lattice of order four holds the nodes of a cell of order two and the points between them
+  auto points = IsoparametricTransform::latticeNodes(4);
+  points.emplace_back(Cell::ReferenceBarycenter.data());
+  double thickness = 1.0;
+  for (const auto& point : points) {
+    thickness =
+        std::min(thickness, smallestSingularValue(transform.refToSpaceJacobian(point)) / straight);
+  }
+  return thickness;
 }
 
 } // namespace seissol::geometry

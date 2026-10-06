@@ -9,6 +9,7 @@
 
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
+#include "Geometry/CellGeometry.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"
@@ -101,14 +102,21 @@ GlobalTimestep
     const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     const auto cellMaxTimestep =
         std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
-    timestep.cellTimeStepWidths[cell] =
-        computeCellTimestep(vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep);
+    // a curved cell is as narrow as it is where it is thinnest, which its vertices do not say;
+    // that scales what the wave speed permits, not the bounds from above
+    const auto thickness = std::min(
+        1.0, seissol::geometry::relativeThickness(*cellToVertex.elementTransform(cell), vertices));
+    const auto cellTimestep = [&](double waveSpeed) {
+      return std::min(thickness * computeCellTimestep(vertices,
+                                                      waveSpeed,
+                                                      seissolParams.timeStepping.cfl,
+                                                      std::numeric_limits<double>::max()),
+                      cellMaxTimestep);
+    };
+    timestep.cellTimeStepWidths[cell] = cellTimestep(pWaveVel);
 
     localMaxContrast = std::max(localMaxContrast, pWaveVel / pWaveVelMean);
-    localMinMeanTimestep =
-        std::min(localMinMeanTimestep,
-                 computeCellTimestep(
-                     vertices, pWaveVelMean, seissolParams.timeStepping.cfl, cellMaxTimestep));
+    localMinMeanTimestep = std::min(localMinMeanTimestep, cellTimestep(pWaveVelMean));
   }
 
   const auto minmaxCellPosition =

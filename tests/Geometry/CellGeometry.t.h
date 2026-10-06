@@ -16,6 +16,7 @@
 #include "TestHelper.h"
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -104,6 +105,49 @@ TEST_CASE("Cell geometry of a mesh" * doctest::test_suite("geometry")) {
       const VectorT expected = scaling * (curved.refToSpace(point) + displacement);
       REQUIRE((transform->refToSpace(point) - expected).norm() == AbsApprox(0.0).epsilon(Epsilon));
     }
+  }
+}
+
+TEST_CASE("Relative thickness of a cell" * doctest::test_suite("geometry")) {
+  const std::array<VectorT, Cell::NumVertices> vertices{VectorT(0.1, 0.2, -0.3),
+                                                        VectorT(2.1, 0.0, 0.4),
+                                                        VectorT(-0.2, 1.7, 0.1),
+                                                        VectorT(0.3, 0.1, 2.2)};
+
+  SUBCASE("A straight-sided cell has the thickness one") {
+    REQUIRE(seissol::geometry::relativeThickness(AffineTransform(vertices), vertices) == 1.0);
+    REQUIRE(seissol::geometry::relativeThickness(IsoparametricTransform::fromVertices(vertices, 2),
+                                                 vertices) == doctest::Approx(1.0));
+  }
+
+  SUBCASE("A cell whose edges bend inwards is thinner where they do") {
+    // pull every edge midpoint towards the barycentre: the cell is squeezed near its edges
+    constexpr std::array<std::array<std::size_t, 2>, 6> Edges{
+        {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
+    const VectorT center = 0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3]);
+    std::array<VectorT, 6> midpoints{};
+    for (std::size_t edge = 0; edge < Edges.size(); ++edge) {
+      const VectorT straight = 0.5 * (vertices[Edges[edge][0]] + vertices[Edges[edge][1]]);
+      midpoints[edge] = straight + 0.15 * (center - straight);
+    }
+    const auto curved = IsoparametricTransform::fromEdgeMidpoints(vertices, midpoints);
+    const double thickness = seissol::geometry::relativeThickness(curved, vertices);
+    REQUIRE(thickness < 1.0);
+    REQUIRE(thickness > 0.0);
+    // and it is the smallest ratio of the smallest singular values on the lattice it looks at
+    const double straight = Eigen::JacobiSVD<Eigen::Matrix3d>(AffineTransform(vertices).jacobian())
+                                .singularValues()
+                                .minCoeff();
+    double expected = 1.0;
+    for (const auto& point : IsoparametricTransform::latticeNodes(4)) {
+      expected = std::min(expected,
+                          Eigen::JacobiSVD<Eigen::Matrix3d>(curved.refToSpaceJacobian(point))
+                                  .singularValues()
+                                  .minCoeff() /
+                              straight);
+    }
+    REQUIRE(thickness <= expected);
+    REQUIRE(thickness == doctest::Approx(expected).epsilon(0.05));
   }
 }
 

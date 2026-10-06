@@ -7,9 +7,11 @@
 #ifndef SEISSOL_SRC_GEOMETRY_CELLGEOMETRY_H_
 #define SEISSOL_SRC_GEOMETRY_CELLGEOMETRY_H_
 
+#include "Common/Constants.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 
+#include <array>
 #include <cstddef>
 #include <memory>
 
@@ -32,6 +34,17 @@ auto faceTransformOf(std::size_t id,
                      const MeshReader& mesh,
                      FaceOrientation orientation = FaceOrientation::Local)
     -> std::unique_ptr<FaceTransform>;
+
+/**
+ * How thin a cell is where it is thinnest, relative to the straight-sided cell through its
+ * vertices: the smallest singular value of its Jacobian over the one of that straight-sided cell,
+ * the smallest over the nodes of a lattice in the cell. It is one for a straight-sided cell, and
+ * what the time step of a curved cell is scaled by: where a cell is squeezed, its metric -- and
+ * with it the speed a wave crosses the reference cell at -- grows by the inverse.
+ */
+auto relativeThickness(const CellTransform& transform,
+                       const std::array<CellTransform::VectorEigenT, Cell::NumVertices>& vertices)
+    -> double;
 
 } // namespace seissol::geometry
 
