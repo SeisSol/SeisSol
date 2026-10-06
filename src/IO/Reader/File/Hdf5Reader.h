@@ -68,6 +68,9 @@ class Hdf5Reader {
 
   void checkExistence(const std::string& name, const std::string& type);
 
+  //! @brief Whether the open group has a dataset (or a group) `name`.
+  bool hasDataset(const std::string& name);
+
   private:
   std::stack<hid_t> handles_;
   MPI_Comm comm_;

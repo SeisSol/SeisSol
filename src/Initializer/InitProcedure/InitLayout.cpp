@@ -151,7 +151,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   }
 
   const auto needsIntegration = derivedOutputsReadIntegrals(seissolInstance);
-  const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+  auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+  settings.derivedState = derivedStateLayout(seissolInstance, DerivedOutputKind::WaveField).size();
 
   logInfo() << "Creating mesh layout...";
 

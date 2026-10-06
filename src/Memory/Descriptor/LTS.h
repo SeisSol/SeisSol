@@ -26,6 +26,9 @@
 #include "Parallel/Helper.h"
 #include "Solver/Settings.h"
 
+#include <algorithm>
+#include <cstddef>
+
 namespace seissol {
 
 struct LTS {
@@ -165,6 +168,10 @@ struct LTS {
 
   struct Integrals : public initializer::VariantVariable<DofsArray> {};
 
+  /// The state of the derived outputs of the wave field, SimulationSettings::derivedState values
+  /// per cell (cf. initializer::DerivedStateLayout).
+  struct DerivedState : public initializer::Variable<double> {};
+
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
                                                         DofsAne,
@@ -202,6 +209,7 @@ struct LTS {
                                                         FlagScratch,
                                                         QStressNodalScratch,
                                                         Integrals,
+                                                        DerivedState,
                                                         EnergyData,
                                                         ZinvExtra> {};
 
@@ -286,6 +294,14 @@ struct LTS {
 
     storage.add<EnergyData>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
+    // On the host only, for now: it is evaluated there, on a device run when an output is written.
+    storage.add<DerivedState>(settings.derivedState > 0
+                                  ? LayerMask(Ghost)
+                                  : LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
+                              Alignment,
+                              AllocationMode::HostOnly,
+                              false,
+                              std::max<std::size_t>(settings.derivedState, 1));
 
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;

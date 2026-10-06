@@ -17,6 +17,11 @@
 #include "Memory/Descriptor/Boundary.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+
 namespace seissol {
 
 struct SurfaceLTS {
@@ -30,8 +35,13 @@ struct SurfaceLTS {
 
   struct DisplacementDofs : public seissol::initializer::VariantVariable<FaceDisplacementArray> {};
 
+  /// The state of the derived outputs of the free surface, per face (cf.
+  /// initializer::DerivedStateLayout).
+  struct DerivedState : public seissol::initializer::Variable<double> {};
+
   struct SurfaceVarmap
-      : public initializer::SpecificVarmap<Side, MeshId, LocationFlag, DisplacementDofs> {};
+      : public initializer::
+            SpecificVarmap<Side, MeshId, LocationFlag, DisplacementDofs, DerivedState> {};
 
   using Storage = initializer::Storage<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
@@ -39,13 +49,22 @@ struct SurfaceLTS {
   using Ref = initializer::Layer<SurfaceVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<1>;
 
-  static void addTo(Storage& storage) {
+  /// `derivedState`: values per face of the state of the derived outputs.
+  static void addTo(Storage& storage, std::size_t derivedState = 0) {
     const seissol::initializer::LayerMask ghostMask(Ghost);
     storage.add<Side>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
     storage.add<MeshId>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
     storage.add<LocationFlag>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
 
     storage.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());
+    // on the host only, as LTS::DerivedState
+    storage.add<DerivedState>(derivedState > 0 ? ghostMask
+                                               : ghostMask | initializer::LayerMask(Copy) |
+                                                     initializer::LayerMask(Interior),
+                              Alignment,
+                              initializer::AllocationMode::HostOnly,
+                              false,
+                              std::max<std::size_t>(derivedState, 1));
   }
 
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,

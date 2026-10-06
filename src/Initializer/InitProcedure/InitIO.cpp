@@ -156,6 +156,10 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     SurfaceLTS::registerCheckpointVariables(checkpoint, storage);
   }
 
+  // the state of the derived outputs starts from its initial values, unless the checkpoint has it
+  initializer::initializeDerivedState(seissolInstance);
+  initializer::registerDerivedStateCheckpoints(checkpoint, seissolInstance);
+
   const auto& checkpointFile = seissolInstance.checkpointLoadFile();
   if (checkpointFile.has_value()) {
     const double time = seissolInstance.outputManager().loadCheckpoint(checkpointFile.value());
@@ -388,38 +392,16 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   }
 
   WaveFieldOutputSetup setup;
+  // the output points, as the state of the derived outputs is laid out for them
+  const auto points = initializer::waveFieldGeometry(parameters);
   setup.order = order;
-  setup.dataOrder = order > 0 ? order : 0;
+  setup.dataOrder = static_cast<std::uint32_t>(points.dataOrder);
+  setup.dataBase = points.dataBase;
+  setup.subcells = points.subcells;
+  setup.projectionTarget = points.target;
   const auto trueOrder = order > 0 ? order : 1;
   const auto trueBase = io::instance::geometry::pointsTetrahedron(trueOrder);
-  setup.dataBase = io::instance::geometry::pointsTetrahedron(setup.dataOrder);
-
-  setup.subcells = io::instance::geometry::unrefined<3>();
-
-  if (parameters.refinement == seissol::initializer::parameters::VolumeRefinement::Refine4) {
-    setup.subcells = io::instance::geometry::subdivideMaps(
-        setup.subcells, io::instance::geometry::TetrahedronRefine4);
-  }
-  if (parameters.refinement == seissol::initializer::parameters::VolumeRefinement::Refine8) {
-    setup.subcells = io::instance::geometry::subdivideMaps(
-        setup.subcells, io::instance::geometry::TetrahedronRefine8);
-  }
-  if (parameters.refinement == seissol::initializer::parameters::VolumeRefinement::Refine32) {
-    // the edge division has to come first; the legacy refinement::DivideTetrahedronBy32
-    // subdivided by 8 and then split each of those subcells by its center point, which (as
-    // subdivideMaps enumerates input-major) is the ordering 4*i + j the output cells had
-    setup.subcells = io::instance::geometry::subdivideMaps(
-        setup.subcells, io::instance::geometry::TetrahedronRefine8);
-    setup.subcells = io::instance::geometry::subdivideMaps(
-        setup.subcells, io::instance::geometry::TetrahedronRefine4);
-  }
-
   const auto truePoints = io::instance::geometry::applyMaps(setup.subcells, trueBase);
-
-  setup.projectionTarget =
-      parameters.projection == seissol::initializer::parameters::ProjectionMethod::L2
-          ? projection::Target::Project
-          : projection::Target::Interpolate;
 
   const auto format = orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
                                   : io::instance::geometry::WriterFormat::Vtk;
@@ -576,19 +558,15 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
       freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::LocationFlag>();
 
   SurfaceOutputSetup setup;
+  // the output points, as the state of the derived outputs is laid out for them
+  const auto points = initializer::surfaceGeometry(parameters);
   setup.order = order;
+  setup.dataOrder = static_cast<std::uint32_t>(points.dataOrder);
+  setup.dataBase = points.dataBase;
+  setup.subcells = points.subcells;
+  setup.projectionTarget = points.target;
   const auto trueOrder = order > 0 ? order : 1;
-  setup.dataOrder = order > 0 ? order : 0;
   const auto trueBase = io::instance::geometry::pointsTriangle(trueOrder);
-  setup.dataBase = io::instance::geometry::pointsTriangle(setup.dataOrder);
-
-  setup.subcells = io::instance::geometry::unrefined<2>();
-
-  for (std::size_t i = 0; i < parameters.refinement; ++i) {
-    setup.subcells = io::instance::geometry::subdivideMaps(setup.subcells,
-                                                           io::instance::geometry::TriangleRefine4);
-  }
-
   const auto truePoints = io::instance::geometry::applyMaps(setup.subcells, trueBase);
 
   const auto format = orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
@@ -625,11 +603,6 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
           }
         }
       });
-
-  setup.projectionTarget =
-      parameters.projection == seissol::initializer::parameters::ProjectionMethod::L2
-          ? projection::Target::Project
-          : projection::Target::Interpolate;
 
   const auto rank = seissol::Mpi::mpi.rank();
   writer.addCellData<int>(

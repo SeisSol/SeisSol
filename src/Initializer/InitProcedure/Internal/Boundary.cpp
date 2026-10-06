@@ -90,9 +90,10 @@ void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& stora
 
 void initSurfaceStorage(SurfaceLTS::Storage& surfaceStorage,
                         LTS::Storage& storage,
-                        solver::FreeSurfaceIntegrator& freeSurfaceIntegrator) {
+                        solver::FreeSurfaceIntegrator& freeSurfaceIntegrator,
+                        std::size_t derivedState) {
   surfaceStorage.setName("surface");
-  SurfaceLTS::addTo(surfaceStorage);
+  SurfaceLTS::addTo(surfaceStorage, derivedState);
 
   // TODO: move freeSurfaceIntegrator initialization here, once separated from the IO (cf. #1180).
   freeSurfaceIntegrator.initialize(storage, surfaceStorage);

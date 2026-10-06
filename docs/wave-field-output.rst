@@ -205,4 +205,8 @@ The same in Lua; a returned table names the outputs, and ``M.state`` declares th
    wavefieldscript = 'sderiv:pgv.sderiv'
    /
 
-A state is not written to checkpoints; a restarted run starts it over.
+The state lives with the cells, one value per state, output point and fused simulation, and is
+written to the checkpoints, so that a restarted run continues it. It does so only if the states,
+the output points (``wavefieldvtkorder``, ``refinement``, ``wavefieldprojection``) and the
+number of fused simulations are those of the run that wrote the checkpoint; otherwise the state
+starts over from its initial values, with a warning.

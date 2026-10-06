@@ -45,6 +45,12 @@
 // points of a layer are evaluated after every time step of its cluster, and the buffer then
 // always holds the running values. A layer whose cluster did not step since the last write (at
 // the start, or one that runs on a device) is evaluated when the output is written.
+//
+// STATE. The state of the configured program lives with the elements, in the storage of the
+// cells (LTS::DerivedState) or of the faces (SurfaceLTS::DerivedState): per element, a value per
+// declared state, output point and fused simulation. It is set to the initial values before a
+// checkpoint is loaded, and written to the checkpoints under a name that changes with its layout,
+// so that a restart continues it when the layout is the same and starts it over otherwise.
 
 #include "Expr/Program.h"
 #include "IO/Instance/Geometry/Refinement.h"
@@ -61,6 +67,13 @@
 
 namespace seissol {
 class SeisSol;
+namespace io::instance::checkpoint {
+class CheckpointManager;
+} // namespace io::instance::checkpoint
+namespace initializer::parameters {
+struct FreeSurfaceOutputParameters;
+struct WaveFieldOutputParameters;
+} // namespace initializer::parameters
 } // namespace seissol
 
 namespace seissol::initializer {
@@ -270,6 +283,56 @@ struct WaveFieldSelection {
 /// `outputMask` from the cell, and the displacement u1, u2, u3 of the face.
 [[nodiscard]] expr::Program surfaceProgram(const std::vector<std::string>& quantities,
                                            const std::vector<bool>& outputMask);
+
+/// The output points of the wave field output as configured: the subcells of a cell, the points
+/// of a subcell and the projection onto them. The convergence order and the nodal set are the
+/// configuration's, and left to the caller.
+[[nodiscard]] DerivedGeometry
+    waveFieldGeometry(const parameters::WaveFieldOutputParameters& parameters);
+
+/// The same for the free surface output.
+[[nodiscard]] DerivedSurfaceGeometry
+    surfaceGeometry(const parameters::FreeSurfaceOutputParameters& parameters);
+
+/// The output a derived program serves.
+enum class DerivedOutputKind : std::uint8_t { WaveField, Surface };
+
+/// The state the configured program of an output keeps per element (see STATE above): in an
+/// element, value (state, point, simulation) at offset(state, point, simulation).
+struct DerivedStateLayout {
+  /// The declared states, in the order of Program::state(), and their initial values.
+  std::vector<std::string> states;
+  std::vector<double> initial;
+  std::size_t pointsPerElement{0};
+  /// The most fused simulations of a configuration of the run.
+  std::size_t simulations{0};
+  /// Changes with whatever changes the meaning of a value: the states, the output points, the
+  /// simulations.
+  std::uint64_t fingerprint{0};
+
+  /// Values per element; 0 without state.
+  [[nodiscard]] std::size_t size() const { return states.size() * pointsPerElement * simulations; }
+  [[nodiscard]] std::size_t
+      offset(std::size_t state, std::size_t point, std::size_t simulation) const {
+    return (state * pointsPerElement + point) * simulations + simulation;
+  }
+  /// The name of the dataset in the checkpoints.
+  [[nodiscard]] std::string checkpointName() const;
+};
+
+/// The state layout of the configured program of output `kind`; empty if the output is off or its
+/// program keeps no state.
+[[nodiscard]] DerivedStateLayout derivedStateLayout(seissol::SeisSol& seissolInstance,
+                                                    DerivedOutputKind kind);
+
+/// Sets the state of the derived outputs to its initial values, in the storage of the cells and
+/// of the faces. Before a checkpoint is loaded.
+void initializeDerivedState(seissol::SeisSol& seissolInstance);
+
+/// Registers the state of the derived outputs with the checkpoints, after the trees of the cells
+/// and of the faces. A checkpoint without it (or with another layout) leaves the initial values.
+void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager& checkpoint,
+                                     seissol::SeisSol& seissolInstance);
 
 /// Whether the channel `name` reads the time integral of the solution, in the vocabulary above.
 [[nodiscard]] bool readsTimeIntegral(const std::string& name);

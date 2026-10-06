@@ -16,6 +16,7 @@
 #include "Equations/EnergyBase.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/InitProcedure/DerivedOutput.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
 #include "Initializer/InitProcedure/Internal/ConfigBoundaryCheck.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
@@ -400,7 +401,10 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
   internal::initBoundaryStorage(mm.boundaryStorage(), mm.ltsStorage());
   internal::initSurfaceStorage(
-      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator());
+      mm.surfaceStorage(),
+      mm.ltsStorage(),
+      seissolInstance.freeSurfaceIntegrator(),
+      derivedStateLayout(seissolInstance, DerivedOutputKind::Surface).size());
 }
 
 } // namespace
