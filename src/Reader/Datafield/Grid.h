@@ -380,7 +380,8 @@ class GridStore {
   // volume field in the same run should not be forced to the same window.
   //
   // setResidentSlices() overrides the derivation for every grid, for the cases
-  // where someone does have an opinion.
+  // where someone does have an opinion. A window narrower than the stencil of a
+  // grid is refused by suggestedSyncInterval(), per grid.
   void setWindowMemoryBudget(std::size_t bytes);
   [[nodiscard]] std::size_t windowMemoryBudget() const { return windowMemoryBudget_; }
   void setResidentSlices(std::optional<std::size_t> slices);

@@ -124,9 +124,12 @@ const Grid& GridStore::get(std::size_t id) const {
 }
 
 void GridStore::setResidentSlices(std::optional<std::size_t> slices) {
-  if (slices.has_value() && *slices <= MaxStencilWidth) {
-    logError() << "datafield: residentSlices must exceed the widest stencil (" << MaxStencilWidth
-               << "), got" << *slices << ".";
+  // Whether a window is wide enough depends on the interpolation scheme of each grid, which
+  // suggestedSyncInterval() checks; only a window that no scheme can sample is refused here.
+  if (slices.has_value() && *slices < 2) {
+    throw std::invalid_argument(
+        "datafield: a time window needs at least two resident slices, got " +
+        std::to_string(*slices));
   }
   residentSlicesOverride_ = slices;
 }
