@@ -97,9 +97,19 @@ Program mustCompile(const std::string& source) {
 void mustReject(const std::string& source, const std::string& fragment) {
   // The message is part of the contract here: these are user-facing syntax
   // errors in a parameter file, and "parse error" alone sends someone to the
-  // wrong line.
-  REQUIRE_THROWS_WITH_AS(
-      compileSderiv(source, "out"), doctest::Contains(fragment.c_str()), SderivError);
+  // wrong line. (Checked by hand: doctest::Contains needs a newer doctest than
+  // the bundled one.)
+  bool thrown = false;
+  try {
+    static_cast<void>(compileSderiv(source, "out"));
+  } catch (const SderivError& error) {
+    thrown = true;
+    const std::string message = error.what();
+    CAPTURE(message);
+    CAPTURE(fragment);
+    CHECK(message.find(fragment) != std::string::npos);
+  }
+  REQUIRE(thrown);
 }
 
 } // namespace
