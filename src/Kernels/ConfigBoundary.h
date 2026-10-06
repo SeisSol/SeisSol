@@ -11,7 +11,10 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/configboundary.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Model/Common.h"
 
 #include <array>
 #include <cstddef>
@@ -21,43 +24,27 @@
 namespace seissol::kernels {
 
 /**
- * @brief Converts the time integral of a face neighbor that computes in the configuration
- * `neighbor` into the configuration `cell` of the cell.
+ * @brief Whether the time integral of a face neighbor of the configuration `NeighborCfg` converts
+ * into the configuration `Cfg` of the cell.
  *
- * The neighbor kernel of the cell reads the time integral of a neighbor only through its trace on
- * the shared face, tested with the basis functions of the cell. The conversion keeps these face
- * integrals exact. The modal bases are hierarchical, and orthogonal on the volume and on the
- * faces. So a neighbor of at most the order of the cell is copied, padded with zeros. For a
- * neighbor of a higher order, its trace on the face is projected to the face basis of the cell and
- * lifted back into the volume basis of the cell; the result agrees with the neighbor on that face
- * only.
- *
- * The quantities are matched by name. Quantities of the cell that the neighbor does not have, such
- * as the memory variables of an anelastic cell next to an elastic one, are zero; the neighbor flux
- * reads the elastic quantities only. The fused simulations are matched one by one.
+ * The neighbor flux of the cell reads the time integral of a neighbor only through its trace on
+ * the shared face, tested with the face basis of the cell. The conversion keeps these face
+ * integrals exact. It goes through the canonical form of the family of both configurations (the
+ * configurations whose materials pose the Riemann problem in the same material, and that fuse the
+ * same number of simulations): toCanonical of the neighbor pads its time integral to the largest
+ * order of the family in the build, selects the quantities of the Riemann problem and widens it to
+ * double precision; fromCanonical of the cell, for the side of the neighbor on the shared face,
+ * projects the trace on that face to the face basis of the cell and lifts it into the volume basis
+ * of the cell, and narrows it to the precision of the cell. Quantities of the cell outside the
+ * canonical form, such as memory variables, are zero. The code generator generates both kernels
+ * for the configurations of a family that has more than one configuration in the build.
  */
-class NeighborConversion {
-  public:
-  NeighborConversion(ConfigId cell, ConfigId neighbor);
-
-  /**
-   * Writes `integral`, a time integral of a neighbor of the configuration `NeighborCfg`, into
-   * `converted`, a time integral of the configuration `Cfg` of the cell. The neighbor touches the
-   * cell with its side `neighborSide`.
-   */
-  template <typename Cfg, typename NeighborCfg>
-  void apply(const Real<NeighborCfg>* integral,
-             Real<Cfg>* converted,
-             std::size_t neighborSide) const;
-
-  private:
-  // for every quantity of a time integral of the cell, the quantity of the neighbor with its name
-  std::vector<std::optional<std::size_t>> quantities_;
-
-  // for a neighbor of a higher order: per side of the neighbor, the map from its volume basis to
-  // the volume basis of the cell (row-major); empty otherwise
-  std::array<std::vector<double>, Cell::NumFaces> lift_;
-};
+template <typename Cfg, typename NeighborCfg>
+constexpr bool Convertible =
+    generated::ConfigBoundaryKernels<Cfg>::Host &&
+    generated::ConfigBoundaryKernels<NeighborCfg>::Host &&
+    model::CanNeighbor<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
+    Cfg::NumSimulations == NeighborCfg::NumSimulations;
 
 /**
  * @brief The faces of the cells of the configuration `Cfg` whose neighbor computes in another
@@ -99,13 +86,20 @@ class ConfigBoundary {
 
   private:
   struct Neighbor {
-    NeighborConversion conversion;
-
     // the coefficients of the time basis of the neighbor for its step relation to the cell (GTS)
     // and for the sub-interval of a larger time step of the neighbor (LTS)
     std::vector<double> timeCoeffs;
     std::vector<double> subtimeCoeffs;
   };
+
+  /// Computes the time integral of the neighbor of the configuration `NeighborCfg` on the face
+  /// `face` from `timeDofs`, and converts it into `integrationBuffer`.
+  template <typename NeighborCfg>
+  static void computeIntegral(const CellLocalInformation& cellInformation,
+                              std::size_t face,
+                              const Neighbor& neighbor,
+                              const void* timeDofs,
+                              real* integrationBuffer);
 
   // indexed by the configuration of the neighbor
   std::vector<std::optional<Neighbor>> neighbors_;

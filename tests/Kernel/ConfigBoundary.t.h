@@ -14,6 +14,7 @@
 #include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/configboundary.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -107,6 +108,8 @@ void checkConversion() {
 
   for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
     CAPTURE(side);
+    // the conversion writes all of it
+    buffer.fill(std::numeric_limits<RealT>::quiet_NaN());
     CellLocalInformation info{};
     info.faceTypes = {
         FaceType::Regular, FaceType::FreeSurface, FaceType::FreeSurface, FaceType::FreeSurface};
@@ -161,13 +164,29 @@ void checkConversion() {
 
 } // namespace configboundarytest
 
+TEST_CASE("The canonical form of a family has the quantities of its Riemann problem") {
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    if constexpr (generated::ConfigBoundaryKernels<Cfg>::Host) {
+      CAPTURE(configName(configValue(configIdOf<Cfg>())));
+      using Material = model::MaterialOf<Cfg>;
+      constexpr auto Count = generated::ConfigBoundaryKernels<Cfg>::CanonicalQuantities;
+      REQUIRE(Count == Material::RiemannMaterial::NumQuantities);
+      REQUIRE(Count <= configboundarytest::Quantities<Cfg>);
+      // the leading quantities of the configuration, in the order of the Riemann material
+      for (std::size_t quantity = 0; quantity < Count; ++quantity) {
+        CHECK(Material::Quantities[quantity] == Material::RiemannMaterial::Quantities[quantity]);
+      }
+    }
+  });
+}
+
 TEST_CASE("A neighbor of another configuration keeps its trace on the shared face") {
   forEachConfig([&](auto cfg) {
     using Cfg = decltype(cfg);
     forEachConfig([&](auto neighborCfg) {
       using NeighborCfg = decltype(neighborCfg);
-      if constexpr (!std::is_same_v<Cfg, NeighborCfg> &&
-                    Cfg::NumSimulations == NeighborCfg::NumSimulations) {
+      if constexpr (!std::is_same_v<Cfg, NeighborCfg> && kernels::Convertible<Cfg, NeighborCfg>) {
         const auto cell = configName(configValue(configIdOf<Cfg>()));
         const auto neighbor = configName(configValue(configIdOf<NeighborCfg>()));
         CAPTURE(cell);
