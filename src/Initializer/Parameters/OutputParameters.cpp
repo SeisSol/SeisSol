@@ -341,6 +341,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 
   const auto timeSeries = readTimeSeriesMode(reader, "wavefieldtimeseries", defaultTimeSeries);
 
+  const auto script = reader->readWithDefault("wavefieldscript", std::string());
+
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
   }
@@ -357,7 +359,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                    computeRotation,
                                    computeStrain,
                                    projection,
-                                   timeSeries};
+                                   timeSeries,
+                                   script};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config) {

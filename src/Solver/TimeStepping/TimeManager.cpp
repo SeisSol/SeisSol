@@ -399,6 +399,12 @@ void TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter) {
   }
 }
 
+void TimeManager::addCorrectionHook(const TimeClusterInterface::CorrectionHook& hook) {
+  for (auto& cluster : clusters_) {
+    cluster->addCorrectionHook(hook);
+  }
+}
+
 void TimeManager::setInitialTimes(double time) {
   assert(time >= 0);
 

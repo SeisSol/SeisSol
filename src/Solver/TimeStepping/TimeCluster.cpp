@@ -873,6 +873,13 @@ void TimeCluster<Cfg>::correct() {
   }
 
   streamRuntime_.wait();
+
+  // on a device, the cells are not on the host after a step
+  if (executor_ == Executor::Host) {
+    for (const auto& hook : correctionHooks_) {
+      hook(layerId(), ct_.correctionTime + timeStepSize());
+    }
+  }
 }
 
 template <typename Cfg>

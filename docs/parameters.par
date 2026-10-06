@@ -170,6 +170,7 @@ wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for
 
 wavefieldcomputerotation = 0 ! compute rotation for the volume output
 wavefieldcomputestrain = 0 ! compute strain for the volume output
+! wavefieldscript = 'sderiv:pgv.sderiv' ! (optional) further outputs, computed by a program
 
 wavefieldprojection = 'pointwise' ! how the solution is transferred onto the output points:
 ! 'pointwise' evaluates it there, 'l2' projects onto the output space (conservative per subcell)

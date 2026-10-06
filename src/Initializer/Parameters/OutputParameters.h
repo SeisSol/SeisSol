@@ -168,6 +168,8 @@ struct WaveFieldOutputParameters {
   bool computeStrain{false};
   ProjectionMethod projection{ProjectionMethod::Pointwise};
   TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
+  // a derived-output program (sderiv or Lua) whose outputs are written along
+  std::string script;
 };
 
 struct OutputParameters {

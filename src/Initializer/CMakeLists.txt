@@ -17,6 +17,7 @@ add_library(seissol-initializer OBJECT
     BatchRecorders/NeighIntegrationRecorder.cpp
     BatchRecorders/PlasticityRecorder.cpp
 
+    InitProcedure/DerivedOutput.cpp
     InitProcedure/Init.cpp
     InitProcedure/InitIO.cpp
     InitProcedure/InitLayout.cpp
