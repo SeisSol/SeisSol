@@ -7,7 +7,7 @@
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
-#include "Cfg.h"
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Solver/MultipleSimulations.h"
