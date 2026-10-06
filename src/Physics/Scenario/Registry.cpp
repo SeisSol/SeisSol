@@ -192,8 +192,9 @@ constexpr std::array<Entry, 12> Registry = {{
      "it is formulated for a poroelastic material",
      true,
      [](const Input& input) { return single<PressureInjection>(input.parameters.initialization); }},
-    // Read from a file, and hence known at t = 0 only.
-    {InitializationType::Script, "script", MaterialRequirement::None, {}, false, nullptr},
+    // Read from a script, which may read the time t: physics::ScriptField evaluates it at any
+    // point and time, as an analytical boundary condition asks.
+    {InitializationType::Script, "script", MaterialRequirement::None, {}, true, nullptr},
 }};
 
 const Entry* find(InitializationType type) {

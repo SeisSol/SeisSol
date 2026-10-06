@@ -9,6 +9,7 @@ add_library(seissol-physics OBJECT
     InstantaneousTimeMirrorManager.cpp
     Scenario/Registry.cpp
     Scenario/Scenarios.cpp
+    ScriptField.cpp
 )
 
 target_link_libraries(seissol-physics PUBLIC seissol-common-properties)
