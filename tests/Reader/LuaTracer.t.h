@@ -25,11 +25,15 @@
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Program.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/LuaReader.h"
 #include "Reader/Scripting/LuaTracer.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -240,6 +244,64 @@ end
 return M
 )lua";
 
+constexpr auto NamedOutputs = R"lua(
+local M = {}
+function M.evaluate(fields, x, y)
+  return { sum = x + y, diff = x - y }
+end
+return M
+)lua";
+
+constexpr auto PeakOverTime = R"lua(
+local M = {}
+M.state = { peak = 0.0 }
+function M.evaluate(fields, v, peak)
+  return { peak = math.max(peak, math.abs(v)) }
+end
+return M
+)lua";
+
+// the window example of the state declaration: the peak restarts whenever the window advances, and
+// the window it belongs to is kept, but not written
+constexpr auto WindowedPeak = R"lua(
+local M = {}
+M.state = { last = -1.0, peak = 0.0 }
+M.output_parameters = { "peak" }
+function M.evaluate(fields, v, window, last, peak)
+  local fresh = ssol.lt(last, window)
+  return { peak = ssol.select(fresh, v, math.max(peak, v)), last = window }
+end
+return M
+)lua";
+
+constexpr auto SderivBuiltins = R"lua(
+local M = {}
+M.output_parameters = { "sign", "mod", "atan2", "pow", "g" }
+function M.evaluate(fields, x)
+  return ssol.sign(x), ssol.mod(x, 3.0), ssol.atan2(x, -2.0), ssol.pow(1.5, ssol.mod(x, 2.0)),
+         ssol.g * x + ssol.pi
+end
+return M
+)lua";
+
+constexpr auto StateWithoutNextValue = R"lua(
+local M = {}
+M.state = { acc = 0.0 }
+function M.evaluate(fields, x, acc)
+  return { other = x + acc }
+end
+return M
+)lua";
+
+constexpr auto UndeclaredResult = R"lua(
+local M = {}
+M.output_parameters = { "a" }
+function M.evaluate(fields, x)
+  return { a = x, b = 2.0 * x }
+end
+return M
+)lua";
+
 // ---------------------------------------------------------------- helpers ---
 
 expr::Program mustTrace(const std::string& code, const TraceOptions& options = {}) {
@@ -264,6 +326,88 @@ std::vector<std::string> names(const std::vector<expr::VarSpec>& specs) {
   }
   return out;
 }
+
+/// A traced program and the interpreted reader of the same script, bound to the same inputs, for
+/// running both over several calls -- which is what a state needs to be compared.
+struct Agreement {
+  expr::Program program;
+  std::size_t numPoints;
+  std::vector<std::vector<double>> inputs;
+  std::vector<std::vector<double>> traced;
+  std::vector<std::vector<double>> expected;
+  DataTable compiledTable;
+  DataTable referenceTable;
+  expr::Binding binding;
+  reader::datafield::GridStore grids;
+  std::unique_ptr<expr::Kernel> kernel;
+  LuaReader interpreted;
+
+  Agreement(const std::string& code, std::size_t numPoints)
+      : program(mustTrace(code)), numPoints(numPoints),
+        inputs(program.inputs().size(), std::vector<double>(numPoints, 0.0)),
+        traced(program.outputs().size(), std::vector<double>(numPoints, 0.0)),
+        expected(program.outputs().size(), std::vector<double>(numPoints, 0.0)),
+        compiledTable(numPoints), referenceTable(numPoints), binding(bindBoth()),
+        kernel(makeKernelFor()), interpreted(code) {
+    interpreted.prepare(referenceTable);
+  }
+
+  expr::Binding bindBoth() {
+    for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+      compiledTable.bindViewConst<double>(
+          program.inputs()[i].name, Direction::In, inputs[i].data());
+      referenceTable.bindViewConst<double>(
+          program.inputs()[i].name, Direction::In, inputs[i].data());
+    }
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      compiledTable.bindView<double>(program.outputs()[i].name, Direction::Out, traced[i].data());
+      referenceTable.bindView<double>(
+          program.outputs()[i].name, Direction::Out, expected[i].data());
+    }
+    return expr::Binding::bind(program, compiledTable);
+  }
+
+  std::unique_ptr<expr::Kernel> makeKernelFor() {
+    expr::BackendOptions options;
+    options.preferred = expr::BackendKind::Interpreter;
+    auto made = makeKernel(program, binding, grids, options);
+    made->precompute(compiledTable);
+    return made;
+  }
+
+  [[nodiscard]] std::size_t input(const std::string& name) const {
+    for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+      if (program.inputs()[i].name == name) {
+        return i;
+      }
+    }
+    FAIL("no input " << name);
+    return 0;
+  }
+
+  [[nodiscard]] std::size_t output(const std::string& name) const {
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      if (program.outputs()[i].name == name) {
+        return i;
+      }
+    }
+    FAIL("no output " << name);
+    return 0;
+  }
+
+  /// Runs both, and checks that they agree bit for bit.
+  void call() {
+    kernel->run(compiledTable);
+    interpreted.call(referenceTable);
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      for (std::size_t point = 0; point < numPoints; ++point) {
+        CAPTURE(program.outputs()[i].name);
+        CAPTURE(point);
+        CHECK(std::memcmp(&traced[i][point], &expected[i][point], sizeof(double)) == 0);
+      }
+    }
+  }
+};
 
 } // namespace
 
@@ -440,6 +584,83 @@ return M
   TEST_CASE("a traced program has a stable fingerprint across traces") {
     CHECK(mustTrace(PlanarWave).fingerprint() == mustTrace(PlanarWave).fingerprint());
     CHECK(mustTrace(PlanarWave).fingerprint() != mustTrace(SharedSubexpression).fingerprint());
+  }
+
+  // ------------------------------------------------- sderiv parity -------
+
+  TEST_CASE("a returned table names the outputs") {
+    const auto program = mustTrace(NamedOutputs);
+    CHECK(names(program.inputs()) == std::vector<std::string>{"x", "y"});
+    // in the order of their names: a table has none
+    CHECK(names(program.outputs()) == std::vector<std::string>{"diff", "sum"});
+
+    Agreement both(NamedOutputs, 5);
+    for (std::size_t point = 0; point < both.numPoints; ++point) {
+      both.inputs[both.input("x")][point] = 1.5 * static_cast<double>(point);
+      both.inputs[both.input("y")][point] = -0.25 * static_cast<double>(point * point);
+    }
+    both.call();
+    CHECK(both.traced[both.output("diff")][3] == 4.5 + 2.25);
+  }
+
+  TEST_CASE("state carries a maximum from one call to the next") {
+    const auto program = mustTrace(PeakOverTime);
+    CHECK(names(program.inputs()) == std::vector<std::string>{"v"});
+    REQUIRE(program.state().size() == 1);
+    CHECK(program.state()[0].name == "peak");
+    CHECK(names(program.outputs()) == std::vector<std::string>{"peak"});
+
+    Agreement both(PeakOverTime, 4);
+    const std::vector<std::vector<double>> calls{
+        {1.0, -2.0, 0.5, 0.0}, {-3.0, 1.0, 0.25, 2.0}, {2.0, 1.5, -4.0, 1.0}};
+    std::vector<double> reference(4, 0.0);
+    for (const auto& values : calls) {
+      both.inputs[both.input("v")] = values;
+      both.call();
+      for (std::size_t point = 0; point < 4; ++point) {
+        reference[point] = std::max(reference[point], std::abs(values[point]));
+        CHECK(both.traced[0][point] == reference[point]);
+      }
+    }
+  }
+
+  TEST_CASE("a state left out of output_parameters is kept, not written") {
+    const auto program = mustTrace(WindowedPeak);
+    CHECK(names(program.outputs()) == std::vector<std::string>{"peak"});
+    REQUIRE(program.state().size() == 2);
+    CHECK(program.state()[0].name == "last");
+    CHECK(program.state()[1].name == "peak");
+
+    // window 0 sees 3, 7, 2 and keeps 7; window 1 sees 1, 4 and keeps 4, not 7
+    Agreement both(WindowedPeak, 1);
+    const std::vector<std::pair<double, double>> calls{
+        {3.0, 0.0}, {7.0, 0.0}, {2.0, 0.0}, {1.0, 1.0}, {4.0, 1.0}};
+    const std::vector<double> peaks{3.0, 7.0, 7.0, 1.0, 4.0};
+    for (std::size_t i = 0; i < calls.size(); ++i) {
+      both.inputs[both.input("v")][0] = calls[i].first;
+      both.inputs[both.input("window")][0] = calls[i].second;
+      both.call();
+      CHECK(both.traced[0][0] == peaks[i]);
+    }
+  }
+
+  TEST_CASE("ssol has the builtins of sderiv, computed alike") {
+    const auto program = mustTrace(SderivBuiltins);
+    CHECK(names(program.outputs()) == std::vector<std::string>{"sign", "mod", "atan2", "pow", "g"});
+    Agreement both(SderivBuiltins, 9);
+    both.inputs[0] = {-1e3, -7.5, -1.0, -0.0, 0.0, 0.25, 1.0, 5.5, 1e3};
+    both.call();
+    // Lua's `%` keeps the sign of the divisor
+    CHECK(both.traced[both.output("mod")][1] == 1.5);
+    CHECK(both.traced[both.output("sign")][3] == 0.0);
+  }
+
+  TEST_CASE("a state without a next value is refused") {
+    CHECK(mustRefuse(StateWithoutNextValue).cause == Cause::SignatureMismatch);
+  }
+
+  TEST_CASE("a returned name that is neither an output nor a state is refused") {
+    CHECK(mustRefuse(UndeclaredResult).cause == Cause::SignatureMismatch);
   }
 
   // ------------------------------------------------------ differential -----

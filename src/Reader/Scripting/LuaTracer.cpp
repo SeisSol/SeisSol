@@ -9,15 +9,18 @@
 
 #ifdef USE_LUA
 
+#include "Expr/Interp.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Reader/Datafield/Grid.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdarg>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -554,6 +557,17 @@ int concreteSelect(lua_State* l) {
   lua_pushvalue(l, truthy(l, 1) ? 2 : 3);
   return 1;
 }
+// The arithmetic is the interpreter's own, so the concrete runs cannot disagree
+// with a traced program by a second definition.
+template <Fn F>
+int concreteArithmetic(lua_State* l) {
+  std::array<double, 2> args{};
+  for (int i = 0; i < expr::arity(F); ++i) {
+    args[static_cast<std::size_t>(i)] = luaL_checknumber(l, i + 1);
+  }
+  lua_pushnumber(l, expr::applyPw<double>(F, args.data()));
+  return 1;
+}
 
 // ---------------------------------------------------------------------------
 // Environment
@@ -614,7 +628,13 @@ void pushSsolTableImpl(lua_State* luaState, bool symbolic) {
               {"land", ssolAnd, concreteAnd},
               {"lor", ssolOr, concreteOr},
               {"lnot", ssolNot, concreteNot},
-              {"select", ssolSelect, concreteSelect}};
+              {"select", ssolSelect, concreteSelect},
+              // the builtins of sderiv that Lua spells differently or lacks, under the
+              // sderiv names, so that a model transliterates in both directions
+              {"sign", mmUnary<Fn::Sign>, concreteArithmetic<Fn::Sign>},
+              {"mod", mmBinary<Fn::Mod>, concreteArithmetic<Fn::Mod>},
+              {"atan2", mmBinary<Fn::Atan2>, concreteArithmetic<Fn::Atan2>},
+              {"pow", mmBinary<Fn::Pow>, concreteArithmetic<Fn::Pow>}};
   for (const auto& entry : ssol) {
     // The probe runs need the same names computing CONCRETELY and returning
     // real booleans. That is exactly what makes `if ssol.gt(z, 0) then` show up
@@ -627,6 +647,11 @@ void pushSsolTableImpl(lua_State* luaState, bool symbolic) {
     lua_pushcfunction(luaState, symbolic ? entry.symbolicFn : entry.concreteFn);
     lua_setfield(luaState, -2, entry.name);
   }
+  // the constants of sderiv
+  lua_pushnumber(luaState, M_PI);
+  lua_setfield(luaState, -2, "pi");
+  lua_pushnumber(luaState, 9.80665);
+  lua_setfield(luaState, -2, "g");
 }
 
 // os, io, debug, require, load, dofile and package are absent by construction:
@@ -958,6 +983,31 @@ std::optional<expr::Program>
     traceState.gridIds.push_back(program.internGrid(desc));
   }
 
+  // M.state: what the program keeps from one call to the next, by name, with the value it starts
+  // from. Sorted by name, since a table has no order.
+  std::vector<std::pair<std::string, double>> states;
+  lua_getfield(luaState, moduleIndex, "state");
+  if (lua_istable(luaState, -1)) {
+    lua_pushnil(luaState);
+    while (lua_next(luaState, -2) != 0) {
+      if (lua_type(luaState, -2) != LUA_TSTRING || lua_type(luaState, -1) != LUA_TNUMBER) {
+        return abort(Cause::LoadError,
+                     "`state` maps names to the numbers they start from; found an entry that "
+                     "does not");
+      }
+      states.emplace_back(lua_tostring(luaState, -2), lua_tonumber(luaState, -1));
+      lua_pop(luaState, 1);
+    }
+  } else if (!lua_isnil(luaState, -1)) {
+    return abort(Cause::LoadError, "`state` has to be a table of initial values");
+  }
+  lua_pop(luaState, 1);
+  std::sort(states.begin(), states.end());
+  const auto isState = [&](const std::string& name) {
+    return std::any_of(
+        states.begin(), states.end(), [&](const auto& entry) { return entry.first == name; });
+  };
+
   lua_pushlightuserdata(luaState, &traceState);
   lua_setfield(luaState, LUA_REGISTRYINDEX, TracerRegistryKey);
 
@@ -997,6 +1047,9 @@ std::optional<expr::Program>
                                      [&](const auto& p) { return p.first == *it; });
     if (folded != options.parameters.end()) {
       argumentNodes.push_back(program.arena().konst(folded->second));
+    } else if (isState(*it)) {
+      // the value of the previous call
+      argumentNodes.push_back(program.arena().field(*it));
     } else {
       argumentNodes.push_back(program.arena().field(*it));
       inputNames.push_back(*it);
@@ -1030,19 +1083,51 @@ std::optional<expr::Program>
   }
 
   const int returned = lua_gettop(luaState) - base;
-  std::vector<NodeId> roots;
-  roots.reserve(static_cast<std::size_t>(returned));
-  for (int i = 1; i <= returned; ++i) {
-    const int index = base + i;
+  // A value is a traced expression or a number; a constant output is legal, a model may pin one
+  // quantity.
+  const auto valueAt = [&](int index) -> std::optional<NodeId> {
     if (const Sym* sym = testSym(luaState, index)) {
-      roots.push_back(sym->id);
-    } else if (lua_type(luaState, index) == LUA_TNUMBER) {
-      // A constant output is legal: a model may pin one quantity.
-      roots.push_back(program.arena().konst(lua_tonumber(luaState, index)));
-    } else {
-      return abort(Cause::SignatureMismatch,
-                   "`evaluate` returned a " + std::string(luaL_typename(luaState, index)) +
-                       " at position " + std::to_string(i) + "; only numbers are outputs");
+      return sym->id;
+    }
+    if (lua_type(luaState, index) == LUA_TNUMBER) {
+      return program.arena().konst(lua_tonumber(luaState, index));
+    }
+    return std::nullopt;
+  };
+  // Either the outputs in the order of `output_parameters`, or one table that names them, the
+  // way an `out def` names an output in sderiv.
+  const bool named = returned == 1 && lua_istable(luaState, base + 1);
+  std::vector<NodeId> roots;
+  std::vector<std::pair<std::string, NodeId>> namedValues;
+  if (named) {
+    const int table = base + 1;
+    lua_pushnil(luaState);
+    while (lua_next(luaState, table) != 0) {
+      if (lua_type(luaState, -2) != LUA_TSTRING) {
+        return abort(Cause::SignatureMismatch,
+                     "`evaluate` returned a table with a key that is not a name");
+      }
+      const std::string name = lua_tostring(luaState, -2);
+      const auto value = valueAt(lua_gettop(luaState));
+      if (!value.has_value()) {
+        return abort(Cause::SignatureMismatch,
+                     "`evaluate` returned a " + std::string(luaL_typename(luaState, -1)) +
+                         " for `" + name + "`; only numbers are outputs");
+      }
+      namedValues.emplace_back(name, *value);
+      lua_pop(luaState, 1);
+    }
+    std::sort(namedValues.begin(), namedValues.end());
+  } else {
+    roots.reserve(static_cast<std::size_t>(returned));
+    for (int i = 1; i <= returned; ++i) {
+      const auto value = valueAt(base + i);
+      if (!value.has_value()) {
+        return abort(Cause::SignatureMismatch,
+                     "`evaluate` returned a " + std::string(luaL_typename(luaState, base + i)) +
+                         " at position " + std::to_string(i) + "; only numbers are outputs");
+      }
+      roots.push_back(*value);
     }
   }
 
@@ -1057,12 +1142,68 @@ std::optional<expr::Program>
   lua_pop(luaState, 1);
 
   lua_getfield(luaState, moduleIndex, "output_parameters");
-  const std::vector<std::string> outputNames = stringArray(luaState, -1);
+  const bool declaresOutputs = !lua_isnil(luaState, -1);
+  std::vector<std::string> outputNames = stringArray(luaState, -1);
   lua_pop(luaState, 1);
-  if (outputNames.size() != roots.size()) {
-    return abort(Cause::SignatureMismatch,
-                 "`output_parameters` declares " + std::to_string(outputNames.size()) +
-                     " names but `evaluate` returned " + std::to_string(roots.size()) + " values");
+
+  // The next value of every state: the returned value of the same name, which is also an output
+  // unless `output_parameters` leaves it out -- the counterpart of `def` against `out def`.
+  std::vector<NodeId> stateRoots;
+  if (named) {
+    const auto find = [&](const std::string& name) -> std::optional<NodeId> {
+      for (const auto& [key, value] : namedValues) {
+        if (key == name) {
+          return value;
+        }
+      }
+      return std::nullopt;
+    };
+    if (!declaresOutputs) {
+      for (const auto& [name, value] : namedValues) {
+        outputNames.push_back(name);
+      }
+    }
+    for (const auto& name : outputNames) {
+      const auto value = find(name);
+      if (!value.has_value()) {
+        return abort(Cause::SignatureMismatch,
+                     "`output_parameters` names `" + name + "`, which `evaluate` does not return");
+      }
+      roots.push_back(*value);
+    }
+    for (const auto& [name, value] : namedValues) {
+      if (std::find(outputNames.begin(), outputNames.end(), name) == outputNames.end() &&
+          !isState(name)) {
+        return abort(Cause::SignatureMismatch,
+                     "`evaluate` returns `" + name +
+                         "`, which is neither in `output_parameters` nor a state");
+      }
+    }
+    for (const auto& [name, initial] : states) {
+      const auto value = find(name);
+      if (!value.has_value()) {
+        return abort(Cause::SignatureMismatch,
+                     "the state `" + name + "` gets no next value: return it by name");
+      }
+      stateRoots.push_back(*value);
+    }
+  } else {
+    if (outputNames.size() != roots.size()) {
+      return abort(Cause::SignatureMismatch,
+                   "`output_parameters` declares " + std::to_string(outputNames.size()) +
+                       " names but `evaluate` returned " + std::to_string(roots.size()) +
+                       " values");
+    }
+    for (const auto& [name, initial] : states) {
+      const auto output = std::find(outputNames.begin(), outputNames.end(), name);
+      if (output == outputNames.end()) {
+        return abort(Cause::SignatureMismatch,
+                     "the state `" + name +
+                         "` gets no next value: return an output of that name, or return a "
+                         "table to keep it out of the outputs");
+      }
+      stateRoots.push_back(roots[static_cast<std::size_t>(output - outputNames.begin())]);
+    }
   }
 
   // Net 2.
@@ -1070,7 +1211,8 @@ std::optional<expr::Program>
     const bool consumed =
         std::find(traceState.boolConsumed.begin(), traceState.boolConsumed.end(), id) !=
             traceState.boolConsumed.end() ||
-        std::find(roots.begin(), roots.end(), id) != roots.end();
+        std::find(roots.begin(), roots.end(), id) != roots.end() ||
+        std::find(stateRoots.begin(), stateRoots.end(), id) != stateRoots.end();
     if (!consumed) {
       return abort(Cause::RawCondition,
                    "a condition was built but never passed to ssol.select/land/lor/lnot; a "
@@ -1089,6 +1231,9 @@ std::optional<expr::Program>
 
   for (const auto& name : inputNames) {
     program.addInput(name, DataType::F64);
+  }
+  for (std::size_t i = 0; i < states.size(); ++i) {
+    program.addState(states[i].first, states[i].second, stateRoots[i]);
   }
   for (std::size_t i = 0; i < outputNames.size(); ++i) {
     program.addOutput(outputNames[i], DataType::F64, roots[i]);

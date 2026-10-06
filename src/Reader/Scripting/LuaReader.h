@@ -9,7 +9,12 @@
 
 #include "Reader/Scripting/DataReader.h"
 
+#include <cstddef>
+#include <functional>
 #include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 extern "C" {
 struct lua_State;
@@ -88,12 +93,27 @@ class LuaReader : public DataReader {
   };
 
   private:
+  /// An argument of evaluate after `fields`: an input column, or the value of a state.
+  struct Argument {
+    bool state{false};
+    std::size_t index{0};
+  };
+
   void readMetadata(const LuaStateState& luaState);
   void bindField(const std::string& name, FieldSampler sampler);
   void registerFields(const LuaStateState& luaState);
 
   std::vector<std::string> inputs_;
   std::vector<std::string> outputs_;
+
+  std::vector<Argument> arguments_;
+
+  // M.state, sorted by name, and the value of every state at every point of the last call's
+  // point set; a point set of another size starts over from the initial values.
+  std::vector<std::string> stateNames_;
+  std::vector<double> stateInitial_;
+  std::vector<std::vector<double>> stateValues_;
+  std::size_t statePoints_{0};
 
   std::string code_;
 

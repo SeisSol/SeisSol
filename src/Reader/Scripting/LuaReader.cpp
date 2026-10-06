@@ -14,6 +14,7 @@
 #include "Parallel/OpenMP.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -270,6 +271,40 @@ LuaReader::LuaReader(const std::string& code) : code_(code) {
   lua_close(luaState.luaState);
 }
 
+namespace {
+
+/// The parameter names of the function at the top of the stack, which it leaves in place.
+std::vector<std::string> parameterNames(lua_State* luaState) {
+  lua_Debug debug{};
+  lua_pushvalue(luaState, -1);
+  lua_getinfo(luaState, ">u", &debug);
+  std::vector<std::string> names;
+  for (int i = 1; i <= debug.nparams; ++i) {
+    const char* name = lua_getlocal(luaState, nullptr, i);
+    if (name == nullptr) {
+      break;
+    }
+    names.emplace_back(name);
+  }
+  return names;
+}
+
+/// The string keys of the table at `index`, sorted.
+std::vector<std::string> sortedKeys(lua_State* luaState, int index) {
+  std::vector<std::string> keys;
+  lua_pushnil(luaState);
+  while (lua_next(luaState, index) != 0) {
+    if (lua_type(luaState, -2) == LUA_TSTRING) {
+      keys.emplace_back(lua_tostring(luaState, -2));
+    }
+    lua_pop(luaState, 1);
+  }
+  std::sort(keys.begin(), keys.end());
+  return keys;
+}
+
+} // namespace
+
 void LuaReader::readMetadata(const LuaStateState& state) {
   lua_rawgeti(state.luaState, LUA_REGISTRYINDEX, state.refModule); // [M]
 
@@ -286,13 +321,66 @@ void LuaReader::readMetadata(const LuaStateState& state) {
   lua_pop(state.luaState, 1);
 
   lua_getfield(state.luaState, -1, "input_parameters");
+  const bool declaresInputs = !lua_isnil(state.luaState, -1);
   inputs_ = readStringArray(state.luaState);
 
   lua_getfield(state.luaState, -1, "output_parameters");
+  const bool declaresOutputs = !lua_isnil(state.luaState, -1);
   outputs_ = readStringArray(state.luaState);
 
   lua_getfield(state.luaState, -1, "field_specs");
   fieldSpecs_ = readFieldSpecs(state.luaState);
+
+  lua_getfield(state.luaState, -1, "state"); // [M, state]
+  if (lua_istable(state.luaState, -1)) {
+    stateNames_ = sortedKeys(state.luaState, lua_gettop(state.luaState));
+    for (const auto& name : stateNames_) {
+      lua_getfield(state.luaState, -1, name.c_str());
+      stateInitial_.push_back(lua_tonumber(state.luaState, -1));
+      lua_pop(state.luaState, 1);
+    }
+  }
+  lua_pop(state.luaState, 1); // [M]
+
+  // The arguments of evaluate: the declared inputs in their order, as scripts have always had
+  // them; or, as the tracer reads them, the parameter names after `fields`, of which those naming
+  // a state receive its value of the previous call.
+  lua_getfield(state.luaState, -1, "evaluate"); // [M, evaluate]
+  const auto parameters = parameterNames(state.luaState);
+  if (declaresInputs) {
+    if (!stateNames_.empty()) {
+      logError() << "Lua: a module with state names its inputs by the parameters of `evaluate`; "
+                    "remove `input_parameters`.";
+    }
+    for (std::size_t i = 0; i < inputs_.size(); ++i) {
+      arguments_.push_back(Argument{false, i});
+    }
+  } else {
+    for (std::size_t i = 1; i < parameters.size(); ++i) {
+      const auto found = std::find(stateNames_.begin(), stateNames_.end(), parameters[i]);
+      if (found != stateNames_.end()) {
+        arguments_.push_back(Argument{true, static_cast<std::size_t>(found - stateNames_.begin())});
+      } else {
+        arguments_.push_back(Argument{false, inputs_.size()});
+        inputs_.push_back(parameters[i]);
+      }
+    }
+  }
+
+  // Outputs named by a returned table, and not declared, are found by one call at zero.
+  if (!declaresOutputs) {
+    lua_rawgeti(state.luaState, LUA_REGISTRYINDEX, state.refFields);
+    for (const auto& argument : arguments_) {
+      lua_pushnumber(state.luaState, argument.state ? stateInitial_[argument.index] : 0.0);
+    }
+    if (lua_pcall(state.luaState, static_cast<int>(arguments_.size()) + 1, 1, 0) != LUA_OK ||
+        !lua_istable(state.luaState, -1)) {
+      logError() << "Lua: name the outputs of `evaluate` with `output_parameters`, or return them "
+                    "in a table.";
+    }
+    outputs_ = sortedKeys(state.luaState, lua_gettop(state.luaState));
+  }
+  lua_pop(state.luaState, 1); // [M]
 
   lua_pop(state.luaState, 1); // pop M
 }
@@ -351,6 +439,21 @@ void LuaReader::call(const scripting::DataTable& table) {
     }
   }
 
+  if (!stateNames_.empty() && statePoints_ != table.numPoints()) {
+    stateValues_.clear();
+    for (const double initial : stateInitial_) {
+      stateValues_.emplace_back(table.numPoints(), initial);
+    }
+    statePoints_ = table.numPoints();
+  }
+
+  // With positional results, a state takes the output of its name.
+  std::vector<std::size_t> stateOutput(stateNames_.size(), outputs_.size());
+  for (std::size_t s = 0; s < stateNames_.size(); ++s) {
+    const auto found = std::find(outputs_.begin(), outputs_.end(), stateNames_[s]);
+    stateOutput[s] = static_cast<std::size_t>(found - outputs_.begin());
+  }
+
   const auto numStates = OpenMP::threadCount();
   if (luaStates_.size() < numStates) {
     luaStates_.resize(numStates);
@@ -368,6 +471,7 @@ void LuaReader::call(const scripting::DataTable& table) {
 
     // Save stack size
     const auto top = lua_gettop(luaState);
+    std::vector<double> nextState(stateNames_.size());
 
 #pragma omp for schedule(static)
     for (std::size_t point = 0; point < table.numPoints(); ++point) {
@@ -375,7 +479,12 @@ void LuaReader::call(const scripting::DataTable& table) {
       lua_rawgeti(luaState, LUA_REGISTRYINDEX, luaStateState.refEvaluate);
       lua_rawgeti(luaState, LUA_REGISTRYINDEX, luaStateState.refFields);
 
-      for (const auto& inIdx : inVarMap) {
+      for (const auto& argument : arguments_) {
+        if (argument.state) {
+          lua_pushnumber(luaState, stateValues_[argument.index][point]);
+          continue;
+        }
+        const auto inIdx = inVarMap[argument.index];
         switch (entries[inIdx].datatype) {
         case DataType::F32: {
           lua_pushnumber(luaState, entries[inIdx].getValue<float>(point));
@@ -400,15 +509,43 @@ void LuaReader::call(const scripting::DataTable& table) {
       }
 
       // +1 due to the `fields` field
-      if (lua_pcall(luaState, inputs_.size() + 1, outputs_.size(), 0) != LUA_OK) {
+      if (lua_pcall(luaState, static_cast<int>(arguments_.size()) + 1, LUA_MULTRET, 0) != LUA_OK) {
         logError() << "Error running Lua function:" << lua_tostring(luaState, -1);
       }
 
-      const std::size_t nout = outputs_.size();
+      // The results: positional, or one table that names them. Either way, push the outputs in
+      // order, followed by the next values of the states.
+      const int results = lua_gettop(luaState) - top;
+      if (results == 1 && lua_istable(luaState, top + 1)) {
+        const int named = top + 1;
+        for (const auto& name : outputs_) {
+          lua_getfield(luaState, named, name.c_str());
+        }
+        for (const auto& name : stateNames_) {
+          lua_getfield(luaState, named, name.c_str());
+        }
+      } else {
+        if (results < static_cast<int>(outputs_.size())) {
+          logError() << "Lua: `evaluate` returned" << results << "values instead of"
+                     << outputs_.size() << ".";
+        }
+        for (std::size_t i = 0; i < outputs_.size(); ++i) {
+          lua_pushvalue(luaState, top + 1 + static_cast<int>(i));
+        }
+        for (const auto output : stateOutput) {
+          if (output == outputs_.size()) {
+            logError() << "Lua: a state gets no next value; return an output of its name.";
+          }
+          lua_pushvalue(luaState, top + 1 + static_cast<int>(output));
+        }
+      }
+      const int first = lua_gettop(luaState) - static_cast<int>(outputs_.size()) -
+                        static_cast<int>(stateNames_.size()) + 1;
+
       for (std::size_t i = 0; i < outVarMap.size(); ++i) {
         const auto& outIdx = outVarMap[i];
 
-        const int argPos = static_cast<int>(i) - static_cast<int>(nout);
+        const int argPos = first + static_cast<int>(i);
 
         int res = 0;
         switch (entries[outIdx].datatype) {
@@ -448,6 +585,18 @@ void LuaReader::call(const scripting::DataTable& table) {
           logError() << "Error with Lua: unknown input datatype.";
         }
         }
+      }
+
+      // All states update at once, after every one of them has been read.
+      for (std::size_t s = 0; s < stateNames_.size(); ++s) {
+        int res = 0;
+        nextState[s] = lua_tonumberx(luaState, first + static_cast<int>(outputs_.size() + s), &res);
+        if (res == 0) {
+          logError() << "Lua: the state" << stateNames_[s] << "gets no number as its next value.";
+        }
+      }
+      for (std::size_t s = 0; s < stateNames_.size(); ++s) {
+        stateValues_[s][point] = nextState[s];
       }
 
       // Reset stack size to value before function call

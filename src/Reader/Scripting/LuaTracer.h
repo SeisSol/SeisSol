@@ -13,10 +13,34 @@
 // rest. Constant loops unroll for free, and common subexpressions collapse in
 // the Arena's interning rather than in a pass.
 //
-// The module convention is unchanged from LuaReader, so the same script feeds
-// the traced and the interpreted path:
+// The module convention is the one of LuaReader, so the same script feeds the
+// traced and the interpreted path:
 //     M.evaluate(fields, <inputs...>) -> <outputs...>
 //     M.output_parameters, M.field_specs, M.version, M.source_file
+//
+// with two additions that give a Lua model what an sderiv module has:
+//
+//   NAMED OUTPUTS. evaluate may return ONE table that names its values, like an
+//   `out def`; without M.output_parameters every entry is an output (in the
+//   order of their names), with it only the listed ones are.
+//
+//   STATE. M.state = { name = initial, ... } declares values a program keeps
+//   from one call to the next (expr::Program::state()). A parameter of evaluate
+//   with the name of a state reads its value from the previous call; the
+//   returned value of that name is its next value. All states update at once,
+//   as in sderiv. A maximum over time, written to the output as well:
+//
+//       M.state = { pgv = 0.0 }
+//       function M.evaluate(fields, v1, v2, v3, pgv)
+//         return { pgv = math.max(pgv, math.sqrt(v1*v1 + v2*v2 + v3*v3)) }
+//       end
+//
+//   A state that is not to be written is left out of M.output_parameters; with
+//   positional results, a state can only be an output of the same name.
+//
+// The builtins of sderiv that Lua spells differently or lacks are in `ssol`
+// under the sderiv names: ssol.sign, ssol.mod (Lua's `%`), ssol.atan2,
+// ssol.pow, and the constants ssol.pi and ssol.g.
 //
 // WHAT CHANGES: M.input_parameters is no longer read. The input signature comes
 // from the PARAMETER NAMES of M.evaluate, via lua_getlocal(L, nullptr, i) on the
