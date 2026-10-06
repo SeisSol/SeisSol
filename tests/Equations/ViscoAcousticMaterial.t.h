@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Config.h"
+#include "Common/ConfigDispatch.h"
 #include "Equations/Datastructures.h"
 #include "Kernels/SolverSelector.h"
 #include "Model/Quantities.h"
@@ -92,16 +92,19 @@ TEST_CASE("Visco-acoustic quantity layout" * doctest::test_suite("equations")) {
   SUBCASE("one memory variable per mechanism, each on its own") {
     // Three mechanisms are three one-component blocks, not one three-component
     // block: consecutive mechanisms overlapped when that was confused.
-    using SolverT = kernels::SolverOf<Config>;
-    constexpr auto Rotation = ViscoAcoustic::RotationGroups<SolverT>;
-    std::size_t scalars = 0;
-    for (const auto& group : Rotation) {
-      scalars += static_cast<std::size_t>(group.kind == model::QuantityKind::Scalar);
-    }
-    // the pressure plus one per mechanism, in the layout that carries them
-    const std::size_t expected =
-        1 + (ViscoAcoustic::RotationRepetitions<SolverT> * ViscoAcoustic::MechanismGroups.size());
-    CHECK(scalars == expected);
+    // This holds for the layout of each solver; checked for those of the configurations.
+    forEachConfig([&](auto cfg) {
+      using SolverT = kernels::SolverOf<decltype(cfg)>;
+      constexpr auto Rotation = ViscoAcoustic::RotationGroups<SolverT>;
+      std::size_t scalars = 0;
+      for (const auto& group : Rotation) {
+        scalars += static_cast<std::size_t>(group.kind == model::QuantityKind::Scalar);
+      }
+      // the pressure plus one per mechanism, in the layout that carries them
+      const std::size_t expected =
+          1 + (ViscoAcoustic::RotationRepetitions<SolverT> * ViscoAcoustic::MechanismGroups.size());
+      CHECK(scalars == expected);
+    });
   }
 }
 

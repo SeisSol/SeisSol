@@ -8,13 +8,14 @@
 #ifndef SEISSOL_TESTS_MODEL_ANISOTROPICIMPEDANCE_T_H_
 #define SEISSOL_TESTS_MODEL_ANISOTROPICIMPEDANCE_T_H_
 
-// The admittance of a material does not depend on the MaterialT of the build, so apart from the
-// layout test of the generated traction matrix, these tests run in every build.
+// The admittance of a material does not depend on the configurations of the build, so apart from
+// the layout test of the generated traction matrix, which runs for each anisotropic configuration,
+// these tests run in every build.
 
 #include <doctest.h>
 
 #include "Alignment.h"
-#include "Config.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h"
 #include "Equations/ImpedanceBase.h"
@@ -24,14 +25,14 @@
 #include "Geometry/MeshDefinition.h"
 #include "ImpedanceReference.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
-#include "Kernels/Precision.h"
 #include "Model/Common.h"
+#include "Model/MaterialType.h"
+#include "TestConfigs.h"
 
 #include <Eigen/Dense>
 #include <array>
 #include <cmath>
 #include <random>
-#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -291,32 +292,36 @@ TEST_CASE("Anisotropic DR impedance has orientation dependent normal coupling" *
 //    common::computeFrictionEnergy indexes directly (flat = 3 * col + row,
 //    with row running over the *stored* rows {0, 3, 5}).
 // ---------------------------------------------------------------------------
-TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
-          doctest::test_suite("dynamicrupture")) {
-  // the pattern is only dense in the stored rows for an anisotropic build
-  if constexpr (std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) {
-    // the rows initializeDynamicRuptureMatrices writes to
-    constexpr auto StoredRows = AnisotropicImpedance::TractionIndices;
-    constexpr std::size_t Rows = 3;
+TEST_CASE_TEMPLATE_DEFINE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
+                              doctest::test_suite("dynamicrupture"),
+                          Cfg,
+                          TractionPlusMatrixLayout) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  // the rows initializeDynamicRuptureMatrices writes to
+  constexpr auto StoredRows = AnisotropicImpedance::TractionIndices;
+  constexpr std::size_t Rows = 3;
 
-    REQUIRE(tensor::tractionPlusMatrix<Config>::size() == Rows * 3);
+  REQUIRE(tensor::tractionPlusMatrix<Cfg>::size() == Rows * 3);
 
-    alignas(Alignment) real data[tensor::tractionPlusMatrix<Config>::size()]{};
-    auto view = init::tractionPlusMatrix<Config>::view::create(data);
-    view.setZero();
-    for (std::size_t col = 0; col < 3; ++col) {
-      for (std::size_t row = 0; row < StoredRows.size(); ++row) {
-        view(StoredRows[row], col) = static_cast<real>(10 * col + row);
-      }
+  alignas(Alignment) real data[tensor::tractionPlusMatrix<Cfg>::size()]{};
+  auto view = init::tractionPlusMatrix<Cfg>::view::create(data);
+  view.setZero();
+  for (std::size_t col = 0; col < 3; ++col) {
+    for (std::size_t row = 0; row < StoredRows.size(); ++row) {
+      view(StoredRows[row], col) = static_cast<real>(10 * col + row);
     }
+  }
 
-    for (std::size_t col = 0; col < 3; ++col) {
-      for (std::size_t row = 0; row < StoredRows.size(); ++row) {
-        CHECK(data[Rows * col + row] == doctest::Approx(10.0 * col + row));
-      }
+  for (std::size_t col = 0; col < 3; ++col) {
+    for (std::size_t row = 0; row < StoredRows.size(); ++row) {
+      CHECK(data[Rows * col + row] == doctest::Approx(10.0 * col + row));
     }
   }
 }
+
+// the pattern is only dense in the stored rows for an anisotropic configuration
+TEST_CASE_TEMPLATE_APPLY(TractionPlusMatrixLayout,
+                         ConfigsOfMaterial<model::MaterialType::Anisotropic>);
 
 // ---------------------------------------------------------------------------
 // 4. Reconstruction of the stress components outside the fault-normal Riemann problem, used by

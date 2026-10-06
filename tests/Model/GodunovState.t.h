@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
@@ -12,6 +13,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/Common.h"
+#include "TestConfigs.h"
 #include "TestHelper.h"
 #include "Values.h"
 
@@ -21,8 +23,9 @@
 namespace seissol::unit_test {
 
 // silence double == real cast
-inline double castReal(real value) {
-  if constexpr (std::is_same_v<double, real>) {
+template <typename RealT>
+double castReal(RealT value) {
+  if constexpr (std::is_same_v<double, RealT>) {
     return value;
   } else {
     return static_cast<double>(value);
@@ -42,8 +45,8 @@ inline void checkRelative(double frobDiffSquared, double frobASquared, double ep
   CHECK(frobDiffSquared <= epsilon * epsilon * frobASquared);
 }
 
-template <typename T>
-void testMatrix(init::QgodLocal<Config>::view::type& qgod, const T& solution, double epsilon) {
+template <typename ViewT, typename T>
+void testMatrix(ViewT& qgod, const T& solution, double epsilon) {
   double frobDiffSquared = 0.0;
   double frobASquared = 0.0;
   for (std::size_t i = 0; i < solution[0].size(); i++) {
@@ -67,10 +70,11 @@ void testMatrix(init::QgodLocal<Config>::view::type& qgod, const T& solution, do
  * a mode partition that leaves the null space out of both matrices (which is what the poroelastic
  * setup used to do).
  */
-inline void testConsistency(init::QgodLocal<Config>::view::type& qgodLocal,
-                            init::QgodNeighbor<Config>::view::type& qgodNeighbor,
-                            std::size_t quantities,
-                            double epsilon) {
+template <typename LocalViewT, typename NeighborViewT>
+void testConsistency(LocalViewT& qgodLocal,
+                     NeighborViewT& qgodNeighbor,
+                     std::size_t quantities,
+                     double epsilon) {
   double diffSquared = 0.0;
   double frobASquared = 0.0;
   for (std::size_t i = 0; i < quantities; i++) {
@@ -97,9 +101,8 @@ inline void testConsistency(init::QgodLocal<Config>::view::type& qgodLocal,
  * order 1e6 that cancel back down to order 1e6 amplifies the input rounding by ||P||_F, so this is
  * the scaling at which the residual is precision-independent (~1e-16 in double, ~1e-8 in single).
  */
-inline void testProjector(init::QgodNeighbor<Config>::view::type& qgodNeighbor,
-                          std::size_t quantities,
-                          double epsilon) {
+template <typename ViewT>
+void testProjector(ViewT& qgodNeighbor, std::size_t quantities, double epsilon) {
   const std::size_t rows = quantities;
   const std::size_t cols = quantities;
 
@@ -126,7 +129,8 @@ inline void testProjector(init::QgodNeighbor<Config>::view::type& qgodNeighbor,
   checkRelative(frobDiffSquared, frobASquared, epsilon);
 }
 
-inline void testNAN(init::QgodNeighbor<Config>::view::type& qgodNeighbor, std::size_t quantities) {
+template <typename ViewT>
+void testNAN(ViewT& qgodNeighbor, std::size_t quantities) {
   for (std::size_t i = 0; i < quantities; i++) {
     for (std::size_t j = 0; j < quantities; j++) {
       CHECK(std::isnan(qgodNeighbor(i, j)));
@@ -134,12 +138,17 @@ inline void testNAN(init::QgodNeighbor<Config>::view::type& qgodNeighbor, std::s
   }
 }
 
-TEST_CASE("Godunov state is correct" * doctest::test_suite("model")) {
+TEST_CASE_TEMPLATE("Godunov state is correct" * doctest::test_suite("model"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  using MaterialT = model::MaterialOf<Cfg>;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   // Tolerance for comparing against the stored reference matrices. This is a property of the
   // equation set (see SolutionData::MatrixEpsilon): the elastic family assembles its eigenbasis in
   // closed form and hits machine precision, whereas the poroelastic one goes through a numerical
   // eigendecomposition and cannot.
-  constexpr double MatrixEpsilon = SolutionData<model::MaterialT>::MatrixEpsilon;
+  constexpr double MatrixEpsilon = SolutionData<MaterialT>::template MatrixEpsilon<real>;
 
   // The structural invariants below hold independently of how well conditioned matR is, so they are
   // checked at machine precision for every equation set.
@@ -148,50 +157,46 @@ TEST_CASE("Godunov state is correct" * doctest::test_suite("model")) {
   // The Godunov state acts on the quantities of the Riemann problem, i.e. the elastic ones. A
   // solver that keeps the anelastic quantities in the same tensor (fused mechanisms) only stores
   // the rows of these, so the checks stay within them.
-  constexpr std::size_t Quantities = model::MaterialT::NumElasticQuantities;
+  constexpr std::size_t Quantities = MaterialT::NumElasticQuantities;
 
-  real localData[tensor::QgodLocal<Config>::size()]{};
-  real neighborData[tensor::QgodNeighbor<Config>::size()]{};
-  init::QgodLocal<Config>::view::type qgodLocal = init::QgodLocal<Config>::view::create(localData);
-  init::QgodNeighbor<Config>::view::type qgodNeighbor =
-      init::QgodNeighbor<Config>::view::create(neighborData);
+  real localData[tensor::QgodLocal<Cfg>::size()]{};
+  real neighborData[tensor::QgodNeighbor<Cfg>::size()]{};
+  auto qgodLocal = init::QgodLocal<Cfg>::view::create(localData);
+  auto qgodNeighbor = init::QgodNeighbor<Cfg>::view::create(neighborData);
   qgodLocal.setZero();
   qgodNeighbor.setZero();
 
   SUBCASE("Homogenous material") {
     // material 1 vs 1
-    const model::MaterialT local(SolutionData<model::MaterialT>::MaterialVal1);
-    const model::MaterialT neighbor(SolutionData<model::MaterialT>::MaterialVal1);
+    const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
+    const MaterialT neighbor(SolutionData<MaterialT>::MaterialVal1);
 
     model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-    testMatrix(qgodLocal, SolutionData<model::MaterialT>::SolutionHomogeneousLocal, MatrixEpsilon);
-    testMatrix(
-        qgodNeighbor, SolutionData<model::MaterialT>::SolutionHomogeneousNeighbor, MatrixEpsilon);
+    testMatrix(qgodLocal, SolutionData<MaterialT>::SolutionHomogeneousLocal, MatrixEpsilon);
+    testMatrix(qgodNeighbor, SolutionData<MaterialT>::SolutionHomogeneousNeighbor, MatrixEpsilon);
     testConsistency(qgodLocal, qgodNeighbor, Quantities, StructuralEpsilon);
     testProjector(qgodNeighbor, Quantities, StructuralEpsilon);
   }
 
   SUBCASE("Free surface material") {
     // material 1 vs 1
-    const model::MaterialT local(SolutionData<model::MaterialT>::MaterialVal1);
-    const model::MaterialT neighbor(SolutionData<model::MaterialT>::MaterialVal1);
+    const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
+    const MaterialT neighbor(SolutionData<MaterialT>::MaterialVal1);
 
     model::getTransposedGodunovState(
         local, neighbor, FaceType::FreeSurface, qgodLocal, qgodNeighbor);
-    testMatrix(qgodLocal, SolutionData<model::MaterialT>::SolutionBoundary, MatrixEpsilon);
+    testMatrix(qgodLocal, SolutionData<MaterialT>::SolutionBoundary, MatrixEpsilon);
     testNAN(qgodNeighbor, Quantities);
   }
 
   SUBCASE("Heterogenous material") {
     // material 1 vs 2
-    const model::MaterialT local(SolutionData<model::MaterialT>::MaterialVal1);
-    const model::MaterialT neighbor(SolutionData<model::MaterialT>::MaterialVal2);
+    const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
+    const MaterialT neighbor(SolutionData<MaterialT>::MaterialVal2);
 
     model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-    testMatrix(
-        qgodLocal, SolutionData<model::MaterialT>::SolutionHeterogeneousLocal, MatrixEpsilon);
-    testMatrix(
-        qgodNeighbor, SolutionData<model::MaterialT>::SolutionHeterogeneousNeighbor, MatrixEpsilon);
+    testMatrix(qgodLocal, SolutionData<MaterialT>::SolutionHeterogeneousLocal, MatrixEpsilon);
+    testMatrix(qgodNeighbor, SolutionData<MaterialT>::SolutionHeterogeneousNeighbor, MatrixEpsilon);
     testConsistency(qgodLocal, qgodNeighbor, Quantities, StructuralEpsilon);
     testProjector(qgodNeighbor, Quantities, StructuralEpsilon);
   }
