@@ -119,6 +119,8 @@ struct LTS {
   using FaceBoundaryMappings = std::array<CellBoundaryMapping<Cfg>, Cell::NumFaces>;
   template <typename Cfg>
   using EnergyDataOf = typename model::MaterialOf<Cfg>::template EnergyData<Cfg>;
+  template <typename Cfg>
+  using NormalStressWeightsOf = seissol::NormalStressWeights<Cfg>;
 
   struct Dofs : public initializer::VariantVariable<DofsArray> {};
   struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
@@ -134,6 +136,9 @@ struct LTS {
   struct LocalIntegration : public initializer::VariantVariable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::VariantVariable<NeighboringIntegrationData> {
   };
+  // for the cells of a fluid, the weights of the normal stress on each face for a neighbor of a
+  // solid in another configuration (see kernels::ConfigBoundary); empty for the others
+  struct NormalStress : public initializer::VariantVariable<NormalStressWeightsOf> {};
   struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::VariantVariable<seissol::model::PlasticityData> {};
@@ -184,6 +189,7 @@ struct LTS {
                                                         FaceNeighbors,
                                                         LocalIntegration,
                                                         NeighboringIntegration,
+                                                        NormalStress,
                                                         Material,
                                                         MaterialData,
                                                         Plasticity,
@@ -266,6 +272,8 @@ struct LTS {
     storage.add<LocalIntegration>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<NeighboringIntegration>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<NormalStress>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);

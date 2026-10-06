@@ -27,6 +27,7 @@
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/ConfigBoundary.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
@@ -86,6 +87,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
   auto* materialData = layer.var<LTS::MaterialData>(Cfg());
   auto* localIntegration = layer.var<LTS::LocalIntegration>(Cfg());
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(Cfg());
+  auto* normalStress = layer.var<LTS::NormalStress>(Cfg());
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
   auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(Cfg());
@@ -163,6 +165,9 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         MeshTools::normalize(normal, normal);
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
+
+        // for a neighbor of a solid in another configuration, if the cell is of a fluid
+        kernels::setNormalStressWeights<Cfg>(normalStress[cell], side, normal);
 
         // the neighbor as a material of this cell, for the Riemann problem at their face; it may
         // compute in another configuration (checkConfigBoundaries admits the pairs that can)

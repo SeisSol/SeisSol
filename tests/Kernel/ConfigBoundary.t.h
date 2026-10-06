@@ -103,8 +103,59 @@ void fillIntegral(Real<Cfg>* integral) {
   }
 }
 
+/// The unit normal of the shared face in the tests.
+inline std::array<double, Cell::Dim> faceNormal() {
+  const double norm = std::sqrt(1.0 + 4.0 + 9.0);
+  return {1.0 / norm, -2.0 / norm, 3.0 / norm};
+}
+
+/// The coefficients with which the quantities of a neighbor of the configuration `NeighborCfg` make
+/// up the ones of the configuration `Cfg` on a face with the unit normal `normal`, by their names:
+/// the quantity of the same name; across a solid and a fluid, the pressure for each normal stress
+/// component, and the normal stress on the face for the pressure.
+template <typename Cfg, typename NeighborCfg>
+std::vector<std::vector<double>> quantityMap(const std::array<double, Cell::Dim>& normal) {
+  const auto& names = model::MaterialOf<Cfg>::Quantities;
+  const auto& neighborNames = model::MaterialOf<NeighborCfg>::Quantities;
+  const std::array<std::string, 6> stress{"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
+  const std::array<double, 6> weights{normal[0] * normal[0],
+                                      normal[1] * normal[1],
+                                      normal[2] * normal[2],
+                                      2 * normal[0] * normal[1],
+                                      2 * normal[1] * normal[2],
+                                      2 * normal[0] * normal[2]};
+  const std::string pressure = "pprime";
+  const auto neighborIndex = [&](const std::string& name) {
+    return static_cast<std::size_t>(std::distance(
+        neighborNames.begin(), std::find(neighborNames.begin(), neighborNames.end(), name)));
+  };
+
+  std::vector<std::vector<double>> map(Quantities<Cfg>,
+                                       std::vector<double>(Quantities<NeighborCfg>));
+  // the names of a viscoelastic material leave out its memory variables
+  const auto named = std::min(Quantities<Cfg>, names.size());
+  for (std::size_t quantity = 0; quantity < named; ++quantity) {
+    const auto same = neighborIndex(names[quantity]);
+    if (same < neighborNames.size()) {
+      map[quantity][same] = 1;
+    } else if constexpr (model::SolidAndFluid<model::MaterialOf<Cfg>,
+                                              model::MaterialOf<NeighborCfg>>) {
+      if (names[quantity] == pressure) {
+        for (std::size_t component = 0; component < stress.size(); ++component) {
+          map[quantity][neighborIndex(stress[component])] = weights[component];
+        }
+      } else if (std::find(stress.begin(), stress.begin() + 3, names[quantity]) !=
+                 stress.begin() + 3) {
+        map[quantity][neighborIndex(pressure)] = 1;
+      }
+    }
+  }
+  return map;
+}
+
 /// Converts `integral`, of a neighbor of the configuration `NeighborCfg` that touches the cell with
-/// its side `side`, into `converted` on the host, through `boundary`.
+/// its side `side`, into `converted` on the host, through `boundary`; the shared face has the unit
+/// normal faceNormal().
 template <typename Cfg, typename NeighborCfg>
 void convertOnHost(const kernels::ConfigBoundary<Cfg>& boundary,
                    Real<NeighborCfg>* integral,
@@ -125,7 +176,9 @@ void convertOnHost(const kernels::ConfigBoundary<Cfg>& boundary,
   const std::array<Real<Cfg>*, Cell::NumFaces> integrationBuffer{
       converted, nullptr, nullptr, nullptr};
   std::array<Real<Cfg>*, Cell::NumFaces> timeIntegrated{};
-  boundary.computeIntegrals(info, timeDofs, integrationBuffer, timeIntegrated);
+  NormalStressWeights<Cfg> normalStress{};
+  kernels::setNormalStressWeights<Cfg>(normalStress, 0, faceNormal());
+  boundary.computeIntegrals(info, normalStress, timeDofs, integrationBuffer, timeIntegrated);
   REQUIRE(timeIntegrated[0] == converted);
 }
 
@@ -134,8 +187,7 @@ void checkConversion() {
   using RealT = Real<Cfg>;
   using NeighborReal = Real<NeighborCfg>;
 
-  const auto& names = model::MaterialOf<Cfg>::Quantities;
-  const auto& neighborNames = model::MaterialOf<NeighborCfg>::Quantities;
+  const auto map = quantityMap<Cfg, NeighborCfg>(faceNormal());
 
   // the precision of the less precise configuration
   const double tolerance =
@@ -159,23 +211,30 @@ void checkConversion() {
     for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
       for (std::size_t quantity = 0; quantity < Quantities<Cfg>; ++quantity) {
         CAPTURE(quantity);
-        const auto match =
-            quantity < names.size()
-                ? std::find(neighborNames.begin(), neighborNames.end(), names[quantity])
-                : neighborNames.end();
-        if (match == neighborNames.end()) {
+        const auto& coefficients = map[quantity];
+        if (std::all_of(coefficients.begin(), coefficients.end(), [](double coefficient) {
+              return coefficient == 0;
+            })) {
           // nothing to take over: zero
           for (std::size_t basis = 0; basis < Bases<Cfg>; ++basis) {
             CHECK(multisim::multisimWrap<Cfg>(converted, sim, basis, quantity) == RealT{0});
           }
           continue;
         }
-        const auto neighborQuantity =
-            static_cast<std::size_t>(std::distance(neighborNames.begin(), match));
 
         // the trace on the shared face, tested with the face basis of the cell
-        const auto expected = traceOnSide<NeighborCfg>(
-            integral.data(), sim, neighborQuantity, side, std::make_index_sequence<4>());
+        std::vector<double> expected;
+        for (std::size_t neighborQuantity = 0; neighborQuantity < coefficients.size();
+             ++neighborQuantity) {
+          if (coefficients[neighborQuantity] != 0) {
+            const auto part = traceOnSide<NeighborCfg>(
+                integral.data(), sim, neighborQuantity, side, std::make_index_sequence<4>());
+            expected.resize(std::max(expected.size(), part.size()));
+            for (std::size_t face = 0; face < part.size(); ++face) {
+              expected[face] += coefficients[neighborQuantity] * part[face];
+            }
+          }
+        }
         const auto actual =
             traceOnSide<Cfg>(buffer.data(), sim, quantity, side, std::make_index_sequence<4>());
         for (std::size_t face = 0; face < actual.size(); ++face) {

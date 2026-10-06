@@ -230,15 +230,32 @@ void getTransposedGodunovState(const Tmaterial& local,
       local, neighbor, faceType, qGodLocal, qGodNeighbor);
 }
 
-/// Whether cells of the materials `MaterialT` and `NeighborT` can be face neighbors: both pose the
-/// Riemann problem at their faces in the same material.
+/// Whether the materials `MaterialT` and `NeighborT` pose the Riemann problem at their faces in the
+/// same material.
 template <typename MaterialT, typename NeighborT>
-constexpr bool CanNeighbor =
+constexpr bool SameRiemannMaterial =
     // NOLINTNEXTLINE
     std::is_same_v<typename MaterialT::RiemannMaterial, typename NeighborT::RiemannMaterial>;
 
+/// Whether the material `MaterialT` is a solid and `NeighborT` a fluid, or the other way round, by
+/// the materials they pose the Riemann problem at their faces in.
+template <typename MaterialT, typename NeighborT>
+constexpr bool SolidAndFluid =
+    (std::is_same_v<typename MaterialT::RiemannMaterial, ElasticMaterial> &&
+     std::is_same_v<typename NeighborT::RiemannMaterial, AcousticMaterial>) ||
+    (std::is_same_v<typename MaterialT::RiemannMaterial, AcousticMaterial> &&
+     std::is_same_v<typename NeighborT::RiemannMaterial, ElasticMaterial>);
+
+/// Whether cells of the materials `MaterialT` and `NeighborT` can be face neighbors: both pose the
+/// Riemann problem at their faces in the same material, or one is a solid and the other a fluid.
+template <typename MaterialT, typename NeighborT>
+constexpr bool CanNeighbor =
+    SameRiemannMaterial<MaterialT, NeighborT> || SolidAndFluid<MaterialT, NeighborT>;
+
 /// The neighbor `neighbor` as a material `MaterialT`, for the Riemann problem at their face: with
-/// the parameters it is posed with, all others at their defaults.
+/// the parameters it is posed with, all others at their defaults. A solid sees a fluid as a solid
+/// without shear modulus, and a fluid sees a solid as a fluid with the P-wave modulus of the solid:
+/// at their face, the fluid couples to the normal stress and the normal velocity of the solid only.
 template <typename MaterialT, typename NeighborT>
 MaterialT neighborAs(const NeighborT& neighbor) {
   static_assert(CanNeighbor<MaterialT, NeighborT>,
@@ -247,8 +264,20 @@ MaterialT neighborAs(const NeighborT& neighbor) {
     return neighbor;
   } else {
     using RiemannMaterialT = typename MaterialT::RiemannMaterial;
+    using NeighborRiemannMaterialT = typename NeighborT::RiemannMaterial;
+    const auto& riemannNeighbor = static_cast<const NeighborRiemannMaterialT&>(neighbor);
     MaterialT material{};
-    static_cast<RiemannMaterialT&>(material) = static_cast<const RiemannMaterialT&>(neighbor);
+    auto& riemann = static_cast<RiemannMaterialT&>(material);
+    if constexpr (SameRiemannMaterial<MaterialT, NeighborT>) {
+      riemann = riemannNeighbor;
+    } else if constexpr (std::is_same_v<RiemannMaterialT, ElasticMaterial>) {
+      riemann.rho = riemannNeighbor.rho;
+      riemann.lambda = riemannNeighbor.lambda;
+      riemann.mu = 0;
+    } else {
+      riemann.rho = riemannNeighbor.rho;
+      riemann.lambda = riemannNeighbor.lambda + 2 * riemannNeighbor.mu;
+    }
     return material;
   }
 }

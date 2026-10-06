@@ -43,19 +43,43 @@ namespace seissol::kernels {
  * of the cell, and narrows it to the precision of the cell. Quantities of the cell outside the
  * canonical form, such as memory variables, are zero. The code generator generates both kernels
  * for the configurations of a family that has more than one configuration in the build.
+ *
+ * A solid and a fluid pose the Riemann problem in different materials, but their families are
+ * coupled: fromCoupledCanonical of the cell converts from the canonical form of the family of the
+ * neighbor instead. A solid takes the pressure of a fluid as an isotropic stress; a fluid takes the
+ * normal stress of a solid on the shared face as its pressure, with the weights of the face
+ * (NormalStressWeights). The velocities carry over.
  */
 template <typename Cfg, typename NeighborCfg>
-constexpr bool Convertible =
+constexpr bool FamilyConvertible =
     generated::ConfigBoundaryKernels<Cfg>::Host &&
     generated::ConfigBoundaryKernels<NeighborCfg>::Host &&
-    model::CanNeighbor<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
+    model::SameRiemannMaterial<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
     Cfg::NumSimulations == NeighborCfg::NumSimulations;
+
+/// The conversion of Convertible between a solid and a fluid.
+template <typename Cfg, typename NeighborCfg>
+constexpr bool CoupledConvertible =
+    generated::ConfigBoundaryKernels<Cfg>::CoupledHost &&
+    generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalHost &&
+    model::SolidAndFluid<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
+    Cfg::NumSimulations == NeighborCfg::NumSimulations;
+
+template <typename Cfg, typename NeighborCfg>
+constexpr bool Convertible =
+    FamilyConvertible<Cfg, NeighborCfg> || CoupledConvertible<Cfg, NeighborCfg>;
 
 /// Whether the conversion of Convertible exists on the device as well.
 template <typename Cfg, typename NeighborCfg>
 constexpr bool DeviceConvertible =
-    Convertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::Device &&
+    FamilyConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::Device &&
     generated::ConfigBoundaryKernels<NeighborCfg>::Device;
+
+/// The weights of NormalStressWeights for the face with the unit normal `normal`.
+template <typename Cfg>
+void setNormalStressWeights(NormalStressWeights<Cfg>& weights,
+                            std::size_t face,
+                            const std::array<double, Cell::Dim>& normal);
 
 /// Whether the conversion from the configuration `neighbor` into `cell` exists on the device.
 bool deviceConvertible(ConfigId cell, ConfigId neighbor);
@@ -118,6 +142,7 @@ class ConfigBoundary {
    * `integrationBuffer`, and points `timeIntegrated` to it. The other faces are left as they are.
    */
   void computeIntegrals(const CellLocalInformation& cellInformation,
+                        const NormalStressWeights<Cfg>& normalStress,
                         const std::array<void*, Cell::NumFaces>& timeDofs,
                         const std::array<real*, Cell::NumFaces>& integrationBuffer,
                         std::array<real*, Cell::NumFaces>& timeIntegrated) const;
@@ -153,11 +178,13 @@ class ConfigBoundary {
   };
 
   /// Computes the time integral of the neighbor of the configuration `NeighborCfg` on the face
-  /// `face` from `timeDofs`, and converts it into `integrationBuffer`.
+  /// `face` from `timeDofs`, and converts it into `integrationBuffer`, with the weights of the
+  /// normal stress on the face `normalStress` if the conversion reads them.
   template <typename NeighborCfg>
   static void computeIntegral(const CellLocalInformation& cellInformation,
                               std::size_t face,
                               const Neighbor& neighbor,
+                              const real* normalStress,
                               const void* timeDofs,
                               real* integrationBuffer);
 
