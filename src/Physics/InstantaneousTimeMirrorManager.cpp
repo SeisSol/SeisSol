@@ -16,9 +16,13 @@
 #include "Model/CommonDatastructures.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 
+#include <array>
 #include <cstddef>
+#include <string>
 #include <utils/logger.h>
 #include <vector>
 
@@ -75,11 +79,16 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   const auto reflectionType = itmParameters.itmReflectionType;
 
   // check over all cells (cheap; though it can be reduced to at most one per layer)
+  const bool scripted = !itmParameters.itmMaterialScript.empty();
   for (auto& layer : ltsStorage.leaves()) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       const auto* materials = layer.var<LTS::MaterialData>(cfg);
       for (std::size_t i = 0; i < layer.size(); ++i) {
         checkSupported(materials[i], reflectionType);
+        if (scripted && materials[i].getMaterialType() != model::MaterialType::Elastic) {
+          logError() << "An ITM material script gives an elastic material (rho, mu, lambda); "
+                        "the mesh has cells of another material.";
+        }
       }
     });
   }
@@ -130,9 +139,96 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   isEnabled_ = false;
 }
 
+void InstantaneousTimeMirrorManager::updateMaterialsByScript(const std::string& path) {
+  const auto& elements = meshReader_->getElements();
+  const auto& vertices = meshReader_->getVertices();
+  for (const auto config : ltsStorage_->configs()) {
+    dispatchConfig(config, [&](auto cfg) {
+      // the cells of the configuration, gathered from its layers, so that the script is bound once
+      std::vector<model::Material*> materials;
+      std::vector<std::array<double, Cell::Dim>> centers;
+      for (auto& layer : ltsStorage_->leaves(Ghost)) {
+        if (layer.getIdentifier().config != config) {
+          continue;
+        }
+        auto* layerMaterials = layer.var<LTS::MaterialData>(cfg);
+        const auto* secondary = layer.var<LTS::SecondaryInformation>();
+        for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+          materials.push_back(&layerMaterials[cell]);
+          std::array<double, Cell::Dim> center{};
+          for (const auto vertex : elements[secondary[cell].meshId].vertices) {
+            for (std::size_t d = 0; d < Cell::Dim; ++d) {
+              center[d] += vertices[vertex].coords[d] / Cell::NumVertices;
+            }
+          }
+          centers.push_back(center);
+        }
+      }
+      if (materials.empty()) {
+        return;
+      }
+
+      const std::size_t count = materials.size();
+      std::vector<double> rho(count);
+      std::vector<double> mu(count);
+      std::vector<double> lambda(count);
+      for (std::size_t i = 0; i < count; ++i) {
+        rho[i] = materials[i]->getDensity();
+        mu[i] = materials[i]->getMuBar();
+        lambda[i] = materials[i]->getLambdaBar();
+      }
+      // what the script does not give stays as it is
+      auto newRho = rho;
+      auto newMu = mu;
+      auto newLambda = lambda;
+
+      using reader::scripting::Direction;
+      reader::scripting::DataTable table(count);
+      table.bindViewConst<double>("x", Direction::In, centers.data()->data(), Cell::Dim, 0);
+      table.bindViewConst<double>("y", Direction::In, centers.data()->data(), Cell::Dim, 1);
+      table.bindViewConst<double>("z", Direction::In, centers.data()->data(), Cell::Dim, 2);
+      // the material before the mirror; the script gives the one after it
+      table.bindViewConst<double>("rho0", Direction::In, rho.data());
+      table.bindViewConst<double>("mu0", Direction::In, mu.data());
+      table.bindViewConst<double>("lambda0", Direction::In, lambda.data());
+      table.bindConstant<double>("n", velocityScalingFactor_);
+
+      const auto reader = reader::scripting::buildReader(path, {"x", "y", "z"});
+      for (const auto& name : reader->outputVars()) {
+        if (name == "rho") {
+          table.bindView<double>(name, Direction::Out, newRho.data());
+        } else if (name == "mu") {
+          table.bindView<double>(name, Direction::Out, newMu.data());
+        } else if (name == "lambda") {
+          table.bindView<double>(name, Direction::Out, newLambda.data());
+        } else {
+          logError() << "The ITM material script" << path << "gives" << name
+                     << "; it gives rho, mu and lambda.";
+        }
+      }
+      reader->call(table);
+
+      for (std::size_t i = 0; i < count; ++i) {
+        if (newLambda[i] < 0.0 || newMu[i] < 0.0 || newRho[i] <= 0.0) {
+          logError() << "The ITM material script" << path
+                     << "gives a material that is not admissible at" << centers[i][0]
+                     << centers[i][1] << centers[i][2] << ".";
+        }
+        materials[i]->setDensity(newRho[i]);
+        materials[i]->setLameParameters(newMu[i], newLambda[i]);
+      }
+    });
+  }
+}
+
 void InstantaneousTimeMirrorManager::updateVelocities() {
   const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
+
+  if (!itmParameters.itmMaterialScript.empty()) {
+    updateMaterialsByScript(itmParameters.itmMaterialScript);
+    return;
+  }
 
   const auto updateMaterial = [&](model::Material& material) {
     if (material.getMaterialType() == model::MaterialType::Elastic) {

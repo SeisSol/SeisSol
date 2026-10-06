@@ -60,6 +60,8 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
                                                    ReflectionType::BothWavesVelocity,
                                                    ReflectionType::Pwave,
                                                    ReflectionType::Swave});
+  const auto itmMaterialScript =
+      itmEnabled ? reader->readPath("itmmaterialscript").value_or("") : std::string();
   if (itmEnabled) {
     if (itmDuration <= 0.0) {
       logError() << "ITM Time is not positive. It should be positive!";
@@ -71,11 +73,18 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
       logError() << "ITM Starting Time can not be less than zero";
     }
   } else {
-    reader->markUnused(
-        {"itmstartingtime", "itmtime", "itmvelocityscalingfactor", "itmreflectiontype"});
+    reader->markUnused({"itmstartingtime",
+                        "itmtime",
+                        "itmvelocityscalingfactor",
+                        "itmreflectiontype",
+                        "itmmaterialscript"});
   }
-  return ITMParameters{
-      itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
+  return ITMParameters{itmEnabled,
+                       itmStartingTime,
+                       itmDuration,
+                       itmVelocityScalingFactor,
+                       reflectionType,
+                       itmMaterialScript};
 }
 
 namespace {
