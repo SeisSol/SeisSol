@@ -7,11 +7,14 @@
 
 #include <doctest.h>
 
+#include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Program.h"
 #include "Expr/SderivFrontend.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -284,6 +287,40 @@ TEST_SUITE("ExprBinding") {
 
     // the per-point accessor is the same function with a count of one
     CHECK(table.dataEntries()[0].getValue<double>(5) == 50.0);
+  }
+
+  TEST_CASE("a batch-computed column can be evaluated per call without the table") {
+    // the host backends gather it through the binding's copy of the range accessor
+    const Program program = compileSderiv("x * 2.0", "out");
+    constexpr std::size_t NumPoints = 10;
+    std::vector<double> out(NumPoints, -1.0);
+    DataTable table(NumPoints);
+    table.bindComputedBatch<double>("x", [](std::size_t first, std::size_t count, double* values) {
+      for (std::size_t i = 0; i < count; ++i) {
+        values[i] = static_cast<double>(first + i);
+      }
+    });
+    table.bindView<double>("out", Direction::Out, out.data());
+    Binding binding = Binding::bind(program, table);
+    CHECK_FALSE(binding.addressable());
+    CHECK(binding.hostAddressable());
+
+    for (const auto backend : {BackendKind::Interpreter, BackendKind::RtcCpu}) {
+      CAPTURE(name(backend));
+      std::fill(out.begin(), out.end(), -1.0);
+      reader::datafield::GridStore store;
+      BackendOptions options;
+      options.preferred = backend;
+      const auto kernel = makeKernel(program, binding, store, options);
+      kernel->precompute(table);
+      KernelArgs args{};
+      args.first = 3;
+      args.count = 4;
+      kernel->run(args);
+      for (std::size_t p = 0; p < NumPoints; ++p) {
+        CHECK(out[p] == (p >= 3 && p < 7 ? 2.0 * static_cast<double>(p) : -1.0));
+      }
+    }
   }
 
   TEST_CASE("a column per cell reads the element of its cell, also through a cell index") {

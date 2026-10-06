@@ -32,6 +32,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -58,6 +59,10 @@ struct ColumnBinding {
   /// program with any empty entry can only be evaluated through the accessor,
   /// which rules out the device backends and the per-call base override.
   std::optional<reader::scripting::StridedView> view;
+
+  /// The range accessor of a batch-computed column (DataTable::bindComputedBatch), kept so that
+  /// the column can be gathered without the table; empty otherwise.
+  std::function<void(std::size_t, std::size_t, void*)> batch;
 };
 
 // A contiguous run of points sharing one group value. Half-open [begin, end).
@@ -138,8 +143,13 @@ class Binding {
   // reintroduce the per-node typing that Program.h declines to build.
   /// True when every bound column has a StridedView, i.e. when this binding can
   /// be evaluated from raw pointers alone. What makeKernel checks before
-  /// offering a device backend, and what run(KernelArgs) requires.
+  /// offering a device backend.
   [[nodiscard]] bool addressable() const { return addressable_; }
+
+  /// True when every input has a StridedView or is batch-computed and every
+  /// output has a StridedView: what a host backend needs to evaluate a call
+  /// without the table, i.e. what run(KernelArgs) on the host requires.
+  [[nodiscard]] bool hostAddressable() const { return hostAddressable_; }
 
   /// Gather from bases supplied per call rather than from the bound table.
   /// `inputs[i]` may be null to keep the bound base for that slot.
@@ -206,6 +216,7 @@ class Binding {
   std::vector<std::size_t> permutation_;
   std::size_t numPoints_{0};
   bool addressable_{false};
+  bool hostAddressable_{false};
   std::vector<std::byte> persistent_;
   std::int32_t persistentSlotCount_{0};
   ComputeType computeType_{ComputeType::F64};

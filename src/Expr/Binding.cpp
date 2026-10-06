@@ -58,7 +58,7 @@ const char* name(DataType type) {
 // point set is unpermuted, and each maximal contiguous stretch of the permutation otherwise --
 // which, since the permutation is a stable sort by group, is usually most of the tile.
 template <typename Tile, typename Col>
-void gatherBatchColumn(const DataEntry& entry,
+void gatherBatchColumn(const std::function<void(std::size_t, std::size_t, void*)>& batch,
                        const std::vector<std::size_t>& permutation,
                        std::size_t first,
                        std::size_t count,
@@ -75,7 +75,7 @@ void gatherBatchColumn(const DataEntry& entry,
            (permutation.empty() || permutation[first + lane + run] == begin + run)) {
       ++run;
     }
-    entry.batchAccessor(begin, run, scratch.data());
+    batch(begin, run, scratch.data());
     for (std::size_t i = 0; i < run; ++i) {
       dst[lane + i] = static_cast<Tile>(scratch[i]);
     }
@@ -90,7 +90,7 @@ void gatherColumn(const DataEntry& entry,
                   std::size_t count,
                   Tile* dst) {
   if (entry.batchAccessor) {
-    gatherBatchColumn<Tile, Col>(entry, permutation, first, count, dst);
+    gatherBatchColumn<Tile, Col>(entry.batchAccessor, permutation, first, count, dst);
   } else if (permutation.empty()) {
     for (std::size_t lane = 0; lane < count; ++lane) {
       dst[lane] = static_cast<Tile>(entry.getValue<Col>(first + lane));
@@ -240,6 +240,7 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
     column.tableType = entry.datatype;
     column.computed = entry.setter == nullptr;
     column.view = entry.view;
+    column.batch = entry.batchAccessor;
     binding.inputs_.push_back(column);
   }
 
@@ -286,6 +287,17 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
       if (!column.view.has_value()) {
         binding.addressable_ = false;
       }
+    }
+  }
+  binding.hostAddressable_ = true;
+  for (const auto& column : binding.inputs_) {
+    if (!column.view.has_value() && !column.batch) {
+      binding.hostAddressable_ = false;
+    }
+  }
+  for (const auto& column : binding.outputs_) {
+    if (!column.view.has_value()) {
+      binding.hostAddressable_ = false;
     }
   }
 
@@ -576,6 +588,26 @@ void Binding::gatherFromImpl(const void* const* inputs,
                              Tile* dst) const {
   for (std::size_t i = 0; i < inputs_.size(); ++i) {
     const ColumnBinding& column = inputs_[i];
+    if (!column.view.has_value() && column.batch) {
+      // computed, but a range at a time and without the table
+      switch (column.tableType) {
+      case DataType::F32:
+        gatherBatchColumn<Tile, float>(column.batch, permutation_, first, count, dst + i * count);
+        break;
+      case DataType::F64:
+        gatherBatchColumn<Tile, double>(column.batch, permutation_, first, count, dst + i * count);
+        break;
+      case DataType::I32:
+        gatherBatchColumn<Tile, std::int32_t>(
+            column.batch, permutation_, first, count, dst + i * count);
+        break;
+      case DataType::I64:
+        gatherBatchColumn<Tile, std::int64_t>(
+            column.batch, permutation_, first, count, dst + i * count);
+        break;
+      }
+      continue;
+    }
     if (!column.view.has_value()) {
       logError() << "expr: this binding has a computed column and cannot be evaluated from raw "
                     "pointers; use run(table).";

@@ -225,7 +225,7 @@ class InterpreterKernel final : public Kernel {
   }
 
   void run(const KernelArgs& args) override {
-    if (!binding_->addressable()) {
+    if (!binding_->hostAddressable()) {
       logError() << "expr: this program has a computed column, so it cannot be evaluated from raw "
                     "bases; call run(table) instead.";
       return;

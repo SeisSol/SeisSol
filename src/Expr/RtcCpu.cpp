@@ -345,7 +345,7 @@ class RtcCpuKernel final : public Kernel {
   }
 
   void run(const KernelArgs& args) override {
-    if (!binding_->addressable()) {
+    if (!binding_->hostAddressable()) {
       logError() << "expr: this program has a computed column and cannot be evaluated from raw "
                     "bases; call run(table).";
       return;
@@ -374,7 +374,7 @@ class RtcCpuKernel final : public Kernel {
     void gather(std::size_t first, std::size_t count, T* dst) const {
       if (args != nullptr) {
         binding->gatherFrom(args->inputs, args->inputCount, first, count, dst);
-      } else if (binding->addressable()) {
+      } else if (binding->hostAddressable()) {
         binding->gatherFrom(nullptr, 0, first, count, dst);
       } else {
         binding->gather(*table, first, count, dst);
@@ -383,7 +383,7 @@ class RtcCpuKernel final : public Kernel {
     void scatter(std::size_t first, std::size_t count, const T* src) const {
       if (args != nullptr) {
         binding->scatterTo(args->outputs, args->outputCount, first, count, src);
-      } else if (binding->addressable()) {
+      } else if (binding->hostAddressable()) {
         binding->scatterTo(nullptr, 0, first, count, src);
       } else {
         binding->scatter(*table, first, count, src);
