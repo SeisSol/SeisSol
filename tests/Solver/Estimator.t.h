@@ -26,7 +26,7 @@ namespace seissol::unit_test {
 
 TEST_CASE("Run mini SeisSol" * doctest::test_suite("solver")) {
   // only check if it runs in a reasonable time (cf. SeisSol proxy)
-  const auto time = seissol::solver::miniSeisSol();
+  const auto time = seissol::solver::miniSeisSol(defaultConfig());
 
   // let it take less than 10000 s
   CHECK(time < 10000);

@@ -9,9 +9,12 @@
 #ifndef SEISSOL_SRC_SOLVER_ESTIMATOR_H_
 #define SEISSOL_SRC_SOLVER_ESTIMATOR_H_
 
+#include "Common/ConfigRegistry.h"
+
 namespace seissol::solver {
 
-auto miniSeisSol() -> double;
+/// The time the local kernel of `config` takes on this rank for a fixed amount of work.
+auto miniSeisSol(ConfigId config) -> double;
 
 auto hostDeviceSwitch() -> int;
 

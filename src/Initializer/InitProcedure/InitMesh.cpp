@@ -118,7 +118,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
     if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
-      auto elapsedTime = seissol::solver::miniSeisSol();
+      auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);

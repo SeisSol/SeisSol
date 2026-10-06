@@ -8,6 +8,7 @@
 
 #include "Estimator.h"
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Executor.h"
 #include "Kernels/Common.h"
 #include "Numerical/Statistics.h"
@@ -18,16 +19,17 @@
 
 namespace seissol::solver {
 
-auto miniSeisSol() -> double {
-  const auto config = proxy::ProxyConfig{50000,
-                                         10,
-                                         {seissol::proxy::Kernel::Local},
-                                         false,
-                                         isDeviceOn() ? Executor::Device : Executor::Host};
+auto miniSeisSol(ConfigId config) -> double {
+  const auto proxyConfig = proxy::ProxyConfig{50000,
+                                              10,
+                                              {seissol::proxy::Kernel::Local},
+                                              false,
+                                              isDeviceOn() ? Executor::Device : Executor::Host,
+                                              config};
 
-  logInfo() << "Running MiniSeisSol with" << config.cells << "cells and" << config.timesteps
-            << "repetitions.";
-  const auto proxyResult = seissol::proxy::runProxy(config);
+  logInfo() << "Running MiniSeisSol with" << proxyConfig.cells << "cells and"
+            << proxyConfig.timesteps << "repetitions.";
+  const auto proxyResult = seissol::proxy::runProxy(proxyConfig);
 
   const auto summary = statistics::parallelSummary(proxyResult.time);
   logInfo() << "Runtime results:" << "min:" << summary.min << "max" << summary.max
