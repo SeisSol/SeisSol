@@ -34,13 +34,13 @@ const char* describe(AsagiLiteGrid::Error error) {
   return "an unknown error occurred";
 }
 
-/// Backends are constructed here and nowhere else, so the downcast is safe by
-/// construction. It exists because window management is inherently backend
-/// specific — a distributed or texture-backed grid would slide differently —
-/// while the sampling interface is not, and putting resizeWindow()/advanceTo()
-/// on Grid would force every future backend to answer a question that may not
-/// apply to it.
-AsagiLiteGrid& asAsagiLite(Grid& grid) { return dynamic_cast<AsagiLiteGrid&>(grid); }
+/// The backend with a time window, or null. Window management is inherently
+/// backend specific -- a distributed or texture-backed grid would slide
+/// differently -- while the sampling interface is not, and putting
+/// resizeWindow()/advanceTo() on Grid would force every future backend to answer
+/// a question that may not apply to it. A grid without a window (such as one
+/// injected by a test) has nothing to resize or slide.
+AsagiLiteGrid* asAsagiLite(Grid& grid) { return dynamic_cast<AsagiLiteGrid*>(&grid); }
 
 } // namespace
 
@@ -71,16 +71,22 @@ std::unique_ptr<Grid> makeGrid(const GridDesc& desc) {
 }
 
 void resizeWindow(Grid& grid, std::size_t residentSlices) {
-  auto& backend = asAsagiLite(grid);
-  if (backend.resizeWindow(residentSlices) != AsagiLiteGrid::Error::Success) {
+  auto* backend = asAsagiLite(grid);
+  if (backend == nullptr) {
+    return;
+  }
+  if (backend->resizeWindow(residentSlices) != AsagiLiteGrid::Error::Success) {
     logError() << "datafield: could not allocate a" << residentSlices
                << "slice window for a time-dependent grid.";
   }
 }
 
 void advanceWindow(Grid& grid, double time) {
-  auto& backend = asAsagiLite(grid);
-  if (backend.advanceTo(time) != AsagiLiteGrid::Error::Success) {
+  auto* backend = asAsagiLite(grid);
+  if (backend == nullptr) {
+    return;
+  }
+  if (backend->advanceTo(time) != AsagiLiteGrid::Error::Success) {
     logError() << "datafield: could not slide the time window to t =" << time << ".";
   }
 }

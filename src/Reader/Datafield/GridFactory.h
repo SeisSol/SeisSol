@@ -25,7 +25,8 @@ namespace seissol::reader::datafield {
 std::unique_ptr<Grid> makeGrid(const GridDesc& desc);
 
 /// Allocates and fills the resident time window. Collective. Called by
-/// GridStore::load() after the budget has been turned into a slice count.
+/// GridStore::load() after the budget has been turned into a slice count. A no-op
+/// for a grid whose backend keeps no window.
 void resizeWindow(Grid& grid, std::size_t residentSlices);
 
 /// Moves a time-dependent grid's resident window so that it covers `time`.
