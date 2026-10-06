@@ -112,19 +112,21 @@ class GravitationalFreeSurfaceBc {
     const ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if (dataTable.find(key) != dataTable.end()) {
-      const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getSize()};
+      const size_t numElements{
+          dataTable[key].get<real*>(inner_keys::Wp::Id::Derivatives)->getSize()};
 
-      auto** constantData = dataTable[key].get(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
+      auto** constantData =
+          dataTable[key].get<real*>(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 
-      auto** TinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** TDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
+      auto** TinvDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** TDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::T)->getDeviceDataPtr();
       auto** derivativesPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
+          dataTable[key].get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
 
       auto** displacementsPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
+          dataTable[key].get<real*>(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
       auto** integratedDisplacementNodalPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
+          dataTable[key].get<real*>(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
 
       kernel::gpu_fsgKernel<Cfg> kernel = std::forward<MappingKrnl>(fsgKernelBase);
 

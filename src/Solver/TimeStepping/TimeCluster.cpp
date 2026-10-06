@@ -511,14 +511,14 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
 
             kernel::gpu_addVelocity<Cfg> displacementKrnl;
             displacementKrnl.faceDisplacement =
-                entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
+                entry.get<real*>(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
-                entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtr());
+                entry.get<real*>(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtr());
             displacementKrnl.bindGlobals(*globalData_.onDevice);
 
             // Note: this kernel doesn't require tmp. memory
             displacementKrnl.numElements =
-                entry.get(inner_keys::Wp::Id::FaceDisplacement)->getSize();
+                entry.get<real*>(inner_keys::Wp::Id::FaceDisplacement)->getSize();
             displacementKrnl.streamPtr = streamRuntime_.stream();
             displacementKrnl.execute(face);
           }
@@ -532,18 +532,18 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
           if (resetBuffers) {
             device_.algorithms().streamBatchedData(
                 const_cast<const real**>(
-                    (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
+                    (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
+                (entry.get<real*>(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
                 tensor::I<Cfg>::Size,
-                (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+                (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime_.stream());
           } else {
             device_.algorithms().accumulateBatchedData(
                 const_cast<const real**>(
-                    (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
+                    (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
+                (entry.get<real*>(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
                 tensor::I<Cfg>::Size,
-                (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+                (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime_.stream());
           }
         }
@@ -638,10 +638,11 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
     if (table.find(key) != table.end()) {
       auto entry = table.at(key);
       device_.algorithms().accumulateBatchedData(
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-          (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
+          const_cast<const real**>(
+              (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
+          (entry.get<real*>(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
           tensor::Q<Cfg>::Size,
-          (entry.get(inner_keys::Wp::Id::Dofs))->getSize(),
+          (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize(),
           streamRuntime_.stream());
     }
   }

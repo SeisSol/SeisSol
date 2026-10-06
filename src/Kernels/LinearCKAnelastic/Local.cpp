@@ -218,16 +218,16 @@ void Local<Cfg>::computeBatchedIntegral(
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
 
-    volKrnl.numElements = (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize();
+    volKrnl.numElements = (dataTable[key].get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
 
     volKrnl.I =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-    volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+        const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+    volKrnl.Qext = (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, starMatrices);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+          (entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) =
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
@@ -237,20 +237,20 @@ void Local<Cfg>::computeBatchedIntegral(
 #ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
     auto krnl = deviceFluxLocalAllKernelPrototype_;
 
-    krnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-    krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    krnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    krnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
-    krnl.Iane =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
+    krnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
+    krnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    krnl.Qane = (entry.get<real*>(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    krnl.Qext = (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+    krnl.Iane = const_cast<const real**>(
+        (entry.get<real*>(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
     krnl.W = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.W);
     krnl.w = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.w);
     krnl.E = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.E);
     krnl.streamPtr = runtime.stream();
 
@@ -258,12 +258,13 @@ void Local<Cfg>::computeBatchedIntegral(
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Cfg>, specific.w);
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Cfg>, specific.E);
 
-    krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+    krnl.I =
+        const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, nApNm1);
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       krnl.AplusTAll(face) = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+          entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
       krnl.extraOffset_AplusTAll(face) =
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, nApNm1, face);
     }
@@ -283,12 +284,12 @@ void Local<Cfg>::computeBatchedIntegral(
 
     if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
-      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
-      localFluxKrnl.I =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      localFluxKrnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
+      localFluxKrnl.Qext = (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+      localFluxKrnl.I = const_cast<const real**>(
+          (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       localFluxKrnl.AplusT = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+          entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
 
       SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, nApNm1);
       localFluxKrnl.extraOffset_AplusT =
@@ -302,21 +303,21 @@ void Local<Cfg>::computeBatchedIntegral(
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
 
-    localKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-    localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    localKrnl.Qext =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
-    localKrnl.Iane =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
+    localKrnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
+    localKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    localKrnl.Qane = (entry.get<real*>(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    localKrnl.Qext = const_cast<const real**>(
+        (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
+    localKrnl.Iane = const_cast<const real**>(
+        (entry.get<real*>(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
     localKrnl.W = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.W);
     localKrnl.w = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.w);
     localKrnl.E = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.E);
     localKrnl.streamPtr = runtime.stream();
 
