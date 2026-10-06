@@ -17,6 +17,7 @@ import re
 import sys
 
 import kernels.arch
+import kernels.configboundary
 import kernels.dynamic_rupture
 import kernels.general
 import kernels.memlayout
@@ -283,6 +284,7 @@ def main():
     # some configurations have: in the others, the key names no tensor
     # (`void`), which kernels::size and kernels::familySize count as empty.
     optionalTensors = [
+        "canonicalI",
         "E",
         "ET",
         "Iane",
@@ -302,7 +304,14 @@ def main():
             name,
         )
 
-    def generate_equation(subfolders, args, arch, gemmTools, key):
+    # the canonical form of the faces between configurations, per configuration
+    canonicalOrders = kernels.configboundary.canonical_orders(configArgs)
+    # the conversion casts between precisions, which only TensorForge generates on GPUs
+    boundaryTargets = [
+        target for target in targets if target == "cpu" or not isOldGpuInterface
+    ]
+
+    def generate_equation(subfolders, args, arch, gemmTools, key, canonicalOrder):
         order = args.order
         # the tensors of the configuration are laid out for its architecture
         fixArchitectureGlobal(arch)
@@ -398,6 +407,16 @@ def main():
         )
         kernels.point.addKernels(generator, adg)
 
+        if canonicalOrder is not None:
+            kernels.configboundary.add_kernels(
+                generator,
+                adg,
+                args.matricesDir,
+                canonicalOrder,
+                precision,
+                boundaryTargets,
+            )
+
         outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"
         # configurations that differ in other respects, e.g. the solver, get one each
         if outputDirName in subfolders:
@@ -413,6 +432,9 @@ def main():
         subfolders += [outputDirName]
 
         kernels.quantities.emit_header(adg, trueOutputDir, key)
+        kernels.configboundary.emit_header(
+            adg, trueOutputDir, key, canonicalOrder, boundaryTargets
+        )
 
         metagen.add_generator(
             [key],
@@ -479,9 +501,11 @@ def main():
             file.writelines(["// IWYU pragma: end_exports\n"])
 
     equationFolders = [
-        generate_equation(subfolders, args, configArch, tools, config["key"])
-        for args, (configArch, _, _), tools, config in zip(
-            configArgs, archs, gemmTools, configs
+        generate_equation(
+            subfolders, args, configArch, tools, config["key"], canonicalOrder
+        )
+        for args, (configArch, _, _), tools, config, canonicalOrder in zip(
+            configArgs, archs, gemmTools, configs, canonicalOrders
         )
     ]
 
@@ -492,6 +516,13 @@ def main():
             namespace="seissol",
             includes=["Config.h"],
             declarationsTensors=optionalTensors,
+            # only the configurations of a family with others have them
+            declarationsKernels=[
+                "toCanonical",
+                "fromCanonical",
+                "gpu_toCanonical",
+                "gpu_fromCanonical",
+            ],
         )
     generate_general(subfolders)
 
@@ -502,6 +533,7 @@ def main():
         # the code of the equation by key; the code of general/, which belongs
         # to no configuration, is included from there.
         forward_files("quantities.h")
+        forward_files("configboundary.h")
 
     if cmdLineArgs.mode == "collect":
         targets = {
