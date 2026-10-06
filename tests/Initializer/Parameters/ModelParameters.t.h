@@ -109,7 +109,15 @@ TEST_CASE("readGroupConfigs gives no group a configuration of its own by default
 
 TEST_CASE("readGroupConfigs reads the groups of each configuration" *
           doctest::test_suite("initializer")) {
-  const auto last = static_cast<ConfigId>(builtConfigCount() - 1);
+  // the last configuration that may share a run with the default one: all configurations of a run
+  // fuse the same number of simulations
+  auto last = defaultConfig();
+  for (std::size_t id = 0; id < builtConfigCount(); ++id) {
+    if (configValue(static_cast<ConfigId>(id)).numSimulations ==
+        configValue(defaultConfig()).numSimulations) {
+      last = static_cast<ConfigId>(id);
+    }
+  }
   const auto name = configName(configValue(last));
   const auto defaultName = configName(configValue(defaultConfig()));
   const YAML::Node node =
