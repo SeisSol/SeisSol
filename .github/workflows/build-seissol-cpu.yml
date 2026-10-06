@@ -20,38 +20,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        order:
-          - 6
+        # one executable holds all configurations the CI tests, the set ci-cpu of
+        # cmake/confignames.cmake (order 6, all materials, f32 and f64, elastic with 8 fused
+        # simulations); a run chooses its configuration with SEISSOL_CONFIGURATION
+        configs:
+          - ci-cpu
         arch:
           - hsw
         build_type:
           - Release
           #- Debug
-        equation:
-          - type: acoustic
-            multisim: 1
-            mechanisms: 0
-          - type: elastic
-            multisim: 1
-            mechanisms: 0
-          - type: poroelastic
-            multisim: 1
-            mechanisms: 0
-          - type: viscoelastic
-            multisim: 1
-            mechanisms: 3
-          - type: viscoacoustic
-            multisim: 1
-            mechanisms: 3
-          - type: anisotropic
-            multisim: 1
-            mechanisms: 0
-          - type: elastic
-            multisim: 8
-            mechanisms: 0
-        precision:
-          - single
-          - double
         setup:
           - cc: gcc-13
             cxx: g++-13
@@ -119,12 +97,8 @@ jobs:
             -DTESTING_GENERATED=${TESTING_GENERATED_ENABLE} \
             -DASAGI=ON \
             -DHOST_ARCH=${{matrix.arch}} \
-            -DORDER=${{matrix.order}} \
             -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
-            -DEQUATIONS=${{matrix.equation.type}} \
-            -DPRECISION=${{matrix.precision}} \
-            -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} \
-            -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+            -DCONFIGS=${{matrix.configs}}
 
           ninja install
 
@@ -153,9 +127,9 @@ jobs:
 
           cd build
           set +e
-          ${TESTING_COMMAND} ./seissol-*
+          ${TESTING_COMMAND} ./seissol
           RETVAL_EXE=$?
-          ./proxyseissol-*
+          ./proxyseissol
           RETVAL_PROXY=$?
           set -e
 
@@ -174,7 +148,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.configs}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-run-test:
@@ -185,12 +159,12 @@ jobs:
     needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
     env:
-      EXENAME: |
+      CONFIGNAME: |
         ${{
-          format('{0}-o{2}-{1}{3}',
-            matrix.case.dispequation || matrix.case.equation,
-            matrix.precision == 'single' && 'f32' || 'f64',
+          format('{0}-o{1}-{2}-stroud{3}',
+            matrix.case.config,
             matrix.order,
+            matrix.precision == 'single' && 'f32' || 'f64',
             matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
           )
         }}
@@ -199,7 +173,7 @@ jobs:
       matrix:
         case:
           - name: tpv5
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -207,7 +181,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-nuc
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -215,8 +189,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-visco
-            equation: viscoelastic
-            dispequation: viscoelastic-3
+            config: viscoelastic-linearckanelastic-m3
             multisim: 1
             energies: true
             receivers: true
@@ -224,7 +197,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv5-poro
-            equation: poroelastic
+            config: poroelastic-stp
             multisim: 1
             energies: false # incomplete, hence disabled
             receivers: true
@@ -232,7 +205,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv6
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -240,7 +213,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv13
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -248,7 +221,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv16
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -256,7 +229,7 @@ jobs:
             volume: true
             surface: false
           #- name: tpv33
-          #  equation: elastic
+          #  config: elastic-linearck
           #  multisim: 1
           #  energies: true
           #  receivers: true
@@ -264,7 +237,7 @@ jobs:
           #  volume: false
           #  surface: false
           - name: tpv101
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -272,7 +245,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv101-slip
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -280,7 +253,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv104
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -288,7 +261,7 @@ jobs:
             volume: true
             surface: false
           - name: tpv105
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -296,7 +269,7 @@ jobs:
             volume: true
             surface: false
           - name: ahsp
-            equation: anisotropic
+            config: anisotropic-linearck
             multisim: 1
             energies: false
             receivers: true
@@ -304,7 +277,7 @@ jobs:
             volume: true
             surface: false
           - name: tpvgaussian
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -312,7 +285,7 @@ jobs:
             volume: true
             surface: false
           - name: tpvyoffe
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -320,7 +293,7 @@ jobs:
             volume: true
             surface: false
           - name: ttpv1
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -328,7 +301,7 @@ jobs:
             volume: true
             surface: true
           - name: loh1-fused
-            equation: elastic
+            config: elastic-linearck
             multisim: 8
             energies: true
             receivers: true
@@ -336,7 +309,7 @@ jobs:
             volume: false
             surface: false
           - name: tpv13-fused
-            equation: elastic
+            config: elastic-linearck
             multisim: 8
             energies: true
             receivers: true
@@ -344,7 +317,7 @@ jobs:
             volume: false
             surface: false
           - name: tpv13-fused-plasticity
-            equation: elastic
+            config: elastic-linearck
             multisim: 8
             energies: true
             receivers: true
@@ -352,7 +325,7 @@ jobs:
             volume: false
             surface: false
           - name: loh1-ic
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -360,7 +333,7 @@ jobs:
             volume: true
             surface: false
           - name: acoustic
-            equation: acoustic
+            config: acoustic-linearck
             multisim: 1
             energies: false
             receivers: true
@@ -429,7 +402,7 @@ jobs:
       - name: get-seissol
         uses: actions/download-artifact@v5
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-ci-cpu-${{matrix.setup.cc}}
           path: install
       - name: run-seissol
         id: run
@@ -458,7 +431,9 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
 
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
+          export SEISSOL_CONFIGURATION=$(echo ${CONFIGNAME})
+
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
