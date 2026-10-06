@@ -419,7 +419,9 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
           dofsPtrs[face].push_back(data.get<LTS::Dofs>());
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-          analytical[face].push_back(analyticScratch + cell * tensor::INodal<Config>::size());
+          // the boundary evaluation writes the values of the n-th face of a batch to the n-th entry
+          analytical[face].push_back(analyticScratch +
+                                     analytical[face].size() * tensor::INodal<Config>::size());
         }
       }
     }
