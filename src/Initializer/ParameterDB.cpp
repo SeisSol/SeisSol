@@ -415,8 +415,9 @@ easi::Query FaultBarycenterGenerator::generate() const {
       side = f.neighborSide;
     }
 
-    const auto barycenter =
-        seissol::geometry::AffineFaceTransform::fromMeshCell(element, side, meshReader_).center();
+    const auto barycenter = seissol::geometry::faceTransformOf(element, side, meshReader_)
+                                ->refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
+                                    Face::ReferenceBarycenter.data()));
     for (std::size_t n = 0; n < numberOfPoints_; ++n, ++q) {
       for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = barycenter(dim);
@@ -430,7 +431,6 @@ easi::Query FaultBarycenterGenerator::generate() const {
 easi::Query FaultGPGenerator::generate() const {
   const std::vector<Fault>& fault = meshReader_.getFault();
   const std::vector<Element>& elements = meshReader_.getElements();
-  auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
   const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
@@ -455,10 +455,9 @@ easi::Query FaultGPGenerator::generate() const {
       sideOrientation = seissol::geometry::FaceOrientation::Rotate0;
     }
 
-    auto coords = cellToVertex.elementCoordinates(element);
-    const auto face = seissol::geometry::AffineFaceTransform(
-        seissol::geometry::AffineTransform(coords),
-        seissol::geometry::ReferenceFaceMap(side, sideOrientation));
+    // through the map of the face, which is curved where the cell is
+    const auto face =
+        seissol::geometry::faceTransformOf(element, side, meshReader_, sideOrientation);
     for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
       auto localPoints = seissol::geometry::FaceTransform::FaceVectorT(
           seissol::multisim::multisimTranspose(pointsView, n, 0),
@@ -469,7 +468,7 @@ easi::Query FaultGPGenerator::generate() const {
             seissol::geometry::FaceTransform::FaceVectorT(Face::ReferenceBarycenter.data());
       }
 
-      const auto xyz = face.refToSpace(localPoints);
+      const auto xyz = face->refToSpace(localPoints);
       for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = xyz(dim);
       }

@@ -69,6 +69,21 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoord
                                                    const geometry::CellTransform& plusTransform,
                                                    const geometry::CellTransform& minusTransform);
 
+/// the basis functions of the two sides at a point, given in the reference cell of either side
+PlusMinusBasisFunctions
+    getPlusMinusBasisFunctions(const geometry::CellTransform::VectorEigenT& plusReference,
+                               const geometry::CellTransform::VectorEigenT& minusReference);
+
+/**
+ * The point of a face closest to a point in space, as a face coordinate: Gauss-Newton on the
+ * distance between the two, from the face coordinate `start`. On a plane face it is the orthogonal
+ * projection; on a curved face it is the foot of the perpendicular nearest to `start`.
+ */
+geometry::FaceTransform::FaceVectorT
+    closestPointOnFace(const geometry::FaceTransform& face,
+                       const geometry::FaceTransform::VectorT& point,
+                       const geometry::FaceTransform::FaceVectorT& start);
+
 real computeTriangleArea(ExtTriangle& triangle);
 
 /**

@@ -14,6 +14,7 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Model/OperatorLayout.h"
 #include "Monitoring/Instrumentation.h"
 
 #include <yaml-cpp/yaml.h>
@@ -171,6 +172,12 @@ class BaseFrictionLaw : public FrictionSolver {
                                  "computeDynamicRuptureFinalizeImposedState",
                                  SCOREP_USER_REGION_TYPE_COMMON)
         LIKWID_MARKER_START("computeDynamicRuptureFinalizeImposedState");
+        if constexpr (FaultSubtractsOwnTrace) {
+          common::subtractOwnTraces(imposedState,
+                                    qInterpolatedPlus_[ltsFace],
+                                    qInterpolatedMinus_[ltsFace],
+                                    localTimeWeights.data());
+        }
         common::finalizeImposedState(
             imposedState, imposedStatePlus_[ltsFace], imposedStateMinus_[ltsFace]);
         LIKWID_MARKER_STOP("computeDynamicRuptureFinalizeImposedState");

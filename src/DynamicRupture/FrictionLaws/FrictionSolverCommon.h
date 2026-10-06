@@ -13,6 +13,7 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Initializer/Typedefs.h"
+#include "Model/OperatorLayout.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -396,6 +397,48 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 }
 
 /**
+ * Turns the imposed state of both sides into its jump against the own trace of the side, the two
+ * integrated in time with the same weights. The lift of a side then applies the flux of the fault
+ * normal to the jump, which is the strong form with the subtraction of the side's own normal flux
+ * taken at the points of the fault (see FaultSubtractsOwnTrace). A quantity the lift does not read
+ * is left as it is.
+ *
+ * @param[inout] state
+ * @param[in] qInterpolatedPlus
+ * @param[in] qInterpolatedMinus
+ * @param[in] timeWeights
+ */
+template <RangeType Type = RangeType::CPU>
+SEISSOL_HOSTDEVICE inline void
+    subtractOwnTraces(ImposedState<RangeExecutor<Type>::Exec>& __restrict state,
+                      const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
+                      const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
+                      const real timeWeights[misc::TimeSteps],
+                      uint32_t startIndex = 0) {
+  using NumPointsRange = typename NumPoints<Type>::Range;
+  using Acc = VariableIndexing<RangeExecutor<Type>::Exec>;
+
+  using QInterpolatedShapeT = const real(*__restrict)[misc::NumQuantities][misc::NumPaddedPoints];
+  const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+
+  for (std::uint32_t o = 0; o < misc::TimeSteps; ++o) {
+    const auto weight = timeWeights[o];
+    for (std::uint32_t q = 0; q < misc::NumQuantities; ++q) {
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+      for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
+           index += NumPointsRange::Step) {
+        const auto i{startIndex + index};
+        Acc::index(state.plus[q], i) -= weight * qIPlus[o][q][i];
+        Acc::index(state.minus[q], i) -= weight * qIMinus[o][q][i];
+      }
+    }
+  }
+}
+
+/**
  * Store the imposed state to memory. (and potentially run some last accumulation steps)
  *
  * @param[in] state
@@ -728,7 +771,12 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
                                           bMinus21 * qIMinusT1 + bMinus22 * qIMinusT2;
 
       const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
-      const auto weight = timeWeight * spaceWeight * doubledSurfaceAreaN;
+      // a face that may be curved weighs every point with its own surface Jacobian
+      auto surfaceJacobianN = doubledSurfaceAreaN;
+      if constexpr (Curvilinear) {
+        surfaceJacobianN = -godunovData.surfaceJacobians[i / multisim::NumSimulations];
+      }
+      const auto weight = timeWeight * spaceWeight * surfaceJacobianN;
       localFrictionalEnergy[index] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
                                                 interpolatedTraction13 * interpolatedSlipRate3);
     }

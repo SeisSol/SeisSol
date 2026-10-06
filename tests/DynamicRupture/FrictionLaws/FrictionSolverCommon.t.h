@@ -235,6 +235,34 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
       }
     }
 
+    SUBCASE("Subtract Own Traces") {
+      // the jump against the own trace of either side, the trace integrated with the time weights
+      ImposedState<Executor::Host> state{};
+      auto before = [](int side, size_t q, size_t p) {
+        return static_cast<real>(side * (1.0 + q) + 0.01 * p);
+      };
+      for (size_t q = 0; q < misc::NumQuantities; q++) {
+        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+          state.plus[q][p] = before(1, q, p);
+          state.minus[q][p] = before(-2, q, p);
+        }
+      }
+      friction_law::common::subtractOwnTraces(
+          state, qInterpolatedPlus, qInterpolatedMinus, timeWeights);
+      for (size_t q = 0; q < misc::NumQuantities; q++) {
+        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+          real tracePlus = 0;
+          real traceMinus = 0;
+          for (size_t o = 0; o < misc::TimeSteps; o++) {
+            tracePlus += timeWeights[o] * qP(o, q, p);
+            traceMinus += timeWeights[o] * qM(o, q, p);
+          }
+          CHECK(state.plus[q][p] == AbsApprox(before(1, q, p) - tracePlus).epsilon(Epsilon));
+          CHECK(state.minus[q][p] == AbsApprox(before(-2, q, p) - traceMinus).epsilon(Epsilon));
+        }
+      }
+    }
+
     SUBCASE("Device Range Matches Host Range") {
       // The device specializations collapse every point-indexed array to a scalar and address the
       // padded point through startIndex instead. Instantiating them for RangeType::GPU on the host

@@ -182,29 +182,30 @@ void ReceiverOutput::calcFaultOutput(
       timeKernel_.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
     }
 
-    // the rotations and the interpolation frame are properties of the face, so both kernels are
-    // configured once here and only fed with per-point basis functions below
-    const auto& normal = outFace.faultDirections.faceNormal;
-    const auto& tangent1 = outFace.faultDirections.tangent1;
-    const auto& tangent2 = outFace.faultDirections.tangent2;
-    const auto& strike = outFace.faultDirections.strike;
-    const auto& dip = outFace.faultDirections.dip;
-    const auto& jacobiT2d = outFace.jacobianT2d;
-
     const auto sourceCount = stressSourceCount(*drParameters_);
     const auto* stressSources = local.layer->var<DynamicRupture::StressSourceInFaultCS>();
     const auto* stressSourceOnset = local.layer->var<DynamicRupture::StressSourceOnset>();
     const auto* stressSourceRiseTime = local.layer->var<DynamicRupture::StressSourceRiseTime>();
 
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
-    kernel.Tinv = outFace.glbToFaceAlignedData.data();
-
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-    alignAlongDipAndStrikeKernel.stressRotationMatrix = outFace.stressGlbToDipStrikeAligned.data();
-    alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix = outFace.stressFaceAlignedToGlb.data();
 
     for (const auto pointId : topology.pointsOf(faceId)) {
       const auto& outPoint = topology.points[pointId];
+
+      // the rotations and the interpolation frame are the ones of the face, unless the face may
+      // be curved and the point has its own
+      const auto& frame = topology.frameOf(pointId);
+      const auto& normal = frame.faultDirections.faceNormal;
+      const auto& tangent1 = frame.faultDirections.tangent1;
+      const auto& tangent2 = frame.faultDirections.tangent2;
+      const auto& strike = frame.faultDirections.strike;
+      const auto& dip = frame.faultDirections.dip;
+      const auto& jacobiT2d = frame.jacobianT2d;
+
+      kernel.Tinv = frame.glbToFaceAlignedData.data();
+      alignAlongDipAndStrikeKernel.stressRotationMatrix = frame.stressGlbToDipStrikeAligned.data();
+      alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix = frame.stressFaceAlignedToGlb.data();
 
       kernel.Q = dofsPlus;
       kernel.basisFunctionsAtPoint = outPoint.basisFunctions.plusSide.data();
@@ -232,13 +233,17 @@ void ReceiverOutput::calcFaultOutput(
         local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
         local.stateVariable = this->computeStateVariable(local);
 
-        // the whole tensor, since the total traction output rotates it
-        const auto initialStress = stressAtTime(&stressSources[local.ltsId * sourceCount],
-                                                &stressSourceRiseTime[local.ltsId * sourceCount],
-                                                &stressSourceOnset[local.ltsId * sourceCount],
-                                                sourceCount,
-                                                static_cast<std::uint32_t>(local.gpIndex),
-                                                static_cast<real>(local.time));
+        // the whole tensor, since the total traction output rotates it; read off the quadrature
+        // point, and turned out of the frame there where the point has a frame of its own
+        auto initialStress = stressAtTime(&stressSources[local.ltsId * sourceCount],
+                                          &stressSourceRiseTime[local.ltsId * sourceCount],
+                                          &stressSourceOnset[local.ltsId * sourceCount],
+                                          sourceCount,
+                                          static_cast<std::uint32_t>(local.gpIndex),
+                                          static_cast<real>(local.time));
+        if (outPoint.quadraturePointFrame.has_value()) {
+          initialStress = outPoint.quadraturePointFrame->turn(initialStress);
+        }
 
         local.iniTraction1 = initialStress[QuantityIndices::XY];
         local.iniTraction2 = initialStress[QuantityIndices::XZ];
@@ -378,7 +383,18 @@ void ReceiverOutput::calcFaultOutput(
         }
 
         auto& slipVectors = std::get<VariableID::Slip>(outputData->vars);
-        if (slipVectors.isActive) {
+        if (slipVectors.isActive && outPoint.quadraturePointFrame.has_value()) {
+          // the slip is along the tangents of the quadrature point it is read off
+          const auto& there = outPoint.quadraturePointFrame.value();
+          const auto* slip1 = getCellData<DynamicRupture::Slip1>(local);
+          const auto* slip2 = getCellData<DynamicRupture::Slip2>(local);
+          slipVectors(DirectionID::Strike, level, i) =
+              MeshTools::dot(there.tangent1, strike) * slip1[local.gpIndex] +
+              MeshTools::dot(there.tangent2, strike) * slip2[local.gpIndex];
+          slipVectors(DirectionID::Dip, level, i) =
+              MeshTools::dot(there.tangent1, dip) * slip1[local.gpIndex] +
+              MeshTools::dot(there.tangent2, dip) * slip2[local.gpIndex];
+        } else if (slipVectors.isActive) {
           CoordinateT crossProduct = {0.0, 0.0, 0.0};
           MeshTools::cross(strike, tangent1, crossProduct);
 

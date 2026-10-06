@@ -10,6 +10,7 @@
 
 #include "Common/Iterator.h"
 #include "DynamicRupture/Output/DataTypes.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -19,6 +20,7 @@
 #include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -115,6 +117,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           const auto faceTransform = seissol::geometry::AffineFaceTransform::fromMeshCell(
               faultItem.element.value(), faultItem.side, *meshReader_);
           receiver.globalTriangle = toExtTriangle(faceTransform);
+          const Eigen::Vector3d given(receiver.global.data());
           projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
 
           contained[receiverIdx] = 1;
@@ -131,6 +134,20 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
                                  faultItem.element.value(), *meshReader_)
                                  .spaceToRef(Eigen::Vector3d(receiver.global.data()));
           std::copy(point.begin(), point.end(), receiver.reference.begin());
+
+          if (curvedFaces()) {
+            // the point of the curved face nearest to the one given, found from the one of the
+            // plane face through its vertices
+            const auto curved = seissol::geometry::faceTransformOf(
+                faultItem.element.value(), faultItem.side, *meshReader_);
+            const auto start =
+                seissol::geometry::ReferenceFaceMap(faultItem.side).cellToFace(point);
+            const auto chi = closestPointOnFace(*curved, given, start);
+            const auto onFace = curved->refToSpace(chi);
+            const auto reference = curved->refToCell(chi);
+            std::copy_n(onFace.data(), Cell::Dim, receiver.global.begin());
+            std::copy_n(reference.data(), Cell::Dim, receiver.reference.begin());
+          }
         }
       } catch (const std::exception& error) {
         logError() << "An error occurred while trying to find an on-fault receiver point:"

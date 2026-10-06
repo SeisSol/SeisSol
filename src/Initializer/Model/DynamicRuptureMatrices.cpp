@@ -9,6 +9,7 @@
 
 #include "DynamicRuptureMatrices.h"
 
+#include "DynamicRupture/FaultGeometry.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
@@ -18,6 +19,8 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -39,6 +42,7 @@
 #include <Eigen/Core>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -48,6 +52,84 @@
 namespace seissol::initializer {
 
 namespace {
+
+/**
+ * What a fault face carries at each of its points where it may be curved: the rotation into the
+ * coordinates of the fault (transposed, as DRGodunovData::dataTinvT), the one back out of them (as
+ * dr::FaultFluxLayout), the scale each side lifts with -- the surface Jacobian over the Jacobian
+ * determinant of the cell of that side at the point, with the sign of the side -- and the doubled
+ * area of the face.
+ */
+struct FaultFaceAtPoints {
+  std::vector<real> rotationIntoFault;
+  std::vector<real> rotationOutOfFault;
+  std::array<double, seissol::dr::misc::NumBoundaryGaussPoints> scalePlus{};
+  std::array<double, seissol::dr::misc::NumBoundaryGaussPoints> scaleMinus{};
+  std::array<double, seissol::dr::misc::NumBoundaryGaussPoints> surfaceJacobians{};
+  double doubledSurfaceArea{};
+};
+
+FaultFaceAtPoints faultFaceAtPoints(const seissol::geometry::MeshReader& meshReader,
+                                    std::size_t meshFace) {
+  using seissol::dr::misc::NumBoundaryGaussPoints;
+  const auto& fault = meshReader.getFault()[meshFace];
+  const auto frames = seissol::dr::faultFramesAtPoints(meshFace, meshReader);
+
+  FaultFaceAtPoints face;
+  std::vector<std::array<real, tensor::T::size()>> rotations(frames.size());
+  std::vector<std::array<real, tensor::Tinv::size()>> inverses(frames.size());
+  for (std::size_t point = 0; point < frames.size(); ++point) {
+    auto matT = init::T::view::create(rotations[point].data());
+    auto matTinv = init::Tinv::view::create(inverses[point].data());
+    seissol::model::getFaceRotationMatrix(
+        frames[point].normal, frames[point].tangent1, frames[point].tangent2, matT, matTinv);
+  }
+  face.rotationIntoFault.resize(tensor::TinvTPoints::size());
+  init::TinvTPoints::view::create(face.rotationIntoFault.data())
+      .forall([&](const auto* entry, auto& value) {
+        value = init::Tinv::view::create(inverses[entry[0]].data())(entry[2], entry[1]);
+      });
+  face.rotationOutOfFault.resize(tensor::TPoints::size());
+  init::TPoints::view::create(face.rotationOutOfFault.data())
+      .forall([&](const auto* entry, auto& value) {
+        value = init::T::view::create(rotations[entry[0]].data())(entry[1], entry[2]);
+      });
+
+  const auto weights = init::quadweights::view::create(init::quadweights::Values);
+  for (std::size_t point = 0; point < NumBoundaryGaussPoints; ++point) {
+    face.surfaceJacobians[point] = frames[point].surfaceJacobian;
+    face.doubledSurfaceArea += 2.0 * weights(point) * frames[point].surfaceJacobian;
+  }
+
+  // a side that is not on this rank blows up the solution if its scale is used by mistake
+  const auto scales = [&](const decltype(fault.element)& element,
+                          std::int8_t side,
+                          seissol::geometry::FaceOrientation orientation,
+                          double sign,
+                          std::array<double, NumBoundaryGaussPoints>& target) {
+    if (!element.hasValue()) {
+      target.fill(sign * 1.e99);
+      return;
+    }
+    const auto cell = seissol::geometry::cellTransformOf(element.value(), meshReader);
+    const auto ofSide =
+        seissol::geometry::faceTransformOf(element.value(), side, meshReader, orientation);
+    for (std::size_t point = 0; point < NumBoundaryGaussPoints; ++point) {
+      const auto chiTau = seissol::dr::quadraturePoint(point);
+      const auto jacobian = cell->refToSpaceJacobian(ofSide->refToCell(chiTau));
+      target[point] = sign * ofSide->surfaceJacobian(chiTau) / std::abs(jacobian.determinant());
+    }
+  };
+  scales(
+      fault.element, fault.side, seissol::geometry::FaceOrientation::Local, -1.0, face.scalePlus);
+  const auto minusOrientation = fault.neighborElement.hasValue()
+                                    ? static_cast<seissol::geometry::FaceOrientation>(
+                                          meshReader.getElements()[fault.neighborElement.value()]
+                                              .sideOrientations[fault.neighborSide])
+                                    : seissol::geometry::FaceOrientation::Rotate0;
+  scales(fault.neighborElement, fault.neighborSide, minusOrientation, 1.0, face.scaleMinus);
+  return face;
+}
 
 void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
                           std::size_t meshId,
@@ -647,17 +729,26 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       }
 
-      /// Transpose matTinv.
-      // Through the view rather than through a kernel, because TinvT is stored
-      // in whichever layout the projections read it from -- packed to its
-      // sparsity pattern where the build can take a packed operand -- and a
-      // packed destination is not something the generated copy can write.
-      // forall visits the entries the view actually stores, so the same line
-      // fills a dense and a packed TinvT, and the entries a packed one leaves
-      // out are the ones the rotation has no value for anyway.
-      auto tinvT = init::TinvT::view::create(godunovData[ltsFace].dataTinvT);
-      tinvT.forall(
-          [&matTinv](const auto* entry, auto& value) { value = matTinv(entry[1], entry[0]); });
+      // a face that may be curved has its rotation, and with it its scales, at each of its points
+      [[maybe_unused]] const auto atPoints =
+          Curvilinear ? faultFaceAtPoints(meshReader, meshFace) : FaultFaceAtPoints{};
+      if constexpr (Curvilinear) {
+        std::copy(atPoints.rotationIntoFault.begin(),
+                  atPoints.rotationIntoFault.end(),
+                  godunovData[ltsFace].dataTinvT);
+      } else {
+        /// Transpose matTinv.
+        // Through the view rather than through a kernel, because TinvT is stored
+        // in whichever layout the projections read it from -- packed to its
+        // sparsity pattern where the build can take a packed operand -- and a
+        // packed destination is not something the generated copy can write.
+        // forall visits the entries the view actually stores, so the same line
+        // fills a dense and a packed TinvT, and the entries a packed one leaves
+        // out are the ones the rotation has no value for anyway.
+        auto tinvT = init::TinvT::view::create(godunovData[ltsFace].dataTinvT);
+        tinvT.forall(
+            [&matTinv](const auto* entry, auto& value) { value = matTinv(entry[1], entry[0]); });
+      }
 
       double plusSurfaceArea = 0;
       double plusVolume = 0;
@@ -688,7 +779,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         minusSurfaceArea = 1.e99;
         minusVolume = 1.0;
       }
-      godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
+      // a face that may be curved has the mean of its surface Jacobian, and the one of every point
+      godunovData[ltsFace].doubledSurfaceArea =
+          Curvilinear ? atPoints.doubledSurfaceArea : 2.0 * surfaceArea;
+      if constexpr (Curvilinear) {
+        std::copy(atPoints.surfaceJacobians.begin(),
+                  atPoints.surfaceJacobians.end(),
+                  godunovData[ltsFace].surfaceJacobians);
+      }
 
       const double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       const double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
@@ -696,19 +794,29 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       // Either form of the lift takes the material in the coordinates of the face, rotated with
       // the bond matrix as for the impedance matrices of initializeFaultImpedance above; the
       // scalar impedances above take it unrotated, which an isotropic material does not notice.
+      // A face that may be curved turns its coordinates along it, but takes only media that a
+      // rotation leaves as they are (see CURVILINEAR), so the frame of the face does for all
+      // of its points.
       std::array<double, 36> bond{};
       seissol::model::getBondMatrix(
           fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, bond);
       if constexpr (NodalFaultFlux) {
-        // the lift of every point from the material there, as the impedances are
+        // the lift of every point from the material there, as the impedances are, with the
+        // rotation and the scale of the point where the face may be curved
+        std::array<double, seissol::dr::misc::NumBoundaryGaussPoints> scalesPlus{};
+        std::array<double, seissol::dr::misc::NumBoundaryGaussPoints> scalesMinus{};
+        scalesPlus.fill(fluxScalePlus);
+        scalesMinus.fill(fluxScaleMinus);
+        const real* rotation = matTData;
+        if constexpr (Curvilinear) {
+          scalesPlus = atPoints.scalePlus;
+          scalesMinus = atPoints.scaleMinus;
+          rotation = atPoints.rotationOutOfFault.data();
+        }
         setPointwiseFaultFlux(
-            fluxSolverPlus[ltsFace], matTData, fluxScalePlus, plusAtPoints, *plusMaterial, bond);
-        setPointwiseFaultFlux(fluxSolverMinus[ltsFace],
-                              matTData,
-                              fluxScaleMinus,
-                              minusAtPoints,
-                              *minusMaterial,
-                              bond);
+            fluxSolverPlus[ltsFace], rotation, scalesPlus, plusAtPoints, *plusMaterial, bond);
+        setPointwiseFaultFlux(
+            fluxSolverMinus[ltsFace], rotation, scalesMinus, minusAtPoints, *minusMaterial, bond);
       } else {
         setMatrixFaultFlux(fluxSolverPlus[ltsFace], matTData, fluxScalePlus, *plusMaterial, bond);
         setMatrixFaultFlux(

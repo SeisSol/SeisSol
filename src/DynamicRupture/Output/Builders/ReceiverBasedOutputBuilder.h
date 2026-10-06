@@ -51,6 +51,16 @@ class ReceiverBasedOutputBuilder {
   void assignFaultTags();
   void assignFusedIndices();
 
+  /// whether the faces of the mesh may be curved, which the output then follows
+  [[nodiscard]] bool curvedFaces() const;
+
+  /**
+   * Moves receivers, given by their coordinates in the reference cell of their plus side, onto the
+   * faces of the mesh, together with the triangles they are written on, where the faces may be
+   * curved. Where the faces are plane, they are on them already.
+   */
+  void placeOnCurvedFaces(Receivers& receivers) const;
+
   const seissol::geometry::MeshReader* meshReader_{nullptr};
   LTS::Storage* wpStorage_{nullptr};
   LTS::Backmap* wpBackmap_{nullptr};

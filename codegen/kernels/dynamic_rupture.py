@@ -6,13 +6,14 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
+import numpy as np
 from kernels import material
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
-from yateto.memory import CSCMemoryLayout
+from yateto.memory import CSCMemoryLayout, PatternMemoryLayout
 from yateto.type import AddressingMode
 
 # The face relation index of a dynamic rupture face: 0 selects the plus side, 1 the minus side.
@@ -54,6 +55,31 @@ def addKernels(
     # its operands as dense, so it keeps the dense layout.
     if not (isOldGpuInterface and "gpu" in targets):
         TinvT.setMemoryLayout(CSCMemoryLayout)
+
+    # A curved fault face turns its frame along it, so it carries its rotation
+    # at each of its points: into the coordinates of the fault, and back out of
+    # them in the lift. Every point has the pattern of the face, packed by it.
+    curvilinear = getattr(aderdg, "curvilinear", False)
+    TinvTPoints = Tensor(
+        "TinvTPoints",
+        (numPoints,) + tuple(trans_inv_spp_T.shape),
+        spp=np.broadcast_to(
+            trans_inv_spp_T, (numPoints,) + tuple(trans_inv_spp_T.shape)
+        ).copy(),
+    )
+    trans_spp = aderdg.transformation_spp()
+    TPoints = Tensor(
+        "TPoints",
+        (numPoints,) + tuple(trans_spp.shape),
+        spp=np.broadcast_to(trans_spp, (numPoints,) + tuple(trans_spp.shape)).copy(),
+    )
+    if not (isOldGpuInterface and "gpu" in targets):
+        TinvTPoints.setMemoryLayout(PatternMemoryLayout, alignStride=False)
+        TPoints.setMemoryLayout(PatternMemoryLayout, alignStride=False)
+    # the rotation into the coordinates of the fault, contracted with the
+    # values of a side at the points (index k) and its quantities (index q)
+    rotationIntoFault = TinvTPoints["kqp"] if curvilinear else TinvT["qp"]
+
     flux_solver_spp = aderdg.flux_solver_spp()
     fluxSolver = Tensor("fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp)
 
@@ -130,7 +156,7 @@ def addKernels(
     def interpolateQGenerator(i, h):
         return (
             QInterpolated["kp"]
-            <= db.V3mTo2n[i, h][aderdg.t("kl")] * aderdg.Q["lq"] * TinvT["qp"]
+            <= db.V3mTo2n[i, h][aderdg.t("kl")] * aderdg.Q["lq"] * rotationIntoFault
         )
 
     interpolateQPrefetch = lambda i, h: QInterpolated
@@ -179,7 +205,8 @@ def addKernels(
                 interm = aderdg.I["lq"]
 
             calc += [
-                QDR[c]["kp"] <= db.V3mTo2n[i, h][aderdg.t("kl")] * interm * TinvT["qp"]
+                QDR[c]["kp"]
+                <= db.V3mTo2n[i, h][aderdg.t("kl")] * interm * rotationIntoFault
             ]
         return calc
 
@@ -203,8 +230,15 @@ def addKernels(
             * fluxSolver["qp"]
         )
     else:
+        # the rotation back out of the coordinates of the fault, contracted
+        # with the lifted state at the points (index l)
+        rotationOutOfFault = TPoints["lpq"] if curvilinear else aderdg.T["pq"]
         nodalFluxGenerator = lambda i, h: pointwiseLift(
-            aderdg, faultFlux, QInterpolated, db.V3mTo2nTWDivM[i, h][aderdg.t("kl")]
+            aderdg,
+            faultFlux,
+            QInterpolated,
+            db.V3mTo2nTWDivM[i, h][aderdg.t("kl")],
+            rotationOutOfFault,
         )
     nodalFluxPrefetch = lambda i, h: aderdg.I
 
@@ -388,7 +422,15 @@ def addKernels(
         generator, aderdg, matricesDir, materialPoints, db, NumFaceRelations
     )
 
-    return {db.resample, db.quadpoints, db.quadweights}
+    # the layout of a fault face names both rotations, whichever the kernels use
+    return {
+        db.resample,
+        db.quadpoints,
+        db.quadweights,
+        TinvT,
+        TinvTPoints,
+        TPoints,
+    }
 
 
 def faultFluxTensors(aderdg, numPoints):
@@ -439,10 +481,11 @@ def faultFluxTensors(aderdg, numPoints):
     }
 
 
-def pointwiseLift(aderdg, faultFlux, imposedState, lift):
+def pointwiseLift(aderdg, faultFlux, imposedState, lift, rotation):
     """The statements of the lift where a face carries its scalars per point:
     the operator at each point, in face coordinates, then the rotation back
-    and the projection into the cell."""
+    -- one for the face, or one per point where the face may be curved -- and
+    the projection into the cell."""
     product = aderdg.definedOnce(faultFlux["product"])
     statements = []
     for position, coefficient in enumerate(faultFlux["coefficients"]):
@@ -455,9 +498,7 @@ def pointwiseLift(aderdg, faultFlux, imposedState, lift):
             product["lk"] <= (term if position == 0 else product["lk"] + term)
         )
     target = aderdg.extendedQTensor()
-    statements.append(
-        target["kp"] <= target["kp"] + lift * product["lq"] * aderdg.T["pq"]
-    )
+    statements.append(target["kp"] <= target["kp"] + lift * product["lq"] * rotation)
     return statements
 
 

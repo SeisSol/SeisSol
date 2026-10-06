@@ -83,6 +83,8 @@ static_assert(Config::Curvilinear == generated::Curvilinear,
               "The build and the generated code disagree about whether a cell may be curved.");
 static_assert(!Config::Curvilinear || NodalFlux,
               "A curved face applies its flux at its nodes, which this build does not.");
+static_assert(!Config::Curvilinear || NodalFaultFlux,
+              "A curved fault face applies its lift at its points, which this build does not.");
 
 /// Whether the corrector applies its volume term in the strong form. It does wherever the operator
 /// varies inside a cell: the weak form lifts the cell's own trace with the operator inside the
@@ -92,11 +94,19 @@ static_assert(!Config::Curvilinear || NodalFlux,
 /// generator).
 constexpr bool StrongCorrector = NodalMaterial;
 
+/// Whether the fault takes the subtraction of the strong form on itself: its lift then applies the
+/// flux of the fault normal to the imposed state less the side's own trace, at the points of the
+/// fault, where it otherwise is the local flux of the face, at the nodes of the face. Where a cell
+/// may be curved, the scale of a point carries the inverse of the Jacobian determinant there, which
+/// no quadrature integrates exactly; the lift and the subtraction cancel for a state that is
+/// continuous across a locked fault only where they are taken at the same points.
+constexpr bool FaultSubtractsOwnTrace = StrongCorrector && Curvilinear;
+
 /// Whether the local flux of a face of this type is applied. A fault face supplies its flux
 /// through the fault, so in the weak form it has no local flux at all; in the strong form its
-/// local flux is the subtraction of the normal flux alone.
+/// local flux is the subtraction of the normal flux alone, unless the fault takes that on itself.
 constexpr bool appliesLocalFlux(FaceType faceType) {
-  return StrongCorrector || faceType != FaceType::DynamicRupture;
+  return (StrongCorrector && !FaultSubtractsOwnTrace) || faceType != FaceType::DynamicRupture;
 }
 
 } // namespace seissol

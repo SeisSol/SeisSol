@@ -151,4 +151,74 @@ TEST_CASE("Relative thickness of a cell" * doctest::test_suite("geometry")) {
   }
 }
 
+TEST_CASE("Frame of a fault at a point of its face" * doctest::test_suite("geometry")) {
+  constexpr double Epsilon = 1e-12;
+  const std::array<VectorT, Cell::NumVertices> vertices{VectorT(0.1, 0.2, -0.3),
+                                                        VectorT(2.1, 0.0, 0.4),
+                                                        VectorT(-0.2, 1.7, 0.1),
+                                                        VectorT(0.3, 0.1, 2.2)};
+  constexpr std::size_t Side = 1;
+  const AffineFaceTransform plane{AffineTransform(vertices),
+                                  seissol::geometry::ReferenceFaceMap(Side)};
+
+  // the frame of the fault, as a mesh reader sets it up from the plane through the vertices
+  const auto basis = plane.faceAlignedBasis();
+  seissol::Fault fault{};
+  const auto toCoordinate = [](const VectorT& vector) {
+    const VectorT unit = vector.normalized();
+    return CoordinateT{unit(0), unit(1), unit(2)};
+  };
+  fault.normal = toCoordinate(basis[0]);
+  fault.tangent1 = toCoordinate(basis[1]);
+  fault.tangent2 = toCoordinate(basis[2]);
+  const VectorT straightNormal(fault.normal.data());
+  const VectorT straightTangent1(fault.tangent1.data());
+
+  const std::vector<FaceVectorT> points{
+      FaceVectorT(0.2, 0.3), FaceVectorT(1.0 / 3, 1.0 / 3), FaceVectorT(0.05, 0.9)};
+
+  SUBCASE("A plane face has the frame of the fault at every point") {
+    for (const auto& point : points) {
+      const auto frame = seissol::geometry::faultFrameAt(plane, fault, point);
+      REQUIRE(frame.normal == straightNormal);
+      REQUIRE(frame.tangent1 == straightTangent1);
+      REQUIRE(frame.tangent2 == VectorT(fault.tangent2.data()));
+      REQUIRE(frame.surfaceJacobian == plane.surfaceJacobian(point));
+    }
+  }
+
+  SUBCASE("A curved face turns the frame along it") {
+    constexpr std::array<std::array<std::size_t, 2>, 6> Edges{
+        {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
+    std::array<VectorT, 6> midpoints{};
+    for (std::size_t edge = 0; edge < Edges.size(); ++edge) {
+      midpoints[edge] = 0.5 * (vertices[Edges[edge][0]] + vertices[Edges[edge][1]]) +
+                        0.05 * VectorT(1.0 + edge, -0.5 * edge, 0.3);
+    }
+    const seissol::geometry::IsoparametricFaceTransform face(
+        IsoparametricTransform::fromEdgeMidpoints(vertices, midpoints),
+        seissol::geometry::ReferenceFaceMap(Side));
+
+    bool turns = false;
+    for (const auto& point : points) {
+      const auto frame = seissol::geometry::faultFrameAt(face, fault, point);
+      const VectorT normal = face.normal(point);
+      // the normal of the face there, with its norm as the surface Jacobian
+      REQUIRE(frame.surfaceJacobian == doctest::Approx(normal.norm()));
+      REQUIRE((frame.normal - normal.normalized()).norm() == AbsApprox(0.0).epsilon(Epsilon));
+      // an orthonormal right-handed frame
+      REQUIRE(frame.tangent1.norm() == doctest::Approx(1.0));
+      REQUIRE(frame.normal.dot(frame.tangent1) == AbsApprox(0.0).epsilon(Epsilon));
+      REQUIRE((frame.normal.cross(frame.tangent1) - frame.tangent2).norm() ==
+              AbsApprox(0.0).epsilon(Epsilon));
+      // whose first tangent is the one of the fault turned into the plane of the face there
+      REQUIRE(frame.tangent1.dot(frame.normal.cross(straightTangent1)) ==
+              AbsApprox(0.0).epsilon(Epsilon));
+      REQUIRE(frame.tangent1.dot(straightTangent1) > 0.0);
+      turns = turns || (frame.normal - straightNormal).norm() > 1e-3;
+    }
+    REQUIRE(turns);
+  }
+}
+
 } // namespace seissol::unit_test::cellgeometry

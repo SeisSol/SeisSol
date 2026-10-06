@@ -79,7 +79,7 @@ void setMatrixFaultFlux(real* target,
 template <typename MaterialT, std::size_t Points>
 void setPointwiseFaultFlux(real* target,
                            const real* rotation,
-                           double fluxScale,
+                           const std::array<double, dr::misc::NumBoundaryGaussPoints>& fluxScale,
                            const std::array<MaterialT, Points>& atPoints,
                            const MaterialT& cellMaterial,
                            const std::array<double, 36>& bond) {
@@ -90,7 +90,8 @@ void setPointwiseFaultFlux(real* target,
                 "The fault lift reads more points than the material is given at.");
 
   std::fill_n(target, dr::FaultFluxLayout::Size, static_cast<real>(0));
-  std::copy_n(rotation, tensor::T::size(), target + dr::FaultFluxLayout::RotationOffset);
+  std::copy_n(
+      rotation, dr::FaultFluxLayout::RotationSize, target + dr::FaultFluxLayout::RotationOffset);
 
   const auto ofCell = seissol::model::getStarCoefficients(cellMaterial);
   for (std::size_t point = 0; point < dr::misc::NumBoundaryGaussPoints; ++point) {
@@ -105,7 +106,7 @@ void setPointwiseFaultFlux(real* target,
               ? ofPoint[index]
               : ofCell[index];
       target[dr::FaultFluxLayout::coefficientOffset(coefficient) + point] =
-          static_cast<real>(fluxScale * value);
+          static_cast<real>(fluxScale[point] * value);
     }
   }
 }

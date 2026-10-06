@@ -7,6 +7,7 @@
 
 add_library(seissol-dynamicrupture OBJECT
     Factory.cpp
+    FaultGeometry.cpp
     Misc.cpp
     FrictionLaws/FrictionSolver.cpp
     FrictionLaws/CpuImpl/LinearSlipWeakening.cpp

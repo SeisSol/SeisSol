@@ -453,7 +453,6 @@ void OutputManager::initPickpointOutput() {
           file << '\n';
 
           for (const auto& gIdx : ppfile.indices) {
-            const auto faceId = outputData->topology.points[gIdx].faceId;
             for (const auto receiverId : outputData->topology.receiversOf(gIdx)) {
               const auto& receiver = outputData->receivers[receiverId];
               const size_t globalIndex = receiver.globalReceiverIndex.value() + 1;
@@ -496,12 +495,19 @@ void OutputManager::initPickpointOutput() {
                                      sourceCount,
                                      static_cast<std::uint32_t>(receiver.gpIndex),
                                      static_cast<real>(0.0));
+                // read off the quadrature point, in the frame there
+                const auto& quadraturePointFrame =
+                    outputData->topology.points[gIdx].quadraturePointFrame;
+                if (quadraturePointFrame.has_value()) {
+                  unrotatedInitialStress = quadraturePointFrame->turn(unrotatedInitialStress);
+                }
 
+                const auto& frame = outputData->topology.frameOf(gIdx);
                 seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
                 alignAlongDipAndStrikeKernel.stressRotationMatrix =
-                    outputData->topology.faces[faceId].stressGlbToDipStrikeAligned.data();
+                    frame.stressGlbToDipStrikeAligned.data();
                 alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-                    outputData->topology.faces[faceId].stressFaceAlignedToGlb.data();
+                    frame.stressFaceAlignedToGlb.data();
 
                 alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
                 alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();

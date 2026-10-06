@@ -11,6 +11,7 @@
 #include "Common/Iterator.h"
 #include "Common/Typedefs.h"
 #include "Config.h"
+#include "DynamicRupture/FaultGeometry.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -18,6 +19,7 @@
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
@@ -31,6 +33,7 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
+#include "Model/OperatorLayout.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
@@ -45,6 +48,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -79,6 +83,108 @@ struct GhostElement {
   std::pair<std::size_t, int> data;
   std::size_t index{};
 };
+
+void setDirections(FaultDirections& directions,
+                   const double* normal,
+                   const double* tangent1,
+                   const double* tangent2) {
+  std::copy_n(normal, Cell::Dim, directions.faceNormal.begin());
+  std::copy_n(tangent1, Cell::Dim, directions.tangent1.begin());
+  std::copy_n(tangent2, Cell::Dim, directions.tangent2.begin());
+  misc::computeStrikeAndDipVectors(directions.faceNormal, directions.strike, directions.dip);
+}
+
+void setRotations(OutputFrame& frame) {
+  using namespace seissol::transformations;
+  using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
+
+  const auto& faultDirections = frame.faultDirections;
+  const auto& faceNormal = faultDirections.faceNormal;
+  const auto& strike = faultDirections.strike;
+  const auto& dip = faultDirections.dip;
+  const auto& tangent1 = faultDirections.tangent1;
+  const auto& tangent2 = faultDirections.tangent2;
+
+  {
+    auto* memorySpace = frame.stressGlbToDipStrikeAligned.data();
+    RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+    inverseSymmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
+  }
+  {
+    auto* memorySpace = frame.stressFaceAlignedToGlb.data();
+    RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+    symmetricTensor2RotationMatrix(faceNormal, tangent1, tangent2, rotationMatrixView, 0, 0);
+  }
+  {
+    // the face-aligned-to-global direction is not part of the output; it is only needed to
+    // obtain its inverse
+    std::array<real, seissol::tensor::T::size()> faceAlignedToGlbData{};
+    auto faceAlignedToGlb = init::T::view::create(faceAlignedToGlbData.data());
+    auto glbToFaceAligned = init::Tinv::view::create(frame.glbToFaceAlignedData.data());
+
+    seissol::model::getFaceRotationMatrix(
+        faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
+  }
+}
+
+/// turns the six components of a stress in the frame `from` into the ones in the frame `to`
+std::array<real, 36> stressBetweenFrames(const geometry::FaultFrame& from,
+                                         const geometry::FaultFrame& to) {
+  using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
+  const auto coordinate = [](const geometry::CellTransform::VectorEigenT& vector) {
+    return CoordinateT{vector(0), vector(1), vector(2)};
+  };
+  std::array<real, 36> toGlobal{};
+  std::array<real, 36> fromGlobal{};
+  RotationMatrixViewT toGlobalView(toGlobal.data(), {6, 6});
+  RotationMatrixViewT fromGlobalView(fromGlobal.data(), {6, 6});
+  seissol::transformations::symmetricTensor2RotationMatrix(coordinate(from.normal),
+                                                           coordinate(from.tangent1),
+                                                           coordinate(from.tangent2),
+                                                           toGlobalView,
+                                                           0,
+                                                           0);
+  seissol::transformations::inverseSymmetricTensor2RotationMatrix(coordinate(to.normal),
+                                                                  coordinate(to.tangent1),
+                                                                  coordinate(to.tangent2),
+                                                                  fromGlobalView,
+                                                                  0,
+                                                                  0);
+  std::array<real, 36> composed{};
+  for (std::size_t column = 0; column < 6; ++column) {
+    for (std::size_t row = 0; row < 6; ++row) {
+      real entry = 0;
+      for (std::size_t k = 0; k < 6; ++k) {
+        entry += fromGlobalView(row, k) * toGlobalView(k, column);
+      }
+      composed[row + 6 * column] = entry;
+    }
+  }
+  return composed;
+}
+
+/// the map from the coordinates of the reference face to the ones along the two tangents, inverted
+Eigen::Matrix<real, 2, 2> jacobian2d(const geometry::FaceTransform::JacobianT& faceJacobian,
+                                     const double* tangent1,
+                                     const double* tangent2) {
+  CoordinateT xab{};
+  CoordinateT xac{};
+  CoordinateT t1{};
+  CoordinateT t2{};
+  for (std::size_t d = 0; d < Cell::Dim; ++d) {
+    xab[d] = faceJacobian(d, 0);
+    xac[d] = faceJacobian(d, 1);
+    t1[d] = tangent1[d];
+    t2[d] = tangent2[d];
+  }
+
+  Eigen::Matrix<real, 2, 2> matrix;
+  matrix(0, 0) = MeshTools::dot(t1, xab);
+  matrix(0, 1) = MeshTools::dot(t2, xab);
+  matrix(1, 0) = MeshTools::dot(t1, xac);
+  matrix(1, 1) = MeshTools::dot(t2, xac);
+  return matrix.inverse();
+}
 
 template <typename T1, typename T2>
 struct HashPair {
@@ -206,6 +312,23 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
     const auto& element = elementsInfo[elementIndex];
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
+
+    if (curvedFaces()) {
+      // A curved cell has no affine map to invert. The point is on the face, though: its
+      // coordinates in the minus cell follow from the ones in the plus cell through the reference
+      // face, at the orientation the kernels of the fault evaluate the minus side at (face
+      // relation 1, which the canonical vertex numbering makes the zero orientation).
+      const geometry::ReferenceFaceMap plusFace(faultInfo[face.faultFaceIndex].side);
+      const geometry::ReferenceFaceMap minusFace(faultInfo[face.faultFaceIndex].neighborSide,
+                                                 geometry::FaceOrientation::Rotate0);
+      for (const auto pointId : topology.pointsOf(faceId)) {
+        const auto& receiver = outputData_->receivers[topology.representative(pointId)];
+        const geometry::CellTransform::VectorEigenT plusReference(receiver.reference.data());
+        topology.points[pointId].basisFunctions = getPlusMinusBasisFunctions(
+            plusReference, minusFace.faceToCell(plusFace.cellToFace(plusReference)));
+      }
+      continue;
+    }
 
     const auto transform = geometry::AffineTransform::fromMeshCell(elementIndex, *meshReader_);
 
@@ -345,51 +468,53 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
 
 void ReceiverBasedOutputBuilder::initFaultDirections() {
   const auto& faultInfo = meshReader_->getFault();
+  auto& topology = outputData_->topology;
 
-  for (auto& face : outputData_->topology.faces) {
-    auto& faultDirections = face.faultDirections;
-    const auto globalIndex = face.faultFaceIndex;
+  for (std::size_t faceId = 0; faceId < topology.faceCount(); ++faceId) {
+    auto& face = topology.faces[faceId];
+    const auto& fault = faultInfo[face.faultFaceIndex];
+    setDirections(face.frame.faultDirections,
+                  fault.normal.data(),
+                  fault.tangent1.data(),
+                  fault.tangent2.data());
 
-    std::copy_n(faultInfo[globalIndex].normal.data(), 3, faultDirections.faceNormal.begin());
-    std::copy_n(faultInfo[globalIndex].tangent1.data(), 3, faultDirections.tangent1.begin());
-    std::copy_n(faultInfo[globalIndex].tangent2.data(), 3, faultDirections.tangent2.begin());
+    if (curvedFaces()) {
+      // A point gives what it evaluates there in the frame it has itself, and turns what it reads
+      // off the quadrature point nearest to it out of the frame there -- the one the friction law
+      // has, from the same transform of the face, so to the bit.
+      const auto transform = geometry::faultFaceTransformOf(face.faultFaceIndex, *meshReader_);
+      const geometry::ReferenceFaceMap plusFace(fault.side);
+      for (const auto pointId : topology.pointsOf(faceId)) {
+        auto& point = topology.points[pointId];
+        const auto& receiver = outputData_->receivers[topology.representative(pointId)];
+        const auto own = geometry::faultFrameAt(
+            *transform,
+            fault,
+            plusFace.cellToFace(geometry::CellTransform::VectorEigenT(receiver.reference.data())));
+        setDirections(point.frame.emplace().faultDirections,
+                      own.normal.data(),
+                      own.tangent1.data(),
+                      own.tangent2.data());
 
-    misc::computeStrikeAndDipVectors(
-        faultDirections.faceNormal, faultDirections.strike, faultDirections.dip);
+        const auto there =
+            geometry::faultFrameAt(*transform, fault, quadraturePoint(point.nearestGpIndex));
+        auto& quadraturePointFrame = point.quadraturePointFrame.emplace();
+        std::copy_n(there.tangent1.data(), Cell::Dim, quadraturePointFrame.tangent1.begin());
+        std::copy_n(there.tangent2.data(), Cell::Dim, quadraturePointFrame.tangent2.begin());
+        quadraturePointFrame.stressToPoint = stressBetweenFrames(there, own);
+      }
+    }
   }
 }
 
 void ReceiverBasedOutputBuilder::initRotationMatrices() {
-  using namespace seissol::transformations;
-  using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
-
-  for (auto& face : outputData_->topology.faces) {
-    const auto& faultDirections = face.faultDirections;
-    const auto& faceNormal = faultDirections.faceNormal;
-    const auto& strike = faultDirections.strike;
-    const auto& dip = faultDirections.dip;
-    const auto& tangent1 = faultDirections.tangent1;
-    const auto& tangent2 = faultDirections.tangent2;
-
-    {
-      auto* memorySpace = face.stressGlbToDipStrikeAligned.data();
-      RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      inverseSymmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
-    }
-    {
-      auto* memorySpace = face.stressFaceAlignedToGlb.data();
-      RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      symmetricTensor2RotationMatrix(faceNormal, tangent1, tangent2, rotationMatrixView, 0, 0);
-    }
-    {
-      // the face-aligned-to-global direction is not part of the output; it is only needed to
-      // obtain its inverse
-      std::array<real, seissol::tensor::T::size()> faceAlignedToGlbData{};
-      auto faceAlignedToGlb = init::T::view::create(faceAlignedToGlbData.data());
-      auto glbToFaceAligned = init::Tinv::view::create(face.glbToFaceAlignedData.data());
-
-      seissol::model::getFaceRotationMatrix(
-          faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
+  auto& topology = outputData_->topology;
+  for (auto& face : topology.faces) {
+    setRotations(face.frame);
+  }
+  for (auto& point : topology.points) {
+    if (point.frame.has_value()) {
+      setRotations(point.frame.value());
     }
   }
 }
@@ -410,29 +535,31 @@ void ReceiverBasedOutputBuilder::initOutputVariables(
 
 void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   const auto& faultInfo = meshReader_->getFault();
+  auto& topology = outputData_->topology;
 
-  for (auto& outputFace : outputData_->topology.faces) {
+  for (std::size_t faceId = 0; faceId < topology.faceCount(); ++faceId) {
+    auto& face = topology.faces[faceId];
     // the two edge vectors spanning the face are the columns of its Jacobian
     const auto faceJacobian = geometry::AffineFaceTransform::fromMeshCell(
-                                  outputFace.elementIndex, outputFace.localFaceSideId, *meshReader_)
+                                  face.elementIndex, face.localFaceSideId, *meshReader_)
                                   .refToSpaceJacobian(geometry::FaceTransform::FaceVectorT::Zero());
+    face.frame.jacobianT2d = jacobian2d(faceJacobian,
+                                        face.frame.faultDirections.tangent1.data(),
+                                        face.frame.faultDirections.tangent2.data());
 
-    CoordinateT xab{};
-    CoordinateT xac{};
-    for (std::size_t d = 0; d < Cell::Dim; ++d) {
-      xab[d] = faceJacobian(d, 0);
-      xac[d] = faceJacobian(d, 1);
+    if (curvedFaces()) {
+      // the rupture velocity is taken at the internal quadrature point nearest to the output
+      // point, so it is the Jacobian there, against the frame there
+      const auto& fault = faultInfo[face.faultFaceIndex];
+      const auto transform = geometry::faultFaceTransformOf(face.faultFaceIndex, *meshReader_);
+      for (const auto pointId : topology.pointsOf(faceId)) {
+        auto& point = topology.points[pointId];
+        const auto at = quadraturePoint(point.nearestInternalGpIndex);
+        const auto frame = geometry::faultFrameAt(*transform, fault, at);
+        point.frame.value().jacobianT2d = jacobian2d(
+            transform->refToSpaceJacobian(at), frame.tangent1.data(), frame.tangent2.data());
+      }
     }
-
-    const auto& tangent1 = faultInfo[outputFace.faultFaceIndex].tangent1;
-    const auto& tangent2 = faultInfo[outputFace.faultFaceIndex].tangent2;
-
-    Eigen::Matrix<real, 2, 2> matrix;
-    matrix(0, 0) = MeshTools::dot(tangent1, xab);
-    matrix(0, 1) = MeshTools::dot(tangent2, xab);
-    matrix(1, 0) = MeshTools::dot(tangent1, xac);
-    matrix(1, 1) = MeshTools::dot(tangent2, xac);
-    outputFace.jacobianT2d = matrix.inverse();
   }
 }
 
@@ -465,6 +592,42 @@ void ReceiverBasedOutputBuilder::assignFusedIndices() {
     geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
     geoPoint.internalGpIndexFused =
         multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
+  }
+}
+
+bool ReceiverBasedOutputBuilder::curvedFaces() const {
+  return Curvilinear && meshReader_->geometryOrder() > 1;
+}
+
+void ReceiverBasedOutputBuilder::placeOnCurvedFaces(Receivers& receivers) const {
+  if (!curvedFaces()) {
+    return;
+  }
+  // the receivers come cell by cell, so the maps of a cell are set up once for all of its receivers
+  std::optional<std::size_t> cell;
+  std::unique_ptr<geometry::CellTransform> curved;
+  std::unique_ptr<geometry::CellTransform> straight;
+  for (auto& receiver : receivers) {
+    if (!receiver.isInside) {
+      continue;
+    }
+    if (cell != receiver.elementIndex.value()) {
+      cell = receiver.elementIndex.value();
+      curved = geometry::cellTransformOf(cell.value(), *meshReader_);
+      straight = std::make_unique<geometry::AffineTransform>(
+          geometry::AffineTransform::fromMeshCell(cell.value(), *meshReader_));
+    }
+    const auto onFace = [&](const geometry::CellTransform::VectorEigenT& reference) {
+      const auto point = curved->refToSpace(reference);
+      return CoordinateT{point(0), point(1), point(2)};
+    };
+    receiver.global = onFace(geometry::CellTransform::VectorEigenT(receiver.reference.data()));
+    // the corners of the triangle are on the plane through the vertices of the face, where the
+    // straight map gives their reference coordinates
+    for (std::size_t vertex = 0; vertex < Face::NumVertices; ++vertex) {
+      auto& corner = receiver.globalTriangle.point(vertex);
+      corner = onFace(straight->spaceToRef(geometry::CellTransform::VectorEigenT(corner.data())));
+    }
   }
 }
 

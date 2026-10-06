@@ -316,13 +316,29 @@ void bindNeighborFluxOperandsBatched(KernelT& krnl,
 template <typename KernelT>
 void bindFaultFluxOperands(KernelT& krnl, const real* fluxSolver) {
   if constexpr (NodalFaultFlux) {
-    krnl.T = fluxSolver + dr::FaultFluxLayout::RotationOffset;
+    if constexpr (Curvilinear) {
+      krnl.TPoints = fluxSolver + dr::FaultFluxLayout::RotationOffset;
+    } else {
+      krnl.T = fluxSolver + dr::FaultFluxLayout::RotationOffset;
+    }
     for (std::size_t coefficient = 0; coefficient < FaultFluxCoefficientCount; ++coefficient) {
       krnl.faultFluxCoefficients(coefficient) =
           fluxSolver + dr::FaultFluxLayout::coefficientOffset(coefficient);
     }
   } else {
     krnl.fluxSolver = fluxSolver;
+  }
+}
+
+/// Hands a kernel that takes the values at the points of a fault face into the coordinates of the
+/// fault the rotation of the face (DRGodunovData::dataTinvT): one for the face, or one per point
+/// where the face may be curved.
+template <typename KernelT>
+void bindFaultRotation(KernelT& krnl, const real* rotation) {
+  if constexpr (Curvilinear) {
+    krnl.TinvTPoints = rotation;
+  } else {
+    krnl.TinvT = rotation;
   }
 }
 

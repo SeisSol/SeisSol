@@ -7,6 +7,7 @@
 
 #include "BaseDRInitializer.h"
 
+#include "DynamicRupture/FaultGeometry.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -88,18 +89,21 @@ void rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
-    const Fault& fault = mesh.getFault().at(meshFace);
-
-    // if we read the traction in strike, dip and normal direction, we first transform it to stress
-    // in cartesian coordinates
-    CoordinateT strike{};
-    CoordinateT dip{};
-    misc::computeStrikeAndDipVectors(fault.normal, strike, dip);
-    seissol::transformations::symmetricTensor2RotationMatrix(
-        fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
+    // the frame of the fault at each of its points, which turns along a curved face
+    const auto frames = faultFramesAtPoints(meshFace, mesh);
 
     using namespace dr::misc::quantity_indices;
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      // if we read the traction in strike, dip and normal direction, we first transform it to
+      // stress in cartesian coordinates
+      const auto& normalAtPoint = frames[quadraturePointOf(pointIndex).value_or(0)].normal;
+      const CoordinateT normal{normalAtPoint(0), normalAtPoint(1), normalAtPoint(2)};
+      CoordinateT strike{};
+      CoordinateT dip{};
+      misc::computeStrikeAndDipVectors(normal, strike, dip);
+      seissol::transformations::symmetricTensor2RotationMatrix(
+          normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
+
       const std::array<double, seissol::general::init::initialStress::size()> initialTraction{
           stress.xx[ltsFace][pointIndex],
           stress.yy[ltsFace][pointIndex],
@@ -152,13 +156,22 @@ void rotateStressToFaultCS(DynamicRupture::Layer& layer,
     constexpr auto NumStressComponents = model::MaterialT::TractionComponents;
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
-    const Fault& fault = mesh.getFault().at(meshFace);
-
-    // now rotate the stress in cartesian coordinates to the element aligned coordinate system.
-    seissol::transformations::inverseSymmetricTensor2RotationMatrix(
-        fault.normal, fault.tangent1, fault.tangent2, cartesianToFaultCSMatrixView, 0, 0);
+    // the frame of the fault at each of its points, which turns along a curved face
+    const auto frames = faultFramesAtPoints(meshFace, mesh);
 
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      // now rotate the stress in cartesian coordinates to the element aligned coordinate system
+      const auto& frame = frames[quadraturePointOf(pointIndex).value_or(0)];
+      const auto toCoordinate = [](const auto& vector) {
+        return CoordinateT{vector(0), vector(1), vector(2)};
+      };
+      seissol::transformations::inverseSymmetricTensor2RotationMatrix(toCoordinate(frame.normal),
+                                                                      toCoordinate(frame.tangent1),
+                                                                      toCoordinate(frame.tangent2),
+                                                                      cartesianToFaultCSMatrixView,
+                                                                      0,
+                                                                      0);
+
       const std::array<double, seissol::general::init::initialStress::size()> initialStress{
           stress.xx[ltsFace][pointIndex],
           stress.yy[ltsFace][pointIndex],

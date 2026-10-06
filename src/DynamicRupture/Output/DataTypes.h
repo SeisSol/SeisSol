@@ -154,6 +154,18 @@ struct PlusMinusBasisFunctions {
 };
 
 /**
+  The frame of the fault which the output is given in: its directions, the rotations into them, and
+  the map from the coordinates of the reference face to the tangential ones of the frame.
+ */
+struct OutputFrame {
+  FaultDirections faultDirections{};
+  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressGlbToDipStrikeAligned{};
+  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressFaceAlignedToGlb{};
+  std::array<real, seissol::tensor::Tinv::size()> glbToFaceAlignedData{};
+  Eigen::Matrix<real, 2, 2> jacobianT2d{Eigen::Matrix<real, 2, 2>::Zero()};
+};
+
+/**
   Data of a single fault face taking part in the output.
 
   Everything stored here is a function of the fault face alone, so it is set up once per face and
@@ -166,15 +178,37 @@ struct OutputFace {
   std::size_t elementIndex{};
   std::size_t localFaceSideId{};
 
-  FaultDirections faultDirections{};
-  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressGlbToDipStrikeAligned{};
-  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressFaceAlignedToGlb{};
-  std::array<real, seissol::tensor::Tinv::size()> glbToFaceAlignedData{};
-  Eigen::Matrix<real, 2, 2> jacobianT2d{Eigen::Matrix<real, 2, 2>::Zero()};
+  /// the frame of the face, which the output at all of its points is given in where it is plane
+  OutputFrame frame;
 
   // gather indices into ReceiverOutputData::deviceDataCollector
   std::size_t deviceDataPlus{};
   std::size_t deviceDataMinus{};
+};
+
+/**
+  What a point on a curved face reads off the quadrature point it reads the fault at -- the stress
+  the fault starts out under, and the slip -- is given in the frame of the fault there. This turns
+  it into the frame of the point.
+ */
+struct QuadraturePointFrame {
+  /// turns the six components of a stress in the frame of the quadrature point into the ones in
+  /// the frame of the point; column-major
+  std::array<real, 36> stressToPoint{};
+  /// the tangents of the frame of the quadrature point, which the slip is given along
+  std::array<double, 3> tangent1{};
+  std::array<double, 3> tangent2{};
+
+  /// a stress in the frame of the quadrature point, in the one of the point
+  [[nodiscard]] std::array<real, 6> turn(const std::array<real, 6>& stress) const {
+    std::array<real, 6> turned{};
+    for (std::size_t column = 0; column < 6; ++column) {
+      for (std::size_t row = 0; row < 6; ++row) {
+        turned[row] += stressToPoint[row + 6 * column] * stress[column];
+      }
+    }
+    return turned;
+  }
 };
 
 /**
@@ -186,6 +220,11 @@ struct OutputPoint {
   PlusMinusBasisFunctions basisFunctions;
   std::size_t nearestGpIndex{};
   std::size_t nearestInternalGpIndex{};
+  /// On a curved face the frame of the fault turns along the face. A point then gives what it
+  /// evaluates itself -- the state there -- in the frame it has itself, which replaces the one of
+  /// the face, and turns what it reads off the quadrature point nearest to it into that frame.
+  std::optional<OutputFrame> frame;
+  std::optional<QuadraturePointFrame> quadraturePointFrame;
 };
 
 /**
@@ -222,6 +261,12 @@ struct OutputTopology {
    */
   [[nodiscard]] std::size_t representative(std::size_t point) const {
     return receiverOffset[point];
+  }
+
+  /// the frame the output at a point is given in: its own where it has one, else its face's
+  [[nodiscard]] const OutputFrame& frameOf(std::size_t point) const {
+    const auto& frame = points[point].frame;
+    return frame.has_value() ? frame.value() : faces[points[point].faceId].frame;
   }
 
   void addFace(const OutputFace& face) {

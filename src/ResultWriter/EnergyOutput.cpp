@@ -28,10 +28,12 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/StarOperands.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/OperatorLayout.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/Quadrature.h"
@@ -94,13 +96,13 @@ std::array<real, multisim::NumSimulations>
 
   krnl.QInterpolated = qInterpolatedPlus;
   krnl.Q = qPlus;
-  krnl.TinvT = godunovData.dataTinvT;
+  kernels::bindFaultRotation(krnl, godunovData.dataTinvT);
   krnl._prefetch.QInterpolated = qInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = qInterpolatedMinus;
   krnl.Q = qMinus;
-  krnl.TinvT = godunovData.dataTinvT;
+  kernels::bindFaultRotation(krnl, godunovData.dataTinvT);
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
@@ -147,6 +149,25 @@ std::array<real, multisim::NumSimulations>
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.staticFrictionalWork = staticFrictionalWork;
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
+
+  // a face that may be curved weighs every point with its own surface Jacobian, which rides on
+  // the slip there
+  alignas(Alignment) real weightedSlip[tensor::slipInterpolated::size()]{};
+  if constexpr (Curvilinear) {
+    using SlipShapeT = real(*)[seissol::dr::misc::NumPaddedPoints];
+    const auto* slipOfPoints =
+        reinterpret_cast<const real(*)[seissol::dr::misc::NumPaddedPoints]>(slip);
+    auto* weighted = reinterpret_cast<SlipShapeT>(weightedSlip);
+    for (std::size_t direction = 0; direction < Cell::Dim; ++direction) {
+      for (std::size_t index = 0; index < seissol::dr::misc::NumPaddedPoints; ++index) {
+        weighted[direction][index] =
+            slipOfPoints[direction][index] *
+            godunovData.surfaceJacobians[index / seissol::multisim::NumSimulations];
+      }
+    }
+    feKrnl.slipInterpolated = weightedSlip;
+    feKrnl.minusSurfaceArea = -0.5;
+  }
   feKrnl.execute();
 
   std::array<real, multisim::NumSimulations> frictionalWorkReturn{};
@@ -425,7 +446,17 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             totalFrictionalWork[sim] += drEnergyOutput[i].frictionalEnergy[j * SimCount + sim];
           }
 
-          const double areaWeight = godunovData[i].doubledSurfaceArea;
+          // the weight of a point in an integral over the face: the quadrature weight, times the
+          // surface Jacobian there where the face may be curved, and times the one of the whole
+          // face below where it is plane
+          const double areaWeight = Curvilinear ? 1.0 : godunovData[i].doubledSurfaceArea;
+          const auto pointWeight = [&](std::size_t point) -> double {
+            if constexpr (Curvilinear) {
+              return init::quadweights::Values[point] * godunovData[i].surfaceJacobians[point];
+            } else {
+              return init::quadweights::Values[point];
+            }
+          };
           double potencyIncrease = 0.0;
           double momentIncrease = 0.0;
 
@@ -474,8 +505,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               const double muPlus = project(gammaPlus);
               const double muMinus = project(gammaMinus);
 
-              const double slipIncrease =
-                  drEnergyOutput[i].accumulatedSlip[index] * init::quadweights::Values[k];
+              const double slipIncrease = drEnergyOutput[i].accumulatedSlip[index] * pointWeight(k);
               potencyIncrease += slipIncrease;
               momentIncrease += slipIncrease * 2.0 * muPlus * muMinus / (muPlus + muMinus);
             }
@@ -498,7 +528,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
                 const auto index = k * seissol::multisim::NumSimulations + sim;
                 const double slipIncrease =
-                    drEnergyOutput[i].accumulatedSlip[index] * init::quadweights::Values[k];
+                    drEnergyOutput[i].accumulatedSlip[index] * pointWeight(k);
                 potencyIncrease += slipIncrease;
                 momentIncrease += slipIncrease * shearModulus(index);
               }
@@ -509,7 +539,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
                 potencyIncrease +=
                     drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
-                    init::quadweights::Values[k];
+                    pointWeight(k);
               }
               potencyIncrease *= areaWeight;
               momentIncrease = potencyIncrease * mu;

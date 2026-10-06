@@ -7,6 +7,7 @@
 
 #include "ImposedSlipRatesInitializer.h"
 
+#include "DynamicRupture/FaultGeometry.h"
 #include "DynamicRupture/Misc.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
@@ -99,19 +100,23 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
-    const Fault& fault = seissolInstance_.meshReader().getFault().at(meshFace);
+    // the frame of the fault at each of its points, which turns along a curved face
+    const auto frames = faultFramesAtPoints(meshFace, seissolInstance_.meshReader());
 
-    CoordinateT strikeVector{};
-    CoordinateT dipVector{};
-    misc::computeStrikeAndDipVectors(fault.normal, strikeVector, dipVector);
-
-    // cos^2 can be greater than 1 because of rounding errors
-    const double cos = std::clamp(MeshTools::dot(strikeVector, fault.tangent1), -1.0, 1.0);
-    CoordinateT crossProduct{};
-    MeshTools::cross(strikeVector, fault.tangent1, crossProduct);
-    const double scalarProduct = MeshTools::dot(crossProduct, fault.normal);
-    const double sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      const auto& frame = frames[quadraturePointOf(pointIndex).value_or(0)];
+      const CoordinateT normal{frame.normal(0), frame.normal(1), frame.normal(2)};
+      const CoordinateT tangent1{frame.tangent1(0), frame.tangent1(1), frame.tangent1(2)};
+      CoordinateT strikeVector{};
+      CoordinateT dipVector{};
+      misc::computeStrikeAndDipVectors(normal, strikeVector, dipVector);
+
+      // cos^2 can be greater than 1 because of rounding errors
+      const double cos = std::clamp(MeshTools::dot(strikeVector, tangent1), -1.0, 1.0);
+      CoordinateT crossProduct{};
+      MeshTools::cross(strikeVector, tangent1, crossProduct);
+      const double scalarProduct = MeshTools::dot(crossProduct, normal);
+      const double sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
       imposedSlipDirection1[ltsFace][pointIndex] =
           cos * strikeSlip[ltsFace][pointIndex] + sin * dipSlip[ltsFace][pointIndex];
       imposedSlipDirection2[ltsFace][pointIndex] =

@@ -231,19 +231,46 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoord
                                                    const geometry::CellTransform& minusTransform) {
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
+  return getPlusMinusBasisFunctions(plusTransform.spaceToRef(point),
+                                    minusTransform.spaceToRef(point));
+}
 
-  auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
-    const auto referenceCoords = transform.spaceToRef(point);
+PlusMinusBasisFunctions
+    getPlusMinusBasisFunctions(const geometry::CellTransform::VectorEigenT& plusReference,
+                               const geometry::CellTransform::VectorEigenT& minusReference) {
+  auto getBasisFunctions = [](const geometry::CellTransform::VectorEigenT& referenceCoords) {
     const basisFunction::SampledBasisFunctions<real> sampler(
         ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.data();
   };
 
   PlusMinusBasisFunctions basisFunctions{};
-  basisFunctions.plusSide = getBasisFunctions(plusTransform);
-  basisFunctions.minusSide = getBasisFunctions(minusTransform);
+  basisFunctions.plusSide = getBasisFunctions(plusReference);
+  basisFunctions.minusSide = getBasisFunctions(minusReference);
 
   return basisFunctions;
+}
+
+geometry::FaceTransform::FaceVectorT
+    closestPointOnFace(const geometry::FaceTransform& face,
+                       const geometry::FaceTransform::VectorT& point,
+                       const geometry::FaceTransform::FaceVectorT& start) {
+  // converges quadratically where the point is on the face, and linearly, at a rate of its
+  // distance over the radius of curvature, where it is off it
+  constexpr int MaxIterations = 50;
+  constexpr double Tolerance = 1e-14;
+  geometry::FaceTransform::FaceVectorT chi = start;
+  for (int iteration = 0; iteration < MaxIterations; ++iteration) {
+    const auto jacobian = face.refToSpaceJacobian(chi);
+    const geometry::FaceTransform::VectorT residual = point - face.refToSpace(chi);
+    const geometry::FaceTransform::FaceVectorT step =
+        (jacobian.transpose() * jacobian).ldlt().solve(jacobian.transpose() * residual);
+    chi += step;
+    if (step.norm() < Tolerance) {
+      break;
+    }
+  }
+  return chi;
 }
 
 real computeTriangleArea(ExtTriangle& triangle) {

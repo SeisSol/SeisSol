@@ -12,7 +12,8 @@
 // face, into the side's cell. Two things are checked here: that the matrix a face keeps per side
 // is the flux of the fault normal, whatever the orientation of the face and whatever the material;
 // and that where a face carries the lift per point, every point lifts with the material there,
-// just as that matrix does for the material of the point.
+// just as that matrix does for the material of the point -- and, where the face may be curved,
+// with the rotation and the scale of the point.
 
 #include <doctest.h>
 
@@ -225,16 +226,32 @@ void pointwiseAgainstMatrix() {
       const auto cell = coefficients::configuredMaterial<Material>(rng);
       const auto frame = randomFrame(rng);
 
-      alignas(Alignment) std::array<real, tensor::T::size()> matT{};
-      alignas(Alignment) std::array<real, tensor::Tinv::size()> matTinv{};
-      auto viewT = init::T::view::create(matT.data());
-      auto viewTinv = init::Tinv::view::create(matTinv.data());
-      seissol::model::getFaceRotationMatrix(
-          frame.normal, frame.tangent1, frame.tangent2, viewT, viewTinv);
+      // The material is turned into the coordinates of the face once, by its frame. Where the face
+      // may be curved, every point has a rotation and a scale of its own besides; a curved face
+      // takes no medium a rotation changes, so the one frame of the material stays exact there.
+      std::vector<std::array<real, tensor::T::size()>> matT(Points);
+      std::array<double, Points> fluxScale{};
+      for (std::size_t point = 0; point < Points; ++point) {
+        const auto frameOfPoint = Curvilinear && point > 0 ? randomFrame(rng) : frame;
+        alignas(Alignment) std::array<real, tensor::Tinv::size()> matTinv{};
+        auto viewT = init::T::view::create(matT[point].data());
+        auto viewTinv = init::Tinv::view::create(matTinv.data());
+        seissol::model::getFaceRotationMatrix(
+            frameOfPoint.normal, frameOfPoint.tangent1, frameOfPoint.tangent2, viewT, viewTinv);
+        fluxScale[point] = Curvilinear || point == 0 ? -0.37 * positive(rng) : fluxScale[0];
+      }
       std::array<double, 36> bond{};
       seissol::model::getBondMatrix(frame.normal, frame.tangent1, frame.tangent2, bond);
 
-      const double fluxScale = -0.37 * positive(rng);
+      // the rotation the face stores: the one of the face, or the one of every point
+      alignas(Alignment) std::array<real, dr::FaultFluxLayout::RotationSize> rotation{};
+      if constexpr (Curvilinear) {
+        init::TPoints::view::create(rotation.data()).forall([&](const auto* entry, auto& value) {
+          value = init::T::view::create(matT[entry[0]].data())(entry[1], entry[2]);
+        });
+      } else {
+        std::copy(matT[0].begin(), matT[0].end(), rotation.begin());
+      }
 
       // A material of its own at every point, set up the way the fault sets up the material at
       // its points: default constructed, with only the fields the material declares taken from
@@ -256,7 +273,9 @@ void pointwiseAgainstMatrix() {
         for (std::size_t simulation = 0; simulation < Simulations; ++simulation) {
           atPoints[point * Simulations + simulation] = sampled;
         }
-        lifts[point] = matrixForm(reference, bond, matT.data(), fluxScale);
+        // the kernel of the matrix form takes its operands aligned
+        alignas(Alignment) const std::array<real, tensor::T::size()> matTOfPoint = matT[point];
+        lifts[point] = matrixForm(reference, bond, matTOfPoint.data(), fluxScale[point]);
       }
       for (std::size_t point = Points * Simulations; point < atPoints.size(); ++point) {
         atPoints[point] = cell;
@@ -264,7 +283,7 @@ void pointwiseAgainstMatrix() {
 
       alignas(Alignment) std::array<real, dr::FaultFluxLayout::Size> pointwise{};
       seissol::initializer::setPointwiseFaultFlux(
-          pointwise.data(), matT.data(), fluxScale, atPoints, cell, bond);
+          pointwise.data(), rotation.data(), fluxScale, atPoints, cell, bond);
 
       alignas(Alignment) std::array<real, tensor::QInterpolated::size()> imposed{};
       for (auto& value : imposed) {

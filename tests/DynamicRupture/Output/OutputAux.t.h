@@ -10,6 +10,10 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
+#include "Geometry/IsoparametricTransform.h"
+#include "TestHelper.h"
 
 #include <array>
 #include <cmath>
@@ -239,6 +243,53 @@ TEST_CASE("fault output cell properties" * doctest::test_suite("dynamicrupture")
     for (std::size_t cell = 0; cell < 2; ++cell) {
       CHECK(static_cast<std::size_t>(faultTagOfCell(points, cell, 1, 1)) !=
             globalFaceIdOfCell(points, cell, 1, 1));
+    }
+  }
+}
+
+TEST_CASE("closestPointOnFace" * doctest::test_suite("dynamicrupture")) {
+  using VectorT = geometry::CellTransform::VectorEigenT;
+  using FaceVectorT = geometry::FaceTransform::FaceVectorT;
+  const std::array<VectorT, Cell::NumVertices> vertices{VectorT(0.1, 0.2, -0.3),
+                                                        VectorT(2.1, 0.0, 0.4),
+                                                        VectorT(-0.2, 1.7, 0.1),
+                                                        VectorT(0.3, 0.1, 2.2)};
+  constexpr std::size_t Side = 1;
+  const std::vector<FaceVectorT> points{
+      FaceVectorT(0.2, 0.3), FaceVectorT(0.6, 0.1), FaceVectorT(0.05, 0.85)};
+
+  SUBCASE("A plane face projects orthogonally") {
+    const geometry::AffineFaceTransform face{geometry::AffineTransform(vertices),
+                                             geometry::ReferenceFaceMap(Side)};
+    for (const auto& point : points) {
+      const VectorT normal = face.normal(point).normalized();
+      const VectorT off = face.refToSpace(point) + 0.3 * normal;
+      const auto found = closestPointOnFace(face, off, FaceVectorT(1.0 / 3, 1.0 / 3));
+      CHECK((found - point).norm() == AbsApprox(0.0).epsilon(1e-12));
+    }
+  }
+
+  SUBCASE("A curved face gives the foot of the perpendicular") {
+    // bend the cell: every edge midpoint moves off the straight edge
+    constexpr std::array<std::array<std::size_t, 2>, 6> Edges{
+        {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}}};
+    std::array<VectorT, 6> midpoints{};
+    for (std::size_t edge = 0; edge < Edges.size(); ++edge) {
+      midpoints[edge] = 0.5 * (vertices[Edges[edge][0]] + vertices[Edges[edge][1]]) +
+                        0.05 * VectorT(1.0 + edge, -0.5 * edge, 0.3);
+    }
+    const geometry::IsoparametricFaceTransform face(
+        geometry::IsoparametricTransform::fromEdgeMidpoints(vertices, midpoints),
+        geometry::ReferenceFaceMap(Side));
+    for (const auto& point : points) {
+      // a point off the face along its normal, closer than the face curves away
+      const VectorT normal = face.normal(point).normalized();
+      const VectorT off = face.refToSpace(point) + 0.02 * normal;
+      const auto found = closestPointOnFace(face, off, FaceVectorT(1.0 / 3, 1.0 / 3));
+      CHECK((found - point).norm() == AbsApprox(0.0).epsilon(1e-10));
+      // and a point on the face is found where it is
+      const auto onFace = closestPointOnFace(face, face.refToSpace(point), FaceVectorT(0.3, 0.3));
+      CHECK((onFace - point).norm() == AbsApprox(0.0).epsilon(1e-12));
     }
   }
 }

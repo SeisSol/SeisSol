@@ -129,7 +129,10 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  real dataTinvT[seissol::tensor::TinvT::size()]{};
+  // the rotation into the coordinates of the fault, transposed: one for the face, or one per point
+  // where the face may be curved
+  real dataTinvT[Curvilinear ? seissol::tensor::TinvTPoints::size()
+                             : seissol::tensor::TinvT::size()]{};
   // When integrating quantities over the fault
   // we need to integrate over each physical element.
   // The integration is effectively done in the reference element, and the scaling factor of
@@ -140,6 +143,12 @@ struct DRGodunovData {
   // sequences of earthquakes and aseismic slip on multiple faults using unstructured curvilinear
   // grids. Geophysical Journal International, 233(1), 586-626.
   double doubledSurfaceArea{};
+  // A face that may be curved has a surface Jacobian of its own at each of its points, which an
+  // integral over the face weighs the point with; a plane face has doubledSurfaceArea at every
+  // point. Zero at the points the padding adds.
+  real surfaceJacobians[Curvilinear
+                            ? seissol::dr::misc::NumPaddedPoints / seissol::multisim::NumSimulations
+                            : 1]{};
 };
 
 struct DREnergyOutput {

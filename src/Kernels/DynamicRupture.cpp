@@ -18,6 +18,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -112,13 +113,13 @@ void DynamicRupture::spaceTimeInterpolation(
 
     krnl.QInterpolated = &qInterpolatedPlus[timeInterval][0];
     krnl.Q = degreesOfFreedomPlus;
-    krnl.TinvT = godunovData->dataTinvT;
+    kernels::bindFaultRotation(krnl, godunovData->dataTinvT);
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
 
     krnl.QInterpolated = &qInterpolatedMinus[timeInterval][0];
     krnl.Q = degreesOfFreedomMinus;
-    krnl.TinvT = godunovData->dataTinvT;
+    kernels::bindFaultRotation(krnl, godunovData->dataTinvT);
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
   }
@@ -206,10 +207,10 @@ PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) c
     estimate *= dr::misc::TimeSteps;
 
     // legacy CPU memory estimate
-    estimate.bytes =
-        (tensor::TinvT::size() + tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
-         yateto::computeFamilySize<tensor::dQ>() * 2) *
-        sizeof(real);
+    estimate.bytes = (sizeof(DRGodunovData::dataTinvT) / sizeof(real) +
+                      tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
+                      yateto::computeFamilySize<tensor::dQ>() * 2) *
+                     sizeof(real);
 
     return estimate;
   }

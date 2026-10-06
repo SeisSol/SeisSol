@@ -125,8 +125,12 @@ struct FaultFluxLayout {
   /// Where the rotation starts, in reals.
   static constexpr std::size_t RotationOffset = 0;
 
+  /// How many reals the rotation takes: one for the face, or one per point where it may be curved.
+  static constexpr std::size_t RotationSize =
+      Curvilinear ? tensor::TPoints::size() : tensor::T::size();
+
   /// Where the scalars of the first coefficient start.
-  static constexpr std::size_t CoefficientsOffset = internal::paddedToVector(tensor::T::size());
+  static constexpr std::size_t CoefficientsOffset = internal::paddedToVector(RotationSize);
 
   /// How far apart the scalars of two coefficients are.
   static constexpr std::size_t CoefficientStride =

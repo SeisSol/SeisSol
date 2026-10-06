@@ -10,6 +10,7 @@
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/IsoparametricTransform.h"
+#include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 
 #include <Eigen/Dense>
@@ -18,6 +19,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::geometry {
@@ -53,6 +55,45 @@ auto faceTransformOf(std::size_t id,
   }
   return std::make_unique<IsoparametricFaceTransform>(isoparametricOf(id, mesh),
                                                       ReferenceFaceMap(side, orientation));
+}
+
+auto faultFaceTransformOf(std::size_t faultId, const MeshReader& mesh)
+    -> std::unique_ptr<FaceTransform> {
+  const auto& fault = mesh.getFault().at(faultId);
+  if (fault.element.hasValue()) {
+    return faceTransformOf(fault.element.value(), fault.side, mesh);
+  }
+  if (!fault.neighborElement.hasValue()) {
+    logError() << "Fault face" << faultId << "has no adjacent cell on this rank.";
+  }
+  const auto neighbor = fault.neighborElement.value();
+  const auto orientation = static_cast<FaceOrientation>(
+      mesh.getElements()[neighbor].sideOrientations[fault.neighborSide]);
+  return faceTransformOf(neighbor, fault.neighborSide, mesh, orientation);
+}
+
+auto faultFrameAt(const FaceTransform& face,
+                  const Fault& fault,
+                  const FaceTransform::FaceVectorT& point) -> FaultFrame {
+  const auto toEigen = [](const CoordinateT& vector) {
+    return CellTransform::VectorEigenT(vector[0], vector[1], vector[2]);
+  };
+  const CellTransform::VectorEigenT normal = face.normal(point);
+  const double surfaceJacobian = normal.norm();
+  if (dynamic_cast<const AffineFaceTransform*>(&face) != nullptr) {
+    // to the bit what a straight-sided mesh has
+    return {
+        toEigen(fault.normal), toEigen(fault.tangent1), toEigen(fault.tangent2), surfaceJacobian};
+  }
+  const CellTransform::VectorEigenT unitNormal = normal / surfaceJacobian;
+  if (unitNormal.dot(toEigen(fault.normal)) <= 0) {
+    logError() << "A fault face turns over: its normal at a point points against the one of the "
+                  "plane through its vertices.";
+  }
+  const auto straightTangent = toEigen(fault.tangent1);
+  const CellTransform::VectorEigenT tangent1 =
+      (straightTangent - straightTangent.dot(unitNormal) * unitNormal).normalized();
+  return {unitNormal, tangent1, unitNormal.cross(tangent1), surfaceJacobian};
 }
 
 auto relativeThickness(const CellTransform& transform,

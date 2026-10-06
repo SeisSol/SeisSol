@@ -85,13 +85,14 @@ TEST_CASE("Local metrics with DynamicRupture faces" * doctest::test_suite("kerne
     if constexpr (isDeviceOn()) {
       // On the GPU, the kernel runs regardless, so flops may be equal
       CHECK(metricDR.nonzeroFlop > 0);
-    } else if constexpr (StrongCorrector) {
+    } else if constexpr (StrongCorrector && !FaultSubtractsOwnTrace) {
       // the strong form applies the local flux on a fault face as well, where it takes off the
       // normal flux of the cell's own trace (appliesLocalFlux)
       CHECK(metricDR.nonzeroFlop == metricReg.nonzeroFlop);
       CHECK(metricDR.hardwareFlop == metricReg.hardwareFlop);
     } else {
-      // On the CPU, DR faces skip the local flux contribution
+      // On the CPU, DR faces skip the local flux contribution -- in the weak form, and where the
+      // fault takes the subtraction of the strong form on itself (FaultSubtractsOwnTrace)
       CHECK(metricDR.nonzeroFlop < metricReg.nonzeroFlop);
       CHECK(metricDR.hardwareFlop < metricReg.hardwareFlop);
     }

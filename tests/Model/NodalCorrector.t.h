@@ -268,7 +268,11 @@ void weakEquivalence() {
       flux.I = dofs.data();
       flux.Q = update.data();
       for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-        REQUIRE(appliesLocalFlux(faceTypes[side]));
+        // A fault that takes the subtraction of the strong form on itself (FaultSubtractsOwnTrace)
+        // leaves its face out of the local flux, and subtracts the same at its own points; the
+        // identity is the one of the strong form, so the local flux stands in for it here.
+        REQUIRE((appliesLocalFlux(faceTypes[side]) ||
+                 (FaultSubtractsOwnTrace && faceTypes[side] == FaceType::DynamicRupture)));
         kernels::bindLocalFluxOperands(flux, local, side);
         flux.execute(side);
       }

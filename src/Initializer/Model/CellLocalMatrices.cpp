@@ -155,15 +155,15 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                   "A build with CURVILINEAR=ON takes them as they are.";
   }
   if (meshReader.geometryOrder() > 1) {
-    // What a curved face supports is what its flux carries at its nodes. A fault rotates its state
-    // with one rotation per face and lifts it with one scale, and the boundary conditions that
-    // state a ghost cell apply it with the one matrix per face; both are a straight face's.
+    // What a curved face supports is what its flux carries at its nodes, or a fault at its points.
+    // The boundary conditions that state a ghost cell apply it with the one matrix per face, which
+    // is a straight face's.
     for (const auto& element : elements) {
       for (const auto faceType : element.boundaries) {
         if (faceType != FaceType::Regular && faceType != FaceType::FreeSurface &&
-            faceType != FaceType::Outflow) {
-          logError() << "A curved mesh supports regular, free-surface and outflow faces so far, "
-                        "but has a face of the type"
+            faceType != FaceType::Outflow && faceType != FaceType::DynamicRupture) {
+          logError() << "A curved mesh supports regular, free-surface, outflow and fault faces so "
+                        "far, but has a face of the type"
                      << std::string(faceTypeName(faceType)) << ".";
         }
       }

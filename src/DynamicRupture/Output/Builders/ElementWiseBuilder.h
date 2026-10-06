@@ -95,6 +95,10 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     // retrieve all receivers from a fault face refiner
     outputData_->receivers = faultRefiner->moveAllReceivers();
     faultRefiner.reset(nullptr);
+
+    // the refiner divides the plane face through the vertices, at the same reference coordinates
+    // as the face of the mesh
+    placeOnCurvedFaces(outputData_->receivers);
   }
 
   inline const static size_t MaxAllowedCacheLevel = 1;

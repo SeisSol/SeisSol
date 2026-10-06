@@ -10,6 +10,7 @@
 #include "Common/Constants.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
+#include "Geometry/MeshDefinition.h"
 
 #include <array>
 #include <cstddef>
@@ -34,6 +35,35 @@ auto faceTransformOf(std::size_t id,
                      const MeshReader& mesh,
                      FaceOrientation orientation = FaceOrientation::Local)
     -> std::unique_ptr<FaceTransform>;
+
+/**
+ * The face of the fault `faultId` in the parametrisation of its plus side, from whichever of the
+ * two cells sharing it is on this rank (as AffineFaceTransform::fromMeshFault does), curved where
+ * the mesh carries curved cells.
+ */
+auto faultFaceTransformOf(std::size_t faultId, const MeshReader& mesh)
+    -> std::unique_ptr<FaceTransform>;
+
+/// The frame of a fault at a point of it
+struct FaultFrame {
+  /// pointing from the plus side to the minus side
+  CellTransform::VectorEigenT normal;
+  CellTransform::VectorEigenT tangent1;
+  CellTransform::VectorEigenT tangent2;
+  /// the surface Jacobian there, FaceTransform::surfaceJacobian
+  double surfaceJacobian{};
+};
+
+/**
+ * The frame of a fault at the point `point` of its face `face` (see faultFaceTransformOf). A plane
+ * face has the frame of the fault (Fault::normal, Fault::tangent1, Fault::tangent2) at every point.
+ * On a curved face the normal turns, and the first tangent is the one of the fault turned into the
+ * plane orthogonal to the normal there -- which the two cells sharing the face, possibly on two
+ * ranks, both come to.
+ */
+auto faultFrameAt(const FaceTransform& face,
+                  const Fault& fault,
+                  const FaceTransform::FaceVectorT& point) -> FaultFrame;
 
 /**
  * How thin a cell is where it is thinnest, relative to the straight-sided cell through its
