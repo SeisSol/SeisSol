@@ -15,10 +15,11 @@ namespace asagi {
 class Grid;
 } // namespace asagi
 
-#ifdef USE_EASI
+#if defined(USE_EASI) && defined(USE_ASAGI)
 #include "easi/util/AsagiReader.h"
 #else
-// class interface replacement if not linked against easi
+// class interface replacement if easi is not linked against ASAGI (or not linked at all); easi then
+// only ever sees an opaque pointer to it
 namespace easi {
 class AsagiReader {
   public:

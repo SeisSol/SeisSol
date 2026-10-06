@@ -10,12 +10,15 @@
 #include "Monitoring/Instrumentation.h"
 #include "Reader/Datafield/AsagiModule.h"
 
-#include <asagi.h>
 #include <cstddef>
 #include <mpi.h>
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
+
+#ifdef USE_ASAGI
+#include <asagi.h>
+#endif
 
 namespace seissol::asagi {
 /**

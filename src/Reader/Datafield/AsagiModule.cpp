@@ -14,12 +14,15 @@
 #include "Parallel/OpenMP.h"
 #include "Parallel/Pin.h"
 
-#include <asagi.h>
 #include <memory>
 #include <sched.h>
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
+
+#ifdef USE_ASAGI
+#include <asagi.h>
+#endif
 
 namespace seissol::asagi {
 
