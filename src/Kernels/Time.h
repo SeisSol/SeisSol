@@ -27,7 +27,7 @@ namespace seissol::kernels {
 template <typename Cfg>
 class TimeKernel : public Kernel<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   ~TimeKernel() override = default;
 

@@ -23,7 +23,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Cfg>
 class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -45,7 +45,7 @@ class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
 template <typename Cfg>
 class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -66,7 +66,7 @@ class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
 template <typename Cfg>
 class DeltaSTF : public ImposedSlipRates<Cfg, DeltaSTF<Cfg>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;

@@ -47,7 +47,7 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg>
 class ThermalPressurization {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit ThermalPressurization(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : drParameters_(drParameters) {}

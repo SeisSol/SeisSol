@@ -21,7 +21,7 @@ namespace seissol::kernels {
 /// The time integration of the neighbors of a cell of the configuration `Cfg`.
 template <typename Cfg>
 struct TimeCommon {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   /**
    * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time

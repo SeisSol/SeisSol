@@ -296,7 +296,7 @@ TEST_CASE_TEMPLATE_DEFINE("tractionPlusMatrix CSC layout matches the friction en
                               doctest::test_suite("dynamicrupture"),
                           Cfg,
                           TractionPlusMatrixLayout) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   // the rows initializeDynamicRuptureMatrices writes to
   constexpr auto StoredRows = AnisotropicImpedance::TractionIndices;
   constexpr std::size_t Rows = 3;

@@ -136,7 +136,7 @@ template <typename Cfg>
 class ShearedPlasticityCell {
   public:
   using Plasticity = seissol::kernels::Plasticity<Cfg>;
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   static constexpr std::size_t NumNodes = model::PlasticityData<Cfg>::PointCount;
   static constexpr std::size_t ComponentXY = 3;

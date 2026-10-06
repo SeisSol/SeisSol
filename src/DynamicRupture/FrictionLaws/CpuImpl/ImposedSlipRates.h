@@ -18,7 +18,7 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg, typename STF>
 class ImposedSlipRates : public BaseFrictionLaw<Cfg, ImposedSlipRates<Cfg, STF>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   using BaseFrictionLaw<Cfg, ImposedSlipRates>::BaseFrictionLaw;
 

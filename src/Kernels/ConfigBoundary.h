@@ -70,7 +70,7 @@ class NeighborConversion {
 template <typename Cfg>
 class ConfigBoundary {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   ConfigBoundary() = default;
 

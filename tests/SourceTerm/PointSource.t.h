@@ -21,7 +21,7 @@ namespace seissol::unit_test {
 TEST_CASE_TEMPLATE("Transform moment tensor" * doctest::test_suite("sourceterm"),
                    Cfg,
                    SEISSOL_CONFIG_TYPES) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   // the acoustic and the viscoacoustic material carry a single isotropic stress, the pressure,

@@ -125,7 +125,7 @@ TEST_CASE_TEMPLATE("Face rotation follows the quantity groups" * doctest::test_s
   using namespace quantities;
   using MaterialT = model::MaterialOf<Cfg>;
   using SolverT = kernels::SolverOf<Cfg>;
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   constexpr double Epsilon = 1e4 * std::numeric_limits<real>::epsilon();
   constexpr std::size_t Size = tensor::T<Cfg>::Shape[0];

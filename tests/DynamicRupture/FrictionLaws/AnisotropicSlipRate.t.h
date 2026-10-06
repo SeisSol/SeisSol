@@ -82,7 +82,7 @@ Real<Cfg> slipRateResidual(ImpedanceMatrices<Cfg> impedanceMatrices,
                            Real<Cfg> traction2,
                            Real<Cfg> strength,
                            Real<Cfg> strengthSlope) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   const auto eta = init::eta<Cfg>::view::create(impedanceMatrices.eta);
   const real slip1 = solution.slipRate * solution.direction1;
   const real slip2 = solution.slipRate * solution.direction2;
@@ -110,7 +110,7 @@ TEST_CASE_TEMPLATE_DEFINE("Anisotropic slip rate solve" * doctest::test_suite("d
                           Cfg,
                           AnisotropicSlipRateSolve) {
   using namespace anisotropicsliprate;
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   using seissol::dr::friction_law::common::solveSlipRate;
 
@@ -215,7 +215,7 @@ TEST_CASE_TEMPLATE_DEFINE("Anisotropic impedance projections" *
                           Cfg,
                           AnisotropicImpedanceProjections) {
   using namespace anisotropicsliprate;
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   namespace common = seissol::dr::friction_law::common;
 

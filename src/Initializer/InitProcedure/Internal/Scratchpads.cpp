@@ -31,7 +31,7 @@ namespace {
 /// Sets the sizes of the scratchpads of a layer of cells of the configuration `Cfg`.
 template <typename Cfg>
 void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr size_t TotalDerivativesSize = kernels::SolverOf<Cfg>::DerivativesSize;
   constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement<Cfg>::size();
 

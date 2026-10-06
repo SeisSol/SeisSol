@@ -17,7 +17,7 @@ template <typename Cfg, class TPMethod>
 class SevereVelocityWeakeningLaw
     : public RateAndStateBase<Cfg, SevereVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   using RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 

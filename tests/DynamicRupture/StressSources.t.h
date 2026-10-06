@@ -158,7 +158,7 @@ TEST_CASE_TEMPLATE("Stress sources of a parameter set" * doctest::test_suite("dy
 TEST_CASE_TEMPLATE("Stress of a point over its sources" * doctest::test_suite("dynamicrupture"),
                    Cfg,
                    SEISSOL_CONFIG_TYPES) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using namespace stresssources;
   constexpr auto NumPaddedPoints = seissol::dr::misc::NumPaddedPoints<Cfg>;
 
@@ -212,7 +212,7 @@ TEST_CASE_TEMPLATE("Stress of a point does not depend on the order it is asked i
                        doctest::test_suite("dynamicrupture"),
                    Cfg,
                    SEISSOL_CONFIG_TYPES) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using namespace stresssources;
   constexpr auto NumPaddedPoints = seissol::dr::misc::NumPaddedPoints<Cfg>;
 
@@ -252,7 +252,7 @@ TEST_CASE_TEMPLATE("Stress of a point does not depend on the order it is asked i
 TEST_CASE_TEMPLATE("Stress sources with an onset per point" * doctest::test_suite("dynamicrupture"),
                    Cfg,
                    SEISSOL_CONFIG_TYPES) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using namespace stresssources;
   constexpr auto NumPaddedPoints = seissol::dr::misc::NumPaddedPoints<Cfg>;
 

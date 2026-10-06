@@ -24,7 +24,7 @@ using namespace seissol::dr;
 TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynamicrupture"),
                           Cfg,
                           FrictionSolverCommon) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   FaultStresses<Cfg, Executor::Host> faultStresses{};
   TractionResults<Cfg, Executor::Host> tractionResults{};
   ImposedState<Cfg, Executor::Host> imposedState{};

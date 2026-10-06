@@ -74,7 +74,7 @@ class CompositeRecorder : public AbstractRecorder<VarmapT> {
 template <typename Cfg>
 class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit LocalIntegrationRecorder(double g) : g_(g) {}
 
@@ -108,7 +108,7 @@ class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
 template <typename Cfg>
 class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   void record(LTS::Layer& layer) override;
 
@@ -129,7 +129,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
 template <typename Cfg>
 class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   protected:
   void setUpContext(LTS::Layer& layer) override { AbstractRecorder::setUpContext(layer); }
@@ -142,7 +142,7 @@ class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
 template <typename Cfg>
 class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVarmap> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   void record(DynamicRupture::Layer& layer) override;
 

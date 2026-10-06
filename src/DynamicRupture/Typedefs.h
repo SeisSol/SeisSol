@@ -79,7 +79,7 @@ struct ImposedState;
  */
 template <typename Cfg>
 struct FaultStresses<Cfg, Executor::Host> {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   alignas(Alignment) real normalStress[misc::NumPaddedPoints<Cfg>]{};
   alignas(Alignment) real traction1[misc::NumPaddedPoints<Cfg>]{};
@@ -100,7 +100,7 @@ struct FaultStresses<Cfg, Executor::Host> {
  */
 template <typename Cfg>
 struct TractionResults<Cfg, Executor::Host> {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   alignas(Alignment) real normalStress[misc::NumPaddedPoints<Cfg>]{};
   alignas(Alignment) real traction1[misc::NumPaddedPoints<Cfg>]{};
@@ -112,7 +112,7 @@ struct TractionResults<Cfg, Executor::Host> {
  */
 template <typename Cfg>
 struct ImposedState<Cfg, Executor::Host> {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   alignas(Alignment) real plus[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>]{};
   alignas(Alignment) real minus[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>]{};
@@ -125,7 +125,7 @@ struct ImposedState<Cfg, Executor::Host> {
  */
 template <typename Cfg>
 struct FaultStresses<Cfg, Executor::Device> {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   real normalStress{};
   real traction1{};
@@ -141,7 +141,7 @@ struct FaultStresses<Cfg, Executor::Device> {
  */
 template <typename Cfg>
 struct TractionResults<Cfg, Executor::Device> {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   real normalStress{};
   real traction1{};
@@ -153,7 +153,7 @@ struct TractionResults<Cfg, Executor::Device> {
  */
 template <typename Cfg>
 struct ImposedState<Cfg, Executor::Device> {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   real plus[misc::NumQuantities<Cfg>]{};
   real minus[misc::NumQuantities<Cfg>]{};

@@ -31,7 +31,7 @@ namespace seissol::kernels::solver::linearck {
 template <typename Cfg>
 class Local : public LocalKernel<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void computeIntegral(real* timeIntegratedDoFs,

@@ -18,7 +18,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Cfg, typename STF>
 class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, STF>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   using BaseFrictionSolver<Cfg, ImposedSlipRates>::BaseFrictionSolver;
 

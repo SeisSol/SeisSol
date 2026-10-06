@@ -19,7 +19,7 @@
 namespace seissol::dr::friction_law::gpu {
 template <typename Cfg>
 struct FrictionLawData {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   FrictionLawParameters<Real<Cfg>> drParameters;
 
@@ -99,7 +99,7 @@ struct FrictionLawData {
 template <typename Cfg>
 class FrictionSolverInterface : public FrictionSolverImpl<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit FrictionSolverInterface(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : FrictionSolverImpl<Cfg>(drParameters) {}

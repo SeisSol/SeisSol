@@ -16,7 +16,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Cfg>
 class NoFault : public BaseFrictionSolver<Cfg, NoFault<Cfg>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit NoFault(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : BaseFrictionSolver<Cfg, NoFault<Cfg>>(drParameters) {}

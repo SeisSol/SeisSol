@@ -729,7 +729,7 @@ template <typename Cfg>
 BoundaryFrame DirichletCondition::query(const double* barycenter,
                                         Real<Cfg>* mapTermsData,
                                         Real<Cfg>* constantTermsData) const {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }

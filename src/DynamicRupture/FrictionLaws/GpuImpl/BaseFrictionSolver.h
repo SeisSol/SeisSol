@@ -30,7 +30,7 @@
 namespace seissol::dr::friction_law::gpu {
 template <typename Cfg>
 struct InitialVariables {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   real absoluteShearTraction{};
   real localSlipRate{};
@@ -47,7 +47,7 @@ struct InitialVariables {
 
 template <typename Cfg>
 struct FrictionLawArgs {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   const FrictionLawData<Cfg>* __restrict data{nullptr};
   const real* __restrict spaceWeights{nullptr};
@@ -63,7 +63,7 @@ struct FrictionLawArgs {
 
 template <typename Cfg>
 struct FrictionLawContext {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   std::size_t ltsFace{0};
   std::uint32_t pointIndex{0};
@@ -167,7 +167,7 @@ SEISSOL_DEVICE inline Real<Cfg> resampleVariable(FrictionLawContext<Cfg>& __rest
 template <typename Cfg, typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit BaseFrictionSolver(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : FrictionSolverDetails<Cfg>(drParameters) {}

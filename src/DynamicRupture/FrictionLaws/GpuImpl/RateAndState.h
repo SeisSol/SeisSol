@@ -25,7 +25,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Cfg, class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit RateAndStateBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>>::BaseFrictionSolver(

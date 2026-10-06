@@ -72,7 +72,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
                                         LTS::Storage& ltsStorage,
                                         const ClusterLayout& clusterLayout,
                                         const parameters::ModelParameters& modelParameters) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
   constexpr auto Variant = configIdOf<Cfg>();

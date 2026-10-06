@@ -29,7 +29,7 @@ namespace receivertest {
 /// the simulation, so that mixing up simulations does as well.
 template <typename Cfg>
 Real<Cfg> velocityGradient(std::size_t sim, std::size_t i, std::size_t j) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr std::array<std::array<real, Cell::Dim>, Cell::Dim> Gradient{
       {{2, 3, 5}, {7, 11, 13}, {17, 19, 23}}};
   return static_cast<real>(sim + 1) * Gradient[i][j];
@@ -39,7 +39,7 @@ Real<Cfg> velocityGradient(std::size_t sim, std::size_t i, std::size_t j) {
 /// velocity gradient above and a poison value everywhere else.
 template <typename Cfg>
 std::vector<double> evaluate(const kernels::DerivedReceiverQuantity& derived) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using Multisim = multisim::MultisimHelperWrapper<Cfg>;
   // Larger than any entry of the velocity gradient, and finite, so that reading it does not depend
   // on how the floating-point mode treats NaN.

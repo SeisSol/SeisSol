@@ -188,7 +188,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+      using real = Real<Cfg>;
       // parameters to be read from fault parameters yaml file
       std::unordered_map<std::string, void*> parameterToStorageMap;
 
@@ -435,7 +435,7 @@ void BaseDRInitializer::addAdditionalParameters(
 void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
   dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     // initialize rupture front flag
     bool (*ruptureTimePending)[misc::NumPaddedPoints<Cfg>] =
         layer.var<DynamicRupture::RuptureTimePending>(Cfg());

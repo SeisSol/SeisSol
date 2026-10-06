@@ -19,7 +19,7 @@
 namespace seissol::unit_test {
 
 TEST_CASE_TEMPLATE("IO/Points", Cfg, SEISSOL_CONFIG_TYPES) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   const auto pointsCompare = [](auto pointsView, const auto& generated) {
     REQUIRE(pointsView.shape(1) == generated.size());
     REQUIRE(pointsView.shape(0) == generated[0].size());

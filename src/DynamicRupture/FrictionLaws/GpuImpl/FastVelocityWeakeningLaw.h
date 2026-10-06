@@ -22,7 +22,7 @@ template <typename Cfg, typename TPMethod>
 class FastVelocityWeakeningLaw
     : public RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 

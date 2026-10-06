@@ -142,7 +142,7 @@ TEST_CASE_TEMPLATE("Godunov state is correct" * doctest::test_suite("model"),
                    Cfg,
                    SEISSOL_CONFIG_TYPES) {
   using MaterialT = model::MaterialOf<Cfg>;
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   // Tolerance for comparing against the stored reference matrices. This is a property of the
   // equation set (see SolutionData::MatrixEpsilon): the elastic family assembles its eigenbasis in

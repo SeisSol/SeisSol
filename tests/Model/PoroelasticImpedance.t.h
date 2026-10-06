@@ -171,7 +171,7 @@ TEST_CASE_TEMPLATE_DEFINE("Poroelastic traction matrix pattern" *
                               doctest::test_suite("dynamicrupture"),
                           Cfg,
                           PoroelasticTractionMatrixPattern) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   // the rows initializeDynamicRuptureMatrices writes to
   constexpr auto StoredRows = PoroelasticImpedance::TractionIndices;
   constexpr std::size_t Rows = StoredRows.size();

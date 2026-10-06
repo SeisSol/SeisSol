@@ -352,6 +352,9 @@ CheckOptions:
 #    value:           CamelCase
   - key:             readability-identifier-naming.TypeAliasCase
     value:           CamelCase
+# the reals of a configuration keep their lower-case name: using real = Real<Cfg>;
+  - key:             readability-identifier-naming.TypeAliasIgnoredRegexp
+    value:           '^real$'
 #  - key:             readability-identifier-naming.TypeAliasPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasSuffix

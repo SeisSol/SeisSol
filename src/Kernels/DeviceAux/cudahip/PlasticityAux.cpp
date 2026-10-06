@@ -55,7 +55,7 @@ __global__ void
                                Real<Cfg> tV,
                                Real<Cfg> timeStepWidth) {
 
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   real* __restrict qStressNodal = nodalStressTensors[blockIdx.x];
   real localStresses[NumStressComponents<Cfg>];

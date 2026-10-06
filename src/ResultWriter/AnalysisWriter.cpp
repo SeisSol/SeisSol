@@ -79,7 +79,7 @@ template <typename Cfg>
 void AnalysisWriter::printAnalysisOf(double simulationTime,
                                      const std::string& configLabel,
                                      const std::string& fileName) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   const auto& mpi = seissol::Mpi::mpi;
   const auto initialConditionType = seissolInstance_.parameters().initialization.type;
 

@@ -145,7 +145,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
     double stateTime,
     double dt,
     double indt) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
                            ? outputData->currentCacheLevel
@@ -479,7 +479,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
 template <typename Derived>
 template <typename Cfg>
 void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   auto diff = [&local](int i) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
@@ -735,7 +735,7 @@ template <typename Derived>
 template <typename Cfg>
 Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
     const Eigen::Matrix<Real<Cfg>, 2, 2>& jacobiT2d, const LocalInfo<Cfg>& local) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   const auto* ruptureTime = getCellData<DynamicRupture::RuptureTime>(local);
   real ruptureVelocity = 0.0;
 

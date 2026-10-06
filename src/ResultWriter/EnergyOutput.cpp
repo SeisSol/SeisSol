@@ -78,7 +78,7 @@ std::array<Real<Cfg>, Cfg::NumSimulations>
                       const DRGodunovData<Cfg>& godunovData,
                       const Real<Cfg> slip[seissol::tensor::slipInterpolated<Cfg>::size()],
                       const GlobalData<Cfg>& global) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnl;
   krnl.bindGlobals(global);
@@ -174,7 +174,7 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
                       const GlobalData<Cfg>& global,
                       EnergiesStorage& energies,
                       std::vector<double>& minTimeSinceSlipRateBelowThreshold) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using MaterialT = model::MaterialOf<Cfg>;
   constexpr auto SimCount = Cfg::NumSimulations;
 
@@ -336,7 +336,7 @@ void addVolumeEnergies(const LTS::Layer& layer,
                        double g,
                        bool isPlasticityEnabled,
                        EnergiesStorage& energies) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using MaterialT = model::MaterialOf<Cfg>;
   using EnergyComputeT = model::EnergyCompute<MaterialT>;
   constexpr auto Variant = configIdOf<Cfg>();

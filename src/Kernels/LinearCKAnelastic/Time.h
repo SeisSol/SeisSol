@@ -22,7 +22,7 @@ namespace seissol::kernels::solver::linearckanelastic {
 template <typename Cfg>
 class Spacetime : public SpacetimeKernel<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void computeAder(const real* coeffs,
@@ -54,7 +54,7 @@ class Spacetime : public SpacetimeKernel<Cfg> {
 template <typename Cfg>
 class Time : public TimeKernel<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void evaluate(const real* coeffs,

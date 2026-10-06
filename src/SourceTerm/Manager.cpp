@@ -114,7 +114,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
                                         PointSources<Cfg>& pointSources,
                                         std::size_t index,
                                         std::size_t tensorIndex) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   std::array<real, 9> faultBasis{};
   faultBasis[0] = subfault.tan1(0);
   faultBasis[1] = subfault.tan1(1);

@@ -49,7 +49,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Cfg>
 class ThermalPressurization {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes

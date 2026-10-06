@@ -18,7 +18,7 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg>
 class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   using BaseFrictionLaw<Cfg, NoFault<Cfg>>::BaseFrictionLaw;
 

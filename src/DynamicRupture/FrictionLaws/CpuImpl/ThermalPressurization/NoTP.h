@@ -16,7 +16,7 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg>
 class NoTP {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit NoTP(const FrictionLawParameters<Real<Cfg>>& drParameters) {};
 

@@ -50,7 +50,7 @@ namespace {
 
 template <typename Cfg>
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   real(*dofs)[tensor::Q<Cfg>::size()] = layer.var<LTS::Dofs>(Cfg());
   real** buffers = layer.var<LTS::StepIntegrals>(Cfg());

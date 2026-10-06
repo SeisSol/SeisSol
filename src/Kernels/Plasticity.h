@@ -27,7 +27,7 @@ namespace seissol::kernels {
 template <typename Cfg>
 class Plasticity {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   static constexpr double computeRelaxTime(double tV, double timestep) {
     return (tV > 0.0) ? -std::expm1(-timestep / tV) : 1.0;

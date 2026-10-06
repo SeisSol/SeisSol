@@ -20,7 +20,7 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg, class TPMethod>
 class AgingLaw : public SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
   using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;

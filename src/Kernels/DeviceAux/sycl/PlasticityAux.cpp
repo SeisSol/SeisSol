@@ -39,7 +39,7 @@ void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
                          const size_t numElements,
                          void* streamPtr) {
 
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
                                 init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
