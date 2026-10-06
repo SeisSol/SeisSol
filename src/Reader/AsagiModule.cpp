@@ -97,7 +97,7 @@ void AsagiModule::preMesh() {
     // ASAGI leaves the thread unpinned if the CPU id is not valid; a negative id counts from the
     // last CPU, so -1 is a valid one
     int cpu = std::numeric_limits<int>::max();
-#ifndef __APPLE__
+#ifdef __linux__
     if (pinning_ == nullptr) {
       logError() << "The ASAGI communication thread needs the pinning of the SeisSol instance.";
     } else {
