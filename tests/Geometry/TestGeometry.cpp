@@ -10,6 +10,7 @@
 #include "CellGeometry.t.h"
 #include "CellTransform.t.h"
 #include "FaceTransform.t.h"
+#include "GmshNodes.t.h"
 #include "IsoparametricTransform.t.h"
 #include "MeshReader.t.h"
 #include "VertexOrderInvariance.t.h"

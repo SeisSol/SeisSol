@@ -26,16 +26,31 @@ variants of both, not the anisotropic or the poroelastic one. cmake and the code
 generator refuse the rest. A material that does not vary is carried as samples
 that agree.
 
-Which cells are curved, the mesh decides. A reader hands them over through
-``MeshReader::setCurvedGeometry``: the nodes of every local cell on the
-equispaced lattice of the geometry order
+Which cells are curved, the mesh decides. PUMGen writes a mesh of gmsh whose
+cells are of a higher order (from its branch ``davschneller/more-modernize`` on)
+as it writes any other mesh -- the vertices in ``/geometry``, the cells by their
+vertices in ``/connect`` -- and adds the other nodes of every cell:
+``/geometry_ho``, in the order gmsh numbers them (its attribute
+``node-ordering`` says ``gmsh``), ``/geometry_ho_offsets``, where those of every
+cell start, and ``/order``, the order of every cell. The PUML reader reads them
+as a cell array of its own length per cell, which PUML moves with its cell
+through the partitioning (from its master on, which the series moves to).
+
+Before the partitioning, the time step of a cell comes from its curved map
+(``CellToVertexArray::fromPUML``). After it, the reader puts the nodes into the
+vertex order it keeps and onto the lattice of the highest order of the mesh --
+a cell of a lower order is the same map written with more nodes -- and hands
+them over through ``MeshReader::setCurvedGeometry``: the nodes of every local
+cell on the equispaced lattice of the geometry order
 (``IsoparametricTransform::latticeNodes``; order two adds the six edge midpoints
-to the vertices), the vertices first and in the vertex order the reader keeps.
-The call checks that the vertices are the cell's and that the cell is not
-turned inside out anywhere on a lattice of twice its order. **No reader does
-this yet**; a higher-order mesh through PUMgen and the PUML format is the next
-step, in the mesh toolchain. A build without ``CURVILINEAR`` refuses a curved
-mesh.
+to the vertices), the vertices first. The call checks that the vertices are the
+cell's and that the cell is not turned inside out anywhere on a lattice of twice
+its order.
+
+A build without ``CURVILINEAR`` takes such a file only where all cells are
+straight-sided -- their nodes within :math:`10^{-8}` of their longest edge of
+where the straight-sided cell has them -- and then leaves the nodes aside; a
+mesh with a curved cell it refuses before anything is partitioned.
 
 On a straight-sided mesh a ``CURVILINEAR`` build computes what the build without
 it computes: a plane wave through a cube gives the same error norms to
@@ -186,9 +201,8 @@ Where it has to be per point
 What is not done
 ----------------
 
-- A mesh reader that delivers curved cells (PUMgen, PUML), and with it the
-  transforms for the time step at partitioning time (``CellToVertexArray``,
-  which ``fromPUML`` builds straight-sided).
+- Curved cells from the readers other than the one of PUML, and from a mesh of
+  several kinds of cells (which PUMGen writes in the layout of VTKHDF).
 - Dynamic rupture and the boundary conditions with a ghost state on curved
   faces, see above.
 - Ghost cells on other ranks are sampled straight-sided: their metadata carries
@@ -254,6 +268,47 @@ boundary; four receivers inside are compared with a straight-sided mesh of
 Both converge at the rate of the order, and the curved cells are as accurate as
 the straight ones. The mesh, the parameters and the hook are with the
 measurement scripts that accompany the series.
+
+The same cubes written as PUMGen writes cells of a higher order and read by the
+PUML reader give the same differences to the reference (2.2e-2 for
+:math:`n = 4`, 1.5e-3 for :math:`n = 8`); with the time step the reader takes for
+them -- shorter by the relative thickness of the cells -- the series differ from
+the ones of the hook by less than a fifth of that, and with one fixed time step
+for both they agree to 1e-15.
+
+**A curved boundary.** The unit ball meshed by gmsh at order two and converted by
+PUMGen, its surface a free surface, oscillating in its fundamental torsional mode
+:math:`{}_0T_2` (:math:`\mu = \rho = 1`, the frequency the root
+:math:`x \approx 2.5011` of :math:`j_2(x) = x\, j_3(x)`) for two periods; five
+receivers against the mode, as the relative L2 difference of their time series
+(largest over the receivers), with the cells of order one -- the same vertices,
+plane faces between them -- and of order two:
+
+.. list-table::
+  :header-rows: 1
+  :widths: 25 25 25 25
+
+  * - mesh size
+    - cells
+    - order one
+    - order two
+  * - 0.5
+    - 256
+    - 1.9e-1
+    - 3.1e-3
+  * - 0.35
+    - 503
+    - 1.2e-1
+    - 1.3e-3
+  * - 0.25
+    - 1435
+    - 5.1e-2
+    - 2.7e-4
+
+With plane faces the ball is the polyhedron inside the sphere, which is too
+small, and the difference falls with the square of the mesh size (1.9 from the
+coarsest mesh to the finest); with the cells of order two it falls faster than
+with its cube (3.5).
 
 What ``davschneller/config`` holds
 -----------------------------------

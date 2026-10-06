@@ -197,7 +197,8 @@ CellToVertexArray
         }
         return x;
       },
-      [groups](size_t cell) { return groups[cell]; });
+      [groups](size_t cell) { return groups[cell]; },
+      seissol::geometry::cellTransformsOf(mesh, vertexOrders));
 }
 #endif
 

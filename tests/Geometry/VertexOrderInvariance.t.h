@@ -5,6 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#ifndef SEISSOL_TESTS_GEOMETRY_VERTEXORDERINVARIANCE_T_H_
+#define SEISSOL_TESTS_GEOMETRY_VERTEXORDERINVARIANCE_T_H_
+
 // mesh-permuted.h5 is mesh.h5 with the vertices of every cell listed in another order (and the
 // boundary tags permuted along), as written by relabel_vertices.py --mode random of
 // precomputed-seissol; for ten of its cells, that also reverses the orientation. mesh-offgrid.h5
@@ -264,3 +267,5 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_TESTS_GEOMETRY_VERTEXORDERINVARIANCE_T_H_

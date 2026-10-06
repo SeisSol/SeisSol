@@ -9,6 +9,7 @@ add_library(seissol-geometry OBJECT
     CellGeometry.cpp
     CellTransform.cpp
     FaceTransform.cpp
+    GmshNodes.cpp
     IsoparametricTransform.cpp
     MeshReader.cpp
     MeshTools.cpp

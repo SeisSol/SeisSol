@@ -19,6 +19,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -32,6 +34,8 @@ namespace seissol::geometry {
 constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
 using PumlMesh = PUML::PUML<PumlTopology>;
 
+class CellTransform;
+
 /// the names the cell data of a mesh read by PUMLReader is filed under
 namespace pumldata {
 constexpr const char* Group = "group";
@@ -40,6 +44,9 @@ constexpr const char* CellIdsAsInFile = "cellIdsAsInFile";
 constexpr const char* ClusterIds = "clusterIds";
 constexpr const char* Timesteps = "timesteps";
 constexpr const char* VertexOrders = "vertexOrders";
+/// the order of every cell and its nodes but the vertices, where the file gives them
+constexpr const char* Order = "order";
+constexpr const char* HighOrderNodes = "highOrderNodes";
 } // namespace pumldata
 
 /// the group of every cell of a mesh read by PUMLReader
@@ -82,6 +89,22 @@ using VertexOrder = std::array<std::uint8_t, Cell::NumVertices>;
 std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
                                                const PumlMesh& meshGeometry);
 
+/**
+ * The highest order of a cell of the mesh, over all ranks: one where the file gives no nodes beyond
+ * the vertices, and in a build without curved cells, which takes a file with such nodes only where
+ * its cells are straight-sided (see PUMLReader::acceptHighOrderGeometry).
+ */
+auto geometryOrderOf(const PumlMesh& meshGeometry) -> std::size_t;
+
+/**
+ * The map of every local cell of a mesh whose cells may be curved, by its local id: the
+ * isoparametric one through its nodes where the file gives them and the build has curved cells,
+ * the affine one through its vertices otherwise; the local vertex k of a cell is the vertex
+ * vertexOrders[cell][k] of the cell in the file. Both arguments have to outlive what it returns.
+ */
+auto cellTransformsOf(const PumlMesh& meshGeometry, const std::vector<VertexOrder>& vertexOrders)
+    -> std::function<std::unique_ptr<CellTransform>(std::size_t)>;
+
 class PUMLReader : public seissol::geometry::MeshReader {
   public:
   PUMLReader(const std::string& meshFile,
@@ -106,6 +129,22 @@ class PUMLReader : public seissol::geometry::MeshReader {
                    const std::string& file,
                    bool topology,
                    seissol::initializer::parameters::BoundaryFormat boundaryFormat);
+
+  /**
+   * Reads the order of every cell and its nodes beyond the vertices, where the file gives them
+   */
+  static void readHighOrderGeometry(PumlMesh& meshGeometry, const std::string& file);
+
+  /**
+   * Takes the nodes of the cells as they are in a build with curved cells. A build without them
+   * takes the nodes only where they are straight-sided, and refuses the mesh otherwise.
+   */
+  static void acceptHighOrderGeometry(PumlMesh& meshGeometry);
+
+  /**
+   * Hands the nodes of the local cells to setCurvedGeometry, on the lattice of the highest order
+   */
+  void setCurvedGeometryFrom(const PumlMesh& meshGeometry);
 
   /**
    * Create the partitioning

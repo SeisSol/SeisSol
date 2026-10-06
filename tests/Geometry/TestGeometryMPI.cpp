@@ -7,4 +7,5 @@
 
 #include <doctest.h>
 
+#include "CurvedPuml.t.h"
 #include "VertexOrderInvariance.t.h"
