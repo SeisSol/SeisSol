@@ -116,6 +116,14 @@ set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
 set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
+# The configurations to build into the executable, as a list of their names or of named sets of
+# them (see cmake/confignames.cmake). The first one is the one a run takes if neither its parameter
+# file nor SEISSOL_CONFIGURATION names one. If given, CONFIGS replaces EQUATIONS, SOLVER,
+# NUMBER_OF_MECHANISMS, ORDER, PRECISION, DR_QUAD_RULE, NUMBER_OF_FUSED_SIMULATIONS and
+# EXTRA_CONFIGS.
+set(CONFIGS "" CACHE STRING
+  "The configurations to build, by name or named set (e.g. ci-cpu); replaces EQUATIONS, ORDER, PRECISION, ... and EXTRA_CONFIGS")
+
 set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
@@ -168,6 +176,23 @@ function(check_parameter parameter_name value options)
 
 endfunction()
 
+
+if (NOT "${CONFIGS}" STREQUAL "")
+  # the first configuration sets the variables that describe one; the others are the further ones
+  # (see cmake/configs.cmake)
+  seissol_expand_configs(_configs "${CONFIGS}")
+  list(GET _configs 0 _first_config)
+  seissol_parse_config_name(_first ${_first_config} "CONFIGS")
+  set(EQUATIONS ${_first_MATERIAL})
+  set(SOLVER ${_first_SOLVER})
+  set(NUMBER_OF_MECHANISMS ${_first_MECHANISMS})
+  set(ORDER ${_first_ORDER})
+  set(PRECISION ${_first_PRECISION})
+  set(DR_QUAD_RULE ${_first_DRQUADRULE})
+  set(NUMBER_OF_FUSED_SIMULATIONS ${_first_SIMULATIONS})
+  list(REMOVE_AT _configs 0)
+  set(SEISSOL_CONFIGS_FURTHER ${_configs})
+endif()
 
 check_parameter("ORDER" ${ORDER} "${ORDER_OPTIONS}")
 check_parameter("HOST_ARCH" ${HOST_ARCH} "${HOST_ARCH_OPTIONS}")

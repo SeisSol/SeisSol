@@ -7,8 +7,10 @@
 
 # The configurations built into the executable, in the order of their ids. The first one is the one
 # that EQUATIONS, SOLVER, NUMBER_OF_MECHANISMS, ORDER, PRECISION, DR_QUAD_RULE and
-# NUMBER_OF_FUSED_SIMULATIONS describe; EXTRA_CONFIGS adds further ones by their name (see
-# cmake/confignames.cmake), e.g. elastic-linearck-o4-f32-stroud.
+# NUMBER_OF_FUSED_SIMULATIONS describe; EXTRA_CONFIGS adds further ones by their name or by a named
+# set of them (see cmake/confignames.cmake), e.g. elastic-linearck-o4-f32-stroud. With CONFIGS, its
+# first configuration sets these variables (see cmake/process_users_input.cmake), and its others
+# are the further ones.
 #
 # Sets, as lists with one entry per configuration:
 #   SEISSOL_CONFIG_TYPES (the C++ type: Config0, Config1, ...), SEISSOL_CONFIG_MATERIALS,
@@ -19,6 +21,17 @@
 
 set(EXTRA_CONFIGS "" CACHE STRING
   "Further configurations to build into the executable, by name (e.g. elastic-linearck-o4-f32-stroud)")
+
+seissol_expand_configs(_further_configs "${EXTRA_CONFIGS}")
+set(_further_context "EXTRA_CONFIGS")
+if (NOT "${CONFIGS}" STREQUAL "")
+  if (NOT "${EXTRA_CONFIGS}" STREQUAL "")
+    message(FATAL_ERROR "Give the configurations either as CONFIGS or as EXTRA_CONFIGS (with "
+      "EQUATIONS, ORDER, ...), not both.")
+  endif()
+  set(_further_configs ${SEISSOL_CONFIGS_FURTHER})
+  set(_further_context "CONFIGS")
+endif()
 
 set(SEISSOL_CONFIG_TYPES Config0)
 set(SEISSOL_CONFIG_MATERIALS ${EQUATIONS})
@@ -32,10 +45,10 @@ seissol_config_name(_config_names ${EQUATIONS} ${SOLVER} ${NUMBER_OF_MECHANISMS}
   ${DR_QUAD_RULE} ${NUMBER_OF_FUSED_SIMULATIONS})
 
 set(_config_index 0)
-foreach(_name IN LISTS EXTRA_CONFIGS)
-  seissol_parse_config_name(_config ${_name} "EXTRA_CONFIGS")
+foreach(_name IN LISTS _further_configs)
+  seissol_parse_config_name(_config ${_name} ${_further_context})
   if (_name IN_LIST _config_names)
-    message(FATAL_ERROR "EXTRA_CONFIGS: ${_name} is built already.")
+    message(FATAL_ERROR "${_further_context}: ${_name} is built already.")
   endif()
   list(APPEND _config_names ${_name})
 

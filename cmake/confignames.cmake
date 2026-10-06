@@ -7,7 +7,28 @@
 
 # The names of configurations, as seissol::configName writes them:
 #   <material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<dr quadrature rule>[-s<fused simulations>]
-# e.g. elastic-linearck-o4-f32-stroud.
+# e.g. elastic-linearck-o4-f32-stroud; and named sets of them, for CONFIGS and EXTRA_CONFIGS.
+
+# The named sets: SEISSOL_CONFIG_SETS lists their names, SEISSOL_CONFIG_SET_<name> the
+# configurations of each.
+#
+# ci-cpu: what the CPU CI builds, in order 6 and both precisions: the six materials, viscoelastic
+# and viscoacoustic with their default solver and 3 mechanisms, and elastic with 8 fused
+# simulations. Building it into one executable takes a host architecture whose vectors the 8 fused
+# simulations fill in both precisions, e.g. hsw.
+set(SEISSOL_CONFIG_SETS ci-cpu)
+
+set(SEISSOL_CONFIG_SET_ci-cpu)
+foreach(_precision f64 f32)
+  list(APPEND SEISSOL_CONFIG_SET_ci-cpu
+    elastic-linearck-o6-${_precision}-stroud
+    acoustic-linearck-o6-${_precision}-stroud
+    anisotropic-linearck-o6-${_precision}-stroud
+    poroelastic-stp-o6-${_precision}-stroud
+    viscoelastic-linearckanelastic-m3-o6-${_precision}-stroud
+    viscoacoustic-linearckanelastic-m3-o6-${_precision}-stroud
+    elastic-linearck-o6-${_precision}-stroud-s8)
+endforeach()
 
 # The name of a configuration.
 function(seissol_config_name output material solver mechanisms order precision drquadrule simulations)
@@ -32,8 +53,9 @@ endfunction()
 # Needs the options of process_users_input.cmake.
 function(seissol_parse_config_name prefix name context)
   if (NOT name MATCHES "^([a-z]+)-([a-z]+)(-m([0-9]+))?-o([0-9]+)-(f32|f64)-([a-z]+)(-s([0-9]+))?$")
-    message(FATAL_ERROR "${context}: \"${name}\" is not the name of a configuration, "
-      "<material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<dr quadrature rule>[-s<fused simulations>].")
+    message(FATAL_ERROR "${context}: \"${name}\" is neither the name of a configuration, "
+      "<material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<dr quadrature rule>[-s<fused simulations>], "
+      "nor of a set of them (${SEISSOL_CONFIG_SETS}).")
   endif()
   set(_material "${CMAKE_MATCH_1}")
   set(_solver "${CMAKE_MATCH_2}")
@@ -82,4 +104,18 @@ function(seissol_parse_config_name prefix name context)
   set(${prefix}_PRECISION ${_precision} PARENT_SCOPE)
   set(${prefix}_DRQUADRULE ${_drquadrule} PARENT_SCOPE)
   set(${prefix}_SIMULATIONS ${_simulations} PARENT_SCOPE)
+endfunction()
+
+# The configuration names that the list `names` stands for: its names, with each named set replaced
+# by the configurations it holds.
+function(seissol_expand_configs output names)
+  set(_expanded)
+  foreach(_name IN LISTS names)
+    if (_name IN_LIST SEISSOL_CONFIG_SETS)
+      list(APPEND _expanded ${SEISSOL_CONFIG_SET_${_name}})
+    else()
+      list(APPEND _expanded ${_name})
+    endif()
+  endforeach()
+  set(${output} ${_expanded} PARENT_SCOPE)
 endfunction()
