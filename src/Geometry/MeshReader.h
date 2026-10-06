@@ -74,6 +74,13 @@ class MeshReader {
   /** Has a plus fault side */
   bool hasPlusFault_{false};
 
+  /** The order of the geometry of the cells; one where every cell is straight-sided */
+  std::size_t geometryOrder_{1};
+
+  /** The nodes of every local cell on the lattice of geometryOrder_, cell after cell; empty for a
+   * straight-sided mesh */
+  std::vector<CoordinateT> cellNodes_;
+
   MeshReader();
 
   public:
@@ -90,6 +97,28 @@ class MeshReader {
 
   const std::vector<LinearGhostCell>& linearGhostlayer() const;
   const std::map<std::pair<int, std::size_t>, std::size_t>& toLinearGhostlayer() const;
+
+  /**
+   * The order of the geometry of the cells: one where every cell is straight-sided, the order of
+   * the map through their nodes where the mesh carries curved cells (see setCurvedGeometry).
+   */
+  [[nodiscard]] std::size_t geometryOrder() const;
+
+  /**
+   * The nodes of a local cell on the lattice of geometryOrder() (see
+   * IsoparametricTransform::latticeNodes), in space coordinates and in the vertex order of the
+   * cell as this reader stores it; for a straight-sided mesh, its vertices.
+   */
+  [[nodiscard]] std::vector<CoordinateT> cellNodes(std::size_t id) const;
+
+  /**
+   * Makes the local cells curved. `nodes` holds the nodes of every local cell on the lattice of
+   * `order`, cell after cell, each in the vertex order of the cell as this reader stores it --
+   * which is not necessarily the order of the mesh file, since a reader may renumber the vertices
+   * of a cell. The vertices among the nodes have to be the cell's vertices, and the map through
+   * the nodes must not turn the cell inside out anywhere; both are checked.
+   */
+  void setCurvedGeometry(std::size_t order, const std::vector<CoordinateT>& nodes);
 
   virtual bool inlineTimestepCompute() const { return false; }
   virtual bool inlineClusterCompute() const { return false; }

@@ -1,0 +1,54 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "CellGeometry.h"
+
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
+#include "Geometry/IsoparametricTransform.h"
+#include "Geometry/MeshReader.h"
+
+#include <cstddef>
+#include <memory>
+#include <vector>
+
+namespace seissol::geometry {
+
+namespace {
+
+auto isoparametricOf(std::size_t id, const MeshReader& mesh) -> IsoparametricTransform {
+  const auto nodes = mesh.cellNodes(id);
+  std::vector<CellTransform::VectorEigenT> eigenNodes;
+  eigenNodes.reserve(nodes.size());
+  for (const auto& node : nodes) {
+    eigenNodes.emplace_back(node[0], node[1], node[2]);
+  }
+  return {mesh.geometryOrder(), eigenNodes};
+}
+
+} // namespace
+
+auto cellTransformOf(std::size_t id, const MeshReader& mesh) -> std::unique_ptr<CellTransform> {
+  if (mesh.geometryOrder() <= 1) {
+    return std::make_unique<AffineTransform>(AffineTransform::fromMeshCell(id, mesh));
+  }
+  return std::make_unique<IsoparametricTransform>(isoparametricOf(id, mesh));
+}
+
+auto faceTransformOf(std::size_t id,
+                     std::size_t side,
+                     const MeshReader& mesh,
+                     FaceOrientation orientation) -> std::unique_ptr<FaceTransform> {
+  if (mesh.geometryOrder() <= 1) {
+    return std::make_unique<AffineFaceTransform>(
+        AffineFaceTransform::fromMeshCell(id, side, mesh, orientation));
+  }
+  return std::make_unique<IsoparametricFaceTransform>(isoparametricOf(id, mesh),
+                                                      ReferenceFaceMap(side, orientation));
+}
+
+} // namespace seissol::geometry

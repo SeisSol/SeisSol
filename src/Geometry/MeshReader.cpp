@@ -9,6 +9,8 @@
 
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/IsoparametricTransform.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -72,6 +74,11 @@ void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
       vertices_[vertexNo].coords[i] += displacement[i];
     }
   }
+  for (auto& node : cellNodes_) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
+      node[i] += displacement[i];
+    }
+  }
 }
 
 // TODO: Test proper scaling
@@ -87,6 +94,83 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
       vertices_[vertexNo].coords[i] = result[i];
     }
   }
+  // the map of a cell is a polynomial in its nodes, so a linear map of space carries the nodes
+  // along with the vertices
+  for (auto& node : cellNodes_) {
+    const Eigen::Vector3d result = scalingMatrix * Eigen::Vector3d(node[0], node[1], node[2]);
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
+      node[i] = result[i];
+    }
+  }
+}
+
+std::size_t MeshReader::geometryOrder() const { return geometryOrder_; }
+
+std::vector<CoordinateT> MeshReader::cellNodes(std::size_t id) const {
+  if (geometryOrder_ <= 1) {
+    std::vector<CoordinateT> nodes(Cell::NumVertices);
+    for (std::size_t i = 0; i < Cell::NumVertices; ++i) {
+      nodes[i] = vertices_[elements_[id].vertices[i]].coords;
+    }
+    return nodes;
+  }
+  const auto perCell = cellNodes_.size() / elements_.size();
+  return {cellNodes_.begin() + static_cast<std::ptrdiff_t>(id * perCell),
+          cellNodes_.begin() + static_cast<std::ptrdiff_t>((id + 1) * perCell)};
+}
+
+void MeshReader::setCurvedGeometry(std::size_t order, const std::vector<CoordinateT>& nodes) {
+  const auto lattice = IsoparametricTransform::latticeNodes(order);
+  const auto perCell = lattice.size();
+  if (nodes.size() != perCell * elements_.size()) {
+    logError() << "A curved mesh of order" << order << "has" << perCell << "nodes per cell, so"
+               << perCell * elements_.size() << "for this rank, but" << nodes.size()
+               << "were given.";
+  }
+
+  bool correct = true;
+#pragma omp parallel for schedule(static)
+  for (std::size_t cell = 0; cell < elements_.size(); ++cell) {
+    std::vector<CellTransform::VectorEigenT> cellNodes(perCell);
+    for (std::size_t i = 0; i < perCell; ++i) {
+      const auto& node = nodes[cell * perCell + i];
+      cellNodes[i] = CellTransform::VectorEigenT(node[0], node[1], node[2]);
+    }
+    // the vertices come first on the lattice, and they are where the straight-sided cell has them
+    double size = 0;
+    double offset = 0;
+    for (std::size_t i = 0; i < Cell::NumVertices; ++i) {
+      const auto& vertex = vertices_[elements_[cell].vertices[i]].coords;
+      const auto vertexEigen = CellTransform::VectorEigenT(vertex[0], vertex[1], vertex[2]);
+      offset = std::max(offset, (cellNodes[i] - vertexEigen).norm());
+      size = std::max(size, (cellNodes[i] - cellNodes[0]).norm());
+    }
+    if (offset > 1e-9 * size) {
+      logWarning() << "The nodes of the curved cell" << cell
+                   << "do not start with its vertices, in its order.";
+#pragma omp critical
+      correct = false;
+    }
+    // and the cell may be curved, but not turned inside out
+    const IsoparametricTransform transform(order, cellNodes);
+    auto points = lattice;
+    points.emplace_back(Cell::ReferenceBarycenter.data());
+    for (const auto& point : points) {
+      if (transform.refToSpaceJacobian(point).determinant() <= 0) {
+        logWarning() << "The curved cell" << cell
+                     << "has a Jacobian determinant that is not positive everywhere.";
+#pragma omp critical
+        correct = false;
+        break;
+      }
+    }
+  }
+  if (!correct) {
+    logError() << "There are geometric problems with the given curved mesh.";
+  }
+
+  geometryOrder_ = order;
+  cellNodes_ = order <= 1 ? std::vector<CoordinateT>{} : nodes;
 }
 
 void MeshReader::disableDR() {

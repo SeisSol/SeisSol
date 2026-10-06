@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "CellGeometry.t.h"
 #include "CellTransform.t.h"
 #include "FaceTransform.t.h"
 #include "IsoparametricTransform.t.h"
