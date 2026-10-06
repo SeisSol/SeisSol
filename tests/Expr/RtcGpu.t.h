@@ -444,7 +444,10 @@ TEST_SUITE("ExprRtcGpu") {
   }
 
   TEST_CASE("the OpenCL dialect differs where it has to and nowhere else") {
-    const Program program = compileSderivModule("out def u = sqrt(x) + y\n");
+    // sign, the comparisons and the constant cast to the compute type, which OpenCL C can only
+    // spell as a C cast
+    const Program program =
+        compileSderivModule("out def u = sqrt(x) + select(lt(y, 0.5), sign(y), y)\n");
     std::vector<double> x(2);
     std::vector<double> y(2);
     std::vector<double> u(2);
@@ -457,6 +460,9 @@ TEST_SUITE("ExprRtcGpu") {
 
     const std::string opencl = emitGpuSource(program, lower(program), layout, GpuTarget::OpenCl);
     const std::string cuda = emitGpuSource(program, lower(program), layout, GpuTarget::Cuda);
+    // no functional casts and no C++ casts
+    CHECK(opencl.find("double(") == std::string::npos);
+    CHECK(opencl.find("static_cast") == std::string::npos);
 
     // Address spaces are required in OpenCL C and inferred everywhere else.
     CHECK(opencl.find("__global const void* in0") != std::string::npos);

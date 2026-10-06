@@ -122,7 +122,13 @@ std::string substitute(const std::string& text,
     } else if (token == "z") {
       out += z;
     } else if (token == "T") {
-      out += computeType;
+      // T(v) is a functional cast, which C++ has and OpenCL C does not; (T)(v) is the same cast in
+      // both
+      if (i < text.size() && text[i] == '(') {
+        out += "(" + computeType + ")";
+      } else {
+        out += computeType;
+      }
     } else {
       out += token;
     }
@@ -135,7 +141,7 @@ std::string slotName(std::int32_t slot) { return "s" + std::to_string(slot); }
 std::string literal(double value, const std::string& computeType) {
   std::array<char, 48> buffer{};
   std::snprintf(buffer.data(), buffer.size(), "%.17g", value);
-  return computeType + "(" + buffer.data() + ")";
+  return "((" + computeType + ")" + buffer.data() + ")";
 }
 
 void emitStageBody(std::ostringstream& out,
@@ -146,7 +152,7 @@ void emitStageBody(std::ostringstream& out,
                    const StageAddressing& addressing,
                    const char* indent) {
   for (std::int32_t slot = 0; slot < stage.slotCount; ++slot) {
-    out << indent << computeType << " " << slotName(slot) << " = " << computeType << "(0);\n";
+    out << indent << computeType << " " << slotName(slot) << " = (" << computeType << ")0;\n";
   }
   if (stage.slotCount > 0) {
     // Silences the unused-variable warning for a slot that is written but never

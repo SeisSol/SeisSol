@@ -65,7 +65,7 @@ namespace seissol::expr {
   UNARY(Log, (std::log(x)))                                                                        \
   UNARY(Log2, (std::log2(x)))                                                                      \
   UNARY(Log10, (std::log10(x)))                                                                    \
-  UNARY(Sign, (static_cast<T>((x > T(0)) - (x < T(0)))))                                           \
+  UNARY(Sign, (T((x > T(0)) - (x < T(0)))))                                                        \
   UNARY(Floor, (std::floor(x)))                                                                    \
   UNARY(Ceil, (std::ceil(x)))                                                                      \
   UNARY(Round, (std::round(x)))                                                                    \
