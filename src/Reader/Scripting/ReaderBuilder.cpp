@@ -15,6 +15,7 @@
 
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <utils/logger.h>
@@ -84,7 +85,70 @@ std::unique_ptr<DataReader> buildSderiv(const std::string& path) {
   return std::make_unique<CompiledReader>(std::move(program), nullptr);
 }
 
+bool endsWith(const std::string& text, const std::string& suffix) {
+  return text.size() >= suffix.size() &&
+         text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+/// The kind of a script path: its prefix, else its extension; easi without either.
+std::string kindOf(const std::string& path) {
+  const auto parts = utils::StringUtils::split(path, ':');
+  if (parts.size() > 1 && (parts[0] == "easi" || parts[0] == "lua" || parts[0] == "sderiv")) {
+    return parts[0];
+  }
+  if (endsWith(path, ".lua")) {
+    return "lua";
+  }
+  if (endsWith(path, ".sderiv")) {
+    return "sderiv";
+  }
+  return "easi";
+}
+
+/// The file of a script path, without its prefix.
+std::string fileOf(const std::string& path) {
+  const auto kind = kindOf(path);
+  return path.compare(0, kind.size() + 1, kind + ":") == 0 ? stripPrefix(path) : path;
+}
+
 } // namespace
+
+std::unique_ptr<DataReader> buildInterpretedReader(const std::string& path,
+                                                   const std::vector<std::string>& defaultInArgs) {
+  const auto kind = kindOf(path);
+  if (kind == "lua") {
+    return std::make_unique<LuaReader>(readFile(fileOf(path)));
+  }
+  if (kind == "easi") {
+    return std::make_unique<EasiReader>(fileOf(path), defaultInArgs);
+  }
+  return nullptr;
+}
+
+std::optional<expr::Program> buildProgram(const std::string& path, std::string* reason) {
+  const auto kind = kindOf(path);
+  if (kind == "sderiv") {
+    const std::string source = readFile(fileOf(path));
+    try {
+      return expr::compileSderivModule(source);
+    } catch (const expr::SderivError& error) {
+      logError() << "The sderiv module" << path << "does not compile at byte" << error.position()
+                 << ":" << error.what();
+    }
+  }
+  if (kind == "lua") {
+    TraceFailure failure;
+    auto program = traceLuaModule(readFile(fileOf(path)), {}, failure);
+    if (!program.has_value() && reason != nullptr) {
+      *reason = failure.reason;
+    }
+    return program;
+  }
+  if (reason != nullptr) {
+    *reason = "an easi file does not compile to a program";
+  }
+  return std::nullopt;
+}
 
 std::unique_ptr<DataReader> buildReader(const std::string& path,
                                         const std::vector<std::string>& defaultInArgs) {

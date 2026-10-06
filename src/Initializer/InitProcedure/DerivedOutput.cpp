@@ -16,7 +16,6 @@
 #include "Expr/Binding.h"
 #include "Expr/Ir.h"
 #include "Expr/Rewrite.h"
-#include "Expr/SderivFrontend.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -25,7 +24,7 @@
 #include "Model/Plasticity.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Datafield/Grid.h"
-#include "Reader/Scripting/LuaTracer.h"
+#include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -33,7 +32,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <fstream>
 #include <functional>
 #include <limits>
 #include <map>
@@ -217,21 +215,6 @@ std::vector<double> stackedMatrix(const DerivedGeometry& geometry,
     }
   }
   return values;
-}
-
-std::string readFile(const std::string& path) {
-  std::ifstream file(path);
-  if (!file) {
-    logError() << "derived output: could not open the program" << path << ".";
-  }
-  std::stringstream code;
-  code << file.rdbuf();
-  return code.str();
-}
-
-bool endsWith(const std::string& text, const std::string& suffix) {
-  return text.size() >= suffix.size() &&
-         text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
 bool startsWith(const std::string& text, const std::string& prefix) {
@@ -462,37 +445,12 @@ expr::Program waveFieldProgram(const WaveFieldSelection& selection) {
 }
 
 expr::Program loadDerivedProgram(const std::string& path) {
-  std::string kind;
-  std::string file = path;
-  for (const std::string prefix : {"sderiv", "lua"}) {
-    if (startsWith(path, prefix + ":")) {
-      kind = prefix;
-      file = path.substr(prefix.size() + 1);
-    }
-  }
-  if (kind.empty()) {
-    kind = endsWith(path, ".lua") ? "lua" : endsWith(path, ".sderiv") ? "sderiv" : "";
-  }
-  if (kind.empty()) {
-    logError() << "derived output: the program" << path
-               << "is neither a .sderiv nor a .lua file; prefix its path with sderiv: or lua:.";
-  }
-
-  const std::string code = readFile(file);
-  if (kind == "sderiv") {
-    try {
-      return expr::compileSderivModule(code);
-    } catch (const expr::SderivError& error) {
-      logError() << "derived output: the program" << path << "does not compile at byte"
-                 << error.position() << ":" << error.what();
-    }
-  }
-
-  reader::scripting::TraceFailure failure;
-  auto program = reader::scripting::traceLuaModule(code, {}, failure);
+  std::string reason;
+  auto program = reader::scripting::buildProgram(path, &reason);
   if (!program.has_value()) {
     // there is no interpreted fallback for a program that reads contractions
-    logError() << "derived output: the program" << path << "could not be traced:" << failure.reason;
+    logError() << "derived output: the program" << path << "cannot be used --" << reason
+               << "; a derived output is an sderiv module or a Lua model that traces.";
   }
   return std::move(*program);
 }
