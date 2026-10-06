@@ -29,10 +29,11 @@
 //
 // GRAMMAR (deltas against the derived-output frontend marked +):
 //
-//   + program    := { definition | griddecl } ( expr | ) EOF
+//   + program    := { definition | griddecl | statedecl } ( expr | ) EOF
 //   + definition := [ 'out' ] 'def' NAME [ '(' NAME { ',' NAME } ')' ] '=' expr
 //   + griddecl   := 'grid' NAME '=' STR ',' STR [ ',' STR ] ',' STR { ',' STR }
 //                    //     name     kind  file  [variable]  interp  components...
+//   + statedecl  := 'state' NAME '=' [ '-' ] NUM
 //   + comment    := '#' { any } NEWLINE
 //
 //     expr       := 'let' NAME '=' expr 'in' expr | add
@@ -58,6 +59,25 @@
 //
 // `out def NAME(params)` is refused: an output is a value per point, not a
 // function, and there is no call site for it to take arguments from.
+//
+// STATE is a value per point that survives from one call to the next
+// (Program::state()). `state NAME = initial` declares it, and the definition of
+// the same name gives its next value; every reference to NAME -- including the
+// one in its own definition -- reads the value of the previous call, so all
+// states update as one parallel assignment. Made an output with `out def`, the
+// same name is state AND output: the running value is written along with every
+// call, and the consumer reads it at its own cadence. A maximum over time:
+//
+//     state pgv = 0.0
+//     out def pgv = max(pgv, sqrt(v1*v1 + v2*v2 + v3*v3))
+//
+// and one that restarts whenever a window counter advances:
+//
+//     state last = -1.0
+//     state peak = 0.0
+//     def fresh = lt(last, window)
+//     out def peak = select(fresh, v, max(peak, v))
+//     def last = window
 //
 // A module is EITHER a trailing expression, whose name the caller supplies via
 // compileSderiv(source, name), OR one or more `out def`s -- never both, because

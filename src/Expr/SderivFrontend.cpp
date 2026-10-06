@@ -28,7 +28,20 @@ namespace seissol::expr {
 namespace {
 
 // ============================================================ tokenizer =====
-enum class TokenKind : std::uint8_t { Num, Str, Pow, Op, Name, Let, In, Def, Out, Grid, Eof };
+enum class TokenKind : std::uint8_t {
+  Num,
+  Str,
+  Pow,
+  Op,
+  Name,
+  Let,
+  In,
+  Def,
+  Out,
+  Grid,
+  State,
+  Eof
+};
 
 struct Token {
   TokenKind kind{};
@@ -159,6 +172,8 @@ std::vector<Token> tokenize(const std::string& source) {
         kind = TokenKind::Out;
       } else if (value == "grid") {
         kind = TokenKind::Grid;
+      } else if (value == "state") {
+        kind = TokenKind::State;
       }
       tokens.push_back({kind, std::move(value), static_cast<int>(start)});
       continue;
@@ -210,7 +225,16 @@ struct GridDeclaration {
   int position{0};
 };
 
+// A value kept per point across calls. Its next value is the definition of the same name, and
+// every reference to the name reads the value from the previous call.
+struct StateDeclaration {
+  std::string name;
+  double initial{0.0};
+  int position{0};
+};
+
 struct ParsedProgram {
+  std::vector<StateDeclaration> states;
   std::vector<SurfaceId> defs;
   // The subset of `defs` marked `out`, in declaration order. A subset rather
   // than a separate list: an exported definition IS an ordinary definition and
@@ -281,9 +305,13 @@ class Parser {
     // def already needed none: each starts with its own token kind, so the
     // greedy expression in a def body stops cleanly at the next declaration.
     while (peek().kind == TokenKind::Def || peek().kind == TokenKind::Grid ||
-           peek().kind == TokenKind::Out) {
+           peek().kind == TokenKind::Out || peek().kind == TokenKind::State) {
       if (peek().kind == TokenKind::Grid) {
         parsed.grids.push_back(gridDeclaration());
+        continue;
+      }
+      if (peek().kind == TokenKind::State) {
+        parsed.states.push_back(stateDeclaration());
         continue;
       }
       const bool exported = peek().kind == TokenKind::Out;
@@ -348,6 +376,23 @@ class Parser {
       grid.components.push_back(eat(TokenKind::Str).value);
     }
     return grid;
+  }
+
+  // 'state' NAME '=' ['-'] NUM -- the initial value is a literal: it is set before any point has
+  // been seen, so there is nothing for an expression to read.
+  StateDeclaration stateDeclaration() {
+    StateDeclaration state;
+    state.position = peek().position;
+    eat(TokenKind::State);
+    state.name = eat(TokenKind::Name).value;
+    eat(TokenKind::Op, "=");
+    const bool negative = valueIs("-");
+    if (negative) {
+      eat(TokenKind::Op, "-");
+    }
+    const double magnitude = std::stod(eat(TokenKind::Num).value);
+    state.initial = negative ? -magnitude : magnitude;
+    return state;
   }
 
   SurfaceId definition(bool exported) {
@@ -590,6 +635,9 @@ class Lowering {
     for (const SurfaceId id : parsed_.defs) {
       defs_[surface_[id].text] = id;
     }
+    for (const auto& state : parsed_.states) {
+      states_.insert(state.name);
+    }
   }
 
   NodeId lower(SurfaceId id) {
@@ -671,6 +719,11 @@ class Lowering {
       const auto bound = env.find(node.text);
       if (bound != env.end()) {
         return bound->second;
+      }
+      // A state reads its value from the previous call -- also where the definition of the same
+      // name, its next value, is in scope. That is what makes the update a parallel assignment.
+      if (states_.count(node.text) != 0) {
+        return program_.arena().field(node.text);
       }
       const auto constant = Constants.find(node.text);
       if (constant != Constants.end()) {
@@ -801,6 +854,7 @@ class Lowering {
   const std::vector<GridId>& gridIds_;
   Program& program_;
   std::map<std::string, SurfaceId> defs_;
+  std::set<std::string> states_;
   std::vector<std::string> channels_;
 };
 
@@ -848,6 +902,39 @@ void compileSource(const std::string& source,
   }
   const ComponentTable components = checkGrids(parsed.grids, defNames);
 
+  // Every state needs exactly one definition of the same name, its next value; and a state name
+  // must not be anything else a name can resolve to.
+  std::set<std::string> stateNames;
+  for (const auto& state : parsed.states) {
+    if (!stateNames.insert(state.name).second) {
+      throw SderivError("state", "duplicate state `" + state.name + "`", state.position);
+    }
+    if (Constants.count(state.name) != 0 || Builtins.count(state.name) != 0 ||
+        components.count(state.name) != 0) {
+      throw SderivError("state",
+                        "the state `" + state.name +
+                            "` has the name of a constant, function or "
+                            "grid component",
+                        state.position);
+    }
+    if (defNames.count(state.name) == 0) {
+      throw SderivError("state",
+                        "the state `" + state.name +
+                            "` is never updated; define its next value "
+                            "with `def " +
+                            state.name + " = ...` or `out def " + state.name + " = ...`",
+                        state.position);
+    }
+  }
+  for (const SurfaceId id : parsed.defs) {
+    if (stateNames.count(surface[id].text) != 0 && !surface[id].params.empty()) {
+      throw SderivError("state",
+                        "the next value of the state `" + surface[id].text +
+                            "` cannot take parameters",
+                        surface[id].position);
+    }
+  }
+
   std::vector<GridId> gridIds;
   gridIds.reserve(parsed.grids.size());
   for (const auto& grid : parsed.grids) {
@@ -888,6 +975,17 @@ void compileSource(const std::string& source,
     }
   }
 
+  // The next values of the states, lowered before the channels are collected: a definition that
+  // is not an output may read channels nothing else does.
+  std::vector<NodeId> stateRoots;
+  for (const auto& state : parsed.states) {
+    for (const SurfaceId id : parsed.defs) {
+      if (surface[id].text == state.name) {
+        stateRoots.push_back(lowering.lower(surface[id].a));
+      }
+    }
+  }
+
   for (const auto& name : lowering.channels()) {
     if (std::find(channelOrder.begin(), channelOrder.end(), name) == channelOrder.end()) {
       channelOrder.push_back(name);
@@ -895,6 +993,9 @@ void compileSource(const std::string& source,
   }
   for (auto& [name, root] : roots) {
     program.addOutput(name, type, root);
+  }
+  for (std::size_t i = 0; i < parsed.states.size(); ++i) {
+    program.addState(parsed.states[i].name, parsed.states[i].initial, stateRoots[i]);
   }
 }
 
