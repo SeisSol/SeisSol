@@ -49,6 +49,12 @@ else()
   set(MATERIAL_NODAL_PARAM "")
 endif()
 
+if (CURVILINEAR)
+  set(CURVILINEAR_PARAM "--curvilinear")
+else()
+  set(CURVILINEAR_PARAM "")
+endif()
+
 if (MATERIAL_POINTS)
   set(MATERIAL_POINTS_PARAM "--material_points=${MATERIAL_POINTS}")
 else()
@@ -74,6 +80,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      ${MATERIAL_POINTS_PARAM}
      ${FACTORED_STAR_PARAM}
      ${MATERIAL_NODAL_PARAM}
+     ${CURVILINEAR_PARAM}
      "--material_operator" ${MATERIAL_OPERATOR}
      "--material_projection" ${MATERIAL_PROJECTION}
      "--gemm_tools" ${GEMM_TOOLS_LIST}

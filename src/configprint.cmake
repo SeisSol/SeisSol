@@ -63,6 +63,12 @@ else()
   set(PARAMETER_MATERIAL_NODAL "false")
 endif()
 
+if (CURVILINEAR)
+  set(PARAMETER_CURVILINEAR "true")
+else()
+  set(PARAMETER_CURVILINEAR "false")
+endif()
+
 if (PRECISION STREQUAL "single")
   set(PARAMETER_REALTYPE "F32")
 else()

@@ -13,6 +13,7 @@
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
+#include "Initializer/Model/CurvedCell.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/STP/Setup.h"
@@ -105,11 +106,8 @@ class SpaceTimePredictorTestFixture {
     // what a cell hands the kernel is whatever that build has it carry, so
     // fill both and let the binding pick.
     if constexpr (FactoredStar) {
-      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
-        for (std::size_t component = 0; component < Cell::Dim; ++component) {
-          localIntegration.referenceGradients[dim][component] = grad(dim, component);
-        }
-      }
+      // at every point the operator is formed at, where a cell may be curved
+      initializer::CurvedCell::setConstantGradients(grad, localIntegration.referenceGradients);
       const auto coefficients = seissol::model::getStarCoefficients(material);
       for (std::size_t i = 0; i < coefficients.size(); ++i) {
         // a material that does not vary carries the same value at every sample

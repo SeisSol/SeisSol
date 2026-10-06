@@ -34,6 +34,7 @@
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Initializer/Model/CellFlux.h"
+#include "Initializer/Model/CurvedCell.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
@@ -125,11 +126,7 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
                NeighboringIntegrationData& neighboring,
                std::array<std::array<real, tensor::AplusT::size()>, Cell::NumFaces>& weakAplus) {
   const auto gradients = cell.refToSpaceJacobianInverse(VectorT(Cell::ReferenceBarycenter.data()));
-  for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
-    for (std::size_t component = 0; component < Cell::Dim; ++component) {
-      local.referenceGradients[dim][component] = gradients(dim, component);
-    }
-  }
+  initializer::CurvedCell::setConstantGradients(gradients, local.referenceGradients);
   for (std::size_t point = 0; point < MaterialSampleCount; ++point) {
     const auto material = field(cell.refToSpace(samplePoint(point)));
     const auto coefficients = seissol::model::getStarCoefficients(material);
@@ -154,7 +151,7 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
     auto viewTinv = init::Tinv::view::create(matTinv.data());
     seissol::model::getFaceRotationMatrix(
         basis[0].normalized(), basis[1].normalized(), basis[2].normalized(), viewT, viewTinv);
-    std::copy_n(matT.data(), tensor::T::size(), local.faceRotation[side]);
+    initializer::CurvedCell::setConstantRotation(matT.data(), local.faceRotation[side]);
 
     // |S| / |J| with the sign of a subtracted flux, as the setup takes it
     const double fluxScale = -2.0 * face.area() / std::abs(cell.determinant());
@@ -303,11 +300,13 @@ void weakEquivalence() {
         }
 
         Eigen::MatrixXd expected = field * source;
+        const auto inverse =
+            cell.refToSpaceJacobianInverse(VectorT(Cell::ReferenceBarycenter.data()));
         const auto addDirection = [&](auto tag) {
           constexpr std::size_t Dim = decltype(tag)::value;
           Eigen::MatrixXd star = Eigen::MatrixXd::Zero(NQ, Columns);
           for (std::size_t component = 0; component < Cell::Dim; ++component) {
-            star += local.referenceGradients[Dim][component] * directional[component];
+            star += inverse(Dim, component) * directional[component];
           }
           const auto stiffness = mathMatrix(
               init::kDivM::view<Dim>::create(const_cast<real*>(init::kDivM::Values[Dim])),

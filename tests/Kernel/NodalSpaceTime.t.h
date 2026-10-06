@@ -28,6 +28,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
+#include "Initializer/Model/CurvedCell.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
@@ -136,11 +137,14 @@ TEST_CASE("Space time predictor at the material samples" * doctest::test_suite("
       }
 
       LocalIntegrationData localIntegration{};
+      Eigen::Matrix3d inverse;
       for (std::size_t dim = 0; dim < 3; ++dim) {
         for (std::size_t component = 0; component < 3; ++component) {
-          localIntegration.referenceGradients[dim][component] = gradients[dim][component];
+          inverse(dim, component) = gradients[dim][component];
         }
       }
+      // at every point the operator is formed at, where a cell may be curved
+      initializer::CurvedCell::setConstantGradients(inverse, localIntegration.referenceGradients);
       const auto meanSource = seissol::model::getSourceCoefficients(cellMaterial);
       for (std::size_t point = 0; point < Points; ++point) {
         const auto coefficients = seissol::model::getStarCoefficients(sampled[point]);

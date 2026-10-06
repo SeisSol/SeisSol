@@ -15,6 +15,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
@@ -23,6 +24,7 @@
 #include "Initializer/BoundaryHelper.h"
 #include "Initializer/BoundarySetup.h"
 #include "Initializer/Model/CellFlux.h"
+#include "Initializer/Model/CurvedCell.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -39,6 +41,8 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <string>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer {
@@ -146,6 +150,26 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
+  if (!Curvilinear && meshReader.geometryOrder() > 1) {
+    logError() << "The mesh has curved cells, but this build treats every cell as straight-sided. "
+                  "A build with CURVILINEAR=ON takes them as they are.";
+  }
+  if (meshReader.geometryOrder() > 1) {
+    // What a curved face supports is what its flux carries at its nodes. A fault rotates its state
+    // with one rotation per face and lifts it with one scale, and the boundary conditions that
+    // state a ghost cell apply it with the one matrix per face; both are a straight face's.
+    for (const auto& element : elements) {
+      for (const auto faceType : element.boundaries) {
+        if (faceType != FaceType::Regular && faceType != FaceType::FreeSurface &&
+            faceType != FaceType::Outflow) {
+          logError() << "A curved mesh supports regular, free-surface and outflow faces so far, "
+                        "but has a face of the type"
+                     << std::string(faceTypeName(faceType)) << ".";
+        }
+      }
+    }
+  }
+
   static_assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0],
                 "Shape mismatch for flux matrices");
   static_assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1],
@@ -228,13 +252,16 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           gradZeta[i] = grad(2, i);
         }
 
+        // the cell as the mesh gives it, where it may be curved
+        const auto curvedTransform =
+            Curvilinear ? seissol::geometry::cellTransformOf(meshId, meshReader) : nullptr;
+
         if constexpr (FactoredStar) {
-          const std::array<std::array<double, Cell::Dim>, Cell::Dim> gradients{
-              gradXi, gradEta, gradZeta};
-          for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
-            for (std::size_t component = 0; component < Cell::Dim; ++component) {
-              localIntegration[cell].referenceGradients[dim][component] = gradients[dim][component];
-            }
+          if constexpr (Curvilinear) {
+            // a curved cell has its metric at every point the operator is formed at
+            CurvedCell::setGradients(*curvedTransform, localIntegration[cell].referenceGradients);
+          } else {
+            CurvedCell::setConstantGradients(grad, localIntegration[cell].referenceGradients);
           }
           if constexpr (NodalMaterial) {
             // one operator per sample point, so one coefficient per point
@@ -378,16 +405,18 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           if constexpr (NodalFlux) {
             // the operator at the nodes of the face, from the material of both
             // cells there; the rotation is the face's own and the same for both
-            // sides, so it is kept once
-            auto rotation = init::T::view::create(localIntegration[cell].faceRotation[side]);
-            const auto source = init::T::view::create(matTData);
-            rotation.setZero();
-            for (std::size_t row = 0; row < tensor::T::Shape[0]; ++row) {
-              for (std::size_t column = 0; column < tensor::T::Shape[1]; ++column) {
-                if (rotation.isInRange(row, column)) {
-                  rotation(row, column) = source(row, column);
-                }
-              }
+            // sides, so it is kept once -- once per node, where the face may be
+            // curved, and so is the scale
+            std::array<double, FluxFaceNodes> nodeScale{};
+            if constexpr (Curvilinear) {
+              CurvedCell::setFace(*curvedTransform,
+                                  *seissol::geometry::faceTransformOf(meshId, side, meshReader),
+                                  side,
+                                  localIntegration[cell].faceRotation[side],
+                                  nodeScale);
+            } else {
+              CurvedCell::setConstantRotation(matTData, localIntegration[cell].faceRotation[side]);
+              nodeScale.fill(fluxScale);
             }
 
             const auto& ownSamples = nodalMaterial[cell];
@@ -424,7 +453,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                 neighborAtFace[node],
                                 cellInformation[cell].faceTypes[side],
                                 flux,
-                                fluxScale,
+                                nodeScale[node],
                                 plus,
                                 minus);
               for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {

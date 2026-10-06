@@ -29,7 +29,10 @@
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/Model/CurvedCell.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/StarOperands.h"
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
@@ -170,7 +173,12 @@ void compareAgainstModal(FaceType faceType) {
         typename Kernels<Enabled>::LocalFlux krnl{};
         krnl.I = dofs.data();
         krnl.Q = nodal.data();
-        krnl.T = matT.data();
+        // the rotation of the face, at each of its nodes where a face may be curved
+        alignas(Alignment)
+            std::array<real, sizeof(LocalIntegrationData::faceRotation[0]) / sizeof(real)>
+                rotation{};
+        initializer::CurvedCell::setConstantRotation(matT.data(), rotation.data());
+        kernels::bindFaceRotation(krnl, rotation.data());
         // the constants in the arrangement the kernel was generated against,
         // which only the pool holds
         krnl.bindGlobals(seissol::Pool::host());

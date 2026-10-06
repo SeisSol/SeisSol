@@ -56,6 +56,7 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 option(FACTORED_STAR "Store the material coefficients and the Jacobian rows of a cell instead of its assembled star matrices" ON)
+option(CURVILINEAR "Let a cell be curved: carry the rows of its inverse Jacobian at the points the operator is formed at, and the rotation and scale of a face at its nodes, instead of one of each per cell and per face. Needs MATERIAL_NODAL=ON with MATERIAL_OPERATOR=assembled and a medium whose flux decomposes into scalars per node, and runs on the CPU. Which cells are curved, the mesh decides" OFF)
 option(MATERIAL_NODAL "Let the material vary inside a cell: sample it at MATERIAL_POINTS and form the operator there, instead of one operator per cell. A face carries its flux operator the same way where that operator is a handful of scalars of the face, which is where the medium is isotropic and one medium per cell; elsewhere the flux keeps the one operator per side built from the material of the two cells" OFF)
 
 set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined architecture vector length")
@@ -229,6 +230,18 @@ if (MATERIAL_NODAL AND NOT FACTORED_STAR)
   message(FATAL_ERROR
     "MATERIAL_NODAL=ON needs FACTORED_STAR=ON: what varies inside a cell are the "
     "coefficients of its operator, which only a factored build carries.")
+endif()
+if (CURVILINEAR AND NOT MATERIAL_NODAL)
+  message(FATAL_ERROR
+    "CURVILINEAR=ON needs MATERIAL_NODAL=ON: the metric of a curved cell varies inside it "
+    "the way a material does, and goes into the operator at the same points. A constant "
+    "material is carried as samples that agree.")
+endif()
+if (CURVILINEAR AND NOT MATERIAL_OPERATOR STREQUAL "assembled")
+  message(FATAL_ERROR
+    "CURVILINEAR=ON needs MATERIAL_OPERATOR=assembled: the metric is folded into the "
+    "operator at every point once per kernel, where the factored form would fold it at "
+    "every application.")
 endif()
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
@@ -442,6 +455,11 @@ if (WITH_GPU)
             "tensorforge only, and the explicit Taylor-sum kernel the other generators "
             "enable assumes that every derivative is narrower than the last, which it is "
             "not where the material varies inside a cell.")
+    endif()
+    if (CURVILINEAR)
+        message(FATAL_ERROR
+            "CURVILINEAR=ON is not available on a GPU: a curved face carries its rotation "
+            "per node, and no device kernel has been generated or checked for that yet.")
     endif()
     if (MATERIAL_NODAL AND SOLVER STREQUAL "stp")
         message(FATAL_ERROR

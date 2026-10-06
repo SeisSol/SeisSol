@@ -26,6 +26,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Model/CurvedCell.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
 #include "Kernels/StarOperands.h"
@@ -96,11 +97,14 @@ void compareAgainstModal() {
       // 1. what the cell carries: the same coefficients at every sample point,
       //    since the material does not vary here
       LocalIntegrationData localIntegration{};
+      Eigen::Matrix3d inverse;
       for (std::size_t dim = 0; dim < 3; ++dim) {
         for (std::size_t component = 0; component < 3; ++component) {
-          localIntegration.referenceGradients[dim][component] = gradients[dim][component];
+          inverse(dim, component) = gradients[dim][component];
         }
       }
+      // at every point the operator is formed at, where a cell may be curved
+      initializer::CurvedCell::setConstantGradients(inverse, localIntegration.referenceGradients);
       const auto starCoefficients = seissol::model::getStarCoefficients(material);
       for (std::size_t i = 0; i < starCoefficients.size(); ++i) {
         for (std::size_t point = 0; point < MaterialSampleCount; ++point) {

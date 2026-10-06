@@ -122,6 +122,13 @@ class ADERDGBase(ABC):
         self.T = Tensor("T", trans_spp.shape, spp=trans_spp)
         trans_inv_spp = self.transformation_inv_spp()
         self.Tinv = Tensor("Tinv", trans_inv_spp.shape, spp=trans_inv_spp)
+        # The rotation once per node of a face, for a face whose normal turns
+        # along it. It is declared in every build, used or not, so that the host
+        # can size what a face stores without asking which build it is.
+        rotationNodesSpp = np.broadcast_to(
+            trans_spp, (self.num2DBasisFunctions(),) + tuple(trans_spp.shape)
+        ).copy()
+        self.TNodes = Tensor("TNodes", rotationNodesSpp.shape, spp=rotationNodesSpp)
         godunov_spp = self.godunov_spp()
         self.QgodLocal = Tensor("QgodLocal", godunov_spp.shape, spp=godunov_spp)
         self.QgodNeighbor = Tensor("QgodNeighbor", godunov_spp.shape, spp=godunov_spp)
@@ -295,6 +302,8 @@ class ADERDGBase(ABC):
             return
         self.T.setMemoryLayout(CSCMemoryLayout)
         self.Tinv.setMemoryLayout(CSCMemoryLayout)
+        # one block-diagonal rotation per node, packed by the pattern they share
+        self.TNodes.setMemoryLayout(PatternMemoryLayout, alignStride=False)
 
     def _configureStarAssembly(self, kwargs):
         """Sets up the tensors a cell carries where it holds the coefficients
@@ -309,6 +318,27 @@ class ADERDGBase(ABC):
         # the build got as far as the nodal configuration
         self.nodalMaterial = False
         self.nodalFaceFlux = False
+        # the points the operator is formed at: the barycentre, where it is one
+        # per cell; the nodal configuration replaces it with its point set
+        self.operatorNodes = Tensor(
+            "operatorNodes",
+            (1, 3),
+            spp={(0, d): repr(0.25) for d in range(3)},
+        )
+        # the rows of the inverse Jacobian a cell carries apart from its
+        # material; a curved cell has them at every point the operator is
+        # formed at, see _configureCurvilinear
+        self.referenceGradients = [
+            Tensor(f"referenceGradients({dim})", (3,)) for dim in range(3)
+        ]
+        self.curvilinear = bool(kwargs.get("curvilinear", False))
+        if self.curvilinear and not (
+            self.factoredStar and kwargs.get("material_nodal", False)
+        ):
+            raise ValueError(
+                "a curved cell carries its metric at the points the operator is "
+                "formed at, which only a build with MATERIAL_NODAL has"
+            )
         if not self.factoredStar:
             return
 
@@ -332,9 +362,6 @@ class ADERDGBase(ABC):
             "starStructure", shape, spp=values, addressing=AddressingMode.IMMEDIATE
         )
         self.materialCoefficients = Tensor("materialCoefficients", (count,))
-        self.referenceGradients = [
-            Tensor(f"referenceGradients({dim})", (3,)) for dim in range(3)
-        ]
         self.starAssembled = [
             Tensor(f"starAssembled({dim})", starSpp.shape, spp=starSpp, temporary=True)
             for dim in range(3)
@@ -398,6 +425,14 @@ class ADERDGBase(ABC):
             kwargs.get("material_projection", material.PROJECTIONS[0]),
         )
         npoints = self.operatorEval.shape()[0]
+        self.operatorNodes = material.operatorNodes(
+            self._matricesDir,
+            self,
+            kwargs["material_points"],
+            kwargs.get("material_projection", material.PROJECTIONS[0]),
+        )
+        if self.curvilinear:
+            self._configureCurvilinear(kwargs, npoints)
         # the same three under their own names in every nodal build, for the
         # host to read whichever way the kernels form the operator
         self.operatorExports = (
@@ -472,6 +507,50 @@ class ADERDGBase(ABC):
         if self.nodalFaceFlux:
             self._configureNodalFlux()
         self._configureNodalSource(kwargs)
+
+    def _configureCurvilinear(self, kwargs, npoints):
+        """Sets up what a curved cell carries beyond a straight-sided one.
+
+        The rows of the inverse Jacobian vary inside a curved cell, so a cell
+        carries them at the points the operator is formed at, where they go
+        into the operator together with the material. That is all the volume
+        needs: the predictor and the volume term both apply the strong form,
+        whose metric is the inverse Jacobian at the point, and the mass matrix
+        stays the one of the reference cell -- the scheme tests with the basis
+        divided by the Jacobian determinant, which the face terms take on as a
+        factor of their own at every node (see the host).
+
+        A face carries its rotation per node, since its normal turns along it;
+        that makes the flux one that has to be applied at the nodes, which is
+        where only a flux decomposed into scalars per node is.
+        """
+        if (
+            kwargs.get("material_operator", coefficients.OPERATOR_FORMS[0])
+            != "assembled"
+        ):
+            raise ValueError(
+                "a curved cell folds its metric into the operator at every point, "
+                "which is the assembled form; MATERIAL_OPERATOR=factored would "
+                "fold it at every application"
+            )
+        if not self.fluxDecomposes():
+            raise ValueError(
+                "a curved face needs its flux at its nodes, and this layout's "
+                "flux is not the scalars per node that form takes"
+            )
+        self.referenceGradients = [
+            Tensor(f"referenceGradients({dim})", (npoints, 3)) for dim in range(3)
+        ]
+
+    def faceRotation(self):
+        """The rotation a face's flux is applied with: one per face, or one per
+        node where a face may be curved."""
+        return self.TNodes if getattr(self, "curvilinear", False) else self.T
+
+    def faceRotationIndices(self):
+        """How the rotation is contracted into the face coordinates and back:
+        a curved face has a rotation per node, which is an index of its own."""
+        return ("nqk", "npl") if getattr(self, "curvilinear", False) else ("qk", "pl")
 
     def _configureNodalSource(self, kwargs):
         """The tensors a source term needs where the material varies inside a
@@ -628,10 +707,15 @@ class ADERDGBase(ABC):
             ]
             for face in range(4)
         ]
-        rotationLayout = self.T.memoryLayout()
+        prototype = self.faceRotation()
+        rotationLayout = prototype.memoryLayout()
         self.TAll = []
         for face in range(4):
-            rotation = Tensor(f"TAll({face})", self.T.shape(), spp=self.T.spp())
+            rotation = Tensor(
+                f"{prototype.baseName()}All({face})",
+                prototype.shape(),
+                spp=prototype.spp(),
+            )
             rotation.setMemoryLayout(
                 rotationLayout.__class__,
                 alignStride=rotationLayout.alignedStride(),
@@ -662,14 +746,15 @@ class ADERDGBase(ABC):
         `rotation` is the face rotation the kernel reads, T unless a kernel
         applies more than one face and needs one per face.
         """
-        rotation = self.T if rotation is None else rotation
+        rotation = self.faceRotation() if rotation is None else rotation
+        into, back = self.faceRotationIndices()
         faceValues = self.definedOnce(self.faceValues)
         faceRotated = self.definedOnce(self.faceRotated)
         faceProduct = self.definedOnce(self.faceProduct)
         faceBack = self.definedOnce(self.faceBack)
         statements = [
             faceValues["nq"] <= toFace * source["lk"] * self.inverseVoigtWeights["kq"],
-            faceRotated["nk"] <= faceValues["nq"] * rotation["qk"],
+            faceRotated["nk"] <= faceValues["nq"] * rotation[into],
         ]
         first = True
         for a, coefficient in enumerate(coefficientsOfFace):
@@ -678,7 +763,7 @@ class ADERDGBase(ABC):
                 faceProduct["nl"] <= (term if first else faceProduct["nl"] + term)
             )
             first = False
-        statements.append(faceBack["np"] <= faceProduct["nl"] * rotation["pl"])
+        statements.append(faceBack["np"] <= faceProduct["nl"] * rotation[back])
         statements.append(target["kp"] <= target["kp"] + lift * faceBack["np"])
         return statements
 
@@ -842,6 +927,20 @@ class ADERDGBase(ABC):
         statements = self.interpolateToOperator(
             self.nodalCoefficients, self.nodalCoefficientsAtOperator
         )
+        if self.curvilinear:
+            # the metric varies from point to point as the material does, so
+            # the two go in together, and only into the assembled form
+            for dim in range(3):
+                folded = None
+                for a, coefficient in enumerate(self.nodalCoefficientsAtOperator):
+                    term = (
+                        coefficient["n"]
+                        * self.referenceGradients[dim]["nj"]
+                        * self.coefficientStructure[a]["jqp"]
+                    )
+                    folded = term if folded is None else folded + term
+                statements.append(self.starAtPoint[dim]["nqp"] <= folded)
+            return statements
         statements += [
             self.structureFolded[dim][a]["qp"]
             <= self.referenceGradients[dim]["j"] * self.coefficientStructure[a]["jqp"]
@@ -1252,6 +1351,15 @@ class ADERDGBase(ABC):
         # against, in every build, so it has to reach the generated code.
         for orientation in self.db.fP.values():
             include_tensors.add(orientation)
+        # what a face stores where its rotation is per node, and where the
+        # operator is formed, in every build so that the host can read them
+        # without asking which build it is
+        include_tensors.add(self.TNodes)
+        include_tensors.add(self.operatorNodes)
+        # and the metric, which a build that carries assembled star matrices
+        # never reads but the host's setup of a cell still names
+        for gradients in self.referenceGradients:
+            include_tensors.add(gradients)
         if self.nodalMaterial:
             for tensor in self.operatorExports:
                 include_tensors.add(tensor)

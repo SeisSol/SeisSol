@@ -127,6 +127,22 @@ def operatorExports(matricesDir, aderdg, pointSet, projection):
     )
 
 
+def operatorNodes(matricesDir, aderdg, pointSet, projection):
+    """Where the points the operator is formed at sit, in the reference cell.
+
+    The host reads them where something it carries varies at those points
+    itself: the metric of a curved cell, which is evaluated there and not
+    interpolated from anywhere."""
+    operatorSet = operatorPointSet(pointSet, projection)
+    ops = _db(matricesDir, operatorSet, aderdg.order, aderdg.alignStride)
+    return Tensor(
+        "operatorNodes",
+        ops.vNodes.shape(),
+        spp=dict(ops.vNodes.values()),
+        alignStride=aderdg.alignStride("operatorNodes"),
+    )
+
+
 def _interpolation(name, aderdg, samples, points, same):
     """The values the samples give at the points of another set.
 

@@ -39,6 +39,9 @@ constexpr bool NodalMaterial = Config::MaterialNodal && FactoredStar;
 /// vary inside the cell.
 constexpr std::size_t MaterialSampleCount = generated::MaterialSampleCount;
 
+/// How many points the operator is formed at, one where it is one per cell.
+constexpr std::size_t OperatorPointCount = generated::OperatorPointCount;
+
 /// How many scalars the source term of a cell is linear in, and whether it is
 /// formed where the material is sampled. A solver without a source term, or
 /// one that does not declare its decomposition, carries none.
@@ -71,6 +74,15 @@ constexpr bool NodalFlux = NodalMaterial && FluxCoefficientCount > 0;
 /// carries those at its points; otherwise it carries one matrix per side.
 constexpr std::size_t FaultFluxCoefficientCount = generated::FaultFluxNumCoefficients;
 constexpr bool NodalFaultFlux = NodalMaterial && FaultFluxCoefficientCount > 0;
+
+/// Whether a cell may be curved. It then carries the rows of its inverse Jacobian at the points
+/// the operator is formed at, and a face carries its rotation and its scale at its nodes; which
+/// cells are curved, the mesh decides (see geometry::MeshReader::geometryOrder).
+constexpr bool Curvilinear = Config::Curvilinear && NodalFlux;
+static_assert(Config::Curvilinear == generated::Curvilinear,
+              "The build and the generated code disagree about whether a cell may be curved.");
+static_assert(!Config::Curvilinear || NodalFlux,
+              "A curved face applies its flux at its nodes, which this build does not.");
 
 /// Whether the corrector applies its volume term in the strong form. It does wherever the operator
 /// varies inside a cell: the weak form lifts the cell's own trace with the operator inside the

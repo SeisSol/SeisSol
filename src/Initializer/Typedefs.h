@@ -57,8 +57,10 @@ struct alignas(Alignment) LocalIntegrationData {
   // star matrices, where the cell carries them assembled
   real starMatrices[3][zeroGuard(FactoredStar ? 0 : seissol::tensor::star::size(0))]{};
 
-  // the rows of the Jacobian and the material coefficients, where it does not
-  real referenceGradients[3][zeroGuard(FactoredStar ? 3 : 0)]{};
+  // the rows of the Jacobian and the material coefficients, where it does not. A curved cell has
+  // the rows at every point the operator is formed at.
+  real referenceGradients[3][zeroGuard(FactoredStar ? (Curvilinear ? 3 * OperatorPointCount : 3)
+                                                    : 0)]{};
   // one per coefficient, and where the material varies inside the cell one per
   // sample point of it. The sample index is the slower one, so that a
   // coefficient's samples lie together the way the kernel reads them.
@@ -84,11 +86,13 @@ struct alignas(Alignment) LocalIntegrationData {
   // face carries the scalars it is built from at the nodes of that face rather
   // than the matrix they fold into. The rotation into the face coordinates
   // those scalars are stated in is the same for both sides, so a face keeps one
-  // of them; the inverse follows from it inside the kernel.
+  // of them; the inverse follows from it inside the kernel. A face that may be
+  // curved keeps one per node.
   real fluxCoefficients[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
       NodalFlux ? FluxCoefficientCount : 0)][zeroGuard(NodalFlux ? FluxFaceNodes : 0)]{};
-  real faceRotation[zeroGuard(NodalFlux ? Cell::NumFaces : 0)]
-                   [zeroGuard(NodalMaterial ? seissol::tensor::T::size() : 0)]{};
+  real faceRotation[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
+      NodalMaterial ? (Curvilinear ? seissol::tensor::TNodes::size() : seissol::tensor::T::size())
+                    : 0)]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::LocalData specific;

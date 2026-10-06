@@ -83,6 +83,7 @@ def main():
     cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
     cmdLineParser.add_argument("--factored_star", action="store_true", default=False)
+    cmdLineParser.add_argument("--curvilinear", action="store_true", default=False)
     cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
     cmdLineParser.add_argument(
         "--disable_premultiply_flux",
@@ -233,6 +234,7 @@ def main():
     solverSourceCoefficientCount = 0
     solverSourceDeviationCount = 0
     materialSampleCount = 1
+    operatorPointCount = 1
     adgForTables = None
 
     routine_cache = GlobalRoutineCache()
@@ -300,6 +302,7 @@ def main():
 
         # Equation-specific kernels
         nonlocal solverCoefficientCount, solverCoefficientOrigins, materialSampleCount
+        nonlocal operatorPointCount
         nonlocal solverSourceCoefficientCount, solverSourceDeviationCount
         nonlocal adgForTables
         adgForTables = adg
@@ -311,6 +314,8 @@ def main():
             materialSampleCount = kernels.material.pointCount(
                 cmdLineArgs.matricesDir, adg, materialPoints
             )
+        if adg.nodalMaterial:
+            operatorPointCount = adg.operatorEval.shape()[0]
 
         adg.addInit(generator)
         adg.addLocal(generator, targets)
@@ -466,6 +471,8 @@ def main():
             solver_source_count=solverSourceCoefficientCount,
             solver_source_deviations=solverSourceDeviationCount,
             material_samples=materialSampleCount,
+            operator_points=operatorPointCount,
+            curvilinear=adgForTables.curvilinear,
             material_interpolates=adgForTables.nodalMaterial
             and getattr(adgForTables, "materialToOperator", None) is not None,
             face_permutations=kernels.material.faceOrientationPermutations(
