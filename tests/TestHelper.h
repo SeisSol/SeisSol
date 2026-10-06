@@ -14,11 +14,49 @@
 #include "Setup.h"
 
 #include <cmath>
+#include <cstdlib>
 #include <limits>
+#include <optional>
 #include <ostream>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test {
+
+/// Sets the environment variable `name` to `value`, or unsets it without a value, for its lifetime;
+/// restores it afterwards.
+class ScopedEnvironment {
+  public:
+  ScopedEnvironment(std::string name, const std::optional<std::string>& value)
+      : name_(std::move(name)) {
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
+    if (const char* previous = std::getenv(name_.c_str()); previous != nullptr) {
+      previous_ = previous;
+    }
+    set(value);
+  }
+  ~ScopedEnvironment() { set(previous_); }
+
+  ScopedEnvironment(const ScopedEnvironment&) = delete;
+  ScopedEnvironment& operator=(const ScopedEnvironment&) = delete;
+  ScopedEnvironment(ScopedEnvironment&&) = delete;
+  ScopedEnvironment& operator=(ScopedEnvironment&&) = delete;
+
+  private:
+  void set(const std::optional<std::string>& value) const {
+    if (value.has_value()) {
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      setenv(name_.c_str(), value->c_str(), 1);
+    } else {
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      unsetenv(name_.c_str());
+    }
+  }
+
+  std::string name_;
+  std::optional<std::string> previous_;
+};
 
 // Inspired by doctest's Approx, slightly modified
 class AbsApprox {

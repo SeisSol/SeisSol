@@ -15,6 +15,9 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utils/env.h>
+#include <utils/logger.h>
+#include <utils/stringutils.h>
 
 namespace seissol {
 
@@ -42,7 +45,32 @@ std::optional<ConfigId> findConfig(std::string_view name) {
   return findConfig(value.value());
 }
 
-ConfigId defaultConfig() { return 0; }
+std::string builtConfigNames() {
+  std::string names;
+  for (std::size_t id = 0; id < builtConfigCount(); ++id) {
+    names += (id > 0 ? ", " : "") + configName(configValue(static_cast<ConfigId>(id)));
+  }
+  return names;
+}
+
+std::optional<ConfigId> environmentConfig() {
+  auto name = utils::Env("SEISSOL_").getOptional<std::string>("CONFIGURATION");
+  if (!name.has_value()) {
+    return std::nullopt;
+  }
+  // spelled as in a parameter file
+  utils::StringUtils::trim(name.value());
+  utils::StringUtils::toLower(name.value());
+  const auto config = findConfig(name.value());
+  if (!config.has_value()) {
+    logError() << "The configuration" << name.value()
+               << "of SEISSOL_CONFIGURATION is not built into this executable. It has:"
+               << builtConfigNames();
+  }
+  return config;
+}
+
+ConfigId defaultConfig() { return environmentConfig().value_or(0); }
 
 std::string describeBuiltConfigs() {
   std::ostringstream stream;

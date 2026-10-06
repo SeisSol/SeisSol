@@ -13,6 +13,11 @@ Environment variables
 
 SeisSol can be tuned with several environment variables.
 
+Configuration
+-------------
+
+An executable can hold several configurations (see ``EXTRA_CONFIGS`` in the build parameters). ``SEISSOL_CONFIGURATION`` chooses the one a run computes in, by its name, e.g. ``SEISSOL_CONFIGURATION=elastic-linearck-o4-f32-stroud``, for a parameter file that does not name one with ``Configuration`` in its ``equations`` section; a configuration named there takes precedence. Without either, a run takes the first configuration built. So a parameter file written for an executable of a single configuration runs unchanged in an executable of several. The proxy takes the configuration of ``SEISSOL_CONFIGURATION`` as well, unless ``--config`` gives one.
+
 Communication thread
 --------------------
 

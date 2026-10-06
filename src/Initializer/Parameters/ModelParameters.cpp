@@ -84,12 +84,8 @@ ConfigId configByName(std::string name) {
   sanitize(name);
   const auto config = findConfig(name);
   if (!config.has_value()) {
-    std::string names;
-    for (std::size_t id = 0; id < builtConfigCount(); ++id) {
-      names += (id > 0 ? ", " : "") + configName(configValue(static_cast<ConfigId>(id)));
-    }
     logError() << "The configuration" << name
-               << "is not built into this executable. It has:" << names;
+               << "is not built into this executable. It has:" << builtConfigNames();
   }
   return config.value();
 }
@@ -102,7 +98,16 @@ ConfigId readConfig(ParameterReader* baseReader) {
   if (!name.has_value()) {
     return defaultConfig();
   }
-  return configByName(name.value());
+  const auto config = configByName(name.value());
+  // the parameter file is the more specific of the two
+  const auto fromEnvironment = environmentConfig();
+  if (fromEnvironment.has_value() && fromEnvironment.value() != config) {
+    logWarning() << "SEISSOL_CONFIGURATION names"
+                 << configName(configValue(fromEnvironment.value()))
+                 << "but the parameter file names" << configName(configValue(config))
+                 << "which takes precedence.";
+  }
+  return config;
 }
 
 std::unordered_map<int, ConfigId> readGroupConfigs(ParameterReader* baseReader, ConfigId config) {

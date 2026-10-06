@@ -11,6 +11,7 @@
 #include "Common/ConfigValue.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "TestHelper.h"
 
 #include <cstddef>
 #include <string>
@@ -90,6 +91,25 @@ TEST_CASE("readConfig finds every configuration built by its name" *
     const YAML::Node node = YAML::Load("equations:\n  configuration: ' " + name + " '\n");
     ParameterReader reader(node, "", false);
     CHECK(readConfig(&reader) == id);
+  }
+}
+
+TEST_CASE("readConfig takes the configuration of SEISSOL_CONFIGURATION if the file names none" *
+          doctest::test_suite("initializer")) {
+  const auto last = static_cast<ConfigId>(builtConfigCount() - 1);
+  const ScopedEnvironment environment("SEISSOL_CONFIGURATION", configName(configValue(last)));
+
+  SUBCASE("the parameter file names no configuration") {
+    const YAML::Node node = YAML::Load("equations:\n  materialfilename: mat.yaml\n");
+    ParameterReader reader(node, "", false);
+    CHECK(readConfig(&reader) == last);
+  }
+
+  SUBCASE("the configuration of the parameter file applies") {
+    const YAML::Node node =
+        YAML::Load("equations:\n  configuration: " + configName(configValue(0)) + "\n");
+    ParameterReader reader(node, "", false);
+    CHECK(readConfig(&reader) == 0);
   }
 }
 
