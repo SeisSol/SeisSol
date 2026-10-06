@@ -41,8 +41,10 @@ struct LTS {
     PlasticityData
   };
 
-  static auto allocationModeWP(AllocationPreset preset,
-                               int convergenceOrder = seissol::ConvergenceOrder) {
+  /// The variables hold the data of every configuration; their sizes, which the placement
+  /// depends on, grow with the order.
+  static auto allocationModeWP(AllocationPreset preset) {
+    constexpr auto MaxOrder = maxBuiltConvergenceOrder();
     using namespace seissol::initializer;
     if constexpr (!isDeviceOn()) {
       switch (preset) {
@@ -57,13 +59,13 @@ struct LTS {
       case AllocationPreset::Timebucket:
         [[fallthrough]];
       case AllocationPreset::Timedofs:
-        return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       case AllocationPreset::Constant:
         [[fallthrough]];
       case AllocationPreset::ConstantShared:
-        return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       case AllocationPreset::Dofs:
-        return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       default:
         return AllocationMode::HostOnly;
       }
