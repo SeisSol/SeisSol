@@ -50,6 +50,8 @@ struct Wp {
     Integrals,
     // a time integral of a neighbor of another configuration in the canonical form of the family
     CanonicalIdofs,
+    // the weights of the normal stress on a face of a cell of a fluid, for a neighbor of a solid
+    NormalStress,
     Count
   };
 };

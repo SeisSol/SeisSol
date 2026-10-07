@@ -78,16 +78,6 @@ bool materialsCanNeighbor(ConfigId first, ConfigId second) {
   });
 }
 
-/// Whether the configurations `first` and `second` are a solid and a fluid.
-bool solidAndFluid(ConfigId first, ConfigId second) {
-  return dispatchConfig(first, [&](auto firstCfg) {
-    return dispatchConfig(second, [&](auto secondCfg) {
-      return model::SolidAndFluid<model::MaterialOf<decltype(firstCfg)>,
-                                  model::MaterialOf<decltype(secondCfg)>>;
-    });
-  });
-}
-
 } // namespace
 
 void checkConfigBoundaries(LTS::Storage& storage) {
@@ -126,12 +116,8 @@ void checkConfigBoundaries(LTS::Storage& storage) {
           !(kernels::deviceConvertible(first, second) &&
             kernels::deviceConvertible(second, first))) {
         ++problemCount;
-        if (solidAndFluid(first, second)) {
-          problems << "\n  faces " << pair << ": between a solid and a fluid, on CPUs only";
-        } else {
-          problems << "\n  faces " << pair
-                   << ": their conversion is generated for GPUs with TensorForge only";
-        }
+        problems << "\n  faces " << pair
+                 << ": their conversion is generated for GPUs with TensorForge only";
       }
     }
   }

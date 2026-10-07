@@ -191,6 +191,13 @@ recording::ConditionalKey fromCanonicalKey(std::size_t side) {
   return ConditionalKey(*KernelNames::ConfigBoundary, *ComputationKind::None, *FaceId::Any, side);
 }
 
+recording::ConditionalKey fromCoupledCanonicalKey(std::size_t side) {
+  using namespace seissol::recording;
+  // after the sides of fromCanonicalKey
+  return ConditionalKey(
+      *KernelNames::ConfigBoundary, *ComputationKind::None, *FaceId::Any, Cell::NumFaces + side);
+}
+
 } // namespace configboundary
 
 template <typename Cfg>
@@ -340,6 +347,29 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
         kernel::gpu_fromCanonical<Cfg> krnl;
         krnl.bindGlobals(*pool);
         krnl.canonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
+        krnl.I = integrals->getDeviceDataPtr();
+        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(side); });
+      }
+    }
+  }
+
+  // from the canonical form of the coupled family, per side of the neighbors
+  if constexpr (generated::ConfigBoundaryKernels<Cfg>::CoupledDevice) {
+    const auto* pool = static_cast<const GlobalData<Cfg>*>(devicePools_.at(configIdOf<Cfg>()));
+    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+      const auto key = configboundary::fromCoupledCanonicalKey(side);
+      if (table.find(key) != table.end()) {
+        auto& entry = table.at(key);
+        auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+        auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
+        assert(pool != nullptr);
+        kernel::gpu_fromCoupledCanonical<Cfg> krnl;
+        krnl.bindGlobals(*pool);
+        krnl.coupledCanonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
+        if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
+          auto* normalStress = entry.get<real*>(inner_keys::Wp::Id::NormalStress);
+          krnl.normalStress = const_cast<const real**>(normalStress->getDeviceDataPtr());
+        }
         krnl.I = integrals->getDeviceDataPtr();
         executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(side); });
       }

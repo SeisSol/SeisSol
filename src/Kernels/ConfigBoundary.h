@@ -72,8 +72,10 @@ constexpr bool Convertible =
 /// Whether the conversion of Convertible exists on the device as well.
 template <typename Cfg, typename NeighborCfg>
 constexpr bool DeviceConvertible =
-    FamilyConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::Device &&
-    generated::ConfigBoundaryKernels<NeighborCfg>::Device;
+    (FamilyConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::Device &&
+     generated::ConfigBoundaryKernels<NeighborCfg>::Device) ||
+    (CoupledConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::CoupledDevice &&
+     generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalDevice);
 
 /// The weights of NormalStressWeights for the face with the unit normal `normal`.
 template <typename Cfg>
@@ -97,6 +99,10 @@ recording::ConditionalKey toCanonicalKey(ConfigId neighbor);
 /// The batch of the conversion from the canonical form, for the neighbors that touch the cell with
 /// their side `side`.
 recording::ConditionalKey fromCanonicalKey(std::size_t side);
+
+/// The batch of the conversion from the canonical form of the coupled family, for the neighbors
+/// that touch the cell with their side `side`.
+recording::ConditionalKey fromCoupledCanonicalKey(std::size_t side);
 
 /// The alignment of each part of the device scratch of a face.
 constexpr std::size_t ScratchAlignment = 256;
@@ -163,8 +169,8 @@ class ConfigBoundary {
   /**
    * The batched counterpart of computeIntegrals for the cells of a layer, with the batches that
    * `table` holds (see NeighIntegrationRecorder): computes the time integrals of the neighbors of
-   * other configurations in their configuration, converts them into the canonical form, and from
-   * there into the configuration of the cells.
+   * other configurations in their configuration, converts them into the canonical form of their
+   * family, and from there into the configuration of the cells.
    */
   void computeBatchedIntegrals(recording::ConditionalPointersToRealsTable& table,
                                seissol::parallel::runtime::StreamRuntime& runtime) const;

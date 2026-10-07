@@ -293,6 +293,16 @@ void checkBatchedConversion() {
   auto* deviceConverted =
       static_cast<RealT*>(device.api().allocGlobMem(Cell::NumFaces * Size * sizeof(RealT)));
   device.api().copyTo(deviceIntegral, integral.data(), NeighborSize * sizeof(NeighborReal));
+  // the weights of the normal stress on the shared face, as convertOnHost sets them
+  NormalStressWeights<Cfg> normalStress{};
+  kernels::setNormalStressWeights<Cfg>(normalStress, 0, faceNormal());
+  std::vector<RealT*> deviceNormalStress;
+  if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
+    deviceNormalStress = {
+        static_cast<RealT*>(device.api().allocGlobMem(sizeof(normalStress.weights[0])))};
+    device.api().copyTo(
+        deviceNormalStress[0], normalStress.weights[0], sizeof(normalStress.weights[0]));
+  }
   // the conversion writes all of it
   const std::vector<RealT> nan(Cell::NumFaces * Size, std::numeric_limits<RealT>::quiet_NaN());
   device.api().copyTo(deviceConverted, nan.data(), nan.size() * sizeof(RealT));
@@ -307,9 +317,15 @@ void checkBatchedConversion() {
     std::array<std::vector<RealT*>, Cell::NumFaces> converted{};
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
       converted[side] = {deviceConverted + side * Size};
-      auto& fromCanonical = table[kernels::configboundary::fromCanonicalKey(side)];
+      const auto key = kernels::FamilyConvertible<Cfg, NeighborCfg>
+                           ? kernels::configboundary::fromCanonicalKey(side)
+                           : kernels::configboundary::fromCoupledCanonicalKey(side);
+      auto& fromCanonical = table[key];
       fromCanonical.set(recording::inner_keys::Wp::Id::CanonicalIdofs, canonical);
       fromCanonical.set(recording::inner_keys::Wp::Id::Idofs, converted[side]);
+      if (!kernels::FamilyConvertible<Cfg, NeighborCfg> && !deviceNormalStress.empty()) {
+        fromCanonical.set(recording::inner_keys::Wp::Id::NormalStress, deviceNormalStress);
+      }
     }
 
     parallel::runtime::StreamRuntime runtime;
@@ -325,6 +341,9 @@ void checkBatchedConversion() {
     CHECK(actual[i] == doctest::Approx(expected[i]).epsilon(tolerance).scale(1.0));
   }
 
+  for (auto* pointer : deviceNormalStress) {
+    device.api().freeGlobMem(pointer);
+  }
   device.api().freeGlobMem(deviceConverted);
   device.api().freeGlobMem(deviceCanonical);
   device.api().freeGlobMem(deviceIntegral);
