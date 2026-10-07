@@ -11,8 +11,14 @@ on:
 
 jobs:
   clang-tidy:
-    name: clang-tidy
+    name: clang-tidy (${{ matrix.shard }}/4)
     runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # with the set ci-cpu, clang-tidy takes about three and a half times as long as with one
+        # configuration; four jobs share the translation units (TIDY_SHARD of .ci/tidy.sh)
+        shard: [0, 1, 2, 3]
     steps:
       - name: apt-get
         run: |
@@ -54,8 +60,8 @@ jobs:
           which clang-tidy-22
           git submodule update --init
           mkdir -p build && cd build
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGRAPH_PARTITIONING_LIBS=ptscotch ..
-          make seissol-codegen
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DCONFIGS=ci-cpu -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGRAPH_PARTITIONING_LIBS=ptscotch ..
+          make -j $(nproc) seissol-codegen
           # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
           sed -i 's/-fprofile-abs-path //g' compile_commands.json
-          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-22) -quiet -j $(nproc)
+          TIDY_SHARD=${{ matrix.shard }}/4 ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-22) -quiet -j $(nproc)
