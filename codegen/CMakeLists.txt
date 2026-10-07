@@ -53,7 +53,10 @@ foreach(IDX RANGE ${SEISSOL_CONFIG_LAST})
     "\"multipleSimulations\": ${CONFIG_SIMULATIONS}}")
 endforeach()
 string(APPEND SEISSOL_CONFIGS_JSON "\n]\n")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/configs.json" "${SEISSOL_CONFIGS_JSON}")
+# written only when its content changes: the code generation depends on it, and a rerun of CMake
+# should not regenerate and rebuild everything
+file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/configs.json"
+     CONTENT "${SEISSOL_CONFIGS_JSON}" @ONLY)
 
 set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}

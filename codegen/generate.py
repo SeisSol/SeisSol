@@ -22,6 +22,7 @@ import kernels.dynamic_rupture
 import kernels.general
 import kernels.memlayout
 import kernels.nodalbc
+import kernels.output
 import kernels.plasticity
 import kernels.point
 import kernels.quantities
@@ -570,8 +571,9 @@ def main():
             "headers": metagen.shared_headers(),
         }
 
-        with open(os.path.join(cmdLineArgs.outputDir, "targets.json"), "w") as file:
-            json.dump(targets, file)
+        kernels.output.write_if_changed(
+            os.path.join(cmdLineArgs.outputDir, "targets.json"), json.dumps(targets)
+        )
 
 
 if __name__ == "__main__":
