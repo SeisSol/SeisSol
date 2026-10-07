@@ -34,6 +34,13 @@ else()
   set(OVERRIDE_ALIGNMENT_PARAM "")
 endif()
 
+# the unit tests of the kernels, only where they are compiled
+if (TESTING_GENERATED)
+  set(UNIT_TESTS_VALUE "doctest")
+else()
+  set(UNIT_TESTS_VALUE "none")
+endif()
+
 # common arguments between configure and build
 # the configurations to generate (cmake/configs.cmake), each under the C++ type it is generated for
 set(SEISSOL_CONFIGS_JSON "[")
@@ -81,7 +88,8 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--configs" "${CMAKE_CURRENT_BINARY_DIR}/configs.json"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      ${OVERRIDE_VECTORSIZE_PARAM}
-     ${OVERRIDE_ALIGNMENT_PARAM})
+     ${OVERRIDE_ALIGNMENT_PARAM}
+     "--unit_tests" ${UNIT_TESTS_VALUE})
 
 # find out which files will be generated
 execute_process(COMMAND ${GENERATE_ARGS} "--mode" "collect"

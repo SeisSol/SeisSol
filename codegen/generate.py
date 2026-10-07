@@ -111,6 +111,8 @@ def main():
     # the configurations to generate, in the order of their ids; without it, the one that the
     # arguments above describe, under the key seissol::Config0
     cmdLineParser.add_argument("--configs", type=str, default=None)
+    # the frameworks to write the unit tests of the kernels for, comma-separated, or none
+    cmdLineParser.add_argument("--unit_tests", type=str, default="doctest")
 
     cmdLineParser.set_defaults(enable_premultiply_flux=False)
     cmdLineArgs = cmdLineParser.parse_args()
@@ -301,6 +303,10 @@ def main():
         "w",
     ]
 
+    unitTests = (
+        [] if cmdLineArgs.unit_tests == "none" else cmdLineArgs.unit_tests.split(",")
+    )
+
     def check_run_codegen(name):
         return cmdLineArgs.mode == "codegen" and cmdLineArgs.codegen_target in (
             "__all__",
@@ -450,6 +456,7 @@ def main():
             include_tensors=include_tensors,
             routine_exporters=custom_routine_generators,
             routine_cache=routine_cache,
+            unit_tests=unitTests,
         )
 
         return outputDirName
@@ -487,6 +494,7 @@ def main():
                 ),
                 routine_exporters=custom_routine_generators,
                 routine_cache=routine_cache,
+                unit_tests=unitTests,
             )
 
     def forward_files(filename):
@@ -542,6 +550,9 @@ def main():
         forward_files("configboundary.h")
 
     if cmdLineArgs.mode == "collect":
+        doctests = (
+            [f"{Generator.DOCTEST_FILE_NAME}.cpp"] if "doctest" in unitTests else []
+        )
         targets = {
             folder: {
                 "kernels": [
@@ -550,7 +561,7 @@ def main():
                     os.path.join(folder, "pool.cpp"),
                     os.path.join(folder, "tensor.cpp"),
                 ],
-                "tests": [os.path.join(folder, "test-kernel.cpp")],
+                "tests": [os.path.join(folder, name) for name in doctests],
                 "headers": [
                     os.path.join(folder, "init.h"),
                     os.path.join(folder, "kernel.h"),
