@@ -187,6 +187,9 @@ struct OutputParameters {
   PickpointParameters pickpointParameters;
   ReceiverOutputParameters receiverParameters;
   WaveFieldOutputParameters waveFieldParameters;
+  /// The model (an easi file, or a script) whose `wavefield` and `surface` restrict the cells and
+  /// the faces of the free surface written (cf. OutputRegions); empty for none.
+  std::string regionFileName;
 
   OutputParameters() = default;
   OutputParameters(bool loopStatisticsNetcdfOutput,
@@ -200,13 +203,14 @@ struct OutputParameters {
                    const FreeSurfaceOutputParameters& freeSurfaceParameters,
                    const PickpointParameters& pickpointParameters,
                    const ReceiverOutputParameters& receiverParameters,
-                   const WaveFieldOutputParameters& waveFieldParameters)
+                   const WaveFieldOutputParameters& waveFieldParameters,
+                   const std::string& regionFileName)
       : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
         xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress), prefix(prefix),
         checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
         energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
         pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),
-        waveFieldParameters(waveFieldParameters) {}
+        waveFieldParameters(waveFieldParameters), regionFileName(regionFileName) {}
 };
 
 void warnIntervalAndDisable(bool& enabled,

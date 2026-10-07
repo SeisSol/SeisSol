@@ -1573,9 +1573,11 @@ std::shared_ptr<DerivedOutput>
 }
 
 template <typename Cfg>
-std::shared_ptr<DerivedOutput> makeDerivedSurfaceOutput(seissol::SeisSol& seissolInstance,
-                                                        const DerivedSurfaceGeometry& geometry,
-                                                        const expr::Program& program) {
+std::shared_ptr<DerivedOutput>
+    makeDerivedSurfaceOutput(seissol::SeisSol& seissolInstance,
+                             const std::shared_ptr<const std::vector<std::size_t>>& faces,
+                             const DerivedSurfaceGeometry& geometry,
+                             const expr::Program& program) {
   auto& storage = seissolInstance.memoryManager().ltsStorage();
   auto& backmap = seissolInstance.memoryManager().backmap();
   const auto& integrator = seissolInstance.freeSurfaceIntegrator();
@@ -1593,8 +1595,8 @@ std::shared_ptr<DerivedOutput> makeDerivedSurfaceOutput(seissol::SeisSol& seisso
   }
 
   std::vector<WrittenElement> written;
-  for (std::size_t index = 0; index < integrator.backmap.size(); ++index) {
-    const auto face = integrator.backmap[index];
+  for (std::size_t index = 0; index < faces->size(); ++index) {
+    const auto face = integrator.backmap[faces->at(index)];
     const auto meshId = meshIds[face];
     const auto position = backmap.get(meshId);
     if (storage.layer(position.color).getIdentifier().config != configIdOf<Cfg>()) {
@@ -1612,12 +1614,8 @@ std::shared_ptr<DerivedOutput> makeDerivedSurfaceOutput(seissol::SeisSol& seisso
                                      meshId,
                                      index});
   }
-  return makeDerivedOutput<Cfg>(seissolInstance,
-                                integrator.backmap.size(),
-                                std::move(written),
-                                SurfacePoints(geometry),
-                                program,
-                                true);
+  return makeDerivedOutput<Cfg>(
+      seissolInstance, faces->size(), std::move(written), SurfacePoints(geometry), program, true);
 }
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
@@ -1627,7 +1625,10 @@ std::shared_ptr<DerivedOutput> makeDerivedSurfaceOutput(seissol::SeisSol& seisso
       const DerivedGeometry&,                                                                      \
       const expr::Program&);                                                                       \
   template std::shared_ptr<DerivedOutput> makeDerivedSurfaceOutput<Cfg>(                           \
-      seissol::SeisSol&, const DerivedSurfaceGeometry&, const expr::Program&);
+      seissol::SeisSol&,                                                                           \
+      const std::shared_ptr<const std::vector<std::size_t>>&,                                      \
+      const DerivedSurfaceGeometry&,                                                               \
+      const expr::Program&);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE
 

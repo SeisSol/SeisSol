@@ -713,6 +713,60 @@ std::set<std::string> faultProvides(const std::string& fileName) {
   return suppliedParameters(*model);
 }
 
+OutputRegions::OutputRegions(const std::string& fileName) : fileName_(fileName) {
+  if (fileName.empty()) {
+    return;
+  }
+  const auto model = ParameterDB::loadModel(fileName);
+  supplied_ = suppliedParameters(*model);
+  for (const auto& name : supplied_) {
+    if (name != WaveField && name != Surface) {
+      logError() << "The output region file" << fileName << "supplies" << name
+                 << "; it supplies the region of an output:" << WaveField << "or" << Surface << ".";
+    }
+  }
+}
+
+bool OutputRegions::restricts(const std::string& name) const { return supplied_.count(name) > 0; }
+
+std::vector<bool> OutputRegions::select(const std::string& name,
+                                        std::size_t count,
+                                        std::size_t corners,
+                                        const CornerFunction& corner,
+                                        const GroupFunction& group) const {
+  std::vector<bool> selected(count, true);
+  if (!restricts(name) || count == 0) {
+    return selected;
+  }
+
+  // one point per corner of an item, the corners of an item one after the other
+  const auto model = ParameterDB::loadModel(fileName_);
+  std::vector<double> values(count * corners, 0.0);
+  reader::scripting::DataTable table(values.size());
+  bindPointSet(
+      table,
+      [&](std::size_t first, std::size_t pointCount, double* xyz) {
+        for (std::size_t i = 0; i < pointCount; ++i) {
+          const auto position = corner((first + i) / corners, (first + i) % corners);
+          std::copy_n(position.data(), Cell::Dim, xyz + i * Cell::Dim);
+        }
+      },
+      [&](std::size_t first, std::size_t pointCount, std::int32_t* out) {
+        for (std::size_t i = 0; i < pointCount; ++i) {
+          out[i] = group((first + i) / corners);
+        }
+      });
+  table.bindView(name, reader::scripting::Direction::Out, values.data());
+  evaluateSafe(*model, table, "the output region " + name);
+
+  for (std::size_t item = 0; item < count; ++item) {
+    selected[item] = std::any_of(values.begin() + static_cast<std::ptrdiff_t>(item * corners),
+                                 values.begin() + static_cast<std::ptrdiff_t>((item + 1) * corners),
+                                 [](double value) { return value > 0.0; });
+  }
+  return selected;
+}
+
 DirichletCondition::DirichletCondition(const std::string& fileName)
     : model_(ParameterDB::loadModel(fileName)) {}
 

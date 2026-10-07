@@ -170,6 +170,9 @@ TimeInterval = 2.                    ! Index of printed info at time
 refinement = 1
 OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that describes the region
 ! of the wave field that should be written. Specified as 'xmin xmax ymin ymax zmin zmax'
+! OutputRegionFileName = 'sderiv:regions.sderiv' ! (optional) a script or an easi file whose
+! 'wavefield' and 'surface' restrict the cells and the faces of the free surface written: those at
+! one of whose vertices it is positive
 
 wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
 

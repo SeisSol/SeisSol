@@ -110,6 +110,42 @@ It looks like this:
 
    OutputGroups = 1 2 ! only include groups 1 and 2
 
+.. _output_region_file:
+
+OutputRegionFileName
+--------------------
+
+A region of any shape is given by a model, a script (an sderiv module, ``sderiv:file`` or a
+``.sderiv`` file, or a Lua model that traces, ``lua:file`` or a ``.lua`` file) or an
+:doc:`easi` file, named by ``OutputRegionFileName``. The model gives ``wavefield``, a function of
+the position ``x``, ``y``, ``z`` and of the ``group`` of a cell; a cell is written if it is
+positive at one of its vertices, as with ``OutputRegionBounds``. A value of a comparison (1 or 0)
+does, and so does a signed distance to the boundary of the region. The model is evaluated once,
+when the output is set up. It works together with the two parameters above: only the cells that
+satisfy all of them are included.
+
+The same file may give ``surface``, the region of the free surface output (see
+:doc:`free-surface-output`), where a face is written if ``surface`` is positive at one of its
+vertices. An output the file does not name is not restricted, and a file that gives anything else
+is an error.
+
+.. code-block:: text
+
+   # regions.sderiv
+   # the wave field within 10 km of the hypocenter, in groups 1 and 2
+   out def wavefield = select(le(group, 2.0), 1.0e4 - sqrt(x*x + y*y + (z + 1.2e4)*(z + 1.2e4)), 0.0)
+   # the free surface within the box |x| < 50 km, |y| < 30 km
+   out def surface = select(lt(abs(x), 5.0e4), select(lt(abs(y), 3.0e4), 1.0, 0.0), 0.0)
+
+.. code-block:: Fortran
+
+   &Output
+   OutputRegionFileName = 'sderiv:regions.sderiv'
+   /
+
+Note that a region thinner than the cells may contain none of their vertices, and thus no cell:
+widen it by the size of the cells.
+
 Example
 -------
 

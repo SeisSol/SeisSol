@@ -24,6 +24,7 @@
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/InitProcedure/DerivedOutput.h"
+#include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -355,7 +356,8 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
 
 /// Sets up the output of the wave field. Every cell is written in its configuration; with several
 /// configurations in the run, a quantity is written once for the cells of all of them.
-void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
+void setupWaveFieldOutput(seissol::SeisSol& seissolInstance,
+                          const initializer::OutputRegions& regions) {
   const auto& seissolParams = seissolInstance.parameters();
   const auto& parameters = seissolParams.output.waveFieldParameters;
   auto& memoryManager = seissolInstance.memoryManager();
@@ -366,10 +368,20 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
 
   std::vector<std::size_t> celllist;
   celllist.reserve(meshReader->getElements().size());
-  if (parameters.bounds.enabled || !parameters.groups.empty()) {
+  if (parameters.bounds.enabled || !parameters.groups.empty() ||
+      regions.restricts(initializer::OutputRegions::WaveField)) {
+    const auto& elements = meshReader->getElements();
     const auto& vertexArray = meshReader->getVertices();
-    for (std::size_t i = 0; i < meshReader->getElements().size(); ++i) {
-      const auto& element = meshReader->getElements()[i];
+    const auto inScriptedRegion = regions.select(
+        initializer::OutputRegions::WaveField,
+        elements.size(),
+        Cell::NumVertices,
+        [&](std::size_t cell, std::size_t corner) {
+          return vertexArray[elements[cell].vertices[corner]].coords;
+        },
+        [&](std::size_t cell) { return elements[cell].group; });
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+      const auto& element = elements[i];
       const auto& vertex0 = vertexArray[element.vertices[0]].coords;
       const auto& vertex1 = vertexArray[element.vertices[1]].coords;
       const auto& vertex2 = vertexArray[element.vertices[2]].coords;
@@ -381,7 +393,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
                              parameters.bounds.contains(vertex1[0], vertex1[1], vertex1[2]) ||
                              parameters.bounds.contains(vertex2[0], vertex2[1], vertex2[2]) ||
                              parameters.bounds.contains(vertex3[0], vertex3[1], vertex3[2]));
-      if (inGroup && inRegion) {
+      if (inGroup && inRegion && inScriptedRegion[i]) {
         celllist.push_back(i);
       }
     }
@@ -488,6 +500,8 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
 
 /// What the free surface output of all configurations shares.
 struct SurfaceOutputSetup {
+  // the faces written, by their index in the free surface integrator
+  std::shared_ptr<const std::vector<std::size_t>> faces;
   std::vector<io::instance::geometry::Subcell<2>> subcells;
   // the output points of a subcell, in its reference coordinates
   std::vector<std::array<double, 2>> dataBase;
@@ -527,10 +541,10 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance,
   NamedOutputs outputs;
   for (const auto* program : programs) {
     if (!program->outputs().empty()) {
-      collectDerived(
-          outputs,
-          derived,
-          initializer::makeDerivedSurfaceOutput<Cfg>(seissolInstance, geometry, *program));
+      collectDerived(outputs,
+                     derived,
+                     initializer::makeDerivedSurfaceOutput<Cfg>(
+                         seissolInstance, setup.faces, geometry, *program));
     }
   }
   return outputs;
@@ -539,7 +553,8 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance,
 /// Sets up the output of the free surface. Every face is written in the configuration of its
 /// cell; with several configurations in the run, a quantity is written once for the faces of all
 /// of them.
-void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
+void setupSurfaceOutput(seissol::SeisSol& seissolInstance,
+                        const initializer::OutputRegions& regions) {
   const auto& seissolParams = seissolInstance.parameters();
   const auto& parameters = seissolParams.output.freeSurfaceParameters;
   auto& memoryManager = seissolInstance.memoryManager();
@@ -558,6 +573,35 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
       freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::LocationFlag>();
 
   SurfaceOutputSetup setup;
+  // the faces in the region of the output, if a model restricts it
+  const auto faceCount = freeSurfaceIntegrator->backmap.size();
+  const auto inScriptedRegion = regions.select(
+      initializer::OutputRegions::Surface,
+      faceCount,
+      Face::NumVertices,
+      [&](std::size_t index, std::size_t corner) {
+        const auto face = freeSurfaceIntegrator->backmap[index];
+        const auto transform = seissol::geometry::AffineFaceTransform::fromMeshCell(
+            surfaceMeshIds[face], surfaceMeshSides[face], *meshReader);
+        // the corners of the reference triangle
+        const auto xyz = transform.refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
+            corner == 1 ? 1.0 : 0.0, corner == 2 ? 1.0 : 0.0));
+        return std::array<double, 3>{xyz(0), xyz(1), xyz(2)};
+      },
+      [&](std::size_t index) {
+        return meshReader->getElements()[surfaceMeshIds[freeSurfaceIntegrator->backmap[index]]]
+            .group;
+      });
+  std::vector<std::size_t> faceList;
+  faceList.reserve(faceCount);
+  for (std::size_t index = 0; index < faceCount; ++index) {
+    if (inScriptedRegion[index]) {
+      faceList.push_back(index);
+    }
+  }
+  const auto faces = std::make_shared<const std::vector<std::size_t>>(std::move(faceList));
+  setup.faces = faces;
+
   // the output points, as the state of the derived outputs is laid out for them
   const auto points = initializer::surfaceGeometry(parameters);
   setup.order = order;
@@ -584,14 +628,14 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
 
   auto writer = io::instance::geometry::GeometryWriter(
       "surface",
-      freeSurfaceIntegrator->backmap.size(),
+      faces->size(),
       io::instance::geometry::Shape::Triangle,
       config,
       setup.subcells.size(),
 
       [=](double* target, std::size_t index, std::size_t subcell) {
-        auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-        auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
+        auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[faces->at(index)]];
+        auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[faces->at(index)]];
         const auto face =
             seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, *meshReader);
 
@@ -617,13 +661,13 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
       {},
       true,
       [=](std::uint32_t* target, std::size_t index, std::size_t /*subcell*/) {
-        target[0] = surfaceLocationFlag[freeSurfaceIntegrator->backmap[index]];
+        target[0] = surfaceLocationFlag[freeSurfaceIntegrator->backmap[faces->at(index)]];
       });
 
   writer.addCellData<std::size_t>(
       "global-id", {}, true, [=](std::size_t* target, std::size_t index, std::size_t /*subcell*/) {
-        const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-        const auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
+        const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[faces->at(index)]];
+        const auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[faces->at(index)]];
         target[0] = meshReader->getElements()[meshId].globalId * 4 + side;
       });
 
@@ -631,9 +675,9 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   const auto configs = seissolParams.model.configs();
   auto& ltsStorage = memoryManager.ltsStorage();
   auto& backmap = memoryManager.backmap();
-  std::vector<ConfigId> configOfFace(freeSurfaceIntegrator->backmap.size());
+  std::vector<ConfigId> configOfFace(faces->size());
   for (std::size_t index = 0; index < configOfFace.size(); ++index) {
-    const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
+    const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[faces->at(index)]];
     configOfFace[index] =
         ltsStorage.lookup<LTS::SecondaryInformation>(backmap.get(meshId)).configId;
   }
@@ -663,12 +707,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
 
+  // the regions the mesh outputs are restricted to by a model, if any
+  const initializer::OutputRegions regions(seissolParams.output.regionFileName);
+
   if (seissolParams.output.waveFieldParameters.enabled) {
-    setupWaveFieldOutput(seissolInstance);
+    setupWaveFieldOutput(seissolInstance, regions);
   }
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
-    setupSurfaceOutput(seissolInstance);
+    setupSurfaceOutput(seissolInstance, regions);
   }
 
   if (seissolParams.output.receiverParameters.enabled) {

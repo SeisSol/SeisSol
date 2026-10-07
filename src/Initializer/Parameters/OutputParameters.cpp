@@ -399,6 +399,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
   const auto pickpointParameters = readPickpointParameters(baseReader);
   const auto receiverParameters = readReceiverParameters(baseReader);
   const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries, config);
+  const auto regionFileName = reader->readPath("outputregionfilename").value_or("");
 
   reader->warnDeprecated({"projection",
                           "rotation",
@@ -420,6 +421,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
                           freeSurfaceParameters,
                           pickpointParameters,
                           receiverParameters,
-                          waveFieldParameters);
+                          waveFieldParameters,
+                          regionFileName);
 }
 } // namespace seissol::initializer::parameters

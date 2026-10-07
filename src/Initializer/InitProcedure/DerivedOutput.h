@@ -386,12 +386,15 @@ std::shared_ptr<DerivedOutput>
                             const DerivedGeometry& geometry,
                             const expr::Program& program);
 
-/// The derived outputs of `program` at the written faces of the free surface (in the order of the
-/// free surface integrator) whose cells are of the configuration `Cfg`; as above if there is none.
+/// The derived outputs of `program` at the faces `faces` of the free surface (their indices in the
+/// free surface integrator, in the order written) whose cells are of the configuration `Cfg`; as
+/// above if there is none.
 template <typename Cfg>
-std::shared_ptr<DerivedOutput> makeDerivedSurfaceOutput(seissol::SeisSol& seissolInstance,
-                                                        const DerivedSurfaceGeometry& geometry,
-                                                        const expr::Program& program);
+std::shared_ptr<DerivedOutput>
+    makeDerivedSurfaceOutput(seissol::SeisSol& seissolInstance,
+                             const std::shared_ptr<const std::vector<std::size_t>>& faces,
+                             const DerivedSurfaceGeometry& geometry,
+                             const expr::Program& program);
 
 } // namespace seissol::initializer
 

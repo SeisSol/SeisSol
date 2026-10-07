@@ -22,6 +22,7 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -188,6 +189,42 @@ class FaultParameterDB : public ParameterDB {
 
 /// The parameters a fault parameter file provides.
 std::set<std::string> faultProvides(const std::string& fileName);
+
+/// The regions the mesh outputs are restricted to by a model (an easi file, or a script): the
+/// output of the wave field writes the cells at one of whose vertices the model gives a positive
+/// `wavefield`, the one of the free surface the faces where it gives a positive `surface`. The
+/// model reads the position x, y, z and the group of the cell.
+class OutputRegions {
+  public:
+  static constexpr const char* WaveField = "wavefield";
+  static constexpr const char* Surface = "surface";
+
+  /// The position of corner `corner` of item `item`.
+  using CornerFunction = std::function<std::array<double, 3>(std::size_t item, std::size_t corner)>;
+  /// The group of item `item`.
+  using GroupFunction = std::function<int(std::size_t item)>;
+
+  OutputRegions() = default;
+
+  /// The regions of the model in `fileName`; none for an empty name. A model that gives anything
+  /// else than the regions is an error.
+  explicit OutputRegions(const std::string& fileName);
+
+  /// Whether the model restricts the output `name`.
+  [[nodiscard]] bool restricts(const std::string& name) const;
+
+  /// Which of `count` items with `corners` corners each lie in the region of the output `name`:
+  /// those where it is positive at one of their corners; all if the model does not restrict it.
+  [[nodiscard]] std::vector<bool> select(const std::string& name,
+                                         std::size_t count,
+                                         std::size_t corners,
+                                         const CornerFunction& corner,
+                                         const GroupFunction& group) const;
+
+  private:
+  std::string fileName_;
+  std::set<std::string> supplied_;
+};
 
 /**
  * The frame the affine boundary condition is stated in. Global is the default; face-aligned

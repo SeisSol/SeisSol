@@ -61,6 +61,20 @@ It has the value 2 for an ordinary free surface boundary condition and the value
 boundary condition.
 This value can be used to filter the output (which contains all these surfaces), for example using Paraview's Threshold filter.
 
+Region
+------
+
+The faces written may be restricted to a region given by a script or an easi file, which gives
+``surface`` as a function of the position ``x``, ``y``, ``z`` and of the ``group`` of the cell: a
+face is written if it is positive at one of its vertices. The file is named by
+``OutputRegionFileName`` and may give the region of the wavefield output as well, see
+:ref:`output_region_file`.
+
+.. code-block:: text
+
+   # regions.sderiv: the free surface within 20 km of the epicenter
+   out def surface = 2.0e4 - sqrt(x*x + y*y)
+
 Derived outputs
 ---------------
 
