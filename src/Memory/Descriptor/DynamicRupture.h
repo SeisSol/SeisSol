@@ -401,6 +401,35 @@ struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {
       : LTSImposedSlipRates(parameters) {}
 };
 
+/// The imposed slip rates of a script (FL 36): the values per point the script reads, and the
+/// slip rates of the sub-steps of the current step, which it gives. A layer holds them row after
+/// row over all of its points rather than face by face -- see dr::friction_law::SlipRateEvaluator
+/// -- so that a row is a column of the program; the storage holds them, it does not lay them out.
+struct LTSImposedSlipRatesScript : public DynamicRupture {
+  template <typename Cfg>
+  using PointDoubles = double[dr::misc::NumPaddedPoints<Cfg>];
+  template <typename Cfg>
+  using StepSlipRates = Real<Cfg>[dr::misc::TimeSteps<Cfg>][2][dr::misc::NumPaddedPoints<Cfg>];
+
+  /// one value per point for each row of the script (dr::friction_law::SlipRateScript::rows)
+  struct ScriptParameters : public initializer::VariantVariable<PointDoubles> {};
+  /// the slip rates along the two directions of the face, per sub-step
+  struct ScriptSlipRates : public initializer::VariantVariable<StepSlipRates> {};
+
+  std::size_t scriptRows{0};
+
+  LTSImposedSlipRatesScript(const initializer::parameters::DRParameters* parameters,
+                            std::size_t rows)
+      : DynamicRupture(parameters), scriptRows(rows) {}
+
+  void addTo(Storage& storage) override {
+    DynamicRupture::addTo(storage);
+    const auto mask = initializer::LayerMask(Ghost);
+    storage.add<ScriptParameters>(mask, Alignment, allocationModeDR(), true, scriptRows);
+    storage.add<ScriptSlipRates>(mask, Alignment, allocationModeDR());
+  }
+};
+
 } // namespace seissol
 
 #endif // SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_

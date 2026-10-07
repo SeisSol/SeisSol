@@ -44,6 +44,7 @@ enum class FrictionLawType : uint32_t {
   ImposedSlipRatesYoffe = 33,
   ImposedSlipRatesGaussian = 34,
   ImposedSlipRatesDelta = 35,
+  ImposedSlipRatesScript = 36,
   RateAndStateSevereVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
 };

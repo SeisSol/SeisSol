@@ -7,7 +7,11 @@
 
 #include "Factory.h"
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/SlipRateScript.h"
 #include "DynamicRupture/Misc.h"
 #include "FrictionLaws/FrictionLaws.h"
 #include "Initializer/Initializers.h"
@@ -211,6 +215,38 @@ class ImposedSlipRatesGaussianFactory : public AbstractFactory {
   }
 };
 
+/// The friction solvers of the imposed slip rates of a script, which all share its program.
+template <template <typename> typename SolverT>
+seissol::dr::friction_law::FrictionSolverFactory
+    scriptedSolverFactory(const seissol::initializer::parameters::DRParameters& parameters,
+                          std::shared_ptr<const seissol::dr::friction_law::SlipRateScript> script) {
+  return [parameters, script](ConfigId config) {
+    return dispatchConfig(
+        config, [&](auto cfg) -> std::unique_ptr<seissol::dr::friction_law::FrictionSolver> {
+          using Cfg = decltype(cfg);
+          return std::make_unique<SolverT<Cfg>>(FrictionLawParameters<Real<Cfg>>(parameters),
+                                                script);
+        });
+  };
+}
+
+class ImposedSlipRatesScriptFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override {
+    auto script = std::make_shared<const seissol::dr::friction_law::SlipRateScript>(
+        drParameters_->slipRateScript);
+    return {
+        std::make_unique<seissol::LTSImposedSlipRatesScript>(drParameters_.get(), script->rows()),
+        std::make_unique<seissol::dr::initializer::ImposedSlipRatesScriptInitializer>(
+            drParameters_, seissolInstance_, script),
+        scriptedSolverFactory<friction_law_cpu::ScriptedSlipRates>(*drParameters_, script),
+        scriptedSolverFactory<friction_law_gpu::ScriptedSlipRates>(*drParameters_, script),
+        std::make_unique<seissol::dr::output::OutputManager>(
+            std::make_unique<seissol::dr::output::ImposedSlipRates>(), seissolInstance_)};
+  }
+};
+
 class ImposedSlipRatesDeltaFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
@@ -313,6 +349,8 @@ std::unique_ptr<AbstractFactory>
     return std::make_unique<ImposedSlipRatesGaussianFactory>(drParameters, seissolInstance);
   case seissol::dr::misc::FrictionLawType::ImposedSlipRatesDelta:
     return std::make_unique<ImposedSlipRatesDeltaFactory>(drParameters, seissolInstance);
+  case seissol::dr::misc::FrictionLawType::ImposedSlipRatesScript:
+    return std::make_unique<ImposedSlipRatesScriptFactory>(drParameters, seissolInstance);
   case seissol::dr::misc::FrictionLawType::LinearSlipWeakening:
     return std::make_unique<LinearSlipWeakeningFactory>(drParameters, seissolInstance);
   case seissol::dr::misc::FrictionLawType::LinearSlipWeakeningBimaterial:

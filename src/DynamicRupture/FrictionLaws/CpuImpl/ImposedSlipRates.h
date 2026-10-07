@@ -23,8 +23,10 @@ class ImposedSlipRates : public BaseFrictionLaw<Cfg, ImposedSlipRates<Cfg, STF>>
   using BaseFrictionLaw<Cfg, ImposedSlipRates>::BaseFrictionLaw;
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
-    imposedSlipDirection1_ = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg());
-    imposedSlipDirection2_ = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Cfg());
+    if constexpr (!STF::Prescribed) {
+      imposedSlipDirection1_ = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg());
+      imposedSlipDirection2_ = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Cfg());
+    }
     stf_.copyStorageToLocal(layerData);
   }
 
@@ -36,17 +38,22 @@ class ImposedSlipRates : public BaseFrictionLaw<Cfg, ImposedSlipRates<Cfg, STF>>
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     const real timeIncrement = this->deltaT_[timeIndex];
-    real currentTime = this->fullUpdateTime_;
+    [[maybe_unused]] real currentTime = this->fullUpdateTime_;
     for (uint32_t i = 0; i <= timeIndex; i++) {
       currentTime += this->deltaT_[i];
     }
 
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
-      const real stfEvaluated = stf_.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
-
-      const auto evalCardinal1 = imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
-      const auto evalCardinal2 = imposedSlipDirection2_[ltsFace][pointIndex] * stfEvaluated;
+      real evalCardinal1 = 0;
+      real evalCardinal2 = 0;
+      if constexpr (STF::Prescribed) {
+        stf_.slipRates(ltsFace, pointIndex, timeIndex, evalCardinal1, evalCardinal2);
+      } else {
+        const real stfEvaluated = stf_.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
+        evalCardinal1 = imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
+        evalCardinal2 = imposedSlipDirection2_[ltsFace][pointIndex] * stfEvaluated;
+      }
 
       const auto [tU1, tU2] = common::matmulEta<Cfg>(this->impAndEta_[ltsFace],
                                                      this->impedanceMatrices_[ltsFace],
@@ -66,10 +73,8 @@ class ImposedSlipRates : public BaseFrictionLaw<Cfg, ImposedSlipRates<Cfg, STF>>
       this->traction1_[ltsFace][pointIndex] = traction1;
       this->traction2_[ltsFace][pointIndex] = traction2;
 
-      this->slipRate1_[ltsFace][pointIndex] =
-          this->imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
-      this->slipRate2_[ltsFace][pointIndex] =
-          this->imposedSlipDirection2_[ltsFace][pointIndex] * stfEvaluated;
+      this->slipRate1_[ltsFace][pointIndex] = evalCardinal1;
+      this->slipRate2_[ltsFace][pointIndex] = evalCardinal2;
       this->slipRateMagnitude_[ltsFace][pointIndex] = misc::magnitude(
           this->slipRate1_[ltsFace][pointIndex], this->slipRate2_[ltsFace][pointIndex]);
 

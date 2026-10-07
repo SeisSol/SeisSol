@@ -75,6 +75,8 @@ struct DRParameters {
   std::uint32_t rsNumberStateVariableUpdates{10};
   double rsSlipRateTolerance{1e-8};
   double rsStateTolerance{1e-8};
+  /// the script of the slip of the imposed slip rates of FL 36
+  std::string slipRateScript;
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config);

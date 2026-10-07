@@ -60,6 +60,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
        FrictionLawType::ImposedSlipRatesYoffe,
        FrictionLawType::ImposedSlipRatesGaussian,
        FrictionLawType::ImposedSlipRatesDelta,
+       FrictionLawType::ImposedSlipRatesScript,
        FrictionLawType::RateAndStateSevereVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
   if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
@@ -70,10 +71,11 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
       "sliprateoutputtype",
       SlipRateOutputType::TractionsAndFailure,
       {SlipRateOutputType::VelocityDifference, SlipRateOutputType::TractionsAndFailure});
-  if (((frictionLawType == FrictionLawType::ImposedSlipRatesYoffe) or
-       (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian) or
-       (frictionLawType == FrictionLawType::ImposedSlipRatesDelta)) and
-      (slipRateOutputType == SlipRateOutputType::TractionsAndFailure)) {
+  const bool isImposedSlipRates = (frictionLawType == FrictionLawType::ImposedSlipRatesYoffe) or
+                                  (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian) or
+                                  (frictionLawType == FrictionLawType::ImposedSlipRatesDelta) or
+                                  (frictionLawType == FrictionLawType::ImposedSlipRatesScript);
+  if (isImposedSlipRates and (slipRateOutputType == SlipRateOutputType::TractionsAndFailure)) {
     logWarning() << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
                     "switching to SlipRateOutputType=0";
     slipRateOutputType = SlipRateOutputType::VelocityDifference;
@@ -185,6 +187,14 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                               .value_or(reader->read<double>("etastop").value_or(
                                   std::numeric_limits<double>::infinity()));
 
+  std::string slipRateScript;
+  if (frictionLawType == FrictionLawType::ImposedSlipRatesScript) {
+    slipRateScript = reader->readPath("slipratescript").value_or("");
+    if (slipRateScript.empty()) {
+      logError() << "FL=36 imposes the slip rates of a script; name it with slipratescript.";
+    }
+  }
+
   const auto rsMaxNumberSlipRateUpdates =
       reader->readWithDefault<uint32_t>("rsmaxsliprateupdates", 60);
   const auto rsNumberStateVariableUpdates = reader->readWithDefault<uint32_t>("rsstateupdates", 10);
@@ -234,6 +244,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                       rsMaxNumberSlipRateUpdates,
                       rsNumberStateVariableUpdates,
                       rsSlipRateTolerance,
-                      rsStateTolerance};
+                      rsStateTolerance,
+                      slipRateScript};
 }
 } // namespace seissol::initializer::parameters

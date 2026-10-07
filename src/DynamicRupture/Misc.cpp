@@ -42,6 +42,8 @@ std::string frictionLawName(seissol::dr::misc::FrictionLawType type) {
     return "imposed-gaussian";
   case seissol::dr::misc::FrictionLawType::ImposedSlipRatesDelta:
     return "imposed-delta";
+  case seissol::dr::misc::FrictionLawType::ImposedSlipRatesScript:
+    return "imposed-script";
   case seissol::dr::misc::FrictionLawType::LinearSlipWeakening:
     return "lsw-base";
   case seissol::dr::misc::FrictionLawType::LinearSlipWeakeningBimaterial:
