@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -336,6 +337,27 @@ GridId Program::internGrid(const reader::datafield::GridDesc& desc) {
   }
   grids_.push_back(desc);
   return static_cast<GridId>(grids_.size() - 1);
+}
+
+std::set<std::string> channelsRead(const Program& program, const std::vector<NodeId>& roots) {
+  std::set<std::string> read;
+  std::vector<bool> seen(program.arena().size(), false);
+  std::vector<NodeId> pending = roots;
+  std::vector<NodeId> children;
+  while (!pending.empty()) {
+    const auto node = pending.back();
+    pending.pop_back();
+    if (node == NoNode || seen[static_cast<std::size_t>(node)]) {
+      continue;
+    }
+    seen[static_cast<std::size_t>(node)] = true;
+    if (program.arena()[node].kind == Kind::Field) {
+      read.insert(program.arena().channelName(program.arena()[node].ch));
+    }
+    program.arena().children(node, children);
+    pending.insert(pending.end(), children.begin(), children.end());
+  }
+  return read;
 }
 
 } // namespace seissol::expr

@@ -692,6 +692,31 @@ return M
     }
   }
 
+  TEST_CASE("a compiled reader reads only what the outputs a table asks for read") {
+    // an output nobody asks for may read an input the table does not give, here the time
+    constexpr auto TwoParts = R"lua(
+local M = {}
+M.output_parameters = {"near", "late"}
+M.input_parameters = {"x", "t"}
+
+function M.evaluate(fields, x, t)
+  return 2.0 * x, 3.0 * t
+end
+
+return M
+)lua";
+    reader::scripting::CompiledReader compiled(mustTrace(TwoParts), nullptr);
+    std::vector<double> x = {0.0, 0.5, 1.0};
+    std::vector<double> near(x.size(), -1.0);
+    DataTable table(x.size());
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindView<double>("near", Direction::Out, near.data());
+    CHECK_NOTHROW(compiled.call(table));
+    for (std::size_t i = 0; i < x.size(); ++i) {
+      CHECK(near[i] == 2.0 * x[i]);
+    }
+  }
+
   TEST_CASE("the traced program agrees with the interpreted reader") {
     // The same check CompiledReader::prepare runs at init before trusting a
     // kernel. Deliberately not only at "nice" coordinates: the ladder is where

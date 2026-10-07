@@ -34,6 +34,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -192,6 +193,10 @@ class Program {
 //
 // Throws std::invalid_argument; the caller turns that into logError.
 void validate(const Program& program);
+
+// The names of the channels (inputs and states) the expressions under `roots` read.
+[[nodiscard]] std::set<std::string> channelsRead(const Program& program,
+                                                const std::vector<NodeId>& roots);
 
 // True for kinds that carry state the scripting ABI has nowhere to put, and for
 // kinds that only mean something inside an element/output-cadence context.

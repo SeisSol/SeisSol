@@ -8,6 +8,7 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataReader.h"
@@ -62,7 +63,8 @@ CompiledReader::~CompiledReader() = default;
 
 namespace {
 
-/// `program` with only the outputs `table` has a column for, in their order.
+/// `program` with only the outputs `table` has a column for, in their order, and the inputs
+/// these read.
 expr::Program withOutputsOf(const expr::Program& program, const DataTable& table) {
   std::set<std::string> columns;
   for (const auto& entry : table.dataEntries()) {
@@ -87,8 +89,20 @@ expr::Program withOutputsOf(const expr::Program& program, const DataTable& table
   for (const auto& block : program.blocks()) {
     pruned.internBlock(block.name, block.length);
   }
+  std::vector<expr::NodeId> roots;
+  for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+    if (columns.count(program.outputs()[i].name) != 0) {
+      roots.push_back(program.roots()[i]);
+    }
+  }
+  for (const auto& state : program.state()) {
+    roots.push_back(state.root);
+  }
+  const auto read = expr::channelsRead(program, roots);
   for (const auto& input : program.inputs()) {
-    pruned.addInput(input.name, input.type);
+    if (read.count(input.name) != 0) {
+      pruned.addInput(input.name, input.type);
+    }
   }
   for (const auto& state : program.state()) {
     pruned.addState(state.name, state.initial, state.root);
