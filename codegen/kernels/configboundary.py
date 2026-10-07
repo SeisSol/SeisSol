@@ -56,6 +56,7 @@ from typing import NamedTuple, Optional
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
+from kernels.output import write_if_changed
 from kernels.quantities import (
     FaceRole,
     QuantityGroup,
@@ -525,5 +526,4 @@ def emit_header(aderdg, output_dir, key, plan, material, targets):
         "} // namespace seissol::generated",
         "",
     ]
-    with open(os.path.join(output_dir, "configboundary.h"), "w") as file:
-        file.write("\n".join(lines))
+    write_if_changed(os.path.join(output_dir, "configboundary.h"), "\n".join(lines))
