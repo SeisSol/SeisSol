@@ -143,6 +143,8 @@ def main():
     cmdLineParser.add_argument("--configs", type=str, default=None)
     # the frameworks to write the unit tests of the kernels for, comma-separated, or none
     cmdLineParser.add_argument("--unit_tests", type=str, default="doctest")
+    # the number of files the routines of the device are spread over
+    cmdLineParser.add_argument("--device_shards", type=int, default=1)
 
     cmdLineParser.set_defaults(enable_premultiply_flux=False)
     cmdLineArgs = cmdLineParser.parse_args()
@@ -591,7 +593,7 @@ def main():
         for exchange in exchanges:
             routine_cache.merge(exchange["routines"], root=cmdLineArgs.outputDir)
         routine_cache.merge(generate_general())
-        routine_cache.generate(cmdLineArgs.outputDir, "seissol")
+        routine_cache.generate(cmdLineArgs.outputDir, "seissol", shards=deviceShards)
 
         # init.h, kernel.h, pool.h and tensor.h are the metagen's, which name
         # the code of the equation by key; the code of general/, which belongs
@@ -599,6 +601,7 @@ def main():
         forward_files("quantities.h")
         forward_files("configboundary.h")
 
+    deviceShards = {"gpu": cmdLineArgs.device_shards}
     if cmdLineArgs.mode == "collect":
         # what Generator.generate writes for a generator in its directory
         def generator_files(folder):
@@ -651,6 +654,13 @@ def main():
             "tests": [],
             "headers": metagen.shared_headers(),
         }
+        routines = GlobalRoutineCache.sources("", deviceShards)
+        targets["routines"] = {
+            "kernels": routines["cpu"],
+            "device": routines["gpu"],
+            "tests": [],
+            "headers": [f"{Generator.ROUTINES_FILE_NAME}.h"],
+        }
 
         # The files of every step, and the files of other steps it reads. The
         # shared step writes into the directories of the configurations as
@@ -687,10 +697,10 @@ def main():
                     for folder in folders
                 ]
                 + generator_files("general")
+                + routines["cpu"]
+                + routines["gpu"]
                 + [
                     f"{Generator.ROUTINES_FILE_NAME}.h",
-                    f"{Generator.ROUTINES_FILE_NAME}.cpp",
-                    f"{Generator.GPULIKE_ROUTINES_FILE_NAME}.cpp",
                     "quantities.h",
                     "configboundary.h",
                 ],

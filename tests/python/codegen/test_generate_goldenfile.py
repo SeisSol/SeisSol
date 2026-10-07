@@ -312,8 +312,8 @@ class TestRuntime:
         listed = [
             path
             for target in targets.values()
-            for kind in ("kernels", "tests", "headers")
-            for path in target[kind]
+            for kind in ("kernels", "device", "tests", "headers")
+            for path in target.get(kind, [])
         ]
         missing = [path for path in listed if not (outdir / path).is_file()]
         assert (

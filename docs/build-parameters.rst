@@ -142,6 +142,7 @@ GPU-specific parameters
     * ``gemmforge-chainforge``: Gemmforge and chainforge (auto-enabled if the latter is found)
     * ``tensorforge``: TensorForge
     * ``tinytc``: Tiny Tensor Compiler (for Intel)
+- ``DEVICE_CODEGEN_SHARDS``: the number of files the generated GPU routines are spread over, so that they compile at the same time; ``0`` (the default) takes four per configuration. The routines are spread by size, so the files take about the same time.
 - ``DEVICE_KERNEL_INFOPRINT``: print register/resource usage info for each compiled kernel while compiling SeisSol.
 - ``DEVICE_KERNEL_SAVETEMPS``: store the temporary output (e.g. PTX, AMDGCN ISA) of the GPU compilers. Useful e.g. for kernel debugging.
 - ``SYCL_USE_NVHPC``: if AdaptiveCpp is compiled with NVHPC support, and we use NVHPC
