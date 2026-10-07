@@ -102,8 +102,9 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
   }
 }
 
-TEST_CASE("The default configuration is the one SEISSOL_CONFIGURATION names, or else the first" *
-          doctest::test_suite("common")) {
+TEST_CASE(
+    "The default configuration is the one SEISSOL_CONFIGURATION names and otherwise the first" *
+    doctest::test_suite("common")) {
   const auto last = static_cast<ConfigId>(builtConfigCount() - 1);
 
   SUBCASE("named, spelled as in a parameter file") {
