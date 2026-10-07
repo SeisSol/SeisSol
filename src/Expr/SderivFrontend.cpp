@@ -895,6 +895,20 @@ void compileSource(const std::string& source,
       throw SderivError(
           "parse", "duplicate definition `" + surface[id].text + "`", surface[id].position);
     }
+    // Neither may a definition take the name of a constant or a function: a read of the name
+    // would resolve to that instead, and the definition be ignored without a word. (That of a
+    // state is reported for the state, below.)
+    const bool ofState =
+        std::any_of(parsed.states.begin(), parsed.states.end(), [&](const auto& state) {
+          return state.name == surface[id].text;
+        });
+    if (!ofState &&
+        (Constants.count(surface[id].text) != 0 || Builtins.count(surface[id].text) != 0)) {
+      throw SderivError("parse",
+                        "the definition `" + surface[id].text +
+                            "` has the name of a constant or function",
+                        surface[id].position);
+    }
   }
   const ComponentTable components = checkGrids(parsed.grids, defNames);
 

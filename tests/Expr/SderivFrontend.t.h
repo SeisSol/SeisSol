@@ -306,6 +306,13 @@ out def b = y
     CHECK_THROWS_AS(compileSderivModule("def a = x\ndef a = y\nout def b = a\n"), SderivError);
   }
 
+  TEST_CASE("a definition may not take the name of a constant or function") {
+    // a read of `g` would be the constant, and the definition ignored
+    CHECK_THROWS_AS(compileSderivModule("def g = 2.0 * x\nout def u = g\n"), SderivError);
+    CHECK_THROWS_AS(compileSderivModule("def exp = x\nout def u = exp\n"), SderivError);
+    CHECK_THROWS_AS(compileSderivModule("out def pi = x\n"), SderivError);
+  }
+
   TEST_CASE("the two module forms stay separate") {
     // The trailing-expression form still works and is still named by the caller.
     const auto named = compileSderiv("x * 2.0", "rho");
