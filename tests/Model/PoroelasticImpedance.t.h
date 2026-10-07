@@ -46,6 +46,15 @@ inline model::PoroElasticMaterial testPoroMaterial(double porosity, double tortu
 
 // MaterialSetup<PoroElasticMaterial> is only compiled together with the space-time predictor
 #ifdef SEISSOL_KERNELS_STP
+/// testPoroMaterial in units in which moduli of 1e10 Pa and densities of 1000 kg/m^3 are one.
+/// getEigenDecomposition checks its residual against an absolute threshold (see its debug checks),
+/// which only makes sense for moduli of order one. Permeability and viscosity do not enter the
+/// Jacobian; they keep their values.
+inline model::PoroElasticMaterial testPoroMaterialOfOrderOne(double porosity, double tortuosity) {
+  return model::PoroElasticMaterial(
+      std::vector<double>{3.6, 2.65, 0.4, 0.6, porosity, 1.0e-13, tortuosity, 0.22, 1.0, 1.0e-3});
+}
+
 // ---------------------------------------------------------------------------
 // The poroelastic interface has four variables, (sigma_nn, sigma_ns, sigma_nd, p) against
 // (v_n, v_s, v_d, q_n). SeisSol's poroelastic frame is isotropic, so the generalized wave
@@ -62,7 +71,7 @@ TEST_CASE("Poroelastic DR impedance closed form agrees with the eigendecompositi
 
   for (const double porosity : {0.05, 0.2, 0.4}) {
     for (const double tortuosity : {1.0, 1.5, 3.0}) {
-      const auto sweepMaterial = testPoroMaterial(porosity, tortuosity);
+      const auto sweepMaterial = testPoroMaterialOfOrderOne(porosity, tortuosity);
 
       LateralMatrix lateralClosed = LateralMatrix::Zero();
       const auto admittanceClosed =
