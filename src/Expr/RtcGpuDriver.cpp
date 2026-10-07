@@ -262,8 +262,13 @@ DeviceFunction compileHip(const std::string& source, const std::string& arch) {
     return loaded;
   }
 
+  // Without an architecture, HIPRTC compiles for the current device, which is the one the kernel
+  // runs on.
   const std::string archOption = "--offload-arch=" + arch;
-  const std::vector<const char*> optionList = {archOption.c_str(), "--std=c++17"};
+  std::vector<const char*> optionList = {"--std=c++17"};
+  if (!arch.empty()) {
+    optionList.push_back(archOption.c_str());
+  }
 
   const hiprtcResult compiled =
       hiprtcCompileProgram(program, static_cast<int>(optionList.size()), optionList.data());
@@ -730,7 +735,12 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
   }
 
   const GpuLayout layout = gpuLayoutOf(binding);
-  const std::string arch = options.arch.empty() ? std::string("70") : options.arch;
+  // PTX for compute_70 runs on every later device, by JIT; a HIP code object has to be for the
+  // device itself, which HIPRTC compiles for when it is given none.
+  std::string arch = options.arch;
+  if (arch.empty() && target == GpuTarget::Cuda) {
+    arch = "70";
+  }
   const CacheKey key{program.fingerprint(),
                      options.lowering.fingerprint(),
                      layout.fingerprint(),
