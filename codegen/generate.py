@@ -43,6 +43,16 @@ from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostE
 from yateto.gemm_configuration import GeneratorCollection
 from yateto.metagen import MetaGenerator
 
+# The code is generated in steps, which a build runs as commands of their own, and so at the same
+# time where it can. Every configuration is a step: it writes its code into its directory, and
+# what the shared step needs to know of it -- what the metagen reports, and its routines, written
+# already -- into EXCHANGE_FILE there. The shared step writes what the configurations share: the
+# headers of the metagen, general/, the routines of all of them, and the headers that include
+# those of every configuration. --mode collect lists the files of every step in steps.json.
+STEP_ALL = "__all__"
+STEP_SHARED = "__shared__"
+EXCHANGE_FILE = "codegen.json"
+
 
 def load_configs(cmdLineArgs):
     """The configurations to generate, in the order of their ids.
@@ -66,6 +76,24 @@ def load_configs(cmdLineArgs):
             "solver": cmdLineArgs.solver,
         }
     ]
+
+
+def config_folders(configArgs):
+    """The directory of each configuration, below the output directory."""
+    folders = []
+    for args in configArgs:
+        precision = "double" if args.precision in ["d", "f64"] else "single"
+        fusedSuffix = (
+            "-f" + str(args.multipleSimulations) if args.multipleSimulations > 1 else ""
+        )
+        folder = f"equation-{args.equations}-{args.order}-{precision}{fusedSuffix}"
+        # configurations that differ in other respects, e.g. the solver, get one each
+        if folder in folders:
+            folder += f"-{args.solver}-m{args.numMechanisms}-{args.drQuadRule}"
+        if folder in folders:
+            raise RuntimeError(f"Two configurations would be generated into {folder}.")
+        folders.append(folder)
+    return folders
 
 
 def main():
@@ -107,7 +135,9 @@ def main():
     cmdLineParser.add_argument(
         "--mode", type=str, choices=["collect", "codegen"], default="codegen"
     )
-    cmdLineParser.add_argument("--codegen_target", type=str, default="__all__")
+    # what to generate (see STEPS): a configuration, by its directory; what the configurations share
+    # (__shared__); or all of it, one after the other (__all__)
+    cmdLineParser.add_argument("--codegen_target", type=str, default=STEP_ALL)
     # the configurations to generate, in the order of their ids; without it, the one that the
     # arguments above describe, under the key seissol::Config0
     cmdLineParser.add_argument("--configs", type=str, default=None)
@@ -201,12 +231,17 @@ def main():
     fixArchitectureGlobal(arch)
 
     os.makedirs(cmdLineArgs.outputDir, exist_ok=True)
-    kernels.arch.emit_header(
-        arch,
-        cmdLineArgs.outputDir,
-        override_alignment=cmdLineArgs.alignment,
-        override_vectorsize=configArgs[0].vectorsize or 0,
-    )
+    # not by the steps of the configurations, which run at the same time
+    if cmdLineArgs.mode == "collect" or cmdLineArgs.codegen_target in (
+        STEP_ALL,
+        STEP_SHARED,
+    ):
+        kernels.arch.emit_header(
+            arch,
+            cmdLineArgs.outputDir,
+            override_alignment=cmdLineArgs.alignment,
+            override_vectorsize=configArgs[0].vectorsize or 0,
+        )
 
     # pick up the gemm tools defined by the user
     gemm_tool_list = re.split(r"[,;]", cmdLineArgs.gemm_tools.replace(" ", ""))
@@ -270,8 +305,6 @@ def main():
 
             custom_routine_generators["gpu"] = tensorforge.get_routine_generator(yateto)
 
-    subfolders = []
-
     routine_cache = GlobalRoutineCache()
 
     gemmTools = [gemmToolsFor(configArch) for configArch, _, _ in archs]
@@ -281,6 +314,9 @@ def main():
     # and seissol::Pool<Cfg> the pool it binds. runtime.h reaches the
     # kernels as well, by the variant of their configuration, with operands as
     # views where they are to take them so (see kernels.common.cold_kernel_attrs).
+    # Each configuration is generated in a step of its own (see STEP_ALL), and
+    # the shared step writes the headers of the metagen from what they report:
+    # the metagen needs no generator for that.
     metagen = MetaGenerator(["typename"])
 
     # Tensors that the code names whatever the configuration, but that only
@@ -307,12 +343,6 @@ def main():
         [] if cmdLineArgs.unit_tests == "none" else cmdLineArgs.unit_tests.split(",")
     )
 
-    def check_run_codegen(name):
-        return cmdLineArgs.mode == "codegen" and cmdLineArgs.codegen_target in (
-            "__all__",
-            name,
-        )
-
     # the kernels of the faces between configurations, per configuration
     boundaryPlans = kernels.configboundary.plans(configArgs)
     # the conversion casts between precisions, which only TensorForge generates on GPUs
@@ -320,14 +350,22 @@ def main():
         target for target in targets if target == "cpu" or not isOldGpuInterface
     ]
 
-    def generate_equation(subfolders, args, arch, gemmTools, key, boundaryPlan):
+    folders = config_folders(configArgs)
+    for folder, config in zip(folders, configs):
+        metagen.add_generator(
+            [config["key"]],
+            None,
+            name=re.sub(r"\W", "_", folder),
+            directory=folder,
+            routine_cache=routine_cache,
+            unit_tests=unitTests,
+        )
+
+    def generate_equation(args, arch, gemmTools, key, boundaryPlan, folder):
         order = args.order
         # the tensors of the configuration are laid out for its architecture
         fixArchitectureGlobal(arch)
         precision = "double" if args.precision in ["d", "f64"] else "single"
-        fusedSuffix = (
-            "-f" + str(args.multipleSimulations) if args.multipleSimulations > 1 else ""
-        )
 
         if args.memLayout == "auto":
             # TODO(Lukas) Don't hardcode this
@@ -427,41 +465,55 @@ def main():
             boundaryTargets,
         )
 
-        outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"
-        # configurations that differ in other respects, e.g. the solver, get one each
-        if outputDirName in subfolders:
-            outputDirName += f"-{args.solver}-m{args.numMechanisms}-{args.drQuadRule}"
-        if outputDirName in subfolders:
-            raise RuntimeError(
-                f"Two configurations would be generated into {outputDirName}."
-            )
-        trueOutputDir = os.path.join(args.outputDir, outputDirName)
-        if not os.path.exists(trueOutputDir):
-            os.mkdir(trueOutputDir)
-
-        subfolders += [outputDirName]
+        trueOutputDir = os.path.join(args.outputDir, folder)
+        os.makedirs(trueOutputDir, exist_ok=True)
 
         kernels.quantities.emit_header(adg, trueOutputDir, key)
         kernels.configboundary.emit_header(
             adg, trueOutputDir, key, boundaryPlan, riemannMaterial, boundaryTargets
         )
 
-        metagen.add_generator(
-            [key],
+        return generator, include_tensors
+
+    def generate_configuration(index):
+        """The step of a configuration: its code, and EXCHANGE_FILE."""
+        args, (configArch, _, _), tools, config, boundaryPlan, folder = list(
+            zip(configArgs, archs, gemmTools, configs, boundaryPlans, folders)
+        )[index]
+        generator, include_tensors = generate_equation(
+            args, configArch, tools, config["key"], boundaryPlan, folder
+        )
+
+        # the routines of this configuration alone
+        cache = GlobalRoutineCache()
+        single = MetaGenerator(["typename"])
+        single.add_generator(
+            [config["key"]],
             generator,
-            name=re.sub(r"\W", "_", outputDirName),
-            directory=outputDirName,
-            gemm_cfg=gemmTools,
+            name=re.sub(r"\W", "_", folder),
+            directory=folder,
+            gemm_cfg=tools,
             cost_estimator=cost_estimators,
             include_tensors=include_tensors,
             routine_exporters=custom_routine_generators,
-            routine_cache=routine_cache,
+            routine_cache=cache,
             unit_tests=unitTests,
         )
+        summary = single.generate_single(0, cmdLineArgs.outputDir, namespace="seissol")
+        with open(
+            os.path.join(cmdLineArgs.outputDir, folder, EXCHANGE_FILE), "w"
+        ) as file:
+            # the directories relative to the output directory, so that the file is
+            # the same wherever that is
+            json.dump(
+                {
+                    "summary": summary,
+                    "routines": cache.export(root=cmdLineArgs.outputDir),
+                },
+                file,
+            )
 
-        return outputDirName
-
-    def generate_general(subfolders):
+    def generate_general():
         # we use always use double here,
         # since these kernels are only used in the initialization
         new_host_arch = HostArchDefinition(
@@ -471,10 +523,7 @@ def main():
         fixArchitectureGlobal(arch)
 
         outputDir = os.path.join(cmdLineArgs.outputDir, "general")
-        if not os.path.exists(outputDir):
-            os.mkdir(outputDir)
-
-        subfolders += ["general"]
+        os.makedirs(outputDir, exist_ok=True)
 
         generator = Generator(arch)
 
@@ -483,26 +532,26 @@ def main():
             NamespacedGenerator(generator, namespace="dynamicRupture")
         )
 
-        if check_run_codegen("general"):
-            generator.generate(
-                outputDir=outputDir,
-                namespace="seissol::general",
-                gemm_cfg=gemmTools[0],
-                cost_estimator=cost_estimators,
-                include_tensors=kernels.general.includeMatrices(
-                    cmdLineArgs.matricesDir
-                ),
-                routine_exporters=custom_routine_generators,
-                routine_cache=routine_cache,
-                unit_tests=unitTests,
-            )
+        # written already, as those of the configurations are
+        cache = GlobalRoutineCache()
+        generator.generate(
+            outputDir=outputDir,
+            namespace="seissol::general",
+            gemm_cfg=gemmTools[0],
+            cost_estimator=cost_estimators,
+            include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),
+            routine_exporters=custom_routine_generators,
+            routine_cache=cache,
+            unit_tests=unitTests,
+        )
+        return cache.export()
 
     def forward_files(filename):
         # Not every subfolder emits every file: the quantity layout, for one,
         # only exists for the equation.
         present = [
             folder
-            for folder in subfolders
+            for folder in folders + ["general"]
             if os.path.exists(os.path.join(cmdLineArgs.outputDir, folder, filename))
         ]
         with open(os.path.join(cmdLineArgs.outputDir, filename), "w") as file:
@@ -512,17 +561,16 @@ def main():
             )
             file.writelines(["// IWYU pragma: end_exports\n"])
 
-    equationFolders = [
-        generate_equation(
-            subfolders, args, configArch, tools, config["key"], boundaryPlan
-        )
-        for args, (configArch, _, _), tools, config, boundaryPlan in zip(
-            configArgs, archs, gemmTools, configs, boundaryPlans
-        )
-    ]
+    def generate_shared():
+        """The shared step, from EXCHANGE_FILE of every configuration."""
+        exchanges = []
+        for folder in folders:
+            with open(
+                os.path.join(cmdLineArgs.outputDir, folder, EXCHANGE_FILE)
+            ) as file:
+                exchanges.append(json.load(file))
 
-    # Generate code (if we need to): the metagen generates the code of all configurations at once
-    if any(check_run_codegen(folder) for folder in equationFolders):
+        # the metagen generates the headers of all configurations at once
         metagen.generate(
             cmdLineArgs.outputDir,
             namespace="seissol",
@@ -537,10 +585,12 @@ def main():
                 "gpu_fromCanonical",
                 "gpu_fromCoupledCanonical",
             ],
+            precompiled=[exchange["summary"] for exchange in exchanges],
         )
-    generate_general(subfolders)
 
-    if cmdLineArgs.mode == "codegen":
+        for exchange in exchanges:
+            routine_cache.merge(exchange["routines"], root=cmdLineArgs.outputDir)
+        routine_cache.merge(generate_general())
         routine_cache.generate(cmdLineArgs.outputDir, "seissol")
 
         # init.h, kernel.h, pool.h and tensor.h are the metagen's, which name
@@ -550,6 +600,26 @@ def main():
         forward_files("configboundary.h")
 
     if cmdLineArgs.mode == "collect":
+        # what Generator.generate writes for a generator in its directory
+        def generator_files(folder):
+            files = [
+                os.path.join(folder, f"{name}.{extension}")
+                for name in (
+                    Generator.TENSORS_FILE_NAME,
+                    Generator.INIT_FILE_NAME,
+                    Generator.KERNELS_FILE_NAME,
+                    Generator.POOL_FILE_NAME,
+                )
+                for extension in ("h", "cpp")
+            ]
+            if "doctest" in unitTests:
+                files += [os.path.join(folder, f"{Generator.DOCTEST_FILE_NAME}.cpp")]
+            if "cxxtest" in unitTests:
+                files += [os.path.join(folder, f"{Generator.CXXTEST_FILE_NAME}.h")]
+            # the header of its routines, which includes the one of all routines
+            files += [os.path.join(folder, f"{Generator.ROUTINES_FILE_NAME}.h")]
+            return files
+
         doctests = (
             [f"{Generator.DOCTEST_FILE_NAME}.cpp"] if "doctest" in unitTests else []
         )
@@ -569,7 +639,7 @@ def main():
                     os.path.join(folder, "tensor.h"),
                 ],
             }
-            for folder in subfolders
+            for folder in folders + ["general"]
         }
 
         # The metagen knows what it adds: a translation unit per generator that
@@ -582,9 +652,72 @@ def main():
             "headers": metagen.shared_headers(),
         }
 
+        # The files of every step, and the files of other steps it reads. The
+        # shared step writes into the directories of the configurations as
+        # well: the units that bind views to their kernels for runtime.h, and
+        # the headers of their routines.
+        steps = [
+            {
+                "target": folder,
+                "outputs": [
+                    file
+                    for file in generator_files(folder)
+                    if not file.endswith(f"{Generator.ROUTINES_FILE_NAME}.h")
+                ]
+                + [
+                    os.path.join(folder, "quantities.h"),
+                    os.path.join(folder, "configboundary.h"),
+                    os.path.join(folder, EXCHANGE_FILE),
+                ],
+                "inputs": [],
+            }
+            for folder in folders
+        ]
+        steps += [
+            {
+                "target": STEP_SHARED,
+                "outputs": metagen.shared_headers()
+                + metagen.shared_sources()
+                + [
+                    os.path.join(folder, f"{MetaGenerator.RUNTIME_NAME}.cpp")
+                    for folder in folders
+                ]
+                + [
+                    os.path.join(folder, f"{Generator.ROUTINES_FILE_NAME}.h")
+                    for folder in folders
+                ]
+                + generator_files("general")
+                + [
+                    f"{Generator.ROUTINES_FILE_NAME}.h",
+                    f"{Generator.ROUTINES_FILE_NAME}.cpp",
+                    f"{Generator.GPULIKE_ROUTINES_FILE_NAME}.cpp",
+                    "quantities.h",
+                    "configboundary.h",
+                ],
+                "inputs": [os.path.join(folder, EXCHANGE_FILE) for folder in folders],
+            }
+        ]
+
         kernels.output.write_if_changed(
             os.path.join(cmdLineArgs.outputDir, "targets.json"), json.dumps(targets)
         )
+        kernels.output.write_if_changed(
+            os.path.join(cmdLineArgs.outputDir, "steps.json"), json.dumps(steps)
+        )
+        return
+
+    target = cmdLineArgs.codegen_target
+    if target not in folders + [STEP_SHARED, STEP_ALL]:
+        raise RuntimeError(
+            f'Unknown code generation target "{target}"; there are {STEP_ALL}, '
+            f"{STEP_SHARED} and the directories of the configurations, "
+            f"{', '.join(folders)}."
+        )
+    for index, folder in enumerate(folders):
+        if target in (STEP_ALL, folder):
+            generate_configuration(index)
+    if target in (STEP_ALL, STEP_SHARED):
+        generate_shared()
 
 
 if __name__ == "__main__":

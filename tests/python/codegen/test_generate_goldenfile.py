@@ -46,6 +46,7 @@ def _invoke_generate(
     mechanisms=0,
     mode="codegen",
     solver=None,
+    target=None,
 ):
     """Run generate.py with the given config. Returns CompletedProcess.
 
@@ -87,6 +88,7 @@ def _invoke_generate(
             "--mode",
             mode,
             *(["--solver", solver] if solver is not None else []),
+            *(["--codegen_target", target] if target is not None else []),
         ],
         env={**os.environ, "PYTHONHASHSEED": "0"},
         cwd=str(CODEGEN_DIR),
@@ -317,6 +319,45 @@ class TestRuntime:
         assert (
             not missing
         ), f"collect lists files that codegen does not write: {missing}"
+
+    def test_steps_list_what_they_write(self, generated_elastic_o3, tmp_path):
+        """A build runs every step of the code generation as a command of its
+        own, and has to know what each one writes: every file that codegen
+        writes is an output of exactly one step (see STEP_ALL in
+        generate.py). alignment.h is written when CMake runs as well."""
+        outdir, _ = generated_elastic_o3
+        result = _invoke_generate(tmp_path, mode="collect")
+        assert result.returncode == 0, result.stderr[-1000:]
+        steps = json.loads((tmp_path / "steps.json").read_text())
+
+        listed = [path for step in steps for path in step["outputs"]]
+        twice = {path for path in listed if listed.count(path) > 1}
+        assert not twice, f"files listed by more than one step: {twice}"
+        written = {
+            str(path.relative_to(outdir))
+            for path in outdir.rglob("*")
+            if path.is_file()
+        } - {"alignment.h"}
+        assert set(listed) == written, (
+            f"written, but listed by no step: {written - set(listed)}; "
+            f"listed, but not written: {set(listed) - written}"
+        )
+
+    def test_steps_write_what_one_run_writes(self, generated_elastic_o3, tmp_path):
+        """Run one after the other, as a build may, the steps write the same
+        code as one run that takes all of them."""
+        outdir, _ = generated_elastic_o3
+        result = _invoke_generate(tmp_path, mode="collect")
+        assert result.returncode == 0, result.stderr[-1000:]
+        steps = json.loads((tmp_path / "steps.json").read_text())
+        for step in steps:
+            result = _invoke_generate(tmp_path, target=step["target"])
+            assert result.returncode == 0, result.stderr[-1000:]
+        for step in steps:
+            for path in step["outputs"]:
+                assert (tmp_path / path).read_bytes() == (
+                    outdir / path
+                ).read_bytes(), f"{path} differs"
 
     @staticmethod
     def _runtime_kernels(outdir):
