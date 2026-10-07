@@ -25,38 +25,16 @@ jobs:
         build_type:
           - Release
           #- Debug
-        equation:
-          - type: acoustic
-            multisim: 1
-            mechanisms: 0
-            order: 6
-          - type: elastic
-            multisim: 1
-            mechanisms: 0
-            order: 6
-          - type: poroelastic
-            multisim: 1
-            mechanisms: 0
-            order: 6
-          - type: viscoelastic
-            multisim: 1
-            mechanisms: 3
-            order: 6
-          - type: viscoacoustic
-            multisim: 1
-            mechanisms: 3
-            order: 6
-          - type: anisotropic
-            multisim: 1
-            mechanisms: 0
-            order: 6
-          - type: elastic
-            multisim: 32
-            mechanisms: 0
-            order: 3
-        precision:
-          - single
-          - double
+        # each setup builds the set ci-gpu of cmake/confignames.cmake (order 6, all materials, f32
+        # and f64, elastic with 32 fused simulations in order 3) into one executable, whose kernels
+        # TensorForge generates; and one configuration with the code generators the backend takes
+        # by default (gemmforge, or tinytc on Intel GPUs), without TensorForge. A run chooses its
+        # configuration with SEISSOL_CONFIGURATION.
+        build:
+          - configs: ci-gpu
+            codegen: tensorforge
+          - configs: elastic-linearck-o6-f32-stroud
+            codegen: auto
         setup:
           - arch: sm_60
             backend: cuda
@@ -116,7 +94,7 @@ jobs:
       - id: build
         name: build-seissol
         run: |
-          if [ "${{ matrix.equation.type }}" = viscoelastic ] || [ "${{ matrix.equation.type }}" = viscoacoustic ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
+          if [ "${{ matrix.build.codegen }}" = tensorforge ]; then
               if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
                   # the Intel image still works with an older Python version. Hence, use the following hack.
                   pip3 install pyyaml
@@ -126,10 +104,8 @@ jobs:
               else
                   pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
               fi
-              DEVICE_CODEGEN=tensorforge
-          else
-              DEVICE_CODEGEN=auto
           fi
+          DEVICE_CODEGEN=${{ matrix.build.codegen }}
 
           mkdir build && cd build
 
@@ -171,12 +147,8 @@ jobs:
             -DDEVICE_CODEGEN=${DEVICE_CODEGEN} \
             -DDEVICE_BACKEND=${{matrix.setup.backend}} \
             -DDEVICE_ARCH=${{matrix.setup.arch}} \
-            -DORDER=${{matrix.equation.order}} \
             -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
-            -DEQUATIONS=${{matrix.equation.type}} \
-            -DPRECISION=${{matrix.precision}} \
-            -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} \
-            -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+            -DCONFIGS=${{matrix.build.configs}}
 
           ninja install
 
@@ -184,7 +156,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.equation.order}}-${{matrix.equation.type}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.build.configs}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-run-test:
@@ -194,12 +166,12 @@ jobs:
     needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
     env:
-      EXENAME: |
+      CONFIGNAME: |
         ${{
-          format('{0}-o{2}-{1}{3}',
-            matrix.case.equation,
+          format('{0}-o{1}-{2}-stroud{3}',
+            matrix.case.config,
+            matrix.case.order,
             matrix.precision == 'single' && 'f32' || 'f64',
-            matrix.order,
             matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
           )
         }}
@@ -209,7 +181,7 @@ jobs:
         case:
           # NOTE: the commented tests do not yet work on the GPU on this branch
           - name: tpv5
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -218,7 +190,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv5-nuc
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -227,7 +199,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv5-visco
-            equation: viscoelastic
+            config: viscoelastic-linearckanelastic-m3
             multisim: 1
             energies: true
             receivers: true
@@ -236,7 +208,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv5-poro
-            equation: poroelastic
+            config: poroelastic-stp
             multisim: 1
             energies: false # incomplete, hence disabled
             receivers: true
@@ -245,7 +217,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv6
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -254,7 +226,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv13
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -263,7 +235,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv16
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -272,7 +244,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv101
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -281,7 +253,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv101-slip
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -290,7 +262,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv104
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -299,7 +271,7 @@ jobs:
             surface: false
             order: 6
           - name: tpv105
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -308,7 +280,7 @@ jobs:
             surface: false
             order: 6
           - name: ahsp
-            equation: anisotropic
+            config: anisotropic-linearck
             multisim: 1
             energies: false
             receivers: true
@@ -317,7 +289,7 @@ jobs:
             surface: false
             order: 6
           - name: tpvgaussian
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -326,7 +298,7 @@ jobs:
             surface: false
             order: 6
           - name: tpvyoffe
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -335,7 +307,7 @@ jobs:
             surface: false
             order: 6
           - name: ttpv1
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
@@ -344,7 +316,7 @@ jobs:
             surface: true
             order: 6
           - name: loh1-fused
-            equation: elastic
+            config: elastic-linearck
             multisim: 32
             energies: true
             receivers: true
@@ -353,13 +325,14 @@ jobs:
             surface: false
             order: 3
           - name: loh1-ic
-            equation: elastic
+            config: elastic-linearck
             multisim: 1
             energies: true
             receivers: true
             fault: false
             volume: true
             surface: false
+            order: 6
         precision:
           - single
         arch:
@@ -420,7 +393,7 @@ jobs:
       - name: get-seissol
         uses: actions/download-artifact@v5
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.case.order}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-ci-gpu-${{matrix.setup.cc}}
           path: install
       - name: run-seissol
         id: run
@@ -447,7 +420,9 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
 
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
+          export SEISSOL_CONFIGURATION=$(echo ${CONFIGNAME})
+
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts

@@ -16,7 +16,11 @@
 # and viscoacoustic with their default solver and 3 mechanisms, and elastic with 8 fused
 # simulations. Building it into one executable takes a host architecture whose vectors the 8 fused
 # simulations fill in both precisions, e.g. hsw.
-set(SEISSOL_CONFIG_SETS ci-cpu)
+#
+# ci-gpu: what the GPU CI builds with TensorForge, in both precisions: the six materials in order 6,
+# viscoelastic and viscoacoustic with their default solver and 3 mechanisms, and elastic with 32
+# fused simulations in order 3.
+set(SEISSOL_CONFIG_SETS ci-cpu ci-gpu)
 
 set(SEISSOL_CONFIG_SET_ci-cpu)
 foreach(_precision f64 f32)
@@ -28,6 +32,18 @@ foreach(_precision f64 f32)
     viscoelastic-linearckanelastic-m3-o6-${_precision}-stroud
     viscoacoustic-linearckanelastic-m3-o6-${_precision}-stroud
     elastic-linearck-o6-${_precision}-stroud-s8)
+endforeach()
+
+set(SEISSOL_CONFIG_SET_ci-gpu)
+foreach(_precision f64 f32)
+  list(APPEND SEISSOL_CONFIG_SET_ci-gpu
+    elastic-linearck-o6-${_precision}-stroud
+    acoustic-linearck-o6-${_precision}-stroud
+    anisotropic-linearck-o6-${_precision}-stroud
+    poroelastic-stp-o6-${_precision}-stroud
+    viscoelastic-linearckanelastic-m3-o6-${_precision}-stroud
+    viscoacoustic-linearckanelastic-m3-o6-${_precision}-stroud
+    elastic-linearck-o3-${_precision}-stroud-s32)
 endforeach()
 
 # The name of a configuration.
@@ -53,9 +69,10 @@ endfunction()
 # Needs the options of process_users_input.cmake.
 function(seissol_parse_config_name prefix name context)
   if (NOT name MATCHES "^([a-z]+)-([a-z]+)(-m([0-9]+))?-o([0-9]+)-(f32|f64)-([a-z]+)(-s([0-9]+))?$")
+    string(REPLACE ";" ", " _sets "${SEISSOL_CONFIG_SETS}")
     message(FATAL_ERROR "${context}: \"${name}\" is neither the name of a configuration, "
       "<material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<dr quadrature rule>[-s<fused simulations>], "
-      "nor of a set of them (${SEISSOL_CONFIG_SETS}).")
+      "nor of a set of them (${_sets}).")
   endif()
   set(_material "${CMAKE_MATCH_1}")
   set(_solver "${CMAKE_MATCH_2}")
