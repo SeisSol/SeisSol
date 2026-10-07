@@ -210,6 +210,12 @@ seissol_add_mpi_test_module(geometrympi 4
 if (TESTING_GENERATED)
     set(_GENERATED_KERNEL_TARGETS seissol-test-kernel)
 
+    # A generated test compares a kernel of the library with a reference the test computes itself,
+    # which needs little optimization to run fast; with -O1, the tests compile several times as
+    # fast as with -O3.
+    set_source_files_properties(${SEISSOL_CODEGEN_TESTS} PROPERTIES
+        COMPILE_OPTIONS "$<$<NOT:$<CONFIG:Debug>>:-O1>")
+
     foreach(_TGT IN LISTS _GENERATED_KERNEL_TARGETS)
         if (WITH_GPU)
             make_device_hostapi_lib(${_TGT}-device "${SEISSOL_CODEGEN_TESTS}")
