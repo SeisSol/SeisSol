@@ -10,6 +10,7 @@
 #include "Expr/Binding.h"
 #include "Expr/Program.h"
 #include "Reader/Datafield/Grid.h"
+#include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <cstddef>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -58,6 +60,50 @@ CompiledReader::CompiledReader(expr::Program program,
 
 CompiledReader::~CompiledReader() = default;
 
+namespace {
+
+/// `program` with only the outputs `table` has a column for, in their order.
+expr::Program withOutputsOf(const expr::Program& program, const DataTable& table) {
+  std::set<std::string> columns;
+  for (const auto& entry : table.dataEntries()) {
+    columns.insert(entry.name);
+  }
+  const bool all =
+      std::all_of(program.outputs().begin(),
+                  program.outputs().end(),
+                  [&](const expr::VarSpec& output) { return columns.count(output.name) != 0; });
+  if (all) {
+    return program;
+  }
+  expr::Program pruned;
+  pruned.arena() = program.arena();
+  pruned.setComputeType(program.computeType());
+  for (const auto& grid : program.grids()) {
+    pruned.internGrid(grid);
+  }
+  for (const auto& matrix : program.matrices()) {
+    pruned.internMatrix(matrix.name, matrix.shape);
+  }
+  for (const auto& block : program.blocks()) {
+    pruned.internBlock(block.name, block.length);
+  }
+  for (const auto& input : program.inputs()) {
+    pruned.addInput(input.name, input.type);
+  }
+  for (const auto& state : program.state()) {
+    pruned.addState(state.name, state.initial, state.root);
+  }
+  for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+    const auto& output = program.outputs()[i];
+    if (columns.count(output.name) != 0) {
+      pruned.addOutput(output.name, output.type, program.roots()[i]);
+    }
+  }
+  return pruned;
+}
+
+} // namespace
+
 void CompiledReader::prepare(const DataTable& table) {
   if (preparedFor_ == &table) {
     return;
@@ -69,8 +115,12 @@ void CompiledReader::prepare(const DataTable& table) {
     logWarning() << "expr: rebinding a compiled reader to a different table; state slots reset.";
   }
 
-  binding_ = expr::Binding::bind(program_, table);
-  kernel_ = expr::makeKernel(program_, binding_, *grids_, options_.backend);
+  // A model may give more than a table asks for -- the parameters of another friction law, say,
+  // as an easi file may: the kernel computes what is asked for.
+  kernel_.reset();
+  bound_ = withOutputsOf(program_, table);
+  binding_ = expr::Binding::bind(bound_, table);
+  kernel_ = expr::makeKernel(bound_, binding_, *grids_, options_.backend);
   if (kernel_ == nullptr) {
     throw std::runtime_error("expr: no usable backend for the compiled reader");
   }
@@ -149,6 +199,10 @@ bool CompiledReader::differentialCheck(const DataTable& table) {
 }
 
 void CompiledReader::call(const DataTable& table) {
+  if (table.numPoints() == 0) {
+    // nothing to evaluate -- the faces of a layer without any, say -- and nothing to bind to
+    return;
+  }
   if (preparedFor_ != &table) {
     prepare(table);
     // prepare() already evaluated the table on both paths for the check, but

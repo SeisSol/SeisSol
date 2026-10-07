@@ -91,6 +91,8 @@ class CompiledReader : public DataReader {
   std::vector<std::string> outputs_;
 
   datafield::GridStore* grids_;
+  /// The program with the outputs the prepared table asks for (see prepare).
+  expr::Program bound_;
   expr::Binding binding_;
   std::unique_ptr<expr::Kernel> kernel_;
 

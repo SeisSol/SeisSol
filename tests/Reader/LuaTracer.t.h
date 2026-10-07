@@ -26,6 +26,7 @@
 #include "Expr/Binding.h"
 #include "Expr/Program.h"
 #include "Reader/Datafield/Grid.h"
+#include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/LuaReader.h"
 #include "Reader/Scripting/LuaTracer.h"
@@ -664,6 +665,32 @@ return M
   }
 
   // ------------------------------------------------------ differential -----
+
+  TEST_CASE("a compiled reader evaluates an empty table to nothing") {
+    // the faces of a layer without any, say: there is nothing to evaluate, and no point to bind to
+    reader::scripting::CompiledReader compiled(mustTrace(PlanarWave), nullptr);
+    const DataTable empty(0);
+    CHECK_NOTHROW(compiled.call(empty));
+  }
+
+  TEST_CASE("a compiled reader computes the outputs a table asks for, and no others") {
+    // as an easi file may give more parameters than a friction law reads
+    reader::scripting::CompiledReader compiled(mustTrace(PlanarWave), nullptr);
+    constexpr std::size_t NumPoints = 3;
+    std::vector<double> x = {0.0, 0.5, 1.0};
+    std::vector<double> u(NumPoints, -1.0);
+    DataTable table(NumPoints);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindViewConst<double>("y", Direction::In, x.data());
+    table.bindViewConst<double>("z", Direction::In, x.data());
+    table.bindConstant<double>("t", 0.25);
+    table.bindView<double>("u", Direction::Out, u.data());
+    CHECK_NOTHROW(compiled.call(table));
+    CHECK(compiled.outputVars().size() == 3);
+    for (const double value : u) {
+      CHECK(value != -1.0);
+    }
+  }
 
   TEST_CASE("the traced program agrees with the interpreted reader") {
     // The same check CompiledReader::prepare runs at init before trusting a
