@@ -62,8 +62,6 @@
 
 #ifdef ACL_DEVICE
 #include "Common/Real.h"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
-#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
 namespace seissol::writer {

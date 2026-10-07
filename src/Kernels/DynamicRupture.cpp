@@ -25,7 +25,6 @@
 #include <cstring>
 #include <iterator>
 #include <stdint.h>
-#include <utils/logger.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
 
@@ -34,6 +33,10 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 
 #include <Device/device.h>
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 #ifndef NDEBUG
@@ -141,7 +144,7 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
     const auto side = i / dr::misc::NumFaceRelations;
     const auto faceRelation = i % dr::misc::NumFaceRelations;
 
-    ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
+    const ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
     if (table.find(minusSideKey) != table.end()) {
       auto& entry = table[minusSideKey];
       const size_t numElements = (entry.get<real*>(inner_keys::Dr::Id::IdofsMinus))->getSize();

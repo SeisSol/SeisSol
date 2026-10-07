@@ -7,7 +7,9 @@
 
 #include "Config.h"
 #include "Memory/MemoryAllocator.h"
+#include "Parallel/Runtime/Stream.h"
 #include "PointSourceCluster.h"
+#include "SourceTerm/Typedefs.h"
 
 #include <cstddef>
 #include <sycl/sycl.hpp>

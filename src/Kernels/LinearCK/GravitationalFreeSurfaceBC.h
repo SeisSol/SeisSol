@@ -104,7 +104,7 @@ class GravitationalFreeSurfaceBc {
                         MappingKrnl&& fsgKernelBase,
                         recording::ConditionalPointersToRealsTable& dataTable,
                         double timeStepWidth,
-                        device::DeviceInstance& device,
+                        device::DeviceInstance& /*device*/,
                         seissol::parallel::runtime::StreamRuntime& runtime) {
 
     using namespace seissol::recording;
@@ -118,8 +118,8 @@ class GravitationalFreeSurfaceBc {
       auto** constantData =
           dataTable[key].get<real*>(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 
-      auto** TinvDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** TDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::T)->getDeviceDataPtr();
+      auto** tinvDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** tDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::T)->getDeviceDataPtr();
       auto** derivativesPtrs =
           dataTable[key].get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
 
@@ -139,8 +139,8 @@ class GravitationalFreeSurfaceBc {
         kernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
         kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
       }
-      kernel.Tinv = const_cast<const real**>(TinvDataPtrs);
-      kernel.T = const_cast<const real**>(TDataPtrs);
+      kernel.Tinv = const_cast<const real**>(tinvDataPtrs);
+      kernel.T = const_cast<const real**>(tDataPtrs);
       kernel.faceDisplacement = displacementsPtrs;
       kernel.Iint = integratedDisplacementNodalPtrs;
 

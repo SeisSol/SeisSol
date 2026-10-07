@@ -30,11 +30,16 @@
 #include <cstdint>
 #include <cstring>
 #include <stdint.h>
-#include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 namespace seissol::kernels::solver::linearckanelastic {
@@ -214,14 +219,14 @@ PerformanceEstimate
 template <typename Cfg>
 void Local<Cfg>::computeBatchedIntegral(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
-    SEISSOL_GPU_PARAM double timeStepWidth,
+    recording::ConditionalIndicesTable& /*indicesTable*/,
+    double /*timeStepWidth*/,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
   // Volume integral
-  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt<Cfg> volKrnl = deviceVolumeKernelPrototype_;
 
   if (dataTable.find(key) != dataTable.end()) {

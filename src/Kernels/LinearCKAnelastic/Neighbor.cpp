@@ -30,10 +30,15 @@
 #include <iterator>
 #include <stdint.h>
 #include <utility>
-#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 namespace seissol::kernels::solver::linearckanelastic {
@@ -163,7 +168,7 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
   dynamicRupture::kernel::gpu_nodalFlux<Cfg> drKrnl = deviceDrKrnlPrototype_;
 
   {
-    ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+    const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     if (table.find(key) != table.end()) {
       auto& entry = table[key];
       device::DeviceInstance::instance().algorithms().setToValue(
@@ -183,7 +188,8 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             // regular and periodic
             const auto faceRelation = i + (*FaceRelations::PerFace) * face;
 
-            ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
+            const ConditionalKey key(
+                *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
             if (table.find(key) != table.end()) {
               auto& entry = table[key];
@@ -212,7 +218,7 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             // the side is the minor index here, cf. the NeighIntegrationRecorder
             const auto faceRelation = face + Cell::NumFaces * (i - (*FaceRelations::PerFace));
 
-            ConditionalKey key(
+            const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
 
             if (table.find(key) != table.end()) {
@@ -235,7 +241,7 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
         });
   }
 
-  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
     kernel::gpu_neighbor<Cfg> nKrnl = deviceNKrnlPrototype_;

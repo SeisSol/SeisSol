@@ -31,14 +31,16 @@
 #include <cstdint>
 #include <cstring>
 #include <stdint.h>
-#include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -171,7 +173,7 @@ void Local<Cfg>::computeBatchedIntegral(
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volume<Cfg> volKrnl = deviceVolumeKernelPrototype_;
-  kernel::gpu_localFlux<Cfg> localFluxKrnl = deviceLocalFluxKernelPrototype_;
+  const kernel::gpu_localFlux<Cfg> localFluxKrnl = deviceLocalFluxKernelPrototype_;
 
   // the boundary kernels below run on the same temporary memory
   const auto maxTmpMem =
@@ -258,7 +260,7 @@ void Local<Cfg>::computeBatchedIntegral(
     }
 #endif
 
-    ConditionalKey fsgKey(
+    const ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
     if (dataTable.find(fsgKey) != dataTable.end()) {
       auto** nodalAvgDisplacements = dataTable[fsgKey]
@@ -287,7 +289,7 @@ void Local<Cfg>::computeBatchedIntegral(
       bcKernel.execute(face);
     }
 
-    ConditionalKey dirichletKey(
+    const ConditionalKey dirichletKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
     if (dataTable.find(dirichletKey) != dataTable.end()) {
       auto* dirichletOffsetPtrs = dataTable[dirichletKey]

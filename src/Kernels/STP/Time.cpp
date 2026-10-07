@@ -29,11 +29,16 @@
 #include <cstdint>
 #include <cstring>
 #include <stdint.h>
-#include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -172,19 +177,19 @@ PerformanceEstimate Spacetime<Cfg>::metrics() const {
 
 template <typename Cfg>
 void Spacetime<Cfg>::computeBatchedAder(
-    SEISSOL_GPU_PARAM const real* coeffs,
+    const real* /*coeffs*/,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM LocalTmp<Cfg>& tmp,
+    LocalTmp<Cfg>& /*tmp*/,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM bool updateDisplacement,
+    bool /*updateDisplacement*/,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
   kernel::gpu_spaceTimePredictor<Cfg> krnl = deviceKrnlPrototype_;
 
-  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
     auto& entry = dataTable[timeVolumeKernelKey];
 
@@ -292,7 +297,7 @@ void Time<Cfg>::evaluateBatched(
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-    krnl.dQ(i) = const_cast<const real**>(timeDerivatives);
+    krnl.dQ(i) = timeDerivatives;
     krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
     krnl.power(i) = coeffs[i];
   }

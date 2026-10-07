@@ -68,10 +68,13 @@ class LinearSlipWeakeningBase
                                                        absoluteShearStress);
 
     // the direction along which the slip rate is decomposed further down; scaled such that
-    // dividing by `divisor` yields the unit slip direction
+    // dividing by `divisor` yields the unit slip direction. Only the anisotropic branch below
+    // changes them, which the check does not see in the other materials.
+    // NOLINTBEGIN(misc-const-correctness)
     real dirStress1 = totalStress1;
     real dirStress2 = totalStress2;
     real etaEff = eta;
+    // NOLINTEND(misc-const-correctness)
     real slipRateMagnitude{};
 
     if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {

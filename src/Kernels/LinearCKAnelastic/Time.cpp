@@ -31,11 +31,16 @@
 #include <cstdint>
 #include <cstring>
 #include <stdint.h>
-#include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 namespace seissol::kernels::solver::linearckanelastic {
@@ -227,7 +232,7 @@ void Time<Cfg>::evaluateBatched(
   krnl.I = timeIntegratedDofs;
   std::size_t derivativeOffset = 0;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-    krnl.dQ(i) = const_cast<const real**>(timeDerivativesOrSTP);
+    krnl.dQ(i) = timeDerivativesOrSTP;
     krnl.extraOffset_dQ(i) = derivativeOffset;
     derivativeOffset += tensor::dQ<Cfg>::size(i);
     krnl.power(i) = coeffs[i];
@@ -243,11 +248,11 @@ void Time<Cfg>::evaluateBatched(
 template <typename Cfg>
 void Spacetime<Cfg>::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
-    SEISSOL_GPU_PARAM double timeStepWidth,
-    SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM LocalTmp<Cfg>& tmp,
+    double /*timeStepWidth*/,
+    LTS::Layer& /*layer*/,
+    LocalTmp<Cfg>& /*tmp*/,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM bool updateDisplacement,
+    bool /*updateDisplacement*/,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
@@ -255,7 +260,7 @@ void Spacetime<Cfg>::computeBatchedAder(
   /*
    * compute ADER scheme.
    */
-  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
     kernel::gpu_derivative<Cfg> krnl = deviceKrnlPrototype_;
     auto& entry = dataTable[timeVolumeKernelKey];

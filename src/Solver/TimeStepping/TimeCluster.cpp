@@ -61,6 +61,7 @@
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/DeviceGraph.h"
 
 #include <Device/AbstractAPI.h>
 #endif
@@ -650,7 +651,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
   }
 
   if (settings_.integrate) {
-    ConditionalKey key = ConditionalKey(*KernelNames::Time);
+    const ConditionalKey key = ConditionalKey(*KernelNames::Time);
     if (table.find(key) != table.end()) {
       auto entry = table.at(key);
       device_.algorithms().accumulateBatchedData(

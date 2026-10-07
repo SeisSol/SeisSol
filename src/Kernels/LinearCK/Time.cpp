@@ -33,7 +33,6 @@
 #include <cstdint>
 #include <cstring>
 #include <stdint.h>
-#include <utils/logger.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
 
@@ -41,6 +40,12 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+
+#include <cstddef>
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -144,7 +149,7 @@ template <typename Cfg>
 void Spacetime<Cfg>::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
-    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    LTS::Layer& /*layer*/,
     SEISSOL_GPU_PARAM LocalTmp<Cfg>& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM bool updateDisplacement,

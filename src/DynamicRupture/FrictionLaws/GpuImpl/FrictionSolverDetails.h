@@ -61,6 +61,7 @@ class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
 #endif
   }
 
+  protected:
   size_t currLayerSize_{};
 
   const real* resampleMatrix_{nullptr};

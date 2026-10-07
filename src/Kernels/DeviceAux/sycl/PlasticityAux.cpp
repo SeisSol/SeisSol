@@ -7,13 +7,16 @@
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Model/Plasticity.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cmath>
+#include <cstddef>
 #include <sycl/sycl.hpp>
 
 namespace seissol::kernels::device::aux::plasticity {
@@ -46,11 +49,11 @@ void plasticityNonlinearOfSolid(Real<Cfg>** __restrict nodalStressTensors,
   constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
                                 init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
 
-  auto queue = reinterpret_cast<sycl::queue*>(streamPtr);
+  auto* queue = reinterpret_cast<sycl::queue*>(streamPtr);
   auto rng = getrange<Cfg>(NumNodes, numElements);
 
   queue->submit([&](sycl::handler& cgh) {
-    sycl::local_accessor<int> isAdjusted(1, cgh);
+    const sycl::local_accessor<int> isAdjusted(1, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       auto wid = item.get_group().get_group_id(0);
