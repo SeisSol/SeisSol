@@ -53,6 +53,34 @@ const char* elementType(DataType type) {
   return "double";
 }
 
+/// The element at `bytes`, of type `type`, as a double: exact for every type a column has but the
+/// i64 beyond 2^53, which no uniform value is.
+double readAsDouble(const char* bytes, DataType type) {
+  switch (type) {
+  case DataType::F32: {
+    float value = 0;
+    std::memcpy(&value, bytes, sizeof(value));
+    return value;
+  }
+  case DataType::F64: {
+    double value = 0;
+    std::memcpy(&value, bytes, sizeof(value));
+    return value;
+  }
+  case DataType::I32: {
+    std::int32_t value = 0;
+    std::memcpy(&value, bytes, sizeof(value));
+    return value;
+  }
+  case DataType::I64: {
+    std::int64_t value = 0;
+    std::memcpy(&value, bytes, sizeof(value));
+    return static_cast<double>(value);
+  }
+  }
+  return 0;
+}
+
 // Addressing for the device kernel. Every column is `base + p * stride +
 // offset`, read at its own element type and converted once into the compute
 // type -- the same conversion Binding::gatherFrom performs on the host, in the
@@ -146,6 +174,11 @@ void emitPrologue(std::ostringstream& out, GpuTarget target) {
   out << "#endif\n\n";
 }
 
+/// Whether input `i` is passed by value (see GpuLayout::inputUniform).
+bool isUniform(const GpuLayout& layout, std::size_t i) {
+  return i < layout.inputUniform.size() && layout.inputUniform[i];
+}
+
 /// One typed accessor per column, so the element type is resolved at
 /// generation time and no per-point switch survives into the kernel.
 ///
@@ -160,6 +193,11 @@ void emitAccessors(std::ostringstream& out,
   const std::string fn = deviceFunction(target);
 
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    if (isUniform(layout, i)) {
+      // the value itself, already in the compute type
+      out << "#define LOAD_IN" << i << "(a, p) ((a)->value_in" << i << ")\n";
+      continue;
+    }
     const char* element = elementType(layout.inputs[i]);
     const bool perCell = i < layout.inputPerCell.size() && layout.inputPerCell[i];
     out << fn << " " << computeType << " load_in" << i << "(" << global
@@ -243,6 +281,14 @@ void emitArgumentStruct(std::ostringstream& out,
   const std::string global = globalQualifier(target);
   out << "typedef struct {\n";
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    if (isUniform(layout, i)) {
+      // eight bytes like every other field, so the image is a flat append (GpuArguments)
+      out << "  " << computeType << " value_in" << i << ";\n";
+      if (computeType == "float") {
+        out << "  unsigned int pad_in" << i << ";\n";
+      }
+      continue;
+    }
     out << "  " << global << "const void* in" << i << ";\n"
         << "  SeissolU64 stride_in" << i << ";\n"
         << "  SeissolU64 offset_in" << i << ";\n";
@@ -286,6 +332,10 @@ void emitFlatParameters(std::ostringstream& out,
                         const GpuLayout& layout,
                         const std::string& computeType) {
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    if (isUniform(layout, i)) {
+      out << "    " << computeType << " value_in" << i << ",\n";
+      continue;
+    }
     out << "    __global const void* in" << i << ", SeissolU64 stride_in" << i
         << ", SeissolU64 offset_in" << i << ",\n";
     if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
@@ -319,6 +369,10 @@ void emitFlatParameters(std::ostringstream& out,
 void emitFlatGather(std::ostringstream& out, const GpuLayout& layout) {
   out << "  SeissolExprArgs a;\n";
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    if (isUniform(layout, i)) {
+      out << "  a.value_in" << i << " = value_in" << i << ";\n";
+      continue;
+    }
     out << "  a.in" << i << " = in" << i << "; a.stride_in" << i << " = stride_in" << i
         << "; a.offset_in" << i << " = offset_in" << i << ";\n";
     if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
@@ -468,6 +522,10 @@ GpuRejection gpuRejection(const Program& program,
   if (deviceAccessible != nullptr) {
     for (const auto* set : {&binding.inputs(), &binding.outputs()}) {
       for (const auto& column : *set) {
+        if (column.view->uniform) {
+          // read on the host when a call is packed
+          continue;
+        }
         if (!deviceAccessible(column.view->base) ||
             (column.view->index != nullptr && !deviceAccessible(column.view->index))) {
           return GpuRejection::HostPointer;
@@ -506,6 +564,9 @@ std::uint64_t GpuLayout::fingerprint() const {
   for (const bool perCell : inputPerCell) {
     hash = mix(hash, perCell ? 1 : 0);
   }
+  for (const bool uniform : inputUniform) {
+    hash = mix(hash, uniform ? 2 : 0);
+  }
   hash = mix(hash, outputs.size());
   for (const auto type : outputs) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
@@ -528,6 +589,7 @@ GpuLayout gpuLayoutOf(const Binding& binding) {
   for (const auto& column : binding.inputs()) {
     layout.inputs.push_back(column.tableType);
     layout.inputPerCell.push_back(column.view.has_value() && !column.view->pointwise());
+    layout.inputUniform.push_back(column.view.has_value() && column.view->uniform);
   }
   layout.outputs.reserve(binding.outputs().size());
   for (const auto& column : binding.outputs()) {
@@ -560,6 +622,11 @@ std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string
   std::size_t k = 0;
   const auto arg = [&](const char* type) { out << "    *(" << type << "*)a[" << k++ << "]"; };
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    if (isUniform(layout, i)) {
+      arg(("const " + computeType).c_str());
+      out << ",\n";
+      continue;
+    }
     arg("const void* const");
     out << ", ";
     arg("const SeissolU64");
@@ -627,12 +694,15 @@ GpuArguments::GpuArguments(const Binding& binding,
   // on every target this runs on, and the scalars are `unsigned long long` for
   // exactly that reason.
   std::size_t perCellInputs = 0;
+  std::size_t uniformInputs = 0;
   for (const auto& column : binding.inputs()) {
     perCellInputs += column.view->pointwise() ? 0 : 1;
+    uniformInputs += column.view->uniform ? 1 : 0;
   }
-  const std::size_t fields = 3 * (binding.inputs().size() + binding.outputs().size()) +
-                             2 * perCellInputs + binding.matrices().size() +
-                             4 * binding.blocks().size() + 5 * binding.states().size() + 4;
+  const std::size_t fields =
+      3 * (binding.inputs().size() - uniformInputs + binding.outputs().size()) + uniformInputs +
+      2 * perCellInputs + binding.matrices().size() + 4 * binding.blocks().size() +
+      5 * binding.states().size() + 4;
   image_.reserve(fields * sizeof(std::uint64_t));
 
   const auto appendPointer = [this](const void* value) { append(&value, sizeof(value)); };
@@ -640,8 +710,23 @@ GpuArguments::GpuArguments(const Binding& binding,
 
   for (std::size_t i = 0; i < binding.inputs().size(); ++i) {
     const auto& column = binding.inputs()[i];
-    appendPointer((i < args.inputCount && args.inputs[i] != nullptr) ? args.inputs[i]
-                                                                     : column.view->base);
+    const void* base =
+        (i < args.inputCount && args.inputs[i] != nullptr) ? args.inputs[i] : column.view->base;
+    if (column.view->uniform) {
+      // The value, read here and converted as Binding::gatherFrom converts it; a float is padded
+      // to the eight bytes of a field (the struct declares the padding).
+      const double value =
+          readAsDouble(static_cast<const char*>(base) + column.view->byteOffset, column.tableType);
+      if (binding.computeType() == ComputeType::F32) {
+        const auto narrowed = static_cast<float>(value);
+        append(&narrowed, sizeof(narrowed));
+        image_.insert(image_.end(), sizeof(std::uint64_t) - sizeof(narrowed), 0);
+      } else {
+        append(&value, sizeof(value));
+      }
+      continue;
+    }
+    appendPointer(base);
     appendScalar(column.view->byteStride);
     appendScalar(column.view->byteOffset);
     if (!column.view->pointwise()) {

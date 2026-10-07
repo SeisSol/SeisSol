@@ -136,6 +136,9 @@ struct GpuLayout {
   /// Per input: whether it is a column per cell (StridedView::divisor and index), which reads
   /// its element through two more fields.
   std::vector<bool> inputPerCell;
+  /// Per input: whether it is uniform (StridedView::uniform), i.e. one value in the compute type,
+  /// passed by value in place of a base, a stride and an offset.
+  std::vector<bool> inputUniform;
   std::vector<reader::scripting::DataType> outputs;
   std::vector<reader::scripting::DataType> matrices;
   std::vector<reader::scripting::DataType> blocks;

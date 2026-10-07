@@ -68,6 +68,10 @@ struct StridedView {
   std::size_t divisor{1};
   /// Optional: element of the point set -> element in memory, for a gathered subset.
   const std::uint32_t* index{nullptr};
+  /// One value for all points (bindConstant). A device kernel takes it by value, read on the host
+  /// when a call is packed -- from the base of the call if the call moves it -- so its base may be
+  /// host memory, and a value that changes from call to call costs no copy to the device.
+  bool uniform{false};
 
   /// The element point `point` reads; base + element * byteStride + byteOffset is its address.
   [[nodiscard]] std::size_t element(std::size_t point) const {
@@ -279,7 +283,8 @@ class DataTable {
   /// onto a copy the table holds, so that a table that merely names a constant
   /// (such as `sim`) can still reach a device kernel, which bindComputed, with
   /// no address arithmetic behind it, cannot. For a value that changes from
-  /// call to call, bind a stride-0 view onto the caller's variable instead.
+  /// call to call, pass its address as the base of the call (KernelArgs::inputs):
+  /// the view is uniform, so a device kernel takes the value by value.
   template <typename T>
   void bindConstant(std::string name, const T& value) {
     auto held = std::make_shared<T>(value);
@@ -289,6 +294,7 @@ class DataTable {
     view.byteStride = 0;
     view.byteOffset = 0;
     view.writable = false;
+    view.uniform = true;
     dataEntries_.emplace_back(DataEntry{
         std::move(name), Direction::In, DataTypeTraits<T>::Type, accessor, nullptr, view, nullptr});
     constants_.push_back(std::move(held));

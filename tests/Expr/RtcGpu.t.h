@@ -95,6 +95,50 @@ void* compileForHost(const std::string& source) {
   return dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
 }
 
+/// Whether NVRTC, if this machine has it, compiles `source` as the driver does (set `ran`
+/// accordingly; `log` gets its diagnostics). Loaded at run time, so the test needs no toolkit to
+/// build and is skipped where there is none -- where there is one, the CUDA dialect of the
+/// emitted source is checked by the real compiler rather than by the host shim alone.
+bool nvrtcAccepts(const std::string& source, bool& ran, std::string& log) {
+  ran = false;
+  void* library = dlopen("libnvrtc.so", RTLD_NOW | RTLD_LOCAL);
+  if (library == nullptr) {
+    library = dlopen("libnvrtc.so.12", RTLD_NOW | RTLD_LOCAL);
+  }
+  if (library == nullptr) {
+    return true;
+  }
+  using Create =
+      int (*)(void**, const char*, const char*, int, const char* const*, const char* const*);
+  using Compile = int (*)(void*, int, const char* const*);
+  using LogSize = int (*)(void*, std::size_t*);
+  using Log = int (*)(void*, char*);
+  using Destroy = int (*)(void**);
+  auto* create = reinterpret_cast<Create>(dlsym(library, "nvrtcCreateProgram"));
+  auto* compile = reinterpret_cast<Compile>(dlsym(library, "nvrtcCompileProgram"));
+  auto* logSize = reinterpret_cast<LogSize>(dlsym(library, "nvrtcGetProgramLogSize"));
+  auto* getLog = reinterpret_cast<Log>(dlsym(library, "nvrtcGetProgramLog"));
+  auto* destroy = reinterpret_cast<Destroy>(dlsym(library, "nvrtcDestroyProgram"));
+  if (create == nullptr || compile == nullptr || logSize == nullptr || getLog == nullptr ||
+      destroy == nullptr) {
+    return true;
+  }
+  void* program = nullptr;
+  if (create(&program, source.c_str(), "seissol_expr.cu", 0, nullptr, nullptr) != 0) {
+    return true;
+  }
+  ran = true;
+  const std::vector<const char*> options = {
+      "--gpu-architecture=compute_70", "--std=c++17", "-default-device"};
+  const bool compiled = compile(program, static_cast<int>(options.size()), options.data()) == 0;
+  std::size_t size = 0;
+  logSize(program, &size);
+  log.assign(size, '\0');
+  getLog(program, log.data());
+  destroy(&program);
+  return compiled;
+}
+
 /// Evaluate `source` on the interpreter and through the emitted device kernel
 /// compiled for the host, and report whether every output is bitwise equal.
 /// `ran` is false when no compiler was available.
@@ -520,6 +564,132 @@ TEST_SUITE("ExprRtcGpu") {
     CHECK(unit_test::bitwiseEqual(interpreted.data(), emitted.data(), NumPoints));
     // a column per cell carries its divisor and index along
     CHECK(packed.fieldCount() == 3 * 3 + 2 + 4);
+  }
+
+  TEST_CASE("a uniform input reaches the device kernel by value, per call") {
+    // `t` is bound as a constant and moved per call to a host variable: the device kernel takes
+    // its value in the argument block, so neither the binding nor the call needs device memory.
+    for (const auto computeType : {ComputeType::F64, ComputeType::F32}) {
+      Program program = compileSderivModule("out def u = x * t + t\n");
+      program.setComputeType(computeType);
+      const bool f32 = computeType == ComputeType::F32;
+      constexpr std::size_t NumPoints = 5;
+      std::vector<double> x = {1.0, -2.0, 0.5, 3.0, 1e3};
+      std::vector<double> interpreted(NumPoints, -1.0);
+      std::vector<double> emitted(NumPoints, -1.0);
+
+      DataTable table(NumPoints);
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindConstant<double>("t", 0.0);
+      table.bindView<double>("u", Direction::Out, interpreted.data());
+      Binding binding = Binding::bind(program, table);
+      // the constant lives on the host, which a uniform input may
+      const auto nothingIsOnTheDevice = [](const void* /*pointer*/) { return false; };
+      CHECK(gpuRejection(program, lower(program), binding, +nothingIsOnTheDevice) ==
+            GpuRejection::HostPointer);
+      const GpuLayout layout = gpuLayoutOf(binding);
+      REQUIRE(layout.inputUniform.size() == 2);
+      CHECK(!layout.inputUniform[0]);
+      CHECK(layout.inputUniform[1]);
+
+      const std::string source = emitGpuSource(program, lower(program), layout, GpuTarget::Cuda);
+      CHECK(source.find(std::string(f32 ? "float" : "double") + " value_in1;") !=
+            std::string::npos);
+      const std::string generated =
+          std::string(HostShim) + source + emitGpuHostTrampoline(layout, f32 ? "float" : "double");
+      void* handle = compileForHost(generated);
+      if (handle == nullptr) {
+        WARN_MESSAGE(false, "no usable C++ compiler; the device code generator was not executed");
+        return;
+      }
+      auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+      REQUIRE(invoke != nullptr);
+
+      df::GridStore store;
+      const auto kernel = makeKernel(program, binding, store, {});
+      for (const double time : {0.25, -3.0}) {
+        // the time is the base of the call, for the interpreter and the device kernel alike
+        std::vector<const void*> inputs = {nullptr, &time};
+        KernelArgs args{};
+        args.inputs = inputs.data();
+        args.inputCount = inputs.size();
+        args.first = 0;
+        args.count = NumPoints;
+        void* interpretedBase = interpreted.data();
+        args.outputs = &interpretedBase;
+        args.outputCount = 1;
+        kernel->run(args);
+
+        void* emittedBase = emitted.data();
+        args.outputs = &emittedBase;
+        GpuArguments packed(binding, args, nullptr);
+        invoke(packed.data());
+        CHECK(unit_test::bitwiseEqual(interpreted.data(), emitted.data(), NumPoints));
+        for (std::size_t p = 0; p < NumPoints; ++p) {
+          const double expected = x[p] * time + time;
+          if (f32) {
+            CHECK(emitted[p] == doctest::Approx(expected).epsilon(1e-6));
+          } else {
+            CHECK(emitted[p] == expected);
+          }
+        }
+        // one field for the uniform input, eight bytes wide whatever the compute type
+        CHECK(packed.fieldCount() == 3 + 1 + 3 + 4);
+        CHECK(packed.fieldSize(3) == (f32 ? sizeof(float) : sizeof(double)));
+        CHECK(static_cast<const char*>(packed.fieldData(4)) -
+                  static_cast<const char*>(packed.fieldData(3)) ==
+              8);
+      }
+    }
+  }
+
+  TEST_CASE("NVRTC compiles the emitted CUDA source") {
+    // Columns per point and per cell, a uniform input, a state, a contraction, in both compute
+    // types: every form the argument block and the accessors take.
+    for (const auto computeType : {ComputeType::F64, ComputeType::F32}) {
+      Program program = compileSderivModule(
+          "state s = 0.0\nout def s = s + v * t\nout def u = 2.0 * v - j * x\n");
+      program.setComputeType(computeType);
+      const auto matrix = program.internMatrix("proj", MatrixShape{2, 3, 4});
+      const auto v = program.internBlock("v", 3);
+      substituteByContraction(program, matrix, {{"v", v}});
+
+      constexpr std::size_t NumPoints = 4;
+      std::vector<double> x(NumPoints, 1.0);
+      std::vector<float> j(2, 2.0F);
+      std::vector<double> m(12, 0.5);
+      std::vector<double> dofs(6, 1.0);
+      std::vector<double> state(NumPoints, 0.0);
+      std::vector<float> stateF32(NumPoints, 0.0F);
+      std::vector<double> s(NumPoints);
+      std::vector<double> u(NumPoints);
+      DataTable table(NumPoints);
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindCellView<float>("j", j.data(), 2);
+      table.bindConstant<double>("t", 0.5);
+      table.bindBlock<double>("v", dofs.data(), 3, 3);
+      table.bindMatrix<double>("proj", m.data(), 2, 3, 4);
+      if (computeType == ComputeType::F32) {
+        table.bindState<float>("s", stateF32.data(), 2, 2, 1);
+      } else {
+        table.bindState<double>("s", state.data(), 2, 2, 1);
+      }
+      table.bindView<double>("s", Direction::Out, s.data());
+      table.bindView<double>("u", Direction::Out, u.data());
+      const Binding binding = Binding::bind(program, table);
+      const std::string source =
+          emitGpuSource(program, lower(program), gpuLayoutOf(binding), GpuTarget::Cuda);
+      bool ran = false;
+      std::string log;
+      const bool accepted = nvrtcAccepts(source, ran, log);
+      if (!ran) {
+        WARN_MESSAGE(false, "no NVRTC on this machine; the CUDA dialect was not compiled");
+        return;
+      }
+      INFO(log);
+      INFO(source);
+      CHECK(accepted);
+    }
   }
 
   TEST_CASE("the kernel splits into a point function and a wrapper") {

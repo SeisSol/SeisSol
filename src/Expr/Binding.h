@@ -86,6 +86,8 @@ class Binding {
   [[nodiscard]] const std::vector<ColumnBinding>& inputs() const { return inputs_; }
   [[nodiscard]] const std::vector<ColumnBinding>& outputs() const { return outputs_; }
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
+  /// The type the program computes in, which the device kernels take their uniform inputs in.
+  [[nodiscard]] ComputeType computeType() const { return computeType_; }
 
   // The blocks and matrices contractions read, in Program::blocks() and Program::matrices()
   // order, as the table binds them.
