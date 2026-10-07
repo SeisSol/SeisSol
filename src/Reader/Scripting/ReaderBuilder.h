@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_READER_SCRIPTING_READERBUILDER_H_
 
 #include "Expr/Program.h"
+#include "Expr/SderivFrontend.h"
 #include "Reader/Scripting/DataReader.h"
 
 #include <memory>
@@ -31,8 +32,11 @@ std::unique_ptr<DataReader> buildInterpretedReader(const std::string& path,
 /// The program of the script `path`, if it compiles to one: an sderiv module (`sderiv:` or a
 /// .sderiv file), or a Lua model that traces (`lua:` or a .lua file). Nothing for an easi file, or
 /// for a Lua model that does not trace, in which case `reason` (if given) says why. An sderiv
-/// module that does not compile is a configuration error.
-std::optional<expr::Program> buildProgram(const std::string& path, std::string* reason = nullptr);
+/// module that does not compile is a configuration error. `sderivOptions` are passed on to the
+/// sderiv compiler.
+std::optional<expr::Program> buildProgram(const std::string& path,
+                                          std::string* reason = nullptr,
+                                          const expr::SderivOptions& sderivOptions = {});
 
 } // namespace seissol::reader::scripting
 #endif // SEISSOL_SRC_READER_SCRIPTING_READERBUILDER_H_

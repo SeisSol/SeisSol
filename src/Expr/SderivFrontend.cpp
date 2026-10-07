@@ -625,9 +625,10 @@ class Lowering {
            const ParsedProgram& parsed,
            const ComponentTable& components,
            const std::vector<GridId>& gridIds,
+           const std::set<std::string>& inputs,
            Program& program)
       : surface_(surface), parsed_(parsed), components_(components), gridIds_(gridIds),
-        program_(program) {
+        inputs_(inputs), program_(program) {
     for (const SurfaceId id : parsed_.defs) {
       defs_[surface_[id].text] = id;
     }
@@ -652,6 +653,26 @@ class Lowering {
   [[noreturn]] void fail(const SurfaceNode& node, const std::string& message) const {
     throw SderivError("resolve", message, node.position);
   }
+
+  /// The definition of `node` while it is being lowered: one that is reached again reads itself.
+  class Expansion {
+public:
+    Expansion(Lowering& lowering, const SurfaceNode& node) : lowering_(lowering) {
+      auto& expanding = lowering_.expanding_;
+      if (std::find(expanding.begin(), expanding.end(), node.text) != expanding.end()) {
+        lowering_.fail(node, "`" + node.text + "` is defined in terms of itself");
+      }
+      expanding.push_back(node.text);
+    }
+    ~Expansion() { lowering_.expanding_.pop_back(); }
+    Expansion(const Expansion&) = delete;
+    Expansion& operator=(const Expansion&) = delete;
+    Expansion(Expansion&&) = delete;
+    Expansion& operator=(Expansion&&) = delete;
+
+private:
+    Lowering& lowering_;
+  };
 
   NodeId channel(const SurfaceNode& node) {
     const std::string& name = node.text;
@@ -716,6 +737,10 @@ class Lowering {
       if (bound != env.end()) {
         return bound->second;
       }
+      // An input the consumer names reads the input, as a state reads its previous value.
+      if (inputs_.count(node.text) != 0) {
+        return channel(node);
+      }
       // A state reads its value from the previous call -- also where the definition of the same
       // name, its next value, is in scope. That is what makes the update a parallel assignment.
       if (states_.count(node.text) != 0) {
@@ -733,6 +758,7 @@ class Lowering {
                "`" + node.text + "` expects " + std::to_string(definition.params.size()) +
                    " arguments");
         }
+        const Expansion expansion(*this, node);
         Environment inner;
         return lower(definition.a, inner);
       }
@@ -768,6 +794,7 @@ class Lowering {
         for (std::size_t i = 0; i < definition.params.size(); ++i) {
           inner[definition.params[i]] = lower(node.args[i], env);
         }
+        const Expansion expansion(*this, node);
         return lower(definition.a, inner);
       }
 
@@ -848,10 +875,13 @@ class Lowering {
   const ParsedProgram& parsed_;
   const ComponentTable& components_;
   const std::vector<GridId>& gridIds_;
+  const std::set<std::string>& inputs_;
   Program& program_;
   std::map<std::string, SurfaceId> defs_;
   std::set<std::string> states_;
   std::vector<std::string> channels_;
+  /// the definitions being lowered, innermost last
+  std::vector<std::string> expanding_;
 };
 
 } // namespace
@@ -868,6 +898,7 @@ namespace {
 void compileSource(const std::string& source,
                    const std::string* externalName,
                    reader::scripting::DataType type,
+                   const SderivOptions& options,
                    Program& program,
                    std::vector<std::string>& channelOrder) {
   SurfaceArena surface;
@@ -969,7 +1000,7 @@ void compileSource(const std::string& source,
     gridIds.push_back(program.internGrid(desc));
   }
 
-  Lowering lowering(surface, parsed, components, gridIds, program);
+  Lowering lowering(surface, parsed, components, gridIds, options.inputs, program);
 
   // Roots first, names after, so `channels()` has seen every output before the
   // channel order is folded in.
@@ -1015,7 +1046,7 @@ Program compileSderiv(const std::vector<SderivOutput>& outputs) {
   Program program;
   std::vector<std::string> channelOrder;
   for (const auto& output : outputs) {
-    compileSource(output.source, &output.name, output.type, program, channelOrder);
+    compileSource(output.source, &output.name, output.type, {}, program, channelOrder);
   }
   for (const auto& name : channelOrder) {
     program.addInput(name, reader::scripting::DataType::F64);
@@ -1029,9 +1060,13 @@ Program compileSderiv(const std::string& source, const std::string& outputName) 
 }
 
 Program compileSderivModule(const std::string& source) {
+  return compileSderivModule(source, SderivOptions{});
+}
+
+Program compileSderivModule(const std::string& source, const SderivOptions& options) {
   Program program;
   std::vector<std::string> channelOrder;
-  compileSource(source, nullptr, reader::scripting::DataType::F64, program, channelOrder);
+  compileSource(source, nullptr, reader::scripting::DataType::F64, options, program, channelOrder);
   for (const auto& name : channelOrder) {
     program.addInput(name, reader::scripting::DataType::F64);
   }

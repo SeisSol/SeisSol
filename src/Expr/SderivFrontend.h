@@ -79,6 +79,17 @@
 //     out def peak = select(fresh, v, max(peak, v))
 //     def last = window
 //
+// INPUTS A CONSUMER NAMES (SderivOptions::inputs) read the input of that name wherever they are
+// referenced, as a state reads its previous value, also where a definition of the same name is in
+// scope; that definition only gives the output of the name. So a module may map a state onto the
+// next one name by name, the inner state of a boundary onto its ghost state, say, as one parallel
+// assignment:
+//
+//     out def v1 = -v1
+//     out def s_xy = s_xy + 0.1 * v1      # v1 is the input here too
+//
+// Otherwise a definition that reads itself, directly or through others, is an error.
+//
 // A module is EITHER a trailing expression, whose name the caller supplies via
 // compileSderiv(source, name), OR one or more `out def`s -- never both, because
 // then it would be open which one is "the" output.
@@ -103,6 +114,7 @@
 
 #include "Expr/Program.h"
 
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -150,6 +162,15 @@ struct SderivOutput {
 /// Throws SderivError if the source has no `out def`, or if it ends in a bare
 /// expression instead.
 [[nodiscard]] Program compileSderivModule(const std::string& source);
+
+/// What a consumer tells the compiler of a module beyond its source.
+struct SderivOptions {
+  /// Names that read the input of that name wherever they are referenced (see above).
+  std::set<std::string> inputs;
+};
+
+/// The same, with `options`.
+[[nodiscard]] Program compileSderivModule(const std::string& source, const SderivOptions& options);
 
 // Convenience for the single-output case and for tests.
 [[nodiscard]] Program compileSderiv(const std::string& source, const std::string& outputName);

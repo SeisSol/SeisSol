@@ -124,12 +124,14 @@ std::unique_ptr<DataReader> buildInterpretedReader(const std::string& path,
   return nullptr;
 }
 
-std::optional<expr::Program> buildProgram(const std::string& path, std::string* reason) {
+std::optional<expr::Program> buildProgram(const std::string& path,
+                                          std::string* reason,
+                                          const expr::SderivOptions& sderivOptions) {
   const auto kind = kindOf(path);
   if (kind == "sderiv") {
     const std::string source = readFile(fileOf(path));
     try {
-      return expr::compileSderivModule(source);
+      return expr::compileSderivModule(source, sderivOptions);
     } catch (const expr::SderivError& error) {
       logError() << "The sderiv module" << path << "does not compile at byte" << error.position()
                  << ":" << error.what();

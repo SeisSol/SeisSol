@@ -17,10 +17,15 @@
 
 #include <doctest.h>
 
+#include "Expr/Backend.h"
+#include "Expr/Binding.h"
 #include "Expr/Program.h"
 #include "Expr/SderivFrontend.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <cstddef>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -308,9 +313,72 @@ out def b = y
 
   TEST_CASE("a definition may not take the name of a constant or function") {
     // a read of `g` would be the constant, and the definition ignored
-    CHECK_THROWS_AS(compileSderivModule("def g = 2.0 * x\nout def u = g\n"), SderivError);
-    CHECK_THROWS_AS(compileSderivModule("def exp = x\nout def u = exp\n"), SderivError);
-    CHECK_THROWS_AS(compileSderivModule("out def pi = x\n"), SderivError);
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def g = 2.0 * x\nout def u = g\n")),
+                    SderivError);
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def exp = x\nout def u = exp\n")),
+                    SderivError);
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("out def pi = x\n")), SderivError);
+  }
+
+  TEST_CASE("a definition that reads itself is an error, not a recursion") {
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("out def a = a + 1.0\n")), SderivError);
+    CHECK_THROWS_AS(
+        static_cast<void>(compileSderivModule("def a = b * 2.0\ndef b = a\nout def c = a\n")),
+        SderivError);
+    CHECK_THROWS_AS(
+        static_cast<void>(compileSderivModule("def f(p) = f(p) + 1.0\nout def c = f(x)\n")),
+        SderivError);
+    // a function applied to itself is not a cycle
+    CHECK_NOTHROW(
+        static_cast<void>(compileSderivModule("def f(p) = 2.0 * p\nout def c = f(f(x))\n")));
+  }
+
+  TEST_CASE("an input the consumer names reads the input next to a definition of its name") {
+    // the inner state of a boundary onto its ghost state, as one parallel assignment
+    SderivOptions options;
+    options.inputs = {"v1", "s_xy"};
+    const auto program = compileSderivModule(
+        "out def v1 = -v1\nout def s_xy = s_xy + 0.5 * v1\nout def s_yy = 3.0\n", options);
+    std::set<std::string> inputs;
+    for (const auto& input : program.inputs()) {
+      inputs.insert(input.name);
+    }
+    CHECK(inputs == std::set<std::string>{"v1", "s_xy"});
+    REQUIRE(program.outputs().size() == 3);
+    CHECK(channelsRead(program, {program.roots()[1]}) == std::set<std::string>{"v1", "s_xy"});
+
+    // evaluated under other names for the outputs, as a table has one column per name
+    Program renamed;
+    renamed.arena() = program.arena();
+    for (const auto& input : program.inputs()) {
+      renamed.addInput(input.name, input.type);
+    }
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      renamed.addOutput(
+          "ghost_" + program.outputs()[i].name, program.outputs()[i].type, program.roots()[i]);
+    }
+    const double v1 = 2.0;
+    const double sxy = 3.0;
+    std::vector<double> ghost(3, -1.0);
+    reader::scripting::DataTable table(1);
+    table.bindViewConst<double>("v1", reader::scripting::Direction::In, &v1);
+    table.bindViewConst<double>("s_xy", reader::scripting::Direction::In, &sxy);
+    for (std::size_t i = 0; i < ghost.size(); ++i) {
+      table.bindView<double>(
+          renamed.outputs()[i].name, reader::scripting::Direction::Out, &ghost[i]);
+    }
+    auto binding = Binding::bind(renamed, table);
+    reader::datafield::GridStore store;
+    const auto kernel = makeKernel(renamed, binding, store, BackendOptions{});
+    kernel->precompute(table);
+    kernel->run(table);
+    CHECK(ghost[0] == -2.0);
+    // the input v1, not the ghost value
+    CHECK(ghost[1] == 4.0);
+    CHECK(ghost[2] == 3.0);
+
+    // without the option, the same module reads itself
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("out def v1 = -v1\n")), SderivError);
   }
 
   TEST_CASE("the two module forms stay separate") {
