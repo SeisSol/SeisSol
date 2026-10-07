@@ -9,18 +9,28 @@
 
 #include "Neighbor.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <iterator>
 #include <stdint.h>
+#include <utility>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
@@ -67,10 +77,10 @@ void Neighbor<Cfg>::computeNeighborsIntegral(
   // alignment of the degrees of freedom
   assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Vectorsize == 0);
 
-  alignas(PagesizeStack) real Qext[tensor::Qext<Cfg>::size()] = {};
+  alignas(PagesizeStack) real qext[tensor::Qext<Cfg>::size()] = {};
 
   kernel::neighborFluxExt<Cfg> nfKrnl = nfKrnlPrototype_;
-  nfKrnl.Qext = Qext;
+  nfKrnl.Qext = qext;
 
   // iterate over faces
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -90,14 +100,14 @@ void Neighbor<Cfg>::computeNeighborsIntegral(
       dynamicRupture::kernel::nodalFlux<Cfg> drKrnl = drKrnlPrototype_;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
-      drKrnl.Qext = Qext;
+      drKrnl.Qext = qext;
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }
 
   kernel::neighbor<Cfg> nKrnl = nKrnlPrototype_;
-  nKrnl.Qext = Qext;
+  nKrnl.Qext = qext;
   nKrnl.Q = data.template get<LTS::Dofs>();
   nKrnl.Qane = data.template get<LTS::DofsAne>();
   nKrnl.w = data.template get<LTS::NeighboringIntegration>().specific.w;

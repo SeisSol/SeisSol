@@ -35,11 +35,12 @@ class SpaceTimePredictorTestFixture {
   protected:
   constexpr static const double Epsilon = std::numeric_limits<Real<Cfg>>::epsilon();
   constexpr static const double Dt = 1.05109e-06;
-  Real<Cfg> starMatrices0[tensor::star<Cfg>::size(0)];
-  Real<Cfg> starMatrices1[tensor::star<Cfg>::size(1)];
-  Real<Cfg> starMatrices2[tensor::star<Cfg>::size(2)];
-  Real<Cfg> sourceMatrix[tensor::ET<Cfg>::size()];
-  Real<Cfg> zMatrix[seissol::model::PoroElasticMaterial::NumQuantities][tensor::Zinv<Cfg>::size(0)];
+  Real<Cfg> starMatrices0_[tensor::star<Cfg>::size(0)];
+  Real<Cfg> starMatrices1_[tensor::star<Cfg>::size(1)];
+  Real<Cfg> starMatrices2_[tensor::star<Cfg>::size(2)];
+  Real<Cfg> sourceMatrix_[tensor::ET<Cfg>::size()];
+  Real<Cfg> zMatrix_[seissol::model::PoroElasticMaterial::NumQuantities]
+                    [tensor::Zinv<Cfg>::size(0)];
 
   void setStarMatrix(const Real<Cfg>* at,
                      const Real<Cfg>* bt,
@@ -96,40 +97,40 @@ class SpaceTimePredictorTestFixture {
     model::getTransposedCoefficientMatrix<Cfg>(material, 0, at);
     model::getTransposedCoefficientMatrix<Cfg>(material, 1, bt);
     model::getTransposedCoefficientMatrix<Cfg>(material, 2, ct);
-    setStarMatrix(atData, btData, ctData, gradXi, starMatrices0);
-    setStarMatrix(atData, btData, ctData, gradEta, starMatrices1);
-    setStarMatrix(atData, btData, ctData, gradZeta, starMatrices2);
+    setStarMatrix(atData, btData, ctData, gradXi, starMatrices0_);
+    setStarMatrix(atData, btData, ctData, gradEta, starMatrices1_);
+    setStarMatrix(atData, btData, ctData, gradZeta, starMatrices2_);
 
     // prepare sourceterm
-    auto et = init::ET<Cfg>::view::create(sourceMatrix);
+    auto et = init::ET<Cfg>::view::create(sourceMatrix_);
     model::getTransposedSourceCoefficientTensor<Cfg>(material, et);
 
     // prepare Zinv
-    auto zinv0 = init::Zinv<Cfg>::template view<0>::create(zMatrix[0]);
+    auto zinv0 = init::Zinv<Cfg>::template view<0>::create(zMatrix_[0]);
     model::calcZinv<Cfg>(zinv0, et, 0, model::isStiffRow<model::PoroElasticMaterial>(0), Dt);
-    auto zinv1 = init::Zinv<Cfg>::template view<1>::create(zMatrix[1]);
+    auto zinv1 = init::Zinv<Cfg>::template view<1>::create(zMatrix_[1]);
     model::calcZinv<Cfg>(zinv1, et, 1, model::isStiffRow<model::PoroElasticMaterial>(1), Dt);
-    auto zinv2 = init::Zinv<Cfg>::template view<2>::create(zMatrix[2]);
+    auto zinv2 = init::Zinv<Cfg>::template view<2>::create(zMatrix_[2]);
     model::calcZinv<Cfg>(zinv2, et, 2, model::isStiffRow<model::PoroElasticMaterial>(2), Dt);
-    auto zinv3 = init::Zinv<Cfg>::template view<3>::create(zMatrix[3]);
+    auto zinv3 = init::Zinv<Cfg>::template view<3>::create(zMatrix_[3]);
     model::calcZinv<Cfg>(zinv3, et, 3, model::isStiffRow<model::PoroElasticMaterial>(3), Dt);
-    auto zinv4 = init::Zinv<Cfg>::template view<4>::create(zMatrix[4]);
+    auto zinv4 = init::Zinv<Cfg>::template view<4>::create(zMatrix_[4]);
     model::calcZinv<Cfg>(zinv4, et, 4, model::isStiffRow<model::PoroElasticMaterial>(4), Dt);
-    auto zinv5 = init::Zinv<Cfg>::template view<5>::create(zMatrix[5]);
+    auto zinv5 = init::Zinv<Cfg>::template view<5>::create(zMatrix_[5]);
     model::calcZinv<Cfg>(zinv5, et, 5, model::isStiffRow<model::PoroElasticMaterial>(5), Dt);
-    auto zinv6 = init::Zinv<Cfg>::template view<6>::create(zMatrix[6]);
+    auto zinv6 = init::Zinv<Cfg>::template view<6>::create(zMatrix_[6]);
     model::calcZinv<Cfg>(zinv6, et, 6, model::isStiffRow<model::PoroElasticMaterial>(6), Dt);
-    auto zinv7 = init::Zinv<Cfg>::template view<7>::create(zMatrix[7]);
+    auto zinv7 = init::Zinv<Cfg>::template view<7>::create(zMatrix_[7]);
     model::calcZinv<Cfg>(zinv7, et, 7, model::isStiffRow<model::PoroElasticMaterial>(7), Dt);
-    auto zinv8 = init::Zinv<Cfg>::template view<8>::create(zMatrix[8]);
+    auto zinv8 = init::Zinv<Cfg>::template view<8>::create(zMatrix_[8]);
     model::calcZinv<Cfg>(zinv8, et, 8, model::isStiffRow<model::PoroElasticMaterial>(8), Dt);
-    auto zinv9 = init::Zinv<Cfg>::template view<9>::create(zMatrix[9]);
+    auto zinv9 = init::Zinv<Cfg>::template view<9>::create(zMatrix_[9]);
     model::calcZinv<Cfg>(zinv9, et, 9, model::isStiffRow<model::PoroElasticMaterial>(9), Dt);
-    auto zinv10 = init::Zinv<Cfg>::template view<10>::create(zMatrix[10]);
+    auto zinv10 = init::Zinv<Cfg>::template view<10>::create(zMatrix_[10]);
     model::calcZinv<Cfg>(zinv10, et, 10, model::isStiffRow<model::PoroElasticMaterial>(10), Dt);
-    auto zinv11 = init::Zinv<Cfg>::template view<11>::create(zMatrix[11]);
+    auto zinv11 = init::Zinv<Cfg>::template view<11>::create(zMatrix_[11]);
     model::calcZinv<Cfg>(zinv11, et, 11, model::isStiffRow<model::PoroElasticMaterial>(11), Dt);
-    auto zinv12 = init::Zinv<Cfg>::template view<12>::create(zMatrix[12]);
+    auto zinv12 = init::Zinv<Cfg>::template view<12>::create(zMatrix_[12]);
     model::calcZinv<Cfg>(zinv12, et, 12, model::isStiffRow<model::PoroElasticMaterial>(12), Dt);
   }
 
@@ -175,9 +176,9 @@ class SpaceTimePredictorTestFixture {
     // applied here: kDivMT carries it, negated at code generation (negateFamily in
     // codegen/kernels/aderdg/aderdg.py).
     for (size_t i = 0; i < seissol::tensor::star<Cfg>::size(0); i++) {
-      aValues[i] = starMatrices0[i] * Dt;
-      bValues[i] = starMatrices1[i] * Dt;
-      cValues[i] = starMatrices2[i] * Dt;
+      aValues[i] = starMatrices0_[i] * Dt;
+      bValues[i] = starMatrices1_[i] * Dt;
+      cValues[i] = starMatrices2_[i] * Dt;
     }
 
     krnl.star(0) = aValues;
@@ -185,10 +186,10 @@ class SpaceTimePredictorTestFixture {
     krnl.star(2) = cValues;
 
     for (size_t i = 0; i < seissol::model::PoroElasticMaterial::NumQuantities; i++) {
-      krnl.Zinv(i) = zMatrix[i];
+      krnl.Zinv(i) = zMatrix_[i];
     }
 
-    auto sourceView = init::ET<Cfg>::view::create(sourceMatrix);
+    auto sourceView = init::ET<Cfg>::view::create(sourceMatrix_);
     for (std::size_t i = 0; i < model::PoroElasticMaterial::StiffSourceRows.size(); ++i) {
       const auto& row = model::PoroElasticMaterial::StiffSourceRows[i];
       krnl.G(i) = sourceView(row.quantity, row.target) * Dt;
@@ -204,7 +205,7 @@ class SpaceTimePredictorTestFixture {
   void computeLhs(const Real<Cfg>* stp, Real<Cfg>* lhs) {
     kernel::stpTestLhs<Cfg> testLhsKrnl;
     prepareLHS(testLhsKrnl);
-    testLhsKrnl.ET = sourceMatrix;
+    testLhsKrnl.ET = sourceMatrix_;
     testLhsKrnl.spaceTimePredictor = stp;
     testLhsKrnl.testLhs = lhs;
     testLhsKrnl.minus = -Dt;
@@ -215,9 +216,9 @@ class SpaceTimePredictorTestFixture {
     kernel::stpTestRhs<Cfg> testRhsKrnl;
     prepareRHS(testRhsKrnl);
     testRhsKrnl.Q = qData;
-    testRhsKrnl.star(0) = starMatrices0;
-    testRhsKrnl.star(1) = starMatrices1;
-    testRhsKrnl.star(2) = starMatrices2;
+    testRhsKrnl.star(0) = starMatrices0_;
+    testRhsKrnl.star(1) = starMatrices1_;
+    testRhsKrnl.star(2) = starMatrices2_;
     testRhsKrnl.spaceTimePredictor = stp;
     // The flux term is -Dt * star * K^T; kDivMT already is -K^T, so its factor here is +Dt.
     testRhsKrnl.minus = Dt;

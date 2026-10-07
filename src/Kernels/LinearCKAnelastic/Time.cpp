@@ -9,26 +9,33 @@
 
 #include "Time.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Interface.h"
+#include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Kernels/MemoryOps.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
-#endif
-
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
 #endif
 
 namespace seissol::kernels::solver::linearckanelastic {

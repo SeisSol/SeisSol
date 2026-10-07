@@ -28,144 +28,144 @@ namespace seissol::model {
 template <>
 struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroElasticMaterial> {
   template <typename T>
-  static void setToZero(T& AT) {
-    AT.setZero();
+  static void setToZero(T& matM) {
+    matM.setZero();
   }
 
   template <typename T>
   static void
-      getTransposedCoefficientMatrix(const PoroElasticMaterial& material, unsigned dim, T& AT) {
-    setToZero<T>(AT);
+      getTransposedCoefficientMatrix(const PoroElasticMaterial& material, unsigned dim, T& matM) {
+    setToZero<T>(matM);
     const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
     switch (dim) {
     case 0:
-      AT(0, 6) = -1 / params.rho1;
-      AT(0, 10) = -1 / params.rho2;
-      AT(3, 7) = -1 / params.rho1;
-      AT(3, 11) = -1 / params.rho2;
-      AT(5, 8) = -1 / params.rho1;
-      AT(5, 12) = -1 / params.rho2;
+      matM(0, 6) = -1 / params.rho1;
+      matM(0, 10) = -1 / params.rho2;
+      matM(3, 7) = -1 / params.rho1;
+      matM(3, 11) = -1 / params.rho2;
+      matM(5, 8) = -1 / params.rho1;
+      matM(5, 12) = -1 / params.rho2;
 
-      AT(6, 0) = -params.cBar(0, 0);
-      AT(6, 1) = -params.cBar(1, 0);
-      AT(6, 2) = -params.cBar(2, 0);
-      AT(6, 3) = -params.cBar(5, 0);
-      AT(6, 4) = -params.cBar(3, 0);
-      AT(6, 5) = -params.cBar(4, 0);
-      AT(6, 9) = params.M * params.alpha(0);
+      matM(6, 0) = -params.cBar(0, 0);
+      matM(6, 1) = -params.cBar(1, 0);
+      matM(6, 2) = -params.cBar(2, 0);
+      matM(6, 3) = -params.cBar(5, 0);
+      matM(6, 4) = -params.cBar(3, 0);
+      matM(6, 5) = -params.cBar(4, 0);
+      matM(6, 9) = params.M * params.alpha(0);
 
-      AT(7, 0) = -params.cBar(0, 5);
-      AT(7, 1) = -params.cBar(1, 5);
-      AT(7, 2) = -params.cBar(2, 5);
-      AT(7, 3) = -params.cBar(5, 5);
-      AT(7, 4) = -params.cBar(3, 5);
-      AT(7, 5) = -params.cBar(4, 5);
-      AT(7, 9) = params.M * params.alpha(5);
+      matM(7, 0) = -params.cBar(0, 5);
+      matM(7, 1) = -params.cBar(1, 5);
+      matM(7, 2) = -params.cBar(2, 5);
+      matM(7, 3) = -params.cBar(5, 5);
+      matM(7, 4) = -params.cBar(3, 5);
+      matM(7, 5) = -params.cBar(4, 5);
+      matM(7, 9) = params.M * params.alpha(5);
 
-      AT(8, 0) = -params.cBar(0, 4);
-      AT(8, 1) = -params.cBar(1, 4);
-      AT(8, 2) = -params.cBar(2, 4);
-      AT(8, 3) = -params.cBar(5, 4);
-      AT(8, 4) = -params.cBar(3, 4);
-      AT(8, 5) = -params.cBar(4, 4);
-      AT(8, 9) = params.M * params.alpha(4);
+      matM(8, 0) = -params.cBar(0, 4);
+      matM(8, 1) = -params.cBar(1, 4);
+      matM(8, 2) = -params.cBar(2, 4);
+      matM(8, 3) = -params.cBar(5, 4);
+      matM(8, 4) = -params.cBar(3, 4);
+      matM(8, 5) = -params.cBar(4, 4);
+      matM(8, 9) = params.M * params.alpha(4);
 
-      AT(9, 6) = -params.beta1 / params.rho1;
-      AT(9, 10) = -params.beta2 / params.rho2;
+      matM(9, 6) = -params.beta1 / params.rho1;
+      matM(9, 10) = -params.beta2 / params.rho2;
 
-      AT(10, 0) = -params.M * params.alpha(0);
-      AT(10, 1) = -params.M * params.alpha(1);
-      AT(10, 2) = -params.M * params.alpha(2);
-      AT(10, 3) = -params.M * params.alpha(5);
-      AT(10, 4) = -params.M * params.alpha(3);
-      AT(10, 5) = -params.M * params.alpha(4);
-      AT(10, 9) = params.M;
+      matM(10, 0) = -params.M * params.alpha(0);
+      matM(10, 1) = -params.M * params.alpha(1);
+      matM(10, 2) = -params.M * params.alpha(2);
+      matM(10, 3) = -params.M * params.alpha(5);
+      matM(10, 4) = -params.M * params.alpha(3);
+      matM(10, 5) = -params.M * params.alpha(4);
+      matM(10, 9) = params.M;
       break;
     case 1:
-      AT(1, 7) = -1 / params.rho1;
-      AT(1, 11) = -1 / params.rho2;
-      AT(3, 6) = -1 / params.rho1;
-      AT(3, 10) = -1 / params.rho2;
-      AT(4, 8) = -1 / params.rho1;
-      AT(4, 12) = -1 / params.rho2;
+      matM(1, 7) = -1 / params.rho1;
+      matM(1, 11) = -1 / params.rho2;
+      matM(3, 6) = -1 / params.rho1;
+      matM(3, 10) = -1 / params.rho2;
+      matM(4, 8) = -1 / params.rho1;
+      matM(4, 12) = -1 / params.rho2;
 
-      AT(6, 0) = -params.cBar(0, 5);
-      AT(6, 1) = -params.cBar(1, 5);
-      AT(6, 2) = -params.cBar(2, 5);
-      AT(6, 3) = -params.cBar(5, 5);
-      AT(6, 4) = -params.cBar(3, 5);
-      AT(6, 5) = -params.cBar(4, 5);
-      AT(6, 9) = params.M * params.alpha(5);
+      matM(6, 0) = -params.cBar(0, 5);
+      matM(6, 1) = -params.cBar(1, 5);
+      matM(6, 2) = -params.cBar(2, 5);
+      matM(6, 3) = -params.cBar(5, 5);
+      matM(6, 4) = -params.cBar(3, 5);
+      matM(6, 5) = -params.cBar(4, 5);
+      matM(6, 9) = params.M * params.alpha(5);
 
-      AT(7, 0) = -params.cBar(0, 1);
-      AT(7, 1) = -params.cBar(1, 1);
-      AT(7, 2) = -params.cBar(2, 1);
-      AT(7, 3) = -params.cBar(5, 1);
-      AT(7, 4) = -params.cBar(3, 1);
-      AT(7, 5) = -params.cBar(4, 1);
-      AT(7, 9) = params.M * params.alpha(1);
+      matM(7, 0) = -params.cBar(0, 1);
+      matM(7, 1) = -params.cBar(1, 1);
+      matM(7, 2) = -params.cBar(2, 1);
+      matM(7, 3) = -params.cBar(5, 1);
+      matM(7, 4) = -params.cBar(3, 1);
+      matM(7, 5) = -params.cBar(4, 1);
+      matM(7, 9) = params.M * params.alpha(1);
 
-      AT(8, 0) = -params.cBar(0, 3);
-      AT(8, 1) = -params.cBar(1, 3);
-      AT(8, 2) = -params.cBar(2, 3);
-      AT(8, 3) = -params.cBar(5, 3);
-      AT(8, 4) = -params.cBar(3, 3);
-      AT(8, 5) = -params.cBar(4, 3);
-      AT(8, 9) = params.M * params.alpha(3);
+      matM(8, 0) = -params.cBar(0, 3);
+      matM(8, 1) = -params.cBar(1, 3);
+      matM(8, 2) = -params.cBar(2, 3);
+      matM(8, 3) = -params.cBar(5, 3);
+      matM(8, 4) = -params.cBar(3, 3);
+      matM(8, 5) = -params.cBar(4, 3);
+      matM(8, 9) = params.M * params.alpha(3);
 
-      AT(9, 7) = -params.beta1 / params.rho1;
-      AT(9, 11) = -params.beta2 / params.rho2;
+      matM(9, 7) = -params.beta1 / params.rho1;
+      matM(9, 11) = -params.beta2 / params.rho2;
 
-      AT(11, 0) = -params.M * params.alpha(0);
-      AT(11, 1) = -params.M * params.alpha(1);
-      AT(11, 2) = -params.M * params.alpha(2);
-      AT(11, 3) = -params.M * params.alpha(5);
-      AT(11, 4) = -params.M * params.alpha(3);
-      AT(11, 5) = -params.M * params.alpha(4);
-      AT(11, 9) = params.M;
+      matM(11, 0) = -params.M * params.alpha(0);
+      matM(11, 1) = -params.M * params.alpha(1);
+      matM(11, 2) = -params.M * params.alpha(2);
+      matM(11, 3) = -params.M * params.alpha(5);
+      matM(11, 4) = -params.M * params.alpha(3);
+      matM(11, 5) = -params.M * params.alpha(4);
+      matM(11, 9) = params.M;
       break;
     case 2:
-      AT(2, 8) = -1 / params.rho1;
-      AT(2, 12) = -1 / params.rho2;
-      AT(4, 7) = -1 / params.rho1;
-      AT(4, 11) = -1 / params.rho2;
-      AT(5, 6) = -1 / params.rho1;
-      AT(5, 10) = -1 / params.rho2;
+      matM(2, 8) = -1 / params.rho1;
+      matM(2, 12) = -1 / params.rho2;
+      matM(4, 7) = -1 / params.rho1;
+      matM(4, 11) = -1 / params.rho2;
+      matM(5, 6) = -1 / params.rho1;
+      matM(5, 10) = -1 / params.rho2;
 
-      AT(6, 0) = -params.cBar(0, 4);
-      AT(6, 1) = -params.cBar(1, 4);
-      AT(6, 2) = -params.cBar(2, 4);
-      AT(6, 3) = -params.cBar(5, 4);
-      AT(6, 4) = -params.cBar(3, 4);
-      AT(6, 5) = -params.cBar(4, 4);
-      AT(6, 9) = params.M * params.alpha(4);
+      matM(6, 0) = -params.cBar(0, 4);
+      matM(6, 1) = -params.cBar(1, 4);
+      matM(6, 2) = -params.cBar(2, 4);
+      matM(6, 3) = -params.cBar(5, 4);
+      matM(6, 4) = -params.cBar(3, 4);
+      matM(6, 5) = -params.cBar(4, 4);
+      matM(6, 9) = params.M * params.alpha(4);
 
-      AT(7, 0) = -params.cBar(0, 3);
-      AT(7, 1) = -params.cBar(1, 3);
-      AT(7, 2) = -params.cBar(2, 3);
-      AT(7, 3) = -params.cBar(5, 3);
-      AT(7, 4) = -params.cBar(3, 3);
-      AT(7, 5) = -params.cBar(4, 3);
-      AT(7, 9) = params.M * params.alpha(3);
+      matM(7, 0) = -params.cBar(0, 3);
+      matM(7, 1) = -params.cBar(1, 3);
+      matM(7, 2) = -params.cBar(2, 3);
+      matM(7, 3) = -params.cBar(5, 3);
+      matM(7, 4) = -params.cBar(3, 3);
+      matM(7, 5) = -params.cBar(4, 3);
+      matM(7, 9) = params.M * params.alpha(3);
 
-      AT(8, 0) = -params.cBar(0, 2);
-      AT(8, 1) = -params.cBar(1, 2);
-      AT(8, 2) = -params.cBar(2, 2);
-      AT(8, 3) = -params.cBar(5, 2);
-      AT(8, 4) = -params.cBar(3, 2);
-      AT(8, 5) = -params.cBar(4, 2);
-      AT(8, 9) = params.M * params.alpha(2);
+      matM(8, 0) = -params.cBar(0, 2);
+      matM(8, 1) = -params.cBar(1, 2);
+      matM(8, 2) = -params.cBar(2, 2);
+      matM(8, 3) = -params.cBar(5, 2);
+      matM(8, 4) = -params.cBar(3, 2);
+      matM(8, 5) = -params.cBar(4, 2);
+      matM(8, 9) = params.M * params.alpha(2);
 
-      AT(9, 8) = -params.beta1 / params.rho1;
-      AT(9, 12) = -params.beta2 / params.rho2;
+      matM(9, 8) = -params.beta1 / params.rho1;
+      matM(9, 12) = -params.beta2 / params.rho2;
 
-      AT(12, 0) = -params.M * params.alpha(0);
-      AT(12, 1) = -params.M * params.alpha(1);
-      AT(12, 2) = -params.M * params.alpha(2);
-      AT(12, 3) = -params.M * params.alpha(5);
-      AT(12, 4) = -params.M * params.alpha(3);
-      AT(12, 5) = -params.M * params.alpha(4);
-      AT(12, 9) = params.M;
+      matM(12, 0) = -params.M * params.alpha(0);
+      matM(12, 1) = -params.M * params.alpha(1);
+      matM(12, 2) = -params.M * params.alpha(2);
+      matM(12, 3) = -params.M * params.alpha(5);
+      matM(12, 4) = -params.M * params.alpha(3);
+      matM(12, 5) = -params.M * params.alpha(4);
+      matM(12, 9) = params.M;
       break;
 
     default:
@@ -175,19 +175,19 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
   }
 
   template <typename T>
-  static void getTransposedSourceCoefficientTensor(const PoroElasticMaterial& material, T& ET) {
+  static void getTransposedSourceCoefficientTensor(const PoroElasticMaterial& material, T& matE) {
     const AdditionalPoroelasticParameters params = getAdditionalParameters(material);
     const double e1 = params.beta1 * material.viscosity / (params.rho1 * material.permeability);
     const double e2 = params.beta2 * material.viscosity / (params.rho2 * material.permeability);
 
-    ET.setZero();
-    ET(10, 6) = e1;
-    ET(11, 7) = e1;
-    ET(12, 8) = e1;
+    matE.setZero();
+    matE(10, 6) = e1;
+    matE(11, 7) = e1;
+    matE(12, 8) = e1;
 
-    ET(10, 10) = e2;
-    ET(11, 11) = e2;
-    ET(12, 12) = e2;
+    matE(10, 10) = e2;
+    matE(11, 11) = e2;
+    matE(12, 12) = e2;
   }
 
   template <typename Tloc, typename Tneigh>

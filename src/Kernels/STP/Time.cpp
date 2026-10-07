@@ -7,30 +7,33 @@
 
 #include "Time.h"
 
+#include "Alignment.h"
 #include "Common/Marker.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Kernels/MemoryOps.h"
+#include "Kernels/Interface.h"
 #include "Kernels/STP/Setup.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
-#endif
-
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -60,17 +63,17 @@ void Spacetime<Cfg>::executeSTP(double timeStepWidth,
 
   // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
   // star matrices with dt before we execute the kernel.
-  real A_values[init::star<Cfg>::size(0)];
-  real B_values[init::star<Cfg>::size(1)];
-  real C_values[init::star<Cfg>::size(2)];
+  real aValues[init::star<Cfg>::size(0)];
+  real bValues[init::star<Cfg>::size(1)];
+  real cValues[init::star<Cfg>::size(2)];
   for (std::size_t i = 0; i < init::star<Cfg>::size(0); i++) {
-    A_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[0][i];
-    B_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[1][i];
-    C_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[2][i];
+    aValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[0][i];
+    bValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[1][i];
+    cValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[2][i];
   }
-  krnl.star(0) = A_values;
-  krnl.star(1) = B_values;
-  krnl.star(2) = C_values;
+  krnl.star(0) = aValues;
+  krnl.star(1) = bValues;
+  krnl.star(2) = cValues;
 
   for (std::size_t i = 0; i < model::MaterialOf<Cfg>::StiffSourceRows.size(); ++i) {
     krnl.G(i) = data.template get<LTS::LocalIntegration>().specific.G[i] * timeStepWidth;
@@ -121,13 +124,13 @@ void Spacetime<Cfg>::executeSTP(double timeStepWidth,
 }
 
 template <typename Cfg>
-void Spacetime<Cfg>::computeAder(const real* coeffs,
+void Spacetime<Cfg>::computeAder(const real* /*coeffs*/,
                                  double timeStepWidth,
                                  LTS::Ref<Cfg>& data,
-                                 LocalTmp<Cfg>& tmp,
+                                 LocalTmp<Cfg>& /*tmp*/,
                                  real* timeIntegrated,
                                  real* timeDerivatives,
-                                 bool updateDisplacement) {
+                                 bool /*updateDisplacement*/) {
   /*
    * assert alignments.
    */
@@ -275,11 +278,12 @@ void Time<Cfg>::evaluate(const real* coeffs, const real* timeDerivatives, real* 
 }
 
 template <typename Cfg>
-void Time<Cfg>::evaluateBatched(const real* coeffs,
-                                const real** timeDerivatives,
-                                real** timeIntegratedDofs,
-                                std::size_t numElements,
-                                seissol::parallel::runtime::StreamRuntime& runtime) {
+void Time<Cfg>::evaluateBatched(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const real** timeDerivatives,
+    SEISSOL_GPU_PARAM real** timeIntegratedDofs,
+    SEISSOL_GPU_PARAM std::size_t numElements,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
   // for now, use the Taylor kernel here; since it'll do exactly the same as in the LinearCK case.
   // if there are any errors, check this one again.
 

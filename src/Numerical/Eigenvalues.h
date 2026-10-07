@@ -95,7 +95,7 @@ extern "C" {
 extern void FC_zgeev(char* jobVl,
                      char* jobVr,
                      int* n,
-                     std::complex<double>* A,
+                     std::complex<double>* matA,
                      int* lda,
                      std::complex<double>* ev,
                      std::complex<double>* vl,
@@ -110,7 +110,7 @@ extern void FC_zgeev(char* jobVl,
 extern void FC_cgeev(char* jobVl,
                      char* jobVr,
                      int* n,
-                     std::complex<float>* A,
+                     std::complex<float>* matA,
                      int* lda,
                      std::complex<float>* ev,
                      std::complex<float>* vl,
@@ -127,7 +127,7 @@ template <typename T>
 void callLapackEigenvalueRoutine(char* jobVl,
                                  char* jobVr,
                                  int* n,
-                                 std::complex<T>* A,
+                                 std::complex<T>* matA,
                                  int* lda,
                                  std::complex<T>* ev,
                                  std::complex<T>* vl,
@@ -143,7 +143,7 @@ template <>
 inline void callLapackEigenvalueRoutine(char* jobVl,
                                         char* jobVr,
                                         int* n,
-                                        std::complex<double>* A,
+                                        std::complex<double>* matA,
                                         int* lda,
                                         std::complex<double>* ev,
                                         std::complex<double>* vl,
@@ -154,14 +154,14 @@ inline void callLapackEigenvalueRoutine(char* jobVl,
                                         int* lwork,
                                         double* rwork,
                                         int* info) {
-  FC_zgeev(jobVl, jobVr, n, A, lda, ev, vl, ldvl, vr, ldvr, work, lwork, rwork, info);
+  FC_zgeev(jobVl, jobVr, n, matA, lda, ev, vl, ldvl, vr, ldvr, work, lwork, rwork, info);
 }
 
 template <>
 inline void callLapackEigenvalueRoutine(char* jobVl,
                                         char* jobVr,
                                         int* n,
-                                        std::complex<float>* A,
+                                        std::complex<float>* matA,
                                         int* lda,
                                         std::complex<float>* ev,
                                         std::complex<float>* vl,
@@ -172,7 +172,7 @@ inline void callLapackEigenvalueRoutine(char* jobVl,
                                         int* lwork,
                                         float* rwork,
                                         int* info) {
-  FC_cgeev(jobVl, jobVr, n, A, lda, ev, vl, ldvl, vr, ldvr, work, lwork, rwork, info);
+  FC_cgeev(jobVl, jobVr, n, matA, lda, ev, vl, ldvl, vr, ldvr, work, lwork, rwork, info);
 };
 
 /**
@@ -186,11 +186,16 @@ template <typename T, size_t Dim>
 void computeEigenvaluesWithLapack(std::array<std::complex<T>, Dim * Dim>& m,
                                   Eigenpair<std::complex<T>, Dim>& output) {
   // set up lapack variables
-  int n = Dim, lda = Dim, ldvl = Dim, ldvr = Dim;
-  int info;
+  int n = Dim;
+  int lda = Dim;
+  int ldvl = Dim;
+  int ldvr = Dim;
+  int info = 0;
   int lwork = 2 * Dim;
   T rwork[2 * Dim];
-  std::complex<T> w[Dim], vl[Dim * Dim], vr[Dim * Dim];
+  std::complex<T> w[Dim];
+  std::complex<T> vl[Dim * Dim];
+  std::complex<T> vr[Dim * Dim];
   std::complex<T> work[2 * Dim];
   char computeVectors = 'V';
   char dontComputeVectors = 'N';
@@ -228,7 +233,7 @@ void computeEigenvaluesWithLapack(std::array<std::complex<T>, Dim * Dim>& m,
   auto r = yateto::DenseTensorView<2, std::complex<T>>(output.vectors.data(), {Dim, Dim});
   for (size_t j = 0; j < Dim; ++j) {
     for (size_t i = 0; i < Dim; ++i) {
-      size_t sortedJ = sortedIndices[j];
+      const size_t sortedJ = sortedIndices[j];
       r(i, j) = vr[sortedJ * Dim + i];
     }
   }

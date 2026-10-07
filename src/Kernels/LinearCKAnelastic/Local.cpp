@@ -9,19 +9,28 @@
 
 #include "Local.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/AnalyticalBoundary.h"
-#include "Kernels/Common.h"
+#include "Kernels/Interface.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
+#include "Parallel/Runtime/Stream.h"
 
+#include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -59,17 +68,17 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
   assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Vectorsize == 0);
 #endif
 
-  alignas(Alignment) real Qext[tensor::Qext<Cfg>::size()];
+  alignas(Alignment) real qext[tensor::Qext<Cfg>::size()];
 
   kernel::volumeExt<Cfg> volKrnl = volumeKernelPrototype_;
-  volKrnl.Qext = Qext;
+  volKrnl.Qext = qext;
   volKrnl.I = timeIntegratedDoFs;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
     volKrnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   kernel::localFluxExt<Cfg> lfKrnl = localFluxKernelPrototype_;
-  lfKrnl.Qext = Qext;
+  lfKrnl.Qext = qext;
   lfKrnl.I = timeIntegratedDoFs;
   lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I<Cfg>::size();
   lfKrnl._prefetch.Q = data.template get<LTS::Dofs>() + tensor::Q<Cfg>::size();
@@ -95,7 +104,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       kernel.rho = &localRho;
       kernel.averageNormalDisplacement = tmp.nodalAvgDisplacements[face].data();
 
-      kernel.Qext = Qext;
+      kernel.Qext = qext;
       kernel.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.execute(face);
@@ -106,7 +115,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       kernel.dirichletOffset = cellBoundaryMapping[face].dirichletOffset;
       kernel.dt = timeStepWidth;
 
-      kernel.Qext = Qext;
+      kernel.Qext = qext;
       kernel.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.execute(face);
@@ -125,7 +134,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
                                    timeStepWidth);
 
       auto nodalLfKrnl = nodalLfKrnlPrototype_;
-      nodalLfKrnl.Qext = Qext;
+      nodalLfKrnl.Qext = qext;
       nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
       nodalLfKrnl.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
       nodalLfKrnl.execute(face);
@@ -142,7 +151,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
   lKrnl.Iane = tmp.timeIntegratedAne;
   lKrnl.Q = data.template get<LTS::Dofs>();
   lKrnl.Qane = data.template get<LTS::DofsAne>();
-  lKrnl.Qext = Qext;
+  lKrnl.Qext = qext;
   lKrnl.W = data.template get<LTS::LocalIntegration>().specific.W;
   lKrnl.w = data.template get<LTS::LocalIntegration>().specific.w;
 
