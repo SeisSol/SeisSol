@@ -125,8 +125,12 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
   forEachConfig([&](auto cfg) {
     using Cfg = decltype(cfg);
-    this->template calcFaultOutputOfConfig<Cfg>(
-        outputType, slipRateOutputType, outputData, runtime, stateTime, dt, indt);
+    // the setup rejects a fault in a material without dynamic rupture, whose quantities hold
+    // none of the stresses the output reads
+    if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
+      this->template calcFaultOutputOfConfig<Cfg>(
+          outputType, slipRateOutputType, outputData, runtime, stateTime, dt, indt);
+    }
   });
 
   if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
