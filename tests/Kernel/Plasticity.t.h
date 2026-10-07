@@ -10,6 +10,7 @@
 #include "Alignment.h"
 #include "Common/Real.h"
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/pool.h"
@@ -204,11 +205,7 @@ class ShearedPlasticityCell {
   }
 
   private:
-  // the kernel reads and writes the six stress quantities of the DOFs, via the tensor QStress
-  static constexpr std::size_t DofsSize =
-      std::max(tensor::Q<Cfg>::size(), tensor::QStress<Cfg>::size());
-
-  alignas(Alignment) std::array<real, DofsSize> dofs_{};
+  alignas(Alignment) std::array<real, tensor::Q<Cfg>::size()> dofs_{};
   alignas(Alignment)
       std::array<real,
                  tensor::QStressNodal<Cfg>::size() + tensor::QEtaNodal<Cfg>::size()> pstrain_{};
@@ -218,6 +215,10 @@ TEST_CASE_TEMPLATE("Plasticity computePlasticity corrects every cell with a yiel
                        doctest::test_suite("kernel"),
                    Cfg,
                    SEISSOL_CONFIG_TYPES) {
+  // a fluid has a test of its own
+  if constexpr (!model::MaterialOf<Cfg>::SupportsPlasticity) {
+    return;
+  }
   using Cell = ShearedPlasticityCell<Cfg>;
   constexpr auto NumNodes = Cell::NumNodes;
   Cell cell;
@@ -260,6 +261,21 @@ TEST_CASE_TEMPLATE("Plasticity computePlasticity corrects every cell with a yiel
       }
     }
   }
+}
+
+TEST_CASE_TEMPLATE("Plasticity computePlasticity leaves the cells of a fluid unchanged" *
+                       doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  // a material without the stresses of a solid has nothing that yields
+  if constexpr (model::MaterialOf<Cfg>::SupportsPlasticity) {
+    return;
+  }
+  ShearedPlasticityCell<Cfg> cell;
+  // the loading a solid yields under at every node
+  CHECK(cell.run([](std::size_t /*node*/) { return true; }) == 0);
+  CHECK(cell.dofsUnchanged());
+  CHECK(cell.plasticStrainUnchanged());
 }
 
 } // namespace seissol::unit_test

@@ -12,6 +12,7 @@
 #include "Alignment.h"
 #include "Common/Marker.h"
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -53,6 +54,10 @@ std::size_t
                                        const seissol::model::PlasticityData<Cfg>* plasticityData,
                                        real degreesOfFreedom[tensor::Q<Cfg>::size()],
                                        real* pstrain) {
+  // a material without the stresses of a solid has nothing that yields
+  if constexpr (!model::MaterialOf<Cfg>::SupportsPlasticity) {
+    return 0;
+  }
 
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Vectorsize == 0);
 
@@ -234,6 +239,10 @@ void Plasticity<Cfg>::computePlasticityBatched(
     SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  // a material without the stresses of a solid has nothing that yields
+  if constexpr (!model::MaterialOf<Cfg>::SupportsPlasticity) {
+    return;
+  }
 
   using namespace seissol::recording;
 

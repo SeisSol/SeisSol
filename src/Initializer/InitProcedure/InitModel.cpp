@@ -121,13 +121,14 @@ void initializeCellMaterialOfConfig(
       seissolParams.model.useCellHomogenizedMaterial, ctvOfConfig, Cfg::ConvergenceOrder);
   auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
-  // plasticity (if needed)
-
+  // plasticity (if needed); a material without the stresses of a solid has none, so its file need
+  // not define the plasticity parameters
+  const bool withPlasticity = seissolParams.model.plasticity && MaterialT::SupportsPlasticity;
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
 
   std::array<std::vector<Plasticity>, Cfg::NumSimulations> plasticityDB;
 
-  if (seissolParams.model.plasticity) {
+  if (withPlasticity) {
 
     // plasticity information is only needed on all interior+copy cells.
     const auto plasticityGen = std::make_shared<PlasticityPointGenerator>(
@@ -175,8 +176,7 @@ void initializeCellMaterialOfConfig(
       }
     } else {
       auto* materialArray = layer.var<LTS::Material>();
-      auto* plasticityArray =
-          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>(Cfg()) : nullptr;
+      auto* plasticityArray = withPlasticity ? layer.var<LTS::Plasticity>(Cfg()) : nullptr;
       auto* energyDataArray = layer.var<LTS::EnergyData>(Cfg());
 
 #pragma omp parallel for schedule(static)
@@ -217,7 +217,7 @@ void initializeCellMaterialOfConfig(
         }
 
         // if enabled, set up the plasticity as well
-        if (seissolParams.model.plasticity) {
+        if (withPlasticity) {
           auto& plasticity = plasticityArray[cell];
           assert(plasticityDB.size() == Cfg::NumSimulations &&
                  "Plasticity database size mismatch with number of simulations");

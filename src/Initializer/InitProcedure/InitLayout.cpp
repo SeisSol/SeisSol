@@ -6,9 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "InitLayout.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Buckets.h"
@@ -319,16 +321,20 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   internal::deriveLtsSetups(meshLayout, ltsStorage);
 
   if (seissolParams.model.plasticity) {
-    // remove disabled plasticity groups from the list
+    // remove disabled plasticity groups from the list, and the cells of a material without the
+    // stresses of a solid, where nothing yields
     const auto& pdis = seissolParams.model.plasticityDisabledGroups;
     for (auto& layer : ltsStorage.leaves(Ghost)) {
       const std::size_t size = layer.size();
       auto* cellInfo = layer.var<LTS::CellInformation>();
       const auto* cellInfo2 = layer.var<LTS::SecondaryInformation>();
+      const bool supported = dispatchConfig(layer.getIdentifier().config, [](auto config) {
+        return model::MaterialOf<decltype(config)>::SupportsPlasticity;
+      });
 
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < size; ++i) {
-        cellInfo[i].plasticityEnabled = pdis.find(cellInfo2[i].group) == pdis.end();
+        cellInfo[i].plasticityEnabled = supported && pdis.find(cellInfo2[i].group) == pdis.end();
       }
     }
   }

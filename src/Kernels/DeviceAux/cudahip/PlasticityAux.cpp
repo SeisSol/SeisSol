@@ -8,6 +8,7 @@
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/Plasticity.h"
@@ -151,20 +152,24 @@ void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
                          Real<Cfg> timeStepWidth,
                          size_t numElements,
                          void* streamPtr) {
-  // use Stop/Start to include padding (and possibly avoid masked warps/wavefronts)
-  constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
-                                init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
-  const auto block = getblock<Cfg>(NumNodes);
-  const dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<StreamT>(streamPtr);
-  kernel_plasticityNonlinear<<<grid, block, 0, stream>>>(nodalStressTensors,
-                                                         pstrainPtr,
-                                                         isAdjustableVector,
-                                                         yieldCounter,
-                                                         plasticity,
-                                                         oneMinusIntegratingFactor,
-                                                         tV,
-                                                         timeStepWidth);
+  // a material without the stresses of a solid has nothing that yields; the kernel, which reads the
+  // six stresses, is not even compiled for it
+  if constexpr (model::MaterialOf<Cfg>::SupportsPlasticity) {
+    // use Stop/Start to include padding (and possibly avoid masked warps/wavefronts)
+    constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
+                                  init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
+    const auto block = getblock<Cfg>(NumNodes);
+    const dim3 grid(numElements, 1, 1);
+    auto stream = reinterpret_cast<StreamT>(streamPtr);
+    kernel_plasticityNonlinear<<<grid, block, 0, stream>>>(nodalStressTensors,
+                                                           pstrainPtr,
+                                                           isAdjustableVector,
+                                                           yieldCounter,
+                                                           plasticity,
+                                                           oneMinusIntegratingFactor,
+                                                           tV,
+                                                           timeStepWidth);
+  }
 }
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \

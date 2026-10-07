@@ -8,6 +8,7 @@
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Solver/MultipleSimulations.h"
@@ -17,6 +18,7 @@
 
 namespace seissol::kernels::device::aux::plasticity {
 
+namespace {
 template <typename Cfg>
 auto getrange(std::size_t size, std::size_t numElements) {
   if constexpr (Cfg::NumSimulations > 1) {
@@ -28,16 +30,16 @@ auto getrange(std::size_t size, std::size_t numElements) {
 }
 
 template <typename Cfg>
-void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
-                         Real<Cfg>** __restrict pstrainPtr,
-                         unsigned* __restrict isAdjustableVector,
-                         std::size_t* __restrict yieldCounter,
-                         const seissol::model::PlasticityData<Cfg>* __restrict plasticity,
-                         Real<Cfg> oneMinusIntegratingFactor,
-                         Real<Cfg> tV,
-                         Real<Cfg> timeStepWidth,
-                         const size_t numElements,
-                         void* streamPtr) {
+void plasticityNonlinearOfSolid(Real<Cfg>** __restrict nodalStressTensors,
+                                Real<Cfg>** __restrict pstrainPtr,
+                                unsigned* __restrict isAdjustableVector,
+                                std::size_t* __restrict yieldCounter,
+                                const seissol::model::PlasticityData<Cfg>* __restrict plasticity,
+                                Real<Cfg> oneMinusIntegratingFactor,
+                                Real<Cfg> tV,
+                                Real<Cfg> timeStepWidth,
+                                const size_t numElements,
+                                void* streamPtr) {
 
   using real = Real<Cfg>;
 
@@ -140,6 +142,34 @@ void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
       }
     });
   });
+}
+} // namespace
+
+template <typename Cfg>
+void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
+                         Real<Cfg>** __restrict pstrainPtr,
+                         unsigned* __restrict isAdjustableVector,
+                         std::size_t* __restrict yieldCounter,
+                         const seissol::model::PlasticityData<Cfg>* __restrict plasticity,
+                         Real<Cfg> oneMinusIntegratingFactor,
+                         Real<Cfg> tV,
+                         Real<Cfg> timeStepWidth,
+                         const size_t numElements,
+                         void* streamPtr) {
+  // a material without the stresses of a solid has nothing that yields; the kernel, which reads the
+  // six stresses, is not even compiled for it
+  if constexpr (model::MaterialOf<Cfg>::SupportsPlasticity) {
+    plasticityNonlinearOfSolid<Cfg>(nodalStressTensors,
+                                    pstrainPtr,
+                                    isAdjustableVector,
+                                    yieldCounter,
+                                    plasticity,
+                                    oneMinusIntegratingFactor,
+                                    tV,
+                                    timeStepWidth,
+                                    numElements,
+                                    streamPtr);
+  }
 }
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
