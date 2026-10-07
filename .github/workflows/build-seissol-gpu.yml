@@ -36,7 +36,7 @@ jobs:
           - configs: elastic-linearck-o6-f32-stroud
             codegen: auto
         setup:
-          - arch: sm_60
+          - arch: sm_75
             backend: cuda
             cc: gcc-13
             cxx: g++-13
@@ -44,7 +44,7 @@ jobs:
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
-          - arch: sm_60
+          - arch: sm_75
             backend: cuda
             cc: clang-18
             cxx: clang++-18
@@ -53,7 +53,7 @@ jobs:
             runner: ubuntu-26.04
             pythonbreak: true
           # TODO: needs a working GPU runner
-          #- arch: sm_60
+          #- arch: sm_75
           #  backend: cuda
           #  cc: nvc
           #  cxx: nvc++
@@ -340,7 +340,7 @@ jobs:
         build_type:
           - Release
         setup:
-          - arch: sm_60
+          - arch: sm_75
             backend: cuda
             cc: gcc-13
             cxx: g++-13
@@ -348,7 +348,7 @@ jobs:
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
-          - arch: sm_60
+          - arch: sm_75
             backend: cuda
             cc: clang-18
             cxx: clang++-18
@@ -357,7 +357,7 @@ jobs:
             pythonbreak: true
             mpi: openmpi
           # TODO: needs a working GPU runner
-          #- arch: sm_60
+          #- arch: sm_75
           #  backend: cuda
           #  cc: nvc
           #  cxx: nvc++
