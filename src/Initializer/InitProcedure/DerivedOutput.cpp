@@ -950,6 +950,41 @@ struct WrittenElement {
 /// Elements per work item of an evaluation: enough to amortise a call, few enough to balance.
 constexpr std::size_t ChunkElements = 64;
 
+/// The names of the outputs of `program`, with the simulation suffix for fused simulations.
+template <typename Cfg>
+std::vector<std::string> outputNames(const expr::Program& program) {
+  std::vector<std::string> names;
+  for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
+    for (const auto& output : program.outputs()) {
+      names.push_back(multisim::MultisimHelperWrapper<Cfg>::MultisimEnabled
+                          ? output.name + "-" + std::to_string(sim + 1)
+                          : output.name);
+    }
+  }
+  return names;
+}
+
+/// The outputs of a configuration none of whose elements this rank writes: their names, which
+/// every rank adds to the writer, together, and nothing to compute.
+class NamedOutputsOnly final : public DerivedOutput {
+  public:
+  explicit NamedOutputsOnly(std::vector<std::string> names) : names_(std::move(names)) {}
+
+  [[nodiscard]] const std::vector<std::string>& names() const override { return names_; }
+  [[nodiscard]] bool accumulates() const override { return false; }
+  void write(double /*time*/) override {}
+  void step(std::size_t /*layerId*/, double /*time*/) override {}
+  void copy(std::size_t /*output*/,
+            double* /*target*/,
+            std::size_t /*index*/,
+            std::size_t /*subcell*/) const override {
+    logError() << "derived output: an element is written that the output does not have.";
+  }
+
+  private:
+  std::vector<std::string> names_;
+};
+
 template <typename Cfg>
 class DerivedElementOutput final : public DerivedOutput {
   public:
@@ -1282,18 +1317,11 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
     : seissolInstance_(seissolInstance),
       derived_(program,
                sourcesOf(seissolInstance.parameters().model.plasticity, faces, locations_),
-               points) {
+               points),
+      names_(outputNames<Cfg>(derived_.program())),
+      outputCount_(derived_.program().outputs().size()) {
   constexpr std::size_t Simulations = Cfg::NumSimulations;
   const std::size_t pointsPerElement = derived_.pointsPerElement();
-
-  for (std::size_t sim = 0; sim < Simulations; ++sim) {
-    for (const auto& output : derived_.program().outputs()) {
-      names_.push_back(multisim::MultisimHelperWrapper<Cfg>::MultisimEnabled
-                           ? output.name + "-" + std::to_string(sim + 1)
-                           : output.name);
-    }
-  }
-  outputCount_ = derived_.program().outputs().size();
 
   // The point set: the written elements of this configuration, layer by layer and variant by
   // variant, in memory order.
@@ -1510,7 +1538,8 @@ std::shared_ptr<DerivedOutput> makeDerivedOutput(seissol::SeisSol& seissolInstan
                                                  const expr::Program& program,
                                                  bool faces) {
   if (written.empty()) {
-    return nullptr;
+    // The writer adds an output on all ranks together: also on one without any of the elements.
+    return std::make_shared<NamedOutputsOnly>(outputNames<Cfg>(program));
   }
   try {
     return std::make_shared<DerivedElementOutput<Cfg>>(

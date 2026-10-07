@@ -376,8 +376,9 @@ class DerivedOutput {
 };
 
 /// The derived outputs of `program` at the cells `cells` (mesh ids, in the order written) of the
-/// configuration `Cfg`; cells of other configurations are skipped. Null if none of the cells is
-/// of the configuration `Cfg`.
+/// configuration `Cfg`; cells of other configurations are skipped. If none of the cells is of the
+/// configuration `Cfg`, outputs that only have their names: the writer adds an output on all
+/// ranks together.
 template <typename Cfg>
 std::shared_ptr<DerivedOutput>
     makeDerivedVolumeOutput(seissol::SeisSol& seissolInstance,
@@ -386,7 +387,7 @@ std::shared_ptr<DerivedOutput>
                             const expr::Program& program);
 
 /// The derived outputs of `program` at the written faces of the free surface (in the order of the
-/// free surface integrator) whose cells are of the configuration `Cfg`. Null if there is none.
+/// free surface integrator) whose cells are of the configuration `Cfg`; as above if there is none.
 template <typename Cfg>
 std::shared_ptr<DerivedOutput> makeDerivedSurfaceOutput(seissol::SeisSol& seissolInstance,
                                                         const DerivedSurfaceGeometry& geometry,
