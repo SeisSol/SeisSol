@@ -119,10 +119,10 @@ expr::Program withOutputsOf(const expr::Program& program, const DataTable& table
 } // namespace
 
 void CompiledReader::prepare(const DataTable& table) {
-  if (preparedFor_ == &table) {
+  if (preparedFor_ == table.revision()) {
     return;
   }
-  if (preparedFor_ != nullptr) {
+  if (preparedFor_.has_value() && !program_.state().empty()) {
     // Not silent: a rebind re-runs the precompute stage and resets every state
     // slot to its initial value, so a consumer alternating between two tables
     // loses the history it thinks it is accumulating.
@@ -139,7 +139,7 @@ void CompiledReader::prepare(const DataTable& table) {
     throw std::runtime_error("expr: no usable backend for the compiled reader");
   }
   kernel_->precompute(table);
-  preparedFor_ = &table;
+  preparedFor_ = table.revision();
 
   fallback_ = !differentialCheck(table);
 }
@@ -217,7 +217,7 @@ void CompiledReader::call(const DataTable& table) {
     // nothing to evaluate -- the faces of a layer without any, say -- and nothing to bind to
     return;
   }
-  if (preparedFor_ != &table) {
+  if (preparedFor_ != table.revision()) {
     prepare(table);
     // prepare() already evaluated the table on both paths for the check, but
     // running again is cheap next to the binding and keeps call()'s contract

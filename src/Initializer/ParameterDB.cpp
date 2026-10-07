@@ -9,6 +9,7 @@
 
 #include "ParameterDB.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Config.h"
@@ -721,6 +722,85 @@ DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) no
 
 DirichletCondition::~DirichletCondition() = default;
 
+struct DirichletCondition::Query {
+  reader::scripting::DataTable table{1};
+  std::array<double, 3> barycenter{};
+  /// the terms as the model gives them, or their defaults: A row by row (map_{to}_{from}), b
+  std::vector<double> map;
+  std::vector<double> offset;
+  /// a model supplies numbers, so the frame is stated as one: 0 for global, 1 for face-aligned
+  double frame{0.0};
+};
+
+template <typename Cfg>
+std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const {
+  // The ghost cell state is an affine function of the interior state, given in
+  // global coordinates: q_ghost = A q_inside + b. The entries of A are named
+  // map_{to}_{from}, those of b const_{to}, where the quantity names are the
+  // ones of the material at hand. Mirroring the x velocity at the ghost cell is
+  // therefore map_v1_v1: -1.
+  const auto& varNames = model::MaterialOf<Cfg>::Quantities;
+  const auto count = varNames.size();
+
+  auto query = std::make_unique<Query>();
+  // Default: extrapolate
+  query->map.assign(count * count, 0.0);
+  for (std::size_t i = 0; i < count; ++i) {
+    query->map[i * count + i] = 1.0;
+  }
+  query->offset.assign(count, 0.0);
+
+  // The boundary condition is constant over the face, so it is sampled at the
+  // face barycenter.
+  auto& table = query->table;
+  table.bindViewConst("x", reader::scripting::Direction::In, query->barycenter.data(), 3, 0);
+  table.bindViewConst("y", reader::scripting::Direction::In, query->barycenter.data(), 3, 1);
+  table.bindViewConst("z", reader::scripting::Direction::In, query->barycenter.data(), 3, 2);
+  table.bindConstant("group", std::int32_t{1});
+  table.bindConstant("sim", std::int32_t{0});
+
+  const auto supplied = suppliedParameters(*model_);
+  std::unordered_set<std::string> known;
+
+  known.insert("frame");
+  if (supplied.count("frame") > 0) {
+    table.bindView("frame", reader::scripting::Direction::Out, &query->frame);
+  }
+  for (std::size_t i = 0; i < count; ++i) {
+    const auto termName = std::string{"const_"} + varNames[i];
+    known.insert(termName);
+    if (supplied.count(termName) > 0) {
+      table.bindView(termName, reader::scripting::Direction::Out, &query->offset[i]);
+    }
+  }
+  for (std::size_t i = 0; i < count; ++i) {
+    for (std::size_t j = 0; j < count; ++j) {
+      auto termName = std::string{"map_"};
+      termName += varNames[i];
+      termName += "_";
+      termName += varNames[j];
+      known.insert(termName);
+      if (supplied.count(termName) > 0) {
+        table.bindView(termName, reader::scripting::Direction::Out, &query->map[i * count + j]);
+      }
+    }
+  }
+
+  for (const auto& termName : supplied) {
+    if (known.count(termName) == 0) {
+      std::ostringstream valid;
+      for (std::size_t i = 0; i < count; ++i) {
+        valid << (i == 0 ? "" : ", ") << varNames[i];
+      }
+      logError() << "The boundary condition file supplies" << termName
+                 << "which is not a term of the boundary condition. Terms are named"
+                 << "map_{to}_{from} and const_{to}, where both quantity names are one of:"
+                 << valid.str() << ".";
+    }
+  }
+  return query;
+}
+
 template <typename Cfg>
 BoundaryFrame DirichletCondition::query(const double* barycenter,
                                         Real<Cfg>* mapTermsData,
@@ -732,93 +812,37 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
 
-  // The boundary condition is constant over the face, so it is sampled at the
-  // face barycenter.
-  auto table = reader::scripting::DataTable(1);
-  table.bindViewConst("x", reader::scripting::Direction::In, barycenter, 3, 0);
-  table.bindViewConst("y", reader::scripting::Direction::In, barycenter, 3, 1);
-  table.bindViewConst("z", reader::scripting::Direction::In, barycenter, 3, 2);
-  table.bindConstant("group", std::int32_t{1});
-  table.bindConstant("sim", std::int32_t{0});
-
-  const auto supplied = suppliedParameters(*model_);
-
-  // The ghost cell state is an affine function of the interior state, given in
-  // global coordinates: q_ghost = A q_inside + b. The entries of A are named
-  // map_{to}_{from}, those of b const_{to}, where the quantity names are the
-  // ones of the material at hand. Mirroring the x velocity at the ghost cell is
-  // therefore map_v1_v1: -1.
-  const auto& varNames = model::MaterialOf<Cfg>::Quantities;
-
-  auto mapTerms = init::dirichletMapGlobal<Cfg>::view::create(mapTermsData);
-  auto constantTerms = init::dirichletOffsetGlobal<Cfg>::view::create(constantTermsData);
-
-  std::unordered_set<std::string> known;
-
-  // a model supplies numbers, so the frame is stated as one: 0 for global, 1 for face-aligned.
-  real frame = 0.0;
-  known.insert("frame");
-  if (supplied.count("frame") > 0) {
-    table.bindView("frame", reader::scripting::Direction::Out, &frame);
+  auto& query = queries_[static_cast<std::size_t>(configIdOf<Cfg>())];
+  if (query == nullptr) {
+    query = makeQuery<Cfg>();
   }
+  std::copy_n(barycenter, Cell::Dim, query->barycenter.data());
 
-  for (size_t i = 0; i < varNames.size(); ++i) {
-    const auto termName = std::string{"const_"} + varNames[i];
-    known.insert(termName);
-    auto& term = multisim::multisimWrap<Cfg>(constantTerms, 0, i);
-    if (supplied.count(termName) > 0) {
-      table.bindView(termName, reader::scripting::Direction::Out, &term);
-    } else {
-      term = 0.0;
-    }
-  }
-  for (size_t i = 0; i < varNames.size(); ++i) {
-    for (size_t j = 0; j < varNames.size(); ++j) {
-      auto termName = std::string{"map_"};
-      termName += varNames[i];
-      termName += "_";
-      termName += varNames[j];
-      known.insert(termName);
-      if (supplied.count(termName) > 0) {
-        table.bindView(termName, reader::scripting::Direction::Out, &mapTerms(i, j));
-      } else {
-        // Default: Extrapolate
-        mapTerms(i, j) = (i == j) ? 1.0 : 0.0;
-      }
-    }
-  }
+  evaluateSafe(*model_, query->table, "Dirichlet BC data");
 
-  for (const auto& termName : supplied) {
-    if (known.count(termName) == 0) {
-      std::ostringstream valid;
-      for (size_t i = 0; i < varNames.size(); ++i) {
-        valid << (i == 0 ? "" : ", ") << varNames[i];
-      }
-      logError() << "The boundary condition file supplies" << termName
-                 << "which is not a term of the boundary condition. Terms are named"
-                 << "map_{to}_{from} and const_{to}, where both quantity names are one of:"
-                 << valid.str() << ".";
-    }
-  }
-
-  evaluateSafe(*model_, table, "Dirichlet BC data");
-
-  if (frame != 0.0 && frame != 1.0) {
-    logError() << "The boundary condition file supplies a frame of" << frame
+  if (query->frame != 0.0 && query->frame != 1.0) {
+    logError() << "The boundary condition file supplies a frame of" << query->frame
                << "-- it has to be 0 for a condition stated in global coordinates, or 1 for one "
                   "stated in the face-aligned basis.";
   }
 
+  const auto count = model::MaterialOf<Cfg>::Quantities.size();
+  auto mapTerms = init::dirichletMapGlobal<Cfg>::view::create(mapTermsData);
+  auto constantTerms = init::dirichletOffsetGlobal<Cfg>::view::create(constantTermsData);
+  for (std::size_t i = 0; i < count; ++i) {
+    for (std::size_t j = 0; j < count; ++j) {
+      mapTerms(i, j) = static_cast<real>(query->map[i * count + j]);
+    }
+  }
   // The condition does not depend on the simulation index, so every fused
   // simulation gets the same one.
-  for (std::size_t sim = 1; sim < Cfg::NumSimulations; ++sim) {
-    for (size_t i = 0; i < varNames.size(); ++i) {
-      multisim::multisimWrap<Cfg>(constantTerms, sim, i) =
-          multisim::multisimWrap<Cfg>(constantTerms, 0, i);
+  for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
+    for (std::size_t i = 0; i < count; ++i) {
+      multisim::multisimWrap<Cfg>(constantTerms, sim, i) = static_cast<real>(query->offset[i]);
     }
   }
 
-  return frame == 0.0 ? BoundaryFrame::Global : BoundaryFrame::FaceAligned;
+  return query->frame == 0.0 ? BoundaryFrame::Global : BoundaryFrame::FaceAligned;
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \

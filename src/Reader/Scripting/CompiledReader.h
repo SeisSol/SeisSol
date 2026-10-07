@@ -14,8 +14,11 @@
 #include "Reader/Scripting/DataReader.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::reader::scripting {
@@ -96,11 +99,12 @@ class CompiledReader : public DataReader {
   expr::Binding binding_;
   std::unique_ptr<expr::Kernel> kernel_;
 
-  /// Identity of the table the binding resolves against. A binding is a set of
-  /// column indices into ONE table; using it with another is how a program
-  /// silently reads the wrong column, which is the failure this whole layer is
-  /// built to prevent.
-  const DataTable* preparedFor_{nullptr};
+  /// The table the binding resolves against, as it was bound (DataTable::revision). A binding is
+  /// a set of column indices into ONE table, and of the addresses of its columns; using it with
+  /// another is how a program silently reads the wrong column, which is the failure this whole
+  /// layer is built to prevent. Not the address of the table: a table made per call, such as one
+  /// per face, may take the place of the last one with other columns.
+  std::optional<std::pair<std::uint64_t, std::size_t>> preparedFor_;
   bool fallback_{false};
 };
 

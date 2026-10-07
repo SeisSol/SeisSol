@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_READER_SCRIPTING_DATATABLE_H_
 #define SEISSOL_SRC_READER_SCRIPTING_DATATABLE_H_
 
+#include <atomic>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +16,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 namespace seissol::reader::scripting {
 
@@ -233,9 +235,52 @@ struct DataEntry {
   }
 };
 
+/// A number of its own for every object, from a process-wide counter: a copy gets a new one, and
+/// so does an object moved from.
+class InstanceId {
+  public:
+  InstanceId() : value_(next()) {}
+  InstanceId(const InstanceId& /*other*/) : value_(next()) {}
+  InstanceId(InstanceId&& other) noexcept : value_(other.value_) { other.value_ = next(); }
+  InstanceId& operator=(const InstanceId& other) {
+    if (this != &other) {
+      value_ = next();
+    }
+    return *this;
+  }
+  InstanceId& operator=(InstanceId&& other) noexcept {
+    if (this != &other) {
+      value_ = other.value_;
+      other.value_ = next();
+    }
+    return *this;
+  }
+  ~InstanceId() = default;
+
+  [[nodiscard]] std::uint64_t value() const { return value_; }
+
+  private:
+  static std::uint64_t next() noexcept {
+    static std::atomic<std::uint64_t> counter{0};
+    return ++counter;
+  }
+
+  std::uint64_t value_;
+};
+
 class DataTable {
   public:
   explicit DataTable(std::size_t numPoints) : numPoints_(numPoints) {}
+
+  /// The table as it is bound: the same as long as nothing is bound to it, and different for any
+  /// other table -- also for a copy, and for one that takes the place of a destroyed one at its
+  /// address. A binding resolves against the columns of a table as they were bound, so one that
+  /// is kept for later calls is kept for this revision.
+  [[nodiscard]] std::pair<std::uint64_t, std::size_t> revision() const {
+    return {instance_.value(),
+            dataEntries_.size() + blockEntries_.size() + matrixEntries_.size() +
+                stateEntries_.size()};
+  }
 
   // View-on-existing-storage
   template <typename T>
@@ -511,6 +556,7 @@ class DataTable {
   std::vector<BlockEntry> blockEntries_;
   std::vector<MatrixEntry> matrixEntries_;
   std::vector<StateEntry> stateEntries_;
+  InstanceId instance_;
 };
 
 } // namespace seissol::reader::scripting

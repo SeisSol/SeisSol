@@ -717,6 +717,50 @@ return M
     }
   }
 
+  TEST_CASE("a compiled reader binds a table made in the place of another anew") {
+    // as a table made per face may take the address of the last one, with other columns -- those
+    // of another material, say
+    reader::scripting::CompiledReader compiled(mustTrace(PlanarWave), nullptr);
+    std::optional<DataTable> table;
+    std::vector<double> first = {0.0, 0.5};
+    std::vector<double> second = {1.0, 1.5};
+    std::vector<double> firstU(2, -1.0);
+    std::vector<double> secondU(2, -1.0);
+
+    table.emplace(first.size());
+    table->bindViewConst<double>("x", Direction::In, first.data());
+    table->bindViewConst<double>("y", Direction::In, first.data());
+    table->bindViewConst<double>("z", Direction::In, first.data());
+    table->bindConstant<double>("t", 0.25);
+    table->bindView<double>("u", Direction::Out, firstU.data());
+    compiled.call(*table);
+    const auto firstRevision = table->revision();
+
+    // the same columns elsewhere, in another order
+    table.emplace(second.size());
+    table->bindConstant<double>("t", 0.25);
+    table->bindViewConst<double>("z", Direction::In, second.data());
+    table->bindViewConst<double>("y", Direction::In, second.data());
+    table->bindViewConst<double>("x", Direction::In, second.data());
+    table->bindView<double>("u", Direction::Out, secondU.data());
+    CHECK(table->revision() != firstRevision);
+    compiled.call(*table);
+
+    // what a reader that never saw the first table gives
+    reader::scripting::CompiledReader fresh(mustTrace(PlanarWave), nullptr);
+    std::vector<double> expected(second.size(), -1.0);
+    DataTable reference(second.size());
+    reference.bindViewConst<double>("x", Direction::In, second.data());
+    reference.bindViewConst<double>("y", Direction::In, second.data());
+    reference.bindViewConst<double>("z", Direction::In, second.data());
+    reference.bindConstant<double>("t", 0.25);
+    reference.bindView<double>("u", Direction::Out, expected.data());
+    fresh.call(reference);
+    for (std::size_t i = 0; i < second.size(); ++i) {
+      CHECK(secondU[i] == expected[i]);
+    }
+  }
+
   TEST_CASE("the traced program agrees with the interpreted reader") {
     // The same check CompiledReader::prepare runs at init before trusting a
     // kernel. Deliberately not only at "nice" coordinates: the ladder is where

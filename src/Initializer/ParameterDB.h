@@ -22,6 +22,7 @@
 
 #include <array>
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -208,12 +209,21 @@ class DirichletCondition {
   ~DirichletCondition();
 
   /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`.
+  /// Not thread-safe: the queries of a configuration share one table.
   template <typename Cfg>
   [[nodiscard]] BoundaryFrame
       query(const double* barycenter, Real<Cfg>* mapTermsData, Real<Cfg>* constantTermsData) const;
 
   private:
+  struct Query;
+
+  template <typename Cfg>
+  std::unique_ptr<Query> makeQuery() const;
+
   std::unique_ptr<reader::scripting::DataReader> model_;
+  /// The table of the queries of a configuration, bound once: a model binds to the columns of a
+  /// table, which a table per face would move every time.
+  mutable std::map<std::size_t, std::unique_ptr<Query>> queries_;
 };
 
 } // namespace seissol::initializer
