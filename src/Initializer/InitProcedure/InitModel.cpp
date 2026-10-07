@@ -42,6 +42,7 @@
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
+#include "Physics/NonlinearDirichlet.h"
 #include "SeisSol.h"
 #include "Solver/Estimator.h"
 
@@ -290,6 +291,43 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   });
 }
 
+/// The conditions of the nonlinear Dirichlet boundary, for every configuration with such a face.
+void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
+  const auto& seissolParams = seissolInstance.parameters();
+  auto& memoryManager = seissolInstance.memoryManager();
+
+  std::vector<bool> present(builtConfigCount(), false);
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (const auto faceType : cellInformation[cell].faceTypes) {
+        if (faceType == FaceType::NonlinearDirichlet) {
+          present[layer.getIdentifier().config] = true;
+        }
+      }
+    }
+  }
+
+  const auto& fileName = seissolParams.model.nonlinearDirichletFileName;
+  for (const auto config : seissolParams.model.configs()) {
+    if (!present[config]) {
+      continue;
+    }
+    if (fileName.empty()) {
+      logError() << "The mesh has faces with the nonlinear Dirichlet boundary, but the equations "
+                    "section names no script for it (NonlinearDirichletFileName).";
+    }
+    dispatchConfig(config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto& quantities = model::MaterialOf<Cfg>::Quantities;
+      memoryManager.setNonlinearDirichlet(
+          config,
+          std::make_unique<physics::NonlinearDirichlet>(
+              fileName, std::vector<std::string>(quantities.begin(), quantities.end())));
+    });
+  }
+}
+
 void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
 
@@ -305,6 +343,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   // the boundary mappings carry the Dirichlet map, which the flux solvers absorb
   seissol::initializer::initializeBoundaryMappings(
       meshReader, dirichletCondition, memoryManager.ltsStorage());
+
+  initializeNonlinearDirichlet(seissolInstance);
 
   seissol::initializer::initializeCellLocalMatrices(
       meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);

@@ -17,10 +17,12 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Numerical/Quadrature.h"
 #include "Physics/InitialField.h"
+#include "Physics/NonlinearDirichlet.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -69,6 +71,99 @@ struct ApplyAnalyticalSolution {
   private:
   const std::vector<std::unique_ptr<physics::InitialField>>* initConditions_;
   LTS::Ref<Cfg>& localData_;
+};
+
+/**
+ * The ghost state of a nonlinear Dirichlet boundary (physics::NonlinearDirichlet) at the given
+ * nodes and time, in global coordinates, from the state of the cell at that time: `stateAt(tau,
+ * state)` writes the modal state `tau` into the time step to `state` (shaped like I), which is
+ * then taken to the nodes of the face.
+ */
+template <typename Cfg, typename StateAt>
+class ApplyNonlinearDirichlet {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  ApplyNonlinearDirichlet(const physics::NonlinearDirichlet& condition,
+                          const StateAt& stateAt,
+                          const kernel::projectToFaceNodes<Cfg>& projectPrototype,
+                          std::size_t face,
+                          double startTime,
+                          const CellBoundaryMapping<Cfg>& boundaryMapping,
+                          const CellMaterialData& materialData)
+      : condition_(condition), stateAt_(stateAt), projectPrototype_(projectPrototype), face_(face),
+        startTime_(startTime), boundaryMapping_(boundaryMapping), materialData_(materialData) {}
+
+  void operator()(const real* nodes,
+                  double time,
+                  typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) const {
+    constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
+    const std::size_t quantities = condition_.quantityCount();
+
+    // the state of the cell at the time, at the nodes of the face, in global coordinates
+    alignas(Alignment) real state[tensor::I<Cfg>::size()];
+    stateAt_(time - startTime_, state);
+    alignas(Alignment) real nodal[tensor::INodal<Cfg>::size()];
+    auto project = projectPrototype_;
+    project.I = state;
+    project.INodal = nodal;
+    project.execute(face_);
+    auto nodalView = init::INodal<Cfg>::view::create(nodal);
+
+    std::array<double, 3> points[NodeCount];
+    for (std::size_t i = 0; i < NodeCount; ++i) {
+      points[i] = {nodes[i * 3 + 0], nodes[i * 3 + 1], nodes[i * 3 + 2]};
+    }
+
+    // the condition is stated in the face-aligned basis, or globally
+    const bool faceAligned = condition_.faceAligned();
+    const auto rotation = init::T<Cfg>::view::create(boundaryMapping_.dataT);
+    const auto inverseRotation = init::Tinv<Cfg>::view::create(boundaryMapping_.dataTinv);
+    thread_local std::vector<double> inner;
+    thread_local std::vector<double> ghost;
+    inner.resize(quantities * NodeCount);
+    ghost.resize(quantities * NodeCount);
+    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+      auto innerOfSimulation = multisim::simtensor<Cfg>(nodalView, s);
+      for (std::size_t i = 0; i < NodeCount; ++i) {
+        for (std::size_t a = 0; a < quantities; ++a) {
+          double value = 0;
+          if (faceAligned) {
+            for (std::size_t m = 0; m < quantities; ++m) {
+              value += inverseRotation(a, m) * innerOfSimulation(i, m);
+            }
+          } else {
+            value = innerOfSimulation(i, a);
+          }
+          inner[a * NodeCount + i] = value;
+        }
+      }
+      condition_.evaluate(time, s, points, NodeCount, materialData_, inner.data(), ghost.data());
+      auto ghostOfSimulation = multisim::simtensor<Cfg>(boundaryDofs, s);
+      for (std::size_t i = 0; i < NodeCount; ++i) {
+        for (std::size_t a = 0; a < quantities; ++a) {
+          double value = 0;
+          if (faceAligned) {
+            for (std::size_t m = 0; m < quantities; ++m) {
+              value += rotation(a, m) * ghost[m * NodeCount + i];
+            }
+          } else {
+            value = ghost[a * NodeCount + i];
+          }
+          ghostOfSimulation(i, a) = static_cast<real>(value);
+        }
+      }
+    }
+  }
+
+  private:
+  const physics::NonlinearDirichlet& condition_;
+  const StateAt& stateAt_;
+  const kernel::projectToFaceNodes<Cfg>& projectPrototype_;
+  std::size_t face_;
+  double startTime_;
+  const CellBoundaryMapping<Cfg>& boundaryMapping_;
+  const CellMaterialData& materialData_;
 };
 
 /**

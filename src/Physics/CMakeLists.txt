@@ -10,6 +10,7 @@ add_library(seissol-physics OBJECT
     Scenario/Registry.cpp
     Scenario/Scenarios.cpp
     ScriptField.cpp
+    NonlinearDirichlet.cpp
 )
 
 target_link_libraries(seissol-physics PUBLIC seissol-common-properties)

@@ -170,6 +170,12 @@ class TimeCluster : public TimeClusterInterface {
   seissol::memory::MemkindArray<std::size_t> conditionalCounterHost_;
   seissol::memory::MemkindArray<std::size_t> conditionalCounterDevice_;
 
+  // the time derivatives of a cell with a nonlinear Dirichlet face that does not keep them, which
+  // the boundary reads: a slot of derivativesSlot_ values per thread; derivativesSlot_ is 0 in a
+  // cluster without such a cell
+  seissol::memory::MemkindArray<real> derivativesScratch_{seissol::memory::Memkind::Standard};
+  std::size_t derivativesSlot_{0};
+
   std::size_t numPlasticCells_{0};
 
   /**

@@ -56,6 +56,7 @@ class Local : public LocalKernel<Cfg> {
   kernel::fsgFlux<Cfg> fsgFlux_;
   kernel::dirichletFlux<Cfg> dirichletFlux_;
   kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
+  kernel::projectToFaceNodes<Cfg> projectToFaceNodesPrototype_;
 
   kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
 

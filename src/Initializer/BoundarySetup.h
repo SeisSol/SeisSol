@@ -111,6 +111,19 @@ struct BoundarySetup<FaceType::Analytical> : BoundarySetup<FaceType::Regular> {
   static constexpr bool passesEnergy() { return true; }
 };
 
+template <>
+struct BoundarySetup<FaceType::NonlinearDirichlet> : BoundarySetup<FaceType::Regular> {
+  static constexpr std::string_view name() { return faceTypeName(FaceType::NonlinearDirichlet); }
+  static constexpr BCType bcType() { return getBCType(FaceType::NonlinearDirichlet); }
+  // as for the Dirichlet boundary, the incoming characteristics come from the exterior state
+  static constexpr bool enforcesGodunovFlux() { return true; }
+  static constexpr bool requiresFaceData() { return true; }
+  // the exterior state is built at the nodes from the interior one, in global coordinates, as the
+  // analytical one is; a map that is not affine cannot be folded into the flux solver
+  static constexpr bool buildsNodalState() { return true; }
+  static constexpr bool passesEnergy() { return true; }
+};
+
 /// The answers of BoundarySetup for a face type that is only known at run time.
 struct BoundaryProperties {
   std::string_view name;
@@ -155,6 +168,8 @@ constexpr BoundaryProperties boundaryProperties(FaceType faceType) {
     return boundary_setup_detail::properties<FaceType::Outflow>();
   case FaceType::Analytical:
     return boundary_setup_detail::properties<FaceType::Analytical>();
+  case FaceType::NonlinearDirichlet:
+    return boundary_setup_detail::properties<FaceType::NonlinearDirichlet>();
   }
   return BoundaryProperties{};
 }

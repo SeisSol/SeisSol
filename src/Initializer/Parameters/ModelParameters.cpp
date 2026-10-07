@@ -160,6 +160,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
   auto* reader = baseReader->readSubNode("equations");
 
   const auto boundaryFileName = reader->readPath("boundaryfilename");
+  const auto nonlinearDirichletFileName =
+      reader->readPath("nonlineardirichletfilename").value_or("");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
   std::vector<std::string> plasticityFileNames(configValue(config).numSimulations);
@@ -235,6 +237,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                          gravitationalAcceleration,
                          tv,
                          boundaryFileName.value_or(""),
+                         nonlinearDirichletFileName,
                          materialFileName,
                          plasticityFileNames,
                          itmParameters,

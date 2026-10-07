@@ -38,6 +38,7 @@ void Local<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
+  projectToFaceNodesPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
@@ -131,6 +132,44 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       nodalLfKrnl.execute(face);
       break;
     }
+    case FaceType::NonlinearDirichlet: {
+      assert(this->nonlinearDirichlet() != nullptr);
+      assert(tmp.timeDerivatives != nullptr);
+      // the elastic state of the cell at a time into the step, from its Taylor series
+      const real* derivatives = tmp.timeDerivatives;
+      const auto stateAt = [derivatives](double tau, real* state) {
+        kernel::derivativeTaylorExpansionEla<Cfg> taylorKrnl;
+        taylorKrnl.I = state;
+        double power = 1;
+        for (std::size_t d = 0; d < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++d) {
+          taylorKrnl.dQ(d) = derivatives + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, d);
+          taylorKrnl.power(d) = static_cast<real>(power);
+          power *= tau / static_cast<double>(d + 1);
+        }
+        taylorKrnl.execute();
+      };
+      const kernels::ApplyNonlinearDirichlet<Cfg, decltype(stateAt)> applyNonlinearDirichlet(
+          *this->nonlinearDirichlet(),
+          stateAt,
+          projectToFaceNodesPrototype_,
+          face,
+          time,
+          cellBoundaryMapping[face],
+          materialData);
+      alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
+      analyticalBoundary_.evaluate(cellBoundaryMapping[face],
+                                   applyNonlinearDirichlet,
+                                   dofsFaceBoundaryNodal,
+                                   time,
+                                   timeStepWidth);
+
+      auto nodalLfKrnl = nodalLfKrnlPrototype_;
+      nodalLfKrnl.Qext = Qext;
+      nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+      nodalLfKrnl.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
+      nodalLfKrnl.execute(face);
+      break;
+    }
     default:
       // No boundary condition.
       break;
@@ -176,6 +215,15 @@ PerformanceEstimate
         break;
       case FaceType::Analytical:
         estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
+        break;
+      case FaceType::NonlinearDirichlet:
+        // and the script, at every node and time
+        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
+        estimate +=
+            (PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +
+             PerformanceEstimate::fromKernel<
+                 seissol::kernel::derivativeTaylorExpansionEla<Cfg>>()) *
+            Cfg::ConvergenceOrder;
         break;
       default:
         break;

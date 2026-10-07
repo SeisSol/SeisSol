@@ -106,6 +106,8 @@ SeisSol indexes the boundary conditions as follows. What each of them does is de
 
 - 7: analytical. Boundary condition; no neighbor. The state behind the face is the analytical solution of the configured scenario (see :doc:`boundary-conditions`).
 
+- 8: nonlinear Dirichlet. Boundary condition; no neighbor. A script gives the state behind the face from the state inside (see :doc:`boundary-conditions`).
+
 - n>64: dynamic rupture. A dynamic rupture face between two cells, but with a different tag. (see :doc:`fault-tagging`)
 
 The following convention for defining a face ID is used:
@@ -116,7 +118,7 @@ The following convention for defining a face ID is used:
 
 You may supply a separate face type configuration as a YAML file. The file consists of a sole YAML dictionary
 with the tags ``regular``, ``freeSurface``, ``freeSurfaceGravity``, ``dynamicRupture``, ``dirichlet``,
-``outflow``, or ``analytical``.
+``outflow``, ``analytical``, or ``nonlinearDirichlet``.
 
 Each entry has a list with the boundary condition IDs / face tags that are associated to it.
 You may also add a range of the format e.g. ``10-23`` or ``10-`` if you want all larger tags
@@ -142,6 +144,8 @@ As an example, the following would replicate the default SeisSol behavior.
       - 5
    analytical:
       - 7
+   nonlinearDirichlet:
+      - 8
 
 Topological Connectivity (e.g. for periodic or stitched domains)
 ----------------------------------------------------------------

@@ -49,6 +49,9 @@ Overview
    * - ``analytical``
      - 7
      - The exterior state is the analytical solution of the scenario.
+   * - ``nonlinearDirichlet``
+     - 8
+     - The exterior state is any function of the interior one, given by a script.
 
 Not every boundary condition is available in every build. A material model states
 which face types are defined for it, and a solver states which ones its kernels
@@ -212,3 +215,75 @@ The scenario has to be one that can be evaluated at an arbitrary time, not only 
 one qualifies; a scenario read from a file does not, since it supplies a state at
 :math:`t = 0` alone. A mesh with analytical faces combined with such a scenario is
 rejected at startup.
+
+.. _nonlinear_dirichlet:
+
+Nonlinear Dirichlet
+-------------------
+
+The state in the ghost cell behind the face is any function of the state inside, and of
+the position and the time:
+
+.. math::
+
+   q_\text{ghost} = f(q_\text{inside}, x, t)
+
+A script gives :math:`f`, an sderiv module (``sderiv:file`` or a ``.sderiv`` file) or a
+Lua model that traces (``lua:file`` or a ``.lua`` file), named in the equations block:
+
+.. code-block:: Fortran
+
+  &equations
+  NonlinearDirichletFileName = 'sderiv:wall.sderiv'
+  /
+
+The script reads the inner state by the names of the quantities of the material
+(``s_xx``, ``s_yy``, ``s_zz``, ``s_xy``, ``s_yz``, ``s_xz``, ``v1``, ``v2``, ``v3`` for an
+elastic one, as for the Dirichlet boundary), and ``x``, ``y``, ``z``, ``t``, ``sim``,
+``rho``, ``mu`` and ``lambda``. It gives the ghost state by the same
+names; a quantity it does not give is the one inside. There are no ``map_*`` or
+``const_*`` terms. In an sderiv module a quantity reads the inner state wherever it
+appears, also next to the definition of its ghost value: the module is one parallel
+assignment. As with the Dirichlet boundary, ``frame = 1`` states both states in the
+face-aligned basis (the first axis is the outward normal); the default, 0, is global
+coordinates. The frame is the same on every face, so it may read nothing.
+
+The condition is evaluated at the nodes of each face, at the times of the quadrature of
+each timestep, with the state inside at that time; the ghost state then enters the
+Godunov flux as that of an analytical boundary does. The Dirichlet boundary above stays
+as it is: its affine condition is folded into the flux solver once, which a function
+that is not affine cannot be. An affine function gives the same result as the Dirichlet
+boundary, up to rounding.
+
+A rigid wall, and one that bounces back less of a fast normal velocity:
+
+.. code-block:: text
+
+  # wall.sderiv
+  out def frame = 1.0
+  out def v1 = -v1
+
+  # damped.sderiv
+  out def frame = 1.0
+  out def v1 = -v1 / (1.0 + abs(v1) / 0.1)
+
+In Lua, the same wall:
+
+.. code-block:: lua
+
+  local M = {}
+  function M.evaluate(fields, v1)
+    return {frame = 1.0, v1 = -v1}
+  end
+  return M
+
+What the script makes of the inner state is in the hands of its author. A condition
+that sends more back than comes in -- a ghost state that grows faster with the inner
+one than a mirror -- feeds the numerical noise at every timestep, and the solution
+diverges. Also one that sends back less may be stable with a global timestep and
+diverge with local timestepping, as the same affine condition does on a Dirichlet
+boundary: a reflection of half the whole state in global coordinates, for instance. A
+rigid wall is stable in both.
+
+The boundary is not available in device builds yet, nor with the space-time predictor
+(poroelastic materials): it needs the Taylor series of the state in time, on the host.

@@ -23,7 +23,8 @@ TEST_CASE("Default face map" * doctest::test_suite("initializer")) {
   CHECK(map.at(5) == FaceType::Outflow);
   CHECK(map.at(6) == FaceType::Regular);
   CHECK(map.at(7) == FaceType::Analytical);
-  for (std::size_t i = 8; i <= 64; ++i) {
+  CHECK(map.at(8) == FaceType::NonlinearDirichlet);
+  for (std::size_t i = 9; i <= 64; ++i) {
     CHECK_FALSE(map.at(i).has_value());
   }
   CHECK(map.at(65) == FaceType::DynamicRupture);
@@ -51,6 +52,8 @@ TEST_CASE("Default face map as input" * doctest::test_suite("initializer")) {
             - 5
         analytical:
             - 7
+        nonlinearDirichlet:
+            - 8
     )");
   const auto map = parseFaceMap(node);
 
@@ -62,7 +65,8 @@ TEST_CASE("Default face map as input" * doctest::test_suite("initializer")) {
   CHECK(map.at(5) == FaceType::Outflow);
   CHECK(map.at(6) == FaceType::Regular);
   CHECK(map.at(7) == FaceType::Analytical);
-  for (std::size_t i = 8; i <= 64; ++i) {
+  CHECK(map.at(8) == FaceType::NonlinearDirichlet);
+  for (std::size_t i = 9; i <= 64; ++i) {
     CHECK_FALSE(map.at(i).has_value());
   }
   CHECK(map.at(65) == FaceType::DynamicRupture);

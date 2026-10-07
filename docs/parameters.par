@@ -23,6 +23,8 @@ plasticitydisabledgroups=''
 Tv=0.05
 !yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided
 PlasticityFileName = ''
+! NonlinearDirichletFileName = 'sderiv:wall.sderiv' ! (optional) the script that gives the ghost
+! state of the faces with the nonlinear Dirichlet boundary (tag 8) from the state inside
 !Attenuation parameters (ignored if not compiled with attenuation)
 FreqCentral=0.5
 FreqRatio=100

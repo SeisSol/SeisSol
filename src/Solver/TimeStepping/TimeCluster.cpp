@@ -21,6 +21,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -43,6 +44,7 @@
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/Quadrature.h"
+#include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
@@ -64,6 +66,18 @@
 #endif
 
 namespace seissol::time_stepping {
+
+namespace {
+
+/// Whether a face of the cell is a nonlinear Dirichlet boundary, which evaluates the state of the
+/// cell at the times of its quadrature, from the time derivatives.
+bool hasNonlinearDirichletFace(const CellLocalInformation& cellInformation) {
+  return std::any_of(cellInformation.faceTypes.begin(),
+                     cellInformation.faceTypes.end(),
+                     [](FaceType faceType) { return faceType == FaceType::NonlinearDirichlet; });
+}
+
+} // namespace
 
 template <typename Cfg>
 TimeCluster<Cfg>::TimeCluster(
@@ -124,6 +138,8 @@ TimeCluster<Cfg>::TimeCluster(
   timeKernel_.setGlobalData(globalData);
   localKernel_.setGlobalData(globalData);
   localKernel_.setInitConds(&seissolInstance_.memoryManager().initialConditions(configIdOf<Cfg>()));
+  localKernel_.setNonlinearDirichlet(
+      &seissolInstance_.memoryManager().nonlinearDirichlet(configIdOf<Cfg>()));
   localKernel_.setGravitationalAcceleration(seissolInstance_.gravitationSetup().acceleration);
   neighborKernel_.setGlobalData(globalData);
   dynamicRuptureKernel_.setGlobalData(globalData);
@@ -170,10 +186,20 @@ TimeCluster<Cfg>::TimeCluster(
       seissolInstance.flopCounter().addMetric("plasticity-yield", "PL");
 
   const auto* cellInfo = clusterData_->var<LTS::CellInformation>();
+  real* const* derivatives = clusterData_->var<LTS::Derivatives>(Cfg());
+  bool derivativesScratchNeeded = false;
   for (std::size_t i = 0; i < clusterData_->size(); ++i) {
     if (cellInfo[i].plasticityEnabled) {
       ++numPlasticCells_;
     }
+    if (hasNonlinearDirichletFace(cellInfo[i]) && derivatives[i] == nullptr) {
+      derivativesScratchNeeded = true;
+    }
+  }
+  if (derivativesScratchNeeded) {
+    constexpr std::size_t PerAlignment = Alignment / sizeof(real);
+    derivativesSlot_ =
+        (kernels::SolverOf<Cfg>::DerivativesSize + PerAlignment - 1) / PerAlignment * PerAlignment;
   }
 }
 
@@ -390,6 +416,11 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
+  // a slot for each thread of the loop below
+  if (derivativesScratch_.size() < derivativesSlot_ * seissol::OpenMP::threadCount()) {
+    derivativesScratch_.resize(derivativesSlot_ * seissol::OpenMP::threadCount());
+  }
+
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
     firstprivate(tmp) schedule(static)
   for (std::size_t cell = 0; cell < clusterData_->size(); cell++) {
@@ -405,8 +436,20 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
       bufferPointer = integrationBuffer;
     }
 
+    // the nonlinear Dirichlet boundary evaluates the state of the cell at the times of its
+    // quadrature, from the time derivatives
+    const bool readsDerivatives =
+        hasNonlinearDirichletFace(data.template get<LTS::CellInformation>());
+    real* cellDerivatives = derivatives[cell];
+    if (readsDerivatives && cellDerivatives == nullptr) {
+      const auto slot = derivativesSlot_ * seissol::OpenMP::threadId();
+      assert(slot + derivativesSlot_ <= derivativesScratch_.size());
+      cellDerivatives = derivativesScratch_.data() + slot;
+    }
+    tmp.timeDerivatives = readsDerivatives ? cellDerivatives : nullptr;
+
     spacetimeKernel_.computeAder(
-        integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
+        integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, cellDerivatives, true);
 
     // Compute local integrals (including local boundary conditions)
     localKernel_.computeIntegral(bufferPointer, data, tmp, ct_.correctionTime, timeStepWidth);

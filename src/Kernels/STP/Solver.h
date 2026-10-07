@@ -48,9 +48,10 @@ struct Solver {
   using TimeBasis = seissol::numerical::LegendreBasis<RealT>;
 
   static constexpr FaceTypeSupport implementsFaceType(FaceType faceType) {
-    if (faceType == FaceType::FreeSurfaceGravity) {
+    if (faceType == FaceType::FreeSurfaceGravity || faceType == FaceType::NonlinearDirichlet) {
       // The surface elevation is built up from the Taylor derivative family dQ, which the
-      // space-time predictor does not produce.
+      // space-time predictor does not produce; so is the inner state of the nonlinear Dirichlet
+      // boundary at a time.
       return faceTypeUnsupported("the space-time predictor provides no Taylor derivatives");
     }
     return faceTypeSupported();

@@ -44,6 +44,8 @@ struct ModelParameters {
   double gravitationalAcceleration{};
   double tv{};
   std::string boundaryFileName;
+  // the script of the nonlinear Dirichlet boundary (FaceType::NonlinearDirichlet); empty for none
+  std::string nonlinearDirichletFileName;
   std::string materialFileName;
   std::vector<std::string> plasticityFileNames;
   ITMParameters itmParameters;
