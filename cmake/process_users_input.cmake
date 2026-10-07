@@ -122,7 +122,7 @@ set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 # NUMBER_OF_MECHANISMS, ORDER, PRECISION, DR_QUAD_RULE, NUMBER_OF_FUSED_SIMULATIONS and
 # EXTRA_CONFIGS.
 set(CONFIGS "" CACHE STRING
-  "The configurations to build, by name or named set (e.g. ci-cpu); replaces EQUATIONS, ORDER, PRECISION, ... and EXTRA_CONFIGS")
+  "The configurations to build, by name or named set (e.g. o4, all or ci-cpu); replaces EQUATIONS, ORDER, PRECISION, ... and EXTRA_CONFIGS")
 
 set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
 

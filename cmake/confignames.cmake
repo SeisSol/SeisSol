@@ -20,6 +20,12 @@
 # ci-gpu: what the GPU CI builds with TensorForge, in both precisions: the six materials in order 6,
 # viscoelastic and viscoacoustic with their default solver and 3 mechanisms, and elastic with 32
 # fused simulations in order 3.
+#
+# o2 to o8: one set per order, the six materials in that order and both precisions, each with its
+# default solver, viscoelastic and viscoacoustic with 3 mechanisms.
+#
+# all: the sets o2 to o8 together, o6 first: a run that names no configuration takes
+# elastic-linearck-o6-f64-stroud, the configuration of a build with the default parameters.
 set(SEISSOL_CONFIG_SETS ci-cpu ci-gpu)
 
 set(SEISSOL_CONFIG_SET_ci-cpu)
@@ -44,6 +50,26 @@ foreach(_precision f64 f32)
     viscoelastic-linearckanelastic-m3-o6-${_precision}-stroud
     viscoacoustic-linearckanelastic-m3-o6-${_precision}-stroud
     elastic-linearck-o3-${_precision}-stroud-s32)
+endforeach()
+
+foreach(_order 2 3 4 5 6 7 8)
+  list(APPEND SEISSOL_CONFIG_SETS o${_order})
+  set(SEISSOL_CONFIG_SET_o${_order})
+  foreach(_precision f64 f32)
+    list(APPEND SEISSOL_CONFIG_SET_o${_order}
+      elastic-linearck-o${_order}-${_precision}-stroud
+      acoustic-linearck-o${_order}-${_precision}-stroud
+      anisotropic-linearck-o${_order}-${_precision}-stroud
+      poroelastic-stp-o${_order}-${_precision}-stroud
+      viscoelastic-linearckanelastic-m3-o${_order}-${_precision}-stroud
+      viscoacoustic-linearckanelastic-m3-o${_order}-${_precision}-stroud)
+  endforeach()
+endforeach()
+
+list(APPEND SEISSOL_CONFIG_SETS all)
+set(SEISSOL_CONFIG_SET_all ${SEISSOL_CONFIG_SET_o6})
+foreach(_order 2 3 4 5 7 8)
+  list(APPEND SEISSOL_CONFIG_SET_all ${SEISSOL_CONFIG_SET_o${_order}})
 endforeach()
 
 # The name of a configuration.
