@@ -65,3 +65,42 @@ jobs:
           # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
           sed -i 's/-fprofile-abs-path //g' compile_commands.json
           TIDY_SHARD=${{ matrix.shard }}/4 ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-22) -quiet -j $(nproc)
+
+  clang-tidy-gpu:
+    name: clang-tidy-gpu (${{ matrix.shard }}/4)
+    runs-on: ubuntu-26.04
+    # the image of the CUDA jobs of the GPU CI, for its AdaptiveCpp: with DEVICE_BACKEND=acpp, clang
+    # compiles every translation unit, the SYCL kernels included, so clang-tidy reads them all. It
+    # compiles nothing, so the device of the build needs neither a GPU nor a device compiler; the
+    # kernels are generated for sm_75 (for generic, TensorForge cannot generate the set ci-gpu).
+    container: seissol/gha-gpu-nv:davschneller-gpu-image
+    strategy:
+      fail-fast: false
+      matrix:
+        # the configurations of the GPU tests (ci-gpu), the translation units shared out as in the
+        # CPU job
+        shard: [0, 1, 2, 3]
+    steps:
+      - name: apt-get
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-22 main"
+          apt-get update
+          apt-get -y install clang-tidy-22 libomp-22-dev
+          ln -sf "$(which run-clang-tidy-22)" /usr/local/bin/run-clang-tidy
+
+          pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
+
+      - name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: clang-tidy
+        run: |
+          set -euo pipefail
+          clang-tidy-22 --version
+          mkdir -p build && cd build
+          CC=clang-18 CXX=clang++-18 cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DASAGI=OFF -DHDF5=ON -DDEVICE_BACKEND=acpp -DDEVICE_ARCH=sm_75 -DDEVICE_CODEGEN=tensorforge -DCONFIGS=ci-gpu -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          ninja seissol-codegen
+          TIDY_SHARD=${{ matrix.shard }}/4 ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-22) -quiet -j $(nproc)
