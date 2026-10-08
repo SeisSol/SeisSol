@@ -69,9 +69,9 @@ jobs:
   clang-tidy-gpu:
     name: clang-tidy-gpu (${{ matrix.shard }}/4)
     runs-on: ubuntu-26.04
-    # the image of the CUDA jobs of the GPU CI, for its AdaptiveCpp: with DEVICE_BACKEND=acpp, clang
-    # compiles every translation unit, the SYCL kernels included, so clang-tidy reads them all. It
-    # compiles nothing, so the device of the build needs neither a GPU nor a device compiler; the
+    # the image of the CUDA jobs of the GPU CI, for its AdaptiveCpp: with DEVICE_BACKEND=acpp, the
+    # SYCL kernels are translation units of the build like all others, so clang-tidy reads them all.
+    # It compiles nothing, so the device of the build needs neither a GPU nor a device compiler; the
     # kernels are generated for sm_75 (for generic, TensorForge cannot generate the set ci-gpu).
     container: seissol/gha-gpu-nv:davschneller-gpu-image
     strategy:
@@ -97,8 +97,10 @@ jobs:
           submodules: recursive
 
       - name: clang-tidy
+        # a step in a container runs in sh by default, which has no pipefail
+        shell: bash
         run: |
-          set -eu pipefail
+          set -euo pipefail
           clang-tidy-22 --version
           mkdir -p build && cd build
           CC=gcc CXX=g++ cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DASAGI=OFF -DHDF5=ON -DDEVICE_BACKEND=acpp -DDEVICE_ARCH=sm_75 -DDEVICE_CODEGEN=tensorforge -DCONFIGS=ci-gpu -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
