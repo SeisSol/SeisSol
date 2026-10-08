@@ -55,8 +55,6 @@
 
 #ifdef SUPPORTS_EASI_TIME
 #include <set>
-#else
-#include <utils/logger.h>
 #endif
 
 GENERATE_HAS_MEMBER(Qane)

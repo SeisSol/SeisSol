@@ -138,7 +138,7 @@ void plasticityNonlinearOfSolid(Real<Cfg>** __restrict nodalStressTensors,
                              sycl::access::address_space::global_space>(*yieldCounter);
 
         // update the FLOPs that we've been here
-        yieldCounterAR.fetch_add(1, sycl::memory_order::relaxed);
+        yieldCounterAR.fetch_add(std::size_t{1}, sycl::memory_order::relaxed);
       }
       if (tid == 0) {
         isAdjustableVector[wid] = isAdjusted[0];
