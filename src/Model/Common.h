@@ -230,21 +230,23 @@ void getTransposedGodunovState(const Tmaterial& local,
       local, neighbor, faceType, qGodLocal, qGodNeighbor);
 }
 
+/// The material in which the material `MaterialT` poses the Riemann problem at its faces.
+template <typename MaterialT>
+using RiemannMaterialOf = typename MaterialT::RiemannMaterial;
+
 /// Whether the materials `MaterialT` and `NeighborT` pose the Riemann problem at their faces in the
 /// same material.
 template <typename MaterialT, typename NeighborT>
 constexpr bool SameRiemannMaterial =
-    // NOLINTNEXTLINE
-    std::is_same_v<typename MaterialT::RiemannMaterial, typename NeighborT::RiemannMaterial>;
+    std::is_same_v<RiemannMaterialOf<MaterialT>, RiemannMaterialOf<NeighborT>>;
 
 /// Whether the material `MaterialT` is a solid and `NeighborT` a fluid, or the other way round, by
 /// the materials they pose the Riemann problem at their faces in.
 template <typename MaterialT, typename NeighborT>
-constexpr bool SolidAndFluid =
-    (std::is_same_v<typename MaterialT::RiemannMaterial, ElasticMaterial> &&
-     std::is_same_v<typename NeighborT::RiemannMaterial, AcousticMaterial>) ||
-    (std::is_same_v<typename MaterialT::RiemannMaterial, AcousticMaterial> &&
-     std::is_same_v<typename NeighborT::RiemannMaterial, ElasticMaterial>);
+constexpr bool SolidAndFluid = (std::is_same_v<RiemannMaterialOf<MaterialT>, ElasticMaterial> &&
+                                std::is_same_v<RiemannMaterialOf<NeighborT>, AcousticMaterial>) ||
+                               (std::is_same_v<RiemannMaterialOf<MaterialT>, AcousticMaterial> &&
+                                std::is_same_v<RiemannMaterialOf<NeighborT>, ElasticMaterial>);
 
 /// Whether cells of the materials `MaterialT` and `NeighborT` can be face neighbors: both pose the
 /// Riemann problem at their faces in the same material, or one is a solid and the other a fluid.
