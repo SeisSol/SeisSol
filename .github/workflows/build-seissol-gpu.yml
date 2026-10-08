@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         arch:
-          - snb # <-- needed for the self-hosted CI node for now :/
+          - hsw
         build_type:
           - Release
           #- Debug
