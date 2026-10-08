@@ -10,19 +10,22 @@
 #define SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 
 #include "Backmap.h"
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Iterator.h"
 #include "Common/Literals.h"
-#include "Config.h"
 #include "Layer.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Colormap.h"
 #include "Monitoring/Unit.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer {
 
@@ -103,26 +106,22 @@ class Storage {
     if constexpr (std::is_same_v<typename TraitT::Type, void>) {
       m.bytes = 0;
       m.bytesLayer = [count](const LayerIdentifier& identifier) {
-        return std::visit(
-            [&](auto type) {
-              using SelfT = typename TraitT::template VariantType<decltype(type)>;
-              if constexpr (!std::is_same_v<void, SelfT>) {
-                return sizeof(SelfT) * count;
-              }
-              return 0_UZ;
-            },
-            identifier.config);
+        return dispatchConfig(identifier.config, [&](auto config) {
+          using SelfT = typename TraitT::template VariantType<decltype(config)>;
+          if constexpr (!std::is_same_v<void, SelfT>) {
+            return sizeof(SelfT) * count;
+          }
+          return 0_UZ;
+        });
       };
       m.alignmentLayer = [](const LayerIdentifier& identifier) {
-        return std::visit(
-            [&](auto type) {
-              using SelfT = typename TraitT::template VariantType<decltype(type)>;
-              if constexpr (!std::is_same_v<void, SelfT>) {
-                return alignof(SelfT);
-              }
-              return alignof(std::max_align_t);
-            },
-            identifier.config);
+        return dispatchConfig(identifier.config, [&](auto config) {
+          using SelfT = typename TraitT::template VariantType<decltype(config)>;
+          if constexpr (!std::is_same_v<void, SelfT>) {
+            return alignof(SelfT);
+          }
+          return alignof(std::max_align_t);
+        });
       };
     } else {
       using SelfT = typename TraitT::Type;
@@ -155,6 +154,19 @@ class Storage {
   ~Storage() = default;
 
   [[nodiscard]] const LTSColorMap& getColorMap() const { return map_.value(); }
+
+  /// The configurations of the layers, each once, by increasing id. Every rank has the same
+  /// layers, so they are the same on every rank.
+  [[nodiscard]] std::vector<ConfigId> configs() const {
+    std::vector<ConfigId> configs;
+    configs.reserve(getColorMap().size());
+    for (std::size_t color = 0; color < getColorMap().size(); ++color) {
+      configs.push_back(getColorMap().argument(color).config);
+    }
+    std::sort(configs.begin(), configs.end());
+    configs.erase(std::unique(configs.begin(), configs.end()), configs.end());
+    return configs;
+  }
 
   void setName(const std::string& name) { this->name_ = name; }
 
@@ -198,23 +210,11 @@ class Storage {
     return memoryContainer_[index].get(place);
   }
 
-  template <typename HandleT>
-  typename HandleT::Type* var(const HandleT& handle,
-                              AllocationPlace place = AllocationPlace::Host) {
-    return static_cast<typename HandleT::Type*>(varUntyped(varmap_.index(handle), place));
-  }
-
   template <typename StorageT>
   typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
-  }
-
-  template <typename HandleT>
-  const typename HandleT::Type* var(const HandleT& handle,
-                                    AllocationPlace place = AllocationPlace::Host) const {
-    return static_cast<typename HandleT::Type*>(varUntyped(varmap_.index(handle), place));
   }
 
   template <typename StorageT>
@@ -238,29 +238,16 @@ class Storage {
     return memoryInfo_[index];
   }
 
-  template <typename HandleT>
-  [[nodiscard]] const MemoryInfo& info(const HandleT& handle) const {
-    const auto index = varmap_.index(handle);
-    assert(memoryInfo_.size() > index);
-    return memoryInfo_[index];
-  }
-
   [[nodiscard]] const MemoryInfo& info(std::size_t index) const {
     assert(memoryInfo_.size() > index);
     return memoryInfo_[index];
   }
 
+  /// The cell at `position`, seen as a cell of the configuration `Cfg`.
+  template <typename Cfg>
   auto lookupRef(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
-    return layer(position.color).cellRef(position.cell, place);
-  }
-
-  template <typename HandleT>
-  auto& lookup(const HandleT& handle,
-               const StoragePosition& position,
-               AllocationPlace place = AllocationPlace::Host) {
-    assert(position != StoragePosition::NullPosition);
-    return layer(position.color).var(handle, place)[position.cell];
+    return layer(position.color).template cellRef<Cfg>(position.cell, place);
   }
 
   template <typename StorageT>
@@ -269,19 +256,28 @@ class Storage {
     return layer(position.color).template var<StorageT>(place)[position.cell];
   }
 
-  template <typename HandleT>
-  const auto& lookup(const HandleT& handle,
-                     const StoragePosition& position,
-                     AllocationPlace place = AllocationPlace::Host) const {
-    assert(position != StoragePosition::NullPosition);
-    return layer(position.color).var(handle, place)[position.cell];
-  }
-
   template <typename StorageT>
   const auto& lookup(const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) const {
     assert(position != StoragePosition::NullPosition);
     return layer(position.color).template var<StorageT>(place)[position.cell];
+  }
+
+  /// The value of a variable at `position`, as the configuration `Cfg` holds it.
+  template <typename StorageT, typename Cfg>
+  auto& lookup(const Cfg& config,
+               const StoragePosition& position,
+               AllocationPlace place = AllocationPlace::Host) {
+    assert(position != StoragePosition::NullPosition);
+    return layer(position.color).template var<StorageT>(config, place)[position.cell];
+  }
+
+  template <typename StorageT, typename Cfg>
+  const auto& lookup(const Cfg& config,
+                     const StoragePosition& position,
+                     AllocationPlace place = AllocationPlace::Host) const {
+    assert(position != StoragePosition::NullPosition);
+    return layer(position.color).template var<StorageT>(config, place)[position.cell];
   }
 
   [[nodiscard]] std::size_t getNumberOfVariables() const { return memoryInfo_.size(); }
@@ -294,17 +290,6 @@ class Storage {
            std::size_t count = 1) {
     const auto index = varmap_.template add<StorageT>();
     addInternal<StorageT>(index, mask, alignment, allocMode, constant, count);
-  }
-
-  template <typename HandleT>
-  void add(HandleT& handle,
-           LayerMask mask,
-           size_t alignment,
-           AllocationMode allocMode,
-           bool constant = false,
-           std::size_t count = 1) {
-    const auto index = varmap_.add(handle);
-    addInternal<HandleT>(index, mask, alignment, allocMode, constant, count);
   }
 
   void allocateVariables() {

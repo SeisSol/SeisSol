@@ -11,33 +11,43 @@
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
 
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <tuple>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace seissol::dr::output::refiner {
 class FaultRefiner {
   public:
   struct Data {
     int refinementLevel{};
-    int faultFaceIndex{};
-    int localFaceSideId{};
-    int elementId{-1};
-    std::size_t globalId{};
+    std::size_t faultFaceIndex{};
+    std::int8_t localFaceSideId{};
+    std::size_t elementId{};
+    const Fault* fault{nullptr};
+    std::uint32_t order{0};
+    std::size_t simcount{1};
   };
-  using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
+  using PointsPair = std::pair<CoordinateT, CoordinateT>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
 
   [[nodiscard]] virtual int getNumSubTriangles() const = 0;
   virtual void refineAndAccumulate(Data data, TrianglePair face) = 0;
   virtual ~FaultRefiner() = default;
 
-  ReceiverPoints&& moveAllReceiverPoints() { return std::move(points_); }
+  Receivers&& moveAllReceivers() { return std::move(points_); }
 
   protected:
-  ReceiverPoints points_;
+  Receivers points_;
 
   static constexpr size_t Global = 0;
   static constexpr size_t Reference = 1;
+
+  std::unordered_map<std::uint32_t, std::vector<std::array<double, 2>>> orderPoints_;
 
   inline void
       repeatRefinement(Data data, PointsPair& point1, PointsPair& point2, PointsPair& point3);

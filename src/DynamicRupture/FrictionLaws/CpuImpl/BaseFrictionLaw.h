@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
@@ -23,23 +24,21 @@ namespace seissol::dr::friction_law::cpu {
  * Base class, has implementations of methods that are used by each friction law
  * Actual friction law is plugged in via CRTP.
  */
-template <typename Derived>
-class BaseFrictionLaw : public FrictionSolver {
+template <typename Cfg, typename Derived>
+class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
   private:
   size_t currLayerSize_{};
 
   public:
-  explicit BaseFrictionLaw(const FrictionLawParameters& drParameters)
-      : FrictionSolver(drParameters) {}
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  std::unique_ptr<FrictionSolver> clone() override {
-    return std::make_unique<Derived>(*static_cast<Derived*>(this));
-  }
+  explicit BaseFrictionLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : FrictionSolverImpl<Cfg>(drParameters) {}
 
   void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& /*runtime*/) override {
     this->currLayerSize_ = layerData.size();
-    BaseFrictionLaw::copyStorageToLocal(layerData);
+    FrictionSolverImpl<Cfg>::copyStorageToLocal(layerData);
     static_cast<Derived*>(this)->copyStorageToLocal(layerData);
   }
 
@@ -47,76 +46,79 @@ class BaseFrictionLaw : public FrictionSolver {
    * evaluates the current friction model
    */
   void evaluate(double fullUpdateTime,
-                const FrictionTime& frictionTime,
+                const FrictionSolver::FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& /*runtime*/) override {
     if (this->currLayerSize_ == 0) {
       return;
     }
 
-    if constexpr (model::MaterialT::SupportsDR) {
+    if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
 
       SCOREP_USER_REGION_DEFINE(myRegionHandle)
       std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT_);
       this->fullUpdateTime_ = fullUpdateTime;
-      std::array<real, misc::TimeSteps> localTimeWeights{};
+      std::array<real, misc::TimeSteps<Cfg>> localTimeWeights{};
       std::copy_n(timeWeights, localTimeWeights.size(), localTimeWeights.begin());
 
       // loop over all dynamic rupture faces, in this LTS layer
 #pragma omp parallel for schedule(static)
       for (std::size_t ltsFace = 0; ltsFace < this->currLayerSize_; ++ltsFace) {
-        alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
-        SCOREP_USER_REGION_BEGIN(
-            myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
-        LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
-        const auto etaPDamp = drParameters_.etaDampEnd > this->fullUpdateTime_
-                                  ? drParameters_.etaDamp
+        alignas(Alignment) ImposedState<Cfg, Executor::Host> imposedState{};
+        alignas(Alignment) FaultStresses<Cfg, Executor::Host> faultStresses{};
+        alignas(Alignment) FaultStresses<Cfg, Executor::Host> initialStress{};
+        const auto etaPDamp = this->drParameters_.etaDampEnd > this->fullUpdateTime_
+                                  ? this->drParameters_.etaDamp
                                   : static_cast<real>(1.0);
-        common::precomputeStressFromQInterpolated(faultStresses,
-                                                  impAndEta_[ltsFace],
-                                                  impedanceMatrices_[ltsFace],
-                                                  qInterpolatedPlus_[ltsFace],
-                                                  qInterpolatedMinus_[ltsFace],
-                                                  etaPDamp);
-        LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
-        SCOREP_USER_REGION_END(myRegionHandle)
 
         SCOREP_USER_REGION_BEGIN(
             myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
         LIKWID_MARKER_START("computeDynamicRupturePreHook");
         // define some temporary variables
-        std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
-        std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
+        std::array<real, misc::NumPaddedPoints<Cfg>> stateVariableBuffer{};
+        std::array<real, misc::NumPaddedPoints<Cfg>> strengthBuffer{};
 
         static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
         LIKWID_MARKER_STOP("computeDynamicRupturePreHook");
         SCOREP_USER_REGION_END(myRegionHandle)
 
-        SCOREP_USER_REGION_BEGIN(myRegionHandle,
-                                 "computeDynamicRuptureUpdateFrictionAndSlip",
-                                 SCOREP_USER_REGION_TYPE_COMMON)
-        LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
-        TractionResults<Executor::Host> tractionResults = {};
+        // NOTE: this region now covers the whole sub time step pipeline -- the stress precompute
+        // and the imposed state accumulation moved into the loop below and are no longer measured
+        // on their own. Timings are therefore not comparable with the ones of the two regions
+        // that used to surround it.
+        SCOREP_USER_REGION_BEGIN(
+            myRegionHandle, "computeDynamicRuptureTimeStepLoop", SCOREP_USER_REGION_TYPE_COMMON)
+        LIKWID_MARKER_START("computeDynamicRuptureTimeStepLoop");
+        TractionResults<Cfg, Executor::Host> tractionResults{};
 
         // loop over sub time steps (i.e. quadrature points in time
         real startTime = 0;
         real updateTime = this->fullUpdateTime_;
-        for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps; timeIndex++) {
+        for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps<Cfg>; timeIndex++) {
           startTime = updateTime;
           updateTime += this->deltaT_[timeIndex];
-          for (uint32_t i = 0; i < this->drParameters_.nucleationCount; ++i) {
-            common::adjustInitialStress(
-                initialStressInFaultCS_[ltsFace],
-                nucleationStressInFaultCS_[ltsFace * this->drParameters_.nucleationCount + i],
-                initialPressure_[ltsFace],
-                nucleationPressure_[ltsFace * this->drParameters_.nucleationCount + i],
-                updateTime,
-                this->drParameters_.t0[i],
-                this->drParameters_.s0[i],
-                this->deltaT_[timeIndex]);
-          }
+
+          common::precomputeStressFromQInterpolated<Cfg>(faultStresses,
+                                                         this->impAndEta_[ltsFace],
+                                                         this->impedanceMatrices_[ltsFace],
+                                                         this->qInterpolatedPlus_[ltsFace],
+                                                         this->qInterpolatedMinus_[ltsFace],
+                                                         etaPDamp,
+                                                         timeIndex);
+
+          common::initializeTractionResults<Cfg>(faultStresses, tractionResults);
+
+          const auto sourceCount = this->drParameters_.sourceCount;
+          common::computeInitialStress<Cfg>(initialStress,
+                                            &this->stressSourceInFaultCS_[ltsFace * sourceCount],
+                                            &this->stressSourcePressure_[ltsFace * sourceCount],
+                                            &this->stressSourceOnset_[ltsFace * sourceCount],
+                                            &this->stressSourceRiseTime_[ltsFace * sourceCount],
+                                            sourceCount,
+                                            updateTime);
 
           static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,
+                                                             initialStress,
                                                              tractionResults,
                                                              stateVariableBuffer,
                                                              strengthBuffer,
@@ -124,26 +126,37 @@ class BaseFrictionLaw : public FrictionSolver {
                                                              timeIndex);
 
           // time-dependent outputs
-          common::saveRuptureFrontOutput(ruptureTimePending_[ltsFace],
-                                         ruptureTime_[ltsFace],
-                                         slipRateMagnitude_[ltsFace],
-                                         startTime);
+          common::saveRuptureFrontOutput<Cfg>(this->ruptureTimePending_[ltsFace],
+                                              this->ruptureTime_[ltsFace],
+                                              this->slipRateMagnitude_[ltsFace],
+                                              startTime);
 
           static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace, startTime);
 
-          common::savePeakSlipRateOutput(slipRateMagnitude_[ltsFace], peakSlipRate_[ltsFace]);
+          common::savePeakSlipRateOutput<Cfg>(this->slipRateMagnitude_[ltsFace],
+                                              this->peakSlipRate_[ltsFace]);
 
           if (this->drParameters_.isFrictionEnergyRequired &&
               this->drParameters_.isCheckAbortCriteraEnabled) {
-            common::updateTimeSinceSlipRateBelowThreshold(
-                slipRateMagnitude_[ltsFace],
-                ruptureTimePending_[ltsFace],
-                energyData_[ltsFace],
+            common::updateTimeSinceSlipRateBelowThreshold<Cfg>(
+                this->slipRateMagnitude_[ltsFace],
+                this->ruptureTimePending_[ltsFace],
+                this->energyData_[ltsFace],
                 this->deltaT_[timeIndex],
                 this->drParameters_.terminatorSlipRateThreshold);
           }
+
+          common::postcomputeImposedStateFromNewStress<Cfg>(imposedState,
+                                                            faultStresses,
+                                                            tractionResults,
+                                                            this->impAndEta_[ltsFace],
+                                                            this->impedanceMatrices_[ltsFace],
+                                                            this->qInterpolatedPlus_[ltsFace],
+                                                            this->qInterpolatedMinus_[ltsFace],
+                                                            timeIndex,
+                                                            localTimeWeights[timeIndex]);
         }
-        LIKWID_MARKER_STOP("computeDynamicRuptureUpdateFrictionAndSlip");
+        LIKWID_MARKER_STOP("computeDynamicRuptureTimeStepLoop");
         SCOREP_USER_REGION_END(myRegionHandle)
 
         SCOREP_USER_REGION_BEGIN(
@@ -155,35 +168,28 @@ class BaseFrictionLaw : public FrictionSolver {
         SCOREP_USER_REGION_END(myRegionHandle)
 
         SCOREP_USER_REGION_BEGIN(myRegionHandle,
-                                 "computeDynamicRupturePostcomputeImposedState",
+                                 "computeDynamicRuptureFinalizeImposedState",
                                  SCOREP_USER_REGION_TYPE_COMMON)
-        LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
-        common::postcomputeImposedStateFromNewStress(faultStresses,
-                                                     tractionResults,
-                                                     impAndEta_[ltsFace],
-                                                     impedanceMatrices_[ltsFace],
-                                                     imposedStatePlus_[ltsFace],
-                                                     imposedStateMinus_[ltsFace],
-                                                     qInterpolatedPlus_[ltsFace],
-                                                     qInterpolatedMinus_[ltsFace],
-                                                     localTimeWeights.data());
-        LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
+        LIKWID_MARKER_START("computeDynamicRuptureFinalizeImposedState");
+        common::finalizeImposedState<Cfg>(
+            imposedState, this->imposedStatePlus_[ltsFace], this->imposedStateMinus_[ltsFace]);
+        LIKWID_MARKER_STOP("computeDynamicRuptureFinalizeImposedState");
         SCOREP_USER_REGION_END(myRegionHandle)
 
         if (this->drParameters_.isFrictionEnergyRequired) {
-          common::computeFrictionEnergy(energyData_[ltsFace],
-                                        qInterpolatedPlus_[ltsFace],
-                                        qInterpolatedMinus_[ltsFace],
-                                        impAndEta_[ltsFace],
-                                        localTimeWeights.data(),
-                                        spaceWeights_,
-                                        godunovData_[ltsFace],
-                                        slipRateMagnitude_[ltsFace],
-                                        this->drParameters_.energiesFromAcrossFaultVelocities);
+          common::computeFrictionEnergy<Cfg>(this->energyData_[ltsFace],
+                                             this->qInterpolatedPlus_[ltsFace],
+                                             this->qInterpolatedMinus_[ltsFace],
+                                             this->impAndEta_[ltsFace],
+                                             localTimeWeights.data(),
+                                             this->spaceWeights_,
+                                             this->godunovData_[ltsFace],
+                                             this->slipRateMagnitude_[ltsFace],
+                                             this->drParameters_.energiesFromAcrossFaultVelocities);
         }
       }
     } else {
-      logError() << "The material" << model::MaterialT::Text
+      logError() << "The material" << model::MaterialOf<Cfg>::Text
                  << "does not support DR friction law computations.";
     }
   }

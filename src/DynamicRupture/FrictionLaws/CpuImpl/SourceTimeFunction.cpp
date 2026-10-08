@@ -7,7 +7,8 @@
 
 #include "SourceTimeFunction.h"
 
-#include "Kernels/Precision.h"
+#include "Common/Real.h"
+#include "Config.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Numerical/DeltaPulse.h"
 #include "Numerical/GaussianNucleationFunction.h"
@@ -17,42 +18,58 @@
 #include <cstdint>
 
 namespace seissol::dr::friction_law::cpu {
-void YoffeSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime_ = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>();
-  tauS_ = layerData.var<LTSImposedSlipRatesYoffe::TauS>();
-  tauR_ = layerData.var<LTSImposedSlipRatesYoffe::TauR>();
+template <typename Cfg>
+void YoffeSTF<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  onsetTime_ = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Cfg());
+  tauS_ = layerData.var<LTSImposedSlipRatesYoffe::TauS>(Cfg());
+  tauR_ = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Cfg());
 }
 
-real YoffeSTF::evaluate(real currentTime,
-                        [[maybe_unused]] real timeIncrement,
-                        size_t ltsFace,
-                        uint32_t pointIndex) {
+template <typename Cfg>
+Real<Cfg> YoffeSTF<Cfg>::evaluate(real currentTime,
+                                  [[maybe_unused]] real timeIncrement,
+                                  size_t ltsFace,
+                                  uint32_t pointIndex) {
   return regularizedYoffe::regularizedYoffe(currentTime - onsetTime_[ltsFace][pointIndex],
                                             tauS_[ltsFace][pointIndex],
                                             tauR_[ltsFace][pointIndex]);
 }
 
-void GaussianSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime_ = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>();
-  riseTime_ = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>();
+template <typename Cfg>
+void GaussianSTF<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  onsetTime_ = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Cfg());
+  riseTime_ = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(Cfg());
 }
 
-real GaussianSTF::evaluate(real currentTime,
-                           real timeIncrement,
-                           size_t ltsFace,
-                           uint32_t pointIndex) {
+template <typename Cfg>
+Real<Cfg> GaussianSTF<Cfg>::evaluate(real currentTime,
+                                     real timeIncrement,
+                                     size_t ltsFace,
+                                     uint32_t pointIndex) {
   const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
       currentTime - onsetTime_[ltsFace][pointIndex], timeIncrement, riseTime_[ltsFace][pointIndex]);
   return smoothStepIncrement / timeIncrement;
 }
 
-void DeltaSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime_ = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>();
+template <typename Cfg>
+void DeltaSTF<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  onsetTime_ = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Cfg());
 }
 
-real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex) {
+template <typename Cfg>
+Real<Cfg> DeltaSTF<Cfg>::evaluate(real currentTime,
+                                  real timeIncrement,
+                                  size_t ltsFace,
+                                  uint32_t pointIndex) {
   // Currently, the delta pulse is normalized in time equivalent to FL33 and FL34
   return deltaPulse::deltaPulse(currentTime - onsetTime_[ltsFace][pointIndex], timeIncrement);
 }
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template class YoffeSTF<Cfg>;                                                                    \
+  template class GaussianSTF<Cfg>;                                                                 \
+  template class DeltaSTF<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::dr::friction_law::cpu

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "InitLayout.h"
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Geometry/MeshReader.h"
@@ -123,16 +124,19 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
+  // every cell computes in the configuration of its mesh group, ghost cells included
+  const auto& model = seissolParams.model;
+
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
+      initializer::EnumLayer<ConfigId>(model.configs()));
 
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
     const auto& element = meshReader.getElements()[i];
     const auto halo = geometry::isCopy(element, rank) ? HaloType::Copy : HaloType::Interior;
-    colors[i] = colorMap.color(halo, element.clusterId, Config());
+    colors[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
   const auto ghostSize = meshReader.linearGhostlayer().size();
@@ -142,13 +146,14 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     const auto& element =
         meshReader.getGhostlayerMetadata().at(linearGhost.rank)[linearGhost.inRankIndices[0]];
     const auto halo = HaloType::Ghost;
-    colorsGhost[i] = colorMap.color(halo, element.clusterId, Config());
+    colorsGhost[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
   const auto needsIntegration =
       std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
                   seissolParams.output.waveFieldParameters.integrationMask.end(),
-                  [](const auto& value) { return value; });
+                  [](const auto& value) { return value; }) ||
+      seissolParams.output.waveFieldParameters.computeStrain;
   const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
 
   logInfo() << "Creating mesh layout...";
@@ -207,7 +212,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       const auto dup = addToBackmap(cell, i);
 
       zeroLayer[i].meshId = cell;
-      zeroLayer[i].configId = layer.getIdentifier().config.index();
+      zeroLayer[i].configId = layer.getIdentifier().config;
       zeroLayer[i].clusterId = layer.getIdentifier().lts;
       zeroLayer[i].duplicate = dup;
       zeroLayer[i].halo = layer.getIdentifier().halo;
@@ -244,9 +249,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][0] = element.neighborSides[face];
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
-          if (static_cast<std::size_t>(element.neighbors[face]) !=
-                  meshReader.getElements().size() ||
-              element.neighborRanks[face] != rank) {
+          if (element.neighbors[face].hasValue() || element.neighborRanks[face] != rank) {
             const auto& neighbor = [&]() {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;
               if (ghostNeighbor) {
@@ -257,12 +260,14 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                 return backmapGhostMap.at(linear).at(layer.id());
               } else {
                 // copy/interior layer
-                return backmap.get(element.neighbors[face]);
+                assert(element.neighbors[face].hasValue());
+                return backmap.get(element.neighbors[face].value());
               }
             }();
 
             secondaryCellInformation[index].faceNeighbors[face] = neighbor;
-            cellInformation[index].neighborConfigIds[face] = 0;
+            cellInformation[index].neighborConfigIds[face] =
+                ltsStorage.layer(neighbor.color).getIdentifier().config;
           } else {
             secondaryCellInformation[index].faceNeighbors[face] = StoragePosition::NullPosition;
             cellInformation[index].neighborConfigIds[face] =
@@ -294,7 +299,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           secondaryCellInformation[i].faceNeighbors[face] = neighbor;
 
           secondaryCellInformation[i].neighborRanks[face] = rank;
-          cellInformation[i].neighborConfigIds[face] = neighbor.color;
+          cellInformation[i].neighborConfigIds[face] =
+              ltsStorage.layer(neighbor.color).getIdentifier().config;
           cellInformation[i].faceTypes[face] =
               elementNeighbor.boundaries[boundaryElement.localSide];
           cellInformation[i].faceRelations[face][0] = boundaryElement.localSide;

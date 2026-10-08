@@ -10,10 +10,10 @@
 
 #include "MemoryManager.h"
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "DynamicRupture/Factory.h"
 #include "DynamicRupture/Misc.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Common.h"
@@ -37,15 +37,20 @@
 
 namespace seissol::initializer {
 
-MemoryManager::MemoryManager(seissol::SeisSol& instance) : seissolInstance_(instance) {}
+MemoryManager::MemoryManager(seissol::SeisSol& instance)
+    : seissolInstance_(instance), iniConds_(builtConfigCount()) {}
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(globalDataOnHost_, memoryAllocator_, memory::Memkind::Standard);
-  if constexpr (seissol::isDeviceOn()) {
-    GlobalDataInitializerOnDevice::init(
-        globalDataOnDevice_, memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
-  }
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    GlobalDataInitializerOnHost::init<Cfg>(
+        globalDataOnHost_.get<Cfg>(), memoryAllocator_, memory::Memkind::Standard);
+    if constexpr (seissol::isDeviceOn()) {
+      GlobalDataInitializerOnDevice::init<Cfg>(
+          globalDataOnDevice_.get<Cfg>(), memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
+    }
+  });
 }
 
 void MemoryManager::initializeFrictionLaw() {
@@ -84,7 +89,7 @@ void MemoryManager::synchronizeTo(AllocationPlace place) {
   void* defaultStream = nullptr;
 
 #ifdef ACL_DEVICE
-  defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
+  defaultStream = device::DeviceInstance::instance().api().getDefaultStream();
 #endif
   ltsStorage_.synchronizeTo(place, defaultStream);
   drStorage_.synchronizeTo(place, defaultStream);
@@ -92,7 +97,7 @@ void MemoryManager::synchronizeTo(AllocationPlace place) {
   surfaceStorage_.synchronizeTo(place, defaultStream);
 
 #ifdef ACL_DEVICE
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+  device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
 #endif
 }
 

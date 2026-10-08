@@ -7,25 +7,25 @@
 # SPDX-FileContributor: Carsten Uphoff
 # SPDX-FileContributor: Sebastian Wolf
 
-import kernels.equations.acoustic as acoustic
 import numpy as np
+from kernels.common import cold_kernel_attrs
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
 
 
 def addKernels(generator, aderdg):
-    numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
-    numberOfQuantities = aderdg.numberOfQuantities()
+    num3DBasisFunctions = aderdg.num3DBasisFunctions()
+    numQuantities = aderdg.numQuantities()
     # Point sources
     mStiffnessTensor = Tensor("stiffnessTensor", (3, 3, 3, 3))
     mNormal = Tensor("mNormal", (3,))
     mArea = Scalar("mArea")
-    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (numberOf3DBasisFunctions,))
+    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (num3DBasisFunctions,))
     basisFunctionDerivativesAtPoint = Tensor(
-        "basisFunctionDerivativesAtPoint", (numberOf3DBasisFunctions, 3)
+        "basisFunctionDerivativesAtPoint", (num3DBasisFunctions, 3)
     )
     mInvJInvPhisAtSources = Tensor(
-        "mInvJInvPhisAtSources", (numberOf3DBasisFunctions,), alignStride=True
+        "mInvJInvPhisAtSources", (num3DBasisFunctions,), alignStride=True
     )
     JInv = Scalar("JInv")
 
@@ -33,13 +33,14 @@ def addKernels(generator, aderdg):
         "computeMInvJInvPhisAtSources",
         mInvJInvPhisAtSources["k"]
         <= JInv * aderdg.db.M3inv["kl"] * basisFunctionsAtPoint["l"],
+        attrs=cold_kernel_attrs(),
     )
 
     # extract the moment tensors entries in SeisSol ordering
     # i.e.: (xx, yy, zz, xy, yz, xz)
-    if not isinstance(aderdg, acoustic.AcousticADERDG):
-        assert numberOfQuantities >= 6
-        momentToNRF_spp = np.zeros((numberOfQuantities, 3, 3))
+    if numQuantities >= 6:  # TODO: need a better criterion
+        assert numQuantities >= 6
+        momentToNRF_spp = np.zeros((numQuantities, 3, 3))
         momentToNRF_spp[0, 0, 0] = 1
         momentToNRF_spp[1, 1, 1] = 1
         momentToNRF_spp[2, 2, 2] = 1
@@ -47,9 +48,9 @@ def addKernels(generator, aderdg):
         momentToNRF_spp[4, 1, 2] = 1
         momentToNRF_spp[5, 0, 2] = 1
     else:
-        momentToNRF_spp = np.zeros((numberOfQuantities, 3, 3))
+        momentToNRF_spp = np.zeros((numQuantities, 3, 3))
         momentToNRF_spp[0, 0, 0] = 1
-    momentToNRF = Tensor("momentToNRF", (numberOfQuantities, 3, 3), spp=momentToNRF_spp)
+    momentToNRF = Tensor("momentToNRF", (numQuantities, 3, 3), spp=momentToNRF_spp)
 
     rotateNRF = Tensor("rotateNRF", (3, 3))
     momentNRFKernel = (
@@ -60,11 +61,15 @@ def addKernels(generator, aderdg):
         * rotateNRF["Ii"]
     )
 
-    tensorNRF = Tensor("tensorNRF", (numberOfQuantities, 3))
+    tensorNRF = Tensor("tensorNRF", (numQuantities, 3))
 
-    generator.add("transformNRF", tensorNRF["ti"] <= momentNRFKernel)
+    generator.add(
+        "transformNRF",
+        tensorNRF["ti"] <= momentNRFKernel,
+        attrs=cold_kernel_attrs(),
+    )
 
-    update = Tensor("update", (numberOfQuantities,))
+    update = Tensor("update", (numQuantities,))
 
     if aderdg.Q.hasOptDim():
         generator.add(
@@ -85,19 +90,23 @@ def addKernels(generator, aderdg):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfQuantities,),
+        (numQuantities,),
     )
     evaluateDOFSAtPoint = QAtPoint["p"] <= aderdg.Q["kp"] * basisFunctionsAtPoint["k"]
-    generator.add("evaluateDOFSAtPoint", evaluateDOFSAtPoint)
+    generator.add("evaluateDOFSAtPoint", evaluateDOFSAtPoint, attrs=cold_kernel_attrs())
     QDerivativeAtPoint = OptionalDimTensor(
         "QDerivativeAtPoint",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfQuantities, 3),
+        (numQuantities, 3),
     )
     evaluateDerivativeDOFSAtPoint = (
         QDerivativeAtPoint["pd"]
         <= aderdg.Q["kp"] * basisFunctionDerivativesAtPoint["kd"]
     )
-    generator.add("evaluateDerivativeDOFSAtPoint", evaluateDerivativeDOFSAtPoint)
+    generator.add(
+        "evaluateDerivativeDOFSAtPoint",
+        evaluateDerivativeDOFSAtPoint,
+        attrs=cold_kernel_attrs(),
+    )

@@ -54,7 +54,7 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   enum class ReceiveState { RequiresMpiTesting, RequiresPrefetchTesting, Ready };
   std::vector<ReceiveState> receiveRegionsStates_;
 
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 
   bool persistent_;
 };

@@ -249,7 +249,7 @@ private:
  */
 template <typename T>
 constexpr auto range(T stop) {
-  return Range(0, stop, 1);
+  return Range(static_cast<T>(0), stop, static_cast<T>(1));
 }
 
 /**
@@ -259,7 +259,7 @@ constexpr auto range(T stop) {
  */
 template <typename T>
 constexpr auto range(T start, T stop) {
-  return Range(start, stop, 1);
+  return Range(start, stop, static_cast<T>(1));
 }
 
 /**

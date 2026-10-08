@@ -40,7 +40,7 @@ The content of the Hdf5 file can be view using ``h5dump``; most notably ``h5dump
 The format itself is mostly compatible to Xdmf, given a corresponding Xdmf XML file. With such, it can be visualized in e.g. ParaView.
 Other than that, the Xdmf XML description is currently ignored by SeisSol.
 
-The boundary conditions can be extracted from a PUML mesh and visualised in ParaView using this
+The boundary conditions can be extracted from a PUML mesh and visualized in ParaView using this
 `script <https://github.com/SeisSol/Meshing/blob/master/vizualizeBoundaryConditions/vizualizeBoundaryConditions.py>`_.
 
 An example Hdf5 file looks as follows:
@@ -73,7 +73,8 @@ It shows that the hdf5 file consists of the 4 arrays: geometry, connect, group a
 Conventions
 -----------
 
-All tetrahedra need to have the same, positive orientation.
+SeisSol reorients each tetrahedron while reading the mesh, so the orientation of the tetrahedra in the file does not affect the simulation.
+For compatibility with earlier versions of SeisSol and with other tools, all tetrahedra should nevertheless have the same, positive orientation.
 
 Boundary Conditions
 -------------------
@@ -87,7 +88,7 @@ In the default format (``i32``), the 4 boundary condition ids for each tetrahedr
 
 Other boundary formats (``i64``) have a 16-bit offset and use 0xffff as a mask instead. The format ``i32x4`` stores each boundary value in an array value of its own, instead of compressing all four values into one integer.
 
-SeisSol indexes the boundary conditions as follows:
+SeisSol indexes the boundary conditions as follows. What each of them does is described in :doc:`boundary-conditions`.
 
 - 0: regular. A regular face between two cells.
 
@@ -103,7 +104,7 @@ SeisSol indexes the boundary conditions as follows:
 
 - 6: regular. Like face type 0, a regular face between two cells. Formerly known as "periodic" or "identified".
 
-- 7: analytical. Boundary condition given by
+- 7: analytical. Boundary condition; no neighbor. The state behind the face is the analytical solution of the configured scenario (see :doc:`boundary-conditions`).
 
 - n>64: dynamic rupture. A dynamic rupture face between two cells, but with a different tag. (see :doc:`fault-tagging`)
 

@@ -8,7 +8,7 @@
 """End-to-end smoke + golden-file tests for generate.py.
 
 These invoke the REAL generator with minimal configurations and verify:
- - All the forward-files listed in generate.py are produced
+ - All the headers at the top level are produced
  - The per-equation subfolder is created with its expected name pattern
  - The generated header files contain the kernel-family names the rest
    of SeisSol's C++ code expects
@@ -22,6 +22,9 @@ Design notes:
 """
 
 import importlib.util  # noqa: F401
+import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -35,9 +38,22 @@ GENERATE = CODEGEN_DIR / "generate.py"
 
 
 def _invoke_generate(
-    outdir, equation="elastic", order=3, precision="d", multi_sims=1, mechanisms=0
+    outdir,
+    equation="elastic",
+    order=3,
+    precision="d",
+    multi_sims=1,
+    mechanisms=0,
+    mode="codegen",
+    solver=None,
 ):
-    """Run generate.py with the given config. Returns CompletedProcess."""
+    """Run generate.py with the given config. Returns CompletedProcess.
+
+    The hash seed is pinned because the generator iterates over sets in a few
+    places, which permutes the order temporaries are declared in. Without it
+    two runs of the same input differ, and no diff of the generated code means
+    anything.
+    """
     return subprocess.run(
         [
             sys.executable,
@@ -54,7 +70,7 @@ def _invoke_generate(
             str(order),
             "--precision",
             precision,
-            "--numberOfMechanisms",
+            "--numMechanisms",
             str(mechanisms),
             "--memLayout",
             "auto",
@@ -68,7 +84,11 @@ def _invoke_generate(
             "dunavant",
             "--device_backend",
             "none",
+            "--mode",
+            mode,
+            *(["--solver", solver] if solver is not None else []),
         ],
+        env={**os.environ, "PYTHONHASHSEED": "0"},
         cwd=str(CODEGEN_DIR),
         capture_output=True,
         text=True,
@@ -101,21 +121,22 @@ def generated_elastic_o3(tmp_path_factory):
 
 
 class TestGeneratedFilesExist:
-    """generate.py's `forward_files` list — we assert each one appears."""
+    """The headers at the top level: those of the metagen, which name the code
+    of the equation by key, and generate.py's `forward_files` list."""
 
-    # Must match the literal list at the bottom of generate.py's main().
-    # If the list drifts, this catches it.
-    EXPECTED_FORWARD_FILES = {
+    EXPECTED_TOP_LEVEL_HEADERS = {
         "init.h",
         "kernel.h",
+        "pool.h",
+        "quantities.h",
         "tensor.h",
     }
 
-    def test_forward_files_produced(self, generated_elastic_o3):
+    def test_top_level_headers_produced(self, generated_elastic_o3):
         outdir, _ = generated_elastic_o3
         produced = {p.name for p in outdir.iterdir() if p.is_file()}
-        missing = self.EXPECTED_FORWARD_FILES - produced
-        assert not missing, f"Missing forward files: {missing}"
+        missing = self.EXPECTED_TOP_LEVEL_HEADERS - produced
+        assert not missing, f"Missing top-level headers: {missing}"
 
     def test_equation_subfolder_name_pattern(self, generated_elastic_o3):
         """The per-equation subfolder is named
@@ -171,18 +192,19 @@ class TestGeneratedContent:
     present, which is what the C++ caller relies on.
     """
 
-    def test_init_h_uses_iwyu_pragma(self, generated_elastic_o3):
+    def test_quantities_h_uses_iwyu_pragma(self, generated_elastic_o3):
         outdir, _ = generated_elastic_o3
-        content = (outdir / "init.h").read_text()
+        content = (outdir / "quantities.h").read_text()
         assert "IWYU pragma: begin_exports" in content
         assert "IWYU pragma: end_exports" in content
 
-    def test_forward_files_include_equation_subdir(self, generated_elastic_o3):
-        """The forward init.h should #include the equation-subdir's init.h."""
+    def test_top_level_headers_include_the_equation_only(self, generated_elastic_o3):
+        """init.h includes the equation's init.h; the code of general/ belongs
+        to no configuration and is included from there."""
         outdir, _ = generated_elastic_o3
         content = (outdir / "init.h").read_text()
         assert "equation-elastic-3-double/init.h" in content
-        assert "general/init.h" in content
+        assert "general/init.h" not in content
 
     def test_kernel_h_declares_aderdg_kernels(self, generated_elastic_o3):
         """ADER-DG pipeline kernels must appear in kernel.h. If generate.py
@@ -210,13 +232,154 @@ class TestGeneratedContent:
 
 
 # =============================================================================
+# runtime.h — the kernels reached by the variant of their configuration
+# =============================================================================
+
+
+class TestRuntime:
+    """The equation is generated through a yateto metagen, which adds runtime.h:
+    kernels reached by the variant of the configuration they compute for, with
+    operands as views. CMake builds its units from what `--mode collect` lists.
+    """
+
+    EQUATION = "equation-elastic-3-double"
+
+    def test_runtime_files_produced(self, generated_elastic_o3):
+        outdir, _ = generated_elastic_o3
+        for name in ["runtime.h", "runtime.cpp", "variant.h"]:
+            assert (outdir / name).is_file(), f"Expected {name} at the top level"
+        # the unit that binds views to the kernels of the equation
+        assert (outdir / self.EQUATION / "runtime.cpp").is_file()
+
+    def test_variant_h_keys_the_configuration(self, generated_elastic_o3):
+        """The id of a configuration is its variant, runtime::variantOf<Config>()."""
+        outdir, _ = generated_elastic_o3
+        content = (outdir / "variant.h").read_text()
+        assert '#include "Config.h"' in content
+        assert "VariantOf<seissol::Config>" in content
+
+    def test_code_is_named_by_the_key_of_its_configuration(self, generated_elastic_o3):
+        """The code of the equation is in a namespace of its own, and the headers
+        at the top level name it by the key of its configuration:
+        seissol::kernel::X<seissol::Config>, seissol::Pool<seissol::Config>."""
+        outdir, _ = generated_elastic_o3
+        space = "yatetometagen_" + self.EQUATION.replace("-", "_")
+        content = (outdir / self.EQUATION / "kernel.h").read_text()
+        assert f"namespace seissol {{\n  namespace {space} {{" in content
+        for name, prefix in [
+            ("init", "init::"),
+            ("kernel", "kernel::"),
+            ("tensor", "tensor::"),
+        ]:
+            typed = (outdir / f"{name}.h").read_text()
+            assert f'#include "{self.EQUATION}/{name}.h"' in typed
+            assert f"using Type = ::seissol::{space}::{prefix}" in typed
+        pool = (outdir / "pool.h").read_text()
+        assert (
+            f"struct Internal_Pool<seissol::Config> {{ using Type = ::seissol::{space}::Pool; }};"
+            in pool
+        )
+
+    def test_optional_tensors_are_named_in_every_configuration(
+        self, generated_elastic_o3
+    ):
+        """Qane is no tensor of the elastic equation, but its name exists, as
+        `void`, which kernels::size counts as empty."""
+        outdir, _ = generated_elastic_o3
+        tensor = (outdir / "tensor.h").read_text()
+        assert "template<typename Arg0> using Qane = " in tensor
+        assert "Internal_Qane<seissol::Config>" not in tensor
+
+    def test_collect_lists_what_codegen_writes(self, generated_elastic_o3, tmp_path):
+        outdir, _ = generated_elastic_o3
+        result = _invoke_generate(tmp_path, mode="collect")
+        assert result.returncode == 0, result.stderr[-1000:]
+        targets = json.loads((tmp_path / "targets.json").read_text())
+
+        assert targets["runtime"]["kernels"] == ["runtime.cpp"]
+        assert sorted(targets["runtime"]["headers"]) == [
+            "init.h",
+            "kernel.h",
+            "pool.h",
+            "runtime.h",
+            "tensor.h",
+            "variant.h",
+        ]
+        assert f"{self.EQUATION}/runtime.cpp" in targets[self.EQUATION]["kernels"]
+
+        listed = [
+            path
+            for target in targets.values()
+            for kind in ("kernels", "tests", "headers")
+            for path in target[kind]
+        ]
+        missing = [path for path in listed if not (outdir / path).is_file()]
+        assert (
+            not missing
+        ), f"collect lists files that codegen does not write: {missing}"
+
+    @staticmethod
+    def _runtime_kernels(outdir):
+        """The kernels runtime.h declares, in any namespace."""
+        content = (outdir / "runtime.h").read_text()
+        blocks = re.findall(
+            r"namespace kernel \{(.*?)\} // namespace kernel", content, re.S
+        )
+        return {
+            name
+            for block in blocks
+            for name in re.findall(r"^\s*struct (\w+) \{", block, re.M)
+        }
+
+    def test_kernels_of_setup_and_output_take_views(self, generated_elastic_o3):
+        """The kernels only setup and output run are reached through runtime.h,
+        the ones of the time step are not: they keep their operands as pointers
+        (see kernels.common.cold_kernel_attrs)."""
+        outdir, _ = generated_elastic_o3
+        kernels = self._runtime_kernels(outdir)
+        for name in [
+            "computeFluxSolverLocal",
+            "foldDirichlet",
+            "projectIniCond",
+            "transformNRF",
+            "evaluateDOFSAtPoint",
+            "evalAtQP",
+            "momentQQCompute",
+            "plProject",
+            "projectNodalToVtkFace",
+            "rotateFluxMatrix",
+            "evaluateFaceAlignedDOFSAtPoint",
+            "accumulateStaticFrictionalWork",
+        ]:
+            assert name in kernels, f"Expected kernel '{name}' in runtime.h"
+        for name in [
+            "volume",
+            "localFlux",
+            "neighboringFlux",
+            "derivative",
+            "evaluateAndRotateQAtInterpolationPoints",
+        ]:
+            assert name not in kernels, f"Kernel '{name}' of the time step in runtime.h"
+
+    def test_anelastic_moments_take_views(self, tmp_path):
+        """The energy output of the viscoelastic material runs the moments of
+        the anelastic unknowns through runtime.h."""
+        result = _invoke_generate(
+            tmp_path, equation="viscoelastic", mechanisms=3, solver="linearckanelastic"
+        )
+        assert result.returncode == 0, result.stderr[-1000:]
+        kernels = self._runtime_kernels(tmp_path)
+        assert {"momentQaneQaneCompute", "momentQQaneCompute"} <= kernels
+
+
+# =============================================================================
 # Acoustic smoke — catches equation-specific regressions
 # =============================================================================
 
 
 class TestAcousticSmoke:
     """Acoustic has fewer quantities (4 vs 9) — a separate pass verifies
-    no equation-specific path is ELBOW-DEPENDENT on numberOfQuantities=9."""
+    no equation-specific path is ELBOW-DEPENDENT on numQuantities=9."""
 
     def test_acoustic_generates(self, tmp_path):
         result = _invoke_generate(tmp_path, equation="acoustic", order=3)
@@ -235,7 +398,7 @@ class TestAcousticSmoke:
 
 class TestPoroelasticSmoke:
     """Poroelastic has more quantities (13 vs 9) — a separate pass verifies
-    no equation-specific path is ELBOW-DEPENDENT on numberOfQuantities=13."""
+    no equation-specific path is ELBOW-DEPENDENT on numQuantities=13."""
 
     def test_acoustic_generates(self, tmp_path):
         result = _invoke_generate(tmp_path, equation="poroelastic", order=3)
@@ -319,7 +482,7 @@ class TestGenerateErrorPaths:
                 "3",
                 "--precision",
                 "d",
-                "--numberOfMechanisms",
+                "--numMechanisms",
                 "0",
                 "--memLayout",
                 "auto",
@@ -343,3 +506,37 @@ class TestGenerateErrorPaths:
         # Error message from generate.py explicitly
         combined = result.stdout + result.stderr
         assert "Unknown GEMM tool" in combined or "fakegemm" in combined
+
+
+class TestReproducibility:
+    """The generated code has to be a function of the inputs alone.
+
+    Every refactor of the generator in this tree has leaned on the same check:
+    generate before, generate after, diff. That is only evidence if two runs of
+    the *same* input agree -- and they do not by default, because the generator
+    iterates over sets and the declaration order of temporaries follows the
+    hash seed.
+    """
+
+    @staticmethod
+    def _snapshot(root):
+        return {
+            path.relative_to(root).as_posix(): path.read_bytes()
+            for path in sorted(root.rglob("*"))
+            if path.is_file()
+        }
+
+    def test_two_runs_of_the_same_input_agree(self, tmp_path):
+        first, second = tmp_path / "first", tmp_path / "second"
+        for outdir in (first, second):
+            outdir.mkdir()
+            result = _invoke_generate(outdir)
+            assert result.returncode == 0, result.stderr
+
+        left, right = self._snapshot(first), self._snapshot(second)
+        assert sorted(left) == sorted(right), "the two runs produced different files"
+        differing = [name for name in left if left[name] != right[name]]
+        assert not differing, (
+            f"generated code is not reproducible; {len(differing)} file(s) differ, "
+            f"e.g. {differing[:3]}"
+        )

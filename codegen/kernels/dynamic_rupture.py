@@ -6,11 +6,17 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
+from yateto.memory import CSCMemoryLayout
+
+# The face relation index of a dynamic rupture face: 0 selects the plus side, 1 the minus side.
+# The minus side carries the face orientation index of the shared face, which the canonical
+# vertex numbering pins to zero.
+NumFaceRelations = 2
 
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInterface):
@@ -24,17 +30,24 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         alignStride=aderdg.alignStride,
         transpose=aderdg.transpose,
     )
-    numberOfPoints = aderdg.t(db.resample.shape())[0]
+    numPoints = aderdg.t(db.resample.shape())[0]
 
     # Determine matrices
     # Note: This does only work because the flux does not depend
     # on the mechanisms in the case of viscoelastic attenuation
     trans_inv_spp_T = aderdg.transformation_inv_spp().transpose()
     TinvT = Tensor("TinvT", trans_inv_spp_T.shape, spp=trans_inv_spp_T)
+    # The face rotation is block diagonal -- one block per quantity group -- so
+    # most of TinvT is structurally zero, and it is stored once per fault face.
+    # Storing only the pattern shrinks that and lets the two projections below
+    # skip the empty blocks. The old GPU interface (gemmforge/chainforge) reads
+    # its operands as dense, so it keeps the dense layout.
+    if not (isOldGpuInterface and "gpu" in targets):
+        TinvT.setMemoryLayout(CSCMemoryLayout)
     flux_solver_spp = aderdg.flux_solver_spp()
     fluxSolver = Tensor("fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp)
 
-    gShape = (numberOfPoints, aderdg.numberOfQuantities())
+    gShape = (numPoints, aderdg.numQuantities())
     QInterpolated = OptionalDimTensor(
         "QInterpolated",
         aderdg.Q.optName(),
@@ -59,6 +72,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         <= stressRotationMatrix["ki"]
         * reducedFaceAlignedMatrix["ij"]
         * initialStress["j"],
+        attrs=cold_kernel_attrs(),
     )
 
     originalQ = OptionalDimTensor(
@@ -66,7 +80,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints,),
+        (numPoints,),
         alignStride=True,
     )
     resampledQ = OptionalDimTensor(
@@ -74,35 +88,35 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints,),
+        (numPoints,),
         alignStride=True,
     )
     resampleKernel = resampledQ["i"] <= db.resample[aderdg.t("ij")] * originalQ["j"]
     generator.add("resampleParameter", resampleKernel)
 
-    generator.add("transposeTinv", TinvT["ij"] <= aderdg.Tinv["ji"])
-
     fluxScale = Scalar("fluxScaleDR")
     generator.add(
         "rotateFluxMatrix",
         fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
+        attrs=cold_kernel_attrs(),
     )
 
-    numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
-    numberOfQuantities = aderdg.numberOfQuantities()
-    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (numberOf3DBasisFunctions,))
+    num3DBasisFunctions = aderdg.num3DBasisFunctions()
+    numQuantities = aderdg.numQuantities()
+    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (num3DBasisFunctions,))
     QAtPoint = OptionalDimTensor(
         "QAtPoint",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfQuantities,),
+        (numQuantities,),
     )
 
     generator.add(
         "evaluateFaceAlignedDOFSAtPoint",
         QAtPoint["q"]
         <= aderdg.Tinv["qp"] * aderdg.Q["lp"] * basisFunctionsAtPoint["l"],
+        attrs=cold_kernel_attrs(),
     )
 
     def interpolateQGenerator(i, h):
@@ -116,7 +130,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         name_prefix = generate_kernel_name_prefix(target)
         generator.addFamily(
             f"{name_prefix}evaluateAndRotateQAtInterpolationPoints",
-            simpleParameterSpace(4, 4),
+            simpleParameterSpace(4, NumFaceRelations),
             interpolateQGenerator,
             interpolateQPrefetch if target == "cpu" else None,
             target=target,
@@ -144,7 +158,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
 
         calc = []
         for c in range(steps):
-            interm = Add()
+            interm = Accumulate(ops.Add())
 
             # the same for all equations right now (incl. visco2 and poro)
             # if not, you'll need to generalize within the equation class(es)
@@ -162,15 +176,14 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         return calc
 
     for target in targets:
-        if target == "gpu":
-            name_prefix = generate_kernel_name_prefix(target)
-            generator.addFamily(
-                f"{name_prefix}projectToDR",
-                simpleParameterSpace(4, 4),
-                multiInterpolateQ,
-                None,
-                target=target,
-            )
+        name_prefix = generate_kernel_name_prefix(target)
+        generator.addFamily(
+            f"{name_prefix}projectToDR",
+            simpleParameterSpace(4, NumFaceRelations),
+            multiInterpolateQ,
+            None,
+            target=target,
+        )
 
     nodalFluxGenerator = (
         lambda i, h: aderdg.extendedQTensor()["kp"]
@@ -185,7 +198,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         name_prefix = generate_kernel_name_prefix(target)
         generator.addFamily(
             f"{name_prefix}nodalFlux",
-            simpleParameterSpace(4, 4),
+            simpleParameterSpace(4, NumFaceRelations),
             nodalFluxGenerator,
             nodalFluxPrefetch if target == "cpu" else None,
             target=target,
@@ -215,7 +228,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, 3),
+        (numPoints, 3),
         alignStride=True,
     )
 
@@ -224,7 +237,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, 3),
+        (numPoints, 3),
         alignStride=True,
     )
     staticFrictionalWork = OptionalDimTensor(
@@ -236,14 +249,17 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         alignStride=True,
     )
     minusSurfaceArea = Scalar("minusSurfaceArea")
-    spaceWeights = Tensor("spaceWeights", (numberOfPoints, 1), alignStride=True)
 
     computeTractionInterpolated = (
         tractionInterpolated["kp"]
         <= QInterpolatedMinus["kq"] * aderdg.tractionMinusMatrix["qp"]
         + QInterpolatedPlus["kq"] * aderdg.tractionPlusMatrix["qp"]
     )
-    generator.add("computeTractionInterpolated", computeTractionInterpolated)
+    generator.add(
+        "computeTractionInterpolated",
+        computeTractionInterpolated,
+        attrs=cold_kernel_attrs(),
+    )
 
     accumulateStaticFrictionalWork = (
         staticFrictionalWork["l"]
@@ -251,9 +267,13 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         + minusSurfaceArea
         * tractionInterpolated["kp"]
         * slipInterpolated["kp"]
-        * spaceWeights["kl"]
+        * db.quadweights["k"]
     )
-    generator.add("accumulateStaticFrictionalWork", accumulateStaticFrictionalWork)
+    generator.add(
+        "accumulateStaticFrictionalWork",
+        accumulateStaticFrictionalWork,
+        attrs=cold_kernel_attrs(),
+    )
 
     # Dynamic Rupture Precompute
     qPlus = OptionalDimTensor(
@@ -293,7 +313,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (numberOfPoints, N),
+        (numPoints, N),
         alignStride=True,
     )
 

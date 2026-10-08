@@ -9,36 +9,44 @@
 #ifndef SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 #define SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 
+#include "Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Kernel.h"
 #include "Kernels/Solver.h"
+#include "Monitoring/Metric.h"
 
 namespace seissol::kernels {
 
-class DynamicRupture : public Kernel {
+/// The interpolation of the space-time predictor onto the faults, for the configuration `Cfg`.
+template <typename Cfg>
+class DynamicRupture : public Kernel<Cfg> {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   private:
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnlPrototype_;
-  kernels::Time timeKernel_;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnlPrototype_;
+  kernels::Time<Cfg> timeKernel_;
 #ifdef ACL_DEVICE
-  dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints gpuKrnlPrototype_;
-  dynamicRupture::kernel::gpu_projectToDR gpuCombinedKrnlPrototype_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints<Cfg> gpuKrnlPrototype_;
+  dynamicRupture::kernel::gpu_projectToDR<Cfg> gpuCombinedKrnlPrototype_;
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 
   public:
   DynamicRupture() = default;
 
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
 
   void spaceTimeInterpolation(
       const DRFaceInformation& faceInfo,
-      const DRGodunovData* godunovData,
+      const DRGodunovData<Cfg>* godunovData,
       const real* timeDerivativePlus,
       const real* timeDerivativeMinus,
-      real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
-      real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
+      real qInterpolatedPlus[dr::misc::TimeSteps<Cfg>][seissol::tensor::QInterpolated<Cfg>::size()],
+      real qInterpolatedMinus[dr::misc::TimeSteps<Cfg>]
+                             [seissol::tensor::QInterpolated<Cfg>::size()],
       const real* timeDerivativePlusPrefetch,
       const real* timeDerivativeMinusPrefetch,
       const real* coeffs);
@@ -48,9 +56,7 @@ class DynamicRupture : public Kernel {
                                      const real* coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 
-  void flopsGodunovState(const DRFaceInformation& faceInfo,
-                         std::uint64_t& nonZeroFlops,
-                         std::uint64_t& hardwareFlops);
+  [[nodiscard]] PerformanceEstimate metrics(const DRFaceInformation& faceInfo) const;
 };
 
 } // namespace seissol::kernels

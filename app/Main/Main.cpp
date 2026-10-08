@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "BuildInfo.h"
-#include "Common/ConfigHelper.h"
+#include "Common/ConfigRegistry.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -60,8 +60,8 @@ int main(int argc, char* argv[]) {
   try {
 #ifdef ACL_DEVICE
     seissol::Mpi::mpi.bindAcceleratorDevice();
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    device.api->initialize();
+    device::DeviceInstance& device = device::DeviceInstance::instance();
+    device.api().initialize();
 #endif // ACL_DEVICE
 
     utils::Env env("SEISSOL_");
@@ -86,11 +86,10 @@ int main(int argc, char* argv[]) {
       LIKWID_MARKER_REGISTER("SeisSol");
       LIKWID_MARKER_REGISTER("computeDynamicRuptureFrictionLaw");
       LIKWID_MARKER_REGISTER("computeDynamicRupturePostHook");
-      LIKWID_MARKER_REGISTER("computeDynamicRupturePostcomputeImposedState");
       LIKWID_MARKER_REGISTER("computeDynamicRupturePreHook");
-      LIKWID_MARKER_REGISTER("computeDynamicRupturePrecomputeStress");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureFinalizeImposedState");
       LIKWID_MARKER_REGISTER("computeDynamicRuptureSpaceTimeInterpolation");
-      LIKWID_MARKER_REGISTER("computeDynamicRuptureUpdateFrictionAndSlip");
+      LIKWID_MARKER_REGISTER("computeDynamicRuptureTimeStepLoop");
     }
 
 #pragma omp parallel
@@ -116,7 +115,7 @@ int main(int argc, char* argv[]) {
 
     if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
       // Check if on a GNU system (Linux) or other platform
-#if defined(__GNUC__) || defined(__linux__)
+#if defined(__GNUC__) && defined(__linux__)
       feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
       logInfo() << "Enabling floating point exception handlers.";
 #else
@@ -127,11 +126,12 @@ int main(int argc, char* argv[]) {
 
     utils::Args args(
         "SeisSol is a scientific software for the numerical simulation of seismic wave "
-        "phenomena and earthquake dynamics. This version of SeisSol (" +
-        ConfigString + ") was built with the following properties:\n" + ConfigDescriptor);
+        "phenomena and earthquake dynamics. This version of SeisSol was built for the "
+        "following configurations:\n" +
+        describeBuiltConfigs());
     args.addAdditionalOption("parameterfile", "The parameter file", false);
     args.addOption(
-        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
+        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
     switch (args.parse(argc, argv)) {
     case utils::Args::Help: {
       [[fallthrough]];
@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
     }
 
 #ifdef ACL_DEVICE
-    device.api->finalize();
+    device.api().finalize();
 #endif
     return 0;
   } catch (const std::exception& error) {

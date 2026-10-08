@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 #define SEISSOL_SRC_IO_INSTANCE_CHECKPOINT_CHECKPOINTMANAGER_H_
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Writer/Instructions/Data.h"
@@ -42,6 +44,10 @@ struct CheckpointTree {
 
 class CheckpointManager {
   public:
+  /// The configuration of the data to checkpoint, the one of the run: the datasets hold its reals,
+  /// and its order is stored with them.
+  void setConfig(ConfigId config) { config_ = config; }
+
   template <typename VarmapT>
   void registerTree(const std::string& name,
                     initializer::Storage<VarmapT>& storage,
@@ -51,34 +57,22 @@ class CheckpointManager {
     dataRegistry_[&storage].ids = ids;
   }
 
-  template <typename HandleT, typename VarmapT>
-  void registerData(const std::string& name,
-                    initializer::Storage<VarmapT>& storage,
-                    const HandleT& var) {
-    if (storage.info(var).mask != initializer::LayerMask(Ghost)) {
-      logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
-    }
-    dataRegistry_[&storage].variables.emplace_back(
-        CheckpointVariable{name,
-                           storage.var(var),
-                           datatype::inferDatatype<typename HandleT::Type>(),
-                           datatype::inferDatatype<typename HandleT::Type>(),
-                           {},
-                           {}});
-  }
-
   template <typename StorageT, typename VarmapT>
   void registerData(const std::string& name, initializer::Storage<VarmapT>& storage) {
     if (storage.template info<StorageT>().mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry_[&storage].variables.emplace_back(
-        CheckpointVariable{name,
-                           storage.template var<StorageT>(),
-                           datatype::inferDatatype<typename StorageT::Type>(),
-                           datatype::inferDatatype<typename StorageT::Type>(),
-                           {},
-                           {}});
+    // The values of all layers go into one dataset, of the type the configuration holds them in.
+    dispatchConfig(config_, [&](auto cfg) {
+      using ValueT = initializer::StorageType<StorageT, decltype(cfg)>;
+      dataRegistry_[&storage].variables.emplace_back(
+          CheckpointVariable{name,
+                             storage.template var<StorageT>(),
+                             datatype::inferDatatype<ValueT>(),
+                             datatype::inferDatatype<ValueT>(),
+                             {},
+                             {}});
+    });
   }
 
   template <typename S, typename T, typename VarmapT>
@@ -139,6 +133,7 @@ class CheckpointManager {
 
   private:
   std::map<void*, CheckpointTree> dataRegistry_;
+  ConfigId config_{};
 };
 
 } // namespace seissol::io::instance::checkpoint

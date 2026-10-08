@@ -16,21 +16,26 @@
 #include "Physics/InitialField.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol::initializer {
-void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
-                         const GlobalData& globalData,
-                         const seissol::geometry::MeshReader& meshReader,
-                         LTS::Storage& storage);
+/// Projects the initial conditions `iniFields`, given for the cells of each configuration by its
+/// id, onto the cells of `storage`.
+void projectInitialField(
+    const std::vector<std::vector<std::unique_ptr<physics::InitialField>>>& iniFields,
+    const seissol::geometry::MeshReader& meshReader,
+    LTS::Storage& storage);
 
+/// The values of the scripted fields `iniFields` at the quadrature points of every element, as the
+/// configuration `Cfg` projects them: by element, point, quantity and field.
+template <typename Cfg>
 std::vector<double> projectScriptFields(const std::vector<std::string>& iniFields,
                                         double time,
                                         const seissol::geometry::MeshReader& meshReader,
                                         bool needsTime);
 
 void projectScriptInitialField(const std::vector<std::string>& iniFields,
-                               const GlobalData& globalData,
                                const seissol::geometry::MeshReader& meshReader,
                                LTS::Storage& storage,
                                bool needsTime);

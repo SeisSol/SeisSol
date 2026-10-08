@@ -10,42 +10,40 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBOR_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBOR_H_
 
+#include "Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
-class Neighbor : public NeighborKernel {
+template <typename Cfg>
+class Neighbor : public NeighborKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
 
   void computeNeighborsIntegral(
-      LTS::Ref& data,
+      LTS::Ref<Cfg>& data,
       const std::array<real*, Cell::NumFaces>& timeIntegrated,
       const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) override;
 
   void computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsNeighborsIntegral(
-      const std::array<FaceType, Cell::NumFaces>& faceTypes,
-      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
-      std::uint64_t& nonZeroFlops,
-      std::uint64_t& hardwareFlops,
-      std::uint64_t& drNonZeroFlops,
-      std::uint64_t& drHardwareFlops) override;
-
-  std::uint64_t bytesNeighborsIntegral() override;
+  [[nodiscard]] std::pair<PerformanceEstimate, PerformanceEstimate>
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+              const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+              const std::array<CellDRMapping<Cfg>, Cell::NumFaces>& cellDrMapping) const override;
 
   protected:
-  kernel::neighborFluxExt nfKrnlPrototype_;
-  kernel::neighbor nKrnlPrototype_;
-  dynamicRupture::kernel::nodalFlux drKrnlPrototype_;
+  kernel::neighborFluxExt<Cfg> nfKrnlPrototype_;
+  kernel::neighbor<Cfg> nKrnlPrototype_;
+  dynamicRupture::kernel::nodalFlux<Cfg> drKrnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_neighborFluxExt deviceNfKrnlPrototype_;
-  kernel::gpu_neighbor deviceNKrnlPrototype_;
-  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype_;
+  kernel::gpu_neighborFluxExt<Cfg> deviceNfKrnlPrototype_;
+  kernel::gpu_neighbor<Cfg> deviceNKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux<Cfg> deviceDrKrnlPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

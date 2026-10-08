@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 #define SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Model/Plasticity.h"
@@ -15,16 +16,17 @@
 #include <stddef.h>
 
 namespace seissol::kernels::device::aux::plasticity {
-constexpr static int NumStressComponents = model::MaterialT::TractionQuantities;
+constexpr static int NumStressComponents = model::MaterialT::TractionComponents;
 
-void plasticityNonlinear(real** __restrict nodalStressTensors,
-                         real** __restrict pstrainPtr,
+template <typename Cfg>
+void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
+                         Real<Cfg>** __restrict pstrainPtr,
                          unsigned* __restrict isAdjustableVector,
                          std::size_t* __restrict yieldCounter,
-                         const seissol::model::PlasticityData* __restrict plasticity,
-                         double oneMinusIntegratingFactor,
-                         double tV,
-                         double timeStepWidth,
+                         const seissol::model::PlasticityData<Cfg>* __restrict plasticity,
+                         Real<Cfg> oneMinusIntegratingFactor,
+                         Real<Cfg> tV,
+                         Real<Cfg> timeStepWidth,
                          size_t numElements,
                          void* streamPtr);
 } // namespace seissol::kernels::device::aux::plasticity

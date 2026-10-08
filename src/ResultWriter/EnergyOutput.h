@@ -8,7 +8,9 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 #define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
+#include "Equations/Energy.h"
 #include "Geometry/MeshReader.h"
+#include "IO/Instance/Point/Csv.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -16,51 +18,61 @@
 #include "Memory/MemoryAllocator.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Unit.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
-#include <fstream>
 #include <iostream>
+#include <map>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace seissol {
 class SeisSol;
 namespace writer {
 
-struct EnergiesStorage {
-  static constexpr size_t NumberOfEnergies = 13;
-  std::array<double, multisim::NumSimulations * NumberOfEnergies> energies{};
+/// Resolves an EnergyUnit to the SIUnit used for formatting.
+const SIUnit& siUnit(model::EnergyUnit unit);
 
-  double& gravitationalEnergy(size_t sim);
+class EnergiesStorage {
+  public:
+  void setSimcount(size_t count);
 
-  double& acousticEnergy(size_t sim);
+  /// Registers an energy. Registering the same name twice is a programming
+  /// error and aborts; so is an empty name.
+  size_t addEnergy(const model::EnergyDescriptor& descriptor);
 
-  double& acousticKineticEnergy(size_t sim);
+  double& energy(size_t handle, size_t sim);
 
-  double& elasticEnergy(size_t sim);
+  [[nodiscard]] double energy(size_t handle, size_t sim) const;
 
-  double& elasticKineticEnergy(size_t sim);
+  double& energy(std::string_view name, size_t sim);
 
-  double& totalFrictionalWork(size_t sim);
+  [[nodiscard]] double energy(std::string_view name, size_t sim) const;
 
-  double& staticFrictionalWork(size_t sim);
+  [[nodiscard]] bool has(std::string_view name) const;
 
-  double& plasticMoment(size_t sim);
+  [[nodiscard]] const std::vector<model::EnergyDescriptor>& descriptors() const;
 
-  double& seismicMoment(size_t sim);
+  std::vector<double>& values();
 
-  double& potency(size_t sim);
+  void reset();
 
-  double& totalMomentumX(size_t sim);
-  double& totalMomentumY(size_t sim);
-  double& totalMomentumZ(size_t sim);
+  private:
+  [[nodiscard]] size_t handleOf(std::string_view name) const;
+
+  std::size_t simcount_{1};
+  std::vector<double> values_;
+  std::vector<model::EnergyDescriptor> descriptors_;
+  std::map<std::string, size_t, std::less<>> handles_;
 };
 
 class EnergyOutput : public Module {
   public:
-  void init(GlobalData* newGlobal,
-            const DynamicRupture::Storage& newDynRuptTree,
+  void init(const DynamicRupture::Storage& newDynRuptTree,
             const seissol::geometry::MeshReader& newMeshReader,
             const LTS::Storage& newStorage,
             bool newIsPlasticityEnabled,
@@ -93,16 +105,14 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(const std::array<double, multisim::NumSimulations>& timeSinceThreshold,
+  void checkAbortCriterion(const std::vector<double>& timeSinceThreshold,
                            const std::string& prefixMessage);
-
-  void writeHeader();
 
   void writeEnergies(double time);
 
   seissol::SeisSol& seissolInstance_;
 
-  bool shouldComputeVolumeEnergies() const;
+  [[nodiscard]] bool shouldComputeVolumeEnergies() const;
 
   bool isEnabled_ = false;
   bool isTerminalOutputEnabled_ = false;
@@ -114,20 +124,22 @@ class EnergyOutput : public Module {
   int outputId_ = 0;
 
   std::string outputFileName_;
-  std::ofstream out_;
+  //! The energies of every output, held by the rank that writes them.
+  std::optional<io::instance::point::Csv> table_;
 
-  const GlobalData* global_ = nullptr;
   const DynamicRupture::Storage* drStorage_ = nullptr;
   const seissol::geometry::MeshReader* meshReader_ = nullptr;
   const LTS::Storage* ltsStorage_ = nullptr;
 
+  //! The fused simulations of the run: the most that one of its configurations has.
+  std::size_t simulationCount_{1};
   EnergiesStorage energiesStorage_{};
-  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold_{};
-  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold_{};
+  std::vector<double> minTimeSinceSlipRateBelowThreshold_;
+  std::vector<double> minTimeSinceMomentRateBelowThreshold_;
   double terminatorMaxTimePostRupture_{};
   double energyOutputInterval_{};
   double terminatorMomentRateThreshold_{};
-  std::array<double, multisim::NumSimulations> seismicMomentPrevious_{};
+  std::vector<double> seismicMomentPrevious_;
 };
 
 } // namespace writer

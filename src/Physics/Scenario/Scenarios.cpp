@@ -1,0 +1,672 @@
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Physics/Scenario/Scenarios.h"
+
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigLayout.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
+#include "Equations/Datastructures.h"
+#include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Typedefs.h"
+#include "Model/Common.h"
+#include "Model/CommonDatastructures.h"
+#include "Model/MaterialType.h"
+#include "Numerical/Eigenvalues.h"
+
+#include <Eigen/Core>
+#include <array>
+#include <cassert>
+#include <cmath>
+#include <complex>
+#include <cstddef>
+#include <limits>
+#include <math.h>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+#include <yateto.h>
+
+// FIXME: the following line is absolutely necessary for the plain-wave operator to work correctly
+// (template specializations for the equations).
+#include "Equations/Setup.h" // IWYU pragma: keep
+#include "Physics/InitialField.h"
+
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
+                                         ConfigId config,
+                                         double phase,
+                                         Eigen::Vector3d kVec,
+                                         std::vector<int> varField,
+                                         std::vector<std::complex<double>> ampField)
+    : varField_(std::move(varField)), ampField_(std::move(ampField)), phase_(phase),
+      kVec_(std::move(kVec)) {
+  init(materialData, config);
+}
+
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
+                                         ConfigId config,
+                                         double phase,
+                                         Eigen::Vector3d kVec)
+    : phase_(phase), kVec_(std::move(kVec)) {
+
+  const auto materialType = configValue(config).materialType;
+  if (materialType == model::MaterialType::Acoustic ||
+      materialType == model::MaterialType::Viscoacoustic) {
+    // Acoustic materials has the following wave modes:
+    // P, N, N, -P
+    // Here we impose the P mode
+    varField_ = {0};
+    ampField_ = {1.0};
+  } else if (materialType == model::MaterialType::Poroelastic) {
+    // Poroelastic materials have the following wave modes:
+    //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
+    // Here we impose -S1, -Ps and P
+    varField_ = {2, 3, 12};
+    ampField_ = {1.0, 1.0, 1.0};
+  } else {
+    const auto isAcoustic = materialData.local->getMuBar() <= 1e-15;
+    if (isAcoustic) {
+      // Acoustic materials has the following wave modes:
+      // -P, N, N, N, N, N, N, N, P
+      // Here we impose the P mode
+      varField_ = {8};
+      ampField_ = {1.0};
+    } else {
+      // Elastic materials have the following wave modes:
+      // -P, -S2, -S1, N, N, N, S1, S2, P
+      // Here we impose the -S2 and P mode
+      varField_ = {1, 8};
+      ampField_ = {1.0, 1.0};
+    }
+  }
+  init(materialData, config);
+}
+
+void seissol::physics::Planarwave::init(const CellMaterialData& materialData, ConfigId config) {
+  assert(varField_.size() == ampField_.size());
+
+  dispatchConfig(config, [&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using MaterialT = model::MaterialOf<Cfg>;
+    constexpr auto NumQuantities = MaterialT::NumQuantities;
+
+    std::array<std::complex<double>, NumQuantities * NumQuantities> planeWaveOperator{};
+    seissol::model::getPlaneWaveOperator<Cfg>(
+        *dynamic_cast<MaterialT*>(materialData.local), kVec_.data(), planeWaveOperator.data());
+    seissol::eigenvalues::Eigenpair<std::complex<double>, NumQuantities> eigendecomposition;
+    seissol::eigenvalues::computeEigenvalues<model::EigenvalueBackend<MaterialT>>(
+        planeWaveOperator, eigendecomposition);
+    numQuantities_ = NumQuantities;
+    lambdaA_.assign(eigendecomposition.values.begin(), eigendecomposition.values.end());
+    eigenvectors_.assign(eigendecomposition.vectors.begin(), eigendecomposition.vectors.end());
+  });
+}
+
+template <typename RealT>
+void seissol::physics::Planarwave::evaluateIn(
+    double time,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& /*materialData*/,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
+  dofsQP.setZero();
+
+  const auto r = yateto::DenseTensorView<2, std::complex<double>, unsigned, true>(
+      eigenvectors_.data(),
+      {static_cast<unsigned>(numQuantities_), static_cast<unsigned>(numQuantities_)});
+  for (unsigned v = 0; v < varField_.size(); ++v) {
+    const auto omega = lambdaA_[varField_[v]];
+    for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
+      for (size_t i = 0; i < count; ++i) {
+        dofsQP(i, j) +=
+            (r(j, varField_[v]) * ampField_[v] *
+             std::exp(std::complex<double>(0.0, 1.0) *
+                      (omega * time - kVec_[0] * points[i][0] - kVec_[1] * points[i][1] -
+                       kVec_[2] * points[i][2] + std::complex<double>(phase_, 0))))
+                .real();
+      }
+    }
+  }
+}
+
+seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
+    const CellMaterialData& materialData, ConfigId config, double phase)
+    : kVec_({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}),
+      pw_({Planarwave(materialData, config, phase, kVec_.at(0)),
+           Planarwave(materialData, config, phase, kVec_.at(1)),
+           Planarwave(materialData, config, phase, kVec_.at(2))}) {}
+
+template <typename RealT>
+void seissol::physics::SuperimposedPlanarwave::evaluateIn(
+    double time,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& materialData,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
+  dofsQP.setZero();
+
+  // a row for every point, as the planar waves fill it
+  const auto pointCount = static_cast<unsigned>(count);
+  const auto quantityCount = dofsQP.shape(1);
+
+  std::vector<RealT> dofsPwVector(static_cast<std::size_t>(pointCount) * quantityCount);
+  auto dofsPW = yateto::DenseTensorView<2, RealT, unsigned>(
+      dofsPwVector.data(), {pointCount, quantityCount}, {0, 0}, {pointCount, quantityCount});
+
+  for (int pw = 0; pw < 3; pw++) {
+    // evaluate each planarwave
+    pw_.at(pw).evaluateIn(time, points, count, materialData, dofsPW);
+    // and add results together
+    for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
+      for (size_t i = 0; i < count; ++i) {
+        dofsQP(i, j) += dofsPW(i, j);
+      }
+    }
+  }
+}
+
+seissol::physics::TravellingWave::TravellingWave(
+    const CellMaterialData& materialData,
+    ConfigId config,
+    const TravellingWaveParameters& travellingWaveParameters)
+    // Set phase to 0.5*M_PI, so we have a zero at the origin
+    // The wave travels in direction of kVec
+    // 2*pi / magnitude(kVec) is the wave length of the wave
+    : InitialFieldOf<TravellingWave, Planarwave>(materialData,
+                                                 config,
+                                                 0.5 * M_PI,
+                                                 travellingWaveParameters.kVec,
+                                                 travellingWaveParameters.varField,
+                                                 travellingWaveParameters.ampField),
+      // origin is a point on the wavefront at time zero
+      origin_(travellingWaveParameters.origin) {
+  logInfo() << "Impose a travelling wave as initial condition";
+  logInfo() << "Origin = (" << origin_[0] << ", " << origin_[1] << ", " << origin_[2] << ")";
+  logInfo() << "kVec = (" << kVec_[0] << ", " << kVec_[1] << ", " << kVec_[2] << ")";
+  logInfo() << "Combine following wave modes";
+  for (size_t i = 0; i < ampField_.size(); i++) {
+    logInfo() << "(" << varField_[i] << ": " << ampField_[i] << ")";
+  }
+}
+
+seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
+    const CellMaterialData& materialData,
+    const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm)
+    : rho0_(materialData.local->getDensity()),
+      c0_(sqrt(materialData.local->getLambdaBar() / materialData.local->getDensity())),
+      k_(acousticTravellingWaveParametersItm.k),
+      tITMMinus_(acousticTravellingWaveParametersItm.itmStartingTime),
+      tau_(acousticTravellingWaveParametersItm.itmDuration), tITMPlus_(tITMMinus_ + tau_),
+      n_(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
+  logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
+
+  logInfo() << "rho0 = " << rho0_;
+  logInfo() << "c0 = " << c0_;
+
+  logInfo() << "k = " << k_;
+
+  logInfo() << "Setting up the Initial Conditions";
+  init(materialData);
+}
+
+void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {}
+
+template <typename RealT>
+void seissol::physics::AcousticTravellingWaveITM::evaluateIn(
+    double time,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& /*materialData*/,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
+  dofsQP.setZero();
+  double pressure = 0.0;
+  for (size_t i = 0; i < count; ++i) {
+    const auto& coordinates = points[i];
+    const auto x = coordinates[0];
+    const auto t = time;
+    if (t <= tITMMinus_) {
+      pressure = c0_ * rho0_ * std::cos(k_ * x - c0_ * k_ * t);
+      dofsQP(i, 0) = -pressure;                       // sigma_xx
+      dofsQP(i, 1) = -pressure;                       // sigma_yy
+      dofsQP(i, 2) = -pressure;                       // sigma_zz
+      dofsQP(i, 3) = 0.0;                             // sigma_xy
+      dofsQP(i, 4) = 0.0;                             // sigma_yz
+      dofsQP(i, 5) = 0.0;                             // sigma_xz
+      dofsQP(i, 6) = std::cos(k_ * x - c0_ * k_ * t); // u
+      dofsQP(i, 7) = 0.0;                             // v
+      dofsQP(i, 8) = 0.0;                             // w
+    } else if (t <= tITMPlus_) {
+      pressure =
+          -0.5 * (n_ - 1) * c0_ * rho0_ *
+              std::cos(k_ * x + c0_ * k_ * n_ * t - (c0_ * k_ * n_ + c0_ * k_) * tITMMinus_) +
+          0.5 * (n_ + 1) * c0_ * rho0_ *
+              std::cos(k_ * x - c0_ * k_ * n_ * t + (c0_ * k_ * n_ - c0_ * k_) * tITMMinus_);
+      dofsQP(i, 0) = -pressure; // sigma_xx
+      dofsQP(i, 1) = -pressure; // sigma_yy
+      dofsQP(i, 2) = -pressure; // sigma_zz
+      dofsQP(i, 3) = 0.0;       // sigma_xy
+      dofsQP(i, 4) = 0.0;       // sigma_yz
+      dofsQP(i, 5) = 0.0;       // sigma_xz
+      dofsQP(i, 6) =
+          0.5 * (n_ - 1) *
+              std::cos(k_ * x + c0_ * k_ * n_ * t - (c0_ * k_ * n_ + c0_ * k_) * tITMMinus_) +
+          0.5 * (n_ + 1) *
+              std::cos(k_ * x - c0_ * k_ * n_ * t + (c0_ * k_ * n_ - c0_ * k_) * tITMMinus_); // u
+      dofsQP(i, 7) = 0.0;                                                                     // v
+      dofsQP(i, 8) = 0.0;                                                                     // w
+    } else {
+      pressure = -0.25 * (1 / n_) * c0_ * rho0_ *
+                 ((-n_ * n_ + 1) * std::cos(k_ * x + c0_ * k_ * t - 2.0 * c0_ * k_ * tITMMinus_ -
+                                            (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+                  (n_ * n_ - 1) * std::cos(k_ * x + c0_ * k_ * t - 2.0 * c0_ * k_ * tITMMinus_ +
+                                           (c0_ * k_ * n_ - c0_ * k_) * tau_) +
+                  (n_ * n_ - 2 * n_ + 1) *
+                      std::cos(k_ * x - c0_ * k_ * t + (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+                  (-n_ * n_ - 2 * n_ - 1) *
+                      std::cos(k_ * x - c0_ * k_ * t - (c0_ * k_ * n_ - c0_ * k_) * tau_));
+      dofsQP(i, 0) = -pressure; // sigma_xx
+      dofsQP(i, 1) = -pressure; // sigma_yy
+      dofsQP(i, 2) = -pressure; // sigma_zz
+      dofsQP(i, 3) = 0.0;       // sigma_xy
+      dofsQP(i, 4) = 0.0;       // sigma_yz
+      dofsQP(i, 5) = 0.0;       // sigma_xz
+      dofsQP(i, 6) = (-0.25 / n_) *
+                     ((n_ * n_ - 1) * std::cos(k_ * x + c0_ * k_ * t - 2 * c0_ * k_ * tITMMinus_ -
+                                               (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+                      (-n_ * n_ + 1) * std::cos(k_ * x + c0_ * k_ * t - 2 * c0_ * k_ * tITMMinus_ +
+                                                (c0_ * k_ * n_ - c0_ * k_) * tau_) +
+                      (n_ * n_ - 2 * n_ + 1) *
+                          std::cos(k_ * x - c0_ * k_ * t + (c0_ * k_ * n_ + c0_ * k_) * tau_) +
+                      (-n_ * n_ - 2 * n_ - 1) *
+                          std::cos(k_ * x - c0_ * k_ * t - (c0_ * k_ * n_ - c0_ * k_) * tau_)); // u
+      dofsQP(i, 7) = 0.0;                                                                       // v
+      dofsQP(i, 8) = 0.0;                                                                       // w
+    }
+  }
+}
+
+template <typename RealT>
+void seissol::physics::TravellingWave::evaluateIn(
+    double time,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& /*materialData*/,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
+  dofsQp.setZero();
+
+  const auto r = yateto::DenseTensorView<2, std::complex<double>, unsigned, true>(
+      eigenvectors_.data(),
+      {static_cast<unsigned>(numQuantities_), static_cast<unsigned>(numQuantities_)});
+  for (unsigned v = 0; v < varField_.size(); ++v) {
+    const auto omega = lambdaA_[varField_[v]];
+    for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
+      for (size_t i = 0; i < count; ++i) {
+        auto arg = std::complex<double>(0.0, 1.0) *
+                   (omega * time - kVec_[0] * (points[i][0] - origin_[0]) -
+                    kVec_[1] * (points[i][1] - origin_[1]) -
+                    kVec_[2] * (points[i][2] - origin_[2]) + phase_);
+        if (arg.imag() > -0.5 * M_PI && arg.imag() < 1.5 * M_PI) {
+          dofsQp(i, j) += (r(j, varField_[v]) * ampField_[v] * std::exp(arg)).real();
+        }
+      }
+    }
+  }
+}
+
+seissol::physics::PressureInjection::PressureInjection(
+    const seissol::initializer::parameters::InitializationParameters& initializationParameters)
+    : parameters_(initializationParameters) {
+  const auto o1 = parameters_.origin[0];
+  const auto o2 = parameters_.origin[1];
+  const auto o3 = parameters_.origin[2];
+  const auto magnitude = parameters_.magnitude;
+  const auto width = parameters_.width;
+  logInfo() << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2 << ", "
+            << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
+}
+
+template <typename RealT>
+void seissol::physics::PressureInjection::evaluateIn(
+    double /*time*/,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& /*materialData*/,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
+  const auto o1 = parameters_.origin[0];
+  const auto o2 = parameters_.origin[1];
+  const auto o3 = parameters_.origin[2];
+  const auto magnitude = parameters_.magnitude;
+  const auto width = parameters_.width;
+
+  for (size_t i = 0; i < count; ++i) {
+    const auto& x = points[i];
+    const auto x1 = x[0];
+    const auto x2 = x[1];
+    const auto x3 = x[2];
+    const auto rSquared = std::pow(x1 - o1, 2) + std::pow(x2 - o2, 2) + std::pow(x3 - o3, 2);
+    dofsQp(i, 0) = 0.0;                                     // sigma_xx
+    dofsQp(i, 1) = 0.0;                                     // sigma_yy
+    dofsQp(i, 2) = 0.0;                                     // sigma_yy
+    dofsQp(i, 3) = 0.0;                                     // sigma_xy
+    dofsQp(i, 4) = 0.0;                                     // sigma_yz
+    dofsQp(i, 5) = 0.0;                                     // sigma_xz
+    dofsQp(i, 6) = 0.0;                                     // u
+    dofsQp(i, 7) = 0.0;                                     // v
+    dofsQp(i, 8) = 0.0;                                     // w
+    dofsQp(i, 9) = magnitude * std::exp(-width * rSquared); // p
+    dofsQp(i, 10) = 0.0;                                    // u_f
+    dofsQp(i, 11) = 0.0;                                    // v_f
+    dofsQp(i, 12) = 0.0;                                    // w_f
+  }
+}
+
+template <typename RealT>
+void seissol::physics::ScholteWave::evaluateIn(
+    double time,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& materialData,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
+  const RealT omega = 2.0 * std::acos(-1);
+
+  for (size_t i = 0; i < count; ++i) {
+    const auto& x = points[i];
+    const bool isAcousticPart =
+        std::abs(materialData.local->getMuBar()) < std::numeric_limits<RealT>::epsilon();
+    const auto x1 = x[0];
+    const auto x3 = x[2];
+    const auto t = time;
+    if (isAcousticPart) {
+      dofsQp(i, 0) = 0.35944997730200889 * std::pow(omega, 2) *
+                     std::exp(-0.98901344820674908 * omega * x3) *
+                     std::sin(omega * t - 1.406466352506808 * omega * x1); // sigma_xx
+      dofsQp(i, 1) = 0.35944997730200889 * std::pow(omega, 2) *
+                     std::exp(-0.98901344820674908 * omega * x3) *
+                     std::sin(omega * t - 1.406466352506808 * omega * x1); // sigma_yy
+      dofsQp(i, 2) = 0.35944997730200889 * std::pow(omega, 2) *
+                     std::exp(-0.98901344820674908 * omega * x3) *
+                     std::sin(omega * t - 1.406466352506808 * omega * x1); // sigma_zz
+      dofsQp(i, 3) = 0;                                                    // sigma_xy
+      dofsQp(i, 4) = 0;                                                    // sigma_yz
+      dofsQp(i, 5) = 0;                                                    // sigma_xz
+      dofsQp(i, 6) = -0.50555429848461109 * std::pow(omega, 2) *
+                     std::exp(-0.98901344820674908 * omega * x3) *
+                     std::sin(omega * t - 1.406466352506808 * omega * x1); // u
+      dofsQp(i, 7) = 0;                                                    // v
+      dofsQp(i, 8) = 0.35550086150929727 * std::pow(omega, 2) *
+                     std::exp(-0.98901344820674908 * omega * x3) *
+                     std::cos(omega * t - 1.406466352506808 * omega * x1); // w
+    } else {
+      dofsQp(i, 0) =
+          -2.7820282741590652 * std::pow(omega, 2) * std::exp(0.98901344820674908 * omega * x3) *
+              std::sin(omega * t - 1.406466352506808 * omega * x1) +
+          3.5151973269883681 * std::pow(omega, 2) * std::exp(1.2825031256883821 * omega * x3) *
+              std::sin(omega * t - 1.406466352506808 * omega * x1); // sigma_xx
+      dofsQp(i, 1) = -6.6613381477509402e-16 * std::pow(omega, 2) *
+                         std::exp(0.98901344820674908 * omega * x3) *
+                         std::sin(omega * t - 1.406466352506808 * omega * x1) +
+                     0.27315475753283058 * std::pow(omega, 2) *
+                         std::exp(1.2825031256883821 * omega * x3) *
+                         std::sin(omega * t - 1.406466352506808 * omega * x1); // sigma_yy
+      dofsQp(i, 2) =
+          2.7820282741590621 * std::pow(omega, 2) * std::exp(0.98901344820674908 * omega * x3) *
+              std::sin(omega * t - 1.406466352506808 * omega * x1) -
+          2.4225782968570462 * std::pow(omega, 2) * std::exp(1.2825031256883821 * omega * x3) *
+              std::sin(omega * t - 1.406466352506808 * omega * x1); // sigma_zz
+      dofsQp(i, 3) = 0;                                             // sigma_xy
+      dofsQp(i, 4) = 0;                                             // sigma_yz
+      dofsQp(i, 5) =
+          -2.956295201467618 * std::pow(omega, 2) * std::exp(0.98901344820674908 * omega * x3) *
+              std::cos(omega * t - 1.406466352506808 * omega * x1) +
+          2.9562952014676029 * std::pow(omega, 2) * std::exp(1.2825031256883821 * omega * x3) *
+              std::cos(omega * t - 1.406466352506808 * omega * x1); // sigma_xz
+      dofsQp(i, 6) =
+          0.98901344820675241 * std::pow(omega, 2) * std::exp(0.98901344820674908 * omega * x3) *
+              std::sin(omega * t - 1.406466352506808 * omega * x1) -
+          1.1525489264912381 * std::pow(omega, 2) * std::exp(1.2825031256883821 * omega * x3) *
+              std::sin(omega * t - 1.406466352506808 * omega * x1); // u
+      dofsQp(i, 7) = 0;                                             // v
+      dofsQp(i, 8) =
+          1.406466352506812 * std::pow(omega, 2) * std::exp(0.98901344820674908 * omega * x3) *
+              std::cos(omega * t - 1.406466352506808 * omega * x1) -
+          1.050965490997515 * std::pow(omega, 2) * std::exp(1.2825031256883821 * omega * x3) *
+              std::cos(omega * t - 1.406466352506808 * omega * x1); // w
+    }
+  }
+}
+
+template <typename RealT>
+void seissol::physics::SnellsLaw::evaluateIn(
+    double time,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& materialData,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
+  const double pi = std::acos(-1);
+  const double omega = 2.0 * pi;
+
+  for (size_t i = 0; i < count; ++i) {
+    const auto& x = points[i];
+    const bool isAcousticPart =
+        std::abs(materialData.local->getMuBar()) < std::numeric_limits<RealT>::epsilon();
+
+    const auto x1 = x[0];
+    const auto x3 = x[2];
+    const auto t = time;
+    if (isAcousticPart) {
+      dofsQp(i, 0) =
+          1.0 * omega *
+              std::sin(omega * t - omega * (0.19866933079506119 * x1 + 0.98006657784124163 * x3)) +
+          0.48055591432167399 * omega *
+              std::sin(omega * t -
+                       omega * (0.19866933079506149 * x1 - 0.98006657784124152 * x3)); // sigma_xx
+      dofsQp(i, 1) =
+          1.0 * omega *
+              std::sin(omega * t - omega * (0.19866933079506119 * x1 + 0.98006657784124163 * x3)) +
+          0.48055591432167399 * omega *
+              std::sin(omega * t -
+                       omega * (0.19866933079506149 * x1 - 0.98006657784124152 * x3)); // sigma_yy
+      dofsQp(i, 2) =
+          1.0 * omega *
+              std::sin(omega * t - omega * (0.19866933079506119 * x1 + 0.98006657784124163 * x3)) +
+          0.48055591432167399 * omega *
+              std::sin(omega * t -
+                       omega * (0.19866933079506149 * x1 - 0.98006657784124152 * x3)); // sigma_zz
+      dofsQp(i, 3) = 0;                                                                // sigma_xy
+      dofsQp(i, 4) = 0;                                                                // sigma_yz
+      dofsQp(i, 5) = 0;                                                                // sigma_xz
+      dofsQp(i, 6) =
+          -0.19866933079506119 * omega *
+              std::sin(omega * t - omega * (0.19866933079506119 * x1 + 0.98006657784124163 * x3)) -
+          0.095471721907895893 * omega *
+              std::sin(omega * t -
+                       omega * (0.19866933079506149 * x1 - 0.98006657784124152 * x3)); // u
+      dofsQp(i, 7) = 0;                                                                // v
+      dofsQp(i, 8) =
+          -0.98006657784124163 * omega *
+              std::sin(omega * t - omega * (0.19866933079506119 * x1 + 0.98006657784124163 * x3)) +
+          0.47097679041061191 * omega *
+              std::sin(omega * t -
+                       omega * (0.19866933079506149 * x1 - 0.98006657784124152 * x3)); // w
+    } else {
+      dofsQp(i, 0) =
+          -0.59005639909185559 * omega *
+              std::sin(omega * t -
+                       1.0 / 2.0 * omega * (0.39733866159012299 * x1 + 0.91767204817721759 * x3)) +
+          0.55554011463785213 * omega *
+              std::sin(omega * t -
+                       1.0 / 3.0 * omega *
+                           (0.59600799238518454 * x1 + 0.8029785009656123 * x3)); // sigma_xx
+      dofsQp(i, 1) = 0.14460396298676709 * omega *
+                     std::sin(omega * t -
+                              1.0 / 3.0 * omega *
+                                  (0.59600799238518454 * x1 + 0.8029785009656123 * x3)); // sigma_yy
+      dofsQp(i, 2) =
+          0.59005639909185559 * omega *
+              std::sin(omega * t -
+                       1.0 / 2.0 * omega * (0.39733866159012299 * x1 + 0.91767204817721759 * x3)) +
+          0.89049951522981918 * omega *
+              std::sin(omega * t -
+                       1.0 / 3.0 * omega *
+                           (0.59600799238518454 * x1 + 0.8029785009656123 * x3)); // sigma_zz
+      dofsQp(i, 3) = 0;                                                           // sigma_xy
+      dofsQp(i, 4) = 0;                                                           // sigma_yz
+      dofsQp(i, 5) =
+          -0.55363837274201066 * omega *
+              std::sin(omega * t -
+                       1.0 / 2.0 * omega * (0.39733866159012299 * x1 + 0.91767204817721759 * x3)) +
+          0.55363837274201 * omega *
+              std::sin(omega * t -
+                       1.0 / 3.0 * omega *
+                           (0.59600799238518454 * x1 + 0.8029785009656123 * x3)); // sigma_xz
+      dofsQp(i, 6) =
+          0.37125533967075403 * omega *
+              std::sin(omega * t -
+                       1.0 / 2.0 * omega * (0.39733866159012299 * x1 + 0.91767204817721759 * x3)) -
+          0.2585553530120539 * omega *
+              std::sin(omega * t - 1.0 / 3.0 * omega *
+                                       (0.59600799238518454 * x1 + 0.8029785009656123 * x3)); // u
+      dofsQp(i, 7) = 0;                                                                       // v
+      dofsQp(i, 8) =
+          -0.16074816713222639 * omega *
+              std::sin(omega * t -
+                       1.0 / 2.0 * omega * (0.39733866159012299 * x1 + 0.91767204817721759 * x3)) -
+          0.34834162029840349 * omega *
+              std::sin(omega * t - 1.0 / 3.0 * omega *
+                                       (0.59600799238518454 * x1 + 0.8029785009656123 * x3)); // w
+    }
+  }
+}
+
+seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration, ConfigId config)
+    : mode_(mode), gravitationalAcceleration_(gravitationalAcceleration),
+      elastic_(configValue(config).materialType == model::MaterialType::Elastic),
+      velocityOffset_(configLayout(config).velocityOffset) {
+  if (mode < 0 || mode > 3) {
+    throw std::runtime_error("Wave mode " + std::to_string(mode) + " is not supported.");
+  }
+}
+template <typename RealT>
+void seissol::physics::Ocean::evaluateIn(
+    double time,
+    const std::array<double, 3>* points,
+    std::size_t count,
+    const CellMaterialData& materialData,
+    yateto::DenseTensorView<2, RealT, unsigned>& dofsQp) const {
+  for (size_t i = 0; i < count; ++i) {
+    const auto x = points[i][0];
+    const auto y = points[i][1];
+    const auto z = points[i][2];
+    const auto t = time;
+
+    const auto g = gravitationalAcceleration_;
+    if (std::abs(g - 9.81e-3) > 10e-15) {
+      logError() << "Ocean scenario only supports g=9.81e-3 currently!";
+    }
+    if (materialData.local->getMuBar() > 10e-15) {
+      logError() << "Ocean scenario only works for acoustic material (mu = 0.0)!";
+    }
+    const double pi = std::acos(-1);
+    const double rho = materialData.local->getDensity();
+
+    const double lx = 10.0;    // km
+    const double ly = 10.0;    // km
+    const double kX = pi / lx; // 1/km
+    const double kY = pi / ly; // 1/km
+
+    constexpr auto KStars =
+        std::array<double, 3>{0.4433813748841239, 1.5733628061766445, 4.713305873881573};
+
+    // Note: Could be computed on the fly but it's better to pre-compute them with higher precision!
+    constexpr auto Omegas =
+        std::array<double, 3>{0.0425599572628432, 2.4523337594491745, 7.1012991617572165};
+
+    const auto kStar = KStars[mode_];
+    const auto omega = Omegas[mode_];
+
+    const auto b = g * kStar / (omega * omega);
+    constexpr auto ScalingFactor = 1;
+
+    const auto setStresses = [&](double value) {
+      if (elastic_) {
+        dofsQp(i, 0) = value;
+        dofsQp(i, 1) = value;
+        dofsQp(i, 2) = value;
+
+        // Shear stresses are zero for elastic
+        dofsQp(i, 3) = 0.0;
+        dofsQp(i, 4) = 0.0;
+        dofsQp(i, 5) = 0.0;
+      } else {
+        dofsQp(i, 0) = value;
+      }
+    };
+
+    const auto uIdx = velocityOffset_;
+    const auto vIdx = velocityOffset_ + 1;
+    const auto wIdx = velocityOffset_ + 2;
+
+    if (mode_ == 0) {
+      // Gravity mode
+      const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
+                            (std::sinh(kStar * z) + b * std::cosh(kStar * z));
+
+      setStresses(ScalingFactor * pressure);
+
+      dofsQp(i, uIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
+                        std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
+      dofsQp(i, vIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
+                        std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
+      dofsQp(i, wIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
+                        std::sin(kY * y) * std::cos(omega * t) *
+                        (std::cosh(kStar * z) + b * std::sinh(kStar * z));
+    } else {
+      // Elastic-acoustic mode
+      const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
+                            (std::sin(kStar * z) + b * std::cos(kStar * z));
+
+      setStresses(ScalingFactor * pressure);
+
+      dofsQp(i, uIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
+                        std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
+      dofsQp(i, vIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
+                        std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
+      dofsQp(i, wIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
+                        std::sin(kY * y) * std::cos(omega * t) *
+                        (std::cos(kStar * z) - b * std::sin(kStar * z));
+    }
+  }
+}
+
+// the types of reals the configurations compute in
+#define SEISSOL_FIELD_INSTANTIATE(Field, RealT)                                                    \
+  template void seissol::physics::Field::evaluateIn(double,                                        \
+                                                    const std::array<double, 3>*,                  \
+                                                    std::size_t,                                   \
+                                                    const CellMaterialData&,                       \
+                                                    yateto::DenseTensorView<2, RealT, unsigned>&)  \
+      const;
+SEISSOL_FIELD_INSTANTIATE(Planarwave, float)
+SEISSOL_FIELD_INSTANTIATE(Planarwave, double)
+SEISSOL_FIELD_INSTANTIATE(SuperimposedPlanarwave, float)
+SEISSOL_FIELD_INSTANTIATE(SuperimposedPlanarwave, double)
+SEISSOL_FIELD_INSTANTIATE(AcousticTravellingWaveITM, float)
+SEISSOL_FIELD_INSTANTIATE(AcousticTravellingWaveITM, double)
+SEISSOL_FIELD_INSTANTIATE(TravellingWave, float)
+SEISSOL_FIELD_INSTANTIATE(TravellingWave, double)
+SEISSOL_FIELD_INSTANTIATE(PressureInjection, float)
+SEISSOL_FIELD_INSTANTIATE(PressureInjection, double)
+SEISSOL_FIELD_INSTANTIATE(ScholteWave, float)
+SEISSOL_FIELD_INSTANTIATE(ScholteWave, double)
+SEISSOL_FIELD_INSTANTIATE(SnellsLaw, float)
+SEISSOL_FIELD_INSTANTIATE(SnellsLaw, double)
+SEISSOL_FIELD_INSTANTIATE(Ocean, float)
+SEISSOL_FIELD_INSTANTIATE(Ocean, double)
+#undef SEISSOL_FIELD_INSTANTIATE

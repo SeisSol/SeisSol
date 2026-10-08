@@ -14,6 +14,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
+#include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/TimeStepping/GhostTimeClusterFactory.h"
@@ -23,6 +24,7 @@
 #include <cassert>
 #include <list>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <utils/logger.h>
 #include <vector>
@@ -41,11 +43,12 @@ class TimeManager {
   std::optional<initializer::ClusterLayout> clusterLayout_;
 
   //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<TimeCluster>> clusters_;
-  std::vector<TimeCluster*> highPrioClusters_;
-  std::vector<TimeCluster*> lowPrioClusters_;
+  std::vector<std::unique_ptr<TimeClusterInterface>> clusters_;
+  std::vector<TimeClusterInterface*> highPrioClusters_;
+  std::vector<TimeClusterInterface*> lowPrioClusters_;
 
-  //! one dynamic rupture scheduler per pair of interior/copy cluster
+  //! one dynamic rupture scheduler per pair of interior/copy cluster (of one configuration), at the
+  //! color of the interior layer
   std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers_;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
@@ -57,6 +60,9 @@ class TimeManager {
 
   //! dynamic rupture output
   dr::output::OutputManager* faultOutputManager_{};
+
+  //! the clusters as laid out, kept until the output directory exists
+  std::optional<writer::ClusteringWriter> clusteringWriter_;
 
   public:
   /**
@@ -81,6 +87,11 @@ class TimeManager {
                    const solver::HaloCommunication& haloStructure,
                    initializer::MemoryManager& memoryManager,
                    const SimulationSettings& settings);
+
+  /**
+   * Writes the clustering table recorded by addClusters. Collective: every rank has to call it.
+   **/
+  void writeClustering() const;
 
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
   seissol::dr::output::OutputManager* faultOutputManager();

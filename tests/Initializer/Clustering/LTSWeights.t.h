@@ -14,16 +14,20 @@
 #include "Initializer/Clustering/VertexWeights/WeightsFactory.h"
 #include "Initializer/Clustering/VertexWeights/WeightsModels.h"
 #include "Initializer/FaceMap.h"
+#include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Initializer/Typedefs.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -31,7 +35,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("LTS Weights") {
+TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer;
 
@@ -81,7 +85,69 @@ TEST_CASE("LTS Weights") {
   CHECK(givenWeights == expectedWeights);
 }
 
-TEST_CASE("Cost function for LTS") {
+TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
+          doctest::test_suite("initializer")) {
+  // The clustering runs before PUMLReader::getMesh(), but has to compute the time steps with the
+  // canonical vertex order that getMesh() hands on to the simulation, not with the order of the
+  // mesh file: the time step (via round-off) and the cell-homogenized material (via the
+  // placement of the quadrature points) both depend on it. mesh.h5 lists most cells in a
+  // non-canonical order, and the material varies inside the cells. (Materials without an
+  // averaging rule, such as the anisotropic and the poroelastic ones, sample the barycenter
+  // either way.)
+  using namespace seissol::initializer;
+
+  const auto faceMap = defaultFaceMap();
+  const ClusteringConfig config{
+      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap};
+
+  for (const bool homogenized : {false, true}) {
+    CAPTURE(homogenized);
+    std::cout.setstate(std::ios_base::failbit);
+
+    seissol::initializer::parameters::SeisSolParameters seissolParameters{};
+    seissolParameters.timeStepping.lts = seissol::initializer::parameters::LtsParameters(
+        {2},
+        1.0,
+        0.01,
+        false,
+        100,
+        false,
+        1.0,
+        seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor,
+        seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
+    seissolParameters.timeStepping.cfl = 1;
+    seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
+    seissolParameters.model.materialFileName = tpath("Testing/material-graded.yaml");
+    seissolParameters.model.useCellHomogenizedMaterial = homogenized;
+    seissolParameters.model.plasticity = false;
+    const utils::Env env("SEISSOL_");
+    seissol::SeisSol seissolInstance(seissolParameters, env);
+
+    Clustering clustering(config, seissolInstance);
+    ExponentialWeights weightModel;
+    const auto pumlReader =
+        seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
+                                      "Default",
+                                      faceMap,
+                                      seissol::initializer::parameters::BoundaryFormat::I32,
+                                      seissol::initializer::parameters::TopologyFormat::Geometric,
+                                      &clustering,
+                                      &weightModel);
+    const auto recomputed =
+        computeTimesteps(CellToVertexArray::fromMeshReader(pumlReader), seissolParameters);
+    std::cout.clear();
+
+    const auto& elements = pumlReader.getElements();
+    REQUIRE(elements.size() == recomputed.cellTimeStepWidths.size());
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+      CAPTURE(i);
+      // bit for bit: the same vertices in the same order give the same floating-point result
+      CHECK(elements[i].timestep == recomputed.cellTimeStepWidths[i]);
+    }
+  }
+}
+
+TEST_CASE("Cost function for LTS" * doctest::test_suite("initializer")) {
   const auto eps = 10e-12;
   using namespace seissol::initializer;
 
@@ -169,7 +235,7 @@ TEST_CASE("Cost function for LTS") {
   }
 }
 
-TEST_CASE("Enforce max cluster id") {
+TEST_CASE("Enforce max cluster id" * doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<std::size_t>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
@@ -189,7 +255,7 @@ TEST_CASE("Enforce max cluster id") {
   }
 }
 
-TEST_CASE("Batched costs of capped clusterings") {
+TEST_CASE("Batched costs of capped clusterings" * doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<std::size_t>{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4};
   const auto cellCosts = std::vector<std::uint64_t>{7, 3, 5, 1, 3, 3, 9, 2, 4, 6, 8, 5};
@@ -218,7 +284,7 @@ TEST_CASE("Batched costs of capped clusterings") {
   }
 }
 
-TEST_CASE("Auto merging of clusters") {
+TEST_CASE("Auto merging of clusters" * doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   const auto clusterIds = std::vector<std::size_t>{0, 0, 0, 0, 1, 1, 2};
   const auto cellCosts = std::vector<std::uint64_t>{1, 1, 1, 1, 3, 3, 9};
@@ -272,7 +338,7 @@ TEST_CASE("Auto merging of clusters") {
   }
 }
 
-TEST_CASE("LTS clustering invariants on a mesh") {
+TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializer")) {
   // Value-free characterization of the end-to-end clustering: rather than pinning golden
   // cluster ids (which would have to be regenerated for every mesh change), this asserts
   // the two structural properties that the refactor must not break.
@@ -374,12 +440,12 @@ TEST_CASE("LTS clustering invariants on a mesh") {
         continue;
       }
       if (element.neighborRanks[f] != rank) {
-        continue; // ghost neighbour, not resolvable from the local element list
+        continue; // ghost neighbor, not resolvable from the local element list
       }
-      const auto neighbor = static_cast<std::size_t>(element.neighbors[f]);
-      if (neighbor >= elements.size()) {
-        continue; // domain boundary sentinel
+      if (!element.neighbors[f].hasValue()) {
+        continue; // domain boundary
       }
+      const auto neighbor = element.neighbors[f].value();
       CAPTURE(element.globalId);
       const auto difference = element.clusterId > elements[neighbor].clusterId
                                   ? element.clusterId - elements[neighbor].clusterId

@@ -62,18 +62,18 @@ void seissol::Mpi::setComm(MPI_Comm comm) {
 
 void seissol::Mpi::bindAcceleratorDevice() {
 #ifdef ACL_DEVICE
-  auto& instance = seissol::AcceleratorDevice::getInstance();
+  auto& instance = seissol::AcceleratorDevice::instance();
   instance.bindAcceleratorDevice(0);
 #endif
 }
 
 void seissol::Mpi::printAcceleratorDeviceInfo() {
 #ifdef ACL_DEVICE
-  auto& instance = seissol::AcceleratorDevice::getInstance();
+  auto& instance = seissol::AcceleratorDevice::instance();
   instance.printInfo();
 
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const auto pci = device.api->getPciAddress(0);
+  device::DeviceInstance& device = device::DeviceInstance::instance();
+  const auto pci = device.api().getPciAddress(0);
   const auto pcisNode = collectContainer(pci, sharedMemComm_);
   pcis_ = collectContainer(pci);
   logInfo() << "Device PCI address (rank=0): " << pci;

@@ -10,13 +10,12 @@
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/DRParameters.h"
 
-#include <algorithm>
 #include <cmath>
 #include <string>
 #include <utils/logger.h>
 
 namespace seissol::dr::misc {
-void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip) {
+void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT& strike, CoordinateT& dip) {
   // compute normalized strike vector
   const auto strikeInvLength = 1.0 / std::sqrt(normal[0] * normal[0] + normal[1] * normal[1]);
   strike[0] = normal[1] * strikeInvLength;
@@ -66,7 +65,8 @@ std::string frictionLawName(seissol::dr::misc::FrictionLawType type) {
 } // namespace seissol::dr::misc
 
 namespace seissol::dr {
-FrictionLawParameters::FrictionLawParameters(
+template <typename RealT>
+FrictionLawParameters<RealT>::FrictionLawParameters(
     const seissol::initializer::parameters::DRParameters& parameters)
     : healingThreshold(parameters.healingThreshold), tpProxyExponent(parameters.tpProxyExponent),
       rsF0(parameters.rsF0), rsB(parameters.rsB), rsSr0(parameters.rsSr0),
@@ -79,16 +79,16 @@ FrictionLawParameters::FrictionLawParameters(
       prakashLength(parameters.prakashLength),
       terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),
       etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
-      nucleationCount(parameters.nucleationCount),
+      forcedRuptureRiseTime(static_cast<RealT>(parameters.t0[0])),
+      sourceCount(stressSourceCount(parameters)),
       rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
       rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
       rsSlipRateTolerance(parameters.rsSlipRateTolerance),
       rsStateTolerance(parameters.rsStateTolerance),
       isFrictionEnergyRequired(parameters.isFrictionEnergyRequired),
       isCheckAbortCriteraEnabled(parameters.isCheckAbortCriteraEnabled),
-      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities) {
+      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities) {}
 
-  std::copy(parameters.t0.begin(), parameters.t0.end(), this->t0.begin());
-  std::copy(parameters.s0.begin(), parameters.s0.end(), this->s0.begin());
-}
+template struct FrictionLawParameters<float>;
+template struct FrictionLawParameters<double>;
 } // namespace seissol::dr

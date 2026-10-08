@@ -11,40 +11,60 @@
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/acoustic/Model/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
-#include "Kernels/LinearCK/Solver.h"
+#include "GeneratedCode/general/init.h"
+#include "GeneratedCode/general/kernel.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 namespace seissol::model {
-struct ElasticLocalData;
-struct ElasticNeighborData;
 
 struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Elastic;
   static inline const std::string Text = "elastic";
+  /// The material the Riemann problem at a face of a cell is posed in. Cells of different
+  /// configurations can neighbor each other if their materials pose it in the same one.
+  using RiemannMaterial = ElasticMaterial;
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+
+  static constexpr auto PrimaryGroups = ElasticQuantities;
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
+  static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
+
   static constexpr std::size_t Parameters = 2 + Material::Parameters;
 
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = ElasticLocalData;
-  using NeighborSpecificData = ElasticNeighborData;
-  using Solver = kernels::solver::linearck::Solver;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using EnergyData = std::monostate;
 
   double lambda{};
   double mu{};

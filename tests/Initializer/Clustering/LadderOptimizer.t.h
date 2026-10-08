@@ -24,7 +24,8 @@ using seissol::initializer::TimestepHistogram;
 
 using Ratios = std::vector<std::uint64_t>;
 
-TEST_CASE("ClusterCostModel: the default is the legacy objective") {
+TEST_CASE("ClusterCostModel: the default is the legacy objective" *
+          doctest::test_suite("initializer")) {
   const ClusterCostModel model{};
   CHECK(model.isUpdateCount());
   // exactly weight/updateFactor, so a search configured this way optimizes what SeisSol has
@@ -45,7 +46,7 @@ TEST_CASE("ClusterCostModel: the default is the legacy objective") {
   }
 }
 
-TEST_CASE("TimestepHistogram: binning") {
+TEST_CASE("TimestepHistogram: binning" * doctest::test_suite("initializer")) {
   const auto timesteps = std::vector<double>{1.0, 1.5, 2.0, 3.9, 4.0, 100.0};
   const auto costs = std::vector<std::uint64_t>{1, 2, 4, 8, 16, 32};
 
@@ -78,7 +79,7 @@ TEST_CASE("TimestepHistogram: binning") {
   }
 }
 
-TEST_CASE("optimalLadder: degenerate inputs") {
+TEST_CASE("optimalLadder: degenerate inputs" * doctest::test_suite("initializer")) {
   const auto timesteps = std::vector<double>{1.0, 1.0, 1.0};
   const auto costs = std::vector<std::uint64_t>{5, 5, 5};
   const auto histogram = TimestepHistogram::fromCells(timesteps, costs, 1.0, 8);
@@ -103,7 +104,7 @@ TEST_CASE("optimalLadder: degenerate inputs") {
   }
 }
 
-TEST_CASE("optimalLadder: splitting a bimodal distribution") {
+TEST_CASE("optimalLadder: splitting a bimodal distribution" * doctest::test_suite("initializer")) {
   // half the work at the finest timestep, half at eight times that
   const auto timesteps = std::vector<double>{1.0, 1.0, 8.0, 8.0};
   const auto costs = std::vector<std::uint64_t>{100, 100, 100, 100};
@@ -142,7 +143,8 @@ TEST_CASE("optimalLadder: splitting a bimodal distribution") {
   }
 }
 
-TEST_CASE("optimalLadder: every ratio is a proper divisor step") {
+TEST_CASE("optimalLadder: every ratio is a proper divisor step" *
+          doctest::test_suite("initializer")) {
   const auto timesteps = std::vector<double>{1.0, 2.0, 3.0, 5.0, 7.0, 11.0, 13.0, 17.0, 23.0};
   const auto costs = std::vector<std::uint64_t>{9, 8, 7, 6, 5, 4, 3, 2, 1};
   const auto histogram = TimestepHistogram::fromCells(timesteps, costs, 1.0, 24);

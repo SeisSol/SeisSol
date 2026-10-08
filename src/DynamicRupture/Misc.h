@@ -10,9 +10,11 @@
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Common/Real.h"
+#include "Config.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
-#include "Kernels/Precision.h"
+#include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>
@@ -58,22 +60,33 @@ constexpr uint32_t leadDim() noexcept {
 }
 
 /**
- * Number of gauss points padded to match the vector register length.
+ * Number of gauss points padded to match the vector register length, in the configuration `Cfg`.
  */
-static constexpr inline uint32_t NumPaddedPoints =
-    multisim::MultisimEnabled
-        ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
-        : leadDim<init::QInterpolated>();
-static constexpr inline uint32_t NumPaddedPointsSingleSim =
-    dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
-static constexpr inline uint32_t NumQuantities =
-    misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
+template <typename Cfg>
+inline constexpr uint32_t NumPaddedPoints =
+    multisim::MultisimHelperWrapper<Cfg>::MultisimEnabled
+        ? dimSize<init::QInterpolated<Cfg>, 0>() * dimSize<init::QInterpolated<Cfg>, 1>()
+        : leadDim<init::QInterpolated<Cfg>>();
+template <typename Cfg>
+inline constexpr uint32_t NumPaddedPointsSingleSim =
+    dimSize<init::QInterpolated<Cfg>, multisim::BasisDim<Cfg>>();
+template <typename Cfg>
+inline constexpr uint32_t NumQuantities =
+    misc::dimSize<init::QInterpolated<Cfg>, multisim::BasisDim<Cfg> + 1>();
 
 /*
  * Time integration point count
  */
 
-static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
+template <typename Cfg>
+inline constexpr uint32_t TimeSteps = Cfg::ConvergenceOrder;
+
+/**
+ * Face relations of a dynamic rupture face: 0 addresses the plus side, 1 the minus side. The
+ * minus side carries the face orientation index of the shared face, which the canonical vertex
+ * numbering pins to zero.
+ */
+static constexpr inline uint32_t NumFaceRelations = 2;
 
 /**
  * Constants for Thermal Pressurization
@@ -85,8 +98,9 @@ static constexpr double TpMaxWaveNumber = 10.0;
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr uint32_t NumBoundaryGaussPoints =
-    init::QInterpolated::Shape[multisim::BasisFunctionDimension];
+template <typename Cfg>
+inline constexpr uint32_t NumBoundaryGaussPoints =
+    init::QInterpolated<Cfg>::Shape[multisim::BasisDim<Cfg>];
 
 template <std::size_t I, typename F, typename TupleT>
 constexpr F forEachElement(F&& functor, TupleT&& tuple) {
@@ -195,7 +209,7 @@ SEISSOL_HOSTDEVICE constexpr T clamp(T value, T minval, T maxval) {
  * @param strike
  * @param dip
  */
-void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
+void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT& strike, CoordinateT& dip);
 
 std::string frictionLawName(seissol::dr::misc::FrictionLawType type);
 
@@ -246,38 +260,75 @@ namespace seissol::dr {
 // avoid us allocating dynamic arrays in the parameters.
 constexpr std::size_t MaxNucleations = 16;
 
+/// bound on the stress sources of a face, which are the nucleations plus the initial state
+constexpr std::size_t MaxStressSources = MaxNucleations + 1;
+
 /**
- * Friction law parameters, as used in the kernels.
- * For separation of concerns (and using the `real` datatype), prefer this one
+ * The fraction of a stress source that is in effect at the given time, for a source with the
+ * given rise time and onset.
+ *
+ * The absolute value of the ramp, not its increment over the time step. The stress at a point is
+ * therefore a function of the time alone: it does not depend on the sequence of time steps that
+ * led there, nothing accumulates, and nothing has to be carried across a restart. A ramp that is
+ * not monotone, or one that returns to zero, would be as admissible here as the smooth step is.
+ */
+template <typename RealT>
+SEISSOL_HOSTDEVICE inline RealT stressSourceFraction(RealT time, RealT t0, RealT s0) {
+  if (t0 <= 0) {
+    // without a rise time, a source is in full effect from its onset on
+    return time >= s0 ? static_cast<RealT>(1.0) : static_cast<RealT>(0.0);
+  }
+  return gaussianNucleationFunction::smoothStep<RealT>(time - s0, t0);
+}
+
+/**
+ * The stress sources of a fault: the nucleations the parameter file configures, then the initial
+ * state. They share one storage array, indexed by ltsFace * stressSourceCount + source.
+ *
+ * The initial state comes last for two reasons. The configured nucleations keep the indices the
+ * parameter file gives them, so nothing else has to be renumbered along with them; and the sum
+ * over the sources then runs from the perturbations up to the state they perturb, which is the
+ * order that costs the fewest digits.
+ */
+template <typename ParametersT>
+SEISSOL_HOSTDEVICE constexpr std::uint32_t stressSourceCount(const ParametersT& parameters) {
+  return parameters.nucleationCount + 1;
+}
+
+/**
+ * Friction law parameters, as used in the kernels, in the reals `RealT` of a configuration.
+ * For separation of concerns (and using the reals of the configuration), prefer this one
  * to the one in the Initializer/Parameters.
  */
+template <typename RealT>
 struct FrictionLawParameters {
-  real healingThreshold{-1.0};
-  real tpProxyExponent{0.0};
-  real rsF0{0.0};
-  real rsB{0.0};
-  real rsSr0{0.0};
-  real rsInitialSlipRate1{0.0};
-  real rsInitialSlipRate2{0.0};
-  real muW{0.0};
-  real thermalDiffusivity{0.0};
-  real heatCapacity{0.0};
-  real undrainedTPResponse{0.0};
-  real initialTemperature{0.0};
-  real initialPressure{0.0};
+  RealT healingThreshold{-1.0};
+  RealT tpProxyExponent{0.0};
+  RealT rsF0{0.0};
+  RealT rsB{0.0};
+  RealT rsSr0{0.0};
+  RealT rsInitialSlipRate1{0.0};
+  RealT rsInitialSlipRate2{0.0};
+  RealT muW{0.0};
+  RealT thermalDiffusivity{0.0};
+  RealT heatCapacity{0.0};
+  RealT undrainedTPResponse{0.0};
+  RealT initialTemperature{0.0};
+  RealT initialPressure{0.0};
   // Prakash-Clifton regularization parameter
-  real vStar{0.0};
-  real prakashLength{0.0};
-  real terminatorSlipRateThreshold{0.0};
-  real etaDamp{1.0};
-  real etaDampEnd{std::numeric_limits<real>::infinity()};
-  std::array<real, MaxNucleations> t0{};
-  std::array<real, MaxNucleations> s0{};
-  std::uint32_t nucleationCount{0};
+  RealT vStar{0.0};
+  RealT prakashLength{0.0};
+  RealT terminatorSlipRateThreshold{0.0};
+  RealT etaDamp{1.0};
+  RealT etaDampEnd{std::numeric_limits<RealT>::infinity()};
+  /// rise time of the forced rupture ramp, which is not one of the stress sources
+  RealT forcedRuptureRiseTime{0.0};
+  /// the rise time and the onset of a source are fields; see StressSourceRiseTime
+  std::uint32_t sourceCount{1};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
-  real rsSlipRateTolerance{1e-8};
-  real rsStateTolerance{1e-8};
+  RealT rsSlipRateTolerance{1e-8};
+  RealT rsStateTolerance{1e-8};
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
   bool energiesFromAcrossFaultVelocities{false};
@@ -285,6 +336,33 @@ struct FrictionLawParameters {
   FrictionLawParameters() = default;
   explicit FrictionLawParameters(const seissol::initializer::parameters::DRParameters& parameters);
 };
+
+/**
+ * The stress of a fault point at the given time, summed over the stress sources of its face.
+ *
+ * @param[in] sources the stress of every source of the face, i.e. the face's slice of the
+ *                    storage array
+ * @param[in] riseTimes the rise time of every source of the face, at this point
+ * @param[in] onsets the onset of every source of the face, at this point
+ */
+template <typename Cfg>
+inline std::array<Real<Cfg>, 6>
+    stressAtTime(const Real<Cfg> (*sources)[6][misc::NumPaddedPoints<Cfg>],
+                 const Real<Cfg> (*riseTimes)[misc::NumPaddedPoints<Cfg>],
+                 const Real<Cfg> (*onsets)[misc::NumPaddedPoints<Cfg>],
+                 std::uint32_t sourceCount,
+                 std::uint32_t pointIndex,
+                 Real<Cfg> time) {
+  std::array<Real<Cfg>, 6> stress{};
+  for (std::uint32_t source = 0; source < sourceCount; ++source) {
+    const auto fraction = stressSourceFraction<Real<Cfg>>(
+        time, riseTimes[source][pointIndex], onsets[source][pointIndex]);
+    for (std::size_t component = 0; component < stress.size(); ++component) {
+      stress[component] += sources[source][component][pointIndex] * fraction;
+    }
+  }
+  return stress;
+}
 } // namespace seissol::dr
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_

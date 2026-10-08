@@ -14,9 +14,9 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "GravitationalFreeSurfaceBC.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
@@ -24,9 +24,8 @@
 #include "Kernels/Interface.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/MemoryOps.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
@@ -49,69 +48,72 @@ GENERATE_HAS_MEMBER(extraOffset_ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
-void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  projectDerivativeToNodalBoundaryRotated_.V3mTo2nFace = global.onHost->v3mTo2nFace;
+template <typename Cfg>
+void Spacetime<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
+  krnlPrototype_.bindGlobals(*global.onHost);
+  fsgKernelPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
-  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceDerivativeToNodalBoundaryRotated_.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceFsgKernelPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
-void Spacetime::computeAder(const real* coeffs,
-                            double timeStepWidth,
-                            LTS::Ref& data,
-                            LocalTmp& tmp,
-                            real* timeIntegrated,
-                            real* timeDerivatives,
-                            bool updateDisplacement) {
+template <typename Cfg>
+void Spacetime<Cfg>::computeAder(const real* coeffs,
+                                 double timeStepWidth,
+                                 LTS::Ref<Cfg>& data,
+                                 LocalTmp<Cfg>& tmp,
+                                 real* timeIntegrated,
+                                 real* timeDerivatives,
+                                 bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>()) % Vectorsize == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Vectorsize == 0);
   assert(timeDerivatives == nullptr ||
-         reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
+         reinterpret_cast<uintptr_t>(timeDerivatives) % Vectorsize == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &= [&]() {
     bool anyOfResult = false;
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-      anyOfResult |= data.get<LTS::CellInformation>().faceTypes[i] == FaceType::FreeSurfaceGravity;
+      anyOfResult |=
+          data.template get<LTS::CellInformation>().faceTypes[i] == FaceType::FreeSurfaceGravity;
     }
     return anyOfResult;
   }();
 
-  alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
+  alignas(PagesizeStack) real temporaryBuffer[Solver<Cfg>::DerivativesSize];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
-  kernel::derivative krnl = krnlPrototype_;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+  kernel::derivative<Cfg> krnl = krnlPrototype_;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
+    krnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
+  set_ET(krnl, get_ptr_sourceMatrix(data.template get<LTS::LocalIntegration>().specific));
 
-  krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
-  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
+  krnl.dQ(0) = const_cast<real*>(data.template get<LTS::Dofs>());
+  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
+    krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
   }
 
   krnl.I = timeIntegrated;
   // powers in the taylor-series expansion
-  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
+  for (std::size_t der = 0; der < Cfg::ConvergenceOrder; ++der) {
     krnl.power(der) = coeffs[der];
   }
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
-    std::copy_n(data.get<LTS::Dofs>(), tensor::dQ::size(0), derivativesBuffer);
+    std::copy_n(data.template get<LTS::Dofs>(), tensor::dQ<Cfg>::size(0), derivativesBuffer);
   } else if (timeDerivatives != nullptr) {
     // First derivative is not needed here but later
     // Hence stream it out
-    streamstore(tensor::dQ::size(0), data.get<LTS::Dofs>(), derivativesBuffer);
+    streamstore(tensor::dQ<Cfg>::size(0), data.template get<LTS::Dofs>(), derivativesBuffer);
   }
 
   krnl.execute();
@@ -121,35 +123,35 @@ void Spacetime::computeAder(const real* coeffs,
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < 4; ++face) {
-      if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
-          data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
+      if (data.template get<LTS::FaceDisplacements>()[face] != nullptr &&
+          data.template get<LTS::CellInformation>().faceTypes[face] ==
+              FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
-                    projectDerivativeToNodalBoundaryRotated_,
-                    data.get<LTS::BoundaryMapping>()[face],
-                    data.get<LTS::FaceDisplacements>()[face],
+                    fsgKernelPrototype_,
+                    data.template get<LTS::BoundaryMapping>()[face],
+                    data.template get<LTS::FaceDisplacements>()[face],
                     tmp.nodalAvgDisplacements[face].data(),
-                    *this,
                     derivativesBuffer,
+                    coeffs,
                     timeStepWidth,
-                    data.get<LTS::Material>(),
-                    data.get<LTS::CellInformation>().faceTypes[face]);
+                    data.template get<LTS::Material>());
       }
     }
   }
 }
 
-void Spacetime::computeBatchedAder(
+template <typename Cfg>
+void Spacetime<Cfg>::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM LocalTmp& tmp,
+    SEISSOL_GPU_PARAM LocalTmp<Cfg>& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
     SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype_;
+  kernel::gpu_derivative<Cfg> derivativesKrnl = deviceKrnlPrototype_;
 
   const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
@@ -162,25 +164,25 @@ void Spacetime::computeBatchedAder(
     const auto** localIntegrationPtrs = const_cast<const real**>(
         (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, starMatrices);
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       derivativesKrnl.star(i) = localIntegrationPtrs;
       derivativesKrnl.extraOffset_star(i) =
-          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
 
     constexpr auto SourceMatrixOffset =
-        offsetof(LocalIntegrationData, specific) +
-        get_offset_sourceMatrix<decltype(LocalIntegrationData::specific)>();
+        offsetof(LocalIntegrationData<Cfg>, specific) +
+        get_offset_sourceMatrix<decltype(LocalIntegrationData<Cfg>::specific)>();
     static_assert(SourceMatrixOffset % sizeof(real) == 0,
                   "SourceMatrixOffset is not dividable by the real size.");
 
     set_ET(derivativesKrnl, localIntegrationPtrs);
     set_extraOffset_ET(derivativesKrnl, SourceMatrixOffset / sizeof(real));
 
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-      derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+      derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
     }
 
     derivativesKrnl.Q =
@@ -189,7 +191,7 @@ void Spacetime::computeBatchedAder(
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
 
-    for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
+    for (std::size_t der = 0; der < Cfg::ConvergenceOrder; ++der) {
       derivativesKrnl.power(der) = coeffs[der];
     }
     derivativesKrnl.linearAllocator.initialize(tmpMem.get());
@@ -200,14 +202,8 @@ void Spacetime::computeBatchedAder(
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      bc.evaluateOnDevice(face,
-                          deviceDerivativeToNodalBoundaryRotated_,
-                          *this,
-                          dataTable,
-                          materialTable,
-                          timeStepWidth,
-                          device_,
-                          runtime);
+      bc.evaluateOnDevice(
+          face, deviceFsgKernelPrototype_, dataTable, timeStepWidth, device_, runtime);
     }
   }
 #else
@@ -215,86 +211,99 @@ void Spacetime::computeBatchedAder(
 #endif
 }
 
-void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::derivative::NonZeroFlops;
-  hardwareFlops = kernel::derivative::HardwareFlops;
-}
+template <typename Cfg>
+PerformanceEstimate Spacetime<Cfg>::metrics() const {
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative<Cfg>>();
 
-std::uint64_t Spacetime::bytesAder() {
+  // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
-  reals += tensor::Q::size() + 2 * tensor::I::size();
+  reals += tensor::Q<Cfg>::size() + 2 * tensor::I<Cfg>::size();
   // star matrices, source matrix
-  reals += yateto::computeFamilySize<tensor::star>();
+  reals += yateto::computeFamilySize<tensor::star<Cfg>>();
 
   /// \todo incorporate derivatives
 
-  return reals * sizeof(real);
+  estimate.bytes = reals * sizeof(real);
+
+  return estimate;
 }
 
-void Time::evaluate(const real* coeffs,
-                    const real* timeDerivatives,
-                    real timeEvaluated[tensor::Q::size()]) {
+template <typename Cfg>
+void Time<Cfg>::evaluate(const real* coeffs,
+                         const real* timeDerivatives,
+                         real timeEvaluated[tensor::Q<Cfg>::size()]) {
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Vectorsize == 0);
 
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(),
+                "Sizes of tensors I and Q must match");
 
-  kernel::derivativeTaylorExpansion krnl;
+  kernel::derivativeTaylorExpansion<Cfg> krnl;
   krnl.I = timeEvaluated;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
+    krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
     krnl.power(i) = coeffs[i];
   }
   krnl.execute();
 }
 
-void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
-                           SEISSOL_GPU_PARAM const real** timeDerivatives,
-                           SEISSOL_GPU_PARAM real** timeIntegratedDofs,
-                           SEISSOL_GPU_PARAM std::size_t numElements,
-                           SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Time<Cfg>::evaluateBatched(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const real** timeDerivatives,
+    SEISSOL_GPU_PARAM real** timeIntegratedDofs,
+    SEISSOL_GPU_PARAM std::size_t numElements,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
 
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
-  static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
+  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(),
+                "Sizes of tensors I and Q must match");
+  static_assert(kernel::gpu_derivativeTaylorExpansion<Cfg>::TmpMaxMemRequiredInBytes == 0);
 
 #ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
-  kernel::gpu_derivativeTaylorExpansion krnl;
+  kernel::gpu_derivativeTaylorExpansion<Cfg> krnl;
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
     krnl.dQ(i) = timeDerivatives;
-    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
     krnl.power(i) = coeffs[i];
   }
   krnl.streamPtr = runtime.stream();
   krnl.execute();
 #else
-  seissol::kernels::time::aux::taylorSum(numElements,
-                                         timeIntegratedDofs,
-                                         const_cast<const real**>(timeDerivatives),
-                                         coeffs,
-                                         runtime.stream());
+  seissol::kernels::time::aux::taylorSum<Cfg>(numElements,
+                                              timeIntegratedDofs,
+                                              const_cast<const real**>(timeDerivatives),
+                                              coeffs,
+                                              runtime.stream());
 #endif
 #else
   logError() << "No GPU implementation provided";
 #endif
 }
 
-void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
-  nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
-  hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
+template <typename Cfg>
+PerformanceEstimate Time<Cfg>::metrics() const {
+  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion<Cfg>>();
 }
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+template <typename Cfg>
+void Time<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {}
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template class Spacetime<Cfg>;                                                                   \
+  template class Time<Cfg>;
+SEISSOL_FOR_EACH_CONFIG_LINEARCK(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels::solver::linearck

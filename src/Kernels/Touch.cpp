@@ -8,9 +8,10 @@
 
 #include "Touch.h"
 
+#include "Common/Real.h"
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/Precision.h"
-#include "Kernels/Solver.h"
+#include "Kernels/SolverSelector.h"
 
 #include <cstddef>
 #include <yateto.h>
@@ -21,14 +22,16 @@
 
 namespace seissol::kernels {
 
-void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned numberOfCells) {
+template <typename Cfg>
+void touchBuffersDerivatives(Real<Cfg>** buffers, Real<Cfg>** derivatives, unsigned numberOfCells) {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < numberOfCells; ++cell) {
     // touch buffers
     real* buffer = buffers[cell];
     if (buffer != nullptr) {
-      for (std::size_t dof = 0; dof < tensor::Q::size(); ++dof) {
+      for (std::size_t dof = 0; dof < tensor::Q<Cfg>::size(); ++dof) {
         // zero time integration buffers
         buffer[dof] = static_cast<real>(0);
       }
@@ -37,26 +40,27 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     // touch derivatives
     real* derivative = derivatives[cell];
     if (derivative != nullptr) {
-      for (std::size_t dof = 0; dof < seissol::kernels::Solver::DerivativesSize; ++dof) {
+      for (std::size_t dof = 0; dof < seissol::kernels::SolverOf<Cfg>::DerivativesSize; ++dof) {
         derivative[dof] = static_cast<real>(0);
       }
     }
   }
 }
 
-void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevice) {
+template <typename RealT>
+void fillWithStuff(RealT* buffer, unsigned nValues, [[maybe_unused]] bool onDevice) {
   // No real point for these numbers. Should be just something != 0 and != NaN and != Inf
   const auto stuff = [](unsigned n) {
-    return static_cast<real>((214013.0 * n + 2531011.0) / 16777216.0);
+    return static_cast<RealT>((214013.0 * n + 2531011.0) / 16777216.0);
   };
 #ifdef ACL_DEVICE
   if (onDevice) {
-    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    void* stream = device::DeviceInstance::instance().api().getDefaultStream();
 
-    device::DeviceInstance::getInstance().algorithms.fillArray<real>(
-        buffer, static_cast<real>(2531011.0 / 65536.0), nValues, stream);
+    device::DeviceInstance::instance().algorithms().fillArray<RealT>(
+        buffer, static_cast<RealT>(2531011.0 / 65536.0), nValues, stream);
 
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
     return;
   }
 #endif
@@ -66,5 +70,13 @@ void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevic
     buffer[n] = stuff(n);
   }
 }
+
+#define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
+  template void touchBuffersDerivatives<Cfg>(Real<Cfg>**, Real<Cfg>**, unsigned);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
+#undef SEISSOL_CONFIG_INSTANTIATE
+
+template void fillWithStuff(float* buffer, unsigned nValues, bool onDevice);
+template void fillWithStuff(double* buffer, unsigned nValues, bool onDevice);
 
 } // namespace seissol::kernels

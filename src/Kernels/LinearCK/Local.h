@@ -10,13 +10,15 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_LOCAL_H_
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Local.h"
+#include "Monitoring/Metric.h"
 
 #include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
-#include "DirichletBoundary.h"
+#include "Kernels/AnalyticalBoundary.h"
 #pragma GCC diagnostic pop
 #include "Physics/InitialField.h"
 
@@ -24,23 +26,21 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
-
 namespace seissol::kernels::solver::linearck {
 
-class Local : public LocalKernel {
+template <typename Cfg>
+class Local : public LocalKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void computeIntegral(real* timeIntegratedDoFs,
-                       LTS::Ref& data,
-                       LocalTmp& tmp,
+                       LTS::Ref<Cfg>& data,
+                       LocalTmp<Cfg>& tmp,
                        double time,
                        double timeStepWidth) override;
 
   void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                              recording::ConditionalMaterialTable& materialTable,
                               recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
@@ -52,29 +52,28 @@ class Local : public LocalKernel {
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                     std::uint64_t& nonZeroFlops,
-                     std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesIntegral() override;
+  [[nodiscard]] PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
-  kernel::volume volumeKernelPrototype_;
-  kernel::localFlux localFluxKernelPrototype_;
-  kernel::localFluxNodal nodalLfKrnlPrototype_;
+  kernel::volume<Cfg> volumeKernelPrototype_;
+  kernel::localFlux<Cfg> localFluxKernelPrototype_;
+  kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
 
-  kernel::projectToNodalBoundary projectKrnlPrototype_;
-  kernel::projectToNodalBoundaryRotated projectRotatedKrnlPrototype_;
+  kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
 
-  kernels::DirichletBoundary dirichletBoundary_;
+  kernel::fsgFlux<Cfg> fsgFlux_;
+  kernel::dirichletFlux<Cfg> dirichletFlux_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volume deviceVolumeKernelPrototype_;
-  kernel::gpu_localFlux deviceLocalFluxKernelPrototype_;
-  kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype_;
-  kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
-  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  kernel::gpu_volume<Cfg> deviceVolumeKernelPrototype_;
+  kernel::gpu_localFlux<Cfg> deviceLocalFluxKernelPrototype_;
+  kernel::gpu_localFluxAll<Cfg> deviceLocalFluxAllKernelPrototype_;
+  kernel::gpu_localFluxNodal<Cfg> deviceNodalLfKrnlPrototype_;
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
+
+  kernel::gpu_fsgFlux<Cfg> deviceFsgFlux_;
+  kernel::gpu_dirichletFlux<Cfg> deviceDirichletFlux_;
 #endif
 };
 

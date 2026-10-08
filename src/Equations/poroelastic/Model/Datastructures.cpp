@@ -7,10 +7,7 @@
 
 #include "Datastructures.h"
 
-#include "Equations/Datastructures.h"
 #include "Equations/Setup.h" // IWYU pragma: keep
-#include "Model/Common.h"
-#include "Model/CommonDatastructures.h"
 
 #include <array>
 #include <complex>
@@ -23,15 +20,19 @@
 double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
   eigenvalues::Eigenpair<std::complex<double>, NumQuantities> eigendecomposition;
   std::array<std::complex<double>, NumQuantities * NumQuantities> atValues{};
+
+  // the setup of the material exists in builds with a configuration of it, which the space-time
+  // predictor advances
+#ifdef SEISSOL_KERNELS_STP
   auto at = yateto::DenseTensorView<2, std::complex<double>>(atValues.data(),
                                                              {NumQuantities, NumQuantities});
 
-  // TODO: remove this if constexpr guard (needs multi-equation build support)
-  if constexpr (seissol::model::MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
-    seissol::model::getTransposedCoefficientMatrix(*this, 0, at);
-  }
+  seissol::model::MaterialSetup<PoroElasticMaterial>::getTransposedCoefficientMatrix(*this, 0, at);
+#endif
 
-  seissol::eigenvalues::computeEigenvalues(atValues, eigendecomposition);
+  // LAPACK where it is linked, as for every eigenvalue decomposition of this material
+  seissol::eigenvalues::computeEigenvalues<eigenvalues::LapackIfLinked>(atValues,
+                                                                        eigendecomposition);
   double maxEv = std::numeric_limits<double>::lowest();
   for (std::size_t i = 0; i < NumQuantities; i++) {
     maxEv = eigendecomposition.values.at(i).real() > maxEv ? eigendecomposition.values.at(i).real()

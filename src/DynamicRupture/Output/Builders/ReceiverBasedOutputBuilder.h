@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_
 
+#include "Common/ConfigRegistry.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -36,18 +37,26 @@ class ReceiverBasedOutputBuilder {
 
   void setVariableList(const std::vector<std::size_t>& variables);
   void setFaceToLtsMap(::seissol::initializer::StorageBackmap<1>* faceToLtsMap);
+  /// The fused simulations of the configuration of the run; there is a receiver for each.
+  void setSimulationCount(std::size_t numSimulations) { numSimulations_ = numSimulations; }
 
   protected:
   virtual void initTimeCaching() = 0;
 
-  void initBasisFunctions(bool elementwise);
+  void initTopology();
+  void initBasisFunctions();
+  void initDeviceCollectors(bool elementwise);
   void initFaultDirections();
   void initRotationMatrices();
   void initOutputVariables(std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask);
   void initJacobian2dMatrices();
+  void assignNearestGaussianPoints();
   void assignNearestInternalGaussianPoints();
   void assignFaultTags();
   void assignFusedIndices();
+
+  /// The configuration a fault face computes in.
+  [[nodiscard]] ConfigId configOfFace(std::size_t faultFaceIndex) const;
 
   const seissol::geometry::MeshReader* meshReader_{nullptr};
   LTS::Storage* wpStorage_{nullptr};
@@ -56,6 +65,7 @@ class ReceiverBasedOutputBuilder {
   std::shared_ptr<ReceiverOutputData> outputData_;
   std::vector<std::size_t> variables_;
   ::seissol::initializer::StorageBackmap<1>* faceToLtsMap_{nullptr};
+  std::size_t numSimulations_{1};
   int localRank_{-1};
 };
 } // namespace seissol::dr::output

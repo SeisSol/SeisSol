@@ -9,11 +9,12 @@
 #ifndef SEISSOL_SRC_KERNELS_LOCAL_H_
 #define SEISSOL_SRC_KERNELS_LOCAL_H_
 
-#include "GeneratedCode/tensor.h"
+#include "Common/Real.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Kernel.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Physics/InitialField.h"
 
@@ -21,7 +22,11 @@
 
 namespace seissol::kernels {
 
-class LocalKernel : public Kernel {
+template <typename Cfg>
+class LocalKernel : public Kernel<Cfg> {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   protected:
   double gravitationalAcceleration_{9.81};
   const std::vector<std::unique_ptr<physics::InitialField>>* initConds_{nullptr};
@@ -55,13 +60,12 @@ class LocalKernel : public Kernel {
    * @param timeStepWidth The current time step width
    */
   virtual void computeIntegral(real* timeIntegratedDoFs,
-                               LTS::Ref& data,
-                               LocalTmp& tmp,
+                               LTS::Ref<Cfg>& data,
+                               LocalTmp<Cfg>& tmp,
                                double time,
                                double timeStepWidth) = 0;
 
   virtual void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                                      recording::ConditionalMaterialTable& materialTable,
                                       recording::ConditionalIndicesTable& indicesTable,
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
@@ -74,11 +78,8 @@ class LocalKernel : public Kernel {
                                      double timeStepWidth,
                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                             std::uint64_t& nonZeroFlops,
-                             std::uint64_t& hardwareFlops) = 0;
-
-  virtual std::uint64_t bytesIntegral() = 0;
+  [[nodiscard]] virtual PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const = 0;
 };
 
 } // namespace seissol::kernels

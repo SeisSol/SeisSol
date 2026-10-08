@@ -6,7 +6,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigHelper.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Executor.h"
 #include "Kernels/Common.h"
 #include "Proxy/Common.h"
@@ -48,13 +48,19 @@ int main(int argc, char* argv[]) {
   const std::vector<std::string> formatValues = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
-                   "earthquake simulation software. This version of SeisSol proxy (" +
-                   seissol::ConfigString + ") was built with the following properties:\n" +
-                   seissol::ConfigDescriptor);
+                   "earthquake simulation software. This version of SeisSol proxy was built for "
+                   "the following configurations:\n" +
+                   seissol::describeBuiltConfigs());
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
   args.addEnumOption("format", formatValues, 'f', "The output format", false);
+  args.addOption("config",
+                 'c',
+                 "The configuration to run the kernels in, by its name (default: the first one "
+                 "listed above)",
+                 utils::Args::Required,
+                 false);
 
   if (args.parse(argc, argv) != utils::Args::Success) {
     return -1;
@@ -65,6 +71,16 @@ int main(int argc, char* argv[]) {
   config.timesteps = args.getAdditionalArgument<std::size_t>("timesteps");
   const auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
   const auto formatValue = args.getArgument<std::int32_t>("format", 0);
+  if (args.isSet("config")) {
+    const auto configName = args.getArgument<std::string>("config");
+    const auto configId = seissol::findConfig(configName);
+    if (!configId.has_value()) {
+      std::cerr << "The configuration " << configName << " is not built into this proxy."
+                << std::endl;
+      return -1;
+    }
+    config.config = *configId;
+  }
 
   const auto format = formatValue == 1 ? OutputFormat::Json : OutputFormat::Plain;
 
@@ -83,9 +99,9 @@ int main(int argc, char* argv[]) {
 
 #ifdef ACL_DEVICE
   using DeviceType = ::device::DeviceInstance;
-  auto& device = DeviceType::getInstance();
-  device.api->setDevice(0);
-  device.api->initialize();
+  auto& device = DeviceType::instance();
+  device.api().setDevice(0);
+  device.api().initialize();
 #endif
   print_hostname();
 

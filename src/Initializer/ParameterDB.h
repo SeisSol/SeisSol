@@ -10,20 +10,24 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #ifdef USE_HDF
 #include <PUML/PUML.h>
@@ -32,7 +36,6 @@
 #include <Eigen/Dense>
 
 namespace seissol::initializer {
-constexpr auto NumQuadpoints = ConvergenceOrder * ConvergenceOrder * ConvergenceOrder;
 
 class QueryGenerator;
 
@@ -52,16 +55,33 @@ struct CellToVertexArray {
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
-  static CellToVertexArray fromPUML(const seissol::geometry::PumlMesh& mesh);
+  /// The cells of a PUML mesh before PUMLReader::getMesh(), with their vertices in the given
+  /// (canonical) order rather than in the order of the mesh file. The array refers to
+  /// vertexOrders, which therefore has to outlive it.
+  static CellToVertexArray
+      fromPUML(const seissol::geometry::PumlMesh& mesh,
+               const std::vector<seissol::geometry::VertexOrder>& vertexOrders);
+  static CellToVertexArray
+      fromPUML(const seissol::geometry::PumlMesh& mesh,
+               std::vector<seissol::geometry::VertexOrder>&& vertexOrders) = delete;
 #endif
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
                   const std::vector<int>& groups);
   static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
+  /// The cells of `array` at `indices`, in that order.
+  static CellToVertexArray subset(const CellToVertexArray& array, std::vector<std::size_t> indices);
 };
 
+/**
+ * The query generator for the material `MaterialT`: if useCellHomogenizedMaterial and the material
+ * can be averaged, the average over each cell with the quadrature for the given convergence order;
+ * otherwise, the barycenter of each cell.
+ */
+template <typename MaterialT>
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMaterial,
-                                                      const CellToVertexArray& cellToVertex);
+                                                      const CellToVertexArray& cellToVertex,
+                                                      std::size_t convergenceOrder);
 
 class QueryGenerator {
   public:
@@ -80,32 +100,41 @@ class ElementBarycenterGenerator : public QueryGenerator {
   CellToVertexArray cellToVertex_;
 };
 
+/// Queries the points of the quadrature for the given convergence order in each cell.
 class ElementAverageGenerator : public QueryGenerator {
   public:
-  explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
+  ElementAverageGenerator(const CellToVertexArray& cellToVertex, std::size_t convergenceOrder);
   [[nodiscard]] reader::scripting::DataTable generate() const override;
-  [[nodiscard]] const std::array<double, NumQuadpoints>& getQuadratureWeights() const {
+  [[nodiscard]] const std::vector<double>& getQuadratureWeights() const {
     return quadratureWeights_;
   };
 
   private:
   CellToVertexArray cellToVertex_;
-  std::array<double, NumQuadpoints> quadratureWeights_{};
-  std::array<std::array<double, 3>, NumQuadpoints> quadraturePoints_{};
+  std::vector<double> quadratureWeights_;
+  std::vector<std::array<double, Cell::Dim>> quadraturePoints_;
 };
 
+/// Queries the nodes of the plasticity of a configuration in each cell, given in reference
+/// coordinates, or only the barycenter if not pointwise.
 class PlasticityPointGenerator : public QueryGenerator {
   public:
-  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
-      : cellToVertex_(cellToVertex), pointwise_(pointwise) {}
+  PlasticityPointGenerator(const CellToVertexArray& cellToVertex,
+                           std::vector<std::array<double, Cell::Dim>> nodes,
+                           bool pointwise = true)
+      : cellToVertex_(cellToVertex), nodes_(std::move(nodes)), pointwise_(pointwise) {}
   [[nodiscard]] reader::scripting::DataTable generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
   CellToVertexArray cellToVertex_;
+  std::vector<std::array<double, Cell::Dim>> nodes_;
   bool pointwise_{true};
 };
 
+/// The quadrature points of the given fault faces, in the quadrature rule of the configuration
+/// `Cfg`.
+template <typename Cfg>
 class FaultGPGenerator : public QueryGenerator {
   public:
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
@@ -135,34 +164,53 @@ class MaterialParameterDB : public ParameterDB {
   std::vector<T>* materials_{};
 };
 
+/**
+ * The parameters of the fault faces of the simulation `simulation` of `numSimulations` fused ones,
+ * written into arrays of `T`.
+ */
+template <typename T>
 class FaultParameterDB : public ParameterDB {
   public:
-  explicit FaultParameterDB(std::size_t simulation) : simid_(simulation) {}
+  FaultParameterDB(std::size_t simulation, std::size_t numSimulations)
+      : simid_(simulation), numSimulations_(numSimulations) {}
   ~FaultParameterDB() override = default;
-  void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
+  void addParameter(const std::string& parameter, T* memory, unsigned stride = 1) {
     parameters_[parameter] = std::make_pair(memory, stride);
   }
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
-  static std::set<std::string> faultProvides(const std::string& fileName);
 
   private:
   std::size_t simid_;
-  std::unordered_map<std::string, std::pair<real*, unsigned>> parameters_;
+  std::size_t numSimulations_;
+  std::unordered_map<std::string, std::pair<T*, unsigned>> parameters_;
 };
 
-class EasiBoundary {
+/// The parameters a fault parameter file provides.
+std::set<std::string> faultProvides(const std::string& fileName);
+
+/**
+ * The frame the affine boundary condition is stated in. Global is the default; face-aligned
+ * lets a condition be stated in terms of the face normal, which a condition that mirrors or
+ * fixes a direction needs on a boundary that is not axis-aligned.
+ */
+enum class BoundaryFrame { Global, FaceAligned };
+
+class DirichletCondition {
   public:
-  explicit EasiBoundary(const std::string& fileName);
+  explicit DirichletCondition(const std::string& fileName);
 
-  EasiBoundary() : model_(nullptr) {};
-  EasiBoundary(const EasiBoundary&) = delete;
-  EasiBoundary& operator=(const EasiBoundary&) = delete;
-  EasiBoundary(EasiBoundary&& other) noexcept;
-  EasiBoundary& operator=(EasiBoundary&& other) noexcept;
+  DirichletCondition() = default;
+  DirichletCondition(const DirichletCondition&) = delete;
+  DirichletCondition& operator=(const DirichletCondition&) = delete;
+  DirichletCondition(DirichletCondition&& other) noexcept;
+  DirichletCondition& operator=(DirichletCondition&& other) noexcept;
 
-  ~EasiBoundary();
+  ~DirichletCondition();
 
-  void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
+  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`.
+  template <typename Cfg>
+  [[nodiscard]] BoundaryFrame
+      query(const double* barycenter, Real<Cfg>* mapTermsData, Real<Cfg>* constantTermsData) const;
 
   private:
   std::unique_ptr<reader::scripting::DataReader> model_;

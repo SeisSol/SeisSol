@@ -12,49 +12,44 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBOR_H_
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
+#include "Monitoring/Metric.h"
 #ifdef ACL_DEVICE
 #include <Device/device.h>
 #endif
 
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
-
 namespace seissol::kernels::solver::linearck {
 
-class Neighbor : public NeighborKernel {
+template <typename Cfg>
+class Neighbor : public NeighborKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
 
   void computeNeighborsIntegral(
-      LTS::Ref& data,
+      LTS::Ref<Cfg>& data,
       const std::array<real*, Cell::NumFaces>& timeIntegrated,
       const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) override;
 
   void computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsNeighborsIntegral(
-      const std::array<FaceType, Cell::NumFaces>& faceTypes,
-      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
-      std::uint64_t& nonZeroFlops,
-      std::uint64_t& hardwareFlops,
-      std::uint64_t& drNonZeroFlops,
-      std::uint64_t& drHardwareFlops) override;
-
-  std::uint64_t bytesNeighborsIntegral() override;
+  [[nodiscard]] std::pair<PerformanceEstimate, PerformanceEstimate>
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+              const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+              const std::array<CellDRMapping<Cfg>, Cell::NumFaces>& cellDrMapping) const override;
 
   protected:
-  kernel::neighboringFlux nfKrnlPrototype_;
-  dynamicRupture::kernel::nodalFlux drKrnlPrototype_;
+  kernel::neighboringFlux<Cfg> nfKrnlPrototype_;
+  dynamicRupture::kernel::nodalFlux<Cfg> drKrnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_neighboringFlux deviceNfKrnlPrototype_;
-  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  kernel::gpu_neighboringFlux<Cfg> deviceNfKrnlPrototype_;
+  dynamicRupture::kernel::gpu_nodalFlux<Cfg> deviceDrKrnlPrototype_;
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };
 

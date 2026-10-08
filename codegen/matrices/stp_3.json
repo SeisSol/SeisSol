@@ -7,8 +7,7 @@
   },
   {
     "name": "wHat",
-    "rows": 3,
-    "columns": 1,
+    "shape": [3],
     "entries": [[1, 1, "1."], [2, 1, "-3."], [3, 1, "5."]]
   },
   {
@@ -19,8 +18,7 @@
   },
   {
     "name": "timeInt",
-    "rows": 3,
-    "columns": 1,
+    "shape": [3],
     "entries": [[1, 1, "1."]]
   }
 ]

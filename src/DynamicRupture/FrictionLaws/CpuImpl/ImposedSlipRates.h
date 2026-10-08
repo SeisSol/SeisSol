@@ -9,26 +9,30 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_IMPOSEDSLIPRATES_H_
 
 #include "BaseFrictionLaw.h"
+#include "Common/Real.h"
 
 namespace seissol::dr::friction_law::cpu {
 /**
  * Slip rates are set fixed values
  */
-template <typename STF>
-class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
+template <typename Cfg, typename STF>
+class ImposedSlipRates : public BaseFrictionLaw<Cfg, ImposedSlipRates<Cfg, STF>> {
   public:
-  using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  using BaseFrictionLaw<Cfg, ImposedSlipRates>::BaseFrictionLaw;
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
-    imposedSlipDirection1_ = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>();
-    imposedSlipDirection2_ = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>();
+    imposedSlipDirection1_ = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg());
+    imposedSlipDirection2_ = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Cfg());
     stf_.copyStorageToLocal(layerData);
   }
 
-  void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
-                             TractionResults<Executor::Host>& tractionResults,
-                             std::array<real, misc::NumPaddedPoints>& /*stateVariableBuffer*/,
-                             std::array<real, misc::NumPaddedPoints>& /*strengthBuffer*/,
+  void updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
+                             const FaultStresses<Cfg, Executor::Host>& /*initialStress*/,
+                             TractionResults<Cfg, Executor::Host>& tractionResults,
+                             std::array<real, misc::NumPaddedPoints<Cfg>>& /*stateVariableBuffer*/,
+                             std::array<real, misc::NumPaddedPoints<Cfg>>& /*strengthBuffer*/,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     const real timeIncrement = this->deltaT_[timeIndex];
@@ -38,17 +42,29 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       const real stfEvaluated = stf_.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
-      this->traction1_[ltsFace][pointIndex] = faultStresses.traction1[timeIndex][pointIndex] -
-                                              this->impAndEta_[ltsFace].etaS *
-                                                  imposedSlipDirection1_[ltsFace][pointIndex] *
-                                                  stfEvaluated;
-      this->traction2_[ltsFace][pointIndex] = faultStresses.traction2[timeIndex][pointIndex] -
-                                              this->impAndEta_[ltsFace].etaS *
-                                                  imposedSlipDirection2_[ltsFace][pointIndex] *
-                                                  stfEvaluated;
+      const auto evalCardinal1 = imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
+      const auto evalCardinal2 = imposedSlipDirection2_[ltsFace][pointIndex] * stfEvaluated;
+
+      const auto [tU1, tU2] = common::matmulEta<Cfg>(this->impAndEta_[ltsFace],
+                                                     this->impedanceMatrices_[ltsFace],
+                                                     evalCardinal1,
+                                                     evalCardinal2);
+
+      // the prescribed slip rate also changes the fault-normal traction if the impedance couples
+      // the normal and the tangential directions (anisotropy); zero otherwise
+      const auto tUN = common::matmulEtaNormal<Cfg>(this->impAndEta_[ltsFace],
+                                                    this->impedanceMatrices_[ltsFace],
+                                                    evalCardinal1,
+                                                    evalCardinal2);
+
+      const auto traction1 = faultStresses.traction1[pointIndex] - tU1;
+      const auto traction2 = faultStresses.traction2[pointIndex] - tU2;
+
+      this->traction1_[ltsFace][pointIndex] = traction1;
+      this->traction2_[ltsFace][pointIndex] = traction2;
 
       this->slipRate1_[ltsFace][pointIndex] =
           this->imposedSlipDirection1_[ltsFace][pointIndex] * stfEvaluated;
@@ -63,19 +79,21 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
       this->accumulatedSlipMagnitude_[ltsFace][pointIndex] +=
           this->slipRateMagnitude_[ltsFace][pointIndex] * timeIncrement;
 
-      tractionResults.traction1[timeIndex][pointIndex] = this->traction1_[ltsFace][pointIndex];
-      tractionResults.traction2[timeIndex][pointIndex] = this->traction2_[ltsFace][pointIndex];
+      tractionResults.normalStress[pointIndex] = faultStresses.normalStress[pointIndex] - tUN;
+      tractionResults.traction1[pointIndex] = traction1;
+      tractionResults.traction2[pointIndex] = traction2;
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {}
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
-  }
+  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+               std::size_t ltsFace) {}
+  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                std::size_t ltsFace) {}
   void saveDynamicStressOutput(std::size_t ltsFace, real time) {}
 
   protected:
-  real (*__restrict imposedSlipDirection1_)[misc::NumPaddedPoints]{};
-  real (*__restrict imposedSlipDirection2_)[misc::NumPaddedPoints]{};
+  real (*__restrict imposedSlipDirection1_)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict imposedSlipDirection2_)[misc::NumPaddedPoints<Cfg>]{};
   STF stf_{};
 };
 

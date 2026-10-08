@@ -11,15 +11,20 @@
 #ifndef SEISSOL_SRC_KERNELS_NEIGHBOR_H_
 #define SEISSOL_SRC_KERNELS_NEIGHBOR_H_
 
+#include "Common/Real.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Kernel.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
 namespace seissol::kernels {
 
-class NeighborKernel : public Kernel {
+template <typename Cfg>
+class NeighborKernel : public Kernel<Cfg> {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   ~NeighborKernel() override = default;
 
   /**
@@ -40,7 +45,7 @@ class NeighborKernel : public Kernel {
    * @param faceNeighborsPrefetch The current time step width
    */
   virtual void
-      computeNeighborsIntegral(LTS::Ref& data,
+      computeNeighborsIntegral(LTS::Ref<Cfg>& data,
                                const std::array<real*, Cell::NumFaces>& timeIntegrated,
                                const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) = 0;
 
@@ -48,16 +53,10 @@ class NeighborKernel : public Kernel {
       computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsNeighborsIntegral(
-      const std::array<FaceType, Cell::NumFaces>& faceTypes,
-      const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-      const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping,
-      std::uint64_t& nonZeroFlops,
-      std::uint64_t& hardwareFlops,
-      std::uint64_t& drNonZeroFlops,
-      std::uint64_t& drHardwareFlops) = 0;
-
-  virtual std::uint64_t bytesNeighborsIntegral() = 0;
+  [[nodiscard]] virtual std::pair<PerformanceEstimate, PerformanceEstimate>
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+              const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+              const std::array<CellDRMapping<Cfg>, Cell::NumFaces>& cellDrMapping) const = 0;
 };
 
 } // namespace seissol::kernels

@@ -29,14 +29,16 @@ using namespace seissol::recording;
 
 namespace seissol::proxy {
 #ifdef ACL_DEVICE
-void ProxyKernelDeviceAder::run(ProxyData& data,
-                                seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsStorage.layer(data.layerId);
 
-  kernels::LocalTmp tmp(9.81);
+namespace {
+
+template <typename Cfg>
+void runAder(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRuntime& runtime) {
+  LTS::Layer& layer = data.ltsStorage.layer(data.layerId);
+
+  kernels::LocalTmp<Cfg> tmp(9.81);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
-  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
 
   const ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
@@ -45,35 +47,32 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
-        integrationCoeffs.data(), Timestep, layer, tmp, dataTable, materialTable, false, runtime);
+        integrationCoeffs.data(), Timestep, layer, tmp, dataTable, false, runtime);
   });
 }
 
-void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
-                                       seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsStorage.layer(data.layerId);
+template <typename Cfg>
+void runLocalWOAder(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRuntime& runtime) {
+  LTS::Layer& layer = data.ltsStorage.layer(data.layerId);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
-  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
   auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
   const ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
-    data.localKernel.computeBatchedIntegral(
-        dataTable, materialTable, indicesTable, Timestep, runtime);
+    data.localKernel.computeBatchedIntegral(dataTable, indicesTable, Timestep, runtime);
   });
 }
 
-void ProxyKernelDeviceLocal::run(ProxyData& data,
-                                 seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsStorage.layer(data.layerId);
+template <typename Cfg>
+void runLocal(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRuntime& runtime) {
+  LTS::Layer& layer = data.ltsStorage.layer(data.layerId);
 
-  kernels::LocalTmp tmp(9.81);
+  kernels::LocalTmp<Cfg> tmp(9.81);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
-  auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
   auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
@@ -82,21 +81,21 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
   auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
-        integrationCoeffs.data(), Timestep, layer, tmp, dataTable, materialTable, false, runtime);
-    data.localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, 0.0, runtime);
+        integrationCoeffs.data(), Timestep, layer, tmp, dataTable, false, runtime);
+    data.localKernel.computeBatchedIntegral(dataTable, indicesTable, 0.0, runtime);
   });
 }
 
-void ProxyKernelDeviceNeighbor::run(ProxyData& data,
-                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsStorage.layer(data.layerId);
+template <typename Cfg>
+void runNeighbor(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRuntime& runtime) {
+  LTS::Layer& layer = data.ltsStorage.layer(data.layerId);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
 
-  seissol::kernels::TimeCommon::computeBatchedIntegrals(
+  seissol::kernels::TimeCommon<Cfg>::computeBatchedIntegrals(
       data.timeKernel, timeCoeffs.data(), timeCoeffs.data(), dataTable, runtime);
 
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
@@ -106,21 +105,48 @@ void ProxyKernelDeviceNeighbor::run(ProxyData& data,
   });
 }
 
-void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
-                                     seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.drStorage.layer(data.layerId);
+template <typename Cfg>
+void runGodunovDR(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRuntime& runtime) {
+  DynamicRupture::Layer& layer = data.drStorage.layer(data.layerId);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Dr>();
 
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, Timestep);
-  const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);
+      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
+  const auto coeffsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, Timestep);
 
   const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
   auto computeGraphKey = initializer::GraphKey(graphType, 0.0);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.dynRupKernel.batchedSpaceTimeInterpolation(dataTable, coeffsCollocate.data(), runtime);
   });
+}
+
+} // namespace
+
+void ProxyKernelDeviceAder::run(ProxyData& data,
+                                seissol::parallel::runtime::StreamRuntime& runtime) const {
+  dispatchProxyData(data, [&](auto& dataOfConfig) { runAder(dataOfConfig, runtime); });
+}
+
+void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
+                                       seissol::parallel::runtime::StreamRuntime& runtime) const {
+  dispatchProxyData(data, [&](auto& dataOfConfig) { runLocalWOAder(dataOfConfig, runtime); });
+}
+
+void ProxyKernelDeviceLocal::run(ProxyData& data,
+                                 seissol::parallel::runtime::StreamRuntime& runtime) const {
+  dispatchProxyData(data, [&](auto& dataOfConfig) { runLocal(dataOfConfig, runtime); });
+}
+
+void ProxyKernelDeviceNeighbor::run(ProxyData& data,
+                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
+  dispatchProxyData(data, [&](auto& dataOfConfig) { runNeighbor(dataOfConfig, runtime); });
+}
+
+void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) const {
+  dispatchProxyData(data, [&](auto& dataOfConfig) { runGodunovDR(dataOfConfig, runtime); });
 }
 #else
 void ProxyKernelDeviceAder::run(ProxyData& data,

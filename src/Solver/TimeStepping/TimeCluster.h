@@ -13,9 +13,11 @@
 
 #include "AbstractTimeCluster.h"
 #include "Common/Executor.h"
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/ConfigBoundary.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
@@ -25,6 +27,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
 #include "Monitoring/LoopStatistics.h"
+#include "Monitoring/Metric.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Settings.h"
 #include "SourceTerm/Typedefs.h"
@@ -45,9 +48,35 @@ class ReceiverCluster;
 namespace seissol::time_stepping {
 
 /**
- * Time cluster, which represents a collection of elements having the same time step width.
+ * What the time manager sees of a time cluster, whatever the configuration of its cells.
  **/
-class TimeCluster : public AbstractTimeCluster {
+class TimeClusterInterface : public AbstractTimeCluster {
+  public:
+  using AbstractTimeCluster::AbstractTimeCluster;
+
+  /**
+   * Sets the the cluster's point sources
+   *
+   * @param sourceCluster Contains point sources for cluster
+   */
+  virtual void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) = 0;
+
+  virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
+
+  virtual void setFaultOutputManager(dr::output::OutputManager* outputManager) = 0;
+
+  [[nodiscard]] virtual std::size_t layerId() const = 0;
+};
+
+/**
+ * Time cluster, which represents a collection of elements having the same time step width, all of
+ * the configuration `Cfg`.
+ **/
+template <typename Cfg>
+class TimeCluster : public TimeClusterInterface {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   private:
   // Last correction time of the neighboring cluster with higher dt
   double lastSubTime_{0};
@@ -62,17 +91,20 @@ class TimeCluster : public AbstractTimeCluster {
   /*
    * integrators
    */
-  kernels::Spacetime spacetimeKernel_;
+  kernels::Spacetime<Cfg> spacetimeKernel_;
   //! time kernel
-  kernels::Time timeKernel_;
+  kernels::Time<Cfg> timeKernel_;
 
   //! local kernel
-  kernels::Local localKernel_;
+  kernels::Local<Cfg> localKernel_;
 
   //! neighbor kernel
-  kernels::Neighbor neighborKernel_;
+  kernels::Neighbor<Cfg> neighborKernel_;
 
-  kernels::DynamicRupture dynamicRuptureKernel_;
+  //! the neighbors of the cells that compute in other configurations
+  kernels::ConfigBoundary<Cfg> configBoundary_;
+
+  kernels::DynamicRupture<Cfg> dynamicRuptureKernel_;
 
   seissol::parallel::runtime::StreamRuntime streamRuntime_;
 
@@ -80,10 +112,9 @@ class TimeCluster : public AbstractTimeCluster {
    * global data
    */
   //! global data structures
-  GlobalData* globalDataOnHost_{nullptr};
-  GlobalData* globalDataOnDevice_{nullptr};
+  CompoundGlobalData<Cfg> globalData_;
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 
   /*
@@ -92,15 +123,15 @@ class TimeCluster : public AbstractTimeCluster {
   LTS::Layer* clusterData_;
   DynamicRupture::Layer* dynRupInteriorData_;
   DynamicRupture::Layer* dynRupCopyData_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopy_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopyDevice_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolver_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverDevice_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverCopy_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverCopyDevice_;
   dr::output::OutputManager* faultOutputManager_;
 
   seissol::kernels::PointSourceClusterPair sourceCluster_;
 
-  enum class ComputePart : int {
+  enum class ComputePart : std::size_t {
     Local = 0,
     Neighbor,
     DRNeighbor,
@@ -111,8 +142,9 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero_{};
-  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware_{};
+  std::array<PerformanceEstimate, static_cast<std::size_t>(ComputePart::NumComputeParts)>
+      estimate_{};
+  std::array<std::size_t, static_cast<std::size_t>(ComputePart::NumComputeParts)> perfHandle_{};
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics_;
@@ -190,16 +222,12 @@ class TimeCluster : public AbstractTimeCluster {
   template <bool UsePlasticity, bool IntegrateOutput>
   void computeNeighboringIntegrationImplementation(double subTimeStart);
 
-  void computeLocalIntegrationFlops(unsigned numberOfCells,
-                                    const CellLocalInformation* cellInformation,
-                                    std::uint64_t& nonZeroFlops,
-                                    std::uint64_t& hardwareFlops);
+  PerformanceEstimate computeLocalIntegrationFlops(std::size_t numberOfCells,
+                                                   const CellLocalInformation* cellInformation);
 
   void computeNeighborIntegrationFlops();
 
-  void computeDynamicRuptureFlops(DynamicRupture::Layer& layerData,
-                                  std::uint64_t& nonZeroFlops,
-                                  std::uint64_t& hardwareFlops);
+  PerformanceEstimate computeDynamicRuptureFlops(DynamicRupture::Layer& layerData);
 
   void computeFlops();
 
@@ -219,6 +247,8 @@ class TimeCluster : public AbstractTimeCluster {
   unsigned int profilingId_;
 
   DynamicRuptureScheduler* dynamicRuptureScheduler_;
+
+  void incrementPerformanceMetrics(ComputePart part);
 
   protected:
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
@@ -246,12 +276,12 @@ class TimeCluster : public AbstractTimeCluster {
               long timeStepRate,
               bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler,
-              CompoundGlobalData globalData,
+              CompoundGlobalData<Cfg> globalData,
               LTS::Layer* clusterData,
               DynamicRupture::Layer* dynRupInteriorData,
               DynamicRupture::Layer* dynRupCopyData,
-              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplate,
-              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
+              const seissol::dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
+              const seissol::dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
               dr::output::OutputManager* faultOutputManager,
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,
@@ -259,18 +289,13 @@ class TimeCluster : public AbstractTimeCluster {
 
   ~TimeCluster() override = default;
 
-  /**
-   * Sets the the cluster's point sources
-   *
-   * @param sourceCluster Contains point sources for cluster
-   */
-  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
+  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) override;
 
-  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
+  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) override {
     this->receiverCluster_ = receiverCluster;
   }
 
-  void setFaultOutputManager(dr::output::OutputManager* outputManager) {
+  void setFaultOutputManager(dr::output::OutputManager* outputManager) override {
     faultOutputManager_ = outputManager;
   }
 
@@ -278,7 +303,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   void finalize() override;
 
-  [[nodiscard]] std::size_t layerId() const;
+  [[nodiscard]] std::size_t layerId() const override;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] HaloType getLayerType() const;
@@ -289,6 +314,15 @@ class TimeCluster : public AbstractTimeCluster {
   void finishPhase() override;
 
   [[nodiscard]] std::string description() const override;
+
+  /**
+   * A time step that equals the cluster's own step size recurs for the whole run, so a compute
+   * graph recorded for it pays off. The truncated step taken right before a synchronization
+   * point does not recur: caching it would add one graph per synchronization point.
+   */
+  [[nodiscard]] bool isRecurringTimestep(double timestep) const {
+    return timestep == ct_.maxTimeStepSize;
+  }
 };
 
 } // namespace seissol::time_stepping

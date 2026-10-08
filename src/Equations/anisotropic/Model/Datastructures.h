@@ -13,35 +13,56 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cstddef>
 #include <string>
 
 namespace seissol::model {
-struct AnisotropicLocalData;
-struct AnisotropicNeighborData;
+template <typename Cfg>
+struct AnisotropicEnergyData;
 
 struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Anisotropic;
   static inline const std::string Text = "anisotropic";
+  /// The material the Riemann problem at a face of a cell is posed in. Cells of different
+  /// configurations can neighbor each other if their materials pose it in the same one.
+  using RiemannMaterial = AnisotropicMaterial;
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+
+  static constexpr auto PrimaryGroups = ElasticQuantities;
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
+  static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
+
   static constexpr std::size_t Parameters = 21 + Material::Parameters;
 
-  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = AnisotropicLocalData;
-  using NeighborSpecificData = AnisotropicNeighborData;
-  using Solver = kernels::solver::linearck::Solver;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using EnergyData = AnisotropicEnergyData<Cfg>;
 
   double c11{};
   double c12{};

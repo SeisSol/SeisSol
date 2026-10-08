@@ -5,7 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
 #include "SourceTerm/PointSource.h"
 #include "TestHelper.h"
@@ -14,8 +16,12 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Transform moment tensor") {
+TEST_CASE("Transform moment tensor" * doctest::test_suite("sourceterm")) {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
+
+  // the acoustic and the viscoacoustic material carry a single isotropic stress, the pressure,
+  // so only the first diagonal entry of the moment tensor makes it into the source
+  constexpr bool ScalarStress = model::MaterialT::TractionComponents == 1;
 
   // strike = dip = rake = pi / 3
   double strike = M_PI / 3.0;
@@ -32,32 +38,32 @@ TEST_CASE("Transform moment tensor") {
   const double localPressureComponent = 0.0;
   const double localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
-  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update::Size>{};
+  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update<Config>::Size>{};
 
-  seissol::sourceterm::transformMomentTensor(localMomentTensorXY,
-                                             localSolidVelocityComponent,
-                                             localPressureComponent,
-                                             localFluidVelocityComponent,
-                                             strike,
-                                             dip,
-                                             rake,
-                                             momentTensor.data());
+  seissol::sourceterm::transformMomentTensor<Config>(localMomentTensorXY,
+                                                     localSolidVelocityComponent,
+                                                     localPressureComponent,
+                                                     localFluidVelocityComponent,
+                                                     strike,
+                                                     dip,
+                                                     rake,
+                                                     momentTensor.data());
 
   // Compare to hand-computed reference solution
-  REQUIRE(momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
-  if (model::MaterialT::Type != model::MaterialType::Acoustic) {
-    REQUIRE(momentTensor[1] == AbsApprox(-7.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[2] == AbsApprox(3.0 * std::sqrt(3.0) / 8.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[3] == AbsApprox(19.0 / 32.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[4] == AbsApprox(-9.0 / 16.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[5] == AbsApprox(-std::sqrt(3.0) / 16.0).epsilon(Epsilon));
-    REQUIRE(momentTensor[6] == 0);
-    REQUIRE(momentTensor[7] == 0);
-    REQUIRE(momentTensor[8] == 0);
+  CHECK(momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
+  if (!ScalarStress) {
+    CHECK(momentTensor[1] == AbsApprox(-7.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
+    CHECK(momentTensor[2] == AbsApprox(3.0 * std::sqrt(3.0) / 8.0).epsilon(Epsilon));
+    CHECK(momentTensor[3] == AbsApprox(19.0 / 32.0).epsilon(Epsilon));
+    CHECK(momentTensor[4] == AbsApprox(-9.0 / 16.0).epsilon(Epsilon));
+    CHECK(momentTensor[5] == AbsApprox(-std::sqrt(3.0) / 16.0).epsilon(Epsilon));
+    CHECK(momentTensor[6] == 0);
+    CHECK(momentTensor[7] == 0);
+    CHECK(momentTensor[8] == 0);
   } else {
-    REQUIRE(momentTensor[1] == 0);
-    REQUIRE(momentTensor[2] == 0);
-    REQUIRE(momentTensor[3] == 0);
+    CHECK(momentTensor[1] == 0);
+    CHECK(momentTensor[2] == 0);
+    CHECK(momentTensor[3] == 0);
   }
 
   // strike = dip = rake = pi / 3
@@ -72,30 +78,30 @@ TEST_CASE("Transform moment tensor") {
       {0.602398893453385, 1.572402458710038, 2.769437029884877},
   };
 
-  seissol::sourceterm::transformMomentTensor(localMomentTensorXZ,
-                                             localSolidVelocityComponent,
-                                             localPressureComponent,
-                                             localFluidVelocityComponent,
-                                             strike,
-                                             dip,
-                                             rake,
-                                             momentTensor.data());
+  seissol::sourceterm::transformMomentTensor<Config>(localMomentTensorXZ,
+                                                     localSolidVelocityComponent,
+                                                     localPressureComponent,
+                                                     localFluidVelocityComponent,
+                                                     strike,
+                                                     dip,
+                                                     rake,
+                                                     momentTensor.data());
 
   // Compare to hand-computed reference solution
-  REQUIRE(momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(Epsilon));
-  if (model::MaterialT::Type != model::MaterialType::Acoustic) {
-    REQUIRE(momentTensor[1] == AbsApprox(0.648994284092410).epsilon(Epsilon));
-    REQUIRE(momentTensor[2] == AbsApprox(3.061692966762920).epsilon(Epsilon));
-    REQUIRE(momentTensor[3] == AbsApprox(1.909053142737053).epsilon(Epsilon));
-    REQUIRE(momentTensor[4] == AbsApprox(0.677535767462651).epsilon(Epsilon));
-    REQUIRE(momentTensor[5] == AbsApprox(-1.029826812214912).epsilon(Epsilon));
-    REQUIRE(momentTensor[6] == 0.0);
-    REQUIRE(momentTensor[7] == 0.0);
-    REQUIRE(momentTensor[8] == 0.0);
+  CHECK(momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(Epsilon));
+  if (!ScalarStress) {
+    CHECK(momentTensor[1] == AbsApprox(0.648994284092410).epsilon(Epsilon));
+    CHECK(momentTensor[2] == AbsApprox(3.061692966762920).epsilon(Epsilon));
+    CHECK(momentTensor[3] == AbsApprox(1.909053142737053).epsilon(Epsilon));
+    CHECK(momentTensor[4] == AbsApprox(0.677535767462651).epsilon(Epsilon));
+    CHECK(momentTensor[5] == AbsApprox(-1.029826812214912).epsilon(Epsilon));
+    CHECK(momentTensor[6] == 0.0);
+    CHECK(momentTensor[7] == 0.0);
+    CHECK(momentTensor[8] == 0.0);
   } else {
-    REQUIRE(momentTensor[1] == 0);
-    REQUIRE(momentTensor[2] == 0);
-    REQUIRE(momentTensor[3] == 0);
+    CHECK(momentTensor[1] == 0);
+    CHECK(momentTensor[2] == 0);
+    CHECK(momentTensor[3] == 0);
   }
 }
 

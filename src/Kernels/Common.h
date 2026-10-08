@@ -128,30 +128,30 @@ constexpr std::size_t
 }
 
 /**
-  Helper struct for HasSizeInternal (to allow an arbitrary number of parameters)
+  Helper for HasSizeInternal (to allow an arbitrary number of parameters)
  */
-template <typename... Ts>
-struct SizeParams {
-  template <typename T>
-  using HasSizeInternal = decltype(std::declval<T>().size(std::declval<Ts>()...), void());
+template <typename T, typename... Ts>
+using HasSizeExists = decltype(std::declval<T>().size(std::declval<Ts>()...), void());
 
-  template <typename T>
-  using SizeT = decltype(std::declval<T>().size(std::declval<Ts>()...));
-};
+/**
+  Helper for HasSizeInternal (to allow an arbitrary number of parameters)
+ */
+template <typename T, typename... Ts>
+using HasSizeSizeT = decltype(std::declval<T>().size(std::declval<Ts>()...));
 
 /**
   Helper struct for HasSize (interface wrapper).
  */
-template <typename T, typename SP, typename = void>
-struct HasSizeInternal {
+template <typename T, typename Void, typename... Ts>
+struct HasSizeHelper {
   static constexpr bool Value = false;
   using Type = std::size_t;
 };
 
-template <typename T, typename SP>
-struct HasSizeInternal<T, SP, typename SP::template HasSizeInternal<T>> {
+template <typename T, typename... Ts>
+struct HasSizeHelper<T, HasSizeExists<T, Ts...>, Ts...> {
   static constexpr bool Value = true;
-  using Type = typename SP::template SizeT<T>;
+  using Type = HasSizeSizeT<T, Ts...>;
 };
 
 /**
@@ -159,21 +159,52 @@ struct HasSizeInternal<T, SP, typename SP::template HasSizeInternal<T>> {
  */
 template <typename T, typename... Args>
 struct HasSize {
-  using Internal = HasSizeInternal<T, SizeParams<Args...>>;
+  using Helper = HasSizeHelper<T, void, Args...>;
 
-  static constexpr bool Value = Internal::Value;
-  using Type = typename Internal::Type;
+  static constexpr bool Value = Helper::Value;
+  using Type = typename Helper::Type;
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise.
  */
 template <class T, typename... Args>
-constexpr auto size(Args... args) -> typename HasSizeInternal<T, SizeParams<Args...>>::Type {
-  if constexpr (HasSizeInternal<T, SizeParams<Args...>>::Value) {
+constexpr auto size(Args... args) -> typename HasSize<T, Args...>::Type {
+  if constexpr (HasSize<T, Args...>::Value) {
     return T::size(args...);
   } else {
-    return static_cast<typename HasSizeInternal<T, SizeParams<Args...>>::Type>(0);
+    return static_cast<typename HasSize<T, Args...>::Type>(0);
+  }
+}
+
+template <typename T, typename = void>
+struct IsFamilyInternal {
+  static constexpr bool Value = false;
+};
+
+// A generated family is recognised by its Size array, which is what yateto
+// reads to add the members up. Its Container is a class template, so naming it
+// without arguments never matched and every family measured as empty.
+template <typename T>
+struct IsFamilyInternal<T, std::void_t<decltype(T::Size)>> {
+  static constexpr bool Value = true;
+};
+
+template <class T>
+constexpr auto familyMembers() -> std::size_t {
+  if constexpr (IsFamilyInternal<T>::Value) {
+    return yateto::numFamilyMembers<T>();
+  } else {
+    return static_cast<std::size_t>(0);
+  }
+}
+
+template <class T>
+constexpr auto familySize(std::size_t alignedReals = 1) -> std::size_t {
+  if constexpr (IsFamilyInternal<T>::Value) {
+    return yateto::computeFamilySize<T>(alignedReals);
+  } else {
+    return static_cast<std::size_t>(0);
   }
 }
 

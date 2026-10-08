@@ -8,110 +8,101 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_GEOMETRY_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_GEOMETRY_H_
 
+#include "Common/CompactOptional.h"
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
 
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>
-#include <limits>
+#include <cstddef>
+#include <vector>
 
 namespace seissol::dr {
-struct ExtVrtxCoords {
-  ExtVrtxCoords() = default;
-  ~ExtVrtxCoords() = default;
-
-  template <typename T>
-  explicit ExtVrtxCoords(const T& other) {
-    for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      coords[i] = other[i];
-    }
-  }
-
-  template <typename T>
-  ExtVrtxCoords& operator=(const T& other) {
-    for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      coords[i] = other[i];
-    }
-    return *this;
-  }
-
-  ExtVrtxCoords(std::initializer_list<double> inputCoords) {
-    assert(inputCoords.size() == 3 && "ExtVrtxCoords must get initialized with 3 values");
-    const auto* begin = inputCoords.begin();
-    for (std::size_t i = 0; i < Cell::Dim; ++i, ++begin) {
-      coords[i] = *begin;
-    }
-  }
-
-  double& operator[](size_t index) {
-    assert((index < Cell::Dim) && "ExtVrtxCoords index must be less than 3");
-    return coords[index];
-  }
-
-  double operator[](size_t index) const {
-    assert((index < Cell::Dim) && "ExtVrtxCoords index must be less than 3");
-    return coords[index];
-  }
-
-  [[nodiscard]] Eigen::Vector3d getAsEigen3LibVector() const {
-    return Eigen::Vector3d(coords[0], coords[1], coords[2]);
-  }
-
-  constexpr static std::size_t size() { return Cell::Dim; }
-
-  VrtxCoords coords = {0.0, 0.0, 0.0};
-};
-
 struct ExtTriangle {
   ExtTriangle() = default;
 
-  explicit ExtTriangle(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2, const ExtVrtxCoords& p3) {
+  explicit ExtTriangle(const CoordinateT& p1, const CoordinateT& p2, const CoordinateT& p3) {
     points_[0] = p1;
     points_[1] = p2;
     points_[2] = p3;
   }
 
-  ExtVrtxCoords& point(size_t index) {
-    assert((index < 3) && "ExtTriangle index must be less than 3");
+  CoordinateT& point(size_t index) {
+    assert((index < points_.size()) && "ExtTriangle index must be less than 3");
     return points_[index];
   }
 
-  [[nodiscard]] ExtVrtxCoords point(size_t index) const {
-    assert((index < 3) && "ExtTriangle index must be less than 3");
+  [[nodiscard]] const CoordinateT& point(size_t index) const {
+    assert((index < points_.size()) && "ExtTriangle index must be less than 3");
     return points_[index];
   }
 
-  static std::size_t size() { return 3; }
+  static constexpr std::size_t size() { return Size; }
 
   private:
-  std::array<ExtVrtxCoords, 3> points_{};
+  static constexpr std::size_t Size = 3;
+  std::array<CoordinateT, Size> points_{};
 };
 
-struct ReceiverPoint {
-  ExtVrtxCoords global;       // physical coords of a receiver
-  ExtVrtxCoords reference;    // reference coords of a receiver
-  ExtTriangle globalTriangle; // a surrounding triangle of a receiver
-  int faultFaceIndex{-1};     // Face Fault index which the receiver belongs to
-  int localFaceSideId{-1};    // Side ID of a reference element
-  int elementIndex{-1};       // Element which the receiver belongs to
-  std::size_t elementGlobalIndex{
-      std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
-  int globalReceiverIndex{-1};                  // receiver index of global list
-  bool isInside{false};                         // If a point is inside the mesh or not
+struct Receiver {
+  // physical coords of a receiver
+  CoordinateT global{};
+
+  // reference coords of a receiver
+  CoordinateT reference{};
+
+  // a surrounding triangle of a receiver
+  ExtTriangle globalTriangle;
+
+  // Face Fault index which the receiver belongs to
+  OptionalSize faultFaceIndex;
+
+  // Side ID of a reference element
+  OptionalSide localFaceSideId;
+
+  // Side ID (minus) of a reference element
+  OptionalSide localNeighborFaceSideId;
+
+  // Rank-local element ID to which the receiver belongs
+  OptionalSize elementIndex;
+
+  // Global element ID to which the receiver belongs
+  OptionalSize elementGlobalIndex;
+
+  // Global element ID (minus) to which the receiver belongs
+  OptionalSize elementNeighborGlobalIndex;
+
+  // receiver index of global list
+  OptionalSize globalReceiverIndex;
+
+  // If a point is inside the mesh or not
+  bool isInside{false};
+
   int nearestGpIndex{-1};
+
   int faultTag{-1};
-  int simIndex{0}; // Simulation index for multisim
-  int gpIndex{-1}; // Index of the nearest gaussian point considering fused simulations
+
+  // Simulation index for multisim
+  int simIndex{0};
+
+  // Index of the nearest quadrature point considering fused simulations
+  int gpIndex{-1};
 
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,
   // specifically for low-order elements
   int nearestInternalGpIndex{-1};
-  int internalGpIndexFused{
-      -1}; // Index of the nearest internal gaussian point considering fused simulations
+
+  // Index of the nearest internal quadrature point considering fused simulations
+  int internalGpIndexFused{-1};
+
+  [[nodiscard]] constexpr std::size_t globalFaultFaceId() const {
+    return elementGlobalIndex.value() * Cell::NumFaces +
+           static_cast<std::size_t>(localFaceSideId.value());
+  }
 };
-using ReceiverPoints = std::vector<ReceiverPoint>;
+using Receivers = std::vector<Receiver>;
 
 struct FaultDirections {
   std::array<double, 3> faceNormal{};

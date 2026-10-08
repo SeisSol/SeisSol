@@ -6,6 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "Config.h"
+#include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
@@ -30,31 +32,34 @@ void DynamicRuptureRecorder::record(DynamicRupture::Layer& layer) {
 
 void DynamicRuptureRecorder::recordSpaceInterpolation() {
   auto* qInterpolatedPlus =
-      currentLayer_->var<DynamicRupture::QInterpolatedPlus>(AllocationPlace::Device);
+      currentLayer_->var<DynamicRupture::QInterpolatedPlus>(Config(), AllocationPlace::Device);
   auto* qInterpolatedMinus =
-      currentLayer_->var<DynamicRupture::QInterpolatedMinus>(AllocationPlace::Device);
+      currentLayer_->var<DynamicRupture::QInterpolatedMinus>(Config(), AllocationPlace::Device);
 
   real* idofsPlus = static_cast<real*>(
-      currentLayer_->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsPlusOnDevice>(Config(), AllocationPlace::Device));
   real* idofsMinus = static_cast<real*>(
-      currentLayer_->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsMinusOnDevice>(Config(), AllocationPlace::Device));
 
-  DRGodunovData* godunovData =
-      currentLayer_->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
+  DRGodunovData<Config>* godunovData =
+      currentLayer_->var<DynamicRupture::GodunovData>(Config(), AllocationPlace::Device);
   const DRFaceInformation* faceInfo = currentLayer_->var<DynamicRupture::FaceInformation>();
 
-  real* const* timeDerivativePlus = currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>();
+  real* const* timeDerivativePlus =
+      currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>(Config());
   real* const* timeDerivativeMinus =
-      currentLayer_->var<DynamicRupture::TimeDerivativeMinusDevice>();
+      currentLayer_->var<DynamicRupture::TimeDerivativeMinusDevice>(Config());
 
   const auto size = currentLayer_->size();
   if (size > 0) {
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> timeDerivativeMinusPtrs {};
+    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count>
+        qInterpolatedMinusPtr {};
+    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count> idofsMinusPtr {};
+    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count> tInvTMinusPtr {};
+    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count>
+        timeDerivativeMinusPtrs {};
 
-    const size_t idofsSize = tensor::Q::size();
+    const size_t idofsSize = tensor::Q<Config>::size();
     for (std::size_t faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedMinusPtr[plusSide][0].push_back(&qInterpolatedPlus[faceId][0][0]);
@@ -71,7 +76,8 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     }
 
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      for (std::size_t faceRelation = 0; faceRelation < Cell::NumFaces; ++faceRelation) {
+      for (std::size_t faceRelation = 0; faceRelation < dr::misc::NumFaceRelations;
+           ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
           (*currentDrTable_)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,

@@ -6,7 +6,8 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-common OBJECT
-    ConfigHelper.cpp
+    ConfigRegistry.cpp
+    ConfigValue.cpp
     Filesystem.cpp
     IntegerMaskParser.cpp
 )

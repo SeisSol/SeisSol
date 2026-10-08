@@ -16,7 +16,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("ClusterHistogram: binning") {
+TEST_CASE("ClusterHistogram: binning" * doctest::test_suite("initializer")) {
   using seissol::initializer::ClusterHistogram;
 
   const auto clusterIds = std::vector<std::size_t>{0, 0, 0, 0, 1, 1, 2};
@@ -44,7 +44,8 @@ TEST_CASE("ClusterHistogram: binning") {
   }
 }
 
-TEST_CASE("ClusterHistogram: cost agrees with the per-cell cost") {
+TEST_CASE("ClusterHistogram: cost agrees with the per-cell cost" *
+          doctest::test_suite("initializer")) {
   using namespace seissol::initializer;
   using seissol::initializer::ClusterHistogram;
   using seissol::initializer::ClusterLadder;

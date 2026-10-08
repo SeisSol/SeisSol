@@ -7,6 +7,7 @@
 
 #include "SeisSolParameters.h"
 
+#include "Common/ConfigRegistry.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/DatafieldParameters.h"
@@ -25,17 +26,25 @@ namespace seissol::initializer::parameters {
 SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   logInfo() << "Reading SeisSol parameter file...";
 
+  // the configuration the cells of the run compute in, and the ones of the mesh groups with their
+  // own; the parameters that depend on it, e.g. on its material or on its number of fused
+  // simulations, are read for it
+  const ConfigId config = readConfig(parameterReader);
+  const auto groupConfigs = readGroupConfigs(parameterReader, config);
+
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
   const DatafieldParameters datafieldParameters = readDatafieldParameters(parameterReader);
-  const DRParameters drParameters = readDRParameters(parameterReader);
+  const DRParameters drParameters = readDRParameters(parameterReader, config);
   const InitializationParameters initializationParameters =
-      readInitializationParameters(parameterReader);
+      readInitializationParameters(parameterReader, config);
   const MeshParameters meshParameters = readMeshParameters(parameterReader);
-  const ModelParameters modelParameters = readModelParameters(parameterReader);
-  const OutputParameters outputParameters = readOutputParameters(parameterReader);
+  const ModelParameters modelParameters =
+      readModelParameters(parameterReader, config, groupConfigs);
+  const OutputParameters outputParameters = readOutputParameters(parameterReader, config);
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);
-  const TimeSteppingParameters timeSteppingParameters = readTimeSteppingParameters(parameterReader);
+  const TimeSteppingParameters timeSteppingParameters =
+      readTimeSteppingParameters(parameterReader, modelParameters.configs());
 
   parameterReader->warnDeprecated({"boundaries",
                                    "rffile",

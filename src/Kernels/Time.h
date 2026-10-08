@@ -11,9 +11,10 @@
 #ifndef SEISSOL_SRC_KERNELS_TIME_H_
 #define SEISSOL_SRC_KERNELS_TIME_H_
 
-#include "GeneratedCode/tensor.h"
+#include "Common/Real.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Kernel.h"
+#include "Monitoring/Metric.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -23,8 +24,11 @@
 
 namespace seissol::kernels {
 
-class TimeKernel : public Kernel {
+template <typename Cfg>
+class TimeKernel : public Kernel<Cfg> {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   ~TimeKernel() override = default;
 
   /**
@@ -57,7 +61,7 @@ class TimeKernel : public Kernel {
                                real** timeIntegratedDofs,
                                std::size_t numElements,
                                seissol::parallel::runtime::StreamRuntime& runtime) = 0;
-  virtual void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
+  [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
 };
 
 } // namespace seissol::kernels

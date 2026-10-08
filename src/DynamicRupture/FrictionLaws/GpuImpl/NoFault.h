@@ -13,32 +13,35 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-class NoFault : public BaseFrictionSolver<NoFault> {
+template <typename Cfg>
+class NoFault : public BaseFrictionSolver<Cfg, NoFault<Cfg>> {
   public:
-  explicit NoFault(const FrictionLawParameters& drParameters)
-      : BaseFrictionSolver<NoFault>(drParameters) {}
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  explicit NoFault(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : BaseFrictionSolver<Cfg, NoFault<Cfg>>(drParameters) {}
+
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {}
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
-                                                   uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& __restrict ctx,
+                                                   uint32_t /*timeIndex*/) {
     // calculate traction
-    ctx.tractionResults.traction1[timeIndex] = ctx.faultStresses.traction1[timeIndex];
-    ctx.tractionResults.traction2[timeIndex] = ctx.faultStresses.traction2[timeIndex];
-    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction1[timeIndex];
-    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction2[timeIndex];
+    ctx.tractionResults.traction1 = ctx.faultStresses.traction1;
+    ctx.tractionResults.traction2 = ctx.faultStresses.traction2;
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction1;
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction2;
   }
 
   /*
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    * currently only for linear slip weakening
    */
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
                                                      real time) {}
 
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& __restrict ctx) {}
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& __restrict ctx) {}
+  SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& __restrict ctx) {}
+  SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& __restrict ctx) {}
 
   protected:
 };

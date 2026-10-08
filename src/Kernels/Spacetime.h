@@ -11,11 +11,12 @@
 #ifndef SEISSOL_SRC_KERNELS_SPACETIME_H_
 #define SEISSOL_SRC_KERNELS_SPACETIME_H_
 
-#include "GeneratedCode/tensor.h"
+#include "Common/Real.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Kernel.h"
+#include "Monitoring/Metric.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -25,8 +26,11 @@
 
 namespace seissol::kernels {
 
-class SpacetimeKernel : public Kernel {
+template <typename Cfg>
+class SpacetimeKernel : public Kernel<Cfg> {
   public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
   ~SpacetimeKernel() override = default;
 
   /**
@@ -50,8 +54,8 @@ class SpacetimeKernel : public Kernel {
    */
   virtual void computeAder(const real* coeffs,
                            double timeStepWidth,
-                           LTS::Ref& data,
-                           LocalTmp& tmp,
+                           LTS::Ref<Cfg>& data,
+                           LocalTmp<Cfg>& tmp,
                            real* timeIntegrated,
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
@@ -59,15 +63,12 @@ class SpacetimeKernel : public Kernel {
   virtual void computeBatchedAder(const real* coeffs,
                                   double timeStepWidth,
                                   LTS::Layer& layer,
-                                  LocalTmp& tmp,
+                                  LocalTmp<Cfg>& tmp,
                                   recording::ConditionalPointersToRealsTable& dataTable,
-                                  recording::ConditionalMaterialTable& materialTable,
                                   bool updateDisplacement,
                                   seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
-
-  virtual std::uint64_t bytesAder() = 0;
+  [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
 };
 
 } // namespace seissol::kernels

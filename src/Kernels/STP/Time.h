@@ -12,9 +12,11 @@
 #define SEISSOL_SRC_KERNELS_STP_TIME_H_
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
+#include "Monitoring/Metric.h"
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -22,49 +24,52 @@
 
 namespace seissol::kernels::solver::stp {
 
-class Spacetime : public SpacetimeKernel {
+template <typename Cfg>
+class Spacetime : public SpacetimeKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
-                   LTS::Ref& data,
-                   LocalTmp& tmp,
+                   LTS::Ref<Cfg>& data,
+                   LocalTmp<Cfg>& tmp,
                    real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
                           LTS::Layer& layer,
-                          LocalTmp& tmp,
+                          LocalTmp<Cfg>& tmp,
                           recording::ConditionalPointersToRealsTable& dataTable,
-                          recording::ConditionalMaterialTable& materialTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesAder() override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
 
   private:
-  void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
+  void executeSTP(double timeStepWidth, LTS::Ref<Cfg>& data, real* timeIntegrated, real* stp);
 
-  kernel::spaceTimePredictor krnlPrototype_;
+  kernel::spaceTimePredictor<Cfg> krnlPrototype_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor deviceKrnlPrototype_;
+  kernel::gpu_spaceTimePredictor<Cfg> deviceKrnlPrototype_;
 #endif
 };
 
-class Time : public TimeKernel {
+template <typename Cfg>
+class Time : public TimeKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
   void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,
                        std::size_t numElements,
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
-  void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
 };
 
 } // namespace seissol::kernels::solver::stp
