@@ -96,8 +96,11 @@ jobs:
         run: |
           if [ "${{ matrix.build.codegen }}" = tensorforge ]; then
               if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
-                  # the Intel image still works with an older Python version. Hence, use the following hack.
-                  pip3 install git+https://github.com/seissol/tensorforge.git
+                  # in the Intel image, pip ends without installing the tensorforge of the repository,
+                  # and Python cannot import one there: install it regardless of what is installed,
+                  # and its dependencies beforehand
+                  pip3 install numpy pyyaml
+                  pip3 install --ignore-installed --no-deps git+https://github.com/seissol/tensorforge.git
               else
                   pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
               fi
