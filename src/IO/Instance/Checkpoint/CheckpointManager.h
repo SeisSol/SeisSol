@@ -16,9 +16,12 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 
+#include <cstddef>
 #include <map>
+#include <memory>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::io::writer {
 class Writer;
@@ -33,6 +36,8 @@ struct CheckpointVariable {
   std::shared_ptr<datatype::Datatype> memoryDatatype;
   std::optional<std::function<void(void*, const void*)>> pack;
   std::optional<std::function<void(void*, const void*)>> unpack;
+  /// A checkpoint may lack it; it then keeps what it holds.
+  bool optional{false};
 };
 
 struct CheckpointTree {
@@ -73,6 +78,20 @@ class CheckpointManager {
                              {},
                              {}});
     });
+  }
+
+  /// `count` values of type T per cell at `data`, laid out as the cells of `storage`, in a dataset
+  /// that a checkpoint may lack -- for data whose layout is decided at run time, under a name that
+  /// changes with it.
+  template <typename T, typename VarmapT>
+  void registerOptionalArray(const std::string& name,
+                             initializer::Storage<VarmapT>& storage,
+                             T* data,
+                             std::size_t count) {
+    const auto type = std::make_shared<datatype::ArrayDatatype>(datatype::inferDatatype<T>(),
+                                                                std::vector<std::size_t>{count});
+    dataRegistry_[&storage].variables.emplace_back(
+        CheckpointVariable{name, data, type, type, {}, {}, true});
   }
 
   template <typename S, typename T, typename VarmapT>

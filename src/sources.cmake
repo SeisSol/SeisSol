@@ -25,6 +25,8 @@ SeisSol.cpp
 )
 target_link_libraries(seissol-lib PUBLIC seissol-config)
 
+target_link_libraries(seissol-lib PUBLIC seissol-external)
+
 # include necessary kernel files (we can't include all of them right now, because of some undefined kernels + tensors)
 
 # the kernels of the solvers the configurations advance their cells with (cmake/configs.cmake);

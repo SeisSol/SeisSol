@@ -94,6 +94,10 @@ struct FrictionLawData {
   const real (*__restrict tauS)[misc::NumPaddedPoints<Cfg>]{};
   const real (*__restrict tauR)[misc::NumPaddedPoints<Cfg>]{};
   const real (*__restrict riseTime)[misc::NumPaddedPoints<Cfg>]{};
+  // ISR of a script: the slip rates per sub-step and direction, row-major over the points of the
+  // layer (see SlipRateEvaluator), and the number of these points
+  const real* __restrict scriptedSlipRates{};
+  std::size_t scriptedPoints{};
 };
 
 template <typename Cfg>

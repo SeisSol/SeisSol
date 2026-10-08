@@ -121,6 +121,11 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     std::vector<reader::Distributor::DistributionInstance> distributions;
     distributions.reserve(ckpTree.variables.size());
     for (auto& variable : ckpTree.variables) {
+      if (variable.optional && !reader.hasDataset(variable.name)) {
+        logWarning() << "The checkpoint has no" << ckpTree.name << "/" << variable.name
+                     << "; it keeps its initial values.";
+        continue;
+      }
       logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
       const std::size_t count = reader.dataCount(variable.name);
       const std::size_t currsize = count * variable.datatype->size();

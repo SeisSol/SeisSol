@@ -8,3 +8,5 @@
 #include <doctest.h>
 
 #include "InstantaneousTimeMirror.t.h"
+#include "NonlinearDirichlet.t.h"
+#include "ScriptField.t.h"

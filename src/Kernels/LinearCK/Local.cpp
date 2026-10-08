@@ -12,6 +12,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Common/Typedefs.h"
 #include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -52,6 +53,7 @@ void Local<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
+  projectToFaceNodesPrototype_.bindGlobals(*global.onHost);
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
 
@@ -150,6 +152,41 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
                                    time,
                                    timeStepWidth);
       nodalLfKrnl.execute(face);
+      break;
+    }
+    case FaceType::NonlinearDirichlet: {
+      // the space-time predictor has no Taylor series, and the setup refuses the face type there
+      if constexpr (Cfg::Solver == SolverType::LinearCK) {
+        assert(this->nonlinearDirichlet() != nullptr);
+        assert(tmp.timeDerivatives != nullptr);
+        // the state of the cell at a time into the step, from its Taylor series
+        const real* derivatives = tmp.timeDerivatives;
+        const auto stateAt = [derivatives](double tau, real* state) {
+          kernel::derivativeTaylorExpansion<Cfg> taylorKrnl;
+          taylorKrnl.I = state;
+          double power = 1;
+          for (std::size_t d = 0; d < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++d) {
+            taylorKrnl.dQ(d) = derivatives + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, d);
+            taylorKrnl.power(d) = static_cast<real>(power);
+            power *= tau / static_cast<double>(d + 1);
+          }
+          taylorKrnl.execute();
+        };
+        const ApplyNonlinearDirichlet<Cfg, decltype(stateAt)> applyNonlinearDirichlet(
+            *this->nonlinearDirichlet(),
+            stateAt,
+            projectToFaceNodesPrototype_,
+            face,
+            time,
+            cellBoundaryMapping[face],
+            materialData);
+        analyticalBoundary_.evaluate(cellBoundaryMapping[face],
+                                     applyNonlinearDirichlet,
+                                     dofsFaceBoundaryNodal,
+                                     time,
+                                     timeStepWidth);
+        nodalLfKrnl.execute(face);
+      }
       break;
     }
     default:
@@ -414,6 +451,17 @@ PerformanceEstimate
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::updateINodal<Cfg>>() *
                   Cfg::ConvergenceOrder;
+      break;
+    case FaceType::NonlinearDirichlet:
+      // and the script, at every node and time
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
+      if constexpr (Cfg::Solver == SolverType::LinearCK) {
+        estimate +=
+            (PerformanceEstimate::fromKernel<seissol::kernel::updateINodal<Cfg>>() +
+             PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +
+             PerformanceEstimate::fromKernel<seissol::kernel::derivativeTaylorExpansion<Cfg>>()) *
+            Cfg::ConvergenceOrder;
+      }
       break;
     default:
       break;

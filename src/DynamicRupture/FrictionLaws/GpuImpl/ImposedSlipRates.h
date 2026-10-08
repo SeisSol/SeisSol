@@ -24,28 +24,35 @@ class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, ST
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
-    const auto place = seissol::initializer::AllocationPlace::Device;
-    data->imposedSlipDirection1 =
-        layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg(), place);
-    data->imposedSlipDirection2 =
-        layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Cfg(), place);
+    if constexpr (!STF::Prescribed) {
+      const auto place = seissol::initializer::AllocationPlace::Device;
+      data->imposedSlipDirection1 =
+          layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg(), place);
+      data->imposedSlipDirection2 =
+          layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Cfg(), place);
+    }
     STF::copyStorageToLocal(data, layerData);
   }
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& __restrict ctx,
                                                    uint32_t timeIndex) {
     const real timeIncrement = ctx.args->deltaT[timeIndex];
-    real currentTime = ctx.args->fullUpdateTime;
-    for (uint32_t i = 0; i <= timeIndex; i++) {
-      currentTime += ctx.args->deltaT[i];
+
+    real evalCardinal1 = 0;
+    real evalCardinal2 = 0;
+    if constexpr (STF::Prescribed) {
+      STF::slipRates(ctx, timeIndex, evalCardinal1, evalCardinal2);
+    } else {
+      real currentTime = ctx.args->fullUpdateTime;
+      for (uint32_t i = 0; i <= timeIndex; i++) {
+        currentTime += ctx.args->deltaT[i];
+      }
+
+      const auto stfEvaluated = STF::evaluateSTF(ctx, currentTime, timeIncrement);
+
+      evalCardinal1 = ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
+      evalCardinal2 = ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
     }
-
-    const auto stfEvaluated = STF::evaluateSTF(ctx, currentTime, timeIncrement);
-
-    const auto evalCardinal1 =
-        ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
-    const auto evalCardinal2 =
-        ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
 
     const auto [tU1, tU2] = common::matmulEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
                                                    ctx.data->impedanceMatrices[ctx.ltsFace],
@@ -65,10 +72,8 @@ class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, ST
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = traction1;
     ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = traction2;
 
-    ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] =
-        ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
-    ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] =
-        ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
+    ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] = evalCardinal1;
+    ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = evalCardinal2;
     ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] =
         misc::magnitude(ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
                         ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);

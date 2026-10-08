@@ -45,7 +45,21 @@ The parameter ``hastime`` indicates that the easi file has ``t`` as a time input
 This way, the easi boundary condition can be used for comparing against after time has passed (e.g. for convergence tests).
 However, it requires easi 1.5.0 or higher to function correctly.
 
-As a caveat, the Easi initial condition currently does not support the analytical boundary condition.
+The file can also be a program: ``filename = 'sderiv:$FILE'`` for an sderiv module, or
+``filename = 'lua:$FILE'`` for a Lua model, which then give the quantities by name in the same way
+(``cICType = 'script'`` is a synonym of ``'easi'``). For instance, a state linear in space and time,
+which the scheme represents exactly:
+
+.. code-block:: text
+
+  out def s_xx = 0.1 * x
+  out def v1 = 0.1 * t
+
+The script also serves the analytical boundary condition, which evaluates it at the nodes of a
+face and the times of a time step as the simulation runs. There it can read ``x``, ``y``, ``z``,
+``t``, the simulation index ``sim`` and the material of the cell (``rho``, ``mu``, ``lambda``), but not
+the mesh group. A program is compiled once and then called for every face; an easi file is
+evaluated through easi, which works but is much slower.
 
 Hard-Coded Initial Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

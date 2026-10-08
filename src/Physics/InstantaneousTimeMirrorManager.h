@@ -19,6 +19,7 @@
 #include "Solver/TimeStepping/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/TimeCluster.h"
 
+#include <string>
 #include <vector>
 
 namespace seissol {
@@ -69,6 +70,10 @@ class InstantaneousTimeMirrorManager : public Module {
   private:
   void scaleClusterTimes(double scalingFactor);
   void updateVelocities();
+  /// The material of every cell (rho, mu, lambda) from the script `path`, which reads the
+  /// barycenter of the cell (x, y, z), its material before the mirror (rho0, mu0, lambda0) and the
+  /// velocity scaling factor of this mirror (n).
+  void updateMaterialsByScript(const std::string& path);
   void updateTimeSteps();
 };
 

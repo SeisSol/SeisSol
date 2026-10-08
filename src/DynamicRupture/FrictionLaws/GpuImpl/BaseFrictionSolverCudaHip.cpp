@@ -159,7 +159,8 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
                        ThermalPressurization<Cfg>>>;                                               \
   template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, YoffeSTF<Cfg>>>;                    \
   template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, GaussianSTF<Cfg>>>;                 \
-  template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, DeltaSTF<Cfg>>>;
+  template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, DeltaSTF<Cfg>>>;                    \
+  template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, ScriptedSTF<Cfg>>>;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE
 

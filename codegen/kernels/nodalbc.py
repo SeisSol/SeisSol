@@ -211,3 +211,13 @@ def addKernels(
         aderdg.INodal["kp"] <= aderdg.INodal["kp"] + factor * aderdg.INodalUpdate["kp"]
     )
     generator.add("updateINodal", updateINodal)
+
+    # The state of the cell at the nodes of a face, from its modal form at one time: what a
+    # boundary condition reads that is no affine map of it (the nonlinear Dirichlet boundary).
+    project_to_face_nodes = (
+        lambda f: aderdg.INodal["kp"]
+        <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")] * aderdg.I["lp"]
+    )
+    generator.addFamily(
+        "projectToFaceNodes", simpleParameterSpace(4), project_to_face_nodes
+    )

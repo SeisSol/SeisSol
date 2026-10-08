@@ -23,6 +23,8 @@ plasticitydisabledgroups=''
 Tv=0.05
 !yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided
 PlasticityFileName = ''
+! NonlinearDirichletFileName = 'sderiv:wall.sderiv' ! (optional) the script that gives the ghost
+! state of the faces with the nonlinear Dirichlet boundary (tag 8) from the state inside
 !Attenuation parameters (ignored if not compiled with attenuation)
 FreqCentral=0.5
 FreqRatio=100
@@ -33,6 +35,10 @@ ITMStartingtime = 2.0 ! Time when ITM is turned on
 ITMTime = 0.01 !Time duration for which ITM is on
 ITMVelocityscalingfactor = 2 ! Scaling factor
 ITMReflectionType = 1 ! 1 reflects both waves, 2 reflects both waves with constant velocity, 3 reflects only P-waves, 4 reflects only S-waves
+! ITMMaterialScript = 'sderiv:itm.sderiv' ! (optional, elastic) gives the material after a mirror,
+! (rho, mu, lambda) from the barycenter (x, y, z), the material before (rho0, mu0, lambda0) and
+! the scaling factor of the mirror (n; 1/n for the second one); the time steps scale as for
+! ITMReflectionType. E.g. `out def mu = mu0 * n * n` and `out def lambda = lambda0 * n * n`.
 
 numflux = 'godunov' ! The numerical flux. Values: 'godunov', 'rusanov'
 numfluxnearfault = 'godunov' ! The numerical flux for faces of cells adjacent to the fault (on cells which have at least one DR face), excluding the DR faces themselves. Values: 'godunov', 'rusanov'
@@ -66,7 +72,8 @@ avoidic = 0    ! 1 iff use the IC only for analytical boundary conditions
 &DynamicRupture
 enabled = 1                  ! explicitly enable/disable the DR (different to setting FL=0; disabling it converts all DR faces to default inner faces, and disables any DR-related I/O)
 FL = 16                      ! Friction law
-!0: none, 16:LSW, 103: RS with strong velocity weakening
+!0: none, 16:LSW, 103: RS with strong velocity weakening, 33/34/35: imposed slip rates (Yoffe, Gaussian, delta), 36: imposed slip rates of a script
+!slipratescript = 'sderiv:slip.sderiv'  ! FL=36: the script of the slip (see slip-rate-on-dr)
 !yaml file defining spatial dependance of fault properties
 ModelFileName = '33_fault0.yaml'
 
@@ -165,11 +172,15 @@ TimeInterval = 2.                    ! Index of printed info at time
 refinement = 1
 OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that describes the region
 ! of the wave field that should be written. Specified as 'xmin xmax ymin ymax zmin zmax'
+! OutputRegionFileName = 'sderiv:regions.sderiv' ! (optional) a script or an easi file whose
+! 'wavefield' and 'surface' restrict the cells and the faces of the free surface written: those at
+! one of whose vertices it is positive
 
 wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
 
 wavefieldcomputerotation = 0 ! compute rotation for the volume output
 wavefieldcomputestrain = 0 ! compute strain for the volume output
+! wavefieldscript = 'sderiv:pgv.sderiv' ! (optional) further outputs, computed by a program
 
 wavefieldprojection = 'pointwise' ! how the solution is transferred onto the output points:
 ! 'pointwise' evaluates it there, 'l2' projects onto the output space (conservative per subcell)
@@ -202,6 +213,7 @@ SurfaceOutputMask = 0 0 0 0 0 0 1 1 1
 surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
 
 surfaceprojection = 'l2' ! as wavefieldprojection, for the free-surface output
+! surfacescript = 'sderiv:surface.sderiv' ! (optional) further outputs, computed by a program
 
 surfacetimeseries = 'snapshot' ! overrides outputtimeseries for the free-surface output
 

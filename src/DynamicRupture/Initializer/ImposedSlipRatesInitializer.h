@@ -10,6 +10,9 @@
 
 #include "BaseDRInitializer.h"
 #include "Config.h"
+#include "DynamicRupture/FrictionLaws/SlipRateScript.h"
+
+#include <memory>
 
 namespace seissol::dr::initializer {
 /**
@@ -85,6 +88,25 @@ class ImposedSlipRatesDeltaInitializer : public ImposedSlipRatesInitializer {
   protected:
   void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
+};
+
+/**
+ * The initializer of the imposed slip rates of a script (FL 36): fills the rows of the script per
+ * point -- the fault parameters it reads from the fault parameter file, the position, the
+ * simulation, and the rotation from strike and dip into the coordinate system of the face.
+ */
+class ImposedSlipRatesScriptInitializer : public BaseDRInitializer {
+  public:
+  ImposedSlipRatesScriptInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+      seissol::SeisSol& seissolInstance,
+      std::shared_ptr<const friction_law::SlipRateScript> script)
+      : BaseDRInitializer(drParameters, seissolInstance), script_(std::move(script)) {}
+
+  void initializeFault(DynamicRupture::Storage& drStorage) override;
+
+  private:
+  std::shared_ptr<const friction_law::SlipRateScript> script_;
 };
 
 } // namespace seissol::dr::initializer

@@ -26,6 +26,9 @@ struct LocalTmp {
   alignas(Alignment) std::array<
       real,
       tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[Cell::NumFaces]{};
+  // the time derivatives of the cell in its current step, where a boundary reads its state at a
+  // time (the nonlinear Dirichlet boundary); null otherwise
+  const real* timeDerivatives{nullptr};
   explicit LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };

@@ -20,6 +20,8 @@ template <typename Cfg>
 class YoffeSTF {
   public:
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  /// a time function scaling the slip of the point (cf. ScriptedSTF)
+  static constexpr bool Prescribed = false;
 
   private:
   real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
@@ -39,6 +41,8 @@ template <typename Cfg>
 class GaussianSTF {
   public:
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  /// a time function scaling the slip of the point (cf. ScriptedSTF)
+  static constexpr bool Prescribed = false;
 
   private:
   real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
@@ -54,6 +58,8 @@ template <typename Cfg>
 class DeltaSTF {
   public:
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  /// a time function scaling the slip of the point (cf. ScriptedSTF)
+  static constexpr bool Prescribed = false;
 
   private:
   real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
@@ -62,6 +68,40 @@ class DeltaSTF {
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
+};
+
+/**
+ * The slip rates of a script (FL 36), along both directions of the face and per sub-step, as
+ * dr::friction_law::SlipRateEvaluator wrote them before the step: see CpuImpl/ScriptedSlipRates.h.
+ */
+template <typename Cfg>
+class ScriptedSTF {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  /// gives the slip rate along both directions itself
+  static constexpr bool Prescribed = true;
+
+  private:
+  const real* __restrict slipRates_{nullptr};
+  std::size_t points_{0};
+
+  public:
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+    slipRates_ = reinterpret_cast<const real*>(
+        layerData.var<LTSImposedSlipRatesScript::ScriptSlipRates>(Cfg()));
+    points_ = layerData.size() * misc::NumPaddedPoints<Cfg>;
+  }
+
+  void slipRates(std::size_t ltsFace,
+                 uint32_t pointIndex,
+                 uint32_t timeIndex,
+                 real& rate1,
+                 real& rate2) const {
+    const std::size_t point = ltsFace * misc::NumPaddedPoints<Cfg> + pointIndex;
+    const auto first = static_cast<std::size_t>(2 * timeIndex) * points_ + point;
+    rate1 = slipRates_[first];
+    rate2 = slipRates_[first + points_];
+  }
 };
 
 } // namespace seissol::dr::friction_law::cpu

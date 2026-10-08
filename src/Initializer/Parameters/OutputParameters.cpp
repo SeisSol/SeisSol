@@ -186,8 +186,10 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
 
+  const auto script = reader->readPath("surfacescript").value_or("");
+
   return FreeSurfaceOutputParameters{
-      enabled, refinement, interval, vtkorder, surfaceOutputMask, projection, timeSeries};
+      enabled, refinement, interval, vtkorder, surfaceOutputMask, projection, timeSeries, script};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
@@ -341,6 +343,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 
   const auto timeSeries = readTimeSeriesMode(reader, "wavefieldtimeseries", defaultTimeSeries);
 
+  const auto script = reader->readPath("wavefieldscript").value_or("");
+
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
   }
@@ -357,7 +361,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                    computeRotation,
                                    computeStrain,
                                    projection,
-                                   timeSeries};
+                                   timeSeries,
+                                   script};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config) {
@@ -394,6 +399,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
   const auto pickpointParameters = readPickpointParameters(baseReader);
   const auto receiverParameters = readReceiverParameters(baseReader);
   const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries, config);
+  const auto regionFileName = reader->readPath("outputregionfilename").value_or("");
 
   reader->warnDeprecated({"projection",
                           "rotation",
@@ -415,6 +421,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
                           freeSurfaceParameters,
                           pickpointParameters,
                           receiverParameters,
-                          waveFieldParameters);
+                          waveFieldParameters,
+                          regionFileName);
 }
 } // namespace seissol::initializer::parameters

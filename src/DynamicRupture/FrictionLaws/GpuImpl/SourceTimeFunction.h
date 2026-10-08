@@ -24,6 +24,8 @@ template <typename Cfg>
 class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
   public:
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  /// a time function scaling the slip of the point (cf. ScriptedSTF)
+  static constexpr bool Prescribed = false;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -46,6 +48,8 @@ template <typename Cfg>
 class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
   public:
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  /// a time function scaling the slip of the point (cf. ScriptedSTF)
+  static constexpr bool Prescribed = false;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -67,6 +71,8 @@ template <typename Cfg>
 class DeltaSTF : public ImposedSlipRates<Cfg, DeltaSTF<Cfg>> {
   public:
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  /// a time function scaling the slip of the point (cf. ScriptedSTF)
+  static constexpr bool Prescribed = false;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -77,6 +83,36 @@ class DeltaSTF : public ImposedSlipRates<Cfg, DeltaSTF<Cfg>> {
       evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx, real currentTime, real timeIncrement) {
     return deltaPulse::deltaPulse(currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
                                   timeIncrement);
+  }
+};
+
+/**
+ * The slip rates of a script (FL 36), along both directions of the face and per sub-step, as
+ * dr::friction_law::SlipRateEvaluator wrote them before the step: see GpuImpl/ScriptedSlipRates.h.
+ */
+template <typename Cfg>
+class ScriptedSTF {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  /// gives the slip rate along both directions itself
+  static constexpr bool Prescribed = true;
+
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
+    const auto place = seissol::initializer::AllocationPlace::Device;
+    data->scriptedSlipRates = reinterpret_cast<const real*>(
+        layerData.var<LTSImposedSlipRatesScript::ScriptSlipRates>(Cfg(), place));
+    data->scriptedPoints = layerData.size() * misc::NumPaddedPoints<Cfg>;
+  }
+
+  SEISSOL_DEVICE static void slipRates(FrictionLawContext<Cfg>& __restrict ctx,
+                                       uint32_t timeIndex,
+                                       real& rate1,
+                                       real& rate2) {
+    const std::size_t point = ctx.ltsFace * misc::NumPaddedPoints<Cfg> + ctx.pointIndex;
+    const std::size_t points = ctx.data->scriptedPoints;
+    const auto first = static_cast<std::size_t>(2 * timeIndex) * points + point;
+    rate1 = ctx.data->scriptedSlipRates[first];
+    rate2 = ctx.data->scriptedSlipRates[first + points];
   }
 };
 

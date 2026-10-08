@@ -7,15 +7,13 @@
 
 #include "InitIO.h"
 
-#include "Alignment.h"
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
-#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/runtime.h"
+#include "Expr/Program.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
@@ -25,12 +23,13 @@
 #include "IO/Instance/Geometry/Refinement.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Writer/Writer.h"
+#include "Initializer/InitProcedure/DerivedOutput.h"
+#include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
-#include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Numerical/Projection.h"
@@ -38,21 +37,16 @@
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <optional>
 #include <string>
-#include <tuple>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -76,11 +70,6 @@ io::instance::geometry::WriterGroup
 
 namespace projection = seissol::numerical::projection;
 
-// The projection matrices are generated for every convergence order up to the one of the
-// configuration, so that a per-cell order (cf. #1421) only requires selecting a different entry at
-// run time.
-constexpr std::size_t MinProjectionOrder = 1;
-
 // Which nodal points the plastic strain lives on is a build option (PLASTICITY_METHOD): "nb"
 // uses a unisolvent warp&blend set, "ip" the conical-product quadrature points. Read that back
 // off the generated matrices instead of duplicating the CMake variable.
@@ -98,33 +87,6 @@ constexpr auto PlasticityNodalSet = static_cast<std::size_t>(tensor::vNodes<Cfg>
       "nodal point set of the volume.");
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CHECK_NODAL_SET)
 #undef SEISSOL_CHECK_NODAL_SET
-
-/**
- * The padded leading dimension of a generated projection tensor, i.e. the stride between two
- * consecutive basis functions. Yateto stores these matrices as [point][basisFunction] with an
- * aligned stride on the point dimension; we read the padding back off the generated metadata
- * instead of re-deriving it from the alignment.
- */
-template <typename Cfg, typename TensorT>
-std::size_t projectionStride(std::size_t degree) {
-  const auto index = TensorT::index(Cfg::ConvergenceOrder, degree);
-  return TensorT::Size[index] / TensorT::Shape[index][1];
-}
-
-//! The affine embedding of the reference triangle into the given side of the reference tetrahedron.
-seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
-  const std::array<std::array<double, 2>, 3> corners = {
-      std::array<double, 2>{0, 0}, std::array<double, 2>{1, 0}, std::array<double, 2>{0, 1}};
-  const auto faceMap = seissol::geometry::ReferenceFaceMap(side);
-  std::vector<std::array<double, 3>> vertices;
-  vertices.reserve(corners.size());
-  for (const auto& chiTau : corners) {
-    const auto xez =
-        faceMap.faceToCell(seissol::geometry::ReferenceFaceMap::FaceVectorT(chiTau.data()));
-    vertices.push_back({xez(0), xez(1), xez(2)});
-  }
-  return seissol::numerical::AffineMap<2, 3>::fromVertices(vertices);
-}
 
 void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.outputManager().getCheckpointManager();
@@ -194,6 +156,10 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     checkpoint.registerTree("surface", storage, faceIdentifiers);
     SurfaceLTS::registerCheckpointVariables(checkpoint, storage);
   }
+
+  // the state of the derived outputs starts from its initial values, unless the checkpoint has it
+  initializer::initializeDerivedState(seissolInstance);
+  initializer::registerDerivedStateCheckpoints(checkpoint, seissolInstance);
 
   const auto& checkpointFile = seissolInstance.checkpointLoadFile();
   if (checkpointFile.has_value()) {
@@ -297,247 +263,92 @@ struct WaveFieldOutputSetup {
   std::uint32_t order{};
   std::uint32_t dataOrder{};
   projection::Target projectionTarget{};
+  // the configured derived-output program, if any
+  std::shared_ptr<const expr::Program> script;
 };
 
-/// The outputs of the wave field of the cells of the configuration `Cfg`.
+/// Adds the outputs of `output`, copied from its buffer when written, to `outputs`, and `output`
+/// itself to `derived`.
+void collectDerived(NamedOutputs& outputs,
+                    std::vector<std::shared_ptr<initializer::DerivedOutput>>& derived,
+                    std::shared_ptr<initializer::DerivedOutput> output) {
+  if (output == nullptr) {
+    return;
+  }
+  for (std::size_t i = 0; i < output->names().size(); ++i) {
+    outputs.emplace_back(output->names()[i],
+                         [output, i](double* target, std::size_t index, std::size_t subcell) {
+                           output->copy(i, target, index, subcell);
+                         });
+  }
+  derived.push_back(std::move(output));
+}
+
+/// All outputs of a program are computed at once, before `writer` pulls them name by name; a
+/// program with state follows every time step of the cells instead.
+void evaluateDerived(seissol::SeisSol& seissolInstance,
+                     io::instance::geometry::GeometryWriter& writer,
+                     const std::vector<std::shared_ptr<initializer::DerivedOutput>>& derived) {
+  writer.addHook([derived](std::size_t /*counter*/, double time) {
+    for (const auto& output : derived) {
+      output->write(time);
+    }
+  });
+  for (const auto& output : derived) {
+    if (output->accumulates()) {
+      seissolInstance.timeManager().addCorrectionHook(
+          [output](std::size_t layer, double time) { output->step(layer, time); });
+    }
+  }
+}
+
+/// The outputs of the wave field of the cells of the configuration `Cfg`: the built-in ones and
+/// those of the configured program, each set computed by one derived program into a buffer that
+/// `derived` collects, and copied from there when written.
 template <typename Cfg>
 NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
-                                const WaveFieldOutputSetup& setup) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+                                const WaveFieldOutputSetup& setup,
+                                std::vector<std::shared_ptr<initializer::DerivedOutput>>& derived) {
   using MaterialT = model::MaterialOf<Cfg>;
-  constexpr auto Variant = configIdOf<Cfg>();
-  // the projection matrices of the configuration
-  constexpr std::size_t MaxProjectionOrder = Cfg::ConvergenceOrder;
   const auto& seissolParams = seissolInstance.parameters();
-  auto& memoryManager = seissolInstance.memoryManager();
-  auto* ltsStorage = &memoryManager.ltsStorage();
-  auto* backmap = &memoryManager.backmap();
-  const auto* meshReader = &seissolInstance.meshReader();
+  const auto& parameters = seissolParams.output.waveFieldParameters;
 
-  // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
-  constexpr auto QDofSizePadded =
-      tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
-  constexpr auto QDofPointsPadded = tensor::QStressNodal<Cfg>::Size /
-                                    tensor::QStressNodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+  initializer::DerivedGeometry geometry;
+  geometry.subcells = setup.subcells;
+  geometry.dataBase = setup.dataBase;
+  geometry.dataOrder = setup.dataOrder;
+  geometry.order = Cfg::ConvergenceOrder;
+  geometry.target = setup.projectionTarget;
+  geometry.nodalSet = PlasticityNodalSet<Cfg>;
 
-  const auto namewrap = [](const std::string& name, std::size_t sim) {
-    if constexpr (multisim::MultisimHelperWrapper<Cfg>::MultisimEnabled) {
-      return name + "-" + std::to_string(sim + 1);
-    } else {
-      return name;
-    }
-  };
-
-  const auto order = setup.order;
-  const auto& cells = setup.cells;
-  const auto& dataBase = setup.dataBase;
-  const auto pointsPerSubcell = dataBase.size();
-
-  const auto makeVolumeTable = [&](projection::Source source,
-                                   std::optional<std::size_t> derivative) {
-    projection::Spec spec;
-    spec.source = source;
-    spec.target = setup.projectionTarget;
-    spec.nodalSet = PlasticityNodalSet<Cfg>;
-    spec.derivative = derivative;
-    const auto stride = source == projection::Source::Nodal
-                            ? projectionStride<Cfg, tensor::collnv<Cfg>>(order)
-                            : projectionStride<Cfg, tensor::collvv<Cfg>>(order);
-    return std::make_shared<projection::Table<3, 3, real>>(setup.subcells,
-                                                           dataBase,
-                                                           setup.dataOrder,
-                                                           stride,
-                                                           spec,
-                                                           MinProjectionOrder,
-                                                           MaxProjectionOrder);
-  };
-
-  const auto proj = makeVolumeTable(projection::Source::Modal, {});
-
-  std::array<std::shared_ptr<projection::Table<3, 3, real>>, Cell::Dim> projD{};
-  if (seissolParams.output.waveFieldParameters.computeStrain ||
-      seissolParams.output.waveFieldParameters.computeRotation) {
-    for (std::size_t direction = 0; direction < Cell::Dim; ++direction) {
-      projD[direction] = makeVolumeTable(projection::Source::Modal, direction);
-    }
-  }
-
-  std::shared_ptr<projection::Table<3, 3, real>> projNodal;
+  initializer::WaveFieldSelection selection;
+  selection.quantities.assign(MaterialT::Quantities.begin(), MaterialT::Quantities.end());
+  selection.velocityOffset = MaterialT::VelocityOffset;
+  selection.outputMask = parameters.outputMask;
+  selection.integrationMask = parameters.integrationMask;
+  selection.strain = parameters.computeStrain;
+  selection.rotation = parameters.computeRotation;
   if (seissolParams.model.plasticity) {
-    projNodal = makeVolumeTable(projection::Source::Nodal, {});
+    selection.plasticQuantities.assign(seissol::model::PlasticityData<Cfg>::Quantities.begin(),
+                                       seissol::model::PlasticityData<Cfg>::Quantities.end());
+    selection.plasticityMask.assign(parameters.plasticityMask.begin(),
+                                    parameters.plasticityMask.end());
   }
 
-  constexpr std::size_t MaxVtk3dPoints = tensor::vtk3d<Cfg>::Shape
-      [(sizeof(tensor::vtk3d<Cfg>::Shape) / sizeof(tensor::vtk3d<Cfg>::Shape[0])) - 1][1];
+  std::vector<const expr::Program*> programs;
+  const auto builtIn = initializer::waveFieldProgram(selection);
+  programs.push_back(&builtIn);
+  if (setup.script != nullptr) {
+    programs.push_back(setup.script.get());
+  }
 
   NamedOutputs outputs;
-
-  for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
-    const auto projectVolume =
-        [=](double* target, const real* dofsSingleQuantity, const real* collvv) {
-          runtime::kernel::projectBasisToVtkVolume vtkproj{};
-          memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
-          alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-          simselect[sim] = 1;
-          vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
-          vtkproj.qb = runtime::init::qb::view(Variant, dofsSingleQuantity);
-          vtkproj.xv(order) = runtime::init::xv::view(Variant, order, alignedTarget.data());
-          vtkproj.collvv(Cfg::ConvergenceOrder, order) =
-              runtime::init::collvv::view(Variant, Cfg::ConvergenceOrder, order, collvv);
-          vtkproj.execute(Variant, order);
-          std::copy_n(alignedTarget.data(), pointsPerSubcell, target);
-        };
-
-    const auto projectVolumeDeriv = [=](double* target,
-                                        const real* dofsSingleQuantity,
-                                        std::size_t dir,
-                                        std::size_t index,
-                                        std::size_t subcell) {
-      std::array<double, MaxVtk3dPoints> dataX{};
-      std::array<double, MaxVtk3dPoints> dataY{};
-      std::array<double, MaxVtk3dPoints> dataZ{};
-
-      projectVolume(dataX.data(), dofsSingleQuantity, (*projD[0])(subcell, Cfg::ConvergenceOrder));
-      projectVolume(dataY.data(), dofsSingleQuantity, (*projD[1])(subcell, Cfg::ConvergenceOrder));
-      projectVolume(dataZ.data(), dofsSingleQuantity, (*projD[2])(subcell, Cfg::ConvergenceOrder));
-
-      const auto transform =
-          seissol::geometry::AffineTransform::fromMeshCell(cells->at(index), *meshReader);
-
-      // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
-      // (the rows of the inverse Jacobian are grad xi, grad eta, grad zeta)
-      const auto grad = transform.refToSpaceJacobianInverse(
-          seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data()));
-
-      for (std::size_t i = 0; i < pointsPerSubcell; ++i) {
-        target[i] = dataX[i] * grad(0, dir) + dataY[i] * grad(1, dir) + dataZ[i] * grad(2, dir);
-      }
-    };
-
-    for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
-
-      if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
-        outputs.emplace_back(
-            namewrap(MaterialT::Quantities[quantity], sim),
-            [=](double* target, std::size_t index, std::size_t subcell) {
-              const auto position = backmap->get(cells->at(index));
-              const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Dofs>(Cfg(), position);
-              const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-              projectVolume(target, dofsSingleQuantity, (*proj)(subcell, Cfg::ConvergenceOrder));
-            });
-      }
-
-      if (seissolParams.output.waveFieldParameters.integrationMask[quantity]) {
-        outputs.emplace_back(
-            namewrap("int-" + MaterialT::Quantities[quantity], sim),
-            [=](double* target, std::size_t index, std::size_t subcell) {
-              const auto position = backmap->get(cells->at(index));
-              const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Integrals>(Cfg(), position);
-              const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-              projectVolume(target, dofsSingleQuantity, (*proj)(subcell, Cfg::ConvergenceOrder));
-            });
-      }
-    }
-
-    using Idx = std::tuple<std::string, std::size_t, std::size_t>;
-
-    if (seissolParams.output.waveFieldParameters.computeStrain) {
-      for (const auto& idxp : {Idx{"xx", 0, 0},
-                               Idx{"yy", 1, 1},
-                               Idx{"zz", 2, 2},
-                               Idx{"xy", 0, 1},
-                               Idx{"yz", 1, 2},
-                               Idx{"xz", 0, 2}}) {
-        const auto& name = std::get<0>(idxp);
-
-        // need non-reference capture (due to lambda usage)
-        const auto idx1 = std::get<1>(idxp);
-        const auto idx2 = std::get<2>(idxp);
-
-        // compute (d_i1 v_i2 + d_i2 v_i1) / 2
-
-        outputs.emplace_back(
-            namewrap("eps" + name, sim),
-            [=](double* target, std::size_t index, std::size_t subcell) {
-              const auto position = backmap->get(cells->at(index));
-              const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Integrals>(Cfg(), position);
-              const auto* dofsSingleQuantity1 =
-                  dofsAllQuantities + QDofSizePadded * (idx1 + MaterialT::VelocityOffset);
-              projectVolumeDeriv(target, dofsSingleQuantity1, idx2, index, subcell);
-
-              if (idx1 != idx2) {
-                const auto* dofsSingleQuantity2 =
-                    dofsAllQuantities + QDofSizePadded * (idx2 + MaterialT::VelocityOffset);
-                std::array<double, MaxVtk3dPoints> itarget{};
-                projectVolumeDeriv(itarget.data(), dofsSingleQuantity2, idx1, index, subcell);
-
-                for (std::size_t i = 0; i < pointsPerSubcell; ++i) {
-                  target[i] = (target[i] + itarget[i]) / 2;
-                }
-              }
-            });
-      }
-    }
-
-    if (seissolParams.output.waveFieldParameters.computeRotation) {
-      for (const auto& idxp : {Idx{"1", 2, 1}, Idx{"2", 0, 2}, Idx{"3", 1, 0}}) {
-        const auto& name = std::get<0>(idxp);
-
-        // need non-reference capture (due to lambda usage)
-        const auto idx1 = std::get<1>(idxp);
-        const auto idx2 = std::get<2>(idxp);
-
-        // compute d_i2 v_i1 - d_i1 v_i2
-
-        outputs.emplace_back(
-            namewrap("rot" + name, sim),
-            [=](double* target, std::size_t index, std::size_t subcell) {
-              const auto position = backmap->get(cells->at(index));
-              const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Dofs>(Cfg(), position);
-              const auto* dofsSingleQuantity1 =
-                  dofsAllQuantities + QDofSizePadded * (idx1 + MaterialT::VelocityOffset);
-              projectVolumeDeriv(target, dofsSingleQuantity1, idx2, index, subcell);
-
-              const auto* dofsSingleQuantity2 =
-                  dofsAllQuantities + QDofSizePadded * (idx2 + MaterialT::VelocityOffset);
-              std::array<double, MaxVtk3dPoints> itarget{};
-              projectVolumeDeriv(itarget.data(), dofsSingleQuantity2, idx1, index, subcell);
-
-              for (std::size_t i = 0; i < tensor::vtk3d<Cfg>::Shape[order][1]; ++i) {
-                target[i] -= itarget[i];
-              }
-            });
-      }
-    }
-
-    if (seissolParams.model.plasticity) {
-      for (std::size_t quantity = 0;
-           quantity < seissol::model::PlasticityData<Cfg>::Quantities.size();
-           ++quantity) {
-        if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
-          outputs.emplace_back(
-              namewrap(seissol::model::PlasticityData<Cfg>::Quantities[quantity], sim),
-              [=](double* target, std::size_t index, std::size_t subcell) {
-                const auto position = backmap->get(cells->at(index));
-                const auto* dofsAllQuantities = ltsStorage->lookup<LTS::PStrain>(Cfg(), position);
-                const auto* pointsSingleQuantity = dofsAllQuantities + QDofPointsPadded * quantity;
-                runtime::kernel::projectNodalToVtkVolume vtkproj{};
-                memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
-                alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-                simselect[sim] = 1;
-                vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
-                vtkproj.qn = runtime::init::qn::view(Variant, pointsSingleQuantity);
-                vtkproj.xv(order) = runtime::init::xv::view(Variant, order, alignedTarget.data());
-                vtkproj.collnv(Cfg::ConvergenceOrder, order) =
-                    runtime::init::collnv::view(Variant,
-                                                Cfg::ConvergenceOrder,
-                                                order,
-                                                (*projNodal)(subcell, Cfg::ConvergenceOrder));
-                vtkproj.execute(Variant, order);
-                std::copy_n(alignedTarget.data(), pointsPerSubcell, target);
-              });
-        }
-      }
+  for (const auto* program : programs) {
+    if (!program->outputs().empty()) {
+      collectDerived(outputs,
+                     derived,
+                     initializer::makeDerivedVolumeOutput<Cfg>(
+                         seissolInstance, setup.cells, geometry, *program));
     }
   }
   return outputs;
@@ -545,7 +356,8 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
 
 /// Sets up the output of the wave field. Every cell is written in its configuration; with several
 /// configurations in the run, a quantity is written once for the cells of all of them.
-void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
+void setupWaveFieldOutput(seissol::SeisSol& seissolInstance,
+                          const initializer::OutputRegions& regions) {
   const auto& seissolParams = seissolInstance.parameters();
   const auto& parameters = seissolParams.output.waveFieldParameters;
   auto& memoryManager = seissolInstance.memoryManager();
@@ -556,10 +368,20 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
 
   std::vector<std::size_t> celllist;
   celllist.reserve(meshReader->getElements().size());
-  if (parameters.bounds.enabled || !parameters.groups.empty()) {
+  if (parameters.bounds.enabled || !parameters.groups.empty() ||
+      regions.restricts(initializer::OutputRegions::WaveField)) {
+    const auto& elements = meshReader->getElements();
     const auto& vertexArray = meshReader->getVertices();
-    for (std::size_t i = 0; i < meshReader->getElements().size(); ++i) {
-      const auto& element = meshReader->getElements()[i];
+    const auto inScriptedRegion = regions.select(
+        initializer::OutputRegions::WaveField,
+        elements.size(),
+        Cell::NumVertices,
+        [&](std::size_t cell, std::size_t corner) {
+          return vertexArray[elements[cell].vertices[corner]].coords;
+        },
+        [&](std::size_t cell) { return elements[cell].group; });
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+      const auto& element = elements[i];
       const auto& vertex0 = vertexArray[element.vertices[0]].coords;
       const auto& vertex1 = vertexArray[element.vertices[1]].coords;
       const auto& vertex2 = vertexArray[element.vertices[2]].coords;
@@ -571,7 +393,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
                              parameters.bounds.contains(vertex1[0], vertex1[1], vertex1[2]) ||
                              parameters.bounds.contains(vertex2[0], vertex2[1], vertex2[2]) ||
                              parameters.bounds.contains(vertex3[0], vertex3[1], vertex3[2]));
-      if (inGroup && inRegion) {
+      if (inGroup && inRegion && inScriptedRegion[i]) {
         celllist.push_back(i);
       }
     }
@@ -582,38 +404,16 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   }
 
   WaveFieldOutputSetup setup;
+  // the output points, as the state of the derived outputs is laid out for them
+  const auto points = initializer::waveFieldGeometry(parameters);
   setup.order = order;
-  setup.dataOrder = order > 0 ? order : 0;
+  setup.dataOrder = static_cast<std::uint32_t>(points.dataOrder);
+  setup.dataBase = points.dataBase;
+  setup.subcells = points.subcells;
+  setup.projectionTarget = points.target;
   const auto trueOrder = order > 0 ? order : 1;
   const auto trueBase = io::instance::geometry::pointsTetrahedron(trueOrder);
-  setup.dataBase = io::instance::geometry::pointsTetrahedron(setup.dataOrder);
-
-  setup.subcells = io::instance::geometry::unrefined<3>();
-
-  if (parameters.refinement == seissol::initializer::parameters::VolumeRefinement::Refine4) {
-    setup.subcells = io::instance::geometry::subdivideMaps(
-        setup.subcells, io::instance::geometry::TetrahedronRefine4);
-  }
-  if (parameters.refinement == seissol::initializer::parameters::VolumeRefinement::Refine8) {
-    setup.subcells = io::instance::geometry::subdivideMaps(
-        setup.subcells, io::instance::geometry::TetrahedronRefine8);
-  }
-  if (parameters.refinement == seissol::initializer::parameters::VolumeRefinement::Refine32) {
-    // the edge division has to come first; the legacy refinement::DivideTetrahedronBy32
-    // subdivided by 8 and then split each of those subcells by its center point, which (as
-    // subdivideMaps enumerates input-major) is the ordering 4*i + j the output cells had
-    setup.subcells = io::instance::geometry::subdivideMaps(
-        setup.subcells, io::instance::geometry::TetrahedronRefine8);
-    setup.subcells = io::instance::geometry::subdivideMaps(
-        setup.subcells, io::instance::geometry::TetrahedronRefine4);
-  }
-
   const auto truePoints = io::instance::geometry::applyMaps(setup.subcells, trueBase);
-
-  setup.projectionTarget =
-      parameters.projection == seissol::initializer::parameters::ProjectionMethod::L2
-          ? projection::Target::Project
-          : projection::Target::Interpolate;
 
   const auto format = orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
                                   : io::instance::geometry::WriterFormat::Vtk;
@@ -679,13 +479,20 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   const auto configOf = std::make_shared<const std::vector<ConfigId>>(std::move(configOfCell));
   addConfigData(writer, configs, configOf);
 
+  if (!parameters.script.empty()) {
+    setup.script =
+        std::make_shared<const expr::Program>(initializer::loadDerivedProgram(parameters.script));
+  }
+
+  std::vector<std::shared_ptr<initializer::DerivedOutput>> derived;
   std::vector<NamedOutputs> outputs(builtConfigCount());
   for (const auto runConfig : configs) {
     dispatchConfig(runConfig, [&](auto cfg) {
-      outputs[runConfig] = waveFieldOutputsOf<decltype(cfg)>(seissolInstance, setup);
+      outputs[runConfig] = waveFieldOutputsOf<decltype(cfg)>(seissolInstance, setup, derived);
     });
   }
   addOutputsByName(writer, outputs, configs, configOf, setup.dataBase.size());
+  evaluateDerived(seissolInstance, writer, derived);
 
   schedWriter.planWrite = writer.makeWriter();
   seissolInstance.outputManager().addOutput(schedWriter);
@@ -693,141 +500,51 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
 
 /// What the free surface output of all configurations shares.
 struct SurfaceOutputSetup {
+  // the faces written, by their index in the free surface integrator
+  std::shared_ptr<const std::vector<std::size_t>> faces;
   std::vector<io::instance::geometry::Subcell<2>> subcells;
   // the output points of a subcell, in its reference coordinates
   std::vector<std::array<double, 2>> dataBase;
   std::uint32_t order{};
   std::uint32_t dataOrder{};
   projection::Target projectionTarget{};
+  // the configured derived-output program, if any
+  std::shared_ptr<const expr::Program> script;
 };
 
-/// The outputs of the free surface of the faces of cells of the configuration `Cfg`.
+/// The outputs of the free surface of the faces of cells of the configuration `Cfg`: the
+/// built-in ones and those of the configured program, as for the wave field.
 template <typename Cfg>
-NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOutputSetup& setup) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance,
+                              const SurfaceOutputSetup& setup,
+                              std::vector<std::shared_ptr<initializer::DerivedOutput>>& derived) {
   using MaterialT = model::MaterialOf<Cfg>;
-  constexpr auto Variant = configIdOf<Cfg>();
-  // the projection matrices of the configuration
-  constexpr std::size_t MaxProjectionOrder = Cfg::ConvergenceOrder;
-  const auto& seissolParams = seissolInstance.parameters();
-  auto& memoryManager = seissolInstance.memoryManager();
-  auto* ltsStorage = &memoryManager.ltsStorage();
-  auto* backmap = &memoryManager.backmap();
-  auto* freeSurfaceIntegrator = &seissolInstance.freeSurfaceIntegrator();
-  auto* surfaceMeshIds = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
-  auto* surfaceMeshSides = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
+  const auto& parameters = seissolInstance.parameters().output.freeSurfaceParameters;
 
-  constexpr auto QDofSizePadded =
-      tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
-  constexpr auto FaceDisplacementPadded =
-      tensor::faceDisplacement<Cfg>::Size /
-      tensor::faceDisplacement<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+  initializer::DerivedSurfaceGeometry geometry;
+  geometry.subcells = setup.subcells;
+  geometry.dataBase = setup.dataBase;
+  geometry.dataOrder = setup.dataOrder;
+  geometry.order = Cfg::ConvergenceOrder;
+  geometry.target = setup.projectionTarget;
+  geometry.nodalSet = PlasticityNodalSet<Cfg>;
 
-  const auto namewrap = [](const std::string& name, std::size_t sim) {
-    if constexpr (multisim::MultisimHelperWrapper<Cfg>::MultisimEnabled) {
-      return name + "-" + std::to_string(sim + 1);
-    } else {
-      return name;
-    }
-  };
-
-  const auto order = setup.order;
-  const auto pointsPerSubcell = setup.dataBase.size();
-
-  // volume basis -> face points, one table per side of the reference tetrahedron
-  std::array<std::shared_ptr<projection::Table<2, 3, real>>, Cell::NumFaces> proj{};
-  for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-    const auto embedding = faceEmbedding(f);
-    std::vector<seissol::numerical::AffineMap<2, 3>> embedded;
-    embedded.reserve(setup.subcells.size());
-    for (const auto& subcell : setup.subcells) {
-      embedded.emplace_back(embedding.compose(subcell));
-    }
-
-    projection::Spec spec;
-    spec.target = setup.projectionTarget;
-    proj[f] = std::make_shared<projection::Table<2, 3, real>>(
-        embedded,
-        setup.dataBase,
-        setup.dataOrder,
-        projectionStride<Cfg, tensor::collvf<Cfg>>(order),
-        spec,
-        MinProjectionOrder,
-        MaxProjectionOrder);
+  std::vector<const expr::Program*> programs;
+  const auto builtIn = initializer::surfaceProgram(
+      std::vector<std::string>(MaterialT::Quantities.begin(), MaterialT::Quantities.end()),
+      parameters.outputMask);
+  programs.push_back(&builtIn);
+  if (setup.script != nullptr) {
+    programs.push_back(setup.script.get());
   }
 
-  // face nodes -> face points (the nodal-to-modal transform is folded in)
-  projection::Spec faceSpec;
-  faceSpec.source = projection::Source::Nodal;
-  faceSpec.target = setup.projectionTarget;
-  // the face displacement is stored at the nodes2D points, which are always warp&blend
-  faceSpec.nodalSet = projection::NodalSet::WarpBlend;
-  const auto projf = std::make_shared<projection::Table<2, 2, real>>(
-      setup.subcells,
-      setup.dataBase,
-      setup.dataOrder,
-      projectionStride<Cfg, tensor::collnf<Cfg>>(order),
-      faceSpec,
-      MinProjectionOrder,
-      MaxProjectionOrder);
-
-  constexpr std::size_t MaxVtk2dPoints = tensor::vtk2d<Cfg>::Shape
-      [(sizeof(tensor::vtk2d<Cfg>::Shape) / sizeof(tensor::vtk2d<Cfg>::Shape[0])) - 1][1];
-
-  const std::vector<std::string> quantityLabelsDisplacement = {"u1", "u2", "u3"};
-
   NamedOutputs outputs;
-  for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
-    for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
-      if (seissolParams.output.freeSurfaceParameters.outputMask[quantity]) {
-        outputs.emplace_back(
-            namewrap(MaterialT::Quantities[quantity], sim),
-            [=](double* target, std::size_t index, std::size_t subcell) {
-              auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-              auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
-              const auto position = backmap->get(meshId);
-              const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Dofs>(Cfg(), position);
-              const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-              runtime::kernel::projectBasisToVtkFaceFromVolume vtkproj{};
-              memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
-              alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
-              simselect[sim] = 1;
-              vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
-              vtkproj.qb = runtime::init::qb::view(Variant, dofsSingleQuantity);
-              vtkproj.xf(order) = runtime::init::xf::view(Variant, order, alignedTarget.data());
-              vtkproj.collvf(Cfg::ConvergenceOrder, order) =
-                  runtime::init::collvf::view(Variant,
-                                              Cfg::ConvergenceOrder,
-                                              order,
-                                              (*proj[side])(subcell, Cfg::ConvergenceOrder));
-              vtkproj.execute(Variant, order);
-              std::copy_n(alignedTarget.data(), pointsPerSubcell, target);
-            });
-      }
-    }
-    for (std::size_t quantity = 0; quantity < quantityLabelsDisplacement.size(); ++quantity) {
-      outputs.emplace_back(
-          namewrap(quantityLabelsDisplacement[quantity], sim),
-          [=](double* target, std::size_t index, std::size_t subcell) {
-            auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-            auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
-            const auto position = backmap->get(meshId);
-            const auto& faceDisplacements =
-                ltsStorage->lookup<LTS::FaceDisplacements>(Cfg(), position);
-            const auto* faceDisplacementVariable =
-                faceDisplacements[side] + FaceDisplacementPadded * quantity;
-            runtime::kernel::projectNodalToVtkFace vtkproj{};
-            memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
-            alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
-            simselect[sim] = 1;
-            vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
-            vtkproj.pn = runtime::init::pn::view(Variant, faceDisplacementVariable);
-            vtkproj.xf(order) = runtime::init::xf::view(Variant, order, alignedTarget.data());
-            vtkproj.collnf(Cfg::ConvergenceOrder, order) = runtime::init::collnf::view(
-                Variant, Cfg::ConvergenceOrder, order, (*projf)(subcell, Cfg::ConvergenceOrder));
-            vtkproj.execute(Variant, order);
-            std::copy_n(alignedTarget.data(), pointsPerSubcell, target);
-          });
+  for (const auto* program : programs) {
+    if (!program->outputs().empty()) {
+      collectDerived(outputs,
+                     derived,
+                     initializer::makeDerivedSurfaceOutput<Cfg>(
+                         seissolInstance, setup.faces, geometry, *program));
     }
   }
   return outputs;
@@ -836,7 +553,8 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
 /// Sets up the output of the free surface. Every face is written in the configuration of its
 /// cell; with several configurations in the run, a quantity is written once for the faces of all
 /// of them.
-void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
+void setupSurfaceOutput(seissol::SeisSol& seissolInstance,
+                        const initializer::OutputRegions& regions) {
   const auto& seissolParams = seissolInstance.parameters();
   const auto& parameters = seissolParams.output.freeSurfaceParameters;
   auto& memoryManager = seissolInstance.memoryManager();
@@ -855,19 +573,44 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
       freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::LocationFlag>();
 
   SurfaceOutputSetup setup;
-  setup.order = order;
-  const auto trueOrder = order > 0 ? order : 1;
-  setup.dataOrder = order > 0 ? order : 0;
-  const auto trueBase = io::instance::geometry::pointsTriangle(trueOrder);
-  setup.dataBase = io::instance::geometry::pointsTriangle(setup.dataOrder);
-
-  setup.subcells = io::instance::geometry::unrefined<2>();
-
-  for (std::size_t i = 0; i < parameters.refinement; ++i) {
-    setup.subcells = io::instance::geometry::subdivideMaps(setup.subcells,
-                                                           io::instance::geometry::TriangleRefine4);
+  // the faces in the region of the output, if a model restricts it
+  const auto faceCount = freeSurfaceIntegrator->backmap.size();
+  const auto inScriptedRegion = regions.select(
+      initializer::OutputRegions::Surface,
+      faceCount,
+      Face::NumVertices,
+      [&](std::size_t index, std::size_t corner) {
+        const auto face = freeSurfaceIntegrator->backmap[index];
+        const auto transform = seissol::geometry::AffineFaceTransform::fromMeshCell(
+            surfaceMeshIds[face], surfaceMeshSides[face], *meshReader);
+        // the corners of the reference triangle
+        const auto xyz = transform.refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
+            corner == 1 ? 1.0 : 0.0, corner == 2 ? 1.0 : 0.0));
+        return std::array<double, 3>{xyz(0), xyz(1), xyz(2)};
+      },
+      [&](std::size_t index) {
+        return meshReader->getElements()[surfaceMeshIds[freeSurfaceIntegrator->backmap[index]]]
+            .group;
+      });
+  std::vector<std::size_t> faceList;
+  faceList.reserve(faceCount);
+  for (std::size_t index = 0; index < faceCount; ++index) {
+    if (inScriptedRegion[index]) {
+      faceList.push_back(index);
+    }
   }
+  const auto faces = std::make_shared<const std::vector<std::size_t>>(std::move(faceList));
+  setup.faces = faces;
 
+  // the output points, as the state of the derived outputs is laid out for them
+  const auto points = initializer::surfaceGeometry(parameters);
+  setup.order = order;
+  setup.dataOrder = static_cast<std::uint32_t>(points.dataOrder);
+  setup.dataBase = points.dataBase;
+  setup.subcells = points.subcells;
+  setup.projectionTarget = points.target;
+  const auto trueOrder = order > 0 ? order : 1;
+  const auto trueBase = io::instance::geometry::pointsTriangle(trueOrder);
   const auto truePoints = io::instance::geometry::applyMaps(setup.subcells, trueBase);
 
   const auto format = orderIO < 0 ? io::instance::geometry::WriterFormat::Xdmf
@@ -885,14 +628,14 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
 
   auto writer = io::instance::geometry::GeometryWriter(
       "surface",
-      freeSurfaceIntegrator->backmap.size(),
+      faces->size(),
       io::instance::geometry::Shape::Triangle,
       config,
       setup.subcells.size(),
 
       [=](double* target, std::size_t index, std::size_t subcell) {
-        auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-        auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
+        auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[faces->at(index)]];
+        auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[faces->at(index)]];
         const auto face =
             seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, *meshReader);
 
@@ -904,11 +647,6 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
           }
         }
       });
-
-  setup.projectionTarget =
-      parameters.projection == seissol::initializer::parameters::ProjectionMethod::L2
-          ? projection::Target::Project
-          : projection::Target::Interpolate;
 
   const auto rank = seissol::Mpi::mpi.rank();
   writer.addCellData<int>(
@@ -923,13 +661,13 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
       {},
       true,
       [=](std::uint32_t* target, std::size_t index, std::size_t /*subcell*/) {
-        target[0] = surfaceLocationFlag[freeSurfaceIntegrator->backmap[index]];
+        target[0] = surfaceLocationFlag[freeSurfaceIntegrator->backmap[faces->at(index)]];
       });
 
   writer.addCellData<std::size_t>(
       "global-id", {}, true, [=](std::size_t* target, std::size_t index, std::size_t /*subcell*/) {
-        const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-        const auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
+        const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[faces->at(index)]];
+        const auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[faces->at(index)]];
         target[0] = meshReader->getElements()[meshId].globalId * 4 + side;
       });
 
@@ -937,22 +675,29 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   const auto configs = seissolParams.model.configs();
   auto& ltsStorage = memoryManager.ltsStorage();
   auto& backmap = memoryManager.backmap();
-  std::vector<ConfigId> configOfFace(freeSurfaceIntegrator->backmap.size());
+  std::vector<ConfigId> configOfFace(faces->size());
   for (std::size_t index = 0; index < configOfFace.size(); ++index) {
-    const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
+    const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[faces->at(index)]];
     configOfFace[index] =
         ltsStorage.lookup<LTS::SecondaryInformation>(backmap.get(meshId)).configId;
   }
   const auto configOf = std::make_shared<const std::vector<ConfigId>>(std::move(configOfFace));
   addConfigData(writer, configs, configOf);
 
+  if (!parameters.script.empty()) {
+    setup.script =
+        std::make_shared<const expr::Program>(initializer::loadDerivedProgram(parameters.script));
+  }
+
+  std::vector<std::shared_ptr<initializer::DerivedOutput>> derived;
   std::vector<NamedOutputs> outputs(builtConfigCount());
   for (const auto runConfig : configs) {
     dispatchConfig(runConfig, [&](auto cfg) {
-      outputs[runConfig] = surfaceOutputsOf<decltype(cfg)>(seissolInstance, setup);
+      outputs[runConfig] = surfaceOutputsOf<decltype(cfg)>(seissolInstance, setup, derived);
     });
   }
   addOutputsByName(writer, outputs, configs, configOf, setup.dataBase.size());
+  evaluateDerived(seissolInstance, writer, derived);
 
   schedWriter.planWrite = writer.makeWriter();
   seissolInstance.outputManager().addOutput(schedWriter);
@@ -962,12 +707,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
 
+  // the regions the mesh outputs are restricted to by a model, if any
+  const initializer::OutputRegions regions(seissolParams.output.regionFileName);
+
   if (seissolParams.output.waveFieldParameters.enabled) {
-    setupWaveFieldOutput(seissolInstance);
+    setupWaveFieldOutput(seissolInstance, regions);
   }
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
-    setupSurfaceOutput(seissolInstance);
+    setupSurfaceOutput(seissolInstance, regions);
   }
 
   if (seissolParams.output.receiverParameters.enabled) {

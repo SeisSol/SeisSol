@@ -119,6 +119,9 @@ class TimeManager {
    */
   void setReceiverClusters(writer::ReceiverWriter& receiverWriter);
 
+  /// Adds a hook to run after every correction of every cluster on the host.
+  void addCorrectionHook(const TimeClusterInterface::CorrectionHook& hook);
+
   /**
    * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.
    * Required only if different from zero, for example in checkpointing.

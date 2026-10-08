@@ -110,6 +110,42 @@ It looks like this:
 
    OutputGroups = 1 2 ! only include groups 1 and 2
 
+.. _output_region_file:
+
+OutputRegionFileName
+--------------------
+
+A region of any shape is given by a model, a script (an sderiv module, ``sderiv:file`` or a
+``.sderiv`` file, or a Lua model that traces, ``lua:file`` or a ``.lua`` file) or an
+:doc:`easi` file, named by ``OutputRegionFileName``. The model gives ``wavefield``, a function of
+the position ``x``, ``y``, ``z`` and of the ``group`` of a cell; a cell is written if it is
+positive at one of its vertices, as with ``OutputRegionBounds``. A value of a comparison (1 or 0)
+does, and so does a signed distance to the boundary of the region. The model is evaluated once,
+when the output is set up. It works together with the two parameters above: only the cells that
+satisfy all of them are included.
+
+The same file may give ``surface``, the region of the free surface output (see
+:doc:`free-surface-output`), where a face is written if ``surface`` is positive at one of its
+vertices. An output the file does not name is not restricted, and a file that gives anything else
+is an error.
+
+.. code-block:: text
+
+   # regions.sderiv
+   # the wave field within 10 km of the hypocenter, in groups 1 and 2
+   out def wavefield = select(le(group, 2.0), 1.0e4 - sqrt(x*x + y*y + (z + 1.2e4)*(z + 1.2e4)), 0.0)
+   # the free surface within the box |x| < 50 km, |y| < 30 km
+   out def surface = select(lt(abs(x), 5.0e4), select(lt(abs(y), 3.0e4), 1.0, 0.0), 0.0)
+
+.. code-block:: Fortran
+
+   &Output
+   OutputRegionFileName = 'sderiv:regions.sderiv'
+   /
+
+Note that a region thinner than the cells may contain none of their vertices, and thus no cell:
+widen it by the size of the cells.
+
 Example
 -------
 
@@ -150,3 +186,63 @@ High-Order VTKHDF Output
 ------------------------
 
 The high-order wavefield output can be enabled by setting ``wavefieldvtkorder`` in the ``output`` section to a positive value, corresponding to the order of the output polynomial per cell.
+
+.. _derived_outputs:
+
+Derived outputs
+---------------
+
+``wavefieldscript`` names a program whose outputs are written along with the wavefield, at the
+same points. It is an sderiv module (``sderiv:file`` or a ``.sderiv`` file) or a Lua module
+(``lua:file`` or a ``.lua`` file), written pointwise. A program reads the quantities by name:
+
+| ``q`` -- a quantity of the solution, e.g. ``v1`` or ``s_xx``
+| ``q_r0``, ``q_r1``, ``q_r2`` -- its derivative along the reference coordinates of the cell
+| ``dx_q``, ``dy_q``, ``dz_q`` -- its derivative in space
+| ``int_q`` -- the time integral of ``q`` since the start, as the ``int-`` outputs write it (and
+  its derivatives as above, e.g. ``dx_int_v1``)
+| ``ep_xx`` ... ``eta`` -- the plastic strain, with plasticity
+| ``jinv00`` ... ``jinv22`` -- the inverse Jacobian of the cell, ``jinvkd`` = d xi_k / d x_d
+| ``x``, ``y``, ``z``, ``t`` -- the output point and the time
+| ``dt`` -- the time since the previous evaluation of the point
+
+The values and derivatives are taken from the coefficients of the cell directly, so a program
+pays for each of them once however many outputs read it. The built-in outputs (the quantities,
+``int-`` quantities, strain, rotation and plastic strain) are computed the same way.
+
+A program without state is evaluated when the output is written. A program with state follows
+every time step of the cells (on the CPU; on a GPU, it is evaluated when written), so that e.g. a
+maximum over time does not miss what happens between two outputs:
+
+.. code-block:: text
+
+   # pgv.sderiv
+   state pgv = 0.0
+   out def pgv = max(pgv, sqrt(v1*v1 + v2*v2 + v3*v3))
+   # the displacement, integrated over the time steps
+   state u1 = 0.0
+   out def u1 = u1 + v1 * dt
+   out def divv = dx_v1 + dy_v2 + dz_v3
+
+The same in Lua; a returned table names the outputs, and ``M.state`` declares the state:
+
+.. code-block:: lua
+
+   local M = {}
+   M.state = { pgv = 0.0 }
+   function M.evaluate(fields, v1, v2, v3, pgv)
+     return { pgv = math.max(pgv, math.sqrt(v1*v1 + v2*v2 + v3*v3)) }
+   end
+   return M
+
+.. code-block:: Fortran
+
+   &Output
+   wavefieldscript = 'sderiv:pgv.sderiv'
+   /
+
+The state lives with the cells, one value per state, output point and fused simulation, and is
+written to the checkpoints, so that a restarted run continues it. It does so only if the states,
+the output points (``wavefieldvtkorder``, ``refinement``, ``wavefieldprojection``) and the
+number of fused simulations are those of the run that wrote the checkpoint; otherwise the state
+starts over from its initial values, with a warning.

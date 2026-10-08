@@ -17,11 +17,13 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/Typedefs.h"
-#include "easi/Query.h"
-#include "easi/ResultAdapter.h"
+#include "Reader/Scripting/DataReader.h"
+#include "Reader/Scripting/DataTable.h"
 
 #include <array>
 #include <cstddef>
+#include <functional>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -34,10 +36,6 @@
 #endif
 
 #include <Eigen/Dense>
-
-namespace easi {
-class Component;
-} // namespace easi
 
 namespace seissol::initializer {
 
@@ -90,7 +88,7 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMat
 class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
-  [[nodiscard]] virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual reader::scripting::DataTable generate() const = 0;
   [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
 };
 
@@ -98,7 +96,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
   public:
   explicit ElementBarycenterGenerator(const CellToVertexArray& cellToVertex)
       : cellToVertex_(cellToVertex) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
 
   private:
   CellToVertexArray cellToVertex_;
@@ -108,7 +106,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
 class ElementAverageGenerator : public QueryGenerator {
   public:
   ElementAverageGenerator(const CellToVertexArray& cellToVertex, std::size_t convergenceOrder);
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
   [[nodiscard]] const std::vector<double>& getQuadratureWeights() const {
     return quadratureWeights_;
   };
@@ -127,25 +125,13 @@ class PlasticityPointGenerator : public QueryGenerator {
                            std::vector<std::array<double, Cell::Dim>> nodes,
                            bool pointwise = true)
       : cellToVertex_(cellToVertex), nodes_(std::move(nodes)), pointwise_(pointwise) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
   CellToVertexArray cellToVertex_;
   std::vector<std::array<double, Cell::Dim>> nodes_;
   bool pointwise_{true};
-};
-
-class FaultBarycenterGenerator : public QueryGenerator {
-  public:
-  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader,
-                           std::size_t numberOfPoints)
-      : meshReader_(meshReader), numberOfPoints_(numberOfPoints) {}
-  [[nodiscard]] easi::Query generate() const override;
-
-  private:
-  const seissol::geometry::MeshReader& meshReader_;
-  std::size_t numberOfPoints_;
 };
 
 /// The quadrature points of the given fault faces, in the quadrature rule of the configuration
@@ -156,7 +142,7 @@ class FaultGPGenerator : public QueryGenerator {
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
                    const std::vector<std::size_t>& faceIDs)
       : meshReader_(meshReader), faceIDs_(faceIDs) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] reader::scripting::DataTable generate() const override;
 
   private:
   const seissol::geometry::MeshReader& meshReader_;
@@ -167,7 +153,7 @@ class ParameterDB {
   public:
   virtual ~ParameterDB() = default;
   virtual void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) = 0;
-  static easi::Component* loadModel(const std::string& fileName);
+  static std::unique_ptr<reader::scripting::DataReader> loadModel(const std::string& fileName);
 };
 
 template <class T>
@@ -204,6 +190,42 @@ class FaultParameterDB : public ParameterDB {
 /// The parameters a fault parameter file provides.
 std::set<std::string> faultProvides(const std::string& fileName);
 
+/// The regions the mesh outputs are restricted to by a model (an easi file, or a script): the
+/// output of the wave field writes the cells at one of whose vertices the model gives a positive
+/// `wavefield`, the one of the free surface the faces where it gives a positive `surface`. The
+/// model reads the position x, y, z and the group of the cell.
+class OutputRegions {
+  public:
+  static constexpr const char* WaveField = "wavefield";
+  static constexpr const char* Surface = "surface";
+
+  /// The position of corner `corner` of item `item`.
+  using CornerFunction = std::function<std::array<double, 3>(std::size_t item, std::size_t corner)>;
+  /// The group of item `item`.
+  using GroupFunction = std::function<int(std::size_t item)>;
+
+  OutputRegions() = default;
+
+  /// The regions of the model in `fileName`; none for an empty name. A model that gives anything
+  /// else than the regions is an error.
+  explicit OutputRegions(const std::string& fileName);
+
+  /// Whether the model restricts the output `name`.
+  [[nodiscard]] bool restricts(const std::string& name) const;
+
+  /// Which of `count` items with `corners` corners each lie in the region of the output `name`:
+  /// those where it is positive at one of their corners; all if the model does not restrict it.
+  [[nodiscard]] std::vector<bool> select(const std::string& name,
+                                         std::size_t count,
+                                         std::size_t corners,
+                                         const CornerFunction& corner,
+                                         const GroupFunction& group) const;
+
+  private:
+  std::string fileName_;
+  std::set<std::string> supplied_;
+};
+
 /**
  * The frame the affine boundary condition is stated in. Global is the default; face-aligned
  * lets a condition be stated in terms of the face normal, which a condition that mirrors or
@@ -215,7 +237,7 @@ class DirichletCondition {
   public:
   explicit DirichletCondition(const std::string& fileName);
 
-  DirichletCondition() : model_(nullptr) {};
+  DirichletCondition() = default;
   DirichletCondition(const DirichletCondition&) = delete;
   DirichletCondition& operator=(const DirichletCondition&) = delete;
   DirichletCondition(DirichletCondition&& other) noexcept;
@@ -224,12 +246,21 @@ class DirichletCondition {
   ~DirichletCondition();
 
   /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`.
+  /// Not thread-safe: the queries of a configuration share one table.
   template <typename Cfg>
   [[nodiscard]] BoundaryFrame
       query(const double* barycenter, Real<Cfg>* mapTermsData, Real<Cfg>* constantTermsData) const;
 
   private:
-  easi::Component* model_;
+  struct Query;
+
+  template <typename Cfg>
+  std::unique_ptr<Query> makeQuery() const;
+
+  std::unique_ptr<reader::scripting::DataReader> model_;
+  /// The table of the queries of a configuration, bound once: a model binds to the columns of a
+  /// table, which a table per face would move every time.
+  mutable std::map<std::size_t, std::unique_ptr<Query>> queries_;
 };
 
 } // namespace seissol::initializer

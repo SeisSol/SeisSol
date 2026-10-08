@@ -32,10 +32,13 @@
 #include "Solver/Settings.h"
 #include "SourceTerm/Typedefs.h"
 
+#include <cstddef>
+#include <functional>
 #include <list>
 #include <memory>
 #include <mpi.h>
 #include <utils/logger.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -64,6 +67,12 @@ class TimeClusterInterface : public AbstractTimeCluster {
   virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
 
   virtual void setFaultOutputManager(dr::output::OutputManager* outputManager) = 0;
+
+  /// What runs after every correction of a cluster on the host: called with the id of its layer
+  /// and the time its cells have reached.
+  using CorrectionHook = std::function<void(std::size_t, double)>;
+
+  virtual void addCorrectionHook(const CorrectionHook& hook) = 0;
 
   [[nodiscard]] virtual std::size_t layerId() const = 0;
 };
@@ -156,8 +165,16 @@ class TimeCluster : public TimeClusterInterface {
 
   kernels::ReceiverCluster* receiverCluster_{nullptr};
 
+  std::vector<CorrectionHook> correctionHooks_;
+
   seissol::memory::MemkindArray<std::size_t> conditionalCounterHost_;
   seissol::memory::MemkindArray<std::size_t> conditionalCounterDevice_;
+
+  // the time derivatives of a cell with a nonlinear Dirichlet face that does not keep them, which
+  // the boundary reads: a slot of derivativesSlot_ values per thread; derivativesSlot_ is 0 in a
+  // cluster without such a cell
+  seissol::memory::MemkindArray<real> derivativesScratch_{seissol::memory::Memkind::Standard};
+  std::size_t derivativesSlot_{0};
 
   std::size_t numPlasticCells_{0};
 
@@ -298,6 +315,8 @@ class TimeCluster : public TimeClusterInterface {
   void setFaultOutputManager(dr::output::OutputManager* outputManager) override {
     faultOutputManager_ = outputManager;
   }
+
+  void addCorrectionHook(const CorrectionHook& hook) override { correctionHooks_.push_back(hook); }
 
   void reset() override;
 

@@ -7,8 +7,10 @@
 
 #include "InitSideConditions.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
+#include "Equations/Datastructures.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/InitializationParameters.h"
@@ -18,6 +20,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Physics/InitialField.h"
 #include "Physics/Scenario/Registry.h"
+#include "Physics/ScriptField.h"
 #include "SeisSol.h"
 #include "SourceTerm/Manager.h"
 
@@ -25,6 +28,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -57,12 +61,30 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.parameters().initialization;
   auto& memoryManager = seissolInstance.memoryManager();
 
-  if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
-    logInfo() << "Loading the initial condition from the easi file" << initConditionParams.filename;
-    seissol::initializer::projectEasiInitialField({initConditionParams.filename},
-                                                  seissolInstance.meshReader(),
-                                                  memoryManager.ltsStorage(),
-                                                  initConditionParams.hasTime);
+  if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Script) {
+    logInfo() << "Loading the initial condition from the script" << initConditionParams.filename;
+    seissol::initializer::projectScriptInitialField({initConditionParams.filename},
+                                                    seissolInstance.meshReader(),
+                                                    memoryManager.ltsStorage(),
+                                                    initConditionParams.hasTime);
+
+    // The same script, as the field an analytic boundary condition asks for at its points and
+    // times, one per fused simulation.
+    for (const auto config : seissolInstance.parameters().model.configs()) {
+      dispatchConfig(config, [&](auto cfg) {
+        using Cfg = decltype(cfg);
+        const auto& quantities = model::MaterialOf<Cfg>::Quantities;
+        std::vector<std::unique_ptr<physics::InitialField>> fields;
+        for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
+          fields.push_back(std::make_unique<physics::ScriptField>(
+              initConditionParams.filename,
+              std::vector<std::string>(quantities.begin(), quantities.end()),
+              sim,
+              initConditionParams.hasTime));
+        }
+        memoryManager.setInitialConditions(config, std::move(fields));
+      });
+    }
   } else {
     logInfo() << "Using initial condition"
               << physics::scenario::name(initConditionParams.type).data() << ".";

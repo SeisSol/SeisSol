@@ -47,18 +47,22 @@ enum class FaceType : uint8_t {
   // Periodic = 6,
 
   // analytical boundary, taken from the initial conditions (boundary, nonlinear)
-  Analytical = 7
+  Analytical = 7,
+
+  // Dirichlet boundary whose ghost state a script gives from the inner state (boundary, nonlinear)
+  NonlinearDirichlet = 8
 };
 
 // All face types. The enum values are not contiguous, so iterate this array instead of a
 // numeric range.
-constexpr std::array<FaceType, 7> FaceTypes = {FaceType::Regular,
+constexpr std::array<FaceType, 8> FaceTypes = {FaceType::Regular,
                                                FaceType::FreeSurface,
                                                FaceType::FreeSurfaceGravity,
                                                FaceType::DynamicRupture,
                                                FaceType::Dirichlet,
                                                FaceType::Outflow,
-                                               FaceType::Analytical};
+                                               FaceType::Analytical,
+                                               FaceType::NonlinearDirichlet};
 
 // The name a face type is referred to by in the mesh face map and in diagnostics.
 constexpr std::string_view faceTypeName(FaceType faceType) {
@@ -77,6 +81,8 @@ constexpr std::string_view faceTypeName(FaceType faceType) {
     return "outflow";
   case FaceType::Analytical:
     return "analytical";
+  case FaceType::NonlinearDirichlet:
+    return "nonlinearDirichlet";
   }
   return "unknown";
 }
@@ -117,7 +123,7 @@ constexpr BCType getBCType(FaceType faceType) {
   }
   if (faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
       faceType == FaceType::Dirichlet || faceType == FaceType::Analytical ||
-      faceType == FaceType::Outflow) {
+      faceType == FaceType::Outflow || faceType == FaceType::NonlinearDirichlet) {
     return BCType::External;
   }
 

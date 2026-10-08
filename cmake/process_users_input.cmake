@@ -24,6 +24,13 @@ set(MPI ON)
 # option(OPENMP "Use OpenMP parallelization" ON)
 set(OPENMP ON)
 
+# Scripting options
+# easi scripting. De facto the current default.
+option(EASI "Enable scripting via easi" ON)
+# Lua scripting. Slimmer implementation
+option(LUA "Enable scripting via Lua" OFF)
+
+# Enable ASAGI for reading Netcdf files. Might be preferred for very large datasets.
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)

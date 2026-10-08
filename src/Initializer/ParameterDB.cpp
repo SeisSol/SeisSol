@@ -9,7 +9,9 @@
 
 #include "ParameterDB.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
@@ -24,10 +26,11 @@
 #include "Geometry/PUMLReader.h"
 #include "Model/CommonDatastructures.h"
 #include "Numerical/Quadrature.h"
+#include "Reader/Scripting/DataReader.h"
+#include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
-#include "easi/ResultAdapter.h"
-#include "easi/YAMLParser.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -36,12 +39,11 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <easi/Component.h>
-#include <easi/Query.h>
 #include <exception>
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -55,11 +57,6 @@
 // PUML.h needs to be included before Downward.h
 
 #include <PUML/Downward.h>
-#endif
-
-#ifdef USE_ASAGI
-#include "Common/Real.h"
-#include "Reader/AsagiReader.h"
 #endif
 
 using namespace seissol::model;
@@ -106,36 +103,72 @@ bool surrogateEvaluate(const std::string& fileName,
   }
 }
 
-void easiEvalSafe(easi::Component* model,
-                  easi::Query& query,
-                  easi::ResultAdapter& adapter,
+void evaluateSafe(reader::scripting::DataReader& model,
+                  const reader::scripting::DataTable& table,
                   const std::string& hint) {
   try {
-    model->evaluate(query, adapter);
+    model.call(table);
   } catch (const std::exception& error) {
-    logError() << "Error while evaluating an easi model for" << hint.c_str() << ":"
+    logError() << "Error while evaluating a model for" << hint.c_str() << ":"
                << std::string(error.what());
   }
 }
 
-easi::Component* loadEasiModel(const std::string& fileName) {
-  logInfo() << "Loading easi file" << fileName;
-#ifdef USE_ASAGI
-  seissol::asagi::AsagiReader asagiReader;
-  easi::YAMLParser parser(3, &asagiReader);
-#else
-  easi::YAMLParser parser(3);
-#endif
-  try {
-    return parser.parse(fileName);
-  } catch (const std::exception& error) {
-    logError() << "Error while parsing easi file" << fileName << ":" << std::string(error.what());
-    // silence no-return warnings
-    return nullptr;
+std::set<std::string> suppliedParameters(reader::scripting::DataReader& model) {
+  const auto& outputs = model.outputVars();
+  return {outputs.begin(), outputs.end()};
+}
+
+/// Binds the point set of a query, computed a range of points at a time: `coordinates(first,
+/// count, xyz)` writes the coordinates of the points [first, first + count) to xyz[i * 3 + d], and
+/// `groups(first, count, out)` their groups. Nothing is materialised; the table refers to whatever
+/// the two callbacks capture. `sim` is left to the consumer, which knows the simulation.
+template <typename CoordinateFn, typename GroupFn>
+void bindPointSet(reader::scripting::DataTable& table, CoordinateFn coordinates, GroupFn groups) {
+  const auto shared = std::make_shared<CoordinateFn>(std::move(coordinates));
+  for (std::size_t d = 0; d < Cell::Dim; ++d) {
+    table.bindComputedBatch<double>(std::string(1, "xyz"[d]),
+                                    [shared, d](std::size_t first, std::size_t count, double* out) {
+                                      thread_local std::vector<double> xyz;
+                                      xyz.resize(count * Cell::Dim);
+                                      (*shared)(first, count, xyz.data());
+                                      for (std::size_t i = 0; i < count; ++i) {
+                                        out[i] = xyz[i * Cell::Dim + d];
+                                      }
+                                    });
+  }
+  table.bindComputedBatch<std::int32_t>("group", std::move(groups));
+}
+
+/// Points given per cell in reference coordinates, `pointsPerCell` of them for every cell of
+/// `cells`: the transformation of a cell is set up once per range and cell rather than per point.
+void cellPointCoordinates(const CellToVertexArray& cells,
+                          const std::vector<std::array<double, Cell::Dim>>& referencePoints,
+                          std::size_t first,
+                          std::size_t count,
+                          double* xyz) {
+  const auto pointsPerCell = referencePoints.size();
+  std::optional<seissol::geometry::AffineTransform> transform;
+  std::size_t transformCell = 0;
+  for (std::size_t i = 0; i < count; ++i) {
+    const auto point = first + i;
+    const auto cell = point / pointsPerCell;
+    if (!transform.has_value() || transformCell != cell) {
+      transform.emplace(cells.elementCoordinates(cell));
+      transformCell = cell;
+    }
+    const auto transformed = transform->refToSpace(referencePoints[point % pointsPerCell]);
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      xyz[i * Cell::Dim + d] = transformed[d];
+    }
   }
 }
 
 } // namespace
+
+std::unique_ptr<reader::scripting::DataReader> ParameterDB::loadModel(const std::string& fileName) {
+  return reader::scripting::buildReader(fileName, {"x", "y", "z"});
+}
 
 CellToVertexArray::CellToVertexArray(size_t size,
                                      const CellToVertexFunction& elementCoordinates,
@@ -242,19 +275,26 @@ CellToVertexArray CellToVertexArray::subset(const CellToVertexArray& array,
       [array, shared](size_t idx) { return array.elementGroups((*shared)[idx]); });
 }
 
-easi::Query ElementBarycenterGenerator::generate() const {
-  easi::Query query(cellToVertex_.size, Cell::Dim);
-
-#pragma omp parallel for schedule(static)
-  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
-    auto vertices = cellToVertex_.elementCoordinates(elem);
-    Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
-    query.x(elem, 0) = barycenter(0);
-    query.x(elem, 1) = barycenter(1);
-    query.x(elem, 2) = barycenter(2);
-    query.group(elem) = cellToVertex_.elementGroups(elem);
-  }
-  return query;
+reader::scripting::DataTable ElementBarycenterGenerator::generate() const {
+  reader::scripting::DataTable table(cellToVertex_.size);
+  bindPointSet(
+      table,
+      [this](std::size_t first, std::size_t count, double* xyz) {
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto vertices = cellToVertex_.elementCoordinates(first + i);
+          const Eigen::Vector3d barycenter =
+              (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
+          for (std::size_t d = 0; d < Cell::Dim; ++d) {
+            xyz[i * Cell::Dim + d] = barycenter(d);
+          }
+        }
+      },
+      [this](std::size_t first, std::size_t count, std::int32_t* out) {
+        for (std::size_t i = 0; i < count; ++i) {
+          out[i] = cellToVertex_.elementGroups(first + i);
+        }
+      });
+  return table;
 }
 
 ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex,
@@ -272,116 +312,65 @@ ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellTo
   }
 }
 
-easi::Query ElementAverageGenerator::generate() const {
+reader::scripting::DataTable ElementAverageGenerator::generate() const {
   const auto numQuadpoints = quadraturePoints_.size();
 
-  // Generate query using quadrature points for each element
-  easi::Query query(cellToVertex_.size * numQuadpoints, Cell::Dim);
-
-// Transform quadrature points to global coordinates for all elements
-#pragma omp parallel for schedule(static)
-  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
-    auto vertices = cellToVertex_.elementCoordinates(elem);
-    const auto transform = seissol::geometry::AffineTransform(vertices);
-    for (std::size_t i = 0; i < numQuadpoints; ++i) {
-      const auto transformed = transform.refToSpace(quadraturePoints_[i]);
-      for (std::size_t d = 0; d < Cell::Dim; ++d) {
-        query.x(elem * numQuadpoints + i, d) = transformed[d];
-      }
-      query.group(elem * numQuadpoints + i) = cellToVertex_.elementGroups(elem);
-    }
-  }
-
-  return query;
+  // the quadrature points of every element
+  reader::scripting::DataTable table(cellToVertex_.size * numQuadpoints);
+  bindPointSet(
+      table,
+      [this](std::size_t first, std::size_t count, double* xyz) {
+        cellPointCoordinates(cellToVertex_, quadraturePoints_, first, count, xyz);
+      },
+      [this, numQuadpoints](std::size_t first, std::size_t count, std::int32_t* out) {
+        for (std::size_t i = 0; i < count; ++i) {
+          out[i] = cellToVertex_.elementGroups((first + i) / numQuadpoints);
+        }
+      });
+  return table;
 }
 
 std::size_t PlasticityPointGenerator::outputPerCell() const {
   return pointwise_ ? nodes_.size() : 1;
 }
 
-easi::Query PlasticityPointGenerator::generate() const {
-
+reader::scripting::DataTable PlasticityPointGenerator::generate() const {
   const auto pointsPerCell = outputPerCell();
 
-  // Generate query using quadrature points for each element
-  easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
+  // the plasticity nodes of every element, or its barycenter only
+  auto referencePoints =
+      pointwise_ ? nodes_ : std::vector<std::array<double, Cell::Dim>>{{1 / 4., 1 / 4., 1 / 4.}};
 
-// Transform quadrature points to global coordinates for all elements
-#pragma omp parallel for schedule(static)
-  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
-
-    const auto vertices = cellToVertex_.elementCoordinates(elem);
-    const auto transform = seissol::geometry::AffineTransform(vertices);
-
-    for (std::size_t i = 0; i < pointsPerCell; ++i) {
-
-      std::array<double, Cell::Dim> point{};
-
-      if (pointwise_) {
-        point = nodes_[i];
-      } else {
-        point = {1 / 4., 1 / 4., 1 / 4.};
-      }
-
-      const auto pointIdx = elem * pointsPerCell + i;
-
-      const auto transformed = transform.refToSpace(point);
-
-      for (std::size_t d = 0; d < Cell::Dim; ++d) {
-        query.x(pointIdx, d) = transformed[d];
-      }
-      query.group(pointIdx) = cellToVertex_.elementGroups(elem);
-    }
-  }
-
-  return query;
-}
-
-easi::Query FaultBarycenterGenerator::generate() const {
-  const std::vector<Fault>& fault = meshReader_.getFault();
-  const std::vector<Element>& elements = meshReader_.getElements();
-
-  easi::Query query(numberOfPoints_ * fault.size(), Cell::Dim);
-  std::size_t q = 0;
-  for (const Fault& f : fault) {
-    std::size_t element = 0;
-    std::int8_t side = 0;
-    if (f.element.hasValue()) {
-
-      element = f.element.value();
-      side = f.side;
-    } else {
-
-      assert(f.neighborElement.hasValue());
-
-      element = f.neighborElement.value();
-      side = f.neighborSide;
-    }
-
-    const auto barycenter =
-        seissol::geometry::AffineFaceTransform::fromMeshCell(element, side, meshReader_).center();
-    for (std::size_t n = 0; n < numberOfPoints_; ++n, ++q) {
-      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
-        query.x(q, dim) = barycenter(dim);
-      }
-      query.group(q) = elements[element].faultTags[side];
-    }
-  }
-  return query;
+  reader::scripting::DataTable table(cellToVertex_.size * pointsPerCell);
+  bindPointSet(
+      table,
+      [this, referencePoints = std::move(referencePoints)](
+          std::size_t first, std::size_t count, double* xyz) {
+        cellPointCoordinates(cellToVertex_, referencePoints, first, count, xyz);
+      },
+      [this, pointsPerCell](std::size_t first, std::size_t count, std::int32_t* out) {
+        for (std::size_t i = 0; i < count; ++i) {
+          out[i] = cellToVertex_.elementGroups((first + i) / pointsPerCell);
+        }
+      });
+  return table;
 }
 
 template <typename Cfg>
-easi::Query FaultGPGenerator<Cfg>::generate() const {
-  const std::vector<Fault>& fault = meshReader_.getFault();
-  const std::vector<Element>& elements = meshReader_.getElements();
-  auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
-
+reader::scripting::DataTable FaultGPGenerator<Cfg>::generate() const {
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
-  const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
-  easi::Query query(NumPoints * faceIDs_.size(), Cell::Dim);
-  std::size_t q = 0;
-  // loop over all fault elements which are managed by this generator
-  // note: we have one generator per LTS layer
+
+  // element, side and the face transform of each fault face managed by this generator (we have
+  // one generator per LTS layer), set up once rather than per point and column
+  struct FaultFace {
+    std::size_t element{0};
+    std::int8_t side{0};
+    seissol::geometry::AffineFaceTransform transform;
+  };
+  const std::vector<Fault>& fault = meshReader_.getFault();
+  const auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
+  auto faces = std::make_shared<std::vector<FaultFace>>();
+  faces->reserve(faceIDs_.size());
   for (const auto& faultId : faceIDs_) {
     const Fault& f = fault.at(faultId);
     std::size_t element = 0;
@@ -398,29 +387,44 @@ easi::Query FaultGPGenerator<Cfg>::generate() const {
       // the canonical vertex numbering pins the face orientation index to zero
       sideOrientation = seissol::geometry::FaceOrientation::Rotate0;
     }
-
-    auto coords = cellToVertex.elementCoordinates(element);
-    const auto face = seissol::geometry::AffineFaceTransform(
-        seissol::geometry::AffineTransform(coords),
-        seissol::geometry::ReferenceFaceMap(side, sideOrientation));
-    for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
-      auto localPoints = seissol::geometry::FaceTransform::FaceVectorT(
-          seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 0),
-          seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 1));
-      // padded points are in the middle of the tetrahedron
-      if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
-        localPoints =
-            seissol::geometry::FaceTransform::FaceVectorT(Face::ReferenceBarycenter.data());
-      }
-
-      const auto xyz = face.refToSpace(localPoints);
-      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
-        query.x(q, dim) = xyz(dim);
-      }
-      query.group(q) = elements[element].faultTags[side];
-    }
+    faces->push_back(
+        FaultFace{element,
+                  side,
+                  seissol::geometry::AffineFaceTransform(
+                      seissol::geometry::AffineTransform(cellToVertex.elementCoordinates(element)),
+                      seissol::geometry::ReferenceFaceMap(side, sideOrientation))});
   }
-  return query;
+
+  reader::scripting::DataTable table(NumPoints * faceIDs_.size());
+  bindPointSet(
+      table,
+      [faces](std::size_t first, std::size_t count, double* xyz) {
+        const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto q = first + i;
+          const auto n = q % NumPoints;
+          auto localPoints = seissol::geometry::FaceTransform::FaceVectorT(
+              seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 0),
+              seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 1));
+          // padded points are in the middle of the tetrahedron
+          if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
+            localPoints =
+                seissol::geometry::FaceTransform::FaceVectorT(Face::ReferenceBarycenter.data());
+          }
+          const auto point = (*faces)[q / NumPoints].transform.refToSpace(localPoints);
+          for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+            xyz[i * Cell::Dim + dim] = point(dim);
+          }
+        }
+      },
+      [faces, &elements = meshReader_.getElements()](
+          std::size_t first, std::size_t count, std::int32_t* out) {
+        for (std::size_t i = 0; i < count; ++i) {
+          const auto& face = (*faces)[(first + i) / NumPoints];
+          out[i] = elements[face.element].faultTags[face.side];
+        }
+      });
+  return table;
 }
 
 #define SEISSOL_INSTANTIATE(Cfg) template class FaultGPGenerator<Cfg>;
@@ -610,9 +614,8 @@ struct MaterialAverager<ViscoAcousticMaterial<Mechanisms>> {
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
-  // NOLINTNEXTLINE(misc-const-correctness)
-  easi::Component* const model = loadEasiModel(fileName);
-  auto suppliedParameters = model->suppliedParameters();
+  const auto model = ParameterDB::loadModel(fileName);
+  const auto supplied = suppliedParameters(*model);
 
   // the following code does:
   // * try to evaluate the model just normally
@@ -620,21 +623,23 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   // acoustic first, then convert to the target material
 
   const auto evaluateModel = [&]() {
-    easi::Query query = queryGen.generate();
-    const std::size_t numPoints = query.numPoints();
+    auto table = queryGen.generate();
+    const std::size_t numPoints = table.numPoints();
+    // materials do not depend on the fused simulation
+    table.bindConstant("sim", std::int32_t{0});
 
     std::vector<T> materialsFromQuery(numPoints);
-    easi::ArrayOfStructsAdapter<T> adapter(materialsFromQuery.data());
     for (const auto& [name, pointer] : T::ParameterMap) {
-      adapter.addBindingPoint(name, pointer);
+      table.bindMemberView(
+          name, reader::scripting::Direction::Out, materialsFromQuery.data(), pointer);
     }
 
-    easiEvalSafe(model, query, adapter, "volume material:" + T::Text);
+    evaluateSafe(*model, table, "volume material:" + T::Text);
 
     return materialsFromQuery;
   };
 
-  if (canEvaluateFor<T>(suppliedParameters)) {
+  if (canEvaluateFor<T>(supplied)) {
     const auto materialsFromQuery = evaluateModel();
     const std::size_t numPoints = materialsFromQuery.size();
 
@@ -669,31 +674,31 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     // hard-code tests for elastic or acoustic material here (only if a conversion constructor
     // exists)
     if (!surrogateEvaluate<T, ElasticMaterial, AcousticMaterial>(
-            fileName, queryGen, materials_, suppliedParameters)) {
+            fileName, queryGen, materials_, supplied)) {
 
       // no surrogate worked
       // fail gracefully by just trying to evaluate the original model and fail there
       (void)evaluateModel();
     }
   }
-  delete model;
 }
 
 template <typename T>
 void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
                                         const QueryGenerator& queryGen) {
-  // NOLINTNEXTLINE(misc-const-correctness)
-  easi::Component* const model = loadEasiModel(fileName);
-  easi::Query query = queryGen.generate();
+  const auto model = ParameterDB::loadModel(fileName);
+  auto table = queryGen.generate();
+  table.bindConstant("sim", static_cast<std::int32_t>(simid_));
 
-  easi::ArraysAdapter<T> adapter;
   for (auto& kv : parameters_) {
-    adapter.addBindingPoint(kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+    table.bindView(kv.first,
+                   reader::scripting::Direction::Out,
+                   kv.second.first,
+                   static_cast<std::size_t>(kv.second.second) * numSimulations_,
+                   simid_);
   }
 
-  easiEvalSafe(model, query, adapter, "fault material");
-
-  delete model;
+  evaluateSafe(*model, table, "fault material");
 }
 
 template class FaultParameterDB<float>;
@@ -704,90 +709,133 @@ std::set<std::string> faultProvides(const std::string& fileName) {
     return {};
   }
 
-  // NOLINTNEXTLINE(misc-const-correctness)
-  easi::Component* const model = loadEasiModel(fileName);
-  std::set<std::string> supplied = model->suppliedParameters();
-  delete model;
-  return supplied;
+  const auto model = ParameterDB::loadModel(fileName);
+  return suppliedParameters(*model);
+}
+
+OutputRegions::OutputRegions(const std::string& fileName) : fileName_(fileName) {
+  if (fileName.empty()) {
+    return;
+  }
+  const auto model = ParameterDB::loadModel(fileName);
+  supplied_ = suppliedParameters(*model);
+  for (const auto& name : supplied_) {
+    if (name != WaveField && name != Surface) {
+      logError() << "The output region file" << fileName << "supplies" << name
+                 << "; it supplies the region of an output:" << WaveField << "or" << Surface << ".";
+    }
+  }
+}
+
+bool OutputRegions::restricts(const std::string& name) const { return supplied_.count(name) > 0; }
+
+std::vector<bool> OutputRegions::select(const std::string& name,
+                                        std::size_t count,
+                                        std::size_t corners,
+                                        const CornerFunction& corner,
+                                        const GroupFunction& group) const {
+  std::vector<bool> selected(count, true);
+  if (!restricts(name) || count == 0) {
+    return selected;
+  }
+
+  // one point per corner of an item, the corners of an item one after the other
+  const auto model = ParameterDB::loadModel(fileName_);
+  std::vector<double> values(count * corners, 0.0);
+  reader::scripting::DataTable table(values.size());
+  bindPointSet(
+      table,
+      [&](std::size_t first, std::size_t pointCount, double* xyz) {
+        for (std::size_t i = 0; i < pointCount; ++i) {
+          const auto position = corner((first + i) / corners, (first + i) % corners);
+          std::copy_n(position.data(), Cell::Dim, xyz + i * Cell::Dim);
+        }
+      },
+      [&](std::size_t first, std::size_t pointCount, std::int32_t* out) {
+        for (std::size_t i = 0; i < pointCount; ++i) {
+          out[i] = group((first + i) / corners);
+        }
+      });
+  table.bindView(name, reader::scripting::Direction::Out, values.data());
+  evaluateSafe(*model, table, "the output region " + name);
+
+  for (std::size_t item = 0; item < count; ++item) {
+    selected[item] = std::any_of(values.begin() + static_cast<std::ptrdiff_t>(item * corners),
+                                 values.begin() + static_cast<std::ptrdiff_t>((item + 1) * corners),
+                                 [](double value) { return value > 0.0; });
+  }
+  return selected;
 }
 
 DirichletCondition::DirichletCondition(const std::string& fileName)
-    : model_(loadEasiModel(fileName)) {}
+    : model_(ParameterDB::loadModel(fileName)) {}
 
-// the model is owned by one condition at a time, and the one moved from no longer deletes it
-DirichletCondition::DirichletCondition(DirichletCondition&& other) noexcept
-    : model_(std::exchange(other.model_, nullptr)) {}
+DirichletCondition::DirichletCondition(DirichletCondition&& other) noexcept = default;
 
-DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) noexcept {
-  std::swap(model_, other.model_);
-  return *this;
-}
+DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) noexcept = default;
 
-DirichletCondition::~DirichletCondition() { delete model_; }
+DirichletCondition::~DirichletCondition() = default;
+
+struct DirichletCondition::Query {
+  reader::scripting::DataTable table{1};
+  std::array<double, 3> barycenter{};
+  /// the terms as the model gives them, or their defaults: A row by row (map_{to}_{from}), b
+  std::vector<double> map;
+  std::vector<double> offset;
+  /// a model supplies numbers, so the frame is stated as one: 0 for global, 1 for face-aligned
+  double frame{0.0};
+};
 
 template <typename Cfg>
-BoundaryFrame DirichletCondition::query(const double* barycenter,
-                                        Real<Cfg>* mapTermsData,
-                                        Real<Cfg>* constantTermsData) const {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
-  if (model_ == nullptr) {
-    logError() << "Model for easi-provided boundary is not initialized.";
-  }
-  assert(mapTermsData != nullptr);
-  assert(constantTermsData != nullptr);
-
-  // The boundary condition is constant over the face, so it is sampled at the
-  // face barycenter.
-  auto query = easi::Query{1, 3};
-  query.x(0, 0) = barycenter[0];
-  query.x(0, 1) = barycenter[1];
-  query.x(0, 2) = barycenter[2];
-  query.group(0) = 1;
-
-  const auto& supplied = model_->suppliedParameters();
-
+std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const {
   // The ghost cell state is an affine function of the interior state, given in
   // global coordinates: q_ghost = A q_inside + b. The entries of A are named
   // map_{to}_{from}, those of b const_{to}, where the quantity names are the
   // ones of the material at hand. Mirroring the x velocity at the ghost cell is
   // therefore map_v1_v1: -1.
   const auto& varNames = model::MaterialOf<Cfg>::Quantities;
+  const auto count = varNames.size();
 
-  auto mapTerms = init::dirichletMapGlobal<Cfg>::view::create(mapTermsData);
-  auto constantTerms = init::dirichletOffsetGlobal<Cfg>::view::create(constantTermsData);
+  auto query = std::make_unique<Query>();
+  // Default: extrapolate
+  query->map.assign(count * count, 0.0);
+  for (std::size_t i = 0; i < count; ++i) {
+    query->map[i * count + i] = 1.0;
+  }
+  query->offset.assign(count, 0.0);
 
-  easi::ArraysAdapter<real> adapter{};
+  // The boundary condition is constant over the face, so it is sampled at the
+  // face barycenter.
+  auto& table = query->table;
+  table.bindViewConst("x", reader::scripting::Direction::In, query->barycenter.data(), 3, 0);
+  table.bindViewConst("y", reader::scripting::Direction::In, query->barycenter.data(), 3, 1);
+  table.bindViewConst("z", reader::scripting::Direction::In, query->barycenter.data(), 3, 2);
+  table.bindConstant("group", std::int32_t{1});
+  table.bindConstant("sim", std::int32_t{0});
+
+  const auto supplied = suppliedParameters(*model_);
   std::unordered_set<std::string> known;
 
-  // easi supplies numbers, so the frame is stated as one: 0 for global, 1 for face-aligned.
-  real frame = 0.0;
   known.insert("frame");
   if (supplied.count("frame") > 0) {
-    adapter.addBindingPoint("frame", &frame);
+    table.bindView("frame", reader::scripting::Direction::Out, &query->frame);
   }
-
-  for (size_t i = 0; i < varNames.size(); ++i) {
+  for (std::size_t i = 0; i < count; ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
     known.insert(termName);
-    auto& term = multisim::multisimWrap<Cfg>(constantTerms, 0, i);
     if (supplied.count(termName) > 0) {
-      adapter.addBindingPoint(termName, &term);
-    } else {
-      term = 0.0;
+      table.bindView(termName, reader::scripting::Direction::Out, &query->offset[i]);
     }
   }
-  for (size_t i = 0; i < varNames.size(); ++i) {
-    for (size_t j = 0; j < varNames.size(); ++j) {
+  for (std::size_t i = 0; i < count; ++i) {
+    for (std::size_t j = 0; j < count; ++j) {
       auto termName = std::string{"map_"};
       termName += varNames[i];
       termName += "_";
       termName += varNames[j];
       known.insert(termName);
       if (supplied.count(termName) > 0) {
-        adapter.addBindingPoint(termName, &mapTerms(i, j));
-      } else {
-        // Default: Extrapolate
-        mapTerms(i, j) = (i == j) ? 1.0 : 0.0;
+        table.bindView(termName, reader::scripting::Direction::Out, &query->map[i * count + j]);
       }
     }
   }
@@ -795,7 +843,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   for (const auto& termName : supplied) {
     if (known.count(termName) == 0) {
       std::ostringstream valid;
-      for (size_t i = 0; i < varNames.size(); ++i) {
+      for (std::size_t i = 0; i < count; ++i) {
         valid << (i == 0 ? "" : ", ") << varNames[i];
       }
       logError() << "The boundary condition file supplies" << termName
@@ -804,25 +852,51 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
                  << valid.str() << ".";
     }
   }
+  return query;
+}
 
-  easiEvalSafe(model_, query, adapter, "Dirichlet BC data");
+template <typename Cfg>
+BoundaryFrame DirichletCondition::query(const double* barycenter,
+                                        Real<Cfg>* mapTermsData,
+                                        Real<Cfg>* constantTermsData) const {
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  if (model_ == nullptr) {
+    logError() << "The model of the Dirichlet boundary condition is not initialized.";
+  }
+  assert(mapTermsData != nullptr);
+  assert(constantTermsData != nullptr);
 
-  if (frame != 0.0 && frame != 1.0) {
-    logError() << "The boundary condition file supplies a frame of" << frame
+  auto& query = queries_[static_cast<std::size_t>(configIdOf<Cfg>())];
+  if (query == nullptr) {
+    query = makeQuery<Cfg>();
+  }
+  std::copy_n(barycenter, Cell::Dim, query->barycenter.data());
+
+  evaluateSafe(*model_, query->table, "Dirichlet BC data");
+
+  if (query->frame != 0.0 && query->frame != 1.0) {
+    logError() << "The boundary condition file supplies a frame of" << query->frame
                << "-- it has to be 0 for a condition stated in global coordinates, or 1 for one "
                   "stated in the face-aligned basis.";
   }
 
+  const auto count = model::MaterialOf<Cfg>::Quantities.size();
+  auto mapTerms = init::dirichletMapGlobal<Cfg>::view::create(mapTermsData);
+  auto constantTerms = init::dirichletOffsetGlobal<Cfg>::view::create(constantTermsData);
+  for (std::size_t i = 0; i < count; ++i) {
+    for (std::size_t j = 0; j < count; ++j) {
+      mapTerms(i, j) = static_cast<real>(query->map[i * count + j]);
+    }
+  }
   // The condition does not depend on the simulation index, so every fused
   // simulation gets the same one.
-  for (std::size_t sim = 1; sim < Cfg::NumSimulations; ++sim) {
-    for (size_t i = 0; i < varNames.size(); ++i) {
-      multisim::multisimWrap<Cfg>(constantTerms, sim, i) =
-          multisim::multisimWrap<Cfg>(constantTerms, 0, i);
+  for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
+    for (std::size_t i = 0; i < count; ++i) {
+      multisim::multisimWrap<Cfg>(constantTerms, sim, i) = static_cast<real>(query->offset[i]);
     }
   }
 
-  return frame == 0.0 ? BoundaryFrame::Global : BoundaryFrame::FaceAligned;
+  return query->frame == 0.0 ? BoundaryFrame::Global : BoundaryFrame::FaceAligned;
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \

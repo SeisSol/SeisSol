@@ -40,11 +40,12 @@ TEST_CASE("FrictionLawType enum values are unique" * doctest::test_suite("initia
   insert(FrictionLawType::ImposedSlipRatesYoffe);
   insert(FrictionLawType::ImposedSlipRatesGaussian);
   insert(FrictionLawType::ImposedSlipRatesDelta);
+  insert(FrictionLawType::ImposedSlipRatesScript);
   insert(FrictionLawType::RateAndStateSevereVelocityWeakening);
   insert(FrictionLawType::RateAndStateAgingNucleation);
 
-  // 13 distinct values
-  CHECK(values.size() == 13);
+  // 14 distinct values
+  CHECK(values.size() == 14);
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +141,21 @@ TEST_CASE("readDRParameters Gaussian imposed also corrects" * doctest::test_suit
 
   CHECK(params.frictionLawType == FrictionLawType::ImposedSlipRatesGaussian);
   CHECK(params.slipRateOutputType == SlipRateOutputType::VelocityDifference);
+}
+
+TEST_CASE("readDRParameters imposed slip rates of a script" * doctest::test_suite("initializer")) {
+  // the script, resolved like every other path; the output type is corrected as for FL 33
+  const YAML::Node node = YAML::Load(R"(
+    dynamicrupture:
+      fl: 36
+      slipratescript: "sderiv:slip.sderiv"
+  )");
+  ParameterReader reader(node, "", false);
+  auto params = readDRParameters(&reader, defaultConfig());
+
+  CHECK(params.frictionLawType == FrictionLawType::ImposedSlipRatesScript);
+  CHECK(params.slipRateOutputType == SlipRateOutputType::VelocityDifference);
+  CHECK(params.slipRateScript.find("slip.sderiv") != std::string::npos);
 }
 
 // ---------------------------------------------------------------------------

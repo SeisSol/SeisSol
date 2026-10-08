@@ -222,8 +222,11 @@ TEST_CASE("Stress of a point does not depend on the order it is asked in" *
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
     const auto backward =
         stressAtTime<Config>(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
+    // to a few ulp rather than bitwise: the two loops are separate call sites, and the compiler
+    // may contract a product and a sum into one FMA at one of them and not at the other
     for (std::size_t component = 0; component < 6; ++component) {
-      CHECK(backward[component] == AbsApprox(forward[step][component]));
+      CHECK(backward[component] ==
+            AbsApprox(forward[step][component]).delta(4 * std::numeric_limits<real>::epsilon()));
     }
   }
 }

@@ -48,10 +48,7 @@ namespace seissol::writer {
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto initialConditionType = seissolInstance_.parameters().initialization.type;
-  if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
-      initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
-      initialConditionType ==
-          seissol::initializer::parameters::InitializationType::PressureInjection) {
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero) {
     return;
   }
 
@@ -108,12 +105,12 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
 
   std::vector<double> data;
 
-  if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
-    data =
-        initializer::projectEasiFields<Cfg>({seissolInstance_.parameters().initialization.filename},
-                                            simulationTime,
-                                            *meshReader_,
-                                            seissolInstance_.parameters().initialization.hasTime);
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Script) {
+    data = initializer::projectScriptFields<Cfg>(
+        {seissolInstance_.parameters().initialization.filename},
+        simulationTime,
+        *meshReader_,
+        seissolInstance_.parameters().initialization.hasTime);
   }
 
   const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
@@ -207,7 +204,7 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
         const auto volume = MeshTools::volume(elements[meshId], vertices);
         const auto jacobiDet = 6 * volume;
 
-        if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
+        if (initialConditionType != seissol::initializer::parameters::InitializationType::Script) {
           // Compute global position of quadrature points.
           const auto transform =
               seissol::geometry::AffineTransform::fromMeshCell(meshId, *meshReader_);

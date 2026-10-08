@@ -25,6 +25,8 @@ struct ITMParameters {
   double itmDuration{0.0};
   double itmVelocityScalingFactor{1.0};
   ReflectionType itmReflectionType{ReflectionType::BothWaves};
+  // a script giving the material after a mirror, in place of the scaling of the reflection type
+  std::string itmMaterialScript;
 };
 
 enum class NumericalFlux { Godunov, Rusanov };
@@ -42,6 +44,8 @@ struct ModelParameters {
   double gravitationalAcceleration{};
   double tv{};
   std::string boundaryFileName;
+  // the script of the nonlinear Dirichlet boundary (FaceType::NonlinearDirichlet); empty for none
+  std::string nonlinearDirichletFileName;
   std::string materialFileName;
   std::vector<std::string> plasticityFileNames;
   ITMParameters itmParameters;

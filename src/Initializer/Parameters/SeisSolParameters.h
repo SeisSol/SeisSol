@@ -10,6 +10,7 @@
 
 #include "CubeGeneratorParameters.h"
 #include "DRParameters.h"
+#include "DatafieldParameters.h"
 #include "InitializationParameters.h"
 #include "LtsParameters.h"
 #include "MeshParameters.h"
@@ -22,6 +23,7 @@ namespace seissol::initializer::parameters {
 
 struct SeisSolParameters {
   CubeGeneratorParameters cubeGenerator;
+  DatafieldParameters datafield;
   DRParameters drParameters;
   InitializationParameters initialization;
   MeshParameters mesh;

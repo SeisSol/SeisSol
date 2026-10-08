@@ -19,6 +19,11 @@
 #include "Physics/InitialField.h"
 
 #include <cassert>
+#include <memory>
+
+namespace seissol::physics {
+class NonlinearDirichlet;
+} // namespace seissol::physics
 
 namespace seissol::kernels {
 
@@ -30,11 +35,22 @@ class LocalKernel : public Kernel<Cfg> {
   protected:
   double gravitationalAcceleration_{9.81};
   const std::vector<std::unique_ptr<physics::InitialField>>* initConds_{nullptr};
+  /// where the condition of the nonlinear Dirichlet boundary is kept: the kernels are made before
+  /// it is
+  const std::unique_ptr<physics::NonlinearDirichlet>* nonlinearDirichletSlot_{nullptr};
 
   public:
   ~LocalKernel() override = default;
   void setGravitationalAcceleration(double g) { gravitationalAcceleration_ = g; }
   void setInitConds(decltype(initConds_) initConds) { this->initConds_ = initConds; }
+  void setNonlinearDirichlet(decltype(nonlinearDirichletSlot_) slot) {
+    this->nonlinearDirichletSlot_ = slot;
+  }
+
+  /// The condition of the nonlinear Dirichlet boundary, null if there is none.
+  [[nodiscard]] const physics::NonlinearDirichlet* nonlinearDirichlet() const {
+    return nonlinearDirichletSlot_ == nullptr ? nullptr : nonlinearDirichletSlot_->get();
+  }
 
   physics::InitialField* getInitCond(size_t index) {
     const auto& condition = this->initConds_->at(index);

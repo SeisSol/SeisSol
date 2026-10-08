@@ -89,4 +89,27 @@ TEST_CASE("readOutputParameters: the fault output follows the shared setting" *
   CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Incremental);
 }
 
+TEST_CASE("readOutputParameters: the output regions come from a file of their own" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node none = YAML::Load(R"(
+    output:
+      outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
+  )");
+  ParameterReader noneReader(none, "", false);
+  CHECK(readOutputParameters(&noneReader, defaultConfig()).regionFileName.empty());
+
+  const YAML::Node node = YAML::Load(R"(
+    output:
+      outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
+      outputregionfilename: 'sderiv:region.sderiv'
+  )");
+  ParameterReader reader(node, "", false);
+  // the kind of the script stays in front of the path
+  CHECK(readOutputParameters(&reader, defaultConfig()).regionFileName == "sderiv:region.sderiv");
+}
+
 } // namespace seissol::unit_test

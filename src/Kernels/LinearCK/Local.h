@@ -59,6 +59,7 @@ class Local : public LocalKernel<Cfg> {
   kernel::volume<Cfg> volumeKernelPrototype_;
   kernel::localFlux<Cfg> localFluxKernelPrototype_;
   kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
+  kernel::projectToFaceNodes<Cfg> projectToFaceNodesPrototype_;
 
   kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
 

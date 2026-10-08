@@ -1,0 +1,664 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#include "Expr/RtcCpu.h"
+
+#include "Expr/Backend.h"
+#include "Expr/Binding.h"
+#include "Expr/Codegen.h"
+#include "Expr/Cost.h"
+#include "Expr/Interp.h"
+#include "Expr/Lower.h"
+#include "Expr/Program.h"
+#include "Reader/Scripting/DataTable.h"
+#include "utils/logger.h"
+
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include <tuple>
+#include <unistd.h>
+#include <utility>
+#include <vector>
+
+namespace seissol::expr {
+
+namespace {
+
+using reader::scripting::DataTable;
+
+// The CPU kernel works on a gathered tile, so its addressing is tile-relative.
+// The arithmetic in between is emitted by codegen::emitStageBody and is the
+// same text the GPU backends get.
+std::string cpuLoadInput(std::int32_t index) {
+  return "inputTile[" + std::to_string(index) + "ul * count + l]";
+}
+std::string cpuLoadState(std::int32_t state) {
+  return "stateTile[" + std::to_string(state) + "ul * count + l]";
+}
+std::string cpuLoadPersistent(std::int32_t slot) {
+  return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l]";
+}
+std::string cpuStoreOutput(std::int32_t index, const std::string& value) {
+  return "outputTile[" + std::to_string(index) + "ul * count + l] = " + value;
+}
+std::string cpuStoreState(std::int32_t state, const std::string& value) {
+  return "stateTile[" + std::to_string(state) + "ul * count + l] = " + value;
+}
+std::string cpuStorePersistent(std::int32_t slot, const std::string& value) {
+  return "persistent[" + std::to_string(slot) + "ul * numPoints + first + l] = " + value;
+}
+std::string cpuMatrix(std::int32_t matrix) { return "matrices[" + std::to_string(matrix) + "]"; }
+std::string cpuBlockBase(std::int32_t block) {
+  return "blocks[" + std::to_string(block) + "].base";
+}
+std::string cpuCellStride(std::int32_t block) {
+  return "blocks[" + std::to_string(block) + "].cellStride";
+}
+std::string cpuModeStride(std::int32_t block) {
+  return "blocks[" + std::to_string(block) + "].modeStride";
+}
+std::string cpuCellIndex(std::int32_t block) {
+  return "blocks[" + std::to_string(block) + "].cellIndex";
+}
+
+/// The host-side image of the emitted SeissolExprBlock; the two have to agree field by field.
+struct BlockDescriptor {
+  const void* base;
+  unsigned long cellStride;
+  unsigned long modeStride;
+  const std::uint32_t* cellIndex;
+};
+
+/// The element types the matrices and blocks are bound with: baked into the source, hence part of
+/// the cache key.
+struct ContractLayout {
+  std::vector<reader::scripting::DataType> matrices;
+  std::vector<reader::scripting::DataType> blocks;
+
+  [[nodiscard]] std::uint64_t fingerprint() const {
+    std::uint64_t hash = 0xcbf29ce484222325ULL;
+    const auto mix = [&hash](std::uint64_t value) {
+      hash ^= value;
+      hash *= 0x100000001b3ULL;
+    };
+    mix(matrices.size());
+    for (const auto type : matrices) {
+      mix(static_cast<std::uint64_t>(type));
+    }
+    mix(blocks.size());
+    for (const auto type : blocks) {
+      mix(static_cast<std::uint64_t>(type));
+    }
+    return hash;
+  }
+};
+
+ContractLayout contractLayoutOf(const Binding& binding) {
+  ContractLayout layout;
+  for (const auto& matrix : binding.matrices()) {
+    layout.matrices.push_back(matrix.type);
+  }
+  for (const auto& block : binding.blocks()) {
+    layout.blocks.push_back(block.type);
+  }
+  return layout;
+}
+
+void emitStage(std::ostringstream& out,
+               const char* name,
+               const StageCode& stage,
+               const std::vector<std::int32_t>& operands,
+               std::int32_t stateSlots,
+               const std::string& computeType,
+               const codegen::ContractAddressing& contract) {
+  out << "extern \"C\" void " << name << "(const " << computeType << "* __restrict inputTile,\n"
+      << "                                 " << computeType << "* __restrict outputTile,\n"
+      << "                                 " << computeType << "* __restrict stateTile,\n"
+      << "                                 " << computeType << "* __restrict persistent,\n"
+      << "                                 unsigned long numPoints,\n"
+      << "                                 unsigned long first,\n"
+      << "                                 unsigned long count,\n"
+      << "                                 const void* const* matrices,\n"
+      << "                                 const SeissolExprBlock* blocks,\n"
+      << "                                 const unsigned long* pointIndex) {\n"
+      << "  (void)matrices; (void)blocks; (void)pointIndex; (void)stateTile;\n";
+  if (stage.code.empty() && stage.outputs.empty() && stage.persistent.empty()) {
+    out << "  (void)inputTile; (void)outputTile; (void)persistent;\n"
+        << "  (void)numPoints; (void)first; (void)count;\n}\n\n";
+    return;
+  }
+
+  // The states come in a tile of their own, gathered and scattered around the call like the
+  // inputs and outputs; the hoisted values are read where they lie.
+  codegen::StageAddressing addressing;
+  addressing.loadInput = cpuLoadInput;
+  addressing.stateSlots = stateSlots;
+  addressing.loadState = cpuLoadState;
+  addressing.loadPersistent = cpuLoadPersistent;
+  addressing.storeOutput = cpuStoreOutput;
+  addressing.storeState = cpuStoreState;
+  addressing.storePersistent = cpuStorePersistent;
+  addressing.contract = &contract;
+
+  out << "  for (unsigned long l = 0; l < count; ++l) {\n";
+  codegen::emitStageBody(
+      out, stage, operands, computeType, codegen::MathStyle::Namespaced, addressing, "    ");
+  out << "  }\n}\n\n";
+}
+
+// --- compilation ------------------------------------------------------------
+
+struct Artifact {
+  void* handle{nullptr};
+  void* precompute{nullptr};
+  void* run{nullptr};
+  /// Held open for the artifact's whole life, and NOT as a leak.
+  ///
+  /// dlopen keys its "already loaded" cache on the path it was given, and the
+  /// path here is /proc/self/fd/N. Closing the descriptor frees N for the next
+  /// memfd, so the second kernel would be opened under the same path as the
+  /// first -- and dlopen hands back the FIRST library. That is silent: the
+  /// second program then computes the first one's expression. Keeping the
+  /// descriptor keeps the path unique, which is the property dlopen is relying
+  /// on. Artifacts live in the cache for the process's lifetime anyway.
+  int fd{-1};
+};
+
+const char* compilerCommand() {
+  if (const char* env = std::getenv("SEISSOL_EXPR_CXX"); env != nullptr) {
+    return env;
+  }
+  return "c++";
+}
+
+// Compile `source` and return the loaded artifact, or an empty one.
+//
+// The artifact lives in an anonymous memfd and is dlopen'd through
+// /proc/self/fd, so it never has a filesystem name. That removes three problems
+// at once: no collision between ranks on a node writing the same hashed path,
+// no O_EXCL-and-rename dance, and no shared filesystem being hammered by every
+// rank at once. The compiler's own intermediates still go to TMPDIR; they are
+// per-process unique and short-lived, and TMPDIR=/dev/shm keeps even those in
+// RAM.
+Artifact compileAndLoad(const std::string& source, const std::string& flags) {
+  Artifact artifact;
+
+  const int object = memfd_create("seissol-expr-kernel", 0);
+  if (object < 0) {
+    logWarning() << "expr: memfd_create failed; not using the compiled CPU backend.";
+    return artifact;
+  }
+  std::string objectPath = "/proc/self/fd/" + std::to_string(object);
+
+  const int input = memfd_create("seissol-expr-source", 0);
+  if (input < 0) {
+    close(object);
+    return artifact;
+  }
+  if (write(input, source.data(), source.size()) != static_cast<ssize_t>(source.size())) {
+    close(object);
+    close(input);
+    return artifact;
+  }
+
+  std::vector<std::string> argv{compilerCommand()};
+  std::istringstream split(flags);
+  for (std::string token; split >> token;) {
+    argv.push_back(token);
+  }
+  for (const char* fixed : {"-shared", "-fPIC", "-x", "c++", "-", "-o"}) {
+    argv.emplace_back(fixed);
+  }
+  argv.push_back(objectPath);
+
+  std::vector<char*> raw;
+  raw.reserve(argv.size() + 1);
+  for (auto& arg : argv) {
+    raw.push_back(arg.data());
+  }
+  raw.push_back(nullptr);
+
+  const pid_t pid = fork();
+  if (pid < 0) {
+    close(object);
+    close(input);
+    return artifact;
+  }
+  if (pid == 0) {
+    lseek(input, 0, SEEK_SET);
+    dup2(input, STDIN_FILENO);
+    execvp(raw[0], raw.data());
+    _exit(127);
+  }
+
+  int status = 0;
+  waitpid(pid, &status, 0);
+  close(input);
+
+  if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+    logWarning() << "expr: the CPU kernel did not compile (" << compilerCommand() << " exited with"
+                 << WEXITSTATUS(status) << "); falling back to the interpreter.";
+    close(object);
+    return artifact;
+  }
+
+  artifact.handle = dlopen(objectPath.c_str(), RTLD_NOW | RTLD_LOCAL);
+  artifact.fd = object; // see the note on Artifact::fd -- must outlive the dlopen
+  if (artifact.handle == nullptr) {
+    close(object);
+    artifact.fd = -1;
+    // Hardened kernels can make a memfd non-executable (vm.memfd_noexec), and
+    // /proc may not be mounted. Both are configuration, not programming errors,
+    // so this is a warning and the interpreter takes over.
+    logWarning() << "expr: could not load the compiled CPU kernel (" << dlerror()
+                 << "); falling back to the interpreter.";
+    return artifact;
+  }
+  artifact.precompute = dlsym(artifact.handle, "seissol_expr_precompute");
+  artifact.run = dlsym(artifact.handle, "seissol_expr_run");
+  if (artifact.run == nullptr) {
+    dlclose(artifact.handle);
+    close(artifact.fd);
+    artifact.handle = nullptr;
+    artifact.fd = -1;
+  }
+  return artifact;
+}
+
+// --- cache ------------------------------------------------------------------
+
+// Keyed on the program AND on everything that shapes the emitted code but is
+// not part of the program: the lowering options, the compute type and the
+// compiler flags. Program::fingerprint() alone would hand an -march=skylake
+// artifact to a run configured for something else.
+struct CacheKey {
+  std::uint64_t program{0};
+  std::uint64_t lowering{0};
+  std::uint64_t contraction{0};
+  ComputeType type{ComputeType::F64};
+  std::string flags;
+
+  bool operator<(const CacheKey& other) const {
+    return std::tie(program, lowering, contraction, type, flags) <
+           std::tie(other.program, other.lowering, other.contraction, other.type, other.flags);
+  }
+};
+
+std::mutex& cacheMutex() {
+  static std::mutex mutex;
+  return mutex;
+}
+
+std::map<CacheKey, Artifact>& cache() {
+  static std::map<CacheKey, Artifact> artifacts;
+  return artifacts;
+}
+
+// --- kernel -----------------------------------------------------------------
+
+template <typename T>
+using StageFn = void (*)(const T*,
+                         T*,
+                         T*,
+                         T*,
+                         unsigned long,
+                         unsigned long,
+                         unsigned long,
+                         const void* const*,
+                         const BlockDescriptor*,
+                         const unsigned long*);
+
+template <typename T>
+class RtcCpuKernel final : public Kernel {
+  public:
+  RtcCpuKernel(Binding& binding,
+               LoweredProgram lowered,
+               const Artifact& artifact,
+               std::size_t tileSize)
+      : binding_(&binding), lowered_(std::move(lowered)),
+        precompute_(reinterpret_cast<StageFn<T>>(artifact.precompute)),
+        run_(reinterpret_cast<StageFn<T>>(artifact.run)), tileSize_(tileSize),
+        inputTile_(static_cast<std::size_t>(std::max<std::size_t>(1, binding.inputs().size())) *
+                   tileSize),
+        outputTile_(static_cast<std::size_t>(std::max<std::size_t>(1, binding.outputs().size())) *
+                    tileSize),
+        stateTile_(static_cast<std::size_t>(std::max<std::size_t>(1, binding.states().size())) *
+                   tileSize),
+        needsPrecompute_(lowered_.hasPrecompute()) {}
+
+  void precompute(const DataTable& table) override {
+    if (!needsPrecompute_ || precompute_ == nullptr) {
+      return;
+    }
+    const BoundIo io(*binding_, &table, nullptr);
+    sweep(precompute_, io, nullptr, 0, binding_->numPoints());
+    precomputed_ = true;
+  }
+
+  void run(const DataTable& table) override {
+    guard();
+    const BoundIo io(*binding_, &table, nullptr);
+    // The dense path may thread; the element-wise one below may not.
+    sweep(run_, io, nullptr, 0, binding_->numPoints());
+  }
+
+  void run(const KernelArgs& args) override {
+    if (!binding_->hostAddressable()) {
+      logError() << "expr: this program has a computed column and cannot be evaluated from raw "
+                    "bases; call run(table).";
+      return;
+    }
+    guard();
+    const BoundIo io(*binding_, nullptr, &args);
+    sweep(run_, io, &args, args.first, args.first + args.count);
+  }
+
+  [[nodiscard]] BackendKind kind() const override { return BackendKind::RtcCpu; }
+
+  private:
+  /// Gather/scatter over either a bound table or per-call bases. One type
+  /// rather than two TileIo subclasses because the compiled kernel is not
+  /// virtual — there is nothing here for a vtable to buy.
+  struct BoundIo {
+    BoundIo(const Binding& binding, const DataTable* table, const KernelArgs* args)
+        : binding(&binding), table(table), args(args) {}
+
+    // An addressable binding reads through the StridedView even on the dense
+    // path. Not an optimisation to be tuned away: measured, the accessor route
+    // costs about 30 ns/point in std::function calls, which is MORE than the
+    // whole compiled kernel, so leaving run(table) on it would have hidden the
+    // entire benefit of compiling. The two routes read the same bytes by
+    // construction -- the view is where the accessor's closure got its pointer.
+    void gather(std::size_t first, std::size_t count, T* dst) const {
+      if (args != nullptr) {
+        binding->gatherFrom(args->inputs, args->inputCount, first, count, dst);
+      } else if (binding->hostAddressable()) {
+        binding->gatherFrom(nullptr, 0, first, count, dst);
+      } else {
+        binding->gather(*table, first, count, dst);
+      }
+    }
+    void scatter(std::size_t first, std::size_t count, const T* src) const {
+      if (args != nullptr) {
+        binding->scatterTo(args->outputs, args->outputCount, first, count, src);
+      } else if (binding->hostAddressable()) {
+        binding->scatterTo(nullptr, 0, first, count, src);
+      } else {
+        binding->scatter(*table, first, count, src);
+      }
+    }
+    void gatherState(std::size_t first, std::size_t count, T* dst) const {
+      if (args != nullptr) {
+        binding->gatherState(args->states, args->stateCount, first, count, dst);
+      } else {
+        binding->gatherState(nullptr, 0, first, count, dst);
+      }
+    }
+    void scatterState(std::size_t first, std::size_t count, const T* src) const {
+      if (args != nullptr) {
+        binding->scatterState(args->states, args->stateCount, first, count, src);
+      } else {
+        binding->scatterState(nullptr, 0, first, count, src);
+      }
+    }
+
+    const Binding* binding;
+    const DataTable* table;
+    const KernelArgs* args;
+  };
+
+  void guard() const {
+    if (needsPrecompute_ && !precomputed_) {
+      logError() << "expr: the kernel has a precompute stage that was never run; call "
+                    "Kernel::precompute() from prepare().";
+    }
+  }
+
+  void sweep(StageFn<T> fn,
+             const BoundIo& io,
+             const KernelArgs* args,
+             std::size_t begin,
+             std::size_t end) {
+    if (fn == nullptr) {
+      return;
+    }
+    // The bases of the matrices and blocks for this call: the bound ones, or the ones the call
+    // moves. A handful of entries, rebuilt per call.
+    const auto& matrices = binding_->matrices();
+    const auto& blocks = binding_->blocks();
+    matrixBases_.resize(matrices.size());
+    for (std::size_t i = 0; i < matrices.size(); ++i) {
+      const bool moved = args != nullptr && i < args->matrixCount && args->matrices != nullptr &&
+                         args->matrices[i] != nullptr;
+      matrixBases_[i] = moved ? args->matrices[i] : matrices[i].base;
+    }
+    blockDescriptors_.resize(blocks.size());
+    for (std::size_t i = 0; i < blocks.size(); ++i) {
+      const bool moved = args != nullptr && i < args->blockCount && args->blocks != nullptr &&
+                         args->blocks[i] != nullptr;
+      blockDescriptors_[i] = BlockDescriptor{moved ? args->blocks[i] : blocks[i].base,
+                                             blocks[i].cellStride,
+                                             blocks[i].modeStride,
+                                             blocks[i].cellIndex};
+    }
+    const auto& permutation = binding_->permutation();
+    // only the run stage reads and writes the states
+    const bool stateful = fn == run_ && !binding_->states().empty();
+
+    for (std::size_t first = begin; first < end; first += tileSize_) {
+      const std::size_t count = std::min(tileSize_, end - first);
+      io.gather(first, count, inputTile_.data());
+      if (stateful) {
+        io.gatherState(first, count, stateTile_.data());
+      }
+      fn(inputTile_.data(),
+         outputTile_.data(),
+         stateTile_.data(),
+         persistent(),
+         binding_->numPoints(),
+         first,
+         count,
+         matrixBases_.data(),
+         blockDescriptors_.data(),
+         permutation.empty() ? nullptr : permutation.data() + first);
+      io.scatter(first, count, outputTile_.data());
+      if (stateful) {
+        io.scatterState(first, count, stateTile_.data());
+      }
+    }
+  }
+
+  T* persistent();
+
+  Binding* binding_;
+  LoweredProgram lowered_;
+  StageFn<T> precompute_{nullptr};
+  StageFn<T> run_{nullptr};
+  std::size_t tileSize_{0};
+  std::vector<T> inputTile_;
+  std::vector<T> outputTile_;
+  std::vector<T> stateTile_;
+  std::vector<const void*> matrixBases_;
+  std::vector<BlockDescriptor> blockDescriptors_;
+  bool needsPrecompute_{false};
+  bool precomputed_{false};
+};
+
+template <>
+double* RtcCpuKernel<double>::persistent() {
+  return binding_->persistentF64();
+}
+template <>
+float* RtcCpuKernel<float>::persistent() {
+  return binding_->persistentF32();
+}
+
+std::string defaultFlags(const BackendOptions& options) {
+  if (const char* env = std::getenv("SEISSOL_EXPR_CXXFLAGS"); env != nullptr) {
+    return env;
+  }
+  // -ffp-contract=off is not optional and not a tuning knob. Without it GCC
+  // fuses a*b+c into an FMA, which rounds once where the interpreter rounds
+  // twice; measured, that alone moves ordinary arithmetic by ~1e-6 and breaks
+  // the acceptance criterion. It costs nothing measurable.
+  std::string flags = "-O3 -ffp-contract=off -fno-math-errno";
+  flags += options.arch.empty() || options.arch == "native" ? " -march=native"
+                                                            : " -march=" + options.arch;
+  return flags;
+}
+
+} // namespace
+
+bool cpuCompilable(const LoweredProgram& lowered) { return !codegen::containsLookup(lowered); }
+
+namespace {
+
+std::string emitCpuSourceFor(const Program& program,
+                             const LoweredProgram& lowered,
+                             const ContractLayout& layout) {
+  const std::string computeType = program.computeType() == ComputeType::F32 ? "float" : "double";
+
+  codegen::ContractAddressing contract;
+  for (const auto& matrix : program.matrices()) {
+    contract.shapes.push_back(matrix.shape);
+  }
+  for (const auto type : layout.matrices) {
+    contract.matrixTypes.emplace_back(codegen::elementTypeName(type));
+  }
+  for (const auto type : layout.blocks) {
+    contract.blockTypes.emplace_back(codegen::elementTypeName(type));
+  }
+  contract.point = "pointIndex != 0 ? pointIndex[l] : first + l";
+  contract.indexType = "unsigned long";
+  contract.matrix = cpuMatrix;
+  contract.blockBase = cpuBlockBase;
+  contract.cellStride = cpuCellStride;
+  contract.modeStride = cpuModeStride;
+  contract.cellIndex = cpuCellIndex;
+
+  std::ostringstream out;
+  out << "// Generated by seissol::expr for program fingerprint 0x" << std::hex
+      << program.fingerprint() << std::dec << ".\n"
+      << "// The arithmetic below is stringified from SEISSOL_EXPR_PW_LIST, the same\n"
+      << "// table the interpreter evaluates, so the two cannot disagree.\n"
+      << "#include <cmath>\n\n"
+      << "struct SeissolExprBlock {\n"
+      << "  const char* base;\n"
+      << "  unsigned long cellStride;\n"
+      << "  unsigned long modeStride;\n"
+      << "  const unsigned int* cellIndex;\n"
+      << "};\n\n";
+  emitStage(out,
+            "seissol_expr_precompute",
+            lowered.precompute(),
+            lowered.operands(),
+            lowered.stateSlotCount(),
+            computeType,
+            contract);
+  emitStage(out,
+            "seissol_expr_run",
+            lowered.run(),
+            lowered.operands(),
+            lowered.stateSlotCount(),
+            computeType,
+            contract);
+  return out.str();
+}
+
+} // namespace
+
+std::string emitCpuSource(const Program& program, const LoweredProgram& lowered) {
+  // Without a binding, the matrices and blocks are taken to be stored in the compute type.
+  ContractLayout layout;
+  const auto type = program.computeType() == ComputeType::F32 ? reader::scripting::DataType::F32
+                                                              : reader::scripting::DataType::F64;
+  layout.matrices.assign(program.matrices().size(), type);
+  layout.blocks.assign(program.blocks().size(), type);
+  return emitCpuSourceFor(program, lowered, layout);
+}
+
+std::string
+    emitCpuSource(const Program& program, const LoweredProgram& lowered, const Binding& binding) {
+  return emitCpuSourceFor(program, lowered, contractLayoutOf(binding));
+}
+
+std::size_t rtcCpuCacheSize() {
+  const std::lock_guard<std::mutex> lock(cacheMutex());
+  return cache().size();
+}
+
+std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
+                                         Binding& binding,
+                                         LoweredProgram lowered,
+                                         const BackendOptions& options) {
+  if (!cpuCompilable(lowered)) {
+    logWarning() << "expr: this program samples a data grid, which the compiled CPU backend does "
+                    "not support yet; using the interpreter.";
+    return nullptr;
+  }
+
+  const std::string flags = defaultFlags(options);
+  const ContractLayout layout = contractLayoutOf(binding);
+  const CacheKey key{program.fingerprint(),
+                     options.lowering.fingerprint(),
+                     layout.fingerprint(),
+                     program.computeType(),
+                     flags};
+
+  Artifact artifact;
+  {
+    // Held across the compile on purpose. This runs from prepare(), i.e. at
+    // init, where serialising a handful of 40 ms compiles costs nothing and
+    // two threads compiling the same program would be pure waste. If this path
+    // is ever reached during the timestep loop, that is the bug to fix rather
+    // than the lock.
+    const std::lock_guard<std::mutex> lock(cacheMutex());
+    auto found = cache().find(key);
+    if (found == cache().end()) {
+      const std::string source = emitCpuSourceFor(program, lowered, layout);
+      found = cache().emplace(key, compileAndLoad(source, flags)).first;
+    }
+    artifact = found->second;
+  }
+  if (artifact.handle == nullptr) {
+    return nullptr;
+  }
+
+  binding.allocatePersistent(program, lowered.persistentSlotCount());
+  const std::size_t tileSize =
+      options.tileSize != 0
+          ? options.tileSize
+          : chooseTileSize(lowered.peakSlotCount(), program.computeType(), DefaultTileBudgetBytes);
+
+  if (!options.quiet) {
+    logInfo()
+        << "expr: compiled CPU kernel --" << lowered.summary().c_str() << "--"
+        << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
+        << "-- with" << flags;
+  }
+
+  if (program.computeType() == ComputeType::F32) {
+    return std::make_unique<RtcCpuKernel<float>>(binding, std::move(lowered), artifact, tileSize);
+  }
+  return std::make_unique<RtcCpuKernel<double>>(binding, std::move(lowered), artifact, tileSize);
+}
+
+} // namespace seissol::expr

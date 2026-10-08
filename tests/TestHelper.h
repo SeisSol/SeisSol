@@ -14,11 +14,40 @@
 #include "Setup.h"
 
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <limits>
 #include <ostream>
+#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
+
+/// Whether two floating-point values have the same bits: for a result that is to be reproduced
+/// exactly, down to the sign of a zero.
+template <typename T>
+inline bool bitwiseEqual(T lhs, T rhs) {
+  static_assert(std::is_floating_point_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
+                "bitwiseEqual compares float and double");
+  using Bits = std::conditional_t<sizeof(T) == 8, std::uint64_t, std::uint32_t>;
+  Bits lhsBits = 0;
+  Bits rhsBits = 0;
+  std::memcpy(&lhsBits, &lhs, sizeof(T));
+  std::memcpy(&rhsBits, &rhs, sizeof(T));
+  return lhsBits == rhsBits;
+}
+
+/// The same for `count` values each.
+template <typename T>
+inline bool bitwiseEqual(const T* lhs, const T* rhs, std::size_t count) {
+  for (std::size_t i = 0; i < count; ++i) {
+    if (!bitwiseEqual(lhs[i], rhs[i])) {
+      return false;
+    }
+  }
+  return true;
+}
 
 // Inspired by doctest's Approx, slightly modified
 class AbsApprox {

@@ -1,0 +1,852 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#include "Expr/Binding.h"
+
+#include "Expr/Interp.h"
+#include "Expr/Ir.h"
+#include "Expr/Program.h"
+#include "Reader/Scripting/DataTable.h"
+#include "utils/logger.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <new>
+#include <numeric>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace seissol::expr {
+
+namespace {
+
+using reader::scripting::DataEntry;
+using reader::scripting::DataTable;
+using reader::scripting::DataType;
+using reader::scripting::Direction;
+
+const char* name(DataType type) {
+  switch (type) {
+  case DataType::F32:
+    return "f32";
+  case DataType::F64:
+    return "f64";
+  case DataType::I32:
+    return "i32";
+  case DataType::I64:
+    return "i64";
+  }
+  return "unknown";
+}
+
+// One column, one lane block. The switch on the column's storage type is OUT of
+// the lane loop on purpose: that dispatch is the per-point cost Binding.h exists
+// to remove, and DataEntry::getValueAs would put it back by taking it inside.
+//
+// getValue<Col> is used rather than getValueAs<Tile> for a second reason:
+// getValueAs ends in a bare `throw;` outside any catch, which terminates rather
+// than diagnoses if the enum ever grows a value. Naming the column type here
+// means the exhaustive switch lives at one site instead of at every call.
+// A batch-computed column is asked for whole contiguous runs of points: the run itself when the
+// point set is unpermuted, and each maximal contiguous stretch of the permutation otherwise --
+// which, since the permutation is a stable sort by group, is usually most of the tile.
+template <typename Tile, typename Col>
+void gatherBatchColumn(const std::function<void(std::size_t, std::size_t, void*)>& batch,
+                       const std::vector<std::size_t>& permutation,
+                       std::size_t first,
+                       std::size_t count,
+                       Tile* dst) {
+  thread_local std::vector<Col> scratch;
+  if (scratch.size() < count) {
+    scratch.resize(count);
+  }
+  std::size_t lane = 0;
+  while (lane < count) {
+    const std::size_t begin = permutation.empty() ? first + lane : permutation[first + lane];
+    std::size_t run = 1;
+    while (lane + run < count &&
+           (permutation.empty() || permutation[first + lane + run] == begin + run)) {
+      ++run;
+    }
+    batch(begin, run, scratch.data());
+    for (std::size_t i = 0; i < run; ++i) {
+      dst[lane + i] = static_cast<Tile>(scratch[i]);
+    }
+    lane += run;
+  }
+}
+
+template <typename Tile, typename Col>
+void gatherColumn(const DataEntry& entry,
+                  const std::vector<std::size_t>& permutation,
+                  std::size_t first,
+                  std::size_t count,
+                  Tile* dst) {
+  if (entry.batchAccessor) {
+    gatherBatchColumn<Tile, Col>(entry.batchAccessor, permutation, first, count, dst);
+  } else if (permutation.empty()) {
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      dst[lane] = static_cast<Tile>(entry.getValue<Col>(first + lane));
+    }
+  } else {
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      dst[lane] = static_cast<Tile>(entry.getValue<Col>(permutation[first + lane]));
+    }
+  }
+}
+
+template <typename Tile>
+void gatherOne(const ColumnBinding& column,
+               const DataTable& table,
+               const std::vector<std::size_t>& permutation,
+               std::size_t first,
+               std::size_t count,
+               Tile* dst) {
+  const DataEntry& entry = table.dataEntries()[column.entry];
+  switch (column.tableType) {
+  case DataType::F32:
+    gatherColumn<Tile, float>(entry, permutation, first, count, dst);
+    return;
+  case DataType::F64:
+    gatherColumn<Tile, double>(entry, permutation, first, count, dst);
+    return;
+  case DataType::I32:
+    gatherColumn<Tile, std::int32_t>(entry, permutation, first, count, dst);
+    return;
+  case DataType::I64:
+    gatherColumn<Tile, std::int64_t>(entry, permutation, first, count, dst);
+    return;
+  }
+  logError() << "expr: column" << entry.name << "has an unhandled storage type.";
+}
+
+template <typename Tile, typename Col>
+void scatterColumn(const DataEntry& entry,
+                   const std::vector<std::size_t>& permutation,
+                   std::size_t first,
+                   std::size_t count,
+                   const Tile* src) {
+  if (permutation.empty()) {
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      entry.setValue<Col>(first + lane, static_cast<Col>(src[lane]));
+    }
+  } else {
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      entry.setValue<Col>(permutation[first + lane], static_cast<Col>(src[lane]));
+    }
+  }
+}
+
+template <typename Tile>
+void scatterOne(const ColumnBinding& column,
+                const DataTable& table,
+                const std::vector<std::size_t>& permutation,
+                std::size_t first,
+                std::size_t count,
+                const Tile* src) {
+  const DataEntry& entry = table.dataEntries()[column.entry];
+  switch (column.tableType) {
+  case DataType::F32:
+    scatterColumn<Tile, float>(entry, permutation, first, count, src);
+    return;
+  case DataType::F64:
+    scatterColumn<Tile, double>(entry, permutation, first, count, src);
+    return;
+  case DataType::I32:
+    scatterColumn<Tile, std::int32_t>(entry, permutation, first, count, src);
+    return;
+  case DataType::I64:
+    scatterColumn<Tile, std::int64_t>(entry, permutation, first, count, src);
+    return;
+  }
+  logError() << "expr: column" << entry.name << "has an unhandled storage type.";
+}
+
+std::int32_t readGroup(const DataEntry& entry, std::size_t index) {
+  switch (entry.datatype) {
+  case DataType::I32:
+    return entry.getValue<std::int32_t>(index);
+  case DataType::I64:
+    return static_cast<std::int32_t>(entry.getValue<std::int64_t>(index));
+  case DataType::F32:
+    return static_cast<std::int32_t>(entry.getValue<float>(index));
+  case DataType::F64:
+    return static_cast<std::int32_t>(entry.getValue<double>(index));
+  }
+  return 0;
+}
+
+} // namespace
+
+Binding Binding::bind(const Program& program, const DataTable& table) {
+  Binding binding;
+  binding.numPoints_ = table.numPoints();
+  binding.computeType_ = program.computeType();
+
+  if (binding.numPoints_ == 0) {
+    throw std::invalid_argument("expr: cannot bind a program to an empty point set");
+  }
+
+  // Name -> column. A duplicate name is rejected rather than resolved to the
+  // first or the last match: which one wins is invisible at the call site, and
+  // "the name silently resolved to the wrong column" is the defect class this
+  // whole layer is built to remove.
+  std::unordered_map<std::string, std::size_t> byName;
+  for (std::size_t i = 0; i < table.dataEntries().size(); ++i) {
+    const auto& entry = table.dataEntries()[i];
+    if (!byName.emplace(entry.name, i).second) {
+      throw std::invalid_argument("expr: the data table declares '" + entry.name + "' twice");
+    }
+  }
+
+  // A channel that is both an input and a state has two different meanings in
+  // the lowering, which resolves state first and would silently ignore the
+  // column. Caught here because Binding is where the column actually exists.
+  for (const auto& state : program.state()) {
+    for (const auto& input : program.inputs()) {
+      if (input.name == state.name) {
+        throw std::invalid_argument("expr: '" + state.name +
+                                    "' is declared both as an input and as a state");
+      }
+    }
+  }
+
+  // Inputs, in Program::inputs() order, because Opcode::LoadInput addresses the
+  // gathered tile by exactly that index. The vector is dense: every input must
+  // resolve, so slot == position and the backend needs no indirection.
+  binding.inputs_.reserve(program.inputs().size());
+  for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+    const auto& spec = program.inputs()[i];
+    const auto found = byName.find(spec.name);
+    if (found == byName.end()) {
+      throw std::invalid_argument("expr: the program reads '" + spec.name +
+                                  "', which the data table does not provide");
+    }
+    const auto& entry = table.dataEntries()[found->second];
+    if (entry.direction == Direction::Out) {
+      throw std::invalid_argument("expr: the program reads '" + spec.name +
+                                  "', which the data table offers for output only");
+    }
+    ColumnBinding column;
+    column.entry = found->second;
+    column.slot = static_cast<int>(i);
+    column.tableType = entry.datatype;
+    column.computed = entry.setter == nullptr;
+    column.view = entry.view;
+    column.batch = entry.batchAccessor;
+    binding.inputs_.push_back(column);
+  }
+
+  binding.outputs_.reserve(program.outputs().size());
+  for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+    const auto& spec = program.outputs()[i];
+    const auto found = byName.find(spec.name);
+    if (found == byName.end()) {
+      throw std::invalid_argument("expr: the program writes '" + spec.name +
+                                  "', which the data table does not provide");
+    }
+    const auto& entry = table.dataEntries()[found->second];
+    if (entry.direction == Direction::In) {
+      throw std::invalid_argument("expr: the program writes '" + spec.name +
+                                  "', which the data table offers for input only");
+    }
+    // Direction and writability are two different questions. A column bound
+    // through bindViewConst or bindMemberViewConst can carry Direction::InOut
+    // and still have no setter, in which case the scatter would call a null
+    // std::function at the first tile. Checked here, once, rather than found at
+    // run time on one rank.
+    if (entry.setter == nullptr) {
+      throw std::invalid_argument("expr: the program writes '" + spec.name +
+                                  "', which is bound as a read-only view");
+    }
+    if (entry.view.has_value() && !entry.view->pointwise()) {
+      throw std::invalid_argument("expr: the program writes '" + spec.name +
+                                  "', which is bound per cell rather than per point");
+    }
+    ColumnBinding column;
+    column.entry = found->second;
+    column.slot = static_cast<int>(i);
+    column.tableType = entry.datatype;
+    column.computed = false;
+    column.view = entry.view;
+    binding.outputs_.push_back(column);
+  }
+
+  binding.resolveContractions(program, table);
+  binding.resolveStates(program, table);
+
+  binding.addressable_ = true;
+  for (const auto* set : {&binding.inputs_, &binding.outputs_}) {
+    for (const auto& column : *set) {
+      if (!column.view.has_value()) {
+        binding.addressable_ = false;
+      }
+    }
+  }
+  binding.hostAddressable_ = true;
+  for (const auto& column : binding.inputs_) {
+    if (!column.view.has_value() && !column.batch) {
+      binding.hostAddressable_ = false;
+    }
+  }
+  for (const auto& column : binding.outputs_) {
+    if (!column.view.has_value()) {
+      binding.hostAddressable_ = false;
+    }
+  }
+
+  binding.buildGroupRanges(program, table);
+  return binding;
+}
+
+void Binding::resolveContractions(const Program& program, const DataTable& table) {
+  const auto checkType = [](DataType type, const std::string& what) {
+    if (type != DataType::F32 && type != DataType::F64) {
+      throw std::invalid_argument("expr: " + what + " is stored as " + name(type) +
+                                  "; contractions read f32 or f64");
+    }
+  };
+
+  blocks_.clear();
+  for (const auto& spec : program.blocks()) {
+    const reader::scripting::BlockEntry* found = nullptr;
+    for (const auto& entry : table.blockEntries()) {
+      if (entry.name == spec.name) {
+        if (found != nullptr) {
+          throw std::invalid_argument("expr: the data table declares the block '" + spec.name +
+                                      "' twice");
+        }
+        found = &entry;
+      }
+    }
+    if (found == nullptr) {
+      throw std::invalid_argument("expr: the program contracts the block '" + spec.name +
+                                  "', which the data table does not provide");
+    }
+    if (found->input.length < spec.length) {
+      throw std::invalid_argument("expr: the program contracts " + std::to_string(spec.length) +
+                                  " coefficients of the block '" + spec.name +
+                                  "', but the data table offers " +
+                                  std::to_string(found->input.length));
+    }
+    checkType(found->input.type, "the block '" + spec.name + "'");
+    blocks_.push_back(found->input);
+  }
+
+  matrices_.clear();
+  for (const auto& spec : program.matrices()) {
+    const reader::scripting::MatrixEntry* found = nullptr;
+    for (const auto& entry : table.matrixEntries()) {
+      if (entry.name == spec.name) {
+        if (found != nullptr) {
+          throw std::invalid_argument("expr: the data table declares the matrix '" + spec.name +
+                                      "' twice");
+        }
+        found = &entry;
+      }
+    }
+    if (found == nullptr) {
+      throw std::invalid_argument("expr: the program contracts against the matrix '" + spec.name +
+                                  "', which the data table does not provide");
+    }
+    const auto& input = found->input;
+    if (input.rows != spec.shape.rows || input.cols != spec.shape.cols ||
+        input.leadingDimension != spec.shape.leadingDimension) {
+      throw std::invalid_argument(
+          "expr: the matrix '" + spec.name + "' is bound as " + std::to_string(input.rows) + "x" +
+          std::to_string(input.cols) + " with leading dimension " +
+          std::to_string(input.leadingDimension) + ", but the program expects " +
+          std::to_string(spec.shape.rows) + "x" + std::to_string(spec.shape.cols) +
+          " with leading dimension " + std::to_string(spec.shape.leadingDimension));
+    }
+    checkType(input.type, "the matrix '" + spec.name + "'");
+    matrices_.push_back(input);
+  }
+
+  const auto pointsPerCell = program.pointsPerCell();
+  if (pointsPerCell > 0 && numPoints_ % pointsPerCell != 0) {
+    throw std::invalid_argument("expr: the point set has " + std::to_string(numPoints_) +
+                                " points, which is not a whole number of cells of " +
+                                std::to_string(pointsPerCell) + " points");
+  }
+}
+
+ContractOperands Binding::contraction(MatrixId matrix,
+                                      BlockId block,
+                                      const void* matrixBase,
+                                      const void* blockBase) const {
+  const auto& m = matrices_.at(static_cast<std::size_t>(matrix));
+  const auto& b = blocks_.at(static_cast<std::size_t>(block));
+  ContractOperands operands;
+  operands.matrix = matrixBase != nullptr ? matrixBase : m.base;
+  operands.matrixType = m.type;
+  operands.rows = m.rows;
+  operands.cols = m.cols;
+  operands.leadingDimension = m.leadingDimension;
+  operands.block = blockBase != nullptr ? blockBase : b.base;
+  operands.blockType = b.type;
+  operands.cellStride = b.cellStride;
+  operands.modeStride = b.modeStride;
+  operands.cellIndex = b.cellIndex;
+  return operands;
+}
+
+void Binding::buildGroupRanges(const Program& program, const DataTable& table) {
+  // Only a program that actually reads `group` gets partitioned. Sorting a
+  // point set the kernel will not branch on would cost a permutation indirection
+  // in every gather for nothing.
+  std::size_t groupEntry = 0;
+  bool hasGroup = false;
+  for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+    if (program.inputs()[i].name == GroupChannelName) {
+      groupEntry = inputs_[i].entry;
+      hasGroup = true;
+      break;
+    }
+  }
+  if (!hasGroup) {
+    return;
+  }
+
+  const DataEntry& entry = table.dataEntries()[groupEntry];
+  std::vector<std::int32_t> groups(numPoints_);
+  for (std::size_t p = 0; p < numPoints_; ++p) {
+    groups[p] = readGroup(entry, p);
+  }
+
+  std::vector<std::size_t> order(numPoints_);
+  std::iota(order.begin(), order.end(), std::size_t{0});
+  // Stable, so the permutation is a function of the data and not of the sort's
+  // internal choices -- two ranks with the same points must agree, or the state
+  // slots they carry across calls stop describing the same points.
+  std::stable_sort(order.begin(), order.end(), [&groups](std::size_t a, std::size_t b) {
+    return groups[a] < groups[b];
+  });
+
+  groupRanges_.clear();
+  std::size_t begin = 0;
+  for (std::size_t k = 1; k <= numPoints_; ++k) {
+    if (k == numPoints_ || groups[order[k]] != groups[order[begin]]) {
+      groupRanges_.push_back(GroupRange{groups[order[begin]], begin, k});
+      begin = k;
+    }
+  }
+
+  // The common cases -- one group, or a point set already grouped by
+  // construction -- leave the order untouched. Storing an identity permutation
+  // would buy nothing and cost an indirection per lane in every gather, so it
+  // is dropped and `permutation()` stays empty, exactly as for a program with
+  // no group input.
+  const bool identity = std::is_sorted(groups.begin(), groups.end());
+  if (!identity) {
+    permutation_ = std::move(order);
+  }
+
+  logInfo() << "expr: partitioned" << numPoints_ << "points into" << groupRanges_.size()
+            << "group ranges" << (permutation_.empty() ? "(already ordered)" : "(reordered)");
+}
+
+void Binding::allocatePersistent(const Program& program, std::int32_t slotCount) {
+  // Idempotent on shape. makeKernel calls this, so building an interpreter and
+  // an RTC kernel over one Binding would otherwise reset the state slots in
+  // between -- and the differential check that compares two backends is exactly
+  // the case that does it.
+  if (persistentAllocated_ && slotCount == persistentSlotCount_) {
+    return;
+  }
+  persistentAllocated_ = true;
+  persistentSlotCount_ = slotCount;
+
+  const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  const std::size_t stateSlots = program.state().size();
+  const std::size_t slots = slotCount > 0 ? static_cast<std::size_t>(slotCount) : 0;
+  // Only the states have a defined initial value; the hoisted values are written by the
+  // Precompute stage before the first run(), and reading one before that is a lowering bug rather
+  // than something to paper over with a default here.
+  persistent_.assign(slots > stateSlots ? (slots - stateSlots) * numPoints_ * width : 0,
+                     std::byte{0});
+
+  const bool ownsState =
+      std::any_of(stateKept_.begin(), stateKept_.end(), [](bool kept) { return !kept; });
+  ownState_.assign(ownsState ? stateSlots * numPoints_ * width : 0, std::byte{0});
+  if (ownsState) {
+    if (computeType_ == ComputeType::F32) {
+      initialiseState<float>(program, reinterpret_cast<float*>(ownState_.data()), numPoints_);
+    } else {
+      initialiseState<double>(program, reinterpret_cast<double*>(ownState_.data()), numPoints_);
+    }
+  }
+}
+
+void Binding::resolveStates(const Program& program, const DataTable& table) {
+  const auto computeData = computeType_ == ComputeType::F32 ? DataType::F32 : DataType::F64;
+  const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  states_.clear();
+  stateKept_.clear();
+  for (const auto& spec : program.state()) {
+    const reader::scripting::StateEntry* found = nullptr;
+    for (const auto& entry : table.stateEntries()) {
+      if (entry.name == spec.name) {
+        if (found != nullptr) {
+          throw std::invalid_argument("expr: the data table keeps the state '" + spec.name +
+                                      "' twice");
+        }
+        found = &entry;
+      }
+    }
+    if (found == nullptr) {
+      // kept here, at slot * numPoints + point
+      reader::scripting::StateInput own;
+      own.cellStride = width;
+      own.type = computeData;
+      states_.push_back(own);
+      stateKept_.push_back(false);
+      continue;
+    }
+    const auto& input = found->input;
+    if (input.type != computeData) {
+      throw std::invalid_argument("expr: the data table keeps the state '" + spec.name + "' as " +
+                                  name(input.type) + ", but the program computes in " +
+                                  name(computeData));
+    }
+    if (input.base == nullptr) {
+      throw std::invalid_argument("expr: the data table keeps the state '" + spec.name +
+                                  "' at a null address");
+    }
+    if (input.pointsPerCell == 0 || numPoints_ % input.pointsPerCell != 0) {
+      throw std::invalid_argument("expr: the data table keeps the state '" + spec.name +
+                                  "' per cell of " + std::to_string(input.pointsPerCell) +
+                                  " points, which do not divide the point set");
+    }
+    // A device kernel accesses it through a typed pointer.
+    if (input.cellStride % width != 0 || input.pointStride % width != 0) {
+      throw std::invalid_argument("expr: the data table keeps the state '" + spec.name +
+                                  "' with strides that are not whole elements");
+    }
+    states_.push_back(input);
+    stateKept_.push_back(true);
+  }
+}
+
+void* Binding::stateBase(std::size_t state, void* moved) const {
+  if (stateKept_[state]) {
+    return moved != nullptr ? moved : states_[state].base;
+  }
+  const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  return ownState_.empty() ? nullptr : ownState_.data() + state * numPoints_ * width;
+}
+
+template <typename Tile>
+void Binding::gatherStateImpl(void* const* bases,
+                              std::size_t baseCount,
+                              std::size_t first,
+                              std::size_t count,
+                              Tile* dst) const {
+  for (std::size_t s = 0; s < states_.size(); ++s) {
+    const auto& state = states_[s];
+    const auto* base = static_cast<const char*>(
+        stateBase(s, bases != nullptr && s < baseCount ? bases[s] : nullptr));
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      const std::size_t point = permutation_.empty() ? first + lane : permutation_[first + lane];
+      std::memcpy(dst + s * count + lane, base + state.offset(point), sizeof(Tile));
+    }
+  }
+}
+
+template <typename Tile>
+void Binding::scatterStateImpl(void* const* bases,
+                               std::size_t baseCount,
+                               std::size_t first,
+                               std::size_t count,
+                               const Tile* src) const {
+  for (std::size_t s = 0; s < states_.size(); ++s) {
+    const auto& state = states_[s];
+    auto* base =
+        static_cast<char*>(stateBase(s, bases != nullptr && s < baseCount ? bases[s] : nullptr));
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      const std::size_t point = permutation_.empty() ? first + lane : permutation_[first + lane];
+      std::memcpy(base + state.offset(point), src + s * count + lane, sizeof(Tile));
+    }
+  }
+}
+
+void Binding::gatherState(void* const* bases,
+                          std::size_t baseCount,
+                          std::size_t first,
+                          std::size_t count,
+                          double* dst) const {
+  gatherStateImpl(bases, baseCount, first, count, dst);
+}
+
+void Binding::gatherState(void* const* bases,
+                          std::size_t baseCount,
+                          std::size_t first,
+                          std::size_t count,
+                          float* dst) const {
+  gatherStateImpl(bases, baseCount, first, count, dst);
+}
+
+void Binding::scatterState(void* const* bases,
+                           std::size_t baseCount,
+                           std::size_t first,
+                           std::size_t count,
+                           const double* src) const {
+  scatterStateImpl(bases, baseCount, first, count, src);
+}
+
+void Binding::scatterState(void* const* bases,
+                           std::size_t baseCount,
+                           std::size_t first,
+                           std::size_t count,
+                           const float* src) const {
+  scatterStateImpl(bases, baseCount, first, count, src);
+}
+
+double* Binding::persistentF64() {
+  if (computeType_ != ComputeType::F64) {
+    logError() << "expr: the program computes in f32; asked for the f64 persistent buffer.";
+  }
+  return persistent_.empty() ? nullptr : reinterpret_cast<double*>(persistent_.data());
+}
+
+float* Binding::persistentF32() {
+  if (computeType_ != ComputeType::F32) {
+    logError() << "expr: the program computes in f64; asked for the f32 persistent buffer.";
+  }
+  return persistent_.empty() ? nullptr : reinterpret_cast<float*>(persistent_.data());
+}
+
+namespace {
+
+// One column, read straight through its address arithmetic. No std::function,
+// no datatype switch inside the lane loop -- the column's storage type picks the
+// loop once, exactly as gatherColumn does for the table path.
+template <typename Tile, typename Col>
+void gatherView(const reader::scripting::StridedView& view,
+                const void* base,
+                const std::vector<std::size_t>& permutation,
+                std::size_t first,
+                std::size_t count,
+                Tile* dst) {
+  const auto* bytes = static_cast<const char*>(base) + view.byteOffset;
+  for (std::size_t lane = 0; lane < count; ++lane) {
+    const std::size_t point = permutation.empty() ? first + lane : permutation[first + lane];
+    Col value{};
+    std::memcpy(&value, bytes + view.element(point) * view.byteStride, sizeof(Col));
+    dst[lane] = static_cast<Tile>(value);
+  }
+}
+
+template <typename Tile>
+void gatherViewDispatch(const ColumnBinding& column,
+                        const void* base,
+                        const std::vector<std::size_t>& permutation,
+                        std::size_t first,
+                        std::size_t count,
+                        Tile* dst) {
+  switch (column.tableType) {
+  case DataType::F32:
+    gatherView<Tile, float>(*column.view, base, permutation, first, count, dst);
+    return;
+  case DataType::F64:
+    gatherView<Tile, double>(*column.view, base, permutation, first, count, dst);
+    return;
+  case DataType::I32:
+    gatherView<Tile, std::int32_t>(*column.view, base, permutation, first, count, dst);
+    return;
+  case DataType::I64:
+    gatherView<Tile, std::int64_t>(*column.view, base, permutation, first, count, dst);
+    return;
+  }
+}
+
+template <typename Tile, typename Col>
+void scatterView(const reader::scripting::StridedView& view,
+                 void* base,
+                 const std::vector<std::size_t>& permutation,
+                 std::size_t first,
+                 std::size_t count,
+                 const Tile* src) {
+  auto* bytes = static_cast<char*>(base) + view.byteOffset;
+  for (std::size_t lane = 0; lane < count; ++lane) {
+    const std::size_t point = permutation.empty() ? first + lane : permutation[first + lane];
+    const auto value = static_cast<Col>(src[lane]);
+    std::memcpy(bytes + point * view.byteStride, &value, sizeof(Col));
+  }
+}
+
+template <typename Tile>
+void scatterViewDispatch(const ColumnBinding& column,
+                         void* base,
+                         const std::vector<std::size_t>& permutation,
+                         std::size_t first,
+                         std::size_t count,
+                         const Tile* src) {
+  switch (column.tableType) {
+  case DataType::F32:
+    scatterView<Tile, float>(*column.view, base, permutation, first, count, src);
+    return;
+  case DataType::F64:
+    scatterView<Tile, double>(*column.view, base, permutation, first, count, src);
+    return;
+  case DataType::I32:
+    scatterView<Tile, std::int32_t>(*column.view, base, permutation, first, count, src);
+    return;
+  case DataType::I64:
+    scatterView<Tile, std::int64_t>(*column.view, base, permutation, first, count, src);
+    return;
+  }
+}
+
+} // namespace
+
+template <typename Tile>
+void Binding::gatherFromImpl(const void* const* inputs,
+                             std::size_t inputCount,
+                             std::size_t first,
+                             std::size_t count,
+                             Tile* dst) const {
+  for (std::size_t i = 0; i < inputs_.size(); ++i) {
+    const ColumnBinding& column = inputs_[i];
+    if (!column.view.has_value() && column.batch) {
+      // computed, but a range at a time and without the table
+      switch (column.tableType) {
+      case DataType::F32:
+        gatherBatchColumn<Tile, float>(column.batch, permutation_, first, count, dst + i * count);
+        break;
+      case DataType::F64:
+        gatherBatchColumn<Tile, double>(column.batch, permutation_, first, count, dst + i * count);
+        break;
+      case DataType::I32:
+        gatherBatchColumn<Tile, std::int32_t>(
+            column.batch, permutation_, first, count, dst + i * count);
+        break;
+      case DataType::I64:
+        gatherBatchColumn<Tile, std::int64_t>(
+            column.batch, permutation_, first, count, dst + i * count);
+        break;
+      }
+      continue;
+    }
+    if (!column.view.has_value()) {
+      logError() << "expr: this binding has a computed column and cannot be evaluated from raw "
+                    "pointers; use run(table).";
+    }
+    // A null override keeps the bound base, so a caller that moves only some
+    // columns per face need not restate the rest.
+    const void* base = (i < inputCount && inputs[i] != nullptr) ? inputs[i] : column.view->base;
+    gatherViewDispatch<Tile>(column, base, permutation_, first, count, dst + i * count);
+  }
+}
+
+template <typename Tile>
+void Binding::scatterToImpl(void* const* outputs,
+                            std::size_t outputCount,
+                            std::size_t first,
+                            std::size_t count,
+                            const Tile* src) const {
+  for (std::size_t i = 0; i < outputs_.size(); ++i) {
+    const ColumnBinding& column = outputs_[i];
+    if (!column.view.has_value()) {
+      logError() << "expr: this binding has a computed output column; use run(table).";
+    }
+    void* base = (i < outputCount && outputs[i] != nullptr) ? outputs[i] : column.view->base;
+    scatterViewDispatch<Tile>(column, base, permutation_, first, count, src + i * count);
+  }
+}
+
+void Binding::gatherFrom(const void* const* inputs,
+                         std::size_t inputCount,
+                         std::size_t first,
+                         std::size_t count,
+                         double* dst) const {
+  gatherFromImpl<double>(inputs, inputCount, first, count, dst);
+}
+void Binding::gatherFrom(const void* const* inputs,
+                         std::size_t inputCount,
+                         std::size_t first,
+                         std::size_t count,
+                         float* dst) const {
+  gatherFromImpl<float>(inputs, inputCount, first, count, dst);
+}
+void Binding::scatterTo(void* const* outputs,
+                        std::size_t outputCount,
+                        std::size_t first,
+                        std::size_t count,
+                        const double* src) const {
+  scatterToImpl<double>(outputs, outputCount, first, count, src);
+}
+void Binding::scatterTo(void* const* outputs,
+                        std::size_t outputCount,
+                        std::size_t first,
+                        std::size_t count,
+                        const float* src) const {
+  scatterToImpl<float>(outputs, outputCount, first, count, src);
+}
+
+void Binding::gather(const DataTable& table,
+                     std::size_t first,
+                     std::size_t count,
+                     double* dst) const {
+  for (const auto& column : inputs_) {
+    gatherOne<double>(column,
+                      table,
+                      permutation_,
+                      first,
+                      count,
+                      dst + static_cast<std::size_t>(column.slot) * count);
+  }
+}
+
+void Binding::gather(const DataTable& table,
+                     std::size_t first,
+                     std::size_t count,
+                     float* dst) const {
+  for (const auto& column : inputs_) {
+    gatherOne<float>(column,
+                     table,
+                     permutation_,
+                     first,
+                     count,
+                     dst + static_cast<std::size_t>(column.slot) * count);
+  }
+}
+
+void Binding::scatter(const DataTable& table,
+                      std::size_t first,
+                      std::size_t count,
+                      const double* src) const {
+  for (const auto& column : outputs_) {
+    scatterOne<double>(column,
+                       table,
+                       permutation_,
+                       first,
+                       count,
+                       src + static_cast<std::size_t>(column.slot) * count);
+  }
+}
+
+void Binding::scatter(const DataTable& table,
+                      std::size_t first,
+                      std::size_t count,
+                      const float* src) const {
+  for (const auto& column : outputs_) {
+    scatterOne<float>(column,
+                      table,
+                      permutation_,
+                      first,
+                      count,
+                      src + static_cast<std::size_t>(column.slot) * count);
+  }
+}
+
+} // namespace seissol::expr
