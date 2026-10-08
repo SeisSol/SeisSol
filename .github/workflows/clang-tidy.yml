@@ -23,7 +23,7 @@ jobs:
       - name: apt-get
         run: |
           sudo apt-get update
-          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-dev libomp-dev libopenmpi-dev libptscotch-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
+          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-dev libomp-dev libopenmpi-dev libptscotch-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip libblas-dev liblapack-dev liblapacke-dev
 
           # fetch the latest clang-tidy manually from the LLVM sources; since that's usually not provided in the Ubuntu default repos. (and we update the clang-tidy version more often than there are Ubuntu-LTS releases)
 
@@ -98,9 +98,9 @@ jobs:
 
       - name: clang-tidy
         run: |
-          set -euo pipefail
+          set -eu pipefail
           clang-tidy-22 --version
           mkdir -p build && cd build
-          CC=clang-18 CXX=clang++-18 cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DASAGI=OFF -DHDF5=ON -DDEVICE_BACKEND=acpp -DDEVICE_ARCH=sm_75 -DDEVICE_CODEGEN=tensorforge -DCONFIGS=ci-gpu -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          CC=gcc CXX=g++ cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DASAGI=OFF -DHDF5=ON -DDEVICE_BACKEND=acpp -DDEVICE_ARCH=sm_75 -DDEVICE_CODEGEN=tensorforge -DCONFIGS=ci-gpu -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           ninja seissol-codegen
           TIDY_SHARD=${{ matrix.shard }}/4 ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-22) -quiet -j $(nproc)

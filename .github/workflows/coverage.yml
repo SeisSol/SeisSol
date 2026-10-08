@@ -17,7 +17,7 @@ jobs:
       - name: apt-get
         run: |
           sudo apt-get update
-          sudo apt-get install lcov ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libomp-dev libopenmpi-dev libptscotch-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
+          sudo apt-get install lcov ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libomp-dev libopenmpi-dev libptscotch-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip libblas-dev liblapack-dev liblapacke-dev
 
           sudo pip3 install setuptools numpy --break-system-packages
           sudo mkdir -p /opt/dependencies
