@@ -10,11 +10,14 @@
 #include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Solver.h"
 #include "TestConfigs.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 namespace seissol::unit_test {
@@ -208,10 +211,14 @@ TEST_CASE_TEMPLATE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::te
   const auto [neighborMetrics, drMetrics] =
       neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
-  // All three kernels should have non-trivial cost
-  CHECK(aderMetrics.nonzeroFlop > 100);
-  CHECK(localMetrics.nonzeroFlop > 100);
-  CHECK(neighborMetrics.nonzeroFlop > 100);
+  // All three kernels should have non-trivial cost: each computes every degree of freedom of the
+  // cell at least once. Beyond that, the cost depends on the configuration; in order 2, the ADER
+  // kernel of a fluid stays below a hundred flops.
+  constexpr std::size_t NumDofs = model::MaterialOf<Cfg>::NumQuantities *
+                                  kernels::getNumberOfBasisFunctions(Cfg::ConvergenceOrder);
+  CHECK(aderMetrics.nonzeroFlop >= NumDofs);
+  CHECK(localMetrics.nonzeroFlop >= NumDofs);
+  CHECK(neighborMetrics.nonzeroFlop >= NumDofs);
 }
 
 } // namespace seissol::unit_test
