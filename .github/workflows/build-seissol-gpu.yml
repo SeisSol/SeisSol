@@ -100,7 +100,9 @@ jobs:
                   # and Python cannot import one there: install it regardless of what is installed,
                   # and its dependencies beforehand
                   pip3 install numpy pyyaml
-                  pip3 install --ignore-installed --no-deps git+https://github.com/seissol/tensorforge.git
+                  git clone https://github.com/seissol/tensorforge.git
+                  export PYTHONPATH=$(pwd)/tensorforge/src:$PYTHONPATH
+                  export CMAKE_PREFIX_PATH=$(pwd)/tensorforge/src/tensorforge/cmake:$CMAKE_PREFIX_PATH
               else
                   pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
               fi
