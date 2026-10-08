@@ -9,14 +9,16 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Real.h"
-#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "Solver/MultipleSimulations.h"
+#include "TestHelper.h"
 
+#include <cctype>
 #include <cstddef>
+#include <optional>
 #include <string>
 
 namespace seissol::unit_test {
@@ -39,7 +41,7 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
   }
 
   SUBCASE("Nothing else is found") {
-    auto other = Config::Value;
+    auto other = configValue(defaultConfig());
     other.convergenceOrder += 10;
     CHECK_FALSE(findConfig(other).has_value());
     CHECK_FALSE(findConfig(configName(other)).has_value());
@@ -97,6 +99,28 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
       CHECK(description.find(configName(configValue(static_cast<ConfigId>(other)))) !=
             std::string::npos);
     }
+  }
+}
+
+TEST_CASE(
+    "The default configuration is the one SEISSOL_CONFIGURATION names and otherwise the first" *
+    doctest::test_suite("common")) {
+  const auto last = static_cast<ConfigId>(builtConfigCount() - 1);
+
+  SUBCASE("named, spelled as in a parameter file") {
+    auto name = configName(configValue(last));
+    for (auto& character : name) {
+      character = static_cast<char>(std::toupper(static_cast<unsigned char>(character)));
+    }
+    const ScopedEnvironment environment("SEISSOL_CONFIGURATION", " " + name + " ");
+    CHECK(environmentConfig() == last);
+    CHECK(defaultConfig() == last);
+  }
+
+  SUBCASE("not set") {
+    const ScopedEnvironment environment("SEISSOL_CONFIGURATION", std::nullopt);
+    CHECK_FALSE(environmentConfig().has_value());
+    CHECK(defaultConfig() == 0);
   }
 }
 

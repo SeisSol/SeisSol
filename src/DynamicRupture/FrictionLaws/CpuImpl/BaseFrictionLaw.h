@@ -30,7 +30,7 @@ class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
   size_t currLayerSize_{};
 
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit BaseFrictionLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : FrictionSolverImpl<Cfg>(drParameters) {}

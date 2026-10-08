@@ -57,6 +57,7 @@ struct ElasticMaterial : Material {
   static constexpr std::size_t Parameters = 2 + Material::Parameters;
 
   static constexpr bool SupportsDR = true;
+  static constexpr bool SupportsPlasticity = true;
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 

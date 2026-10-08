@@ -75,7 +75,7 @@ class TimeClusterInterface : public AbstractTimeCluster {
 template <typename Cfg>
 class TimeCluster : public TimeClusterInterface {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   private:
   // Last correction time of the neighboring cluster with higher dt

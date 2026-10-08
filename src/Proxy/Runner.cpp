@@ -11,6 +11,7 @@
 #include "KernelDevice.h"
 #include "KernelHost.h"
 #include "Kernels/Common.h"
+#include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Proxy/Kernel.h"
 
@@ -51,20 +52,28 @@ void testKernel(std::shared_ptr<ProxyData>& data,
   }
 }
 
+auto makeKernel(const ProxyConfig& config) -> std::shared_ptr<ProxyKernel> {
+  std::vector<std::shared_ptr<ProxyKernel>> subkernels;
+  for (const auto& kernelName : config.kernels) {
+    if constexpr (isDeviceOn()) {
+      subkernels.emplace_back(getProxyKernelDevice(kernelName));
+    } else {
+      subkernels.emplace_back(getProxyKernelHost(kernelName));
+    }
+  }
+  return std::dynamic_pointer_cast<ProxyKernel>(std::make_shared<ChainKernel>(subkernels));
+}
+
 } // namespace
 
+auto estimateProxy(const ProxyConfig& config) -> PerformanceEstimate {
+  const auto kernel = makeKernel(config);
+  const auto data = makeProxyData(config.config, config.cells, kernel->needsDR());
+  return kernel->performanceEstimate(*data);
+}
+
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
-  auto kernel = [&]() {
-    std::vector<std::shared_ptr<ProxyKernel>> subkernels;
-    for (const auto& kernelName : config.kernels) {
-      if constexpr (isDeviceOn()) {
-        subkernels.emplace_back(getProxyKernelDevice(kernelName));
-      } else {
-        subkernels.emplace_back(getProxyKernelHost(kernelName));
-      }
-    }
-    return std::dynamic_pointer_cast<ProxyKernel>(std::make_shared<ChainKernel>(subkernels));
-  }();
+  auto kernel = makeKernel(config);
 
   const bool enableDynamicRupture = kernel->needsDR();
 

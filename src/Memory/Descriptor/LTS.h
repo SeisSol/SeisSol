@@ -26,6 +26,8 @@
 #include "Parallel/Helper.h"
 #include "Solver/Settings.h"
 
+#include <cstdint>
+
 namespace seissol {
 
 struct LTS {
@@ -41,8 +43,10 @@ struct LTS {
     PlasticityData
   };
 
-  static auto allocationModeWP(AllocationPreset preset,
-                               int convergenceOrder = seissol::ConvergenceOrder) {
+  /// The variables hold the data of every configuration; their sizes, which the placement
+  /// depends on, grow with the order.
+  static auto allocationModeWP(AllocationPreset preset) {
+    constexpr auto MaxOrder = maxBuiltConvergenceOrder();
     using namespace seissol::initializer;
     if constexpr (!isDeviceOn()) {
       switch (preset) {
@@ -57,13 +61,13 @@ struct LTS {
       case AllocationPreset::Timebucket:
         [[fallthrough]];
       case AllocationPreset::Timedofs:
-        return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       case AllocationPreset::Constant:
         [[fallthrough]];
       case AllocationPreset::ConstantShared:
-        return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       case AllocationPreset::Dofs:
-        return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       default:
         return AllocationMode::HostOnly;
       }
@@ -115,6 +119,8 @@ struct LTS {
   using FaceBoundaryMappings = std::array<CellBoundaryMapping<Cfg>, Cell::NumFaces>;
   template <typename Cfg>
   using EnergyDataOf = typename model::MaterialOf<Cfg>::template EnergyData<Cfg>;
+  template <typename Cfg>
+  using NormalStressWeightsOf = seissol::NormalStressWeights<Cfg>;
 
   struct Dofs : public initializer::VariantVariable<DofsArray> {};
   struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
@@ -130,6 +136,9 @@ struct LTS {
   struct LocalIntegration : public initializer::VariantVariable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::VariantVariable<NeighboringIntegrationData> {
   };
+  // for the cells of a fluid, the weights of the normal stress on each face for a neighbor of a
+  // solid in another configuration (see kernels::ConfigBoundary); empty for the others
+  struct NormalStress : public initializer::VariantVariable<NormalStressWeightsOf> {};
   struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::VariantVariable<seissol::model::PlasticityData> {};
@@ -163,6 +172,10 @@ struct LTS {
 
   struct ZinvExtra : public initializer::VariantScratchpad<Real> {};
 
+  // the time integrals of the neighbors of other configurations, in their configuration, in the
+  // canonical form, and converted (see kernels::ConfigBoundary); in bytes, as they mix reals
+  struct ConfigBoundaryScratch : public initializer::Scratchpad<std::uint8_t> {};
+
   struct Integrals : public initializer::VariantVariable<DofsArray> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
@@ -176,6 +189,7 @@ struct LTS {
                                                         FaceNeighbors,
                                                         LocalIntegration,
                                                         NeighboringIntegration,
+                                                        NormalStress,
                                                         Material,
                                                         MaterialData,
                                                         Plasticity,
@@ -203,7 +217,8 @@ struct LTS {
                                                         QStressNodalScratch,
                                                         Integrals,
                                                         EnergyData,
-                                                        ZinvExtra> {};
+                                                        ZinvExtra,
+                                                        ConfigBoundaryScratch> {};
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
@@ -258,6 +273,8 @@ struct LTS {
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<NeighboringIntegration>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<NormalStress>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Plasticity>(
@@ -303,6 +320,7 @@ struct LTS {
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
 
       storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
+      storage.add<ConfigBoundaryScratch>(LayerMask(), Alignment, mode);
     }
   }
 

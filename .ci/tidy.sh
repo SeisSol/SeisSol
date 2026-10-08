@@ -50,7 +50,21 @@ format() {
         FILE_REGEX="${FILE_REGEX}|${escaped}\$"
     done
 
-    run-clang-tidy -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $FILE_REGEX
+    # with TIDY_SHARD=i/n, every n-th translation unit from the i-th on (by path), so that n jobs
+    # share the work; the headers are checked by the TUs that include them, in every part
+    SOURCE_REGEX="${FILE_REGEX}"
+    if [ -n "${TIDY_SHARD:-}" ]; then
+        SOURCE_REGEX=$(python3 - "${SEISSOL_BUILD_DIR}/compile_commands.json" "${FILE_REGEX}" "${TIDY_SHARD}" <<'EOF'
+import json, re, sys
+commands, allowed, shard = sys.argv[1:4]
+index, count = (int(part) for part in shard.split('/'))
+files = sorted({entry['file'] for entry in json.load(open(commands)) if re.search(allowed, entry['file'])})
+print('|'.join(re.escape(name) + '$' for name in files[index::count]) or '^$')
+EOF
+)
+    fi
+
+    run-clang-tidy -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $SOURCE_REGEX
 }
 
 format $@

@@ -497,7 +497,7 @@ void OutputManager::initPickpointOutput() {
                 const auto& face = outputData->topology.faces[faceId];
                 dispatchConfig(drLayer.getIdentifier().config, [&](auto cfg) {
                   using Cfg = decltype(cfg);
-                  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+                  using real = Real<Cfg>;
                   const auto* stresses = drLayer.var<DynamicRupture::StressSourceInFaultCS>(cfg);
                   const auto* onsets = drLayer.var<DynamicRupture::StressSourceOnset>(cfg);
                   const auto* riseTimes = drLayer.var<DynamicRupture::StressSourceRiseTime>(cfg);

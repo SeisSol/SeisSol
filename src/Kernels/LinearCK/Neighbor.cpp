@@ -30,12 +30,15 @@
 #include <iterator>
 #include <stdint.h>
 #include <utility>
-#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 #ifndef NDEBUG
@@ -135,14 +138,15 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             if (table.find(key) != table.end()) {
               auto& entry = table[key];
 
-              const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+              const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
               neighFluxKrnl.numElements = numElements;
 
-              neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+              neighFluxKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
               neighFluxKrnl.I = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+                  (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
-                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+                  entry.get<real*>(inner_keys::Wp::Id::NeighborIntegrationData)
+                      ->getDeviceDataPtr());
 
               SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData<Cfg>, nAmNm1);
               neighFluxKrnl.extraOffset_AminusT =
@@ -168,14 +172,14 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             if (table.find(key) != table.end()) {
               auto& entry = table[key];
 
-              const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+              const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
               drKrnl.numElements = numElements;
 
               drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+                  (entry.get<real*>(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
               drKrnl.QInterpolated = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-              drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+                  (entry.get<real*>(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+              drKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
               real* tmpMem = reinterpret_cast<real*>(device_.api().allocMemAsync(
                   seissol::dynamicRupture::kernel::gpu_nodalFlux<Cfg>::TmpMaxMemRequiredInBytes *

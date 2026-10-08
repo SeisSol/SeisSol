@@ -7,7 +7,6 @@
 
 #include <doctest.h>
 
-#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/TimeBasis.h"
 #include "TestHelper.h"

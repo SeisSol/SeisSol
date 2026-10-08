@@ -23,6 +23,7 @@ from enum import Enum
 from typing import Optional
 
 import numpy as np
+from kernels.output import write_if_changed
 
 
 class QuantityKind(Enum):
@@ -252,5 +253,4 @@ def emit_header(aderdg, output_dir, key):
         "} // namespace seissol::generated",
         "",
     ]
-    with open(os.path.join(output_dir, "quantities.h"), "w") as file:
-        file.write("\n".join(lines))
+    write_if_changed(os.path.join(output_dir, "quantities.h"), "\n".join(lines))

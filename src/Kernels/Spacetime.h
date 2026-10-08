@@ -29,7 +29,7 @@ namespace seissol::kernels {
 template <typename Cfg>
 class SpacetimeKernel : public Kernel<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   ~SpacetimeKernel() override = default;
 

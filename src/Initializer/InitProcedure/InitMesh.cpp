@@ -22,6 +22,7 @@
 #include <math.h>
 #include <mpi.h>
 #include <optional>
+#include <utility>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
@@ -115,10 +116,11 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 #ifdef USE_HDF
   double nodeWeight = 1.0;
 
-  if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
+  const bool miniSeisSolEnabled = seissolInstance.env().get<bool>("MINISEISSOL", true);
+  if (miniSeisSolEnabled) {
     if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
-      auto elapsedTime = seissol::solver::miniSeisSol();
+      auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);
@@ -133,6 +135,17 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     }
   } else {
     logInfo() << "Skipping mini SeisSol (disabled).";
+  }
+
+  // In a run with several configurations, a cell costs according to its configuration. Measuring
+  // that only matters with several ranks; a single one gets by with the estimate for the
+  // clustering.
+  const auto configs = seissolParams.model.configs();
+  std::vector<double> configCostFactors;
+  if (configs.size() > 1) {
+    const bool measure = miniSeisSolEnabled && seissol::Mpi::mpi.size() > 1;
+    configCostFactors =
+        seissol::solver::configCostFactors(configs, seissolParams.model.config, measure);
   }
 
   logInfo() << "Reading PUML mesh";
@@ -293,7 +306,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
       seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
-      &faceMap};
+      &faceMap,
+      std::move(configCostFactors)};
 
   seissol::initializer::Clustering clustering(config, seissolInstance);
   auto weightModel = seissol::initializer::getVertexWeightModel(

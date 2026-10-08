@@ -89,7 +89,7 @@ class ReceiverOutputImpl : public ReceiverOutput {
 
   template <typename Cfg>
   struct LocalInfo {
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
 
     DynamicRupture::Layer* layer{};
     size_t ltsId{};

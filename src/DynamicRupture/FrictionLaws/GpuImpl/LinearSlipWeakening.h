@@ -23,7 +23,7 @@ template <typename Cfg, typename Derived>
 class LinearSlipWeakeningBase
     : public BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit LinearSlipWeakeningBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters) {};
@@ -68,10 +68,13 @@ class LinearSlipWeakeningBase
                                                        absoluteShearStress);
 
     // the direction along which the slip rate is decomposed further down; scaled such that
-    // dividing by `divisor` yields the unit slip direction
+    // dividing by `divisor` yields the unit slip direction. Only the anisotropic branch below
+    // changes them, which the check does not see in the other materials.
+    // NOLINTBEGIN(misc-const-correctness)
     real dirStress1 = totalStress1;
     real dirStress2 = totalStress2;
     real etaEff = eta;
+    // NOLINTEND(misc-const-correctness)
     real slipRateMagnitude{};
 
     if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
@@ -170,7 +173,7 @@ template <typename Cfg, class SpecializationT>
 class LinearSlipWeakeningLaw
     : public LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit LinearSlipWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>>(drParameters),
@@ -275,7 +278,7 @@ class LinearSlipWeakeningLaw
 template <typename Cfg>
 class NoSpecialization {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit NoSpecialization(const FrictionLawParameters<Real<Cfg>>& parameters) {};
 
@@ -319,7 +322,7 @@ class NoSpecialization {
 template <typename Cfg>
 class BiMaterialFault {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit BiMaterialFault(const FrictionLawParameters<Real<Cfg>>& parameters) {};
 
@@ -376,7 +379,7 @@ class BiMaterialFault {
 template <typename Cfg>
 class TPApprox {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit TPApprox(const FrictionLawParameters<Real<Cfg>>& parameters) {};
 

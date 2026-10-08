@@ -352,6 +352,9 @@ CheckOptions:
 #    value:           CamelCase
   - key:             readability-identifier-naming.TypeAliasCase
     value:           CamelCase
+# the reals of a configuration keep their lower-case name: using real = Real<Cfg>;
+  - key:             readability-identifier-naming.TypeAliasIgnoredRegexp
+    value:           '^real$'
 #  - key:             readability-identifier-naming.TypeAliasPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasSuffix
@@ -397,6 +400,6 @@ CheckOptions:
     # Eigen needs to ignore Eigen/Core and Eigen/Eigenvalues, until we make Eigen3 5.0.0 mandatory
     # also, ignore internal GCC headers (bits/)
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*|Eigen/Core|Eigen/Eigenvalues|yaml-cpp/.*|H5.*|hdf5\.h|yateto/.*|bits/.*|external/.*'
+    value:           'Eigen/src/.*|Eigen/Core|Eigen/Eigenvalues|yaml-cpp/.*|H5.*|hdf5\.h|yateto/.*|bits/.*|external/.*|sycl/sycl\.hpp|hipSYCL/.*|AdaptiveCpp/.*'
   - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
     value:           True

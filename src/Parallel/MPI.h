@@ -10,7 +10,6 @@
 #define SEISSOL_SRC_PARALLEL_MPI_H_
 
 #include "Common/Real.h"
-#include "Kernels/Precision.h"
 #include "MPIBasic.h"
 
 #include <algorithm>

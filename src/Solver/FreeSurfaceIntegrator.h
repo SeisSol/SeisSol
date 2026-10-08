@@ -11,7 +11,6 @@
 
 #include "Geometry/MeshReader.h"
 #include "Kernels/Common.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"

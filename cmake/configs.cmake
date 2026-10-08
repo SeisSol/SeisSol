@@ -7,12 +7,13 @@
 
 # The configurations built into the executable, in the order of their ids. The first one is the one
 # that EQUATIONS, SOLVER, NUMBER_OF_MECHANISMS, ORDER, PRECISION, DR_QUAD_RULE and
-# NUMBER_OF_FUSED_SIMULATIONS describe; EXTRA_CONFIGS adds further ones by their name, as
-# seissol::configName writes it: <material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<dr quadrature
-# rule>[-s<fused simulations>], e.g. elastic-linearck-o4-f32-stroud.
+# NUMBER_OF_FUSED_SIMULATIONS describe; EXTRA_CONFIGS adds further ones by their name or by a named
+# set of them (see cmake/confignames.cmake), e.g. elastic-linearck-o4-f32-stroud. With CONFIGS, its
+# first configuration sets these variables (see cmake/process_users_input.cmake), and its others
+# are the further ones.
 #
 # Sets, as lists with one entry per configuration:
-#   SEISSOL_CONFIG_TYPES (the C++ type: Config, Config1, ...), SEISSOL_CONFIG_MATERIALS,
+#   SEISSOL_CONFIG_TYPES (the C++ type: Config0, Config1, ...), SEISSOL_CONFIG_MATERIALS,
 #   SEISSOL_CONFIG_SOLVERS, SEISSOL_CONFIG_MECHANISMS, SEISSOL_CONFIG_ORDERS,
 #   SEISSOL_CONFIG_PRECISIONS (single or double), SEISSOL_CONFIG_DRQUADRULES,
 #   SEISSOL_CONFIG_SIMULATIONS;
@@ -21,24 +22,18 @@
 set(EXTRA_CONFIGS "" CACHE STRING
   "Further configurations to build into the executable, by name (e.g. elastic-linearck-o4-f32-stroud)")
 
-# The name of a configuration, as seissol::configName writes it.
-function(seissol_config_name output material solver mechanisms order precision drquadrule simulations)
-  set(_name "${material}-${solver}")
-  if (mechanisms GREATER 0)
-    string(APPEND _name "-m${mechanisms}")
+seissol_expand_configs(_further_configs "${EXTRA_CONFIGS}")
+set(_further_context "EXTRA_CONFIGS")
+if (NOT "${CONFIGS}" STREQUAL "")
+  if (NOT "${EXTRA_CONFIGS}" STREQUAL "")
+    message(FATAL_ERROR "Give the configurations either as CONFIGS or as EXTRA_CONFIGS (with "
+      "EQUATIONS, ORDER, ...), not both.")
   endif()
-  if ("${precision}" STREQUAL "single")
-    string(APPEND _name "-o${order}-f32-${drquadrule}")
-  else()
-    string(APPEND _name "-o${order}-f64-${drquadrule}")
-  endif()
-  if (NOT simulations EQUAL 1)
-    string(APPEND _name "-s${simulations}")
-  endif()
-  set(${output} "${_name}" PARENT_SCOPE)
-endfunction()
+  set(_further_configs ${SEISSOL_CONFIGS_FURTHER})
+  set(_further_context "CONFIGS")
+endif()
 
-set(SEISSOL_CONFIG_TYPES Config)
+set(SEISSOL_CONFIG_TYPES Config0)
 set(SEISSOL_CONFIG_MATERIALS ${EQUATIONS})
 set(SEISSOL_CONFIG_SOLVERS ${SOLVER})
 set(SEISSOL_CONFIG_MECHANISMS ${NUMBER_OF_MECHANISMS})
@@ -50,64 +45,22 @@ seissol_config_name(_config_names ${EQUATIONS} ${SOLVER} ${NUMBER_OF_MECHANISMS}
   ${DR_QUAD_RULE} ${NUMBER_OF_FUSED_SIMULATIONS})
 
 set(_config_index 0)
-foreach(_name IN LISTS EXTRA_CONFIGS)
-  if (NOT _name MATCHES "^([a-z]+)-([a-z]+)(-m([0-9]+))?-o([0-9]+)-(f32|f64)-([a-z]+)(-s([0-9]+))?$")
-    message(FATAL_ERROR "EXTRA_CONFIGS: \"${_name}\" is not the name of a configuration, "
-      "<material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<dr quadrature rule>[-s<fused simulations>].")
+foreach(_name IN LISTS _further_configs)
+  seissol_parse_config_name(_config ${_name} ${_further_context})
+  if (_name IN_LIST _config_names)
+    message(FATAL_ERROR "${_further_context}: ${_name} is built already.")
   endif()
-  set(_material "${CMAKE_MATCH_1}")
-  set(_solver "${CMAKE_MATCH_2}")
-  set(_mechanisms "${CMAKE_MATCH_4}")
-  set(_order "${CMAKE_MATCH_5}")
-  set(_precision "${CMAKE_MATCH_6}")
-  set(_drquadrule "${CMAKE_MATCH_7}")
-  set(_simulations "${CMAKE_MATCH_9}")
-  if ("${_mechanisms}" STREQUAL "")
-    set(_mechanisms 0)
-  endif()
-  if ("${_simulations}" STREQUAL "")
-    set(_simulations 1)
-  endif()
-  if ("${_precision}" STREQUAL "f32")
-    set(_precision single)
-  else()
-    set(_precision double)
-  endif()
-
-  check_parameter("The material of ${_name}" ${_material} "${EQUATIONS_OPTIONS}")
-  if (NOT _solver IN_LIST SOLVERS_${_material})
-    message(FATAL_ERROR "EXTRA_CONFIGS: ${_name} advances ${_material} with ${_solver}; "
-      "available: ${SOLVERS_${_material}}.")
-  endif()
-  check_parameter("The order of ${_name}" ${_order} "${ORDER_OPTIONS}")
-  check_parameter("The dynamic rupture quadrature rule of ${_name}" ${_drquadrule}
-    "${DR_QUAD_RULE_OPTIONS}")
-  if ((_material MATCHES "visco.?") AND (_mechanisms LESS 1))
-    message(FATAL_ERROR "EXTRA_CONFIGS: ${_name} needs relaxation mechanisms (-m<number>).")
-  endif()
-  if ((NOT _material MATCHES "visco.?") AND (_mechanisms GREATER 0))
-    message(FATAL_ERROR "EXTRA_CONFIGS: ${_material} in ${_name} has no relaxation mechanisms.")
-  endif()
-
-  seissol_config_name(_canonical ${_material} ${_solver} ${_mechanisms} ${_order} ${_precision}
-    ${_drquadrule} ${_simulations})
-  if (NOT "${_canonical}" STREQUAL "${_name}")
-    message(FATAL_ERROR "EXTRA_CONFIGS: write ${_name} as ${_canonical}.")
-  endif()
-  if (_canonical IN_LIST _config_names)
-    message(FATAL_ERROR "EXTRA_CONFIGS: ${_name} is built already.")
-  endif()
-  list(APPEND _config_names ${_canonical})
+  list(APPEND _config_names ${_name})
 
   math(EXPR _config_index "${_config_index} + 1")
   list(APPEND SEISSOL_CONFIG_TYPES Config${_config_index})
-  list(APPEND SEISSOL_CONFIG_MATERIALS ${_material})
-  list(APPEND SEISSOL_CONFIG_SOLVERS ${_solver})
-  list(APPEND SEISSOL_CONFIG_MECHANISMS ${_mechanisms})
-  list(APPEND SEISSOL_CONFIG_ORDERS ${_order})
-  list(APPEND SEISSOL_CONFIG_PRECISIONS ${_precision})
-  list(APPEND SEISSOL_CONFIG_DRQUADRULES ${_drquadrule})
-  list(APPEND SEISSOL_CONFIG_SIMULATIONS ${_simulations})
+  list(APPEND SEISSOL_CONFIG_MATERIALS ${_config_MATERIAL})
+  list(APPEND SEISSOL_CONFIG_SOLVERS ${_config_SOLVER})
+  list(APPEND SEISSOL_CONFIG_MECHANISMS ${_config_MECHANISMS})
+  list(APPEND SEISSOL_CONFIG_ORDERS ${_config_ORDER})
+  list(APPEND SEISSOL_CONFIG_PRECISIONS ${_config_PRECISION})
+  list(APPEND SEISSOL_CONFIG_DRQUADRULES ${_config_DRQUADRULE})
+  list(APPEND SEISSOL_CONFIG_SIMULATIONS ${_config_SIMULATIONS})
 endforeach()
 
 list(LENGTH SEISSOL_CONFIG_TYPES SEISSOL_CONFIG_COUNT)

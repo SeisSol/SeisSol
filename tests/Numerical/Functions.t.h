@@ -7,7 +7,6 @@
 
 #include <doctest.h>
 
-#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/StableSum.h"
 #include "TestHelper.h"
@@ -41,7 +40,7 @@ TEST_CASE("Test Jacobi polynomials" * doctest::test_suite("numerical")) {
 }
 
 TEST_CASE("Test first derivative of Jacobi polynomials" * doctest::test_suite("numerical")) {
-  constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
+  constexpr double Epsilon = 100 * std::numeric_limits<double>::epsilon();
   // Compare to Maple reference solution
   CHECK(seissol::functions::JacobiPDerivative(0, 1, 0, 0.5) == AbsApprox(0.0).epsilon(Epsilon));
   CHECK(seissol::functions::JacobiPDerivative(1, 0, 0, -0.3) ==

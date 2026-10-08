@@ -8,7 +8,7 @@
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
   set_source_files_properties(
-      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+      ${SEISSOL_CODEGEN_ROUTINES} PROPERTIES COMPILE_FLAGS -mno-red-zone
   )
 endif()
 
@@ -71,14 +71,14 @@ if (WITH_GPU)
   # include cmake files will define seissol-device-lib target
   if ("${DEVICE_BACKEND}" STREQUAL "cuda" OR "${DEVICE_BACKEND}" STREQUAL "hip")
     set(DEVICE_SRC ${DEVICE_SRC}
-      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
+      ${SEISSOL_CODEGEN_DEVICE}
       Kernels/DeviceAux/cudahip/PlasticityAux.cpp
       Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
       Kernels/PointSourceClusterCudaHip.cpp)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     set(DEVICE_SRC ${DEVICE_SRC}
-          ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
+          ${SEISSOL_CODEGEN_DEVICE}
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
           Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp

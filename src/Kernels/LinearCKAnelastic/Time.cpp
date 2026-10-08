@@ -9,26 +9,38 @@
 
 #include "Time.h"
 
+#include "Alignment.h"
+#include "Common/Constants.h"
 #include "Common/Marker.h"
 #include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Interface.h"
+#include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Kernels/MemoryOps.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 namespace seissol::kernels::solver::linearckanelastic {
@@ -220,7 +232,7 @@ void Time<Cfg>::evaluateBatched(
   krnl.I = timeIntegratedDofs;
   std::size_t derivativeOffset = 0;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-    krnl.dQ(i) = const_cast<const real**>(timeDerivativesOrSTP);
+    krnl.dQ(i) = timeDerivativesOrSTP;
     krnl.extraOffset_dQ(i) = derivativeOffset;
     derivativeOffset += tensor::dQ<Cfg>::size(i);
     krnl.power(i) = coeffs[i];
@@ -236,11 +248,11 @@ void Time<Cfg>::evaluateBatched(
 template <typename Cfg>
 void Spacetime<Cfg>::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
-    SEISSOL_GPU_PARAM double timeStepWidth,
-    SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM LocalTmp<Cfg>& tmp,
+    double /*timeStepWidth*/,
+    LTS::Layer& /*layer*/,
+    LocalTmp<Cfg>& /*tmp*/,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM bool updateDisplacement,
+    bool /*updateDisplacement*/,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
@@ -248,47 +260,48 @@ void Spacetime<Cfg>::computeBatchedAder(
   /*
    * compute ADER scheme.
    */
-  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
     kernel::gpu_derivative<Cfg> krnl = deviceKrnlPrototype_;
     auto& entry = dataTable[timeVolumeKernelKey];
 
-    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
     krnl.numElements = numElements;
-    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
-    krnl.Iane = (entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr();
+    krnl.I = (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    krnl.Iane = (entry.get<real*>(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr();
 
     std::size_t derivativesOffset = tensor::dQ<Cfg>::size(0);
-    krnl.dQ(0) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-    krnl.dQane(0) = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    krnl.dQ(0) = (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+    krnl.dQane(0) = (entry.get<real*>(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
     for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-      krnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+      krnl.dQ(i) = (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
       krnl.extraOffset_dQ(i) = derivativesOffset;
-      krnl.dQane(i) = (entry.get(inner_keys::Wp::Id::DerivativesAne))->getDeviceDataPtr();
+      krnl.dQane(i) = (entry.get<real*>(inner_keys::Wp::Id::DerivativesAne))->getDeviceDataPtr();
       krnl.extraOffset_dQane(i) = i % 2 == 1 ? 0 : tensor::dQane<Cfg>::size(1);
-      krnl.dQext(i) = (entry.get(inner_keys::Wp::Id::DerivativesExt))->getDeviceDataPtr();
+      krnl.dQext(i) = (entry.get<real*>(inner_keys::Wp::Id::DerivativesExt))->getDeviceDataPtr();
       krnl.extraOffset_dQext(i) = i % 2 == 1 ? 0 : tensor::dQext<Cfg>::size(1);
 
       // TODO: compress
       derivativesOffset += tensor::dQ<Cfg>::size(i);
     }
-    krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    krnl.Q =
+        const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, starMatrices);
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+          (entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
 
     krnl.W = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.W);
     krnl.w = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.w);
     krnl.E = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.E);
 
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Cfg>, specific.W);

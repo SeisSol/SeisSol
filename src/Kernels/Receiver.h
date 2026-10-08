@@ -147,7 +147,7 @@ class ReceiverCluster {
 template <typename Cfg>
 class ReceiverClusterImpl : public ReceiverCluster {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit ReceiverClusterImpl(seissol::SeisSol& seissolInstance);
 

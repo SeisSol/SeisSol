@@ -44,11 +44,11 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver<Cfg>, MaterialT>
   /// E(i, mech, j): the prototype in its own tensor dimension, with the
   /// relaxation held separately in w.
   template <typename T>
-  static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& E) {
+  static void getTransposedSourceCoefficientTensor(const MaterialT& material, T& matE) {
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       MaterialSetup<MaterialT>::forEachSourceEntry(
           material, mech, [&](std::size_t i, std::size_t j, double value) {
-            E(i, mech, j) = value;
+            matE(i, mech, j) = value;
           });
     }
   }
@@ -56,74 +56,76 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver<Cfg>, MaterialT>
   static void getPlaneWaveOperator(
       const MaterialT& material,
       const double n[3],
-      std::complex<double> Mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-    yateto::DenseTensorView<2, std::complex<double>> M(
-        Mdata, {MaterialT::NumQuantities, MaterialT::NumQuantities});
-    M.setZero();
+      std::complex<double> matMData[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
+    yateto::DenseTensorView<2, std::complex<double>> matM(
+        matMData, {MaterialT::NumQuantities, MaterialT::NumQuantities});
+    matM.setZero();
 
     double data[MaterialT::NumQuantities * MaterialT::NumQuantities];
-    yateto::DenseTensorView<2, double> Coeff(data,
+    yateto::DenseTensorView<2, double> coeff(data,
                                              {MaterialT::NumQuantities, MaterialT::NumQuantities});
 
     for (std::size_t d = 0; d < 3; ++d) {
-      Coeff.setZero();
-      MaterialSetup<MaterialT>::getTransposedCoefficientMatrix(material, d, Coeff);
+      coeff.setZero();
+      MaterialSetup<MaterialT>::getTransposedCoefficientMatrix(material, d, coeff);
       for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
         MaterialSetup<MaterialT>::getTransposedAnelasticCoefficientMatrix(
-            material.omega[mech], d, mech, Coeff);
+            material.omega[mech], d, mech, coeff);
       }
 
       for (std::size_t i = 0; i < MaterialT::NumQuantities; ++i) {
         for (std::size_t j = 0; j < MaterialT::NumQuantities; ++j) {
-          M(i, j) += n[d] * Coeff(j, i);
+          matM(i, j) += n[d] * coeff(j, i);
         }
       }
     }
-    double Edata[MaterialT::NumQuantities * MaterialT::NumQuantities];
-    yateto::DenseTensorView<3, double> E(Edata, tensor::E<Cfg>::Shape);
-    E.setZero();
-    getTransposedSourceCoefficientTensor(material, E);
-    Coeff.setZero();
+    double matEData[MaterialT::NumQuantities * MaterialT::NumQuantities];
+    yateto::DenseTensorView<3, double> matE(matEData, tensor::E<Cfg>::Shape);
+    matE.setZero();
+    getTransposedSourceCoefficientTensor(material, matE);
+    coeff.setZero();
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      std::size_t offset = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
+      const std::size_t offset =
+          MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
       for (std::size_t i = 0; i < tensor::E<Cfg>::Shape[0]; ++i) {
         for (std::size_t j = 0; j < tensor::E<Cfg>::Shape[2]; ++j) {
-          Coeff(offset + i, j) = E(i, mech, j);
+          coeff(offset + i, j) = matE(i, mech, j);
         }
       }
     }
 
     // E' = diag(-omega_1 I, ..., -omega_L I)
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
-      std::size_t offset = MaterialT::NumElasticQuantities + MaterialT::NumberPerMechanism * mech;
-      yateto::DenseTensorView<2, double> ETblock(
+      const std::size_t offset =
+          MaterialT::NumElasticQuantities + MaterialT::NumberPerMechanism * mech;
+      yateto::DenseTensorView<2, double> matETBlock(
           data + offset + offset * MaterialT::NumQuantities,
           {MaterialT::NumQuantities, MaterialT::NumberPerMechanism});
       for (std::size_t i = 0; i < MaterialT::NumberPerMechanism; ++i) {
-        ETblock(i, i) = -material.omega[mech];
+        matETBlock(i, i) = -material.omega[mech];
       }
     }
 
     for (std::size_t i = 0; i < MaterialT::NumQuantities; ++i) {
       for (std::size_t j = 0; j < MaterialT::NumQuantities; ++j) {
-        M(i, j) -= std::complex<double>(0.0, Coeff(j, i));
+        matM(i, j) -= std::complex<double>(0.0, coeff(j, i));
       }
     }
   }
   static void initializeSpecificLocalData(
       const MaterialT& material,
-      double timeStepWidth,
+      double /*timeStepWidth*/,
       kernels::solver::linearckanelastic::AnelasticLocalData<Cfg>* localData) {
-    auto E = init::E<Cfg>::view::create(localData->E);
-    E.setZero();
-    getTransposedSourceCoefficientTensor(material, E);
+    auto matE = init::E<Cfg>::view::create(localData->E);
+    matE.setZero();
+    getTransposedSourceCoefficientTensor(material, matE);
 
     auto w = init::w<Cfg>::view::create(localData->w);
-    auto W = init::W<Cfg>::view::create(localData->W);
-    W.setZero();
+    auto matW = init::W<Cfg>::view::create(localData->W);
+    matW.setZero();
     for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       w(mech) = material.omega[mech];
-      W(mech, mech) = -material.omega[mech];
+      matW(mech, mech) = -material.omega[mech];
     }
   }
   static void initializeSpecificNeighborData(

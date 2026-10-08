@@ -12,173 +12,200 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/init.h"
+#include "GeneratedCode/configboundary.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 #include "Kernels/SolverSelector.h"
-#include "Solver/MultipleSimulations.h"
+#include "Model/Quantities.h"
+#include "Parallel/Runtime/Stream.h"
 
-#include <Eigen/Core>
-#include <Eigen/Dense>
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <iterator>
-#include <optional>
-#include <string>
 #include <type_traits>
-#include <utility>
 #include <utils/logger.h>
 #include <vector>
+
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#include <cstdint>
+#include <functional>
+#include <utility>
+#endif
 
 namespace seissol::kernels {
 
 namespace {
 
-// the extents of a time integral of the configuration `Cfg`: basis functions and quantities
-template <typename Cfg>
-constexpr std::size_t IntegralBases = tensor::I<Cfg>::Shape[multisim::BasisDim<Cfg>];
-template <typename Cfg>
-constexpr std::size_t IntegralQuantities = tensor::I<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+/// Converts `integral`, a time integral of a neighbor of the configuration `NeighborCfg`, into
+/// `converted`, a time integral of the configuration `Cfg` of the cell, which the neighbor touches
+/// with its side `neighborSide`; with the weights `normalStress` of the shared face if the
+/// conversion reads them.
+template <typename Cfg, typename NeighborCfg>
+void convertNeighborIntegral(const Real<NeighborCfg>* integral,
+                             Real<Cfg>* converted,
+                             std::size_t neighborSide,
+                             const Real<Cfg>* normalStress) {
+  using CellKernels = generated::ConfigBoundaryKernels<Cfg>;
+  using NeighborKernels = generated::ConfigBoundaryKernels<NeighborCfg>;
 
-/// The names of the quantities of a time integral of the configuration `Cfg`; empty for the
-/// quantities without a name, i.e. the memory variables of the fused layout.
-template <typename Cfg>
-std::vector<std::string> integralQuantities() {
-  const auto& names = model::MaterialOf<Cfg>::Quantities;
-  std::vector<std::string> quantities(IntegralQuantities<Cfg>);
-  std::copy_n(names.begin(), std::min(names.size(), quantities.size()), quantities.begin());
-  return quantities;
-}
+  // the constants of the kernels are in the executable on the host
+  static const auto NeighborPool = seissol::Pool<NeighborCfg>::host();
+  static const auto CellPool = seissol::Pool<Cfg>::host();
 
-/// The trace of the volume basis of the configuration `Cfg` on the side `Side` of a cell, in the
-/// face basis as the neighbor sees it: (face basis) x (volume basis).
-template <typename Cfg, std::size_t Side>
-Eigen::MatrixXd faceTrace() {
-  const auto view = init::fPrT<Cfg>::template view<Side>::create(init::fPrT<Cfg>::Values[Side]);
-  // the fused simulations store the matrix transposed
-  const bool transposed = view.shape(1) != IntegralBases<Cfg>;
-  const auto rows = transposed ? view.shape(1) : view.shape(0);
-  Eigen::MatrixXd trace = Eigen::MatrixXd::Zero(rows, IntegralBases<Cfg>);
-  for (std::size_t i = 0; i < view.shape(0); ++i) {
-    for (std::size_t j = 0; j < view.shape(1); ++j) {
-      if (view.isInRange(i, j)) {
-        if (transposed) {
-          trace(j, i) = view(i, j);
-        } else {
-          trace(i, j) = view(i, j);
-        }
-      }
+  alignas(Alignment) double canonical[tensor::canonicalI<NeighborCfg>::size()];
+
+  kernel::toCanonical<NeighborCfg> toCanonical;
+  toCanonical.bindGlobals(NeighborPool);
+  toCanonical.I = integral;
+  toCanonical.canonicalI = canonical;
+  toCanonical.execute();
+
+  // both write all of `converted`, the padding included: the neighbor kernel may read it
+  if constexpr (FamilyConvertible<Cfg, NeighborCfg>) {
+    // the same canonical form: both configurations are of one family
+    static_assert(CellKernels::CanonicalOrder == NeighborKernels::CanonicalOrder &&
+                  CellKernels::CanonicalQuantities == NeighborKernels::CanonicalQuantities);
+    static_assert(tensor::canonicalI<Cfg>::size() == tensor::canonicalI<NeighborCfg>::size());
+
+    kernel::fromCanonical<Cfg> fromCanonical;
+    fromCanonical.bindGlobals(CellPool);
+    fromCanonical.canonicalI = canonical;
+    fromCanonical.I = converted;
+    fromCanonical.execute(neighborSide);
+  } else {
+    // the canonical form of the family of the neighbor, which is coupled to the one of the cell
+    static_assert(CellKernels::CoupledCanonicalOrder == NeighborKernels::CanonicalOrder &&
+                  CellKernels::CoupledCanonicalQuantities == NeighborKernels::CanonicalQuantities);
+    static_assert(tensor::coupledCanonicalI<Cfg>::size() ==
+                  tensor::canonicalI<NeighborCfg>::size());
+
+    kernel::fromCoupledCanonical<Cfg> fromCoupledCanonical;
+    fromCoupledCanonical.bindGlobals(CellPool);
+    fromCoupledCanonical.coupledCanonicalI = canonical;
+    if constexpr (CellKernels::NormalStress) {
+      assert(normalStress != nullptr);
+      fromCoupledCanonical.normalStress = normalStress;
     }
+    fromCoupledCanonical.I = converted;
+    fromCoupledCanonical.execute(neighborSide);
   }
-  return trace;
 }
 
-template <typename Cfg, std::size_t... Sides>
-std::array<Eigen::MatrixXd, Cell::NumFaces> faceTraces(std::index_sequence<Sides...> /*sides*/) {
-  return {faceTrace<Cfg, Sides>()...};
+#ifdef ACL_DEVICE
+/// Runs `execute` for the device kernel `krnl` of `numElements` elements with the temporary memory
+/// it needs.
+template <typename Kernel, typename F>
+void executeWithTemporaries(Kernel& krnl,
+                            std::size_t numElements,
+                            seissol::parallel::runtime::StreamRuntime& runtime,
+                            F&& execute) {
+  krnl.numElements = numElements;
+  krnl.streamPtr = runtime.stream();
+  void* temporaries = nullptr;
+  if constexpr (Kernel::TmpMaxMemRequiredInBytes > 0) {
+    auto& device = ::device::DeviceInstance::instance();
+    temporaries = device.api().allocMemAsync(Kernel::TmpMaxMemRequiredInBytes * numElements,
+                                             runtime.stream());
+    krnl.linearAllocator.initialize(static_cast<std::int8_t*>(temporaries));
+  }
+  std::invoke(std::forward<F>(execute));
+  if (temporaries != nullptr) {
+    ::device::DeviceInstance::instance().api().freeMemAsync(temporaries, runtime.stream());
+  }
 }
+#endif
 
 template <typename Cfg>
-std::array<Eigen::MatrixXd, Cell::NumFaces> faceTraces() {
-  return faceTraces<Cfg>(std::make_index_sequence<Cell::NumFaces>());
-}
+constexpr bool CanonicalOfMaterial = !generated::ConfigBoundaryKernels<Cfg>::ToCanonicalHost ||
+                                     generated::ConfigBoundaryKernels<Cfg>::CanonicalQuantities ==
+                                         model::MaterialOf<Cfg>::RiemannMaterial::NumQuantities;
 
 } // namespace
 
-NeighborConversion::NeighborConversion(ConfigId cell, ConfigId neighbor) {
-  dispatchConfig(cell, [&](auto cellCfg) {
-    using Cfg = decltype(cellCfg);
-    dispatchConfig(neighbor, [&](auto neighborCfg) {
-      using NeighborCfg = decltype(neighborCfg);
+template <typename Cfg>
+void setNormalStressWeights(NormalStressWeights<Cfg>& weights,
+                            std::size_t face,
+                            const std::array<double, Cell::Dim>& normal) {
+  if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
+    // the stress of the solid, in Voigt order (xx, yy, zz, xy, yz, xz)
+    constexpr auto Groups = model::ElasticMaterial::PrimaryGroups;
+    static_assert(model::roleKind(Groups, model::FaceRole::Traction) ==
+                  model::QuantityKind::SymTensor2);
+    constexpr auto Stress = model::roleOffset(Groups, model::FaceRole::Traction);
+    static_assert(generated::ConfigBoundaryKernels<Cfg>::CoupledCanonicalQuantities ==
+                  model::totalExtent(Groups));
 
-      if (Cfg::NumSimulations != NeighborCfg::NumSimulations) {
-        logError() << "Neighboring cells of the configurations" << configName(configValue(cell))
-                   << "and" << configName(configValue(neighbor))
-                   << "fuse a different number of simulations.";
-      }
+    using RealT = Real<Cfg>;
+    auto& faceWeights = weights.weights[face];
+    std::fill(std::begin(faceWeights), std::end(faceWeights), RealT{0});
+    faceWeights[Stress + 0] = static_cast<RealT>(normal[0] * normal[0]);
+    faceWeights[Stress + 1] = static_cast<RealT>(normal[1] * normal[1]);
+    faceWeights[Stress + 2] = static_cast<RealT>(normal[2] * normal[2]);
+    faceWeights[Stress + 3] = static_cast<RealT>(2 * normal[0] * normal[1]);
+    faceWeights[Stress + 4] = static_cast<RealT>(2 * normal[1] * normal[2]);
+    faceWeights[Stress + 5] = static_cast<RealT>(2 * normal[0] * normal[2]);
+  }
+}
 
-      const auto names = integralQuantities<Cfg>();
-      const auto neighborNames = integralQuantities<NeighborCfg>();
-      quantities_.resize(names.size());
-      for (std::size_t quantity = 0; quantity < names.size(); ++quantity) {
-        const auto match = std::find(neighborNames.begin(), neighborNames.end(), names[quantity]);
-        if (!names[quantity].empty() && match != neighborNames.end()) {
-          quantities_[quantity] =
-              static_cast<std::size_t>(std::distance(neighborNames.begin(), match));
-        }
-      }
-
-      if (IntegralBases<NeighborCfg> > IntegralBases<Cfg>) {
-        // the trace of the neighbor, projected to the face basis of the cell by truncation, is
-        // matched by the minimum-norm volume polynomial of the cell
-        const auto traces = faceTraces<Cfg>();
-        const auto neighborTraces = faceTraces<NeighborCfg>();
-        for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-          const auto& trace = traces[side];
-          const Eigen::MatrixXd rightInverse =
-              trace.transpose() * (trace * trace.transpose()).inverse();
-          const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> lift =
-              rightInverse * neighborTraces[side].topRows(trace.rows());
-          lift_[side].assign(lift.data(), lift.data() + lift.size());
-        }
-      }
+bool deviceConvertible(ConfigId cell, ConfigId neighbor) {
+  return dispatchConfig(cell, [&](auto cellCfg) {
+    return dispatchConfig(neighbor, [&](auto neighborCfg) {
+      return DeviceConvertible<decltype(cellCfg), decltype(neighborCfg)>;
     });
   });
 }
 
-template <typename Cfg, typename NeighborCfg>
-void NeighborConversion::apply(const Real<NeighborCfg>* integral,
-                               Real<Cfg>* converted,
-                               std::size_t neighborSide) const {
-  using RealT = Real<Cfg>;
-  constexpr auto Bases = IntegralBases<Cfg>;
-  constexpr auto NeighborBases = IntegralBases<NeighborCfg>;
+namespace configboundary {
 
-  const auto from = init::I<NeighborCfg>::view::create(integral);
-  // the padding included: the neighbor kernel may read it
-  std::fill_n(converted, tensor::I<Cfg>::size(), RealT{0});
-  auto to = init::I<Cfg>::view::create(converted);
-
-  const auto& lift = lift_[neighborSide];
-  for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
-    for (std::size_t quantity = 0; quantity < quantities_.size(); ++quantity) {
-      if (!quantities_[quantity].has_value()) {
-        continue;
-      }
-      const auto neighborQuantity = quantities_[quantity].value();
-      for (std::size_t basis = 0; basis < Bases; ++basis) {
-        double value = 0;
-        if (lift.empty()) {
-          if (basis < NeighborBases) {
-            value = multisim::multisimWrap<NeighborCfg>(from, sim, basis, neighborQuantity);
-          }
-        } else {
-          for (std::size_t neighborBasis = 0; neighborBasis < NeighborBases; ++neighborBasis) {
-            value +=
-                lift[basis * NeighborBases + neighborBasis] *
-                multisim::multisimWrap<NeighborCfg>(from, sim, neighborBasis, neighborQuantity);
-          }
-        }
-        multisim::multisimWrap<Cfg>(to, sim, basis, quantity) = static_cast<RealT>(value);
-      }
-    }
-  }
+recording::ConditionalKey timeKey(ConfigId neighbor, bool gts) {
+  using namespace seissol::recording;
+  return ConditionalKey(*KernelNames::ConfigBoundary,
+                        gts ? *ComputationKind::WithGtsDerivatives
+                            : *ComputationKind::WithLtsDerivatives,
+                        neighbor);
 }
+
+recording::ConditionalKey toCanonicalKey(ConfigId neighbor) {
+  using namespace seissol::recording;
+  return ConditionalKey(*KernelNames::ConfigBoundary, *ComputationKind::None, neighbor);
+}
+
+recording::ConditionalKey fromCanonicalKey(std::size_t side) {
+  using namespace seissol::recording;
+  return ConditionalKey(*KernelNames::ConfigBoundary, *ComputationKind::None, *FaceId::Any, side);
+}
+
+recording::ConditionalKey fromCoupledCanonicalKey(std::size_t side) {
+  using namespace seissol::recording;
+  // after the sides of fromCanonicalKey
+  return ConditionalKey(
+      *KernelNames::ConfigBoundary, *ComputationKind::None, *FaceId::Any, Cell::NumFaces + side);
+}
+
+} // namespace configboundary
 
 template <typename Cfg>
 ConfigBoundary<Cfg>::ConfigBoundary(const std::vector<ConfigId>& configs)
-    : neighbors_(builtConfigCount()) {
+    : neighbors_(builtConfigCount()), devicePools_(builtConfigCount(), nullptr) {
   for (const auto config : configs) {
     if (config != configIdOf<Cfg>()) {
-      neighbors_.at(config) = Neighbor{NeighborConversion(configIdOf<Cfg>(), config), {}, {}};
+      neighbors_.at(config) = Neighbor{};
       empty_ = false;
     }
   }
@@ -205,6 +232,7 @@ void ConfigBoundary<Cfg>::setIntervals(double timestep,
 template <typename Cfg>
 void ConfigBoundary<Cfg>::computeIntegrals(
     const CellLocalInformation& cellInformation,
+    const NormalStressWeights<Cfg>& normalStress,
     const std::array<void*, Cell::NumFaces>& timeDofs,
     const std::array<real*, Cell::NumFaces>& integrationBuffer,
     std::array<real*, Cell::NumFaces>& timeIntegrated) const {
@@ -219,36 +247,193 @@ void ConfigBoundary<Cfg>::computeIntegrals(
 
     dispatchConfig(neighborConfig, [&](auto neighborCfg) {
       using NeighborCfg = decltype(neighborCfg);
-      using NeighborReal = Real<NeighborCfg>;
+      // a neighbor of the same configuration is skipped above
       if constexpr (!std::is_same_v<NeighborCfg, Cfg>) {
-        alignas(Alignment) NeighborReal buffer[SolverOf<NeighborCfg>::IntegralsSize];
-        const NeighborReal* integral = nullptr;
-        if (cellInformation.ltsSetup.neighborBuffer(face) != BufferType::Derivatives) {
-          integral = static_cast<const NeighborReal*>(timeDofs[face]);
-        } else {
-          // the coefficients as in TimeCommon, in the time basis of the neighbor
-          const auto& coeffs = cellInformation.ltsSetup.neighborGTSRelation(face)
-                                   ? neighbor.timeCoeffs
-                                   : neighbor.subtimeCoeffs;
-          std::array<NeighborReal, NeighborCfg::ConvergenceOrder> neighborCoeffs{};
-          assert(coeffs.size() == neighborCoeffs.size());
-          std::transform(coeffs.begin(), coeffs.end(), neighborCoeffs.begin(), [](double coeff) {
-            return static_cast<NeighborReal>(coeff);
-          });
-          Time<NeighborCfg> time;
-          time.evaluate(
-              neighborCoeffs.data(), static_cast<const NeighborReal*>(timeDofs[face]), buffer);
-          integral = buffer;
+        const real* faceWeights = nullptr;
+        if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
+          faceWeights = normalStress.weights[face];
         }
-        neighbor.conversion.template apply<Cfg, NeighborCfg>(
-            integral, integrationBuffer[face], cellInformation.faceRelations[face][0]);
+        computeIntegral<NeighborCfg>(
+            cellInformation, face, neighbor, faceWeights, timeDofs[face], integrationBuffer[face]);
         timeIntegrated[face] = integrationBuffer[face];
       }
     });
   }
 }
 
-#define SEISSOL_INSTANTIATE(Cfg) template class ConfigBoundary<Cfg>;
+template <typename Cfg>
+template <typename NeighborCfg>
+void ConfigBoundary<Cfg>::computeIntegral(const CellLocalInformation& cellInformation,
+                                          std::size_t face,
+                                          const Neighbor& neighbor,
+                                          const real* normalStress,
+                                          const void* timeDofs,
+                                          real* integrationBuffer) {
+  using NeighborReal = Real<NeighborCfg>;
+  if constexpr (!Convertible<Cfg, NeighborCfg>) {
+    // checkConfigBoundaries admits only the faces between the configurations of one family, and
+    // between a solid and a fluid
+    logError() << "No conversion from the configuration"
+               << configName(configValue(configIdOf<NeighborCfg>())) << "into"
+               << configName(configValue(configIdOf<Cfg>())) << "was generated.";
+  } else {
+    alignas(Alignment) NeighborReal buffer[SolverOf<NeighborCfg>::IntegralsSize];
+    const NeighborReal* integral = nullptr;
+    if (cellInformation.ltsSetup.neighborBuffer(face) != BufferType::Derivatives) {
+      integral = static_cast<const NeighborReal*>(timeDofs);
+    } else {
+      // the coefficients as in TimeCommon, in the time basis of the neighbor
+      const auto& coeffs = cellInformation.ltsSetup.neighborGTSRelation(face)
+                               ? neighbor.timeCoeffs
+                               : neighbor.subtimeCoeffs;
+      std::array<NeighborReal, NeighborCfg::ConvergenceOrder> neighborCoeffs{};
+      assert(coeffs.size() == neighborCoeffs.size());
+      std::transform(coeffs.begin(), coeffs.end(), neighborCoeffs.begin(), [](double coeff) {
+        return static_cast<NeighborReal>(coeff);
+      });
+      Time<NeighborCfg> time;
+      time.evaluate(neighborCoeffs.data(), static_cast<const NeighborReal*>(timeDofs), buffer);
+      integral = buffer;
+    }
+    convertNeighborIntegral<Cfg, NeighborCfg>(
+        integral, integrationBuffer, cellInformation.faceRelations[face][0], normalStress);
+  }
+}
+
+template <typename Cfg>
+std::size_t ConfigBoundary<Cfg>::scratchBytes(ConfigId neighbor) {
+  return dispatchConfig(neighbor, [&](auto neighborCfg) -> std::size_t {
+    using NeighborCfg = decltype(neighborCfg);
+    if constexpr (DeviceConvertible<Cfg, NeighborCfg>) {
+      using configboundary::alignScratch;
+      return alignScratch(SolverOf<NeighborCfg>::IntegralsSize * sizeof(Real<NeighborCfg>)) +
+             alignScratch(tensor::canonicalI<NeighborCfg>::size() * sizeof(double)) +
+             alignScratch(SolverOf<Cfg>::IntegralsSize * sizeof(real));
+    } else {
+      return 0;
+    }
+  });
+}
+
+template <typename Cfg>
+void ConfigBoundary<Cfg>::computeBatchedIntegrals(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) const {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+
+  // into the canonical form, per configuration of the neighbors
+  for (ConfigId config = 0; config < neighbors_.size(); ++config) {
+    if (neighbors_[config].has_value()) {
+      dispatchConfig(config, [&](auto neighborCfg) {
+        using NeighborCfg = decltype(neighborCfg);
+        if constexpr (!std::is_same_v<NeighborCfg, Cfg> && DeviceConvertible<Cfg, NeighborCfg>) {
+          computeBatchedCanonical<NeighborCfg>(table, neighbors_[config].value(), runtime);
+        }
+      });
+    }
+  }
+
+  // from the canonical form, per side of the neighbors
+  if constexpr (generated::ConfigBoundaryKernels<Cfg>::Device) {
+    const auto* pool = static_cast<const GlobalData<Cfg>*>(devicePools_.at(configIdOf<Cfg>()));
+    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+      const auto key = configboundary::fromCanonicalKey(side);
+      if (table.find(key) != table.end()) {
+        auto& entry = table.at(key);
+        auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+        auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
+        assert(pool != nullptr);
+        kernel::gpu_fromCanonical<Cfg> krnl;
+        krnl.bindGlobals(*pool);
+        krnl.canonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
+        krnl.I = integrals->getDeviceDataPtr();
+        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(side); });
+      }
+    }
+  }
+
+  // from the canonical form of the coupled family, per side of the neighbors
+  if constexpr (generated::ConfigBoundaryKernels<Cfg>::CoupledDevice) {
+    const auto* pool = static_cast<const GlobalData<Cfg>*>(devicePools_.at(configIdOf<Cfg>()));
+    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+      const auto key = configboundary::fromCoupledCanonicalKey(side);
+      if (table.find(key) != table.end()) {
+        auto& entry = table.at(key);
+        auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+        auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
+        assert(pool != nullptr);
+        kernel::gpu_fromCoupledCanonical<Cfg> krnl;
+        krnl.bindGlobals(*pool);
+        krnl.coupledCanonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
+        if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
+          auto* normalStress = entry.get<real*>(inner_keys::Wp::Id::NormalStress);
+          krnl.normalStress = const_cast<const real**>(normalStress->getDeviceDataPtr());
+        }
+        krnl.I = integrals->getDeviceDataPtr();
+        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(side); });
+      }
+    }
+  }
+#else
+  logError() << "No GPU implementation provided";
+#endif
+}
+
+template <typename Cfg>
+template <typename NeighborCfg>
+void ConfigBoundary<Cfg>::computeBatchedCanonical(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM const Neighbor& neighbor,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) const {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+  using NeighborReal = Real<NeighborCfg>;
+
+  // the time integrals of the neighbors that provide derivatives, in their time basis
+  for (const bool gts : {true, false}) {
+    const ConditionalKey key = configboundary::timeKey(configIdOf<NeighborCfg>(), gts);
+    if (table.find(key) != table.end()) {
+      auto& entry = table.at(key);
+      const auto& coeffs = gts ? neighbor.timeCoeffs : neighbor.subtimeCoeffs;
+      std::array<NeighborReal, NeighborCfg::ConvergenceOrder> neighborCoeffs{};
+      assert(coeffs.size() == neighborCoeffs.size());
+      std::transform(coeffs.begin(), coeffs.end(), neighborCoeffs.begin(), [](double coeff) {
+        return static_cast<NeighborReal>(coeff);
+      });
+      auto* derivatives = entry.get<NeighborReal*>(inner_keys::Wp::Id::Derivatives);
+      auto* integrals = entry.get<NeighborReal*>(inner_keys::Wp::Id::Idofs);
+      Time<NeighborCfg> time;
+      time.evaluateBatched(neighborCoeffs.data(),
+                           const_cast<const NeighborReal**>(derivatives->getDeviceDataPtr()),
+                           integrals->getDeviceDataPtr(),
+                           integrals->getSize(),
+                           runtime);
+    }
+  }
+
+  const ConditionalKey key = configboundary::toCanonicalKey(configIdOf<NeighborCfg>());
+  if (table.find(key) != table.end()) {
+    auto& entry = table.at(key);
+    auto* integrals = entry.get<NeighborReal*>(inner_keys::Wp::Id::Idofs);
+    auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+    const auto* pool =
+        static_cast<const GlobalData<NeighborCfg>*>(devicePools_.at(configIdOf<NeighborCfg>()));
+    assert(pool != nullptr);
+    kernel::gpu_toCanonical<NeighborCfg> krnl;
+    krnl.bindGlobals(*pool);
+    krnl.I = const_cast<const NeighborReal**>(integrals->getDeviceDataPtr());
+    krnl.canonicalI = canonical->getDeviceDataPtr();
+    executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(); });
+  }
+#endif
+}
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  static_assert(CanonicalOfMaterial<Cfg>);                                                         \
+  template void setNormalStressWeights<Cfg>(                                                       \
+      NormalStressWeights<Cfg>&, std::size_t, const std::array<double, Cell::Dim>&);               \
+  template class ConfigBoundary<Cfg>;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE
 

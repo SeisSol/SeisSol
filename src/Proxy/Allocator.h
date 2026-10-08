@@ -63,7 +63,7 @@ struct ProxyData {
 /// of that configuration.
 template <typename Cfg>
 struct ProxyDataImpl : public ProxyData {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   ProxyDataImpl(std::size_t cellCount, bool enableDR);
 

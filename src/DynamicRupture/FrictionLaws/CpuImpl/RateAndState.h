@@ -33,7 +33,7 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg, class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit RateAndStateBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>>::BaseFrictionLaw(

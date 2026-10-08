@@ -27,7 +27,7 @@ class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeaken
 
   template <typename Cfg>
   Real<Cfg> computeLocalStrengthSlope(LocalInfo<Cfg>& local) {
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     // The Prakash-Clifton regularization low-passes the strength, so only the fraction
     // -expm1(-(V + vStar) dt / prakashLength) of a normal stress change arrives instantaneously --
     // evaluated with the slip rate and the sub time step of the friction solve that produced the

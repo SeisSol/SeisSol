@@ -5,6 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigValue.h"
+#include "Common/Typedefs.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/CellTransform.h"
@@ -16,6 +19,7 @@
 #include "TestHelper.h"
 
 #include <Eigen/Dense>
+#include <cstddef>
 #include <iostream>
 
 namespace seissol::unit_test {
@@ -143,14 +147,25 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
         0.48876030678064375,     0.29039930608799031,     0.12632929701966925,
         2.4874032376060777E-002};
 
-    auto data = generateTriangleQuadrature<Config>();
-    double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+    // the reference is the Stroud rule with 7 x 7 points; it is checked in every configuration
+    // whose faults use that rule
+    constexpr std::size_t ReferenceSize = 49;
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud &&
+                    TriangleQuadratureData<Cfg>::Size == ReferenceSize) {
+        const auto config = configName(Cfg::Value);
+        CAPTURE(config);
+        auto data = generateTriangleQuadrature<Cfg>();
+        double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
 
-    constexpr double Epsilon = 1e-6;
-    for (unsigned i = 0; i < seissol::dr::TriangleQuadratureData<Config>::Size; ++i) {
-      CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
-      CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
-    }
+        constexpr double Epsilon = 1e-6;
+        for (unsigned i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
+          CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
+          CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
+        }
+      }
+    });
   }
 
   SUBCASE("StrikeAndDipVectors") {
@@ -248,12 +263,18 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
     const auto minusTransform = geometry::AffineTransform(minusElementCoords);
 
-    auto basisFunctions = getPlusMinusBasisFunctions<Config>(point, plusTransform, minusTransform);
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto config = configName(Cfg::Value);
+      CAPTURE(config);
+      auto basisFunctions = getPlusMinusBasisFunctions<Cfg>(point, plusTransform, minusTransform);
 
-    constexpr double Epsilon = 1e-6;
-    for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {
-      CHECK(basisFunctions.plusSide[i] == AbsApprox(basisFunctions.minusSide[i]).epsilon(Epsilon));
-    }
+      constexpr double Epsilon = 1e-6;
+      for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {
+        CHECK(basisFunctions.plusSide[i] ==
+              AbsApprox(basisFunctions.minusSide[i]).epsilon(Epsilon));
+      }
+    });
   }
 
   SUBCASE("IsElementInside") {

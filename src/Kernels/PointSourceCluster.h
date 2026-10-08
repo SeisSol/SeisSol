@@ -148,7 +148,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
     const std::size_t* __restrict sampleRange,
     const std::size_t* __restrict sampleOffsets,
     const Real<Cfg>* __restrict sample) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr auto QuantityCount = Quantities<Cfg>;
   const auto startSource = mappingPtr[index].pointSourcesOffset;
   const auto endSource =

@@ -7,8 +7,10 @@
 
 #include <doctest.h>
 
+#include "Config.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Typedefs.h"
+#include "TestConfigs.h"
 
 #include <cmath>
 
@@ -19,8 +21,10 @@ using namespace seissol::dr;
 // ImpedancesAndEta: physical consistency
 // ---------------------------------------------------------------------------
 
-TEST_CASE("ImpedancesAndEta default zero" * doctest::test_suite("dynamicrupture")) {
-  ImpedancesAndEta<Config> imp{};
+TEST_CASE_TEMPLATE("ImpedancesAndEta default zero" * doctest::test_suite("dynamicrupture"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  ImpedancesAndEta<Cfg> imp{};
   CHECK(imp.zp == doctest::Approx(0.0));
   CHECK(imp.zs == doctest::Approx(0.0));
   CHECK(imp.zpNeig == doctest::Approx(0.0));
@@ -29,9 +33,11 @@ TEST_CASE("ImpedancesAndEta default zero" * doctest::test_suite("dynamicrupture"
   CHECK(imp.etaS == doctest::Approx(0.0));
 }
 
-TEST_CASE("ImpedancesAndEta physical setup" * doctest::test_suite("dynamicrupture")) {
+TEST_CASE_TEMPLATE("ImpedancesAndEta physical setup" * doctest::test_suite("dynamicrupture"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   // Typical setup from the existing FrictionSolverCommon test
-  ImpedancesAndEta<Config> imp;
+  ImpedancesAndEta<Cfg> imp;
   imp.zp = 10.0;
   imp.zs = 20.0;
   imp.zpNeig = 15.0;
@@ -66,8 +72,10 @@ TEST_CASE("ImpedancesAndEta physical setup" * doctest::test_suite("dynamicruptur
   }
 }
 
-TEST_CASE("ImpedancesAndEta equal impedances" * doctest::test_suite("dynamicrupture")) {
-  ImpedancesAndEta<Config> imp;
+TEST_CASE_TEMPLATE("ImpedancesAndEta equal impedances" * doctest::test_suite("dynamicrupture"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  ImpedancesAndEta<Cfg> imp;
   imp.zp = 10.0;
   imp.zpNeig = 10.0;
   imp.etaP = imp.zp * imp.zpNeig / (imp.zp + imp.zpNeig);

@@ -8,16 +8,17 @@
 #include "doctest.h"
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/FaceTransform.h"
 #include "IO/Instance/Geometry/Points.h"
 #include "IO/Instance/Geometry/Refinement.h"
-#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Projection.h"
 #include "Solver/MultipleSimulations.h"
+#include "TestConfigs.h"
 #include "TestHelper.h"
 
 #include <algorithm>
@@ -32,22 +33,25 @@ using namespace seissol::numerical;
 namespace projection = seissol::numerical::projection;
 
 constexpr double Tolerance = 1e-10;
-// What the code generator ships is stored in the precision of the build, so a comparison against it
-// cannot be tighter than that.
+// What the code generator ships for a configuration is stored in its precision, so a comparison
+// against it cannot be tighter than that.
+template <typename Cfg>
 constexpr double GeneratedTolerance =
-    std::max(Tolerance, 10.0 * std::numeric_limits<real>::epsilon());
+    std::max(Tolerance, 10.0 * std::numeric_limits<Real<Cfg>>::epsilon());
 
 // For fused simulations the code generator transposes everything in the `nodal` namespace
 // (cf. kernels/aderdg.py); detect that from a matrix whose shape is not square.
-inline bool nodalTransposed() {
-  return static_cast<std::size_t>(nodal::tensor::nodes2D<Config>::Shape[0]) !=
-         projection::modalSize(2, ConvergenceOrder);
+template <typename Cfg>
+bool nodalTransposed() {
+  return static_cast<std::size_t>(nodal::tensor::nodes2D<Cfg>::Shape[0]) !=
+         projection::modalSize(2, Cfg::ConvergenceOrder);
 }
 
 // The nodal point set of the volume follows the PLASTICITY_METHOD build option: "nb" ships a
 // unisolvent warp&blend set, "ip" the conical-product quadrature points.
-constexpr auto VolumeNodalSet = static_cast<std::size_t>(tensor::vNodes<Config>::Shape[0]) ==
-                                        projection::modalSize(3, ConvergenceOrder)
+template <typename Cfg>
+constexpr auto VolumeNodalSet = static_cast<std::size_t>(tensor::vNodes<Cfg>::Shape[0]) ==
+                                        projection::modalSize(3, Cfg::ConvergenceOrder)
                                     ? projection::NodalSet::WarpBlend
                                     : projection::NodalSet::Stroud;
 
@@ -149,80 +153,89 @@ inline seissol::numerical::AffineMap<2, 3> faceEmbedding(std::size_t side) {
 // The projection module re-derives, at run time, what the code generator ships as constants. These
 // tests pin that agreement down; if they fail, the run-time output matrices and the generated
 // kernels disagree about the basis or nodal conventions.
-TEST_CASE("Numerical/Projection: nodal point sets match the generated ones") {
+TEST_CASE_TEMPLATE("Numerical/Projection: nodal point sets match the generated ones",
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   SUBCASE("2D face nodes vs. nodes2D") {
-    const auto points = projection::nodalPoints2D(ConvergenceOrder);
-    const auto nodes =
-        nodal::init::nodes2D<Config>::view::create(nodal::init::nodes2D<Config>::Values);
-    const auto transposed = nodalTransposed();
+    const auto points = projection::nodalPoints2D(Cfg::ConvergenceOrder);
+    const auto nodes = nodal::init::nodes2D<Cfg>::view::create(nodal::init::nodes2D<Cfg>::Values);
+    const auto transposed = nodalTransposed<Cfg>();
     for (std::size_t p = 0; p < points.size(); ++p) {
       for (std::size_t d = 0; d < 2; ++d) {
         const auto i = transposed ? d : p;
         const auto j = transposed ? p : d;
         const auto reference = nodes.isInRange(i, j) ? nodes(i, j) : 0.0;
-        REQUIRE(points[p][d] ==
-                AbsApprox(reference).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
+        REQUIRE(
+            points[p][d] ==
+            AbsApprox(reference).epsilon(GeneratedTolerance<Cfg>).delta(GeneratedTolerance<Cfg>));
       }
     }
   }
 
   SUBCASE("3D volume nodes vs. vNodes") {
-    const auto points = projection::nodalPoints3D(ConvergenceOrder, VolumeNodalSet);
-    const auto nodes = init::vNodes<Config>::view::create(init::vNodes<Config>::Values);
-    REQUIRE(points.size() == static_cast<std::size_t>(tensor::vNodes<Config>::Shape[0]));
+    const auto points = projection::nodalPoints3D(Cfg::ConvergenceOrder, VolumeNodalSet<Cfg>);
+    const auto nodes = init::vNodes<Cfg>::view::create(init::vNodes<Cfg>::Values);
+    REQUIRE(points.size() == static_cast<std::size_t>(tensor::vNodes<Cfg>::Shape[0]));
     for (std::size_t p = 0; p < points.size(); ++p) {
       for (std::size_t d = 0; d < 3; ++d) {
         const auto reference = nodes.isInRange(p, d) ? nodes(p, d) : 0.0;
-        REQUIRE(points[p][d] ==
-                AbsApprox(reference).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
+        REQUIRE(
+            points[p][d] ==
+            AbsApprox(reference).epsilon(GeneratedTolerance<Cfg>).delta(GeneratedTolerance<Cfg>));
       }
     }
   }
 }
 
-TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated ones") {
+TEST_CASE_TEMPLATE("Numerical/Projection: nodal-to-modal transforms match the generated ones",
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   SUBCASE("2D vs. MV2nTo2m") {
     // MV2nTo2m is stored as [modalBasis][node]
     const auto matrix =
-        projection::nodalToModal<2>(ConvergenceOrder, projection::NodalSet::WarpBlend);
+        projection::nodalToModal<2>(Cfg::ConvergenceOrder, projection::NodalSet::WarpBlend);
     const auto reference =
-        nodal::init::MV2nTo2m<Config>::view::create(nodal::init::MV2nTo2m<Config>::Values);
-    const auto transposed = nodalTransposed();
+        nodal::init::MV2nTo2m<Cfg>::view::create(nodal::init::MV2nTo2m<Cfg>::Values);
+    const auto transposed = nodalTransposed<Cfg>();
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
       for (std::size_t n = 0; n < matrix.cols(); ++n) {
         const auto i = transposed ? n : b;
         const auto j = transposed ? b : n;
         const auto expected = reference.isInRange(i, j) ? reference(i, j) : 0.0;
-        REQUIRE(matrix(b, n) ==
-                AbsApprox(expected).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
+        REQUIRE(
+            matrix(b, n) ==
+            AbsApprox(expected).epsilon(GeneratedTolerance<Cfg>).delta(GeneratedTolerance<Cfg>));
       }
     }
   }
 
   SUBCASE("3D vs. vInv") {
-    const auto matrix = projection::nodalToModal<3>(ConvergenceOrder, VolumeNodalSet);
-    const auto reference = init::vInv<Config>::view::create(init::vInv<Config>::Values);
+    const auto matrix = projection::nodalToModal<3>(Cfg::ConvergenceOrder, VolumeNodalSet<Cfg>);
+    const auto reference = init::vInv<Cfg>::view::create(init::vInv<Cfg>::Values);
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
       for (std::size_t n = 0; n < matrix.cols(); ++n) {
         const auto expected = reference.isInRange(b, n) ? reference(b, n) : 0.0;
-        REQUIRE(matrix(b, n) ==
-                AbsApprox(expected).epsilon(GeneratedTolerance).delta(GeneratedTolerance));
+        REQUIRE(
+            matrix(b, n) ==
+            AbsApprox(expected).epsilon(GeneratedTolerance<Cfg>).delta(GeneratedTolerance<Cfg>));
       }
     }
   }
 }
 
-TEST_CASE("Numerical/Projection: both volume nodal sets round-trip") {
+TEST_CASE_TEMPLATE("Numerical/Projection: both volume nodal sets round-trip",
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   // Only one of the two is shipped by the code generator in a given build, so exercise both
   // against the definition instead: sampling a modal function at the nodes and transforming back
   // has to reproduce the coefficients.
-  const auto indices = projection::modalIndices<3>(ConvergenceOrder);
+  const auto indices = projection::modalIndices<3>(Cfg::ConvergenceOrder);
 
   for (const auto set : {projection::NodalSet::WarpBlend, projection::NodalSet::Stroud}) {
-    const auto points = projection::nodalPoints3D(ConvergenceOrder, set);
-    const auto matrix = projection::nodalToModal<3>(ConvergenceOrder, set);
+    const auto points = projection::nodalPoints3D(Cfg::ConvergenceOrder, set);
+    const auto matrix = projection::nodalToModal<3>(Cfg::ConvergenceOrder, set);
 
-    REQUIRE(points.size() == projection::nodalSize(3, ConvergenceOrder, set));
+    REQUIRE(points.size() == projection::nodalSize(3, Cfg::ConvergenceOrder, set));
     REQUIRE(matrix.rows() == indices.size());
     REQUIRE(matrix.cols() == points.size());
 
@@ -251,11 +264,13 @@ TEST_CASE("Numerical/Projection: both volume nodal sets round-trip") {
   }
 }
 
-TEST_CASE("Numerical/Projection: L2 projection reproduces interpolation when exact") {
+TEST_CASE_TEMPLATE("Numerical/Projection: L2 projection reproduces interpolation when exact",
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   // If the target space contains the source space, the L2 projection and the pointwise evaluation
   // have to agree -- this exercises the quadrature, the mass matrix and the Vandermonde inversion
   // in one go.
-  const auto degree = ConvergenceOrder - 1;
+  const auto degree = Cfg::ConvergenceOrder - 1;
   const auto points = io::instance::geometry::pointsTetrahedron(static_cast<int>(degree));
 
   AffineMap<3, 3> subcell;
@@ -263,7 +278,7 @@ TEST_CASE("Numerical/Projection: L2 projection reproduces interpolation when exa
   subcell.matrix = {{{0.5, 0, 0}, {0, 0.5, 0}, {0, 0, 0.5}}};
 
   projection::Spec interpolate;
-  interpolate.order = ConvergenceOrder;
+  interpolate.order = Cfg::ConvergenceOrder;
   auto project = interpolate;
   project.target = projection::Target::Project;
 
@@ -279,7 +294,9 @@ TEST_CASE("Numerical/Projection: L2 projection reproduces interpolation when exa
   }
 }
 
-TEST_CASE("Numerical/Projection: derivatives match finite differences") {
+TEST_CASE_TEMPLATE("Numerical/Projection: derivatives match finite differences",
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   constexpr std::size_t Degree = 2;
   const auto points = io::instance::geometry::pointsTetrahedron(Degree);
 
@@ -288,7 +305,7 @@ TEST_CASE("Numerical/Projection: derivatives match finite differences") {
   subcell.matrix = {{{0.25, 0.125, 0}, {0, 0.25, 0.0625}, {0, 0, 0.25}}};
 
   projection::Spec spec;
-  spec.order = ConvergenceOrder;
+  spec.order = Cfg::ConvergenceOrder;
 
   const double h = 1e-5;
   for (std::size_t direction = 0; direction < Cell::Dim; ++direction) {
@@ -312,7 +329,9 @@ TEST_CASE("Numerical/Projection: derivatives match finite differences") {
   }
 }
 
-TEST_CASE("Numerical/Projection: the table matches build() in the generated layout") {
+TEST_CASE_TEMPLATE("Numerical/Projection: the table matches build() in the generated layout",
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   constexpr std::size_t Degree = 3;
   const auto points = io::instance::geometry::pointsTetrahedron(Degree);
 
@@ -320,27 +339,27 @@ TEST_CASE("Numerical/Projection: the table matches build() in the generated layo
   subcells =
       io::instance::geometry::subdivideMaps(subcells, io::instance::geometry::TetrahedronRefine4);
 
-  const auto index = tensor::collvv<Config>::index(ConvergenceOrder, Degree);
+  const auto index = tensor::collvv<Cfg>::index(Cfg::ConvergenceOrder, Degree);
   const std::size_t stride =
-      tensor::collvv<Config>::Size[index] / tensor::collvv<Config>::Shape[index][1];
+      tensor::collvv<Cfg>::Size[index] / tensor::collvv<Cfg>::Shape[index][1];
   REQUIRE(stride >= points.size());
 
   const projection::Spec spec;
-  const projection::Table<3, 3, real> table(
-      subcells, points, Degree, stride, spec, 1, ConvergenceOrder);
+  const projection::Table<3, 3, Real<Cfg>> table(
+      subcells, points, Degree, stride, spec, 1, Cfg::ConvergenceOrder);
   REQUIRE(table.subcellCount() == subcells.size());
 
   for (std::size_t subcell = 0; subcell < subcells.size(); ++subcell) {
-    for (std::size_t order = 1; order <= ConvergenceOrder; ++order) {
+    for (std::size_t order = 1; order <= Cfg::ConvergenceOrder; ++order) {
       auto local = spec;
       local.order = order;
       const auto reference = projection::build<3, 3>(points, Degree, subcells[subcell], local);
       const auto* stored = table(subcell, order);
       for (std::size_t p = 0; p < reference.rows(); ++p) {
         for (std::size_t b = 0; b < reference.cols(); ++b) {
-          REQUIRE(
-              stored[p + b * stride] ==
-              AbsApprox(static_cast<real>(reference(p, b))).epsilon(Tolerance).delta(Tolerance));
+          REQUIRE(stored[p + b * stride] == AbsApprox(static_cast<Real<Cfg>>(reference(p, b)))
+                                                .epsilon(Tolerance)
+                                                .delta(Tolerance));
         }
       }
     }

@@ -9,7 +9,6 @@
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 
 #include "Common/Literals.h"
-#include "Kernels/Precision.h"
 
 #include <cstdlib>
 
@@ -20,7 +19,6 @@ namespace seissol::recording::inner_keys {
  * of the Wave Propagation (Wp) solver.
  */
 struct Wp {
-  using DataType = real*;
   enum struct Id : size_t {
     Dofs = 0,
     Idofs,
@@ -30,7 +28,7 @@ struct Wp {
     Derivatives,
     Godunov,
     FluxSolver,
-    Ivelocities, // Idofs at the first velocity column (model::MaterialT::VelocityOffset)
+    Ivelocities, // Idofs at the first velocity column (the VelocityOffset of the material)
     FaceDisplacement,
     NodalStressTensor,
     Pstrains,
@@ -50,6 +48,10 @@ struct Wp {
     Analytical,
     QEtaNodal,
     Integrals,
+    // a time integral of a neighbor of another configuration in the canonical form of the family
+    CanonicalIdofs,
+    // the weights of the normal stress on a face of a cell of a fluid, for a neighbor of a solid
+    NormalStress,
     Count
   };
 };
@@ -59,7 +61,6 @@ struct Wp {
  * of the Dynamic Rupture (Dr) solver.
  */
 struct Dr {
-  using DataType = real*;
   enum struct Id : size_t {
     DerivativesPlus = 0,
     DerivativesMinus,
@@ -73,7 +74,6 @@ struct Dr {
 };
 
 struct Indices {
-  using DataType = unsigned;
   enum struct Id : size_t { Cells = 0, Count };
 };
 } // namespace seissol::recording::inner_keys
@@ -91,6 +91,8 @@ enum struct KernelNames : size_t {
   Plasticity = 1 << 5,
   DrSpaceMap = 1 << 6,
   BoundaryConditions = 1 << 7,
+  // the time integrals of the neighbors of another configuration
+  ConfigBoundary = 1 << 8,
   Count = 9,
   Any = encodeAny(Count)
 };

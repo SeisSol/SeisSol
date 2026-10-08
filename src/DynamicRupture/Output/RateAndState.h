@@ -25,7 +25,7 @@ class RateAndStateImpl : public ReceiverOutputImpl<Derived> {
 
   template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return -1.0 * local.frictionCoefficient *
@@ -34,7 +34,7 @@ class RateAndStateImpl : public ReceiverOutputImpl<Derived> {
 
   template <typename Cfg>
   Real<Cfg> computeLocalStrengthSlope(LocalInfo<Cfg>& local) {
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return effectiveNormalStress < 0 ? local.frictionCoefficient : static_cast<real>(0.0);

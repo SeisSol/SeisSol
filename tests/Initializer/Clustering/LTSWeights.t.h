@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
@@ -31,6 +32,8 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -42,7 +45,7 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   const auto faceMap = defaultFaceMap();
 
   const ClusteringConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap};
+      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap, {}};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       {2},
@@ -85,6 +88,80 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   CHECK(givenWeights == expectedWeights);
 }
 
+TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("initializer")) {
+  // mesh.h5 has its 24 cells in group 1, and no faces with a weight of their own
+  using namespace seissol::initializer;
+
+  const auto faceMap = defaultFaceMap();
+
+  const auto cellCosts = [&](std::vector<double> configCostFactors,
+                             std::unordered_map<int, ConfigId> groupConfigs) {
+    std::cout.setstate(std::ios_base::failbit);
+    const ClusteringConfig config{seissol::initializer::parameters::BoundaryFormat::I32,
+                                  {2},
+                                  10,
+                                  1,
+                                  1,
+                                  &faceMap,
+                                  std::move(configCostFactors)};
+
+    seissol::initializer::parameters::SeisSolParameters seissolParameters{};
+    seissolParameters.timeStepping.lts = seissol::initializer::parameters::LtsParameters(
+        {2},
+        1.0,
+        0.01,
+        false,
+        100,
+        false,
+        1.0,
+        seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor,
+        seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
+    seissolParameters.timeStepping.cfl = 1;
+    seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
+    seissolParameters.model.materialFileName = tpath("Testing/material.yaml");
+    seissolParameters.model.useCellHomogenizedMaterial = false;
+    seissolParameters.model.plasticity = false;
+    seissolParameters.model.groupConfigs = std::move(groupConfigs);
+    const utils::Env env("SEISSOL_");
+    seissol::SeisSol seissolInstance(seissolParameters, env);
+
+    Clustering clustering(config, seissolInstance);
+    ExponentialWeights weightModel;
+    const auto pumlReader =
+        seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
+                                      "Default",
+                                      faceMap,
+                                      seissol::initializer::parameters::BoundaryFormat::I32,
+                                      seissol::initializer::parameters::TopologyFormat::Geometric,
+                                      &clustering,
+                                      &weightModel);
+    std::cout.clear();
+    return clustering.result().cellCosts;
+  };
+  const auto allCells = [](std::uint64_t cost) { return std::vector<std::uint64_t>(24, cost); };
+
+  // without factors, every cell has the element weight
+  CHECK(cellCosts({}, {}) == allCells(10));
+
+  // the factor of its configuration scales the element weight of a cell, rounded, but to at least 1
+  std::vector<double> factors(builtConfigCount(), 1.0);
+  factors[0] = 2.5;
+  CHECK(cellCosts(factors, {}) == allCells(25));
+  factors[0] = 1.26;
+  CHECK(cellCosts(factors, {}) == allCells(13));
+  factors[0] = 0.01;
+  CHECK(cellCosts(factors, {}) == allCells(1));
+
+  if (builtConfigCount() > 1) {
+    // a cell has the configuration of its group
+    factors[0] = 1.0;
+    factors[1] = 3.0;
+    CHECK(cellCosts(factors, {}) == allCells(10));
+    CHECK(cellCosts(factors, {{1, 1}}) == allCells(30));
+    CHECK(cellCosts(factors, {{2, 1}}) == allCells(10));
+  }
+}
+
 TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
           doctest::test_suite("initializer")) {
   // The clustering runs before PUMLReader::getMesh(), but has to compute the time steps with the
@@ -98,7 +175,7 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
 
   const auto faceMap = defaultFaceMap();
   const ClusteringConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap};
+      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap, {}};
 
   for (const bool homogenized : {false, true}) {
     CAPTURE(homogenized);
@@ -352,7 +429,7 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   const auto faceMap = defaultFaceMap();
 
   const ClusteringConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, rate, 1, 1, 1, &faceMap};
+      seissol::initializer::parameters::BoundaryFormat::I32, rate, 1, 1, 1, &faceMap, {}};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       rate,

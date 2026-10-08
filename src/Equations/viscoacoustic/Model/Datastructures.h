@@ -57,6 +57,7 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
   static constexpr std::size_t Parameters = AcousticMaterial::Parameters + 2 * Mechanisms;
 
   static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsPlasticity = false;
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 

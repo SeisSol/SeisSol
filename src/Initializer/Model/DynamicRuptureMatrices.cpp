@@ -231,7 +231,7 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
                                              const seissol::geometry::MeshReader& meshReader,
                                              LTS::Storage& ltsStorage,
                                              const LTS::Backmap& backmap) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   real matTData[tensor::T<Cfg>::size()]{};
   real matTinvData[tensor::Tinv<Cfg>::size()]{};

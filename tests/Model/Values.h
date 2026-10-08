@@ -9,7 +9,6 @@
 #define SEISSOL_TESTS_MODEL_VALUES_H_
 
 #include "Equations/Datastructures.h"
-#include "Kernels/Precision.h"
 #include "Model/Datastructures.h"
 
 #include <algorithm>
@@ -23,14 +22,16 @@ struct SolutionData;
 
 struct ElasticSolutionData {
   /**
-   * Relative Frobenius tolerance for comparing the Godunov matrices against the reference.
+   * Relative Frobenius tolerance for comparing the Godunov matrices, in the reals `RealT`, against
+   * the reference.
    *
    * The elastic eigenbasis is assembled in closed form and is well conditioned, so the setup
    * reproduces the reference to machine precision; a plain relative bound is appropriate.
    */
-  static constexpr double MatrixEpsilon = 1e2 * std::numeric_limits<real>::epsilon();
+  template <typename RealT>
+  static constexpr double MatrixEpsilon = 1e2 * std::numeric_limits<RealT>::epsilon();
 
-  const inline static std::array<std::array<real, 9>, 9> SolutionHomogeneousLocal = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionHomogeneousLocal = {
       {{0.5000000000000000,
         0.0000000000000000,
         0.0000000000000000,
@@ -112,7 +113,7 @@ struct ElasticSolutionData {
         0.0000000000000000,
         0.0000000000000000,
         0.5000000000000000}}};
-  const inline static std::array<std::array<real, 9>, 9> SolutionHomogeneousNeighbor = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionHomogeneousNeighbor = {
       {{0.5000000000000000,
         0.0000000000000000,
         0.0000000000000000,
@@ -195,7 +196,7 @@ struct ElasticSolutionData {
         0.0000000000000000,
         0.4999999999999999}}};
 
-  const inline static std::array<std::array<real, 9>, 9> SolutionBoundary = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionBoundary = {
       {{0.0000000000000000,
         0.0000000000000000,
         0.0000000000000000,
@@ -277,7 +278,7 @@ struct ElasticSolutionData {
         0.0000000000000000,
         0.0000000000000000,
         1.000000000000000}}};
-  const inline static std::array<std::array<real, 9>, 9> SolutionHeterogeneousLocal = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionHeterogeneousLocal = {
       {{1 - 0.6090225563909775,
         0.0000000000000000,
         0.0000000000000000,
@@ -359,7 +360,7 @@ struct ElasticSolutionData {
         0.0000000000000000,
         0.0000000000000000,
         1 - 0.3573195536254192}}};
-  const inline static std::array<std::array<real, 9>, 9> SolutionHeterogeneousNeighbor = {
+  const inline static std::array<std::array<double, 9>, 9> SolutionHeterogeneousNeighbor = {
       {{0.6090225563909775,
         0.0000000000000000,
         0.0000000000000000,
@@ -480,7 +481,8 @@ struct SolutionData<model::ElasticMaterial> : public ElasticSolutionData {
 template <>
 struct SolutionData<model::PoroElasticMaterial> {
   /**
-   * Relative Frobenius tolerance for comparing the Godunov matrices against the reference.
+   * Relative Frobenius tolerance for comparing the Godunov matrices, in the reals `RealT`, against
+   * the reference.
    *
    * Unlike the other equation sets, the poroelastic eigenbasis comes from a numerical
    * eigendecomposition, and matR retains a condition number of ~2e7 even with a well-conditioned
@@ -492,8 +494,9 @@ struct SolutionData<model::PoroElasticMaterial> {
    * In single precision the storage rounding (~6e-8 relative) dominates instead, so the bound has
    * to be at least the generic 1e2 * eps.
    */
+  template <typename RealT>
   static constexpr double MatrixEpsilon =
-      std::max(1e-9, 1e2 * std::numeric_limits<real>::epsilon());
+      std::max(1e-9, 1e2 * std::numeric_limits<RealT>::epsilon());
 
   const inline static std::vector<double> MaterialVal1{
       40.0e9,  // bulk_solid
@@ -520,7 +523,7 @@ struct SolutionData<model::PoroElasticMaterial> {
       0.001    // viscosity
   };
 
-  const inline static std::array<std::array<real, 13>, 13> SolutionHomogeneousLocal = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionHomogeneousLocal = {
       {{
            0.5,
            0,
@@ -716,7 +719,7 @@ struct SolutionData<model::PoroElasticMaterial> {
            0,
            1.0,
        }}};
-  const inline static std::array<std::array<real, 13>, 13> SolutionHomogeneousNeighbor = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionHomogeneousNeighbor = {
       {{
            0.5,
            0,
@@ -913,7 +916,7 @@ struct SolutionData<model::PoroElasticMaterial> {
            0,
        }}};
 
-  const inline static std::array<std::array<real, 13>, 13> SolutionBoundary = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionBoundary = {
       {{
            0,
            0,
@@ -1109,7 +1112,7 @@ struct SolutionData<model::PoroElasticMaterial> {
            0,
            1.0,
        }}};
-  const inline static std::array<std::array<real, 13>, 13> SolutionHeterogeneousLocal = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionHeterogeneousLocal = {
       {{
            0.4822638562418706,
            0,
@@ -1305,7 +1308,7 @@ struct SolutionData<model::PoroElasticMaterial> {
            0,
            1.0,
        }}};
-  const inline static std::array<std::array<real, 13>, 13> SolutionHeterogeneousNeighbor = {
+  const inline static std::array<std::array<double, 13>, 13> SolutionHeterogeneousNeighbor = {
       {{
            0.5177361437581294,
            0,
@@ -1510,7 +1513,7 @@ struct SolutionData<model::AcousticMaterial> : public ElasticSolutionData {
 
   // Godunov state solutions for acoustic material
   // Acoustic system: 4 quantities (pressure p, velocities v1, v2, v3)
-  const inline static std::array<std::array<real, 4>, 4> SolutionHomogeneousLocal = {
+  const inline static std::array<std::array<double, 4>, 4> SolutionHomogeneousLocal = {
       {{5.0000000000000000e-01,
         -4.6768115292365588e+06,
         0.0000000000000000e+00,
@@ -1528,7 +1531,7 @@ struct SolutionData<model::AcousticMaterial> : public ElasticSolutionData {
         0.0000000000000000e+00,
         1.0000000000000000e+00}}};
 
-  const inline static std::array<std::array<real, 4>, 4> SolutionHomogeneousNeighbor = {
+  const inline static std::array<std::array<double, 4>, 4> SolutionHomogeneousNeighbor = {
       {{5.0000000000000000e-01,
         4.6768115292365588e+06,
         0.0000000000000000e+00,
@@ -1546,7 +1549,7 @@ struct SolutionData<model::AcousticMaterial> : public ElasticSolutionData {
         0.0000000000000000e+00,
         0.0000000000000000e+00}}};
 
-  const inline static std::array<std::array<real, 4>, 4> SolutionBoundary = {
+  const inline static std::array<std::array<double, 4>, 4> SolutionBoundary = {
       {{0.0000000000000000e+00,
         0.0000000000000000e+00,
         0.0000000000000000e+00,
@@ -1564,7 +1567,7 @@ struct SolutionData<model::AcousticMaterial> : public ElasticSolutionData {
         0.0000000000000000e+00,
         0.0000000000000000e+00}}};
 
-  const inline static std::array<std::array<real, 4>, 4> SolutionHeterogeneousLocal = {
+  const inline static std::array<std::array<double, 4>, 4> SolutionHeterogeneousLocal = {
       {{4.4015536391948062e-01,
         -4.1170473612678815e+06,
         0.0000000000000000e+00,
@@ -1582,7 +1585,7 @@ struct SolutionData<model::AcousticMaterial> : public ElasticSolutionData {
         0.0000000000000000e+00,
         1.0000000000000000e+00}}};
 
-  const inline static std::array<std::array<real, 4>, 4> SolutionHeterogeneousNeighbor = {
+  const inline static std::array<std::array<double, 4>, 4> SolutionHeterogeneousNeighbor = {
       {{5.5984463608051938e-01,
         4.1170473612678815e+06,
         0.0000000000000000e+00,

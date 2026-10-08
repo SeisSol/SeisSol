@@ -19,7 +19,7 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg>
 class YoffeSTF {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   private:
   real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
@@ -38,7 +38,7 @@ class YoffeSTF {
 template <typename Cfg>
 class GaussianSTF {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   private:
   real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
@@ -53,7 +53,7 @@ class GaussianSTF {
 template <typename Cfg>
 class DeltaSTF {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   private:
   real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];

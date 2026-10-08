@@ -5,17 +5,13 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Equations/Datastructures.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "TestHelper.h"
 
-#include <type_traits>
-
 namespace seissol::unit_test {
 
 TEST_CASE("Anisotropic Instantaneous Time Mirror supports only BothWaves reflection type" *
-          doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) *
           doctest::test_suite("physics")) {
   using seissol::initializer::parameters::ReflectionType;
 

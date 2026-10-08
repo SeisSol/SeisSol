@@ -15,7 +15,6 @@
 #include "Common/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
-#include "Kernels/Precision.h"
 
 #include <algorithm>
 #include <cassert>
@@ -88,7 +87,7 @@ namespace kernels {
  * @param convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder = ConvergenceOrder) {
+constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder) {
   return convergenceOrder * (convergenceOrder + 1) * (convergenceOrder + 2) / 6;
 }
 
@@ -98,12 +97,12 @@ constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder = C
  * @param alignment alignment in bytes.
  * @return aligned number of reals.
  **/
-template <typename RealT = real>
+template <typename RealT>
 constexpr std::size_t getNumberOfAlignedReals(std::size_t numberOfReals,
                                               std::size_t alignment = Vectorsize) {
   // in principle, we could simplify this formula by substituting alignment = alignment /
-  // sizeof(real). However, this will cause errors, if alignment is not dividable by sizeof(real)
-  // which could happen e.g. if alignment < sizeof(real), or if we have real == long double (if
+  // sizeof(RealT). However, this will cause errors, if alignment is not dividable by sizeof(RealT)
+  // which could happen e.g. if alignment < sizeof(RealT), or if we have RealT == long double (if
   // there is ever such a use case, and if the alignment then still makes much sense).
   return (numberOfReals * sizeof(RealT) +
           (alignment - (numberOfReals * sizeof(RealT)) % alignment) % alignment) /
@@ -117,10 +116,9 @@ constexpr std::size_t getNumberOfAlignedReals(std::size_t numberOfReals,
  * @param alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
-template <typename RealT = real>
-constexpr std::size_t
-    getNumberOfAlignedBasisFunctions(std::size_t convergenceOrder = ConvergenceOrder,
-                                     std::size_t alignment = Vectorsize) {
+template <typename RealT>
+constexpr std::size_t getNumberOfAlignedBasisFunctions(std::size_t convergenceOrder,
+                                                       std::size_t alignment = Vectorsize) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   const auto numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);

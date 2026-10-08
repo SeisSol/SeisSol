@@ -20,11 +20,11 @@ device::DeviceInstance& dev() { return device::DeviceInstance::instance(); }
 
 namespace seissol::parallel::runtime {
 
-ManagedStream::ManagedStream() {
 #ifdef ACL_DEVICE
-  streamPtr_ = dev().api().createStream();
+ManagedStream::ManagedStream() : streamPtr_(dev().api().createStream()) {}
+#else
+ManagedStream::ManagedStream() = default;
 #endif
-}
 
 auto ManagedStream::operator=(ManagedStream&& old) noexcept -> ManagedStream& {
   if (this != &old) {
@@ -46,11 +46,11 @@ ManagedStream::~ManagedStream() {
 #endif
 }
 
-ManagedEvent::ManagedEvent() {
 #ifdef ACL_DEVICE
-  eventPtr_ = dev().api().createEvent();
+ManagedEvent::ManagedEvent() : eventPtr_(dev().api().createEvent()) {}
+#else
+ManagedEvent::ManagedEvent() = default;
 #endif
-}
 
 auto ManagedEvent::operator=(ManagedEvent&& old) noexcept -> ManagedEvent& {
   if (this != &old) {

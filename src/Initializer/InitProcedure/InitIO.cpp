@@ -303,7 +303,7 @@ struct WaveFieldOutputSetup {
 template <typename Cfg>
 NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
                                 const WaveFieldOutputSetup& setup) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using MaterialT = model::MaterialOf<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   // the projection matrices of the configuration
@@ -704,7 +704,7 @@ struct SurfaceOutputSetup {
 /// The outputs of the free surface of the faces of cells of the configuration `Cfg`.
 template <typename Cfg>
 NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOutputSetup& setup) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using MaterialT = model::MaterialOf<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   // the projection matrices of the configuration

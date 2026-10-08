@@ -8,6 +8,7 @@
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/Plasticity.h"
@@ -26,36 +27,21 @@ using StreamT = cudaStream_t;
 
 namespace seissol::kernels::device::aux::plasticity {
 
-template <typename Tensor>
-__forceinline__ __device__ __host__ constexpr size_t leadDim() {
-  if constexpr (multisim::MultisimEnabled) {
-    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
-static constexpr auto getblock(int size) {
-  if constexpr (multisim::MultisimEnabled) {
-    return dim3(multisim::NumSimulations, size);
+template <typename Cfg>
+constexpr auto getblock(int size) {
+  if constexpr (Cfg::NumSimulations > 1) {
+    return dim3(Cfg::NumSimulations, size);
   } else {
     return dim3(size);
   }
 }
 
+template <typename Cfg>
 __forceinline__ __device__ auto linearidx() {
-  if constexpr (multisim::MultisimEnabled) {
-    return threadIdx.y * multisim::NumSimulations + threadIdx.x;
+  if constexpr (Cfg::NumSimulations > 1) {
+    return threadIdx.y * Cfg::NumSimulations + threadIdx.x;
   } else {
     return threadIdx.x;
-  }
-}
-
-__forceinline__ __device__ auto simidx() {
-  if constexpr (multisim::MultisimEnabled) {
-    return threadIdx.x;
-  } else {
-    return 0;
   }
 }
 
@@ -70,15 +56,15 @@ __global__ void
                                Real<Cfg> tV,
                                Real<Cfg> timeStepWidth) {
 
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   real* __restrict qStressNodal = nodalStressTensors[blockIdx.x];
-  real localStresses[NumStressComponents];
+  real localStresses[NumStressComponents<Cfg>];
 
-  constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal<Cfg>>();
+  constexpr auto ElementTensorsColumn = multisim::linearDim<Cfg, init::QStressNodal<Cfg>>();
 #pragma unroll
-  for (int i = 0; i < NumStressComponents; ++i) {
-    localStresses[i] = qStressNodal[linearidx() + ElementTensorsColumn * i];
+  for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
+    localStresses[i] = qStressNodal[linearidx<Cfg>() + ElementTensorsColumn * i];
   }
 
   // 1. Compute the mean stress for each node
@@ -101,13 +87,13 @@ __global__ void
 
   // 4. Compute the plasticity criteria
   const real cohesionTimesCosAngularFriction =
-      plasticity[blockIdx.x].cohesionTimesCosAngularFriction[linearidx()];
-  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction[linearidx()];
+      plasticity[blockIdx.x].cohesionTimesCosAngularFriction[linearidx<Cfg>()];
+  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction[linearidx<Cfg>()];
   const real taulim = std::max(static_cast<real>(0.0),
                                cohesionTimesCosAngularFriction - meanStress * sinAngularFriction);
 
   __shared__ bool isAdjusted;
-  if (linearidx() == 0) {
+  if (linearidx<Cfg>() == 0) {
     isAdjusted = false;
   }
   __syncthreads();
@@ -130,8 +116,8 @@ __global__ void
     real dudtUpdate = 0;
 
 #pragma unroll
-    for (int i = 0; i < NumStressComponents; ++i) {
-      const int q = linearidx() + ElementTensorsColumn * i;
+    for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
+      const int q = linearidx<Cfg>() + ElementTensorsColumn * i;
 
       const auto updatedStressNodal = localStresses[i] * yieldfactor;
 
@@ -143,14 +129,14 @@ __global__ void
       dudtUpdate += nodeDuDtPstrain * nodeDuDtPstrain;
     }
 
-    eta[linearidx()] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtUpdate);
+    eta[linearidx<Cfg>()] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtUpdate);
 
     // update the FLOPs that we've been here
     // (there's no atomicAdd for unsigned long / sometimes size_t, so take one of the other ones)
     static_assert(sizeof(unsigned long long) == sizeof(std::size_t));
     atomicAdd(reinterpret_cast<unsigned long long*>(yieldCounter), 1);
   }
-  if (linearidx() == 0) {
+  if (linearidx<Cfg>() == 0) {
     isAdjustableVector[blockIdx.x] = isAdjusted;
   }
 }
@@ -166,20 +152,24 @@ void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
                          Real<Cfg> timeStepWidth,
                          size_t numElements,
                          void* streamPtr) {
-  // use Stop/Start to include padding (and possibly avoid masked warps/wavefronts)
-  constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisFunctionDimension] -
-                                init::QStressNodal<Cfg>::Start[multisim::BasisFunctionDimension];
-  const auto block = getblock(NumNodes);
-  const dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<StreamT>(streamPtr);
-  kernel_plasticityNonlinear<<<grid, block, 0, stream>>>(nodalStressTensors,
-                                                         pstrainPtr,
-                                                         isAdjustableVector,
-                                                         yieldCounter,
-                                                         plasticity,
-                                                         oneMinusIntegratingFactor,
-                                                         tV,
-                                                         timeStepWidth);
+  // a material without the stresses of a solid has nothing that yields; the kernel, which reads the
+  // six stresses, is not even compiled for it
+  if constexpr (model::MaterialOf<Cfg>::SupportsPlasticity) {
+    // use Stop/Start to include padding (and possibly avoid masked warps/wavefronts)
+    constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
+                                  init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
+    const auto block = getblock<Cfg>(NumNodes);
+    const dim3 grid(numElements, 1, 1);
+    auto stream = reinterpret_cast<StreamT>(streamPtr);
+    kernel_plasticityNonlinear<<<grid, block, 0, stream>>>(nodalStressTensors,
+                                                           pstrainPtr,
+                                                           isAdjustableVector,
+                                                           yieldCounter,
+                                                           plasticity,
+                                                           oneMinusIntegratingFactor,
+                                                           tV,
+                                                           timeStepWidth);
+  }
 }
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \

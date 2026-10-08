@@ -55,8 +55,6 @@
 
 #ifdef SUPPORTS_EASI_TIME
 #include <set>
-#else
-#include <utils/logger.h>
 #endif
 
 GENERATE_HAS_MEMBER(Qane)
@@ -117,7 +115,7 @@ void projectInitialFieldOnLayer(
     const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
     const seissol::geometry::MeshReader& meshReader,
     LTS::Layer& layer) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
   const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
@@ -177,7 +175,7 @@ template <typename Cfg>
 void projectEasiFieldsOnLayer(const std::vector<double>& data,
                               std::size_t fieldCount,
                               LTS::Layer& layer) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
   const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});

@@ -23,7 +23,7 @@ namespace seissol::kernels {
 template <typename Cfg>
 class DynamicRupture : public Kernel<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   private:
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnlPrototype_;

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Recording.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Initializer/BatchRecorders/Recorders.h"
 #include "Kernels/Common.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -20,22 +21,27 @@ void setupRecorders(LTS::Storage& ltsStorage,
                     double g) {
   // only run for GPUs
   if constexpr (isDeviceOn()) {
-    recording::CompositeRecorder<LTS::LTSVarmap> recorder;
-    recorder.addRecorder(new recording::LocalIntegrationRecorder(g));
-    recorder.addRecorder(new recording::NeighIntegrationRecorder());
-
-    if (usePlasticity) {
-      recorder.addRecorder(new recording::PlasticityRecorder());
-    }
-
+    // every layer is recorded in its configuration
     for (auto& layer : ltsStorage.leaves(Ghost)) {
-      recorder.record(layer);
+      dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+        using Cfg = decltype(cfg);
+        recording::CompositeRecorder<LTS::LTSVarmap> recorder;
+        recorder.addRecorder(new recording::LocalIntegrationRecorder<Cfg>(g));
+        recorder.addRecorder(new recording::NeighIntegrationRecorder<Cfg>());
+        if (usePlasticity) {
+          recorder.addRecorder(new recording::PlasticityRecorder<Cfg>());
+        }
+        recorder.record(layer);
+      });
     }
 
-    recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
-    drRecorder.addRecorder(new recording::DynamicRuptureRecorder());
     for (auto& layer : drStorage.leaves(Ghost)) {
-      drRecorder.record(layer);
+      dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+        using Cfg = decltype(cfg);
+        recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
+        drRecorder.addRecorder(new recording::DynamicRuptureRecorder<Cfg>());
+        drRecorder.record(layer);
+      });
     }
   }
 }

@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Geometry/CellTransform.h"
-#include "Kernels/Precision.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -18,7 +17,7 @@ namespace seissol::unit_test {
 TEST_CASE("Test mapping a cell barycenter to reference coordinates" *
           doctest::test_suite("numerical")) {
   // We do all tests in double precision
-  constexpr real Epsilon = 10 * std::numeric_limits<double>::epsilon();
+  constexpr double Epsilon = 10 * std::numeric_limits<double>::epsilon();
 
   // NOLINTNEXTLINE (-cert-dcl59-cpp)
   std::mt19937 rnggen(9);

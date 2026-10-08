@@ -47,7 +47,7 @@ void initializeBoundaryMappingsOfLayer(
     LTS::Layer& layer,
     const seissol::geometry::MeshReader& meshReader,
     const std::optional<DirichletCondition>& dirichletCondition) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
 
   auto* cellInformation = layer.var<LTS::CellInformation>();

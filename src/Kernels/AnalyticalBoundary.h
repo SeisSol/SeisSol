@@ -31,7 +31,7 @@ namespace seissol::kernels {
  */
 template <typename Cfg>
 struct ApplyAnalyticalSolution {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
                           LTS::Ref<Cfg>& data)
@@ -79,7 +79,7 @@ struct ApplyAnalyticalSolution {
 template <typename Cfg>
 class AnalyticalBoundary {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   AnalyticalBoundary() {
     quadrature::GaussLegendre(quadPoints_.data(), quadWeights_.data(), Cfg::ConvergenceOrder);

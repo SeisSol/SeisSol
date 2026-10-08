@@ -7,13 +7,13 @@
 
 #include "AgingLaw.h"
 #include "BaseFrictionSolver.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "FastVelocityWeakeningLaw.h"
-#include "FrictionSolverInterface.h"
 #include "ImposedSlipRates.h"
 #include "LinearSlipWeakening.h"
 #include "NoFault.h"
+#include "Parallel/Runtime/Stream.h"
 #include "RateAndState.h"
 #include "SevereVelocityWeakeningLaw.h"
 #include "SlipLaw.h"
@@ -68,6 +68,8 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
   });
 }
 
+// the argument is a type, which the check takes for an expression in template arguments
+// NOLINTBEGIN(bugprone-macro-parentheses)
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
   template class BaseFrictionSolver<Cfg, NoFault<Cfg>>;                                            \
   template class BaseFrictionSolver<                                                               \
@@ -122,6 +124,7 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
   template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, YoffeSTF<Cfg>>>;                    \
   template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, GaussianSTF<Cfg>>>;                 \
   template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, DeltaSTF<Cfg>>>;
+// NOLINTEND(bugprone-macro-parentheses)
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE
 

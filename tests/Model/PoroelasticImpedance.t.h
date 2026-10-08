@@ -10,12 +10,13 @@
 
 // The closed form only depends on the material parameters and runs in every build. Comparing it
 // with the eigendecomposition needs MaterialSetup<PoroElasticMaterial>, and the traction matrix
-// pattern is generated code -- those two only run in a poroelastic build.
+// pattern is generated code -- those two only run in a build with a poroelastic configuration, the
+// pattern once for each of them.
 
 #include <doctest.h>
 
 #include "Alignment.h"
-#include "Config.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h"
 #include "Equations/ImpedanceBase.h"
@@ -24,13 +25,13 @@
 #include "GeneratedCode/tensor.h"
 #include "ImpedanceReference.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
-#include "Kernels/Precision.h"
+#include "Model/MaterialType.h"
+#include "TestConfigs.h"
 
 #include <Eigen/Dense>
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -45,6 +46,15 @@ inline model::PoroElasticMaterial testPoroMaterial(double porosity, double tortu
 
 // MaterialSetup<PoroElasticMaterial> is only compiled together with the space-time predictor
 #ifdef SEISSOL_KERNELS_STP
+/// testPoroMaterial in units in which moduli of 1e10 Pa and densities of 1000 kg/m^3 are one.
+/// getEigenDecomposition checks its residual against an absolute threshold (see its debug checks),
+/// which only makes sense for moduli of order one. Permeability and viscosity do not enter the
+/// Jacobian; they keep their values.
+inline model::PoroElasticMaterial testPoroMaterialOfOrderOne(double porosity, double tortuosity) {
+  return model::PoroElasticMaterial(
+      std::vector<double>{3.6, 2.65, 0.4, 0.6, porosity, 1.0e-13, tortuosity, 0.22, 1.0, 1.0e-3});
+}
+
 // ---------------------------------------------------------------------------
 // The poroelastic interface has four variables, (sigma_nn, sigma_ns, sigma_nd, p) against
 // (v_n, v_s, v_d, q_n). SeisSol's poroelastic frame is isotropic, so the generalized wave
@@ -61,7 +71,7 @@ TEST_CASE("Poroelastic DR impedance closed form agrees with the eigendecompositi
 
   for (const double porosity : {0.05, 0.2, 0.4}) {
     for (const double tortuosity : {1.0, 1.5, 3.0}) {
-      const auto sweepMaterial = testPoroMaterial(porosity, tortuosity);
+      const auto sweepMaterial = testPoroMaterialOfOrderOne(porosity, tortuosity);
 
       LateralMatrix lateralClosed = LateralMatrix::Zero();
       const auto admittanceClosed =
@@ -166,34 +176,39 @@ TEST_CASE("Poroelastic DR impedance closed form" * doctest::test_suite("dynamicr
 // Writing a four row matrix into a pattern that only has three leaves the pattern and silently
 // overwrites a neighboring entry, which is what this pins down.
 // ---------------------------------------------------------------------------
-TEST_CASE("Poroelastic traction matrix pattern" * doctest::test_suite("dynamicrupture")) {
-  // only a poroelastic build carries the fluid pressure row in the pattern
-  if constexpr (std::is_same_v<model::MaterialT, model::PoroElasticMaterial>) {
-    // the rows initializeDynamicRuptureMatrices writes to
-    constexpr auto StoredRows = PoroelasticImpedance::TractionIndices;
-    constexpr std::size_t Rows = StoredRows.size();
-    constexpr std::size_t Columns = 3;
+TEST_CASE_TEMPLATE_DEFINE("Poroelastic traction matrix pattern" *
+                              doctest::test_suite("dynamicrupture"),
+                          Cfg,
+                          PoroelasticTractionMatrixPattern) {
+  using real = Real<Cfg>;
+  // the rows initializeDynamicRuptureMatrices writes to
+  constexpr auto StoredRows = PoroelasticImpedance::TractionIndices;
+  constexpr std::size_t Rows = StoredRows.size();
+  constexpr std::size_t Columns = 3;
 
-    REQUIRE(tensor::tractionPlusMatrix<Config>::size() == Rows * Columns);
-    REQUIRE(tensor::tractionMinusMatrix<Config>::size() == Rows * Columns);
+  REQUIRE(tensor::tractionPlusMatrix<Cfg>::size() == Rows * Columns);
+  REQUIRE(tensor::tractionMinusMatrix<Cfg>::size() == Rows * Columns);
 
-    alignas(Alignment) real data[tensor::tractionPlusMatrix<Config>::size()]{};
-    auto view = init::tractionPlusMatrix<Config>::view::create(data);
-    view.setZero();
-    for (std::size_t col = 0; col < Columns; ++col) {
-      for (std::size_t row = 0; row < Rows; ++row) {
-        view(StoredRows[row], col) = static_cast<real>(10 * col + row);
-      }
+  alignas(Alignment) real data[tensor::tractionPlusMatrix<Cfg>::size()]{};
+  auto view = init::tractionPlusMatrix<Cfg>::view::create(data);
+  view.setZero();
+  for (std::size_t col = 0; col < Columns; ++col) {
+    for (std::size_t row = 0; row < Rows; ++row) {
+      view(StoredRows[row], col) = static_cast<real>(10 * col + row);
     }
+  }
 
-    // column major within the stored rows, the layout the friction energy indexing relies on
-    for (std::size_t col = 0; col < Columns; ++col) {
-      for (std::size_t row = 0; row < Rows; ++row) {
-        CHECK(data[Rows * col + row] == doctest::Approx(10.0 * col + row));
-      }
+  // column major within the stored rows, the layout the friction energy indexing relies on
+  for (std::size_t col = 0; col < Columns; ++col) {
+    for (std::size_t row = 0; row < Rows; ++row) {
+      CHECK(data[Rows * col + row] == doctest::Approx(10.0 * col + row));
     }
   }
 }
+
+// only a poroelastic configuration carries the fluid pressure row in the pattern
+TEST_CASE_TEMPLATE_APPLY(PoroelasticTractionMatrixPattern,
+                         ConfigsOfMaterial<model::MaterialType::Poroelastic>);
 
 } // namespace seissol::unit_test
 

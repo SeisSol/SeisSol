@@ -12,6 +12,7 @@
 #include "Alignment.h"
 #include "Common/Marker.h"
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -27,16 +28,16 @@
 #include <cmath>
 #include <cstddef>
 #include <utility>
-#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "DeviceAux/PlasticityAux.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-
-#include <Device/Algorithms.h>
-#include <Device/device.h>
 using namespace device;
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 #ifndef NDEBUG
@@ -53,6 +54,10 @@ std::size_t
                                        const seissol::model::PlasticityData<Cfg>* plasticityData,
                                        real degreesOfFreedom[tensor::Q<Cfg>::size()],
                                        real* pstrain) {
+  // a material without the stresses of a solid has nothing that yields
+  if constexpr (!model::MaterialOf<Cfg>::SupportsPlasticity) {
+    return 0;
+  }
 
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Vectorsize == 0);
 
@@ -234,6 +239,10 @@ void Plasticity<Cfg>::computePlasticityBatched(
     SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
+  // a material without the stresses of a solid has nothing that yields
+  if constexpr (!model::MaterialOf<Cfg>::SupportsPlasticity) {
+    return;
+  }
 
   using namespace seissol::recording;
 
@@ -243,21 +252,21 @@ void Plasticity<Cfg>::computePlasticityBatched(
                 "modal dofs and vandermonde matrix must have the same leading dimensions");
 
   const ConditionalKey key(*KernelNames::Plasticity);
-  auto defaultStream = runtime.stream();
+  auto* defaultStream = runtime.stream();
 
   if (table.find(key) != table.end()) {
     const auto oneMinusIntegratingFactor = computeRelaxTime(tV, timeStepWidth);
 
     auto& entry = table[key];
-    const size_t numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    const size_t numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
 
     // Convert modal to nodal
-    real** modalStressTensors = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    real** modalStressTensors = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     real** nodalStressTensors =
-        (entry.get(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
+        (entry.get<real*>(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
 
     static_assert(kernel::gpu_plConvertToNodal<Cfg>::TmpMaxMemRequiredInBytes == 0);
-    real** initLoad = (entry.get(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
+    real** initLoad = (entry.get<real*>(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal<Cfg> m2nKrnl;
     m2nKrnl.bindGlobals(*global);
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);
@@ -267,7 +276,7 @@ void Plasticity<Cfg>::computePlasticityBatched(
     m2nKrnl.numElements = numElements;
     m2nKrnl.execute();
 
-    real** pstrains = entry.get(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
+    real** pstrains = entry.get<real*>(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
 
     device::aux::plasticity::plasticityNonlinear(nodalStressTensors,
                                                  pstrains,

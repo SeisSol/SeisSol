@@ -112,7 +112,7 @@ function(seissol_add_test_module NAME)
     if (NOT NEW_BINARY_NAMING)
         set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "SeisSol_test_${NAME}_${EXE_NAME_PREFIX}")
     else()
-        set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "testseissol-${NAME}-${NAME_SUFFIX}")
+        set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "testseissol-${NAME}${NAME_SUFFIX}")
     endif()
 endfunction()
 
@@ -150,7 +150,7 @@ function(seissol_add_mpi_test_module NAME RANKS)
     if (NOT NEW_BINARY_NAMING)
         set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "SeisSol_test_${NAME}_${EXE_NAME_PREFIX}")
     else()
-        set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "testseissol-${NAME}-${NAME_SUFFIX}")
+        set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "testseissol-${NAME}${NAME_SUFFIX}")
     endif()
 endfunction()
 
@@ -210,9 +210,15 @@ seissol_add_mpi_test_module(geometrympi 4
 if (TESTING_GENERATED)
     set(_GENERATED_KERNEL_TARGETS seissol-test-kernel)
 
+    # A generated test compares a kernel of the library with a reference the test computes itself,
+    # which needs little optimization to run fast; with -O1, the tests compile several times as
+    # fast as with -O3.
+    set_source_files_properties(${SEISSOL_CODEGEN_TESTS} PROPERTIES
+        COMPILE_OPTIONS "$<$<NOT:$<CONFIG:Debug>>:-O1>")
+
     foreach(_TGT IN LISTS _GENERATED_KERNEL_TARGETS)
         if (WITH_GPU)
-            make_device_hostapi_lib(${_TGT}-device ${SEISSOL_CODEGEN_TESTS})
+            make_device_hostapi_lib(${_TGT}-device "${SEISSOL_CODEGEN_TESTS}")
             target_link_libraries(${_TGT}-device PRIVATE seissol-kernel-lib)
             target_link_libraries(${_TGT}-device PRIVATE seissol-external)
             target_include_directories(${_TGT}-device PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -223,7 +229,7 @@ if (TESTING_GENERATED)
             if (NOT NEW_BINARY_NAMING)
                 set_target_properties(${_TGT}-device PROPERTIES OUTPUT_NAME "SeisSol_testdevice_${EXE_NAME_PREFIX}")
             else()
-                set_target_properties(${_TGT}-device PROPERTIES OUTPUT_NAME "testdeviceseissol-${NAME_SUFFIX}")
+                set_target_properties(${_TGT}-device PROPERTIES OUTPUT_NAME "testdeviceseissol${NAME_SUFFIX}")
             endif()
         else()
             target_sources(${_TGT} PRIVATE ${SEISSOL_CODEGEN_TESTS})

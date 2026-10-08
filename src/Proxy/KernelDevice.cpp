@@ -15,13 +15,14 @@
 #include <memory>
 
 #ifdef ACL_DEVICE
-#include "Common/Constants.h"
 #include "Constants.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Numerical/Quadrature.h"
 #endif
 

@@ -5,19 +5,19 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
-#include "Kernels/Precision.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cstdio>
 #include <sycl/sycl.hpp>
 #include <yateto.h>
 
-#ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
 namespace {
 constexpr std::size_t Blocksize = 128;
 

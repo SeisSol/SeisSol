@@ -60,7 +60,8 @@ struct ModelParameters {
 };
 
 /// The configuration the cells of the run compute in: the one named by `configuration` in the
-/// section `equations`, or the first one built into the executable.
+/// section `equations`, or else the one the environment variable SEISSOL_CONFIGURATION names, or
+/// else the first one built into the executable (see `defaultConfig`).
 ConfigId readConfig(ParameterReader* baseReader);
 /// The mesh groups whose cells compute in a configuration other than `config`, by `configmap` in
 /// the section `equations`: e.g. "1,2:name;3:other" puts the groups 1 and 2 into the configuration

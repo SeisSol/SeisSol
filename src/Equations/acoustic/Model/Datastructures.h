@@ -58,6 +58,7 @@ struct AcousticMaterial : public Material {
   static constexpr std::size_t Parameters = 1 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsPlasticity = false;
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 

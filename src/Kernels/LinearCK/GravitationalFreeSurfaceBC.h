@@ -36,7 +36,7 @@ namespace seissol {
 template <typename Cfg>
 class GravitationalFreeSurfaceBc {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   private:
   double gravitationalAcceleration_;
@@ -104,7 +104,7 @@ class GravitationalFreeSurfaceBc {
                         MappingKrnl&& fsgKernelBase,
                         recording::ConditionalPointersToRealsTable& dataTable,
                         double timeStepWidth,
-                        device::DeviceInstance& device,
+                        device::DeviceInstance& /*device*/,
                         seissol::parallel::runtime::StreamRuntime& runtime) {
 
     using namespace seissol::recording;
@@ -112,19 +112,21 @@ class GravitationalFreeSurfaceBc {
     const ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
     if (dataTable.find(key) != dataTable.end()) {
-      const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getSize()};
+      const size_t numElements{
+          dataTable[key].get<real*>(inner_keys::Wp::Id::Derivatives)->getSize()};
 
-      auto** constantData = dataTable[key].get(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
+      auto** constantData =
+          dataTable[key].get<real*>(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
 
-      auto** TinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
-      auto** TDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
+      auto** tinvDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** tDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::T)->getDeviceDataPtr();
       auto** derivativesPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
+          dataTable[key].get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
 
       auto** displacementsPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
+          dataTable[key].get<real*>(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
       auto** integratedDisplacementNodalPtrs =
-          dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
+          dataTable[key].get<real*>(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
 
       kernel::gpu_fsgKernel<Cfg> kernel = std::forward<MappingKrnl>(fsgKernelBase);
 
@@ -137,8 +139,8 @@ class GravitationalFreeSurfaceBc {
         kernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
         kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
       }
-      kernel.Tinv = const_cast<const real**>(TinvDataPtrs);
-      kernel.T = const_cast<const real**>(TDataPtrs);
+      kernel.Tinv = const_cast<const real**>(tinvDataPtrs);
+      kernel.T = const_cast<const real**>(tDataPtrs);
       kernel.faceDisplacement = displacementsPtrs;
       kernel.Iint = integratedDisplacementNodalPtrs;
 
