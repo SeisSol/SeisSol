@@ -147,7 +147,7 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
         auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(Cfg(), AllocationPlace::Device);
         dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + kernels::size<tensor::Qext<Cfg>>() * cell;
       }
-      if constexpr (Cfg::MaterialType == model::MaterialType::Poroelastic) {
+      if constexpr (Cfg::Solver == SolverType::STP) {
         auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(Cfg(), AllocationPlace::Device);
         zinvExtraPtrs[cell] = zinvExtraPtr + kernels::familySize<tensor::Zinv<Cfg>>() * cell;
       }
@@ -178,7 +178,7 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
     }
-    if constexpr (Cfg::MaterialType == model::MaterialType::Poroelastic) {
+    if constexpr (Cfg::Solver == SolverType::STP) {
       (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
     }
   }
