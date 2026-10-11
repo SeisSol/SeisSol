@@ -80,8 +80,6 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
   // temporary result
   // TODO(David): move these temporary buffers into the Yateto kernel, maybe
   alignas(PagesizeStack) real temporaryBuffer[2][tensor::dQ<Cfg>::size(0)];
-  alignas(PagesizeStack) real temporaryBufferExt[2][tensor::dQext<Cfg>::size(1)];
-  alignas(PagesizeStack) real temporaryBufferAne[2][tensor::dQane<Cfg>::size(0)];
 
   kernel::derivative<Cfg> krnl = krnlPrototype_;
 
@@ -120,10 +118,6 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
   }
 
   krnl.dQane(0) = const_cast<real*>(data.template get<LTS::DofsAne>());
-  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-    krnl.dQane(i) = temporaryBufferAne[i % 2];
-    krnl.dQext(i) = temporaryBufferExt[i % 2];
-  }
 
   krnl.I = timeIntegrated;
   krnl.Iane = tmp.timeIntegratedAne;
@@ -272,15 +266,11 @@ void Spacetime<Cfg>::computeBatchedAder(
 
     std::size_t derivativesOffset = tensor::dQ<Cfg>::size(0);
     krnl.dQ(0) = (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-    krnl.dQane(0) = (entry.get<real*>(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    krnl.dQane(0) = const_cast<const real**>(
+        (entry.get<real*>(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr());
     for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
       krnl.dQ(i) = (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
       krnl.extraOffset_dQ(i) = derivativesOffset;
-      krnl.dQane(i) = (entry.get<real*>(inner_keys::Wp::Id::DerivativesAne))->getDeviceDataPtr();
-      krnl.extraOffset_dQane(i) = i % 2 == 1 ? 0 : tensor::dQane<Cfg>::size(1);
-      krnl.dQext(i) = (entry.get<real*>(inner_keys::Wp::Id::DerivativesExt))->getDeviceDataPtr();
-      krnl.extraOffset_dQext(i) = i % 2 == 1 ? 0 : tensor::dQext<Cfg>::size(1);
-
       // TODO: compress
       derivativesOffset += tensor::dQ<Cfg>::size(i);
     }

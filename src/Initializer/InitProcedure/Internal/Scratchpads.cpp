@@ -118,14 +118,6 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
   if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
     layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * kernels::size<tensor::Iane<Cfg>>() *
                                              sizeof(real));
-    layer.setEntrySize<LTS::DerivativesExtScratch>(
-        layer.size() *
-        (kernels::size<tensor::dQext<Cfg>>(1) + kernels::size<tensor::dQext<Cfg>>(2)) *
-        sizeof(real));
-    layer.setEntrySize<LTS::DerivativesAneScratch>(
-        layer.size() *
-        (kernels::size<tensor::dQane<Cfg>>(1) + kernels::size<tensor::dQane<Cfg>>(2)) *
-        sizeof(real));
     layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * kernels::size<tensor::Qext<Cfg>>() *
                                             sizeof(real));
   }

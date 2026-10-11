@@ -132,18 +132,6 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
         idofsAnePtrs[cell] =
             static_cast<real*>(idofsAne) + kernels::size<tensor::Iane<Cfg>>() * cell;
 
-        auto* derivativesExt =
-            currentLayer_->var<LTS::DerivativesExtScratch>(Cfg(), AllocationPlace::Device);
-        derivativesExtPtrs[cell] =
-            static_cast<real*>(derivativesExt) +
-            (kernels::size<tensor::dQext<Cfg>>(1) + kernels::size<tensor::dQext<Cfg>>(2)) * cell;
-
-        auto* derivativesAne =
-            currentLayer_->var<LTS::DerivativesAneScratch>(Cfg(), AllocationPlace::Device);
-        derivativesAnePtrs[cell] =
-            static_cast<real*>(derivativesAne) +
-            (kernels::size<tensor::dQane<Cfg>>(1) + kernels::size<tensor::dQane<Cfg>>(2)) * cell;
-
         auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(Cfg(), AllocationPlace::Device);
         dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + kernels::size<tensor::Qext<Cfg>>() * cell;
       }
@@ -175,8 +163,6 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
     }
     if constexpr (Cfg::MaterialType == model::MaterialType::Poroelastic) {
       (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
