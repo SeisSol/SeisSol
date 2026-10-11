@@ -432,6 +432,7 @@ class LinearCKAnelastic(ADERDGBase):
                 self.Q.optPos(),
                 self._qShapeExtended,
                 alignStride=True,
+                temporary=True,
             )
             for d in range(self.order)
         ]
@@ -443,6 +444,7 @@ class LinearCKAnelastic(ADERDGBase):
                 self.Q.optPos(),
                 self._qShapeAnelastic,
                 alignStride=True,
+                temporary=d > 0,
             )
             for d in range(self.order)
         ]
@@ -511,9 +513,7 @@ class LinearCKAnelastic(ADERDGBase):
                     self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
                     self.Iane["kpm"] <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],
                 ]
-            # TODO(David): we'll need to add intermediate results to Yateto,
-            # then the temporary storage needed can be reduced.
-            # for now, we'll interleave the Taylor
+            # TODO(David): for now, we'll interleave the Taylor
             # expansion with the derivative computation
             # derivativeExpr += [
             #   derivativeTaylorExpansionElaExpr,
