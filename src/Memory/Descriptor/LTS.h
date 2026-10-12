@@ -162,8 +162,6 @@ struct LTS {
   struct DerivativesScratch : public initializer::VariantScratchpad<Real> {};
   struct NodalAvgDisplacements : public initializer::VariantScratchpad<Real> {};
   struct AnalyticScratch : public initializer::VariantScratchpad<Real> {};
-  struct DerivativesExtScratch : public initializer::VariantScratchpad<Real> {};
-  struct DerivativesAneScratch : public initializer::VariantScratchpad<Real> {};
   struct IDofsAneScratch : public initializer::VariantScratchpad<Real> {};
   struct DofsExtScratch : public initializer::VariantScratchpad<Real> {};
 
@@ -209,8 +207,6 @@ struct LTS {
                                                         DerivativesScratch,
                                                         NodalAvgDisplacements,
                                                         AnalyticScratch,
-                                                        DerivativesExtScratch,
-                                                        DerivativesAneScratch,
                                                         IDofsAneScratch,
                                                         DofsExtScratch,
                                                         FlagScratch,
@@ -307,8 +303,6 @@ struct LTS {
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;
 
-      storage.add<DerivativesExtScratch>(LayerMask(), Alignment, mode);
-      storage.add<DerivativesAneScratch>(LayerMask(), Alignment, mode);
       storage.add<IDofsAneScratch>(LayerMask(), Alignment, mode);
       storage.add<DofsExtScratch>(LayerMask(), Alignment, mode);
       storage.add<IntegratedDofsScratch>(LayerMask(), Alignment, mode);
