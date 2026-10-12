@@ -238,10 +238,10 @@ void Local<Cfg>::computeBatchedIntegral(
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
-
-// deprecated code; kept for comparison reasons
+    // deprecated code; kept for comparison reasons
 #ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
+    const auto key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+
     if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
       localFluxKrnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();

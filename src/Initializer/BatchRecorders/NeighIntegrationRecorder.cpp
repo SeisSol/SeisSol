@@ -319,7 +319,7 @@ void NeighIntegrationRecorder<Cfg>::recordNeighborFluxIntegrals() {
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
-        assert(drMappingDevice[cell][face].side == face &&
+        assert(drMappingDevice[cell][face].side == static_cast<std::int8_t>(face) &&
                "the batched neighbor integral only visits the side of the face itself");
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.template get<LTS::Dofs>()));
         drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
