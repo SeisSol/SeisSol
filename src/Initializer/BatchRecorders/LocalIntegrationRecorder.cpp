@@ -19,7 +19,6 @@
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Model/CommonDatastructures.h"
 #include "Recorders.h"
 #include "Solver/MultipleSimulations.h"
 

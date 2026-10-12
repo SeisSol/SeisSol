@@ -171,7 +171,7 @@ void Local<Cfg>::computeBatchedIntegral(
 
   using namespace seissol::recording;
   // Volume integral
-  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volume<Cfg> volKrnl = deviceVolumeKernelPrototype_;
   const kernel::gpu_localFlux<Cfg> localFluxKrnl = deviceLocalFluxKernelPrototype_;
 

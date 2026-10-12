@@ -19,7 +19,6 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Model/CommonDatastructures.h"
 
 #include <algorithm>
 #include <cstddef>
