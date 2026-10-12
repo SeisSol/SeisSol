@@ -180,6 +180,8 @@ class MemkindArray {
   }
   auto operator=(MemkindArray<T>&& source) noexcept -> MemkindArray& {
     if (&source != this) {
+      freeTyped(this->dataPtr_, this->memkind_);
+
       this->dataPtr_ = source.dataPtr_;
       this->memkind_ = source.memkind_;
       this->capacity_ = source.capacity_;
@@ -205,20 +207,25 @@ class MemkindArray {
   explicit MemkindArray(Memkind memkind) : memkind_(memkind) {}
 
   void resize(std::size_t capacity, Memkind newMemkind) {
-    this->capacity_ = capacity;
+    auto* newDataPtr = allocTyped<T>(capacity, Alignment, newMemkind);
     freeTyped(dataPtr_, memkind_);
-    dataPtr_ = allocTyped<T>(capacity, Alignment, newMemkind);
+
+    this->dataPtr_ = newDataPtr;
+    this->capacity_ = capacity;
     this->memkind_ = newMemkind;
   }
   void resize(std::size_t capacity) { resize(capacity, memkind_); }
 
   void copyFrom(const std::vector<T>& source) {
     assert(source.size() <= capacity_);
-    memcopyTyped<T>(dataPtr_, source.data(), capacity_, memkind_, Memkind::Standard);
+    const auto copyCount = std::min(capacity_, source.size());
+    memcopyTyped<T>(dataPtr_, source.data(), copyCount, memkind_, Memkind::Standard);
   }
+
   void copyFrom(const MemkindArray<T>& source) {
     assert(source.size() <= capacity_);
-    memcopyTyped<T>(dataPtr_, source.data(), capacity_, memkind_, source.memkind_);
+    const auto copyCount = std::min(capacity_, source.size());
+    memcopyTyped<T>(dataPtr_, source.data(), copyCount, memkind_, source.memkind_);
   }
 
   ~MemkindArray() { freeTyped(dataPtr_, memkind_); }

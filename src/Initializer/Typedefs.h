@@ -89,10 +89,12 @@ struct alignas(Alignment) NeighboringIntegrationData {
  * configurations that read no such weights.
  */
 template <typename Cfg, bool = generated::ConfigBoundaryKernels<Cfg>::NormalStress>
-struct NormalStressWeights {};
+struct alignas(16) NormalStressWeights {
+  // (we currently need to enforce alignment for the empty struct)
+};
 
 template <typename Cfg>
-struct NormalStressWeights<Cfg, true> {
+struct alignas(16) NormalStressWeights<Cfg, true> {
   Real<Cfg> weights[Cell::NumFaces]
                    [generated::ConfigBoundaryKernels<Cfg>::CoupledCanonicalQuantities]{};
 };
