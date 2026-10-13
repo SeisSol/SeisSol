@@ -320,7 +320,8 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynami
         energyOutput.accumulatedSlip[p] = 1.0;
         slipRateMagnitude[p] = static_cast<real>(1e-9);
       }
-      real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints<Cfg>]{};
+      // as the padded weights the solver is given: it reads a weight for every padded point
+      real spaceWeights[misc::NumPaddedPoints<Cfg>]{};
       const DRGodunovData<Cfg> godunovData{};
       friction_law::common::computeFrictionEnergy<Cfg>(energyOutput,
                                                        qInterpolatedPlus,
