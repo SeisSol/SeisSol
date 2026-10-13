@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utility>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -349,8 +350,12 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
-      const auto& cellIds =
-          indicesTable[analyticalKey].get<unsigned>(inner_keys::Indices::Id::Cells)->getHostData();
+      // the indices the table holds, not a copy of them: the loop below runs when the stream gets
+      // to it, after this scope
+      const auto& cellIds = std::as_const(indicesTable)
+                                .at(analyticalKey)
+                                .get<unsigned>(inner_keys::Indices::Id::Cells)
+                                ->getHostData();
       const size_t numElements = cellIds.size();
       auto* analytical = reinterpret_cast<real(*)[tensor::INodal<Cfg>::size()]>(
           layer.var<LTS::AnalyticScratch>(Cfg()));
