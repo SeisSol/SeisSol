@@ -11,7 +11,10 @@
     "the observed values next to each case.",
     "Use the relative norms: the absolute ones scale with the amplitude of",
     "the initial condition. L1 and L2 are reduced with MPI_SUM and are",
-    "therefore not reproducible across rank counts; LInf uses MPI_MAX and is."
+    "therefore not reproducible across rank counts; LInf uses MPI_MAX and is.",
+    "A fused build has keys of its own, ending in /s and its simulation count:",
+    "its simulations carry the wave in phases of their own, and the largest",
+    "error among them is larger than the one of a single simulation."
   ],
   "entries": {
     "elastic/o2/double": {
@@ -21,6 +24,14 @@
     "elastic/o3/double": {
       "L2_rel": 0.098,
       "LInf_rel": 0.38
+    },
+    "elastic/o3/double/s8": {
+      "L2_rel": 0.098,
+      "LInf_rel": 0.58
+    },
+    "elastic/o3/single/s8": {
+      "L2_rel": 0.098,
+      "LInf_rel": 0.58
     },
     "elastic/o4/double": {
       "L2_rel": 0.018,

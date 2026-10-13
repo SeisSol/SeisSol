@@ -721,6 +721,10 @@ def _command_run(args):
         key = "{}/o{}/{}".format(
             capabilities["equations"], capabilities["order"], capabilities["precision"]
         )
+        # fused simulations carry the wave in phases of their own, and the largest error among
+        # them is not the one of a single simulation
+        if capabilities["fused"] > 1:
+            key += "/s{}".format(capabilities["fused"])
         analysis_problems, observed = check_analysis(
             work, prefix, args.thresholds, key, args.record
         )
