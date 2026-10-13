@@ -78,6 +78,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   configuration
   parameter-file
   initial-condition
+  boundary-conditions
   local-timestepping
   left-lateral-right-lateral-normal-reverse
   easi

@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "DynamicRupture/Misc.h"
+#include "Geometry/MeshDefinition.h"
 #include "TestHelper.h"
 
 #include <cmath>
@@ -118,18 +119,18 @@ TEST_CASE("DR Misc clamp" * doctest::test_suite("dynamicrupture")) {
 TEST_CASE("DR Misc computeStrikeAndDipVectors" * doctest::test_suite("dynamicrupture")) {
   constexpr double Eps = 1e-12;
 
-  auto dotProduct = [](const double* a, const double* b) {
+  auto dotProduct = [](const CoordinateT& a, const CoordinateT& b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   };
 
-  auto vecLength = [](const double* v) {
+  auto vecLength = [](const CoordinateT& v) {
     return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
   };
 
   SUBCASE("Normal along y-axis [0,1,0]") {
-    double normal[3] = {0.0, 1.0, 0.0};
-    double strike[3] = {};
-    double dip[3] = {};
+    const CoordinateT normal{0.0, 1.0, 0.0};
+    CoordinateT strike{};
+    CoordinateT dip{};
 
     computeStrikeAndDipVectors(normal, strike, dip);
 
@@ -146,9 +147,9 @@ TEST_CASE("DR Misc computeStrikeAndDipVectors" * doctest::test_suite("dynamicrup
   }
 
   SUBCASE("Normal along x-axis [1,0,0]") {
-    double normal[3] = {1.0, 0.0, 0.0};
-    double strike[3] = {};
-    double dip[3] = {};
+    const CoordinateT normal{1.0, 0.0, 0.0};
+    CoordinateT strike{};
+    CoordinateT dip{};
 
     computeStrikeAndDipVectors(normal, strike, dip);
 
@@ -160,9 +161,9 @@ TEST_CASE("DR Misc computeStrikeAndDipVectors" * doctest::test_suite("dynamicrup
   }
 
   SUBCASE("Arbitrary oblique normal") {
-    double normal[3] = {1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
-    double strike[3] = {};
-    double dip[3] = {};
+    const CoordinateT normal{1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    CoordinateT strike{};
+    CoordinateT dip{};
 
     computeStrikeAndDipVectors(normal, strike, dip);
 
@@ -174,9 +175,9 @@ TEST_CASE("DR Misc computeStrikeAndDipVectors" * doctest::test_suite("dynamicrup
   }
 
   SUBCASE("Vertical normal [0,0,1]") {
-    double normal[3] = {0.0, 0.0, 1.0};
-    double strike[3] = {};
-    double dip[3] = {};
+    const CoordinateT normal{0.0, 0.0, 1.0};
+    CoordinateT strike{};
+    CoordinateT dip{};
 
     computeStrikeAndDipVectors(normal, strike, dip);
 

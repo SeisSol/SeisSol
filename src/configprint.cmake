@@ -37,25 +37,60 @@ endif()
 configure_file("Alignment.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/Alignment.h")
 
-capitalize(${EQUATIONS} PARAMETER_MATERIAL)
+# the configurations built into the executable (cmake/configs.cmake): a type each, and the lists of
+# them for Config.h
+set(SEISSOL_CONFIG_STRUCTS "")
+set(SEISSOL_CONFIG_LIST "")
+set(SEISSOL_CONFIG_TYPE_NAMES "")
+# the configurations each solver advances, for the instantiation of its kernels
+set(SEISSOL_CONFIGS_LINEARCK "")
+set(SEISSOL_CONFIGS_LINEARCKANELASTIC "")
+set(SEISSOL_CONFIGS_STP "")
+# the first configuration of each material, for what is instantiated per material
+set(SEISSOL_CONFIGS_PER_MATERIAL "")
+set(_seen_materials "")
+foreach(IDX RANGE ${SEISSOL_CONFIG_LAST})
+  foreach(FIELD TYPES MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS DRQUADRULES SIMULATIONS)
+    list(GET SEISSOL_CONFIG_${FIELD} ${IDX} CONFIG_${FIELD})
+  endforeach()
 
-if (SOLVER STREQUAL "linearck")
-  set(PARAMETER_SOLVER "LinearCK")
-elseif (SOLVER STREQUAL "linearckanelastic")
-  set(PARAMETER_SOLVER "LinearCKAnelastic")
-elseif (SOLVER STREQUAL "stp")
-  set(PARAMETER_SOLVER "STP")
-else()
-  message(FATAL_ERROR "Invalid SOLVER: ${SOLVER}")
-endif()
+  capitalize(${CONFIG_MATERIALS} PARAMETER_MATERIAL)
+  capitalize(${CONFIG_DRQUADRULES} PARAMETER_DRQUADRULE)
+  if (CONFIG_SOLVERS STREQUAL "linearck")
+    set(PARAMETER_SOLVER "LinearCK")
+  elseif (CONFIG_SOLVERS STREQUAL "linearckanelastic")
+    set(PARAMETER_SOLVER "LinearCKAnelastic")
+  elseif (CONFIG_SOLVERS STREQUAL "stp")
+    set(PARAMETER_SOLVER "STP")
+  else()
+    message(FATAL_ERROR "Invalid solver: ${CONFIG_SOLVERS}")
+  endif()
+  if (CONFIG_PRECISIONS STREQUAL "single")
+    set(PARAMETER_REALTYPE "F32")
+  else()
+    set(PARAMETER_REALTYPE "F64")
+  endif()
 
-capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
-
-if (PRECISION STREQUAL "single")
-  set(PARAMETER_REALTYPE "F32")
-else()
-  set(PARAMETER_REALTYPE "F64")
-endif()
+  string(APPEND SEISSOL_CONFIG_STRUCTS
+    "struct ${CONFIG_TYPES}\n"
+    "    : ConfigOf<${CONFIG_ORDERS},\n"
+    "               ${CONFIG_MECHANISMS},\n"
+    "               model::MaterialType::${PARAMETER_MATERIAL},\n"
+    "               RealType::${PARAMETER_REALTYPE},\n"
+    "               SolverType::${PARAMETER_SOLVER},\n"
+    "               DRQuadRuleType::${PARAMETER_DRQUADRULE},\n"
+    "               ${CONFIG_SIMULATIONS}> {};\n")
+  string(APPEND SEISSOL_CONFIG_LIST " X(::seissol::${CONFIG_TYPES})")
+  list(APPEND SEISSOL_CONFIG_TYPE_NAMES "::seissol::${CONFIG_TYPES}")
+  string(TOUPPER ${PARAMETER_SOLVER} PARAMETER_SOLVER_UPPER)
+  string(APPEND SEISSOL_CONFIGS_${PARAMETER_SOLVER_UPPER} " X(::seissol::${CONFIG_TYPES})")
+  # the material type of a configuration is given by its material and its relaxation mechanisms
+  if (NOT "${CONFIG_MATERIALS}-${CONFIG_MECHANISMS}" IN_LIST _seen_materials)
+    list(APPEND _seen_materials "${CONFIG_MATERIALS}-${CONFIG_MECHANISMS}")
+    string(APPEND SEISSOL_CONFIGS_PER_MATERIAL " X(::seissol::${CONFIG_TYPES})")
+  endif()
+endforeach()
+string(JOIN ", " SEISSOL_CONFIG_TYPE_LIST ${SEISSOL_CONFIG_TYPE_NAMES})
 
 configure_file("Config.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/Config.h")

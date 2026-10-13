@@ -20,6 +20,7 @@
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/DofSync.h"
 #include "ResultWriter/EnergyOutput.h"
+#include "ResultWriter/MiniSeisSolWriter.h"
 #include "ResultWriter/PickpointWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
@@ -116,6 +117,11 @@ class SeisSol {
    * Get the flop counter
    */
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
+
+  /**
+   * Get the mini SeisSol writer; it holds the measurement until the output directory exists
+   */
+  writer::MiniSeisSolWriter& miniSeisSolWriter() { return miniSeisSolWriter_; }
 
   const std::optional<std::string>& checkpointLoadFile() { return checkpointLoadFile_; }
   /**
@@ -245,6 +251,9 @@ class SeisSol {
 
   //! Flop Counter
   monitoring::FlopCounter flopCounter_;
+
+  //! Mini SeisSol measurement, written with the rest of the output
+  writer::MiniSeisSolWriter miniSeisSolWriter_;
 
   //! TimeMirror Managers
   std::list<seissol::physics::InstantaneousTimeMirrorManager> timeMirrorManagers_;

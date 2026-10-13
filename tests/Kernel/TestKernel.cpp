@@ -8,9 +8,11 @@
 #include <doctest.h>
 
 #include "Common.t.h"
+#include "ConfigBoundary.t.h"
 #include "FlopCounting.t.h"
 #include "Plasticity.t.h"
 #include "PointSourceCluster.t.h"
+#include "Receiver.t.h"
 
 #ifdef SEISSOL_KERNELS_STP
 #include "STP.t.h"

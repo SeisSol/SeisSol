@@ -81,14 +81,13 @@ jobs:
             -DTESTING=ON \
             -DTESTING_GENERATED=ON \
             -DHOST_ARCH=neon \
-            -DORDER=6 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DEQUATIONS=elastic \
-            -DPRECISION=double \
+            -DCONFIGS=ci-cpu \
             -DGRAPH_PARTITIONING_LIBS=none \
             -DNUMA_AWARE_PINNING=OFF
 
-          ninja
+          # one compile job per core: a translation unit of the set takes up to 1.6 GB
+          ninja -j $(sysctl -n hw.ncpu)
 
       - name: seissol-test
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

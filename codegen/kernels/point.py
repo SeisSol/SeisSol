@@ -8,6 +8,7 @@
 # SPDX-FileContributor: Sebastian Wolf
 
 import numpy as np
+from kernels.common import cold_kernel_attrs
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
 
@@ -32,6 +33,7 @@ def addKernels(generator, aderdg):
         "computeMInvJInvPhisAtSources",
         mInvJInvPhisAtSources["k"]
         <= JInv * aderdg.db.M3inv["kl"] * basisFunctionsAtPoint["l"],
+        attrs=cold_kernel_attrs(),
     )
 
     # extract the moment tensors entries in SeisSol ordering
@@ -61,7 +63,11 @@ def addKernels(generator, aderdg):
 
     tensorNRF = Tensor("tensorNRF", (numQuantities, 3))
 
-    generator.add("transformNRF", tensorNRF["ti"] <= momentNRFKernel)
+    generator.add(
+        "transformNRF",
+        tensorNRF["ti"] <= momentNRFKernel,
+        attrs=cold_kernel_attrs(),
+    )
 
     update = Tensor("update", (numQuantities,))
 
@@ -87,7 +93,7 @@ def addKernels(generator, aderdg):
         (numQuantities,),
     )
     evaluateDOFSAtPoint = QAtPoint["p"] <= aderdg.Q["kp"] * basisFunctionsAtPoint["k"]
-    generator.add("evaluateDOFSAtPoint", evaluateDOFSAtPoint)
+    generator.add("evaluateDOFSAtPoint", evaluateDOFSAtPoint, attrs=cold_kernel_attrs())
     QDerivativeAtPoint = OptionalDimTensor(
         "QDerivativeAtPoint",
         aderdg.Q.optName(),
@@ -99,4 +105,8 @@ def addKernels(generator, aderdg):
         QDerivativeAtPoint["pd"]
         <= aderdg.Q["kp"] * basisFunctionDerivativesAtPoint["kd"]
     )
-    generator.add("evaluateDerivativeDOFSAtPoint", evaluateDerivativeDOFSAtPoint)
+    generator.add(
+        "evaluateDerivativeDOFSAtPoint",
+        evaluateDerivativeDOFSAtPoint,
+        attrs=cold_kernel_attrs(),
+    )

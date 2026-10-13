@@ -9,7 +9,7 @@ add_executable(seissol-bin Main.cpp)
 if (NOT NEW_BINARY_NAMING)
   set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 else()
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "seissol-${NAME_SUFFIX}")
+  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "seissol${NAME_SUFFIX}")
 endif()
 
 target_link_libraries(seissol-bin PUBLIC seissol-lib)

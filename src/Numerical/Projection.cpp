@@ -7,7 +7,6 @@
 
 #include "Projection.h"
 
-#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 
@@ -24,45 +23,6 @@ namespace {
 
 using namespace seissol;
 using namespace seissol::numerical;
-
-/**
- * Quadrature on the Dim-dimensional reference simplex, exact for polynomial degree 2n - 1.
- */
-template <std::size_t Dim>
-std::pair<std::vector<std::array<double, Dim>>, std::vector<double>>
-    simplexQuadrature(std::size_t n) {
-  std::vector<std::array<double, Dim>> points;
-  std::vector<double> weights;
-  if constexpr (Dim == 1) {
-    auto line = quadrature::ShiftedGaussLegendre(n, 0, 1);
-    points.reserve(n);
-    for (const auto& point : line.first) {
-      points.push_back(std::array<double, 1>{point});
-    }
-    weights = std::move(line.second);
-  } else {
-    std::size_t count = 1;
-    for (std::size_t i = 0; i < Dim; ++i) {
-      count *= n;
-    }
-    std::vector<double> flat(Dim * count);
-    weights.resize(count);
-    if constexpr (Dim == 2) {
-      quadrature::TriangleQuadrature(
-          reinterpret_cast<double (*)[2]>(flat.data()), weights.data(), n);
-    } else {
-      quadrature::TetrahedronQuadrature(
-          reinterpret_cast<double (*)[3]>(flat.data()), weights.data(), n);
-    }
-    points.resize(count);
-    for (std::size_t q = 0; q < count; ++q) {
-      for (std::size_t i = 0; i < Dim; ++i) {
-        points[q][i] = flat[q * Dim + i];
-      }
-    }
-  }
-  return {points, weights};
-}
 
 constexpr double Pi = 3.14159265358979323846;
 
@@ -339,7 +299,7 @@ std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order) {
 
 std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order, NodalSet set) {
   if (set == NodalSet::Stroud) {
-    auto quadrature = simplexQuadrature<3>(order + 1);
+    auto quadrature = seissol::quadrature::simplexRule<3>(order + 1);
     assert(quadrature.first.size() == nodalSize(3, order, set));
     return std::move(quadrature.first);
   }
@@ -512,7 +472,7 @@ std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order, NodalSet set
 }
 
 std::vector<double> stroudWeights3D(std::size_t order) {
-  return std::move(simplexQuadrature<3>(order + 1).second);
+  return std::move(seissol::quadrature::simplexRule<3>(order + 1).second);
 }
 
 template <std::size_t Dim>
@@ -611,9 +571,10 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
                  << "and dimension" << From << "(expected" << targetCount << "points).";
     }
 
-    // exact for degree targetDegree + (order - 1)
+    // exact for degree targetDegree + (order - 1); a rule with n points per dimension is exact
+    // for degree 2n - 1
     const auto quadratureSize = (targetDegree + spec.order) / 2 + 1;
-    const auto quadrature = simplexQuadrature<From>(quadratureSize);
+    const auto quadrature = seissol::quadrature::simplexRule<From>(quadratureSize);
     const auto& quadraturePoints = quadrature.first;
     const auto& quadratureWeights = quadrature.second;
 
@@ -670,14 +631,14 @@ template DenseMatrix build<3, 3>(const std::vector<std::array<double, 3>>&,
                                  const AffineMap<3, 3>&,
                                  const Spec&);
 
-template <std::size_t From, std::size_t To>
-Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
-                       const std::vector<std::array<double, From>>& referenceTargetPoints,
-                       std::size_t targetDegree,
-                       std::size_t leadingDimension,
-                       const Spec& spec,
-                       std::size_t minOrder,
-                       std::size_t maxOrder)
+template <std::size_t From, std::size_t To, typename RealT>
+Table<From, To, RealT>::Table(const std::vector<AffineMap<From, To>>& subcells,
+                              const std::vector<std::array<double, From>>& referenceTargetPoints,
+                              std::size_t targetDegree,
+                              std::size_t leadingDimension,
+                              const Spec& spec,
+                              std::size_t minOrder,
+                              std::size_t maxOrder)
     : subcellCount_(subcells.size()), minOrder_(minOrder), maxOrder_(maxOrder),
       leadingDimension_(leadingDimension) {
   assert(minOrder >= 1 && minOrder <= maxOrder);
@@ -698,7 +659,7 @@ Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
   }
 
   storage_.resize(subcellCount_ * subcellStride_);
-  std::fill(storage_.begin(), storage_.end(), static_cast<real>(0));
+  std::fill(storage_.begin(), storage_.end(), static_cast<RealT>(0));
 
   for (std::size_t subcell = 0; subcell < subcellCount_; ++subcell) {
     for (std::size_t order = minOrder; order <= maxOrder; ++order) {
@@ -709,16 +670,19 @@ Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
       auto* target = storage_.data() + this->offset(subcell, order);
       for (std::size_t p = 0; p < matrix.rows(); ++p) {
         for (std::size_t b = 0; b < matrix.cols(); ++b) {
-          target[p + b * leadingDimension] = static_cast<real>(matrix(p, b));
+          target[p + b * leadingDimension] = static_cast<RealT>(matrix(p, b));
         }
       }
     }
   }
 }
 
-template class Table<2, 2>;
-template class Table<2, 3>;
-template class Table<3, 3>;
+template class Table<2, 2, float>;
+template class Table<2, 3, float>;
+template class Table<3, 3, float>;
+template class Table<2, 2, double>;
+template class Table<2, 3, double>;
+template class Table<3, 3, double>;
 
 } // namespace projection
 

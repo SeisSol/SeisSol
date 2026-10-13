@@ -8,12 +8,14 @@
 #ifndef SEISSOL_TESTS_MODEL_ANISOTROPICIMPEDANCE_T_H_
 #define SEISSOL_TESTS_MODEL_ANISOTROPICIMPEDANCE_T_H_
 
-// The admittance of a material does not depend on the MaterialT of the build, so apart from the
-// layout test of the generated traction matrix, these tests run in every build.
+// The admittance of a material does not depend on the configurations of the build, so apart from
+// the layout test of the generated traction matrix, which runs for each anisotropic configuration,
+// these tests run in every build.
 
 #include <doctest.h>
 
 #include "Alignment.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h"
 #include "Equations/ImpedanceBase.h"
@@ -23,14 +25,14 @@
 #include "Geometry/MeshDefinition.h"
 #include "ImpedanceReference.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
-#include "Kernels/Precision.h"
 #include "Model/Common.h"
+#include "Model/MaterialType.h"
+#include "TestConfigs.h"
 
 #include <Eigen/Dense>
 #include <array>
 #include <cmath>
 #include <random>
-#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -62,9 +64,9 @@ inline FaultFrame makeFaultFrame(const Eigen::Vector3d& rawNormal) {
 /// initializeDynamicRuptureMatrices does.
 inline model::AnisotropicMaterial rotateToFault(const model::AnisotropicMaterial& material,
                                                 const FaultFrame& frame) {
-  const VrtxCoords normal{frame.normal.x(), frame.normal.y(), frame.normal.z()};
-  const VrtxCoords tangent1{frame.tangent1.x(), frame.tangent1.y(), frame.tangent1.z()};
-  const VrtxCoords tangent2{frame.tangent2.x(), frame.tangent2.y(), frame.tangent2.z()};
+  const CoordinateT normal{frame.normal.x(), frame.normal.y(), frame.normal.z()};
+  const CoordinateT tangent1{frame.tangent1.x(), frame.tangent1.y(), frame.tangent1.z()};
+  const CoordinateT tangent2{frame.tangent2.x(), frame.tangent2.y(), frame.tangent2.z()};
   std::array<double, 36> bond{};
   model::getBondMatrix(normal, tangent1, tangent2, bond);
   return model::getRotatedMaterialCoefficients(bond, material);
@@ -95,9 +97,9 @@ inline model::AnisotropicMaterial tiltedVti(double tiltDegrees) {
   const Eigen::Vector3d axis1(std::cos(angle), 0.0, -std::sin(angle));
   const Eigen::Vector3d axis2(0.0, 1.0, 0.0);
   const Eigen::Vector3d axis3(std::sin(angle), 0.0, std::cos(angle));
-  const VrtxCoords a1{axis1.x(), axis1.y(), axis1.z()};
-  const VrtxCoords a2{axis2.x(), axis2.y(), axis2.z()};
-  const VrtxCoords a3{axis3.x(), axis3.y(), axis3.z()};
+  const CoordinateT a1{axis1.x(), axis1.y(), axis1.z()};
+  const CoordinateT a2{axis2.x(), axis2.y(), axis2.z()};
+  const CoordinateT a3{axis3.x(), axis3.y(), axis3.z()};
   std::array<double, 36> bond{};
   model::getBondMatrix(a1, a2, a3, bond);
   return model::getRotatedMaterialCoefficients(bond, vti);
@@ -290,32 +292,36 @@ TEST_CASE("Anisotropic DR impedance has orientation dependent normal coupling" *
 //    common::computeFrictionEnergy indexes directly (flat = 3 * col + row,
 //    with row running over the *stored* rows {0, 3, 5}).
 // ---------------------------------------------------------------------------
-TEST_CASE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
-          doctest::test_suite("dynamicrupture")) {
-  // the pattern is only dense in the stored rows for an anisotropic build
-  if constexpr (std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) {
-    // the rows initializeDynamicRuptureMatrices writes to
-    constexpr auto StoredRows = AnisotropicImpedance::TractionIndices;
-    constexpr std::size_t Rows = 3;
+TEST_CASE_TEMPLATE_DEFINE("tractionPlusMatrix CSC layout matches the friction energy indexing" *
+                              doctest::test_suite("dynamicrupture"),
+                          Cfg,
+                          TractionPlusMatrixLayout) {
+  using real = Real<Cfg>;
+  // the rows initializeDynamicRuptureMatrices writes to
+  constexpr auto StoredRows = AnisotropicImpedance::TractionIndices;
+  constexpr std::size_t Rows = 3;
 
-    REQUIRE(tensor::tractionPlusMatrix::size() == Rows * 3);
+  REQUIRE(tensor::tractionPlusMatrix<Cfg>::size() == Rows * 3);
 
-    alignas(Alignment) real data[tensor::tractionPlusMatrix::size()]{};
-    auto view = init::tractionPlusMatrix::view::create(data);
-    view.setZero();
-    for (std::size_t col = 0; col < 3; ++col) {
-      for (std::size_t row = 0; row < StoredRows.size(); ++row) {
-        view(StoredRows[row], col) = static_cast<real>(10 * col + row);
-      }
+  alignas(Alignment) real data[tensor::tractionPlusMatrix<Cfg>::size()]{};
+  auto view = init::tractionPlusMatrix<Cfg>::view::create(data);
+  view.setZero();
+  for (std::size_t col = 0; col < 3; ++col) {
+    for (std::size_t row = 0; row < StoredRows.size(); ++row) {
+      view(StoredRows[row], col) = static_cast<real>(10 * col + row);
     }
+  }
 
-    for (std::size_t col = 0; col < 3; ++col) {
-      for (std::size_t row = 0; row < StoredRows.size(); ++row) {
-        CHECK(data[Rows * col + row] == doctest::Approx(10.0 * col + row));
-      }
+  for (std::size_t col = 0; col < 3; ++col) {
+    for (std::size_t row = 0; row < StoredRows.size(); ++row) {
+      CHECK(data[Rows * col + row] == doctest::Approx(10.0 * col + row));
     }
   }
 }
+
+// the pattern is only dense in the stored rows for an anisotropic configuration
+TEST_CASE_TEMPLATE_APPLY(TractionPlusMatrixLayout,
+                         ConfigsOfMaterial<model::MaterialType::Anisotropic>);
 
 // ---------------------------------------------------------------------------
 // 4. Reconstruction of the stress components outside the fault-normal Riemann problem, used by

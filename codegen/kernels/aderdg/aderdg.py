@@ -9,6 +9,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+from kernels.common import cold_kernel_attrs
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
@@ -117,10 +118,13 @@ class ADERDGBase(ABC):
         self.QgodLocal = Tensor("QgodLocal", godunov_spp.shape, spp=godunov_spp)
         self.QgodNeighbor = Tensor("QgodNeighbor", godunov_spp.shape, spp=godunov_spp)
 
+        # Which simulation a point source acts on is set per source at run
+        # time, so this is a pattern, not numbers: numbers would make it a
+        # constant, held in the pool and bound by bindGlobals.
         self.oneSimToMultSim = Tensor(
             "oneSimToMultSim",
             (self.Q.optSize(),),
-            spp={(i,): "1.0" for i in range(self.Q.optSize())},
+            spp={(i,): True for i in range(self.Q.optSize())},
         )
 
         self.db.update(
@@ -176,7 +180,11 @@ class ADERDGBase(ABC):
             CSCMemoryLayout,
         )
 
-        self.selectTractionSpp = self.tractionMatrixSpp()
+        # The traction weights are computed per fault face from the impedances
+        # (DynamicRuptureMatrices), so only their pattern is known here. Passed
+        # as booleans: a float array would be taken for the values, which
+        # would make them constants held in the pool and bound by bindGlobals.
+        self.selectTractionSpp = self.tractionMatrixSpp() != 0
         self.tractionPlusMatrix = Tensor(
             "tractionPlusMatrix",
             self.selectTractionSpp.shape,
@@ -356,7 +364,9 @@ class ADERDGBase(ABC):
             * (self.QgodLocal["kq"] * self.starMatrix(0)["ql"] + self.QcorrLocal["kl"])
             * self.T["jl"]
         )
-        generator.add("computeFluxSolverLocal", computeFluxSolverLocal)
+        generator.add(
+            "computeFluxSolverLocal", computeFluxSolverLocal, attrs=cold_kernel_attrs()
+        )
 
         computeFluxSolverNeighbor = (
             self.AminusT["ij"]
@@ -368,7 +378,11 @@ class ADERDGBase(ABC):
             )
             * self.T["jl"]
         )
-        generator.add("computeFluxSolverNeighbor", computeFluxSolverNeighbor)
+        generator.add(
+            "computeFluxSolverNeighbor",
+            computeFluxSolverNeighbor,
+            attrs=cold_kernel_attrs(),
+        )
 
         stiffnessTensor = Tensor("stiffnessTensor", (3, 3, 3, 3))
         direction = Tensor("direction", (3,))
@@ -409,6 +423,7 @@ class ADERDGBase(ABC):
         generator.add(
             "momentQCompute",
             momentQ["IJ"] <= self.db.M3["Ij"].subselect("I", 0) * self.Q["jJ"],
+            attrs=cold_kernel_attrs(),
         )
 
         # The fused-simulation index 's' occurs in the result and in both Q
@@ -424,6 +439,7 @@ class ADERDGBase(ABC):
         generator.add(
             "momentQQCompute",
             momentQQ["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"],
+            attrs=cold_kernel_attrs(),
         )
 
     @abstractmethod

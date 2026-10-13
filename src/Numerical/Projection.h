@@ -8,7 +8,6 @@
 #ifndef SEISSOL_SRC_NUMERICAL_PROJECTION_H_
 #define SEISSOL_SRC_NUMERICAL_PROJECTION_H_
 
-#include "Kernels/Precision.h"
 #include "Memory/MemoryAllocator.h"
 
 #include <array>
@@ -253,12 +252,12 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
 
 /**
  * @brief A set of projection matrices for all convergence orders and all subcells, stored in the
- * memory layout expected by the generated (Yateto) kernels.
+ * memory layout expected by the generated (Yateto) kernels, in reals of type `RealT`.
  *
  * The generated tensors are declared as [points][coefficients] with an aligned stride on the point
  * dimension; i.e. the address of entry (p, c) is p + c * leadingDimension .
  */
-template <std::size_t From, std::size_t To>
+template <std::size_t From, std::size_t To, typename RealT>
 class Table {
   public:
   Table() = default;
@@ -278,7 +277,7 @@ class Table {
         std::size_t maxOrder);
 
   //! @brief The matrix for the given subcell and convergence order.
-  [[nodiscard]] const real* operator()(std::size_t subcell, std::size_t order) const {
+  [[nodiscard]] const RealT* operator()(std::size_t subcell, std::size_t order) const {
     return storage_.data() + offset(subcell, order);
   }
 
@@ -301,7 +300,7 @@ class Table {
   //! Offset of a given order inside one subcell block.
   std::vector<std::size_t> orderOffsets_;
   std::size_t subcellStride_{};
-  memory::MemkindArray<real> storage_{memory::Memkind::Standard};
+  memory::MemkindArray<RealT> storage_{memory::Memkind::Standard};
 };
 
 } // namespace projection

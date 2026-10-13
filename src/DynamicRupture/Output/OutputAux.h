@@ -8,7 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 
+#include "Config.h"
 #include "DataTypes.h"
+#include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
 
 #include <array>
@@ -25,28 +29,34 @@ auto unsafe_reshape(T* ptr) -> T (*)[N] {
 namespace seissol::dr {
 int getElementVertexId(int localSideId, int localFaceVertexId);
 
-ExtTriangle getReferenceTriangle(int sideIdx);
+/// the triangle spanned by a face transform, in whichever space the transform maps to
+ExtTriangle toExtTriangle(const geometry::FaceTransform& face);
 
-ExtTriangle getGlobalTriangle(int localSideId,
-                              const Element& element,
-                              const std::vector<Vertex>& verticesInfo);
+/// the triangle a side occupies on the reference cell
+ExtTriangle getReferenceTriangle(std::size_t sideIdx);
 
-ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
+CoordinateT getMidPointTriangle(const ExtTriangle& triangle);
 
-ExtVrtxCoords getTrianglePointByCoords(const ExtTriangle& triangle,
-                                       const std::array<double, 2>& point);
+CoordinateT getTrianglePointByCoords(const ExtTriangle& triangle,
+                                     const std::array<double, 2>& point);
 
-ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
+CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2);
 
+/// The quadrature of a fault face of the configuration `Cfg`.
+template <typename Cfg>
 struct TriangleQuadratureData {
-  static constexpr size_t Size{tensor::quadweights::Shape[0]};
+  static constexpr size_t Size{tensor::quadweights<Cfg>::Shape[0]};
   std::array<double, 2 * Size> points{};
   std::array<double, Size> weights{};
 };
 
-TriangleQuadratureData generateTriangleQuadrature();
+template <typename Cfg>
+TriangleQuadratureData<Cfg> generateTriangleQuadrature();
 
-void assignNearestGaussianPoints(Receivers& geoPoints);
+/// Assigns to the receiver the quadrature point of its face, of the configuration `Cfg`, that is
+/// nearest to it.
+template <typename Cfg>
+void assignNearestGaussianPoint(Receiver& geoPoint);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
@@ -55,19 +65,21 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            std::size_t numFacePoints);
 
 double
-    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
+    isInsideFace(const CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal);
 
-void projectPointToFace(ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
+void projectPointToFace(CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal);
 
-double getDistanceFromPointToFace(const ExtVrtxCoords& point,
+double getDistanceFromPointToFace(const CoordinateT& point,
                                   const ExtTriangle& face,
-                                  const VrtxCoords faceNormal);
+                                  const CoordinateT& faceNormal);
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
-                                                   const VrtxCoords* plusElementCoords[4],
-                                                   const VrtxCoords* minusElementCoords[4]);
+template <typename Cfg>
+PlusMinusBasisFunctions<Cfg>
+    getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
+                               const geometry::CellTransform& plusTransform,
+                               const geometry::CellTransform& minusTransform);
 
-real computeTriangleArea(ExtTriangle& triangle);
+double computeTriangleArea(ExtTriangle& triangle);
 
 /**
  * @brief The index of the first receiver an output cell owns.

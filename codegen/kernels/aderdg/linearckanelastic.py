@@ -7,11 +7,11 @@
 # SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import layout, total_extent
-from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
@@ -194,10 +194,15 @@ class LinearCKAnelastic(ADERDGBase):
             self.Qane["kpm"]
             <= self.db.projectQP[self.t("kl")] * iniCond["lq"] * selectAneFull["qpm"]
         )
-        generator.add("projectIniCond", [projectIniCondEla, projectIniCondAne])
+        generator.add(
+            "projectIniCond",
+            [projectIniCondEla, projectIniCondAne],
+            attrs=cold_kernel_attrs(),
+        )
         generator.add(
             "evalAtQP",
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
+            attrs=cold_kernel_attrs(),
         )
 
         self.addAnelasticEnergyProducts(generator)
@@ -235,6 +240,7 @@ class LinearCKAnelastic(ADERDGBase):
             "momentQaneQaneCompute",
             momentQaneQane["IJmn"]
             <= self.db.M3["ij"] * self.Qane["iIm"] * self.Qane["jJn"],
+            attrs=cold_kernel_attrs(),
         )
 
         momentQQane = OptionalDimTensor(
@@ -251,13 +257,14 @@ class LinearCKAnelastic(ADERDGBase):
         generator.add(
             "momentQQaneCompute",
             momentQQane["IJm"] <= self.db.M3["ij"] * self.Q["iI"] * self.Qane["jJm"],
+            attrs=cold_kernel_attrs(),
         )
 
     def addLocal(self, generator, targets):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            volumeSum = Add()
+            volumeSum = Accumulate(ops.Add())
             for i in range(3):
                 volumeSum += (
                     self.db.kDivM[i][self.t("kl")]
@@ -335,6 +342,22 @@ class LinearCKAnelastic(ADERDGBase):
                 target=target,
             )
 
+        # The analytical boundary adds its flux where the local flux lands, in
+        # the extended DOFs; only the CPU path evaluates that boundary.
+        localFluxNodal = (
+            lambda i: self.Qext["kp"]
+            <= self.Qext["kp"]
+            + self.db.project2nFaceTo3m[i]["kn"]
+            * self.INodal["no"]
+            * self.AminusT["op"]
+        )
+        generator.addFamily(
+            "localFluxNodal",
+            simpleParameterSpace(4),
+            localFluxNodal,
+            target="cpu",
+        )
+
     def addNeighbor(self, generator, targets):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
@@ -409,6 +432,7 @@ class LinearCKAnelastic(ADERDGBase):
                 self.Q.optPos(),
                 self._qShapeExtended,
                 alignStride=True,
+                temporary=True,
             )
             for d in range(self.order)
         ]
@@ -420,6 +444,7 @@ class LinearCKAnelastic(ADERDGBase):
                 self.Q.optPos(),
                 self._qShapeAnelastic,
                 alignStride=True,
+                temporary=d > 0,
             )
             for d in range(self.order)
         ]
@@ -429,8 +454,8 @@ class LinearCKAnelastic(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            derivativeTaylorExpansionEla = Add()
-            # derivativeTaylorExpansionAne = Add()
+            derivativeTaylorExpansionEla = Accumulate(ops.Add())
+            # derivativeTaylorExpansionAne = Accumulate(ops.Add())
             for d in range(0, self.order):
                 derivativeTaylorExpansionEla += powers[d] * dQ[d]["kp"]
                 # derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
@@ -440,7 +465,7 @@ class LinearCKAnelastic(ADERDGBase):
             # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
             def derivative(kthDer):
-                derivativeSum = Add()
+                derivativeSum = Accumulate(ops.Add())
                 for j in range(3):
                     derivativeSum += (
                         self.db.kDivMT[j][self.t("kl")]
@@ -488,9 +513,7 @@ class LinearCKAnelastic(ADERDGBase):
                     self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
                     self.Iane["kpm"] <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],
                 ]
-            # TODO(David): we'll need to add intermediate results to Yateto,
-            # then the temporary storage needed can be reduced.
-            # for now, we'll interleave the Taylor
+            # TODO(David): for now, we'll interleave the Taylor
             # expansion with the derivative computation
             # derivativeExpr += [
             #   derivativeTaylorExpansionElaExpr,
@@ -507,5 +530,5 @@ class LinearCKAnelastic(ADERDGBase):
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
-        # Nodal flux kernel uses this matrix but is not supported by visco2
+        # The nodal flux kernel (localFluxNodal, CPU only) uses this matrix
         include_tensors.update([self.db.project2nFaceTo3m[i] for i in range(4)])

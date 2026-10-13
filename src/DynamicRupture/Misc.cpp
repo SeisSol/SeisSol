@@ -9,14 +9,13 @@
 
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
 
 #include <cmath>
 #include <string>
 #include <utils/logger.h>
 
 namespace seissol::dr::misc {
-void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip) {
+void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT& strike, CoordinateT& dip) {
   // compute normalized strike vector
   const auto strikeInvLength = 1.0 / std::sqrt(normal[0] * normal[0] + normal[1] * normal[1]);
   strike[0] = normal[1] * strikeInvLength;
@@ -68,7 +67,8 @@ std::string frictionLawName(seissol::dr::misc::FrictionLawType type) {
 } // namespace seissol::dr::misc
 
 namespace seissol::dr {
-FrictionLawParameters::FrictionLawParameters(
+template <typename RealT>
+FrictionLawParameters<RealT>::FrictionLawParameters(
     const seissol::initializer::parameters::DRParameters& parameters)
     : healingThreshold(parameters.healingThreshold), tpProxyExponent(parameters.tpProxyExponent),
       rsF0(parameters.rsF0), rsB(parameters.rsB), rsSr0(parameters.rsSr0),
@@ -81,7 +81,7 @@ FrictionLawParameters::FrictionLawParameters(
       prakashLength(parameters.prakashLength),
       terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),
       etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
-      forcedRuptureRiseTime(static_cast<real>(parameters.t0[0])),
+      forcedRuptureRiseTime(static_cast<RealT>(parameters.t0[0])),
       sourceCount(stressSourceCount(parameters)),
       rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
       rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
@@ -90,4 +90,7 @@ FrictionLawParameters::FrictionLawParameters(
       isFrictionEnergyRequired(parameters.isFrictionEnergyRequired),
       isCheckAbortCriteraEnabled(parameters.isCheckAbortCriteraEnabled),
       energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities) {}
+
+template struct FrictionLawParameters<float>;
+template struct FrictionLawParameters<double>;
 } // namespace seissol::dr

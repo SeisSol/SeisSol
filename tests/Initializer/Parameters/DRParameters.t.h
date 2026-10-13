@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Common/ConfigRegistry.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
@@ -75,7 +76,7 @@ TEST_CASE("readDRParameters defaults" * doctest::test_suite("initializer")) {
     dynamicrupture: {}
   )");
   ParameterReader reader(node, "", false);
-  auto params = readDRParameters(&reader);
+  auto params = readDRParameters(&reader, defaultConfig());
 
   CHECK(params.frictionLawType == FrictionLawType::NoFault);
   CHECK(params.outputPointType == OutputType::None);
@@ -102,7 +103,7 @@ TEST_CASE("readDRParameters with linear slip weakening" * doctest::test_suite("i
       zref: 3.0
   )");
   ParameterReader reader(node, "", false);
-  auto params = readDRParameters(&reader);
+  auto params = readDRParameters(&reader, defaultConfig());
 
   CHECK(params.frictionLawType == FrictionLawType::LinearSlipWeakening);
   CHECK(params.referencePoint[0] == doctest::Approx(1.0));
@@ -123,7 +124,7 @@ TEST_CASE("readDRParameters imposed slip rates forces output type" *
       fl: 33
   )");
   ParameterReader reader(node, "", false);
-  auto params = readDRParameters(&reader);
+  auto params = readDRParameters(&reader, defaultConfig());
 
   CHECK(params.frictionLawType == FrictionLawType::ImposedSlipRatesYoffe);
   CHECK(params.slipRateOutputType == SlipRateOutputType::VelocityDifference);
@@ -135,7 +136,7 @@ TEST_CASE("readDRParameters Gaussian imposed also corrects" * doctest::test_suit
       fl: 34
   )");
   ParameterReader reader(node, "", false);
-  auto params = readDRParameters(&reader);
+  auto params = readDRParameters(&reader, defaultConfig());
 
   CHECK(params.frictionLawType == FrictionLawType::ImposedSlipRatesGaussian);
   CHECK(params.slipRateOutputType == SlipRateOutputType::VelocityDifference);
@@ -156,7 +157,7 @@ TEST_CASE("readDRParameters rate and state" * doctest::test_suite("initializer")
       rs_inisliprate2: 0.0
   )");
   ParameterReader reader(node, "", false);
-  auto params = readDRParameters(&reader);
+  auto params = readDRParameters(&reader, defaultConfig());
 
   CHECK(params.frictionLawType == FrictionLawType::RateAndStateAgingLaw);
   CHECK(params.rsF0 == doctest::Approx(0.6));

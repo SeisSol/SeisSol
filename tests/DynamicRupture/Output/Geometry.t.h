@@ -5,16 +5,21 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigValue.h"
+#include "Common/Typedefs.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
 #include "TestHelper.h"
 
 #include <Eigen/Dense>
+#include <cstddef>
 #include <iostream>
 
 namespace seissol::unit_test {
@@ -36,16 +41,16 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
     // Given a reference triangle in the first octant
     // TargetPoint - intersection of a line (which starts from the origin and goes along [1,1,1]
     // vector) and the inclined face (4th face)
-    ExtVrtxCoords targetPoint{1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
+    CoordinateT targetPoint{1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
 
     // 4th face
     const ExtTriangle face(
-        ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
+        CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0}, CoordinateT{0.0, 0.0, 1.0});
 
     constexpr double Epsilon = 1e-6;
     {
-      ExtVrtxCoords testPoint{0.0, 0.0, 0.0};
-      VrtxCoords normalDirection{1.0, 1.0, 1.0};
+      CoordinateT testPoint{0.0, 0.0, 0.0};
+      const CoordinateT normalDirection{1.0, 1.0, 1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
@@ -54,8 +59,8 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
       CHECK(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
     }
     {
-      ExtVrtxCoords testPoint{1.0, 1.0, 1.0};
-      VrtxCoords normalDirection{-1.0, -1.0, -1.0};
+      CoordinateT testPoint{1.0, 1.0, 1.0};
+      const CoordinateT normalDirection{-1.0, -1.0, -1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
@@ -77,8 +82,8 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
   }
 
   SUBCASE("MiddlePoint") {
-    const ExtVrtxCoords point1{1.0, 2.0, 3.0};
-    const ExtVrtxCoords point2{-3.0, -2.0, -1.0};
+    const CoordinateT point1{1.0, 2.0, 3.0};
+    const CoordinateT point2{-3.0, -2.0, -1.0};
 
     auto testMiddle = getMidPoint(point1, point2);
 
@@ -89,9 +94,9 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
   }
 
   SUBCASE("MidTrianglePoint") {
-    const ExtVrtxCoords point1{0.5, 0.0, 2.0};
-    const ExtVrtxCoords point2{-0.5, 0.0, 3.0};
-    const ExtVrtxCoords point3{3.0, 1.0, -2.0};
+    const CoordinateT point1{0.5, 0.0, 2.0};
+    const CoordinateT point2{-0.5, 0.0, 3.0};
+    const CoordinateT point3{3.0, 1.0, -2.0};
     const ExtTriangle triangle(point1, point2, point3);
 
     auto testMiddle = getMidPointTriangle(triangle);
@@ -142,25 +147,31 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
         0.48876030678064375,     0.29039930608799031,     0.12632929701966925,
         2.4874032376060777E-002};
 
-    auto data = generateTriangleQuadrature();
-    [[maybe_unused]] double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+    // the reference is the Stroud rule with 7 x 7 points; it is checked in every configuration
+    // whose faults use that rule
+    constexpr std::size_t ReferenceSize = 49;
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud &&
+                    TriangleQuadratureData<Cfg>::Size == ReferenceSize) {
+        const auto config = configName(Cfg::Value);
+        CAPTURE(config);
+        auto data = generateTriangleQuadrature<Cfg>();
+        double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
 
-    // the Fortran points are those of the rule for order six; another order uses another rule,
-    // which they say nothing about (and which may have more points than they do)
-    constexpr auto FortranPoints = sizeof(chiFortran) / sizeof(chiFortran[0]);
-    if constexpr (seissol::dr::TriangleQuadratureData::Size == FortranPoints) {
-      constexpr double Epsilon = 1e-6;
-      for (unsigned i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
-        CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
-        CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
+        constexpr double Epsilon = 1e-6;
+        for (unsigned i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
+          CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
+          CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
+        }
       }
-    }
+    });
   }
 
   SUBCASE("StrikeAndDipVectors") {
-    VrtxCoords testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
-    VrtxCoords testStrike{0.0, 0.0, 0.0};
-    VrtxCoords testDip{0.0, 0.0, 0.0};
+    const CoordinateT testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    CoordinateT testStrike{0.0, 0.0, 0.0};
+    CoordinateT testDip{0.0, 0.0, 0.0};
     misc::computeStrikeAndDipVectors(testNormal, testStrike, testDip);
 
     // compute expected Strike results
@@ -179,47 +190,55 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
     }
   }
 
-  SUBCASE("XiEtaZeta2chiTau") {
+  SUBCASE("CellToFace") {
     constexpr double Epsilon = 1e-6;
-    double testChiTau[2] = {0.0, 0.0};
+    std::array<double, 2> testChiTau = {0.0, 0.0};
+    const auto toArray = [](const geometry::ReferenceFaceMap::FaceVectorT& v) {
+      return std::array<double, 2>{v(0), v(1)};
+    };
     {
       const unsigned face = 0;
-      VrtxCoords xiEtaZeta{0.25, 0.1, 0.0};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      const CoordinateT xiEtaZeta{0.25, 0.1, 0.0};
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       CHECK(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
       CHECK(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 1;
-      VrtxCoords xiEtaZeta{0.1, 0.0, 0.25};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      const CoordinateT xiEtaZeta{0.1, 0.0, 0.25};
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       CHECK(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
       CHECK(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 2;
-      VrtxCoords xiEtaZeta{0.0, 0.1, 0.25};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      const CoordinateT xiEtaZeta{0.0, 0.1, 0.25};
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       CHECK(testChiTau[0] == AbsApprox(0.25).epsilon(Epsilon));
       CHECK(testChiTau[1] == AbsApprox(0.1).epsilon(Epsilon));
     }
     {
       const unsigned face = 3;
-      VrtxCoords xiEtaZeta{
+      const CoordinateT xiEtaZeta{
           1 / 3.0, 1 / 3.0, 1 / 3.0}; // center of the 4th face (triangle in 3D space)
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       CHECK(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(Epsilon));
       CHECK(testChiTau[1] == AbsApprox(1 / 3.0).epsilon(Epsilon));
     }
     {
       const unsigned face = 3;
-      ExtVrtxCoords xiEtaZeta{0.0, -0.15, 0.15};
+      CoordinateT xiEtaZeta{0.0, -0.15, 0.15};
       const ExtTriangle fourthFace(
-          ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
-      VrtxCoords normalDirection{1.0, 1.0, 1.0};
+          CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0}, CoordinateT{0.0, 0.0, 1.0});
+      const CoordinateT normalDirection{1.0, 1.0, 1.0};
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta.coords, testChiTau);
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
       CHECK(testChiTau[0] == AbsApprox(xiEtaZeta[Eta]).epsilon(Epsilon));
       CHECK(testChiTau[1] == AbsApprox(xiEtaZeta[Zeta]).epsilon(Epsilon));
     }
@@ -227,30 +246,35 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
 
   SUBCASE("BasisFunctions") {
 
-    VrtxCoords point{0.25, 0.25, 0.0};
+    const CoordinateT point{0.25, 0.25, 0.0};
 
     // placing two elements in such a way that basis functions on both sides end up being the same
-    const VrtxCoords plusElementCoords[4]{
-        {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 2.0}};
+    const auto plusElementCoords = std::array<CoordinateT, 4>{CoordinateT{2.0, 0.0, 0.0},
+                                                              CoordinateT{0.0, 2.0, 0.0},
+                                                              CoordinateT{0.0, 0.0, 0.0},
+                                                              CoordinateT{0.0, 0.0, 2.0}};
 
-    const VrtxCoords minusElementCoords[4]{
-        {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, -2.0}};
+    const auto minusElementCoords = std::array<CoordinateT, 4>{CoordinateT{2.0, 0.0, 0.0},
+                                                               CoordinateT{0.0, 2.0, 0.0},
+                                                               CoordinateT{0.0, 0.0, 0.0},
+                                                               CoordinateT{0.0, 0.0, -2.0}};
 
-    const VrtxCoords* plusElementCoordsPtr[4]{
-        &plusElementCoords[0], &plusElementCoords[1], &plusElementCoords[2], &plusElementCoords[3]};
+    const auto plusTransform = geometry::AffineTransform(plusElementCoords);
 
-    const VrtxCoords* minusElementCoordsPtr[4]{&minusElementCoords[0],
-                                               &minusElementCoords[1],
-                                               &minusElementCoords[2],
-                                               &minusElementCoords[3]};
+    const auto minusTransform = geometry::AffineTransform(minusElementCoords);
 
-    auto basisFunctions =
-        getPlusMinusBasisFunctions(point, plusElementCoordsPtr, minusElementCoordsPtr);
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto config = configName(Cfg::Value);
+      CAPTURE(config);
+      auto basisFunctions = getPlusMinusBasisFunctions<Cfg>(point, plusTransform, minusTransform);
 
-    constexpr double Epsilon = 1e-6;
-    for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {
-      CHECK(basisFunctions.plusSide[i] == AbsApprox(basisFunctions.minusSide[i]).epsilon(Epsilon));
-    }
+      constexpr double Epsilon = 1e-6;
+      for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {
+        CHECK(basisFunctions.plusSide[i] ==
+              AbsApprox(basisFunctions.minusSide[i]).epsilon(Epsilon));
+      }
+    });
   }
 
   SUBCASE("IsElementInside") {

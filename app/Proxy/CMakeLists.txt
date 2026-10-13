@@ -23,7 +23,7 @@ target_link_libraries(seissol-proxy-exe PRIVATE seissol-lib)
 if (NOT NEW_BINARY_NAMING)
     set_target_properties(seissol-proxy-exe PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 else()
-    set_target_properties(seissol-proxy-exe PROPERTIES OUTPUT_NAME "proxyseissol-${NAME_SUFFIX}")
+    set_target_properties(seissol-proxy-exe PROPERTIES OUTPUT_NAME "proxyseissol${NAME_SUFFIX}")
 endif()
 install(TARGETS seissol-proxy-exe RUNTIME)
 

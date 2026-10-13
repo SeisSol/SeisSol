@@ -23,6 +23,7 @@ from enum import Enum
 from typing import Optional
 
 import numpy as np
+from kernels.output import write_if_changed
 
 
 class QuantityKind(Enum):
@@ -202,19 +203,22 @@ _CXX_KIND = {
 }
 
 
-def emit_header(aderdg, output_dir):
+def emit_header(aderdg, output_dir, key):
     """Writes the layout the codegen used, for the C++ side to check against.
 
     The two sides declare their groups independently -- the codegen cannot read
     C++ and the material headers are not generated. What this file buys is that
     a disagreement becomes a compile error instead of a wrong rotation matrix.
+
+    The layout is that of the configuration `key`, the C++ type the code of the
+    equation is generated for: `seissol::generated::Quantities<key>`.
     """
     import os
 
     def render(name, blocks):
         kinds = ", ".join(f"QuantityKind::{_CXX_KIND[b.group.kind]}" for b in blocks)
         return (
-            f"inline constexpr std::array<QuantityKind, {len(blocks)}> {name}"
+            f"  static constexpr std::array<QuantityKind, {len(blocks)}> {name}"
             "{" + kinds + "};\n"
         )
 
@@ -225,6 +229,8 @@ def emit_header(aderdg, output_dir):
         "",
         '#include "Model/Quantities.h"',
         "",
+        '#include "Config.h"',
+        "",
         "#include <array>",
         "#include <cstddef>",
         "",
@@ -232,14 +238,19 @@ def emit_header(aderdg, output_dir):
         "",
         "using seissol::model::QuantityKind;",
         "",
+        "template <typename Cfg>",
+        "struct Quantities;",
+        "",
+        "template <>",
+        f"struct Quantities<{key}> {{",
         render("RotationGroupKinds", aderdg.extendedBlocks()),
         render("InverseRotationGroupKinds", aderdg.inverseRotationBlocks()),
-        "/// Source rows the space-time predictor factorises separately.",
-        f"inline constexpr std::size_t StiffSourceRowCount = "
+        "  /// Source rows the space-time predictor factorises separately.",
+        f"  static constexpr std::size_t StiffSourceRowCount = "
         f"{len(aderdg.stiffSourceRows())};",
+        "};",
         "",
         "} // namespace seissol::generated",
         "",
     ]
-    with open(os.path.join(output_dir, "quantities.h"), "w") as file:
-        file.write("\n".join(lines))
+    write_if_changed(os.path.join(output_dir, "quantities.h"), "\n".join(lines))

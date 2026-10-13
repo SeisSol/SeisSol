@@ -27,9 +27,17 @@ std::size_t widest(const std::vector<std::string>& values) {
 }
 } // namespace
 
-void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight) {
-  auto elapsedTimeVector = seissol::Mpi::mpi.collect(elapsedTime);
-  auto weightVector = seissol::Mpi::mpi.collect(weight);
+void seissol::writer::MiniSeisSolWriter::record(double elapsedTime, double weight) {
+  measurement_ = Measurement{elapsedTime, weight};
+}
+
+void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix) const {
+  if (!measurement_.has_value()) {
+    return;
+  }
+
+  auto elapsedTimeVector = seissol::Mpi::mpi.collect(measurement_->elapsedTime);
+  auto weightVector = seissol::Mpi::mpi.collect(measurement_->weight);
 
   auto localRanks = seissol::Mpi::mpi.collect(seissol::Mpi::mpi.sharedMemMpiRank());
 
@@ -61,7 +69,7 @@ void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight
       table.addCell<double>(weightVector[rank]);
     }
 
-    seissol::filesystem::path path(outputDirectory_);
+    seissol::filesystem::path path(outputPrefix);
     path += seissol::filesystem::path("-miniSeissol.csv");
     table.writeFile(path.string());
   }

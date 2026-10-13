@@ -6,8 +6,9 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-physics OBJECT
-    InitialField.cpp
     InstantaneousTimeMirrorManager.cpp
+    Scenario/Registry.cpp
+    Scenario/Scenarios.cpp
 )
 
 target_link_libraries(seissol-physics PUBLIC seissol-common-properties)

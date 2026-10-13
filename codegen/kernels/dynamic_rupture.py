@@ -6,10 +6,10 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
 
@@ -72,6 +72,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         <= stressRotationMatrix["ki"]
         * reducedFaceAlignedMatrix["ij"]
         * initialStress["j"],
+        attrs=cold_kernel_attrs(),
     )
 
     originalQ = OptionalDimTensor(
@@ -97,6 +98,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
     generator.add(
         "rotateFluxMatrix",
         fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
+        attrs=cold_kernel_attrs(),
     )
 
     num3DBasisFunctions = aderdg.num3DBasisFunctions()
@@ -114,6 +116,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         "evaluateFaceAlignedDOFSAtPoint",
         QAtPoint["q"]
         <= aderdg.Tinv["qp"] * aderdg.Q["lp"] * basisFunctionsAtPoint["l"],
+        attrs=cold_kernel_attrs(),
     )
 
     def interpolateQGenerator(i, h):
@@ -155,7 +158,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
 
         calc = []
         for c in range(steps):
-            interm = Add()
+            interm = Accumulate(ops.Add())
 
             # the same for all equations right now (incl. visco2 and poro)
             # if not, you'll need to generalize within the equation class(es)
@@ -246,14 +249,17 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         alignStride=True,
     )
     minusSurfaceArea = Scalar("minusSurfaceArea")
-    spaceWeights = Tensor("spaceWeights", (numPoints, 1), alignStride=True)
 
     computeTractionInterpolated = (
         tractionInterpolated["kp"]
         <= QInterpolatedMinus["kq"] * aderdg.tractionMinusMatrix["qp"]
         + QInterpolatedPlus["kq"] * aderdg.tractionPlusMatrix["qp"]
     )
-    generator.add("computeTractionInterpolated", computeTractionInterpolated)
+    generator.add(
+        "computeTractionInterpolated",
+        computeTractionInterpolated,
+        attrs=cold_kernel_attrs(),
+    )
 
     accumulateStaticFrictionalWork = (
         staticFrictionalWork["l"]
@@ -261,9 +267,13 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets, isOldGpuInte
         + minusSurfaceArea
         * tractionInterpolated["kp"]
         * slipInterpolated["kp"]
-        * spaceWeights["kl"]
+        * db.quadweights["k"]
     )
-    generator.add("accumulateStaticFrictionalWork", accumulateStaticFrictionalWork)
+    generator.add(
+        "accumulateStaticFrictionalWork",
+        accumulateStaticFrictionalWork,
+        attrs=cold_kernel_attrs(),
+    )
 
     # Dynamic Rupture Precompute
     qPlus = OptionalDimTensor(

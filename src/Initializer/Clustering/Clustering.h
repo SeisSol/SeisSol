@@ -30,6 +30,9 @@ struct ClusteringConfig {
   std::uint64_t vertexWeightDynamicRupture{};
   std::uint64_t vertexWeightFreeSurfaceWithGravity{};
   const FaceMap* faceMap{nullptr};
+  /// The cost of a cell of each configuration relative to vertexWeightElement, indexed by the id of
+  /// the configuration; empty if a cell costs the same in all of them.
+  std::vector<double> configCostFactors;
 };
 
 /// Everything the clustering decided.
@@ -79,6 +82,7 @@ class Clustering {
   std::uint64_t vertexWeightFreeSurfaceWithGravity_{};
   parameters::BoundaryFormat boundaryFormat_;
   const FaceMap* faceMap_{nullptr};
+  std::vector<double> configCostFactors_;
 
   ClusteringResult result_;
 };

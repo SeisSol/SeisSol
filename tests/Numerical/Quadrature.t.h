@@ -7,6 +7,8 @@
 
 #include "Numerical/Quadrature.h"
 
+#include <array>
+
 namespace seissol::unit_test {
 
 TEST_CASE("Test generation of Gauss Jacobi quadrature points" * doctest::test_suite("numerical")) {
@@ -30,9 +32,9 @@ TEST_CASE("Test generation of Gauss Jacobi quadrature points" * doctest::test_su
 TEST_CASE("test triangle quadrature" * doctest::test_suite("numerical")) {
   constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 10;
 
-  double points[4][2];
-  double weights[4];
-  seissol::quadrature::TriangleQuadrature(points, weights, 2);
+  std::array<std::array<double, 2>, 4> points{};
+  std::array<double, 4> weights{};
+  seissol::quadrature::TriangleQuadrature(points.data(), weights.data(), 2);
   // Compare to Maple reference solution
   CHECK(points[0][0] == AbsApprox(0.64494897427831780982).epsilon(Epsilon));
   CHECK(points[1][0] == AbsApprox(0.64494897427831780982).epsilon(Epsilon));

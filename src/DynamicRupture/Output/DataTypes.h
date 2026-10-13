@@ -8,11 +8,12 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Iterator.h"
+#include "Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/DataCollector.h"
@@ -32,17 +33,19 @@
 #include <vector>
 
 namespace seissol::dr::output {
+/// The values one output variable records, per component, cache level and receiver; in double, as
+/// the fault output writes them.
 template <std::size_t Dim>
 struct VarT {
   VarT() = default;
   [[nodiscard]] constexpr std::size_t dim() const { return Dim; }
 
-  real* operator[](std::size_t dim) {
+  double* operator[](std::size_t dim) {
     assert(dim < Dim && "access is out of the Dim. bounds");
     return data[dim].data();
   }
 
-  real& operator()(std::size_t dim, size_t level, size_t index) {
+  double& operator()(std::size_t dim, size_t level, size_t index) {
     assert(dim < Dim && "access is out of Dim. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
@@ -50,17 +53,17 @@ struct VarT {
     return data[dim][index + level * size];
   }
 
-  real& operator()(size_t level, size_t index) {
+  double& operator()(size_t level, size_t index) {
     static_assert(Dim == 1, "access of the overload is allowed only for 1 dim variables");
     return this->operator()(0, level, index);
   }
 
-  const real* operator[](std::size_t dim) const {
+  const double* operator[](std::size_t dim) const {
     assert(dim < Dim && "access is out of the Dim. bounds");
     return data[dim].data();
   }
 
-  const real& operator()(std::size_t dim, size_t level, size_t index) const {
+  const double& operator()(std::size_t dim, size_t level, size_t index) const {
     assert(dim < Dim && "access is out of Dim. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
@@ -68,7 +71,7 @@ struct VarT {
     return data[dim][index + level * size];
   }
 
-  const real& operator()(size_t level, size_t index) const {
+  const double& operator()(size_t level, size_t index) const {
     static_assert(Dim == 1, "access of the overload is allowed only for 1 dim variables");
     return this->operator()(0, level, index);
   }
@@ -98,7 +101,7 @@ struct VarT {
     }
   }
 
-  std::array<std::vector<real>, Dim> data;
+  std::array<std::vector<double>, Dim> data;
   bool isActive{false};
   size_t size{0};
   size_t maxCacheLevel{1};
@@ -148,9 +151,23 @@ const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SR
 } // namespace seissol::dr::output
 
 namespace seissol::dr {
+/// The basis functions at an output point on both sides of the fault, for the configuration `Cfg`
+/// of its face.
+template <typename Cfg>
 struct PlusMinusBasisFunctions {
-  std::vector<real> plusSide;
-  std::vector<real> minusSide;
+  std::vector<Real<Cfg>> plusSide;
+  std::vector<Real<Cfg>> minusSide;
+};
+
+/// The transformations of a fault face of the configuration `Cfg` that the output applies.
+template <typename Cfg>
+struct FaceTransform {
+  std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()>
+      stressGlbToDipStrikeAligned{};
+  std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()>
+      stressFaceAlignedToGlb{};
+  std::array<Real<Cfg>, seissol::tensor::Tinv<Cfg>::size()> glbToFaceAlignedData{};
+  Eigen::Matrix<Real<Cfg>, 2, 2> jacobianT2d{Eigen::Matrix<Real<Cfg>, 2, 2>::Zero()};
 };
 
 /**
@@ -167,10 +184,8 @@ struct OutputFace {
   std::size_t localFaceSideId{};
 
   FaultDirections faultDirections{};
-  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressGlbToDipStrikeAligned{};
-  std::array<real, seissol::tensor::stressRotationMatrix::size()> stressFaceAlignedToGlb{};
-  std::array<real, seissol::tensor::Tinv::size()> glbToFaceAlignedData{};
-  Eigen::Matrix<real, 2, 2> jacobianT2d{Eigen::Matrix<real, 2, 2>::Zero()};
+  /// in the configuration of the face
+  ConfigVariantOf<FaceTransform> transform;
 
   // gather indices into ReceiverOutputData::deviceDataCollector
   std::size_t deviceDataPlus{};
@@ -183,7 +198,8 @@ struct OutputFace {
  */
 struct OutputPoint {
   std::size_t faceId{};
-  PlusMinusBasisFunctions basisFunctions;
+  /// in the configuration of the face
+  ConfigVariantOf<PlusMinusBasisFunctions> basisFunctions;
   std::size_t nearestGpIndex{};
   std::size_t nearestInternalGpIndex{};
 };
@@ -247,7 +263,9 @@ struct ReceiverOutputData {
   bool isActive{false};
   std::optional<int64_t> clusterId;
 
-  std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
+  /// the derivatives of the cells next to the faces; one element size, so all faces of one
+  /// configuration
+  std::unique_ptr<parallel::DataCollectorUntyped> deviceDataCollector;
   std::size_t cellCount{0};
 
   std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;

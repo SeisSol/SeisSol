@@ -65,9 +65,13 @@ jobs:
       - name: setup
         run: |
           if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
-            # the Intel image still works with an older Python version. Hence, use the following hack.
-            pip3 install pyyaml
-            pip3 install git+https://github.com/seissol/tensorforge.git
+            # in the Intel image, pip ends without installing the TensorForge of the repository, and
+            # Python cannot import one there: take it from a clone instead, for the steps below as
+            # well, and its dependencies from pip
+            pip3 install numpy pyyaml
+            git clone https://github.com/seissol/tensorforge.git ${RUNNER_TEMP}/tensorforge
+            echo "PYTHONPATH=${RUNNER_TEMP}/tensorforge/src${PYTHONPATH:+:${PYTHONPATH}}" >> ${GITHUB_ENV}
+            echo "CMAKE_PREFIX_PATH=${RUNNER_TEMP}/tensorforge/src/tensorforge/cmake${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> ${GITHUB_ENV}
           else
             pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
           fi

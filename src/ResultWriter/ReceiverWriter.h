@@ -27,8 +27,6 @@
 #include <vector>
 
 namespace seissol {
-struct LocalIntegrationData;
-struct GlobalData;
 class SeisSol;
 } // namespace seissol
 
@@ -66,9 +64,7 @@ class ReceiverWriter : public seissol::Module {
    *        This setup is required for receiver recording; without it, no
    *        receiver traces are produced.
    */
-  void addPoints(const seissol::geometry::MeshReader& mesh,
-                 const LTS::Backmap& backmap,
-                 const CompoundGlobalData& global);
+  void addPoints(const seissol::geometry::MeshReader& mesh, const LTS::Backmap& backmap);
 
   /**
    * \brief Returns the ReceiverCluster for a given cluster ID.
@@ -88,13 +84,16 @@ class ReceiverWriter : public seissol::Module {
 
   private:
   [[nodiscard]] std::string fileName(std::size_t pointId) const;
-  //! @brief What one simulation records at a receiver, without the time.
-  [[nodiscard]] std::vector<std::string> quantityNames() const;
-  void writeHeader(std::size_t pointId, const Eigen::Vector3d& point, std::size_t globalId);
+  void writeHeader(std::size_t pointId,
+                   const Eigen::Vector3d& point,
+                   std::size_t globalId,
+                   const std::vector<std::string>& names);
 
-  //! @brief A receiver together with the number of columns one of its samples takes.
+  //! @brief A receiver together with its cluster and the number of columns one of its samples
+  //! takes.
   struct OrderedReceiver {
     kernels::Receiver* receiver{nullptr};
+    kernels::ReceiverCluster* cluster{nullptr};
     std::size_t columns{0};
   };
 

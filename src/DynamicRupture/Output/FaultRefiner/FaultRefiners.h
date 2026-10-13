@@ -11,22 +11,28 @@
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
 
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <tuple>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace seissol::dr::output::refiner {
 class FaultRefiner {
   public:
   struct Data {
     int refinementLevel{};
-    int faultFaceIndex{};
-    int localFaceSideId{};
-    int elementId{-1};
+    std::size_t faultFaceIndex{};
+    std::int8_t localFaceSideId{};
+    std::size_t elementId{};
     const Fault* fault{nullptr};
     std::uint32_t order{0};
     std::size_t simcount{1};
   };
-  using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
+  using PointsPair = std::pair<CoordinateT, CoordinateT>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
 
   [[nodiscard]] virtual int getNumSubTriangles() const = 0;

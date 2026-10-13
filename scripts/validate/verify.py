@@ -8,11 +8,13 @@ Reads ``cases.json`` (in --precomputed-dir) and per-case ``tpv-data.json`` files
 dispatches the appropriate SeisSol binary from --binary-dir per case, then calls
 the existing ``compare-{mesh,receivers,energies}.py`` scripts next to this file.
 
-Binary naming (pre-PR #1421): one binary per (equation, precision, fused-count)
-combination, named ``seissol-<config>`` where ``<config>`` is read directly
-from cases.json (e.g. ``elastic-o6-f64``, ``viscoelastic-3-o6-f64-s8``). Once
-PR #1421 lands, all configs collapse to a single ``seissol`` binary; this script
-falls back to that name automatically.
+Binaries: a build of a single configuration names its executable
+``seissol-<config>``, where ``<config>`` is the one of cases.json (e.g.
+``elastic-o6-f64``, ``viscoelastic-3-o6-f64``, ``elastic-o3-f64-s8``). A build of
+several configurations (``CONFIGS``) has a single ``seissol``, which a case runs
+with ``SEISSOL_CONFIGURATION`` set to the canonical name of its configuration
+(``elastic-linearck-o6-f64-stroud``, ...); this script falls back to it when
+there is no executable of the configuration itself.
 
 Examples
 --------
@@ -432,28 +434,76 @@ def _evaluate_quantities(
 # ---------------------------------------------------------------------------
 
 
-def resolve_binary(binary_dir: Path, config: str) -> Path:
+# The solver each material advances with by default, which the canonical name
+# of a configuration spells out and the one of cases.json leaves implicit.
+DEFAULT_SOLVERS = {
+    "acoustic": "linearck",
+    "anisotropic": "linearck",
+    "elastic": "linearck",
+    "poroelastic": "stp",
+    "viscoacoustic": "linearckanelastic",
+    "viscoelastic": "linearckanelastic",
+}
+# <material>[-<mechanisms>]-o<order>-<f32|f64>[-s<simulations>], as in cases.json
+_CASE_CONFIG = re.compile(
+    r"^(?P<material>[a-z]+)(?:-(?P<mechanisms>\d+))?-o(?P<order>\d+)"
+    r"-(?P<precision>f32|f64)(?:-s(?P<simulations>\d+))?$"
+)
+# <material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<rule>[-s<simulations>]
+_CANONICAL_CONFIG = re.compile(
+    r"^[a-z]+-[a-z]+(?:-m\d+)?-o\d+-(?:f32|f64)-[a-z]+(?:-s\d+)?$"
+)
+
+
+def canonical_config(config: str) -> str:
+    """The name SeisSol knows the configuration of a cases.json entry by, as
+    ``SEISSOL_CONFIGURATION`` takes it: ``elastic-o6-f64`` is
+    ``elastic-linearck-o6-f64-stroud``, ``viscoelastic-3-o6-f64`` is
+    ``viscoelastic-linearckanelastic-m3-o6-f64-stroud``. A canonical name stays
+    as it is."""
+    if _CANONICAL_CONFIG.match(config):
+        return config
+    match = _CASE_CONFIG.match(config)
+    if match is None or match["material"] not in DEFAULT_SOLVERS:
+        raise ValueError(f"cannot read the configuration '{config}'")
+    name = f"{match['material']}-{DEFAULT_SOLVERS[match['material']]}"
+    if match["mechanisms"] and int(match["mechanisms"]) > 0:
+        name += f"-m{int(match['mechanisms'])}"
+    name += f"-o{int(match['order'])}-{match['precision']}-stroud"
+    if match["simulations"] and int(match["simulations"]) > 1:
+        name += f"-s{int(match['simulations'])}"
+    return name
+
+
+def resolve_binary(binary_dir: Path, config: str) -> tuple[Path, Optional[str]]:
     """Locate a SeisSol executable for the given config. Returns the absolute
-    path to it.
+    path to it, and the configuration to choose in it with
+    ``SEISSOL_CONFIGURATION`` (None for an executable of the config alone).
 
-    Pre-PR #1421 layout: ``binary_dir/seissol-<config>``.
-
-    Post-PR #1421 layout: a single ``binary_dir/seissol`` (the config string
-    becomes informational); this is tried last as a fallback for any variant.
-    Each prefix is searched in both ``binary_dir`` and ``binary_dir/bin``.
+    An executable of the configuration alone, ``binary_dir/seissol-<config>``,
+    comes first; a single ``binary_dir/seissol`` of several configurations is
+    the fallback, which has to be told the configuration. Each name is searched
+    in both ``binary_dir`` and ``binary_dir/bin``.
     """
-    candidates: list[Path] = []
-    candidates.append(binary_dir / f"seissol-{config}")
-    candidates.append(binary_dir / "bin" / f"seissol-{config}")
-    candidates.append(binary_dir / "seissol")
-    candidates.append(binary_dir / "bin" / "seissol")
+    directories = (binary_dir, binary_dir / "bin")
+    own = [directory / f"seissol-{config}" for directory in directories]
+    shared = [directory / "seissol" for directory in directories]
 
-    for cand in candidates:
-        if cand.is_file() and os.access(cand, os.X_OK):
-            return cand.absolute()
+    def executable(path: Path) -> bool:
+        return path.is_file() and os.access(path, os.X_OK)
+
+    for cand in own:
+        if executable(cand):
+            return cand.absolute(), None
+    for cand in shared:
+        if executable(cand):
+            try:
+                return cand.absolute(), canonical_config(config)
+            except ValueError as e:
+                raise FileNotFoundError(f"{cand} needs a configuration: {e}") from e
     raise FileNotFoundError(
         f"No SeisSol binary found for config '{config}'. "
-        f"Tried:\n  " + "\n  ".join(str(c) for c in candidates)
+        f"Tried:\n  " + "\n  ".join(str(c) for c in own + shared)
     )
 
 
@@ -469,6 +519,7 @@ def run_seissol(
     ranks: int,
     threads: int,
     clean_output: bool = True,
+    configuration: Optional[str] = None,
 ) -> tuple[int, float]:
     """Run SeisSol for one case, returning ``(returncode, duration_seconds)``.
 
@@ -482,10 +533,13 @@ def run_seissol(
 
     env = os.environ.copy()
     env["OMP_NUM_THREADS"] = str(threads)
+    if configuration is not None:
+        env["SEISSOL_CONFIGURATION"] = configuration
 
     cmd = list(mpi_cmd) + ["-np", str(ranks), str(binary), str(case.params_path)]
+    chosen = f"SEISSOL_CONFIGURATION={configuration} " if configuration else ""
     print(
-        f"{_info('[run]')} {case.key}: (cd {case.case_dir}) {shlex.join(cmd)}",
+        f"{_info('[run]')} {case.key}: (cd {case.case_dir}) {chosen}{shlex.join(cmd)}",
         flush=True,
     )
 
@@ -1904,7 +1958,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             continue
 
         try:
-            binary = resolve_binary(args.binary_dir, case.config)
+            binary, configuration = resolve_binary(args.binary_dir, case.config)
         except FileNotFoundError as e:
             print(f"{_warn('[skip]')} {case.key}: {e}", file=sys.stderr)
             results.append(
@@ -1923,6 +1977,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 args.ranks,
                 args.threads,
                 clean_output=not args.no_clean,
+                configuration=configuration,
             )
             ran = True
             if rc != 0:

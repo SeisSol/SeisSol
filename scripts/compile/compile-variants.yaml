@@ -110,6 +110,15 @@ presets:
         - { type: viscoacoustic, order: 6, mechanisms: 3 }
         - { type: anisotropic, order: 6 }
         - { type: elastic, order: 3, multisim: 32 }
+      include:
+        # the code generators the backend takes by default (gemmforge, or tinytc on Intel GPUs),
+        # without TensorForge; the suffix keeps it apart from the TensorForge build of the same
+        # configuration
+        - equations: elastic
+          order: 6
+          precision: single
+          device_codegen: auto
+          custom_suffix: defaultcodegen
 
   tensorforge:
     defaults:

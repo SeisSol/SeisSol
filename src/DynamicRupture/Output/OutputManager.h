@@ -14,7 +14,6 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "IO/Instance/Point/Hdf5Table.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Kernels/Precision.h"
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -72,7 +71,7 @@ class OutputManager {
 
   //! @brief The stress the fault starts out under at an on-fault receiver, aligned with strike
   //! and dip, as the six components of a symmetric tensor.
-  std::array<real, 6> initialStress(const ReceiverOutputData& outputData, std::size_t index);
+  std::array<double, 6> initialStress(const ReceiverOutputData& outputData, std::size_t index);
 
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder_{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder_{nullptr};

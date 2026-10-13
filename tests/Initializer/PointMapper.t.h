@@ -52,7 +52,7 @@ TEST_CASE("Point mapper: a point on a shared face goes to the cell with the smal
       {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}, {0.0, 0.0, -1.0}}};
   std::vector<Vertex> vertices(coordinates.size());
   for (std::size_t i = 0; i < coordinates.size(); ++i) {
-    std::copy(coordinates[i].begin(), coordinates[i].end(), vertices[i].coords);
+    vertices[i].coords = coordinates[i];
   }
   const std::array<std::array<std::size_t, 4>, 2> cells{{{0, 1, 2, 3}, {0, 2, 1, 4}}};
 
@@ -65,8 +65,8 @@ TEST_CASE("Point mapper: a point on a shared face goes to the cell with the smal
       std::vector<Element> elements(2);
       for (std::size_t local = 0; local < 2; ++local) {
         const auto cell = upperFirst ? local : 1 - local;
-        std::copy(cells[cell].begin(), cells[cell].end(), elements[local].vertices);
-        elements[local].localId = static_cast<LocalElemId>(local);
+        elements[local].vertices = cells[cell];
+        elements[local].localId = local;
         elements[local].globalId = (cell == 0) == swapped ? 3 : 7;
       }
       const seissol::MockReader mockReader(vertices, elements);

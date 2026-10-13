@@ -14,37 +14,15 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace seissol::unit_test {
 using namespace seissol::dr;
 
-TEST_CASE("ExtVrtxCoords construction" * doctest::test_suite("dynamicrupture")) {
-  SUBCASE("Default zero") {
-    ExtVrtxCoords p;
-    CHECK(p[0] == doctest::Approx(0.0));
-    CHECK(p[1] == doctest::Approx(0.0));
-    CHECK(p[2] == doctest::Approx(0.0));
-  }
-  SUBCASE("Initializer list") {
-    ExtVrtxCoords p = {1.0, 2.0, 3.0};
-    CHECK(p[0] == doctest::Approx(1.0));
-    CHECK(p[1] == doctest::Approx(2.0));
-    CHECK(p[2] == doctest::Approx(3.0));
-    CHECK(ExtVrtxCoords::size() == 3);
-  }
-  SUBCASE("Eigen conversion") {
-    ExtVrtxCoords p = {4.0, 5.0, 6.0};
-    auto v = p.getAsEigen3LibVector();
-    CHECK(v[0] == doctest::Approx(4.0));
-    CHECK(v[1] == doctest::Approx(5.0));
-    CHECK(v[2] == doctest::Approx(6.0));
-  }
-}
-
 TEST_CASE("ExtTriangle construction" * doctest::test_suite("dynamicrupture")) {
   ExtTriangle tri(
-      ExtVrtxCoords{0.0, 0.0, 0.0}, ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0});
+      CoordinateT{0.0, 0.0, 0.0}, CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0});
   CHECK(tri.point(0)[0] == doctest::Approx(0.0));
   CHECK(tri.point(1)[0] == doctest::Approx(1.0));
   CHECK(tri.point(2)[1] == doctest::Approx(1.0));
@@ -52,7 +30,7 @@ TEST_CASE("ExtTriangle construction" * doctest::test_suite("dynamicrupture")) {
 }
 
 TEST_CASE("getReferenceTriangle" * doctest::test_suite("dynamicrupture")) {
-  for (int side = 0; side < 4; ++side) {
+  for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
     auto tri = getReferenceTriangle(side);
     for (int v = 0; v < 3; ++v) {
       for (int d = 0; d < 3; ++d) {
@@ -77,7 +55,7 @@ TEST_CASE("getReferenceTriangle" * doctest::test_suite("dynamicrupture")) {
 
 TEST_CASE("getMidPointTriangle" * doctest::test_suite("dynamicrupture")) {
   ExtTriangle tri(
-      ExtVrtxCoords{0.0, 0.0, 0.0}, ExtVrtxCoords{3.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 6.0, 0.0});
+      CoordinateT{0.0, 0.0, 0.0}, CoordinateT{3.0, 0.0, 0.0}, CoordinateT{0.0, 6.0, 0.0});
   auto mid = getMidPointTriangle(tri);
   CHECK(mid[0] == doctest::Approx(1.0));
   CHECK(mid[1] == doctest::Approx(2.0));
@@ -85,8 +63,8 @@ TEST_CASE("getMidPointTriangle" * doctest::test_suite("dynamicrupture")) {
 }
 
 TEST_CASE("getMidPoint" * doctest::test_suite("dynamicrupture")) {
-  ExtVrtxCoords a = {2.0, 4.0, 6.0};
-  ExtVrtxCoords b = {8.0, 10.0, 12.0};
+  const CoordinateT a{2.0, 4.0, 6.0};
+  const CoordinateT b{8.0, 10.0, 12.0};
   auto mid = getMidPoint(a, b);
   CHECK(mid[0] == doctest::Approx(5.0));
   CHECK(mid[1] == doctest::Approx(7.0));
@@ -96,50 +74,50 @@ TEST_CASE("getMidPoint" * doctest::test_suite("dynamicrupture")) {
 TEST_CASE("computeTriangleArea" * doctest::test_suite("dynamicrupture")) {
   SUBCASE("Unit right triangle") {
     ExtTriangle tri(
-        ExtVrtxCoords{0.0, 0.0, 0.0}, ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0});
+        CoordinateT{0.0, 0.0, 0.0}, CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0});
     CHECK(computeTriangleArea(tri) == doctest::Approx(0.5));
   }
   SUBCASE("Equilateral triangle side=2") {
-    ExtTriangle tri(ExtVrtxCoords{0.0, 0.0, 0.0},
-                    ExtVrtxCoords{2.0, 0.0, 0.0},
-                    ExtVrtxCoords{1.0, std::sqrt(3.0), 0.0});
+    ExtTriangle tri(CoordinateT{0.0, 0.0, 0.0},
+                    CoordinateT{2.0, 0.0, 0.0},
+                    CoordinateT{1.0, std::sqrt(3.0), 0.0});
     CHECK(computeTriangleArea(tri) == doctest::Approx(std::sqrt(3.0)));
   }
   SUBCASE("3D triangle") {
     ExtTriangle tri(
-        ExtVrtxCoords{0.0, 0.0, 0.0}, ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
+        CoordinateT{0.0, 0.0, 0.0}, CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 0.0, 1.0});
     CHECK(computeTriangleArea(tri) == doctest::Approx(0.5));
   }
   SUBCASE("Degenerate") {
     ExtTriangle tri(
-        ExtVrtxCoords{0.0, 0.0, 0.0}, ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{2.0, 0.0, 0.0});
+        CoordinateT{0.0, 0.0, 0.0}, CoordinateT{1.0, 0.0, 0.0}, CoordinateT{2.0, 0.0, 0.0});
     CHECK(computeTriangleArea(tri) == doctest::Approx(0.0).epsilon(1e-15));
   }
 }
 
 TEST_CASE("getDistanceFromPointToFace" * doctest::test_suite("dynamicrupture")) {
   ExtTriangle face(
-      ExtVrtxCoords{0.0, 0.0, 0.0}, ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0});
-  VrtxCoords normal = {0.0, 0.0, 1.0};
+      CoordinateT{0.0, 0.0, 0.0}, CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0});
+  const CoordinateT normal{0.0, 0.0, 1.0};
   SUBCASE("Above") {
-    ExtVrtxCoords pt = {0.5, 0.5, 3.0};
+    const CoordinateT pt{0.5, 0.5, 3.0};
     CHECK(getDistanceFromPointToFace(pt, face, normal) == doctest::Approx(-3.0));
   }
   SUBCASE("On") {
-    ExtVrtxCoords pt = {0.25, 0.25, 0.0};
+    const CoordinateT pt{0.25, 0.25, 0.0};
     CHECK(getDistanceFromPointToFace(pt, face, normal) == doctest::Approx(0.0));
   }
   SUBCASE("Below") {
-    ExtVrtxCoords pt = {0.5, 0.5, -2.0};
+    const CoordinateT pt{0.5, 0.5, -2.0};
     CHECK(getDistanceFromPointToFace(pt, face, normal) == doctest::Approx(2.0));
   }
 }
 
 TEST_CASE("projectPointToFace" * doctest::test_suite("dynamicrupture")) {
   ExtTriangle face(
-      ExtVrtxCoords{0.0, 0.0, 0.0}, ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0});
-  VrtxCoords normal = {0.0, 0.0, 1.0};
-  ExtVrtxCoords pt = {0.3, 0.3, 5.0};
+      CoordinateT{0.0, 0.0, 0.0}, CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0});
+  const CoordinateT normal{0.0, 0.0, 1.0};
+  CoordinateT pt{0.3, 0.3, 5.0};
   projectPointToFace(pt, face, normal);
   CHECK(pt[0] == doctest::Approx(0.3));
   CHECK(pt[1] == doctest::Approx(0.3));
@@ -205,7 +183,7 @@ inline Receivers makeFaultOutput(std::size_t cellCount,
         auto& receiver = points[(cell * pointsPerCell + point) * simulationCount + sim];
         receiver.faultTag = tags[cell];
         receiver.elementGlobalIndex = elements[cell];
-        receiver.localFaceSideId = sides[cell];
+        receiver.localFaceSideId = static_cast<std::int8_t>(sides[cell]);
         receiver.simIndex = static_cast<int>(sim);
       }
     }

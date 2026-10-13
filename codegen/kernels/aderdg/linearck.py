@@ -6,10 +6,10 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, simpleParameterSpace
-from yateto.ast.node import Add
+from yateto import Scalar, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.util import (
     tensor_collection_from_constant_expression,
@@ -58,10 +58,12 @@ class LinearCK(ADERDGBase):
         generator.add(
             "projectIniCond",
             self.Q["kp"] <= self.db.projectQP[self.t("kl")] * iniCond["lp"],
+            attrs=cold_kernel_attrs(),
         )
         generator.add(
             "evalAtQP",
             dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
+            attrs=cold_kernel_attrs(),
         )
 
     def addLocal(self, generator, targets):
@@ -80,8 +82,8 @@ class LinearCK(ADERDGBase):
             generator.add(f"{name_prefix}volume", volume, target=target)
 
             localFluxNodal = (
-                lambda i: self.Q["kp"]
-                <= self.Q["kp"]
+                lambda i: self.extendedQTensor()["kp"]
+                <= self.extendedQTensor()["kp"]
                 + self.db.project2nFaceTo3m[i]["kn"]
                 * self.INodal["no"]
                 * self.AminusT["op"]
@@ -238,7 +240,7 @@ class LinearCK(ADERDGBase):
 
             for i in range(1, self.order):
                 power = powers[i]
-                derivativeSum = Add()
+                derivativeSum = Accumulate(ops.Add())
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
                 for j in range(3):
