@@ -82,11 +82,15 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
   upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime_, 0.0));
 
-  double lastSplit = 0;
+  // The times of an epoch are the differences of what the stopwatches accumulated (pause returns
+  // that); split measures from the last start, through any pause since, so after the IO of an
+  // epoch the split of the compute stopwatch would hold the IO as well.
+  double lastIo = ioStopwatch.pause();
+  double lastCompute = 0;
 
-  ioStopwatch.pause();
+  Stopwatch::print("Time spent for initial IO:", lastIo);
 
-  Stopwatch::print("Time spent for initial IO:", ioStopwatch.split());
+  double lastSplit = simulationStopwatch.split();
 
   // use an empty log message as visual separator
   logInfo() << "";
@@ -106,7 +110,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime(upcomingTime);
-    computeStopwatch.pause();
+    const double compute = computeStopwatch.pause();
 
     const auto rateDone = upcomingTime / finalTime_;
     const auto percentageDone = rateDone * 100;
@@ -124,12 +128,14 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     // Check all synchronization point hooks and set the new upcoming time
     upcomingTime = std::min(finalTime_, Modules::callSyncHook(currentTime_, timeTolerance));
 
-    ioStopwatch.pause();
+    const double io = ioStopwatch.pause();
 
     const double currentSplit = simulationStopwatch.split();
     Stopwatch::print("Time spent this epoch (total):", currentSplit - lastSplit);
-    Stopwatch::print("Time spent this epoch (compute):", computeStopwatch.split());
-    Stopwatch::print("Time spent this epoch (blocking IO):", ioStopwatch.split());
+    Stopwatch::print("Time spent this epoch (compute):", compute - lastCompute);
+    Stopwatch::print("Time spent this epoch (blocking IO):", io - lastIo);
+    lastCompute = compute;
+    lastIo = io;
 
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
@@ -141,10 +147,15 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     logInfo() << "";
   }
 
+  // the outputs whose interval does not end at the final time write here
+  ioStopwatch.start();
+
   // synchronize data (TODO(David): synchronize lazily)
   seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
   Modules::callSyncHook(currentTime_, timeTolerance, true);
+
+  ioStopwatch.pause();
 
   const double wallTime = simulationStopwatch.pause();
   simulationStopwatch.printTime("Simulation time (total):");
