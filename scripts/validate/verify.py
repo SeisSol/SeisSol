@@ -43,6 +43,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import datetime as _dt
+import functools
 import json
 import math
 import os
@@ -475,6 +476,27 @@ def canonical_config(config: str) -> str:
     return name
 
 
+@functools.lru_cache(maxsize=None)
+def built_configurations(binary: Path) -> Optional[frozenset]:
+    """The configurations an executable was built for, by their canonical names,
+    as its help lists them; None if it does not say."""
+    try:
+        proc = subprocess.run(
+            [str(binary), "--help"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    lines = (proc.stdout + "\n" + proc.stderr).splitlines()
+    names = frozenset(
+        line.strip() for line in lines if _CANONICAL_CONFIG.match(line.strip())
+    )
+    return names or None
+
+
 def resolve_binary(binary_dir: Path, config: str) -> tuple[Path, Optional[str]]:
     """Locate a SeisSol executable for the given config. Returns the absolute
     path to it, and the configuration to choose in it with
@@ -482,8 +504,9 @@ def resolve_binary(binary_dir: Path, config: str) -> tuple[Path, Optional[str]]:
 
     An executable of the configuration alone, ``binary_dir/seissol-<config>``,
     comes first; a single ``binary_dir/seissol`` of several configurations is
-    the fallback, which has to be told the configuration. Each name is searched
-    in both ``binary_dir`` and ``binary_dir/bin``.
+    the fallback, which has to be told the configuration, and which is passed
+    over if its help shows that the configuration is not built into it. Each
+    name is searched in both ``binary_dir`` and ``binary_dir/bin``.
     """
     directories = (binary_dir, binary_dir / "bin")
     own = [directory / f"seissol-{config}" for directory in directories]
@@ -498,9 +521,16 @@ def resolve_binary(binary_dir: Path, config: str) -> tuple[Path, Optional[str]]:
     for cand in shared:
         if executable(cand):
             try:
-                return cand.absolute(), canonical_config(config)
+                configuration = canonical_config(config)
             except ValueError as e:
                 raise FileNotFoundError(f"{cand} needs a configuration: {e}") from e
+            built = built_configurations(cand.absolute())
+            if built is not None and configuration not in built:
+                raise FileNotFoundError(
+                    f"{cand} is not built for {configuration}; it has "
+                    + ", ".join(sorted(built))
+                )
+            return cand.absolute(), configuration
     raise FileNotFoundError(
         f"No SeisSol binary found for config '{config}'. "
         f"Tried:\n  " + "\n  ".join(str(c) for c in own + shared)
@@ -533,6 +563,9 @@ def run_seissol(
 
     env = os.environ.copy()
     env["OMP_NUM_THREADS"] = str(threads)
+    # an executable of a single configuration has to be left to it; one chosen in the environment
+    # of the caller would make it stop
+    env.pop("SEISSOL_CONFIGURATION", None)
     if configuration is not None:
         env["SEISSOL_CONFIGURATION"] = configuration
 

@@ -665,6 +665,9 @@ def _command_run(args):
     command += [args.binary, "parameters.par"]
 
     environment = dict(os.environ)
+    # the run computes in the first configuration of the build, the one the case and its snapshot
+    # key describe; a configuration chosen in the environment would compute another one
+    environment.pop("SEISSOL_CONFIGURATION", None)
     environment["OMP_NUM_THREADS"] = str(args.threads)
     environment.setdefault("OMP_PLACES", "cores")
     environment.setdefault("OMP_PROC_BIND", "close")

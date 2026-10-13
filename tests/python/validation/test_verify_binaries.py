@@ -59,6 +59,26 @@ def test_shared_executable_is_told_the_configuration(tmp_path):
     )
 
 
+def test_shared_executable_without_the_configuration_is_passed_over(tmp_path):
+    # as SeisSol's help lists the configurations of the executable
+    shared = tmp_path / "bin" / "seissol"
+    shared.parent.mkdir(parents=True)
+    shared.write_text(
+        "#!/bin/sh\n"
+        "echo elastic-linearck-o6-f64-stroud\n"
+        "echo '  Material: elastic'\n"
+        "echo acoustic-linearck-o6-f32-stroud\n"
+        "exit 1\n"
+    )
+    shared.chmod(0o755)
+    assert verify.resolve_binary(tmp_path, "elastic-o6-f64") == (
+        shared.absolute(),
+        "elastic-linearck-o6-f64-stroud",
+    )
+    with pytest.raises(FileNotFoundError):
+        verify.resolve_binary(tmp_path, "viscoelastic-3-o6-f64")
+
+
 def test_no_executable(tmp_path):
     with pytest.raises(FileNotFoundError):
         verify.resolve_binary(tmp_path, "elastic-o6-f64")
