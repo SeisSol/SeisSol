@@ -86,11 +86,20 @@ jobs:
         id: build
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         run: |
+          # the generated kernel tests do not configure with HIP: their host library links
+          # hip::host, which cmake/hip.cmake does not find; master's CI leaves them out there as well
+          if [ "${{ matrix.setup.backend }}" = hip ]; then
+            TESTING_GENERATED=OFF
+          else
+            TESTING_GENERATED=ON
+          fi
+
           python3 scripts/compile/compile_variants.py \
             --preset ci-gpu \
             --toolchain ${{ matrix.setup.name }} \
             --set device_backend=${{ matrix.setup.backend }} \
             --set device_arch=${{ matrix.setup.arch }} \
+            --set defines.TESTING_GENERATED=${TESTING_GENERATED} \
             --install-prefix /opt/seissol \
             --max-parallel 1 \
             --report build-report.json
