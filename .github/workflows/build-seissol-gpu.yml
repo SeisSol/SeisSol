@@ -71,7 +71,7 @@ jobs:
             pip3 install numpy pyyaml
             git clone https://github.com/seissol/tensorforge.git ${RUNNER_TEMP}/tensorforge
             echo "PYTHONPATH=${RUNNER_TEMP}/tensorforge/src${PYTHONPATH:+:${PYTHONPATH}}" >> ${GITHUB_ENV}
-            echo "CMAKE_PREFIX_PATH=${RUNNER_TEMP}/tensorforge/src/tensorforge/cmake${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> ${GITHUB_ENV}
+            echo "CMAKE_PREFIX_PATH=${RUNNER_TEMP}/tensorforge/src/tensorforge/share/cmake${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> ${GITHUB_ENV}
           else
             pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
           fi

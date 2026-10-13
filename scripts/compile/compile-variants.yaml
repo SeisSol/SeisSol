@@ -111,14 +111,15 @@ presets:
         - { type: anisotropic, order: 6 }
         - { type: elastic, order: 3, multisim: 32 }
       include:
-        # the code generators the backend takes by default (gemmforge, or tinytc on Intel GPUs),
-        # without TensorForge; the suffix keeps it apart from the TensorForge build of the same
-        # configuration
+        # the code generators the backend takes when TensorForge is not there (gemmforge and
+        # chainforge; the images have no Tiny Tensor Compiler for Intel GPUs). They are named, as
+        # `auto` would find the TensorForge every leg installs and take that; the suffix keeps the
+        # build apart from the TensorForge one of the same configuration
         - equations: elastic
           order: 6
           precision: single
-          device_codegen: auto
-          custom_suffix: defaultcodegen
+          device_codegen: gemmforge-chainforge
+          custom_suffix: gemmforge
 
   tensorforge:
     defaults:
