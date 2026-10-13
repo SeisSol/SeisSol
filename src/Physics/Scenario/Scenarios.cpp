@@ -20,6 +20,8 @@
 #include "Numerical/Eigenvalues.h"
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -56,6 +58,73 @@ void setFluidStress(yateto::DenseTensorView<2, RealT, unsigned>& dofs,
     }
   } else {
     dofs(point, 0) = value;
+  }
+}
+
+/// Makes the eigenvectors of a plane-wave operator independent of the eigensolver that found them.
+///
+/// An eigenvector is only fixed up to a complex factor, and within the eigenspace of a repeated
+/// eigenvalue (as the two S waves of an isotropic material have) up to a choice of basis. Which one
+/// an eigensolver returns varies between implementations: Eigen 3.4 and 5 give the P wave of an
+/// elastic material with opposite signs. A planar wave is made of the eigenvectors, so it would
+/// vary along. Instead, every eigenspace gets a basis that depends on it alone: one after the
+/// other, the coordinate axis that the rest of the eigenspace holds the most of (the first of
+/// equal ones) is projected onto that rest, and the projection, of unit length, is the next
+/// eigenvector; its coordinate on that axis is real and positive.
+///
+/// The eigenvector of values[j] is the column j of vectors.
+void canonicalizeEigenvectors(const std::vector<std::complex<double>>& values,
+                              std::vector<std::complex<double>>& vectors) {
+  const auto count = values.size();
+  auto columns = yateto::DenseTensorView<2, std::complex<double>, unsigned>(
+      vectors.data(), {static_cast<unsigned>(count), static_cast<unsigned>(count)});
+
+  // eigenvalues closer than this, relative to the largest, share an eigenspace; and an eigenspace
+  // holds coordinate axes equally if it does so up to it
+  constexpr double Tolerance = 1e-8;
+  double scale = 0;
+  for (const auto& value : values) {
+    scale = std::max(scale, std::abs(value));
+  }
+
+  std::vector<bool> assigned(count, false);
+  for (std::size_t first = 0; first < count; ++first) {
+    if (assigned[first]) {
+      continue;
+    }
+    std::vector<std::size_t> space;
+    for (std::size_t j = first; j < count; ++j) {
+      if (!assigned[j] && std::abs(values[j] - values[first]) <= Tolerance * scale) {
+        space.push_back(j);
+        assigned[j] = true;
+      }
+    }
+
+    Eigen::MatrixXcd basis(count, space.size());
+    for (std::size_t k = 0; k < space.size(); ++k) {
+      for (std::size_t i = 0; i < count; ++i) {
+        basis(i, k) = columns(i, space[k]);
+      }
+    }
+    // the orthogonal projector onto the eigenspace, which does not depend on the basis it is
+    // computed from
+    const Eigen::MatrixXcd orthonormal =
+        Eigen::HouseholderQR<Eigen::MatrixXcd>(basis).householderQ() *
+        Eigen::MatrixXcd::Identity(count, space.size());
+    Eigen::MatrixXcd projector = orthonormal * orthonormal.adjoint();
+
+    for (const auto column : space) {
+      const double largest = projector.diagonal().real().maxCoeff();
+      Eigen::Index axis = 0;
+      while (projector(axis, axis).real() < (1 - Tolerance) * largest) {
+        ++axis;
+      }
+      const Eigen::VectorXcd vector = projector.col(axis) / std::sqrt(projector(axis, axis).real());
+      for (std::size_t i = 0; i < count; ++i) {
+        columns(i, column) = vector(i);
+      }
+      projector -= vector * vector.adjoint();
+    }
   }
 }
 } // namespace
@@ -128,6 +197,7 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData, Co
     lambdaA_.assign(eigendecomposition.values.begin(), eigendecomposition.values.end());
     eigenvectors_.assign(eigendecomposition.vectors.begin(), eigendecomposition.vectors.end());
   });
+  canonicalizeEigenvectors(lambdaA_, eigenvectors_);
 }
 
 template <typename RealT>
