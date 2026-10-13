@@ -10,6 +10,7 @@
 
 #include "Common/ConfigRegistry.h"
 #include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Physics/InitialField.h"
@@ -56,6 +57,14 @@ Availability availability(initializer::parameters::InitializationType type, Conf
  */
 Availability analyticalBoundaryAvailability(initializer::parameters::InitializationType type,
                                             ConfigId config);
+
+/**
+ * The acoustic travelling wave with ITM as the parameter file sets it up. The wave passes the
+ * mirror only if ITM is enabled; otherwise, it travels on unchanged, whatever the mirror settings.
+ */
+AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(
+    const initializer::parameters::InitializationParameters& initialization,
+    const initializer::parameters::ITMParameters& itm);
 
 /**
  * Constructs the scenario, one instance per fused simulation. Only call after availability()

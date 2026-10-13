@@ -112,11 +112,14 @@ class TravellingWave : public InitialFieldOf<TravellingWave, Planarwave> {
   Eigen::Vector3d origin_;
 };
 
+// A plane wave in a fluid, travelling in x-direction through an instantaneous time mirror; it is
+// written in the quantities of the configuration `config`, the elastic or the acoustic ones
 class AcousticTravellingWaveITM : public InitialFieldOf<AcousticTravellingWaveITM> {
   public:
   AcousticTravellingWaveITM(
       const CellMaterialData& materialData,
-      const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
+      const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM,
+      ConfigId config);
   template <typename RealT>
   void evaluateIn(double time,
                   const std::array<double, 3>* points,
@@ -133,6 +136,10 @@ class AcousticTravellingWaveITM : public InitialFieldOf<AcousticTravellingWaveIT
   double tau_;
   double tITMPlus_;
   double n_;
+  // whether the material of the configuration has a stress tensor (and not a single isotropic
+  // stress, the pressure), and the index of its first velocity
+  bool stressTensor_;
+  std::size_t velocityOffset_;
 };
 
 class ScholteWave : public InitialFieldOf<ScholteWave> {
