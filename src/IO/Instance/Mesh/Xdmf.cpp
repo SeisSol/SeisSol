@@ -164,7 +164,8 @@ struct XdmfGrid {
 };
 
 struct XdmfMeta {
-  XmlFile getxml() {
+  //! The file, holding @p grids as the steps of the time series.
+  static XmlFile document(const std::vector<std::shared_ptr<XmlEntry>>& grids) {
 
     auto root = std::make_shared<XmlNode>("Xdmf");
     root->addAttribute(XmlAttribute::create("Version", "2.0"));
@@ -178,22 +179,7 @@ struct XdmfMeta {
         .addAttribute(XmlAttribute::create("CollectionType", "Temporal"));
     root2->addNode(root3);
 
-    for (const auto& entry : entries) {
-      auto grid = std::make_shared<XmlNode>("Grid");
-      grid->addAttribute(XmlAttribute::create("Name", entry.name))
-          .addAttribute(XmlAttribute::create("GridType", "Uniform"));
-
-      // add the time node here already
-      auto gridTime = std::make_shared<XmlNode>("Time");
-      gridTime->addAttribute(XmlAttribute::create("Value", metadata::formatExact(entry.time)));
-      grid->addNode(gridTime);
-
-      for (const auto& datasetEntry : entriesConst) {
-        grid->addNode(datasetEntry.makeNode());
-      }
-      for (const auto& datasetEntry : entry.datasets) {
-        grid->addNode(datasetEntry.makeNode());
-      }
+    for (const auto& grid : grids) {
       root3->addNode(grid);
     }
 
@@ -203,7 +189,25 @@ struct XdmfMeta {
     return file;
   }
 
-  std::vector<XdmfGrid> entries;
+  [[nodiscard]] std::shared_ptr<XmlEntry> grid(const XdmfGrid& entry) const {
+    auto grid = std::make_shared<XmlNode>("Grid");
+    grid->addAttribute(XmlAttribute::create("Name", entry.name))
+        .addAttribute(XmlAttribute::create("GridType", "Uniform"));
+
+    // add the time node here already
+    auto gridTime = std::make_shared<XmlNode>("Time");
+    gridTime->addAttribute(XmlAttribute::create("Value", metadata::formatExact(entry.time)));
+    grid->addNode(gridTime);
+
+    for (const auto& datasetEntry : entriesConst) {
+      grid->addNode(datasetEntry.makeNode());
+    }
+    for (const auto& datasetEntry : entry.datasets) {
+      grid->addNode(datasetEntry.makeNode());
+    }
+    return grid;
+  }
+
   std::vector<XdmfDataset> entriesConst;
 };
 
@@ -373,8 +377,10 @@ void XdmfWriter::addHook(const std::function<void(std::size_t, double)>& hook) {
 std::function<writer::Writer(const std::string&, std::size_t, double)> XdmfWriter::makeWriter() {
   logInfo() << "Adding Xdmf writer" << name_;
   const auto self = *this;
+  // a step adds its grid to the file, rather than writing all of them anew
+  auto file = GrowingXmlFile(XdmfMeta::document);
   return
-      [self, meta = XdmfMeta(), firstCounter = std::optional<std::size_t>()](
+      [self, meta = XdmfMeta(), file, firstCounter = std::optional<std::size_t>()](
           const std::string& prefix, std::size_t counter, double time) mutable -> writer::Writer {
         for (const auto& hook : self.hooks_) {
           hook(counter, time);
@@ -408,9 +414,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> XdmfWrite
           writer.addInstruction(invoked.instruction);
           grid.datasets.emplace_back(invoked);
         }
-        meta.entries.emplace_back(grid);
 
-        writer.addInstructions(meta.getxml().instructions(filenameMeta));
+        writer.addInstructions(file.add(filenameMeta, {meta.grid(grid)}));
         return writer;
       };
 }

@@ -31,6 +31,7 @@ class BinaryFile {
    */
   void openFile(const std::string& name, bool append, bool backUp = false);
   void writeGlobal(const void* data, std::size_t size);
+  void writeGlobalAt(const void* data, std::size_t size, std::size_t offset);
   void writeDistributed(const void* data, std::size_t size);
   void align(std::size_t alignment);
   void closeFile();
