@@ -96,7 +96,7 @@ Two attributes describe a dataset:
   the quantity set it holds, in the form the grouping reads back
 
 ``NumberOfPoints``
-  how many receivers it holds over all ranks
+  how many rows it holds over all ranks, i.e. receivers times fused simulations
 
 Beside the datasets, and written once, are the columns describing the rows, in
 the order the ranks contributed them:
@@ -150,7 +150,7 @@ Strain Rate Output
 ------------------
 Furthermore, you can also output the strain rate by setting :code:`ReceiverComputeStrainRate=1`.
 It is the symmetric part of the gradient of the same velocity, :math:`\dot\varepsilon_{ij} = \frac{1}{2}(\partial_j v_i + \partial_i v_j)`,
-written as :code:`epsxx`, :code:`epsxy`, :code:`epsxz`, :code:`epsyy`, :code:`epsyz`, :code:`epszz` (with the index of the simulation appended when simulations are fused).
+written as :code:`epsxx`, :code:`epsxy`, :code:`epsxz`, :code:`epsyy`, :code:`epsyz`, :code:`epszz`; with fused simulations, they are in the row of their simulation, as the other quantities are.
 
 Placing free-surface receivers
 ------------------------------
