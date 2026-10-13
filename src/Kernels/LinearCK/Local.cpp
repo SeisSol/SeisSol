@@ -376,6 +376,11 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
           });
 
       auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
+
+      // as for the other device kernels of the local integral
+      const auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnl);
+      auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
+
       nodalLfKrnl.INodal = const_cast<const real**>(
           dataTable[analyticalKey].get<real*>(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
       nodalLfKrnl.AminusT =
@@ -386,6 +391,7 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
           SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
       nodalLfKrnl.Q =
           dataTable[analyticalKey].get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+      nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
       nodalLfKrnl.streamPtr = runtime.stream();
       nodalLfKrnl.numElements = numElements;
       nodalLfKrnl.execute(face);

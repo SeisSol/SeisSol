@@ -94,17 +94,17 @@ SeisSol indexes the boundary conditions as follows. What each of them does is de
 
 - 1: free surface. Boundary condition; no neighbor.
 
-- 2: gravity-based free surface. Boundary condition; no neighbor.
+- 2: gravity-based free surface. Boundary condition; no neighbor. Not supported by the ``stp`` solver, nor by the ``linearckanelastic`` solver on GPUs (see :doc:`build-parameters`).
 
 - 3: dynamic rupture. A dynamic rupture face between two cells.
 
-- 4: dirichlet. Boundary condition; no neighbor.
+- 4: dirichlet. Boundary condition; no neighbor. Not supported by the ``linearckanelastic`` solver on GPUs.
 
 - 5: absorbing. Boundary condition; no neighbor.
 
 - 6: regular. Like face type 0, a regular face between two cells. Formerly known as "periodic" or "identified".
 
-- 7: analytical. Boundary condition; no neighbor. The state behind the face is the analytical solution of the configured scenario (see :doc:`boundary-conditions`).
+- 7: analytical. Boundary condition; no neighbor. The state behind the face is the analytical solution of the configured scenario (see :doc:`boundary-conditions`). Not supported with the easi initial condition, nor by the ``linearckanelastic`` solver on GPUs.
 
 - n>64: dynamic rupture. A dynamic rupture face between two cells, but with a different tag. (see :doc:`fault-tagging`)
 
@@ -158,8 +158,3 @@ requires additional data to be specified. There are two ways to encode purely-to
 - vertex-wise: assign a topological vertex to each geometric vertex, called ``identify`` in the mesh file. From that, we subsequently generate the topological connectivity array. (topology format ``identify-vertex``)
 
 Currently, the topological vertex IDs may not exceed the number of geometric vertices.
-
-Cube Generator
-~~~~~~~~~~~~~~
-
-A cube mesh generator is integrated in SeisSol as well; it also supports periodic boundary conditions, but only single-rank setups.
