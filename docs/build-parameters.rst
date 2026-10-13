@@ -89,10 +89,11 @@ Generic parameters
 - ``ASAGI``: enable or disable ASAGI as input for fault and material information. Note that easi will need to be built with ASAGI support if you select this option.
 - ``COVERAGE``: determine the code coverage (currently only relevant for the CI).
 - ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names.
-- ``PLASTICITY_METHOD``: changes the plasticity matrices to be used. Options are
+- ``PLASTICITY_METHOD``: the points at which the plastic correction is computed, and with them the plasticity matrices to be used. Options are
 
-    * ``nb``: nodal basis
-    * ``ib``: interpolating basis
+    * ``nb``: nodal basis (the default), the warp & blend nodes of the basis: one point per basis function, some of them on the boundary of the cell. Converting back to the basis interpolates.
+    * ``sq``: symmetric quadrature, the points of a quadrature rule that integrates the product of two basis functions exactly, is invariant under all permutations of the vertices and has all points inside the cell (4, 14, 24, 46, 81, 128 and 188 points for the orders 2 to 8). Converting back to the basis is the L2 projection with that rule.
+    * ``ip``: interpolation points, the conical-product (Stroud) quadrature rule with (order + 1)^3 points. Converting back to the basis is the L2 projection with that rule.
 - ``PROXY_PYBINDING``: compile Python bindings for the SeisSol proxy
 - ``TESTING``: compile unit tests for SeisSol
 - ``TESTING_GENERATED``: compile unit tests for code-generated kernels. Useful for either developing a code generator, or when figuring out why a simulation runs into Inf/NaN or invalid results. Without it, the code generator writes no unit tests either.

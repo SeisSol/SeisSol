@@ -48,12 +48,31 @@ bool nodalTransposed() {
 }
 
 // The nodal point set of the volume follows the PLASTICITY_METHOD build option: "nb" ships a
-// unisolvent warp&blend set, "ip" the conical-product quadrature points.
+// unisolvent warp&blend set, "ip" the conical-product quadrature points, "sq" the points of a
+// fully symmetric quadrature rule. The generated vNodes have to be one of them.
 template <typename Cfg>
-constexpr auto VolumeNodalSet = static_cast<std::size_t>(tensor::vNodes<Cfg>::Shape[0]) ==
-                                        projection::modalSize(3, Cfg::ConvergenceOrder)
-                                    ? projection::NodalSet::WarpBlend
-                                    : projection::NodalSet::Stroud;
+std::vector<std::array<double, 3>> generatedVolumeNodes() {
+  const auto nodes = init::vNodes<Cfg>::view::create(init::vNodes<Cfg>::Values);
+  std::vector<std::array<double, 3>> points(
+      static_cast<std::size_t>(tensor::vNodes<Cfg>::Shape[0]));
+  for (std::size_t p = 0; p < points.size(); ++p) {
+    for (std::size_t d = 0; d < 3; ++d) {
+      points[p][d] = nodes.isInRange(p, d) ? nodes(p, d) : 0.0;
+    }
+  }
+  return points;
+}
+
+template <typename Cfg>
+projection::NodalSet volumeNodalSet() {
+  const auto set = projection::identifyNodalSet3D(
+      Cfg::ConvergenceOrder, generatedVolumeNodes<Cfg>(), GeneratedTolerance<Cfg>);
+  REQUIRE(set.has_value());
+  return set.value_or(projection::NodalSet::WarpBlend);
+}
+
+constexpr std::array<projection::NodalSet, 3> VolumeNodalSets{
+    projection::NodalSet::WarpBlend, projection::NodalSet::Stroud, projection::NodalSet::Symmetric};
 
 using Tet = std::array<std::array<double, 3>, 4>;
 
@@ -173,7 +192,7 @@ TEST_CASE_TEMPLATE("Numerical/Projection: nodal point sets match the generated o
   }
 
   SUBCASE("3D volume nodes vs. vNodes") {
-    const auto points = projection::nodalPoints3D(Cfg::ConvergenceOrder, VolumeNodalSet<Cfg>);
+    const auto points = projection::nodalPoints3D(Cfg::ConvergenceOrder, volumeNodalSet<Cfg>());
     const auto nodes = init::vNodes<Cfg>::view::create(init::vNodes<Cfg>::Values);
     REQUIRE(points.size() == static_cast<std::size_t>(tensor::vNodes<Cfg>::Shape[0]));
     for (std::size_t p = 0; p < points.size(); ++p) {
@@ -210,7 +229,7 @@ TEST_CASE_TEMPLATE("Numerical/Projection: nodal-to-modal transforms match the ge
   }
 
   SUBCASE("3D vs. vInv") {
-    const auto matrix = projection::nodalToModal<3>(Cfg::ConvergenceOrder, VolumeNodalSet<Cfg>);
+    const auto matrix = projection::nodalToModal<3>(Cfg::ConvergenceOrder, volumeNodalSet<Cfg>());
     const auto reference = init::vInv<Cfg>::view::create(init::vInv<Cfg>::Values);
     for (std::size_t b = 0; b < matrix.rows(); ++b) {
       for (std::size_t n = 0; n < matrix.cols(); ++n) {
@@ -223,15 +242,15 @@ TEST_CASE_TEMPLATE("Numerical/Projection: nodal-to-modal transforms match the ge
   }
 }
 
-TEST_CASE_TEMPLATE("Numerical/Projection: both volume nodal sets round-trip",
+TEST_CASE_TEMPLATE("Numerical/Projection: all volume nodal sets round-trip",
                    Cfg,
                    SEISSOL_CONFIG_TYPES) {
-  // Only one of the two is shipped by the code generator in a given build, so exercise both
-  // against the definition instead: sampling a modal function at the nodes and transforming back
-  // has to reproduce the coefficients.
+  // Only one of them is shipped by the code generator in a given build, so exercise all against
+  // the definition instead: sampling a modal function at the nodes and transforming back has to
+  // reproduce the coefficients.
   const auto indices = projection::modalIndices<3>(Cfg::ConvergenceOrder);
 
-  for (const auto set : {projection::NodalSet::WarpBlend, projection::NodalSet::Stroud}) {
+  for (const auto set : VolumeNodalSets) {
     const auto points = projection::nodalPoints3D(Cfg::ConvergenceOrder, set);
     const auto matrix = projection::nodalToModal<3>(Cfg::ConvergenceOrder, set);
 
@@ -261,6 +280,24 @@ TEST_CASE_TEMPLATE("Numerical/Projection: both volume nodal sets round-trip",
         REQUIRE(value == AbsApprox(expected).epsilon(Tolerance).delta(Tolerance));
       }
     }
+  }
+}
+
+TEST_CASE("Numerical/Projection: the volume nodal sets are told apart by their points") {
+  for (std::size_t order = 1; order <= 8; ++order) {
+    for (const auto set : VolumeNodalSets) {
+      const auto points = projection::nodalPoints3D(order, set);
+      const auto identified = projection::identifyNodalSet3D(order, points, Tolerance);
+      REQUIRE(identified.has_value());
+      if (order > 1) {
+        // for order 1, WarpBlend and Symmetric are both the centroid
+        REQUIRE(identified.value() == set);
+      }
+    }
+    // a perturbed set is none of them
+    auto points = projection::nodalPoints3D(order, projection::NodalSet::Symmetric);
+    points.back()[0] += 1e-6;
+    REQUIRE_FALSE(projection::identifyNodalSet3D(order, points, Tolerance).has_value());
   }
 }
 

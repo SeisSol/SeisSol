@@ -104,8 +104,8 @@ set(PRECISION_OPTIONS single double)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
 
 
-set(PLASTICITY_METHOD "nb" CACHE STRING "Plasticity method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
-set(PLASTICITY_OPTIONS nb ip)
+set(PLASTICITY_METHOD "nb" CACHE STRING "Points the plastic correction is computed at: nb (nodal basis, one point per basis function), sq (points of a fully symmetric quadrature rule, all inside the cell), ip (conical-product quadrature points)")
+set(PLASTICITY_OPTIONS nb sq ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 
