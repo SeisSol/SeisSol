@@ -88,7 +88,7 @@ Generic parameters
 - ``LOG_LEVEL_MASTER``: determines the minimum relevance level of log messages that are printed. Possible values are ``error``, ``warning``, ``info``, and ``debug``.
 - ``ASAGI``: enable or disable ASAGI as input for fault and material information. Note that easi will need to be built with ASAGI support if you select this option.
 - ``COVERAGE``: determine the code coverage (currently only relevant for the CI).
-- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names.
+- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names. ``stroud`` is the conical product rule with (order + 1)² points, exact up to degree 2 · order + 1; ``dunavant`` uses Dunavant's symmetric rules exact up to degree 2 · order, with 6, 12, 16, 25, 33, 42 and 61 points for the orders 2 to 8 (degree 17 for order 8, since the rule of degree 16 has points outside the triangle).
 - ``PLASTICITY_METHOD``: the points at which the plastic correction is computed, and with them the plasticity matrices to be used. Options are
 
     * ``sq``: symmetric quadrature (the default), the points of a quadrature rule that integrates the product of two basis functions exactly, is invariant under all permutations of the vertices and has all points inside the cell (4, 14, 24, 46, 81, 128 and 188 points for the orders 2 to 8). Converting back to the basis is the L2 projection with that rule.
