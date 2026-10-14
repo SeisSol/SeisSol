@@ -106,6 +106,52 @@ def test_a_variant_needs_its_configurations(tmp_path):
         variants(tmp_path, {"variants": [{"order": 6, "precision": "double"}]})
 
 
+def test_junit_keeps_the_output_of_failing_tests(tmp_path):
+    path = tmp_path / "ctest-results.xml"
+    path.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<testsuite name="(empty)" tests="2" failures="1">\n'
+        '<testcase name="passes" status="run"><system-out>fine</system-out></testcase>\n'
+        '<testcase name="fails" status="fail"><failure message="Failed"/>'
+        "<system-out>error: exit code 134</system-out></testcase>\n"
+        "</testsuite>\n"
+    )
+    assert cv.read_junit(path) == (2, ["fails"], {"fails": "error: exit code 134"})
+
+
+def test_failed_build_steps_are_found_in_the_log(tmp_path):
+    path = tmp_path / "build.log"
+    path.write_text(
+        "[1/3] Building CXX object a.cpp.o\n"
+        "FAILED: b.cpp.o\n"
+        "icpx -c b.cpp\n"
+        "b.cpp:1:1: error: unknown type name\n"
+        "[2/3] Building CXX object c.cpp.o\n"
+        "ninja: build stopped: subcommand failed.\n"
+    )
+    assert cv.failed_build_steps(path) == [
+        "FAILED: b.cpp.o\nicpx -c b.cpp\nb.cpp:1:1: error: unknown type name"
+    ]
+
+
+def test_a_long_output_is_cut_to_its_end(capsys, monkeypatch):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    cv.log_block("output", "\n".join(str(i) for i in range(100)), 3, keep_end=True)
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[-4:] == ["    [97 lines before]", "    97", "    98", "    99"]
+
+
+def test_github_actions_folds_the_output(capsys, monkeypatch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    cv.log_block("output of t", "a\nb", 10, keep_end=True)
+    assert capsys.readouterr().out.splitlines() == [
+        "::group::output of t",
+        "a",
+        "b",
+        "::endgroup::",
+    ]
+
+
 def test_ci_presets():
     pytest.importorskip("yaml")
     config = cv.load_config(

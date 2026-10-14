@@ -44,6 +44,7 @@ import hashlib
 import itertools
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -741,6 +742,19 @@ class Result:
     tests_total: int = 0
     tests_failed: int = 0
     failed_tests: list[str] = field(default_factory=list)
+    # the output of each failing test
+    failed_output: dict[str, str] = field(default_factory=dict)
+
+
+# What the console shows of a failure, as in CI the log is all that remains of a build tree: the
+# end of the output of the first failing tests, and the start of the steps Ninja saw fail.
+SHOWN_FAILED_TESTS = 10
+SHOWN_TEST_OUTPUT_LINES = 60
+SHOWN_FAILED_STEPS = 5
+SHOWN_STEP_LINES = 80
+
+# a progress line of Ninja, as it writes them when its output is not a terminal
+_NINJA_PROGRESS = re.compile(r"^\[\d+/\d+\] ")
 
 
 def _tail(path: Path, n: int = 40) -> str:
@@ -749,6 +763,73 @@ def _tail(path: Path, n: int = 40) -> str:
     except OSError:
         return ""
     return "\n".join(lines[-n:])
+
+
+def failed_build_steps(path: Path) -> list[str]:
+    """The reports Ninja gives of the build steps that failed: each its FAILED: line, the command
+    and what the command wrote, up to the next progress line."""
+    try:
+        lines = path.read_text(errors="replace").splitlines()
+    except OSError:
+        return []
+    steps: list[list[str]] = []
+    step: list[str] | None = None
+    for line in lines:
+        if line.startswith("FAILED: "):
+            step = [line]
+            steps.append(step)
+        elif step is not None:
+            if _NINJA_PROGRESS.match(line) or line.startswith("ninja: "):
+                step = None
+            else:
+                step.append(line)
+    return ["\n".join(step) for step in steps]
+
+
+def log_block(title: str, text: str, max_lines: int, keep_end: bool) -> None:
+    """Log a part of a log under a title, cut to max_lines of its end or of its start; in a GitHub
+    Actions log, as a group that folds."""
+    lines = text.splitlines()
+    if len(lines) > max_lines:
+        cut = len(lines) - max_lines
+        if keep_end:
+            lines = [f"[{cut} lines before]"] + lines[-max_lines:]
+        else:
+            lines = lines[:max_lines] + [f"[{cut} lines more]"]
+    github = os.environ.get("GITHUB_ACTIONS") == "true"
+    with _PRINT_LOCK:
+        if github:
+            print(f"::group::{title}")
+            print("\n".join(lines))
+            print("::endgroup::", flush=True)
+        else:
+            print(dim(f"    --- {title} ---"))
+            print("\n".join("    " + line for line in lines), flush=True)
+
+
+def log_failure(r: Result) -> None:
+    """Log what there is to see of a failure: the output of the first failing tests, or the build
+    steps that failed."""
+    for name in r.failed_tests[:SHOWN_FAILED_TESTS]:
+        if r.failed_output.get(name):
+            log_block(
+                f"output of {name}",
+                r.failed_output[name],
+                SHOWN_TEST_OUTPUT_LINES,
+                keep_end=True,
+            )
+    if len(r.failed_tests) > SHOWN_FAILED_TESTS:
+        log(
+            dim(
+                f"    (the output of the first {SHOWN_FAILED_TESTS} failing tests only)"
+            )
+        )
+    if r.phase_failed == "build" and r.log_path:
+        steps = failed_build_steps(r.log_path)
+        for step in steps[:SHOWN_FAILED_STEPS]:
+            log_block(step.splitlines()[0], step, SHOWN_STEP_LINES, keep_end=False)
+        if len(steps) > SHOWN_FAILED_STEPS:
+            log(dim(f"    (the first {SHOWN_FAILED_STEPS} failed build steps only)"))
 
 
 def _run_phase(cmd: list[str], env: dict[str, str], log_handle, stream: bool) -> int:
@@ -775,20 +856,23 @@ def _run_phase(cmd: list[str], env: dict[str, str], log_handle, stream: bool) ->
     return proc.returncode
 
 
-def read_junit(path: Path) -> tuple[int, list[str]]:
-    """Read CTest's JUnit output. Returns (total, names of failing tests)."""
+def read_junit(path: Path) -> tuple[int, list[str], dict[str, str]]:
+    """Read CTest's JUnit output. Returns (total, names of failing tests, their output)."""
     try:
         root = ET.parse(path).getroot()
     except (OSError, ET.ParseError):
-        return 0, []
+        return 0, [], {}
     cases = root.iter("testcase")
     total = 0
     failed: list[str] = []
+    output: dict[str, str] = {}
     for case in cases:
         total += 1
         if case.find("failure") is not None or case.find("error") is not None:
-            failed.append(case.get("name") or "<unnamed>")
-    return total, failed
+            name = case.get("name") or "<unnamed>"
+            failed.append(name)
+            output[name] = case.findtext("system-out") or ""
+    return total, failed, output
 
 
 def test_one(variant: Variant, jobs: int, stream: bool) -> Result:
@@ -808,7 +892,9 @@ def test_one(variant: Variant, jobs: int, stream: bool) -> Result:
         rc = _run_phase(variant.ctest_cmd(jobs), env, fh, stream)
     res.test_seconds = time.monotonic() - t0
     res.total_seconds = res.test_seconds
-    res.tests_total, res.failed_tests = read_junit(variant.junit_path)
+    res.tests_total, res.failed_tests, res.failed_output = read_junit(
+        variant.junit_path
+    )
     res.tests_failed = len(res.failed_tests)
     res.binary_found = variant.binary_path.exists()
 
@@ -862,7 +948,9 @@ def build_one(
             t0 = time.monotonic()
             rc = _run_phase(variant.ctest_cmd(test_jobs or jobs), env, fh, stream)
             res.test_seconds = time.monotonic() - t0
-            res.tests_total, res.failed_tests = read_junit(variant.junit_path)
+            res.tests_total, res.failed_tests, res.failed_output = read_junit(
+                variant.junit_path
+            )
             res.tests_failed = len(res.failed_tests)
             if rc != 0:
                 res.status, res.phase_failed, res.returncode = "failed", "test", rc
@@ -941,6 +1029,8 @@ def run_builds(
                     log(red(f"      test failed: {name}"))
                 if len(r.failed_tests) > 20:
                     log(red(f"      ... and {len(r.failed_tests) - 20} more"))
+                if not stream:
+                    log_failure(r)
                 tail = _tail(r.log_path) if r.log_path else ""
                 if tail:
                     log(dim("    --- last log lines ---"))
