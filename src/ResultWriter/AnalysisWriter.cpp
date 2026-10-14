@@ -12,6 +12,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Real.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
@@ -26,6 +27,7 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/StateNames.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
@@ -106,12 +108,14 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Script) {
-    data = initializer::projectScriptFields<Cfg>(
-        {seissolInstance_.parameters().initialization.filename},
-        simulationTime,
-        *meshReader_,
-        seissolInstance_.parameters().initialization.hasTime);
+    data =
+        initializer::projectScriptFields<Cfg>(seissolInstance_.parameters().initialization.filename,
+                                              simulationTime,
+                                              *meshReader_,
+                                              seissolInstance_.parameters().initialization.hasTime);
   }
+  // the components of the state a scripted field gives, per point and fused simulation
+  const auto componentCount = model::stateNames<model::MaterialOf<Cfg>>().size();
 
   const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
   const auto& quadraturePoints = rule.first;
@@ -221,9 +225,11 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                                       analyticalSolution);
         } else {
           for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+            const auto* point =
+                data.data() +
+                ((meshId * NumQuadPoints + i) * Cfg::NumSimulations + sim) * componentCount;
             for (std::size_t j = 0; j < NumQuantities; ++j) {
-              analyticalSolution(i, j) =
-                  data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+              analyticalSolution(i, j) = point[j];
             }
           }
         }

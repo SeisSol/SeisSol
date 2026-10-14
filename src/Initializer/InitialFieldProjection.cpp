@@ -14,6 +14,7 @@
 #include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
+#include "Expr/Backend.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
@@ -24,17 +25,22 @@
 #include "Kernels/Common.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/StateNames.h"
 #include "Numerical/Quadrature.h"
 #include "Physics/InitialField.h"
+#include "Reader/Scripting/CompiledReader.h"
+#include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/ReaderBuilder.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 GENERATE_HAS_MEMBER(Qane)
@@ -103,12 +109,10 @@ void projectInitialFieldOnLayer(
   }
 }
 
-/// Projects the values `data` of the scripted fields, as `projectScriptFields<Cfg>` gives them,
-/// onto the cells of `layer`, which compute in the configuration `Cfg`.
+/// Projects the values `data` of a scripted field, as `projectScriptFields<Cfg>` gives them, onto
+/// the cells of `layer`, which compute in the configuration `Cfg`.
 template <typename Cfg>
-void projectScriptFieldsOnLayer(const std::vector<double>& data,
-                                std::size_t fieldCount,
-                                LTS::Layer& layer) {
+void projectScriptFieldsOnLayer(const std::vector<double>& data, LTS::Layer& layer) {
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
   constexpr auto Variant = configIdOf<Cfg>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
@@ -116,8 +120,7 @@ void projectScriptFieldsOnLayer(const std::vector<double>& data,
   constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const auto quantityCount = model::MaterialOf<Cfg>::Quantities.size();
-  const auto dataStride = NumQuadPoints * fieldCount * quantityCount;
+  const auto componentCount = model::stateNames<model::MaterialOf<Cfg>>().size();
 
 #if !NVHPC_AVOID_OMP
 #pragma omp parallel
@@ -138,13 +141,17 @@ void projectScriptFieldsOnLayer(const std::vector<double>& data,
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto meshId = secondaryInformation[cell].meshId;
-      // TODO: multisim loop
 
       for (std::size_t s = 0; s < Cfg::NumSimulations; s++) {
         auto sub = multisim::simtensor<Cfg>(iniCond, s);
+        // the state of the solver may leave out memory variables that it keeps apart
+        const auto columns = std::min<std::size_t>(componentCount, sub.shape(1));
         for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-          for (std::size_t j = 0; j < quantityCount; ++j) {
-            sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+          const auto* point =
+              data.data() +
+              ((meshId * NumQuadPoints + i) * Cfg::NumSimulations + s) * componentCount;
+          for (std::size_t j = 0; j < columns; ++j) {
+            sub(i, j) = point[j];
           }
         }
       }
@@ -173,12 +180,12 @@ void projectInitialField(
 }
 
 template <typename Cfg>
-std::vector<double> projectScriptFields(const std::vector<std::string>& iniFields,
+std::vector<double> projectScriptFields(const std::string& path,
                                         double time,
                                         const seissol::geometry::MeshReader& meshReader,
                                         bool needsTime) {
-  using MaterialT = model::MaterialOf<Cfg>;
   const auto& elements = meshReader.getElements();
+  const auto names = model::stateNames<model::MaterialOf<Cfg>>();
 
   constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
@@ -209,26 +216,36 @@ std::vector<double> projectScriptFields(const std::vector<std::string>& iniField
   const auto inVars = needsTime ? std::vector<std::string>{"t", "x", "y", "z"}
                                 : std::vector<std::string>{"x", "y", "z"};
 
-  std::vector<double> data(NumQuadPoints * iniFields.size() * MaterialT::Quantities.size() *
-                           elements.size());
-  const auto dataPointStride = iniFields.size() * MaterialT::Quantities.size();
+  // a script that compiles runs compiled; easi, and Lua that does not trace, interpreted
+  std::unique_ptr<reader::scripting::DataReader> reader;
+  if (auto program = reader::scripting::buildProgram(path)) {
+    reader::scripting::CompiledReaderOptions options;
+    options.backend.preferred = expr::BackendKind::RtcCpu;
+    reader =
+        std::make_unique<reader::scripting::CompiledReader>(std::move(*program), nullptr, options);
+  } else {
+    reader = reader::scripting::buildReader(path, inVars);
+  }
 
-  for (std::size_t i = 0; i < iniFields.size(); ++i) {
+  constexpr auto Simulations = Cfg::NumSimulations;
+  std::vector<double> data(numPoints * Simulations * names.size());
+  const auto pointStride = Simulations * names.size();
+
+  for (std::size_t simulation = 0; simulation < Simulations; ++simulation) {
     reader::scripting::DataTable table(numPoints);
     table.bindViewConst("x", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 0);
     table.bindViewConst("y", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 1);
     table.bindViewConst("z", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 2);
     table.bindViewConst("group", reader::scripting::Direction::In, groups.data());
     table.bindConstant("t", time);
-    table.bindConstant("sim", static_cast<std::int32_t>(i));
-    for (std::size_t j = 0; j < MaterialT::Quantities.size(); ++j) {
-      const auto& quantity = MaterialT::Quantities.at(j);
-      const std::size_t bindOffset = i + j * iniFields.size();
-      table.bindView(
-          quantity, reader::scripting::Direction::Out, data.data(), dataPointStride, bindOffset);
+    table.bindConstant("sim", static_cast<std::int32_t>(simulation));
+    for (std::size_t j = 0; j < names.size(); ++j) {
+      table.bindView(names[j],
+                     reader::scripting::Direction::Out,
+                     data.data(),
+                     pointStride,
+                     simulation * names.size() + j);
     }
-
-    const auto reader = reader::scripting::buildReader(iniFields[i], inVars);
     reader->call(table);
   }
 
@@ -237,22 +254,22 @@ std::vector<double> projectScriptFields(const std::vector<std::string>& iniField
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
   template std::vector<double> projectScriptFields<Cfg>(                                           \
-      const std::vector<std::string>&, double, const seissol::geometry::MeshReader&, bool);
+      const std::string&, double, const seissol::geometry::MeshReader&, bool);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 
-void projectScriptInitialField(const std::vector<std::string>& iniFields,
+void projectScriptInitialField(const std::string& path,
                                const seissol::geometry::MeshReader& meshReader,
                                LTS::Storage& storage,
                                bool needsTime) {
-  // the fields are sampled at the points of each configuration, once for all of its layers
+  // the field is sampled at the points of each configuration, once for all of its layers
   for (const auto config : storage.configs()) {
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      const auto data = projectScriptFields<Cfg>(iniFields, 0, meshReader, needsTime);
+      const auto data = projectScriptFields<Cfg>(path, 0, meshReader, needsTime);
       for (auto& layer : storage.leaves(Ghost)) {
         if (layer.getIdentifier().config == config) {
-          projectScriptFieldsOnLayer<Cfg>(data, iniFields.size(), layer);
+          projectScriptFieldsOnLayer<Cfg>(data, layer);
         }
       }
     });

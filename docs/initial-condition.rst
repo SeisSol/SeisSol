@@ -61,6 +61,12 @@ face and the times of a time step as the simulation runs. There it can read ``x`
 the mesh group. A program is compiled once and then called for every face; an easi file is
 evaluated through easi, which works but is much slower.
 
+Besides the quantities, a script may give the memory variables of a viscoelastic or viscoacoustic
+material, one group per relaxation mechanism: ``theta1_xx``, ``theta1_yy``, ..., ``theta1_xz``,
+``theta2_xx``, ... (``theta1``, ``theta2``, ... for a viscoacoustic one). What it does not give is
+zero. With fused simulations, it is evaluated once for each simulation, which it can tell by
+``sim``.
+
 Hard-Coded Initial Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

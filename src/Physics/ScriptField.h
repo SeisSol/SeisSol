@@ -10,6 +10,7 @@
 
 #include "Physics/InitialField.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -56,7 +57,10 @@ class ScriptField : public InitialFieldOf<ScriptField> {
                   yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
     auto& values = scratch(count);
     evaluateValues(time, points, count, materialData, values.data());
-    for (std::size_t j = 0; j < quantityCount(); ++j) {
+    // a view may hold fewer components than the field gives: the state at a face leaves out the
+    // memory variables that the solver keeps apart
+    const auto columns = std::min<std::size_t>(quantityCount(), dofsQP.shape(1));
+    for (std::size_t j = 0; j < columns; ++j) {
       for (std::size_t i = 0; i < count; ++i) {
         dofsQP(i, j) = static_cast<RealT>(values[j * count + i]);
       }

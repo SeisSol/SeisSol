@@ -27,15 +27,16 @@ void projectInitialField(
     const seissol::geometry::MeshReader& meshReader,
     LTS::Storage& storage);
 
-/// The values of the scripted fields `iniFields` at the quadrature points of every element, as the
-/// configuration `Cfg` projects them: by element, point, quantity and field.
+/// The values of the scripted field `path` at the quadrature points of every element, as the
+/// configuration `Cfg` projects them, for each of its fused simulations: by element, point,
+/// simulation and component of the state (model::stateNames, memory variables included).
 template <typename Cfg>
-std::vector<double> projectScriptFields(const std::vector<std::string>& iniFields,
+std::vector<double> projectScriptFields(const std::string& path,
                                         double time,
                                         const seissol::geometry::MeshReader& meshReader,
                                         bool needsTime);
 
-void projectScriptInitialField(const std::vector<std::string>& iniFields,
+void projectScriptInitialField(const std::string& path,
                                const seissol::geometry::MeshReader& meshReader,
                                LTS::Storage& storage,
                                bool needsTime);

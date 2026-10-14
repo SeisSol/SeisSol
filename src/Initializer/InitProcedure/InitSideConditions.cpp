@@ -18,6 +18,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Model/StateNames.h"
 #include "Physics/InitialField.h"
 #include "Physics/Scenario/Registry.h"
 #include "Physics/ScriptField.h"
@@ -63,7 +64,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
 
   if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Script) {
     logInfo() << "Loading the initial condition from the script" << initConditionParams.filename;
-    seissol::initializer::projectScriptInitialField({initConditionParams.filename},
+    seissol::initializer::projectScriptInitialField(initConditionParams.filename,
                                                     seissolInstance.meshReader(),
                                                     memoryManager.ltsStorage(),
                                                     initConditionParams.hasTime);
@@ -73,14 +74,13 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
     for (const auto config : seissolInstance.parameters().model.configs()) {
       dispatchConfig(config, [&](auto cfg) {
         using Cfg = decltype(cfg);
-        const auto& quantities = model::MaterialOf<Cfg>::Quantities;
         std::vector<std::unique_ptr<physics::InitialField>> fields;
         for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
-          fields.push_back(std::make_unique<physics::ScriptField>(
-              initConditionParams.filename,
-              std::vector<std::string>(quantities.begin(), quantities.end()),
-              sim,
-              initConditionParams.hasTime));
+          fields.push_back(
+              std::make_unique<physics::ScriptField>(initConditionParams.filename,
+                                                     model::stateNames<model::MaterialOf<Cfg>>(),
+                                                     sim,
+                                                     initConditionParams.hasTime));
         }
         memoryManager.setInitialConditions(config, std::move(fields));
       });
