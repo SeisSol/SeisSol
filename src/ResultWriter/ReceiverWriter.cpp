@@ -45,7 +45,6 @@
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
-#include <utility>
 #include <utils/logger.h>
 #include <vector>
 

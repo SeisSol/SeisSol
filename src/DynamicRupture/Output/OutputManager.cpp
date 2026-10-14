@@ -429,9 +429,11 @@ void OutputManager::initPickpointOutput() {
 
     auto& files = ppFiles_[id];
     files.clear();
+    // (C++17 lambdas cannot capture the structured binding outputData itself)
+    const auto& receivers = outputData->receivers;
     for (auto& [index, simulations] : simulationsOfReceiver) {
-      std::sort(simulations.begin(), simulations.end(), [&](std::size_t a, std::size_t b) {
-        return outputData->receivers[a].simIndex < outputData->receivers[b].simIndex;
+      std::sort(simulations.begin(), simulations.end(), [&receivers](std::size_t a, std::size_t b) {
+        return receivers[a].simIndex < receivers[b].simIndex;
       });
 
       auto fileName =

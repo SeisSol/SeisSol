@@ -37,7 +37,7 @@ class NoFault : public BaseFrictionSolver<Cfg, NoFault<Cfg>> {
   }
 
   //! no dynamic stress time
-  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext<Cfg>& __restrict ctx) {
+  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext<Cfg>& __restrict /*ctx*/) {
     return 0;
   }
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,

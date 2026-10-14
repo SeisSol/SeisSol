@@ -10,6 +10,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/MaterialType.h"

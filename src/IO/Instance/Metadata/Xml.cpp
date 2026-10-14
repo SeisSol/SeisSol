@@ -11,7 +11,6 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Instruction.h"
 
-#include <cstddef>
 #include <memory>
 #include <sstream>
 #include <string>

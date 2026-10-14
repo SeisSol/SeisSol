@@ -36,7 +36,7 @@ enum class CycleSource : std::uint8_t {
 /// against them are comparable across runs on the same machine, which is what
 /// the proxy reports them for.
 constexpr auto cycleSource() -> CycleSource {
-#if defined(SEISSOL_PROXY_CYCLES_TSC)
+#ifdef SEISSOL_PROXY_CYCLES_TSC
   return CycleSource::Tsc;
 #elif defined(SEISSOL_PROXY_CYCLES_CNTVCT)
   return CycleSource::Cntvct;
@@ -61,7 +61,7 @@ constexpr auto cyclesAvailable() -> bool { return cycleSource() != CycleSource::
 /// Read the tick counter. Returns zero where no counter is available, which
 /// makes an elapsed count of zero the signal that no measurement happened.
 inline auto readCycles() -> std::uint64_t {
-#if defined(SEISSOL_PROXY_CYCLES_TSC)
+#ifdef SEISSOL_PROXY_CYCLES_TSC
   // RDTSC directly instead of the __rdtsc() intrinsic: NVHPC does not declare
   // the intrinsic in its x86intrin.h, and __builtin_ia32_rdtsc() compiles there
   // but does not link
@@ -83,7 +83,7 @@ inline auto readCycles() -> std::uint64_t {
 /// without reading model-specific registers, which needs privileges the proxy
 /// does not have.
 inline auto cycleFrequency() -> std::uint64_t {
-#if defined(SEISSOL_PROXY_CYCLES_CNTVCT)
+#ifdef SEISSOL_PROXY_CYCLES_CNTVCT
   std::uint64_t value = 0;
   asm volatile("mrs %0, cntfrq_el0" : "=r"(value));
   return value;

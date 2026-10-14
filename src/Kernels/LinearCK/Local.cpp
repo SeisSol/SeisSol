@@ -31,13 +31,14 @@
 #include <cstdint>
 #include <cstring>
 #include <stdint.h>
-#include <utility>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+
+#include <utility>
 #endif
 
 #ifndef ACL_DEVICE

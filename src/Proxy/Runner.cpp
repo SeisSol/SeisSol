@@ -17,6 +17,7 @@
 #include "Proxy/Kernel.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <sys/time.h>

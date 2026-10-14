@@ -13,6 +13,7 @@
 #include "IO/Datatype/MPIType.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Metadata/Pvd.h"
+#include "IO/Instance/Metadata/Xml.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Dimension.h"
 #include "IO/Writer/Instructions/Hdf5.h"
