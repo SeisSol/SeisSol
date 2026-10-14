@@ -13,6 +13,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"
+#include "Model/OperatorLayout.h"
 #include "Parallel/MPI.h"
 
 #include <Eigen/Core>
@@ -60,22 +61,38 @@ GlobalTimestep
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::MaterialT;
 
-  const auto queryGen = [&]() -> std::shared_ptr<seissol::initializer::QueryGenerator> {
-    if (seissolParams.model.materialNodal) {
-      // the same points the material is sampled at, so that the timestep sees
-      // exactly the wave speeds the operator will carry
-      return std::make_shared<seissol::initializer::NodalPointGenerator>(
-          cellToVertex, seissol::initializer::NodalPointGenerator::materialPoints());
+  // Every point a cell asks for the material at: where the material varies inside a cell, the
+  // samples the operator is formed at, the points of the faces the flux is integrated at, and the
+  // points of the plastic strain where those are others -- so that the timestep bounds every
+  // wave speed a cell sees.
+  std::vector<std::shared_ptr<seissol::initializer::QueryGenerator>> queryGens;
+  if (seissolParams.model.materialNodal) {
+    queryGens.push_back(std::make_shared<seissol::initializer::NodalPointGenerator>(
+        cellToVertex, seissol::initializer::NodalPointGenerator::materialPoints()));
+    if constexpr (NodalFlux) {
+      queryGens.push_back(std::make_shared<seissol::initializer::FacePointGenerator>(
+          cellToVertex, seissol::initializer::FacePointGenerator::fluxPoints()));
     }
-    return seissol::initializer::getBestQueryGenerator(
-        seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
-  }();
-  const std::size_t pointsPerCell = queryGen->outputPerCell();
+    if (seissolParams.model.plasticity &&
+        !seissol::initializer::NodalPointGenerator::samePoints(
+            seissol::initializer::NodalPointGenerator::plasticityPoints(),
+            seissol::initializer::NodalPointGenerator::materialPoints())) {
+      queryGens.push_back(std::make_shared<seissol::initializer::NodalPointGenerator>(
+          cellToVertex, seissol::initializer::NodalPointGenerator::plasticityMaterialPoints()));
+    }
+  } else {
+    queryGens.push_back(seissol::initializer::getBestQueryGenerator(
+        seissolParams.model.useCellHomogenizedMaterial, cellToVertex));
+  }
 
-  std::vector<Material> materials(cellToVertex.size * pointsPerCell);
-  seissol::initializer::MaterialParameterDB<Material> parameterDB;
-  parameterDB.setMaterialVector(&materials);
-  parameterDB.evaluateModel(seissolParams.model.materialFileName, *queryGen);
+  std::vector<std::vector<Material>> materials(queryGens.size());
+  std::size_t pointsPerCell = 0;
+  for (std::size_t set = 0; set < queryGens.size(); ++set) {
+    seissol::initializer::MaterialParameterDB<Material> parameterDB;
+    parameterDB.setMaterialVector(&materials[set]);
+    parameterDB.evaluateModel(seissolParams.model.materialFileName, *queryGens[set]);
+    pointsPerCell += queryGens[set]->outputPerCell();
+  }
 
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
@@ -90,12 +107,15 @@ GlobalTimestep
     double pWaveVel = 0.0;
     double pWaveVelSum = 0.0;
     double materialMaxTimestep = std::numeric_limits<double>::max();
-    for (std::size_t point = 0; point < pointsPerCell; ++point) {
-      const auto& material = materials[cell * pointsPerCell + point];
-      const auto pointWaveVel = material.getMaxWaveSpeed();
-      pWaveVel = std::max(pWaveVel, pointWaveVel);
-      pWaveVelSum += pointWaveVel;
-      materialMaxTimestep = std::min(materialMaxTimestep, material.maximumTimestep());
+    for (std::size_t set = 0; set < queryGens.size(); ++set) {
+      const auto perCell = queryGens[set]->outputPerCell();
+      for (std::size_t point = 0; point < perCell; ++point) {
+        const auto& material = materials[set][cell * perCell + point];
+        const auto pointWaveVel = material.getMaxWaveSpeed();
+        pWaveVel = std::max(pWaveVel, pointWaveVel);
+        pWaveVelSum += pointWaveVel;
+        materialMaxTimestep = std::min(materialMaxTimestep, material.maximumTimestep());
+      }
     }
     const double pWaveVelMean = pWaveVelSum / static_cast<double>(pointsPerCell);
 
@@ -149,7 +169,7 @@ GlobalTimestep
                   MPI_DOUBLE,
                   MPI_MIN,
                   seissol::Mpi::mpi.comm());
-    logInfo() << "Material sampled at" << pointsPerCell
+    logInfo() << "Material asked for at" << pointsPerCell
               << "points per cell. Largest ratio between the maximum and the mean wave speed"
                  " of a cell:"
               << globalMaxContrast << "- the smallest timestep is"
