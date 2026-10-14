@@ -73,12 +73,12 @@ void setStarMatrix(const real* matAT,
 
 } // namespace
 
-/// The material of both sides of a face, at the nodes of that face.
+/// The material of both sides of a face, at the points of that face its flux is integrated at.
 ///
 /// The cell reads its own samples through the face evaluation; the neighbour
 /// sees the face with the other parametrisation, so its evaluation carries the
 /// renumbering into this cell's ordering. Both give the same physical point at
-/// the same index, which is what the flux of a node is built from.
+/// the same index, which is what the flux of a point is built from.
 template <typename MaterialT>
 void faceMaterials(const GlobalData& global,
                    const std::array<MaterialT, LTS::MaterialNodes>& ownSamples,
@@ -403,9 +403,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
           if constexpr (NodalFlux) {
-            // the operator at the nodes of the face, from the material of both
+            // the operator at the points of the face, from the material of both
             // cells there; the rotation is the face's own and the same for both
-            // sides, so it is kept once -- once per node, where the face may be
+            // sides, so it is kept once -- once per point, where the face may be
             // curved, and so is the scale
             std::array<double, FluxFaceNodes> nodeScale{};
             if constexpr (Curvilinear) {

@@ -33,9 +33,9 @@ namespace seissol::initializer {
  * inverse Jacobian at a point (CurvedCell::setGradients), and the mass matrix is the one of the
  * reference cell, so that nothing that has the inverse mass matrix folded in changes. The face
  * terms take on what is left -- the surface Jacobian over the Jacobian determinant of the cell,
- * at every node of the face -- together with the rotation into the frame the face has at that
- * node (CurvedCell::setFace). For a straight-sided cell all of these are the constants the
- * one-per-cell form carries, at every point.
+ * at every point of the face its flux is integrated at -- together with the rotation into the
+ * frame the face has at that point (CurvedCell::setFace). For a straight-sided cell all of these
+ * are the constants the one-per-cell form carries, at every point.
  */
 struct CurvedCell {
   /// The reference coordinates of the point `point` the operator is formed at.
@@ -51,13 +51,24 @@ struct CurvedCell {
     return result;
   }
 
-  /// The reference coordinates, in the cell, of the node `node` of the face `side`.
+  /// The reference coordinates, on the reference face, of the point `node` the flux of a face is
+  /// integrated at.
+  static auto facePoint(std::size_t node) -> geometry::FaceTransform::FaceVectorT {
+    const auto points =
+        init::faceQuadPoints::view::create(const_cast<real*>(init::faceQuadPoints::Values));
+    geometry::FaceTransform::FaceVectorT result = geometry::FaceTransform::FaceVectorT::Zero();
+    for (std::size_t d = 0; d < Face::Dim; ++d) {
+      if (points.isInRange(node, d)) {
+        result(d) = points(node, d);
+      }
+    }
+    return result;
+  }
+
+  /// The reference coordinates, in the cell, of the point `node` of the face `side`.
   static auto faceNode(std::size_t side, std::size_t node)
       -> geometry::CellTransform::VectorEigenT {
-    const auto nodes =
-        nodal::init::nodes2D::view::create(const_cast<real*>(nodal::init::nodes2D::Values));
-    return geometry::ReferenceFaceMap(side).faceToCell(
-        geometry::FaceTransform::FaceVectorT(nodes(node, 0), nodes(node, 1)));
+    return geometry::ReferenceFaceMap(side).faceToCell(facePoint(node));
   }
 
   /**
@@ -75,22 +86,20 @@ struct CurvedCell {
   }
 
   /**
-   * The rotation of the face `side` at each of its nodes, into `rotation` in the layout the kernels
-   * read TNodes in, and the scale its flux takes there: the surface Jacobian over the Jacobian
-   * determinant of the cell, with the sign of a flux that is subtracted. The normal is the outward
-   * one; the rotation's frame is the one faceAlignedBasis gives at the node, so a straight face
-   * gets the rotation it would get as one face.
+   * The rotation of the face `side` at each of the points its flux is integrated at, into
+   * `rotation` in the layout the kernels read TNodes in, and the scale its flux takes there: the
+   * surface Jacobian over the Jacobian determinant of the cell, with the sign of a flux that is
+   * subtracted. The normal is the outward one; the rotation's frame is the one faceAlignedBasis
+   * gives at the point, so a straight face gets the rotation it would get as one face.
    */
   static void setFace(const geometry::CellTransform& cell,
                       const geometry::FaceTransform& face,
                       std::size_t side,
                       real* rotation,
                       std::array<double, FluxFaceNodes>& fluxScale) {
-    const auto nodes =
-        nodal::init::nodes2D::view::create(const_cast<real*>(nodal::init::nodes2D::Values));
     auto target = init::TNodes::view::create(rotation);
     for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
-      const geometry::FaceTransform::FaceVectorT point(nodes(node, 0), nodes(node, 1));
+      const auto point = facePoint(node);
       const double determinant = cell.refToSpaceJacobian(face.refToCell(point)).determinant();
       const auto basis = face.faceAlignedBasis(point);
       // the face normal is the outward one of a cell that is not turned inside out, which the mesh
@@ -132,7 +141,7 @@ struct CurvedCell {
   /**
    * The rotation of a straight face, given in the layout of T, written into
    * LocalIntegrationData::faceRotation in whichever layout the build carries it: once, or at every
-   * node of the face.
+   * point of the face.
    */
   static void setConstantRotation(const real* rotation, real* target) {
     const auto source = init::T::view::create(const_cast<real*>(rotation));

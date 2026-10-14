@@ -77,17 +77,17 @@ struct alignas(Alignment) LocalIntegrationData {
                       [zeroGuard(NodalSourceDeviation ? MaterialSampleCount : 0)]{};
 
   // flux solver for element local contribution. It is filled where the flux
-  // reads the material at the nodes of a face as well, although the flux
+  // reads the material at the points of a face as well, although the flux
   // kernels of such a build read the scalars below instead, on the host and on
   // the device alike.
   real nApNm1[4][seissol::tensor::AplusT::size()]{};
 
   // Where the material varies along a face, the flux operator does too, and a
-  // face carries the scalars it is built from at the nodes of that face rather
-  // than the matrix they fold into. The rotation into the face coordinates
-  // those scalars are stated in is the same for both sides, so a face keeps one
-  // of them; the inverse follows from it inside the kernel. A face that may be
-  // curved keeps one per node.
+  // face carries the scalars it is built from at the points of that face its
+  // flux is integrated at, rather than the matrix they fold into. The rotation
+  // into the face coordinates those scalars are stated in is the same for both
+  // sides, so a face keeps one of them; the inverse follows from it inside the
+  // kernel. A face that may be curved keeps one per point.
   real fluxCoefficients[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
       NodalFlux ? FluxCoefficientCount : 0)][zeroGuard(NodalFlux ? FluxFaceNodes : 0)]{};
   real faceRotation[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(

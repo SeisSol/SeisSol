@@ -56,8 +56,9 @@ constexpr std::size_t SourceDeviationCount = generated::SolverNumSourceDeviation
 constexpr bool NodalSourceDeviation = NodalSource && SourceDeviationCount > 0;
 
 /// How many scalars the flux operator of a face is linear in, in the
-/// coordinates of that face, and how many nodes of a face carry them. None,
-/// where the operator of a face is not those scalars.
+/// coordinates of that face, and at how many points of a face -- those of the
+/// rule its flux is integrated with -- it carries them. None, where the operator
+/// of a face is not those scalars.
 constexpr std::size_t FluxCoefficientCount = generated::FluxNumCoefficients;
 constexpr std::size_t FluxFaceNodes = generated::FaceNodes;
 
@@ -96,7 +97,7 @@ constexpr bool StrongCorrector = NodalMaterial;
 
 /// Whether the fault takes the subtraction of the strong form on itself: its lift then applies the
 /// flux of the fault normal to the imposed state less the side's own trace, at the points of the
-/// fault, where it otherwise is the local flux of the face, at the nodes of the face. Where a cell
+/// fault, where it otherwise is the local flux of the face, at the points of the face. Where a cell
 /// may be curved, the scale of a point carries the inverse of the Jacobian determinant there, which
 /// no quadrature integrates exactly; the lift and the subtraction cancel for a state that is
 /// continuous across a locked fault only where they are taken at the same points.

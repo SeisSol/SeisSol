@@ -71,7 +71,6 @@ struct Kernels {
 };
 
 using VectorT = seissol::geometry::CellTransform::VectorEigenT;
-using FaceVectorT = seissol::geometry::FaceTransform::FaceVectorT;
 
 /// a well-shaped cell that is not aligned with anything
 inline auto testCell() -> seissol::geometry::AffineTransform {
@@ -82,12 +81,9 @@ inline auto testCell() -> seissol::geometry::AffineTransform {
                                              VectorT(0.3, 0.1, 2.2)});
 }
 
-/// the face node `node` of `side`, in the reference coordinates of the cell
+/// the point `node` of `side` the flux is integrated at, in the reference coordinates of the cell
 inline auto faceNode(std::size_t side, std::size_t node) -> VectorT {
-  const auto nodes =
-      nodal::init::nodes2D::view::create(const_cast<real*>(nodal::init::nodes2D::Values));
-  return seissol::geometry::ReferenceFaceMap(side).faceToCell(
-      FaceVectorT(nodes(node, 0), nodes(node, 1)));
+  return initializer::CurvedCell::faceNode(side, node);
 }
 
 /// the sample point `point` of the material, in the reference coordinates of the cell

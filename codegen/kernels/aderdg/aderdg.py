@@ -122,11 +122,25 @@ class ADERDGBase(ABC):
         self.T = Tensor("T", trans_spp.shape, spp=trans_spp)
         trans_inv_spp = self.transformation_inv_spp()
         self.Tinv = Tensor("Tinv", trans_inv_spp.shape, spp=trans_inv_spp)
-        # The rotation once per node of a face, for a face whose normal turns
+        # The points of a face a flux that varies along it is integrated at:
+        # those of the symmetric rule exact for the product of two face basis
+        # functions, with what reads a field there and integrates against it.
+        # The points themselves are read by the host, which queries the material
+        # there, so they keep the orientation of the file in every build.
+        self.db.update(
+            parseJSONMatrixFile(
+                f"{matricesDir}/face-sq-matrices-{order}.json",
+                {},
+                alignStride=self.alignStride,
+                transpose=lambda name: self.transpose(name)
+                and name not in ("faceQuadPoints", "faceQuadWeights"),
+            )
+        )
+        # The rotation once per point of a face, for a face whose normal turns
         # along it. It is declared in every build, used or not, so that the host
         # can size what a face stores without asking which build it is.
         rotationNodesSpp = np.broadcast_to(
-            trans_spp, (self.num2DBasisFunctions(),) + tuple(trans_spp.shape)
+            trans_spp, (self.numFaceFluxPoints(),) + tuple(trans_spp.shape)
         ).copy()
         self.TNodes = Tensor("TNodes", rotationNodesSpp.shape, spp=rotationNodesSpp)
         godunov_spp = self.godunov_spp()
@@ -187,6 +201,17 @@ class ADERDGBase(ABC):
 
         self.db.update(project2nFaceTo3m)
 
+        # the lift of what a flux gives at the points of a face, integrated
+        # against the face basis with the weights of the rule
+        projectFaceQuadTo3m = tensor_collection_from_constant_expression(
+            base_name="projectFaceQuadTo3m",
+            expressions=lambda i: self.db.rDivM[i][self.t("jk")]
+            * self.db.VFaceQuadTo2m[self.t("kl")],
+            group_indices=simpleParameterSpace(4),
+            target_indices="jl",
+        )
+        self.db.update(projectFaceQuadTo3m)
+
         selectVelocitySpp = self.mapToVelocities()[:, :3]
         self.selectVelocity = Tensor(
             "selectVelocity",
@@ -240,6 +265,22 @@ class ADERDGBase(ABC):
 
     def num2DBasisFunctions(self):
         return self.order * (self.order + 1) // 2
+
+    def numFaceFluxPoints(self):
+        """How many points of a face a flux that varies along it is integrated
+        at."""
+        return self.db.faceQuadPoints.shape()[0]
+
+    def faceEval(self, face):
+        """Reads a field at the points of a face, point index first, mode index
+        second."""
+        return self.db.V3mToFaceQuad[face][self.t("nl")]
+
+    def faceLift(self, face):
+        """Lifts what a flux gives at the points of a face into the cell: the
+        integral against the face basis, by the rule the points are of, and the
+        lift of the face basis into the cell."""
+        return self.db.projectFaceQuadTo3m[face]["kn"]
 
     def num3DBasisFunctions(self):
         return self.order * (self.order + 1) * (self.order + 2) // 6
@@ -302,7 +343,7 @@ class ADERDGBase(ABC):
             return
         self.T.setMemoryLayout(CSCMemoryLayout)
         self.Tinv.setMemoryLayout(CSCMemoryLayout)
-        # one block-diagonal rotation per node, packed by the pattern they share
+        # one block-diagonal rotation per point, packed by the pattern they share
         self.TNodes.setMemoryLayout(PatternMemoryLayout, alignStride=False)
 
     def _configureStarAssembly(self, kwargs):
@@ -495,11 +536,11 @@ class ADERDGBase(ABC):
         whose metric is the inverse Jacobian at the point, and the mass matrix
         stays the one of the reference cell -- the scheme tests with the basis
         divided by the Jacobian determinant, which the face terms take on as a
-        factor of their own at every node (see the host).
+        factor of their own at every point of a face (see the host).
 
-        A face carries its rotation per node, since its normal turns along it;
-        that makes the flux one that has to be applied at the nodes, which is
-        where only a flux decomposed into scalars per node is.
+        A face carries its rotation per point, since its normal turns along it;
+        that makes the flux one that has to be applied at the points of the
+        face, which is where only a flux decomposed into scalars per point is.
         """
         if (
             kwargs.get("material_operator", coefficients.OPERATOR_FORMS[0])
@@ -512,8 +553,8 @@ class ADERDGBase(ABC):
             )
         if not self.fluxDecomposes():
             raise ValueError(
-                "a curved face needs its flux at its nodes, and this layout's "
-                "flux is not the scalars per node that form takes"
+                "a curved face needs its flux at its points, and this layout's "
+                "flux is not the scalars per point that form takes"
             )
         self.referenceGradients = [
             Tensor(f"referenceGradients({dim})", (npoints, 3)) for dim in range(3)
@@ -521,12 +562,12 @@ class ADERDGBase(ABC):
 
     def faceRotation(self):
         """The rotation a face's flux is applied with: one per face, or one per
-        node where a face may be curved."""
+        point where a face may be curved."""
         return self.TNodes if getattr(self, "curvilinear", False) else self.T
 
     def faceRotationIndices(self):
         """How the rotation is contracted into the face coordinates and back:
-        a curved face has a rotation per node, which is an index of its own."""
+        a curved face has a rotation per point, which is an index of its own."""
         return ("nqk", "npl") if getattr(self, "curvilinear", False) else ("qk", "pl")
 
     def _configureNodalSource(self, kwargs):
@@ -623,7 +664,7 @@ class ADERDGBase(ABC):
         entries -- ten for the Godunov flux of an elastic medium, one more for
         the Rusanov penalty, and a set per relaxation mechanism; measured, and
         stated in the generated tables -- so a face
-        holds those scalars per node instead of a matrix. In global coordinates
+        holds those scalars per point instead of a matrix. In global coordinates
         it is not: rotated, the same operator occupies every entry and spans
         far more than ten dimensions, so the rotation belongs in the kernel and
         not in what a face stores.
@@ -710,14 +751,15 @@ class ADERDGBase(ABC):
     ):
         """One face contribution where the operator varies along the face.
 
-        The field is read at the nodes of the face and turned into the face
-        coordinates the scalars are stated in, the operator is applied
-        there, and the result is turned back and lifted into the cell with the
-        operator the nodal boundary conditions already use. The rotation is the
-        same matrix both ways, once transposed against the quantity the field
-        carries and once against the quantity the result is written in.
+        The field is read at the points of the face and turned into the face
+        coordinates the scalars are stated in, the operator is applied there,
+        and the result is turned back, integrated against the face basis with
+        the weights of the rule the points are of, and lifted into the cell.
+        The rotation is the same matrix both ways, once transposed against the
+        quantity the field carries and once against the quantity the result is
+        written in.
 
-        `toFace` reads the field at the nodes of the face, with the node index
+        `toFace` reads the field at the points of the face, with the point index
         first and the mode index second; `lift` goes the other way. Both come
         indexed, because how a matrix is laid out is the caller's to state.
         `rotation` is the face rotation the kernel reads, T unless a kernel
@@ -757,8 +799,8 @@ class ADERDGBase(ABC):
             statements += self.nodalFlux(
                 source,
                 target,
-                self.db.V3mTo2nFace[face][self.t("nl")],
-                self.db.project2nFaceTo3m[face]["kn"],
+                self.faceEval(face),
+                self.faceLift(face),
                 self.fluxCoefficientsLocalAll[face],
                 rotation=self.TAll[face],
             )
@@ -1290,15 +1332,18 @@ class ADERDGBase(ABC):
         include_tensors.add(self.db.M2inv)
         include_tensors.add(self.db.ET)
         # the reparametrisation of a shared face. The neighbour flux reads it
-        # folded into fPrT and the nodal flux as a renumbering of the face
-        # nodes, so no kernel names it; it is what the renumbering is checked
+        # folded into fPrT and the nodal flux as a renumbering of the points of
+        # the face, so no kernel names it; it is what the renumbering is checked
         # against, in every build, so it has to reach the generated code.
         for orientation in self.db.fP.values():
             include_tensors.add(orientation)
-        # what a face stores where its rotation is per node, and where the
-        # operator is formed, in every build so that the host can read them
-        # without asking which build it is
+        # what a face stores where its rotation is per point, where those points
+        # are, and where the operator is formed, in every build so that the host
+        # can read them without asking which build it is
         include_tensors.add(self.TNodes)
+        include_tensors.add(self.db.faceQuadPoints)
+        include_tensors.add(self.db.faceQuadWeights)
+        include_tensors.add(self.db.V2mToFaceQuad)
         include_tensors.add(self.operatorNodes)
         # and the metric, which a build that carries assembled star matrices
         # never reads but the host's setup of a cell still names

@@ -673,12 +673,13 @@ TEST_CASE("Flux decomposition") {
 
 /// The two cells sharing a face parametrise it differently, and the generated
 /// fP carries the map between the two in the modal basis with a mass factor.
-/// Strip the factor and go to the nodes and it is a renumbering, nothing more --
-/// which is what a value given at the nodes needs, and what a flux built from
-/// the material of both sides is made of.
+/// Strip the factor and read the result at the points the flux of a face is
+/// integrated at, and it is a renumbering of those points, nothing more -- which
+/// is what a value given at the points needs, and what a flux built from the
+/// material of both sides is made of.
 TEST_CASE("Face orientation renumbering") {
-  constexpr auto Nodes = seissol::generated::FaceNodes;
-  using Matrix = Eigen::Matrix<double, Nodes, Nodes>;
+  constexpr auto Points = seissol::generated::FaceNodes;
+  constexpr auto Modes = seissol::tensor::M2inv::Shape[0];
 
   // Every matrix here comes from a matrix file, and a build that bundles
   // simulations stores those the other way round; the identity below is the
@@ -698,38 +699,37 @@ TEST_CASE("Face orientation renumbering") {
     return matrix;
   };
 
-  const auto nodalToModal =
-      dense(seissol::nodal::init::MV2nTo2m::view::create(seissol::nodal::init::MV2nTo2m::Values),
-            Nodes,
-            Nodes);
-  // the way back is its inverse; only the one direction is generated
-  const Eigen::MatrixXd modalToNodal = nodalToModal.inverse();
+  const auto atPoints =
+      dense(seissol::init::V2mToFaceQuad::view::create(seissol::init::V2mToFaceQuad::Values),
+            Points,
+            Modes);
   const auto massInverse =
-      dense(seissol::init::M2inv::view::create(seissol::init::M2inv::Values), Nodes, Nodes);
+      dense(seissol::init::M2inv::view::create(seissol::init::M2inv::Values), Modes, Modes);
 
   REQUIRE(seissol::generated::FaceOrientations == 3);
   const auto check = [&](auto tag) {
     constexpr unsigned Orientation = decltype(tag)::value;
     const auto facePermutation =
         dense(seissol::init::fP::view<Orientation>::create(seissol::init::fP::Values[Orientation]),
-              Nodes,
-              Nodes);
+              Modes,
+              Modes);
     const std::size_t orientation = Orientation;
 
-    // the same map without the mass factor, taken to the nodes
-    const Eigen::MatrixXd atNodes = modalToNodal * (massInverse * facePermutation) * nodalToModal;
+    // the same map without the mass factor, read at the points
+    const Eigen::MatrixXd mapped = atPoints * (massInverse * facePermutation);
 
-    Matrix expected = Matrix::Zero();
+    // the renumbering, applied to the values at the points
+    Eigen::MatrixXd renumbered = Eigen::MatrixXd::Zero(Points, Modes);
     const auto& renumbering = seissol::generated::FaceOrientationPermutations[orientation];
-    for (std::size_t node = 0; node < Nodes; ++node) {
-      expected(node, renumbering[node]) = 1.0;
+    for (std::size_t point = 0; point < Points; ++point) {
+      renumbered.row(point) = atPoints.row(renumbering[point]);
     }
 
-    for (std::size_t row = 0; row < Nodes; ++row) {
-      for (std::size_t column = 0; column < Nodes; ++column) {
+    for (std::size_t row = 0; row < Points; ++row) {
+      for (std::size_t column = 0; column < Modes; ++column) {
         INFO("orientation " << orientation << " at (" << row << "," << column << ")");
-        REQUIRE(atNodes(row, column) ==
-                doctest::Approx(expected(row, column)).epsilon(coefficients::tolerance(1e-10)));
+        REQUIRE(mapped(row, column) ==
+                doctest::Approx(renumbered(row, column)).epsilon(coefficients::tolerance(1e-10)));
       }
     }
   };

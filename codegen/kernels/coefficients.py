@@ -697,7 +697,7 @@ def generate(
 
     if face_permutations:
         lines += [
-            "// how the nodes of a face are renumbered between the two cells\n",
+            "// how the points of a face are renumbered between the two cells\n",
             "// sharing it, one row per reparametrisation\n",
             f"inline constexpr std::size_t FaceOrientations = {len(face_permutations)};\n",
             f"inline constexpr std::size_t FaceNodes = {len(face_permutations[0])};\n",

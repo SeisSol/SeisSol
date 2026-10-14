@@ -77,7 +77,7 @@ void bindStarOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) 
 }
 
 /// Hands the local flux kernel the operator of one face, in whichever of the
-/// two shapes the cell carries it: the scalars at the nodes of that face
+/// two shapes the cell carries it: the scalars at the points of that face
 /// together with the rotation into its coordinates, or the matrix the two fold
 /// into.
 /// Hands a kernel the source term of a cell, where it is formed from what the
@@ -102,7 +102,7 @@ void bindSourceDeviationOperands(KernelT& krnl, const LocalIntegrationT& localIn
   }
 }
 
-/// Hands a flux kernel the rotation of a face: one for the face, or one per node of it where a
+/// Hands a flux kernel the rotation of a face: one for the face, or one per point of it where a
 /// face may be curved.
 template <typename KernelT>
 void bindFaceRotation(KernelT& krnl, const real* rotation) {

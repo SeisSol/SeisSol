@@ -180,18 +180,19 @@ def addFaceKernels(generator, aderdg, matricesDir, pointSet):
     """The material where a face needs it.
 
     A flux is built from the material of both cells at the points of the face,
-    and those points are the two-dimensional nodal set. Which points a cell
-    sampled its material at does not have to be among them: the samples give a
-    modal field, and the modal field has a value everywhere. Folding the two
-    steps into one matrix per side is what makes that free -- the samples go
-    straight to the face, without the modal coefficients ever being written.
+    and those points are the ones of the symmetric rule the flux is integrated
+    with. Which points a cell sampled its material at does not have to be among
+    them: the samples give a modal field, and the modal field has a value
+    everywhere. Folding the two steps into one matrix per side is what makes
+    that free -- the samples go straight to the face, without the modal
+    coefficients ever being written.
     """
     mats = tensors(matricesDir, aderdg, pointSet)
     npoints = pointCount(matricesDir, aderdg, pointSet)
 
     folded = tensor_collection_from_constant_expression(
         base_name="materialToFace",
-        expressions=lambda side: aderdg.db.V3mTo2nFace[side][aderdg.t("kl")]
+        expressions=lambda side: aderdg.db.V3mToFaceQuad[side][aderdg.t("kl")]
         * mats["materialProject"]["ln"],
         group_indices=simpleParameterSpace(4),
         target_indices="kn",
@@ -211,7 +212,7 @@ def addFaceKernels(generator, aderdg, matricesDir, pointSet):
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),
-        (aderdg.num2DBasisFunctions(),),
+        (aderdg.numFaceFluxPoints(),),
         alignStride=True,
     )
     generator.addFamily(
@@ -281,25 +282,21 @@ FACE_REFLECTIONS = ((0, 2, 1), (1, 0, 2), (2, 1, 0))
 
 
 def faceOrientationPermutations(matricesDir, aderdg):
-    """How the nodes of a face are renumbered between the two cells sharing it.
+    """How the points of a face are renumbered between the two cells sharing it.
 
-    A value given at the nodes of a face reaches the other cell's numbering by
-    being reordered, nothing more: the nodal set is symmetric under the
-    triangle's reflections, so each one maps it onto itself. The generated fP
-    carries the same map in the modal basis with a mass factor -- M2 times this
-    permutation -- which is what the weak form needs and what a value does not.
+    A value given at the points of a face reaches the other cell's numbering by
+    being reordered, nothing more: the rule the flux is integrated with is
+    symmetric under the triangle's reflections, so each one maps it onto
+    itself. The generated fP carries the same map in the modal basis with a
+    mass factor, which is what the weak form needs and what a value does not.
     """
-    import numpy as np
-    from yateto.input import parseJSONMatrixFile
-
     db = parseJSONMatrixFile(
-        f"{matricesDir}/nodal/nodalBoundary_matrices_{aderdg.order}.json",
+        f"{matricesDir}/face-sq-matrices-{aderdg.order}.json",
         clones=dict(),
-        alignStride=aderdg.alignStride,
     )
-    shape = db.nodes2D.shape()
+    shape = db.faceQuadPoints.shape()
     points = np.zeros(shape)
-    for idx, value in db.nodes2D.values().items():
+    for idx, value in db.faceQuadPoints.values().items():
         points[idx] = float(value)
 
     bary = np.stack(
@@ -315,7 +312,7 @@ def faceOrientationPermutations(matricesDir, aderdg):
             nearest = int(np.argmin(distance))
             if distance[nearest] > 1e-10:
                 raise RuntimeError(
-                    "the two-dimensional nodal set is not symmetric under the "
+                    "the points of the face rule are not symmetric under the "
                     "reflections of the triangle, so a face cannot be renumbered"
                 )
             order.append(nearest)
@@ -324,7 +321,7 @@ def faceOrientationPermutations(matricesDir, aderdg):
 
 
 def addNeighborFaceKernels(generator, aderdg, matricesDir, pointSet):
-    """The neighbour's material at the nodes of the shared face.
+    """The neighbour's material at the points of the shared face.
 
     The flux of a face is built from the material on both sides of it, at the
     same points and in the same order. For the cell itself that is
@@ -350,7 +347,7 @@ def addNeighborFaceKernels(generator, aderdg, matricesDir, pointSet):
     folded = tensor_collection_from_constant_expression(
         base_name="materialNeighborToFace",
         expressions=lambda h, j: renumber[h]["km"]
-        * aderdg.db.V3mTo2nFace[j][aderdg.t("ml")]
+        * aderdg.db.V3mToFaceQuad[j][aderdg.t("ml")]
         * mats["materialProject"]["ln"],
         group_indices=simpleParameterSpace(3, 4),
         target_indices="kn",
@@ -382,7 +379,7 @@ def addNeighborFaceKernels(generator, aderdg, matricesDir, pointSet):
 
 
 def addNeighborFaceMatrices(aderdg, matricesDir):
-    """Reading a neighbour's field at the nodes of the shared face.
+    """Reading a neighbour's field at the points of the shared face.
 
     Its own face evaluation, then the renumbering into this cell's ordering --
     folded into one matrix per reparametrisation and neighbour side, so that the
@@ -403,7 +400,7 @@ def addNeighborFaceMatrices(aderdg, matricesDir):
     folded = tensor_collection_from_constant_expression(
         base_name="neighborToFace",
         expressions=lambda h, j: renumber[h]["nm"]
-        * aderdg.db.V3mTo2nFace[j][aderdg.t("ml")],
+        * aderdg.db.V3mToFaceQuad[j][aderdg.t("ml")],
         group_indices=simpleParameterSpace(3, 4),
         target_indices="nl",
     )

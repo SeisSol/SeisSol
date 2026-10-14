@@ -325,8 +325,8 @@ class LinearCKAnelastic(ADERDGBase):
                     localFluxExt = lambda i: self.nodalFlux(
                         self.I,
                         self.Qext,
-                        self.db.V3mTo2nFace[i][self.t("nl")],
-                        self.db.project2nFaceTo3m[i]["kn"],
+                        self.faceEval(i),
+                        self.faceLift(i),
                         self.fluxCoefficientsLocal,
                     )
                 else:
@@ -433,7 +433,7 @@ class LinearCKAnelastic(ADERDGBase):
                         self.I,
                         self.Qext,
                         self.db.neighborToFace[0, j]["nl"],
-                        self.db.project2nFaceTo3m[i]["kn"],
+                        self.faceLift(i),
                         self.fluxCoefficientsNeighbor,
                     )
                 else:

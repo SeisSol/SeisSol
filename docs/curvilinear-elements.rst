@@ -11,7 +11,7 @@ Curvilinear elements
 
 A build with ``CURVILINEAR=ON`` lets a cell be curved. This page says what the
 scheme does with a curved cell, where that needs data per point -- per point
-the operator is formed at, per node of a face -- and where it does not, which
+the operator is formed at, per point of a face -- and where it does not, which
 parts of the code had to learn about it, and what is not done yet. The
 measurements behind the choices are summarised here; the commit messages of the
 series carry the details.
@@ -21,7 +21,7 @@ Building and feeding it
 
 ``CURVILINEAR=ON`` needs ``MATERIAL_NODAL=ON`` and
 ``MATERIAL_OPERATOR=assembled``, runs on the CPU, and takes the media whose flux
-decomposes into scalars per face node: elastic, acoustic and the attenuating
+decomposes into scalars per face point: elastic, acoustic and the attenuating
 variants of both, not the anisotropic or the poroelastic one. cmake and the code
 generator refuse the rest. A material that does not vary is carried as samples
 that agree.
@@ -56,8 +56,8 @@ On a straight-sided mesh a ``CURVILINEAR`` build computes what the build without
 it computes: a plane wave through a cube gives the same error norms to
 :math:`10^{-12}` and the same energies to :math:`10^{-15}`.
 
-At order 4 a cell carries 1.7 kB of metric at the 24 points the operator is formed at and 14.4 kB
-of face rotations at the 10 nodes of each face, against 72 B and 1.4 kB for a
+At order 4 a cell carries 1.7 kB of metric at the 24 points the operator is formed at and 17.3 kB
+of face rotations at the 12 points of each face, against 72 B and 1.4 kB for a
 straight-sided cell.
 
 The scheme on a curved cell
@@ -125,10 +125,11 @@ included, whose local flux is that subtraction alone.
 the basis functions divided by :math:`\det J`. A point source then is
 :math:`\varphi(\xi_s) / \det J(\xi_s)`, the initial state is the projection of
 its values at the quadrature points, and the face terms take on
-:math:`|n| / \det J` at every face node, :math:`|n|` the surface Jacobian -- for
+:math:`|n| / \det J` at every face point, :math:`|n|` the surface Jacobian -- for
 a straight-sided cell that is the flux scale :math:`2|S| / |J|` it always had.
 Nothing that has the inverse mass matrix folded in -- ``kDivMT``, ``rDivM``,
-``fMrT``, ``project2nFaceTo3m``, ``M3inv``, ``V3mTo2nTWDivM`` -- changes, and no
+``fMrT``, ``projectFaceQuadTo3m``, ``project2nFaceTo3m``, ``M3inv``,
+``V3mTo2nTWDivM`` -- changes, and no
 cell carries a dense mass matrix. The price is exact conservation, which the
 scheme for a material that varies inside a cell does not have either, and
 stability is not proven the way it is for the Galerkin scheme with
@@ -137,10 +138,11 @@ acoustics on curved cells, with a varying material and the Godunov flux, has no
 eigenvalue with a positive real part beyond round-off at orders 4 and 6, and in
 3D a constant state stays constant on curved meshes.
 
-**A curved face has its rotation and its scale per node.** Its normal turns
-along it, so the rotation into face coordinates is one per node (``TNodes``),
-taken from the frame the face has at the node, and so is the scale. The flux
-scalars are formed per node as before.
+**A curved face has its rotation and its scale per point.** Its flux is
+integrated with the symmetric rule of degree :math:`2(N-1)` on the face; its
+normal turns along it, so the rotation into face coordinates is one per point of
+that rule (``TNodes``), taken from the frame the face has at the point, and so is
+the scale. The flux scalars are formed per point as well.
 
 **The time step** of a curved cell is the one of its vertices times its
 relative thickness (``relativeThickness``): the smallest singular value of the
@@ -166,7 +168,7 @@ the geometry.
 
 **A curved fault subtracts the trace of a side itself.** In the strong form the
 local flux of a fault face is the subtraction of the normal flux of the cell's
-own trace, which it takes at the nodes of the face, while the fault lifts its
+own trace, which it takes at the points of the face rule, while the fault lifts its
 imposed state at its points. On a curved face the scale :math:`|n|/\det J` is
 not a polynomial, the two quadratures differ, and a constant state across a
 locked fault drifted by :math:`2.4 \cdot 10^{-5}` within 0.2 s. So in a
@@ -186,7 +188,7 @@ Where it has to be per point
     - Per point?
     - Why
   * - Face flux
-    - yes, per node
+    - yes, per point
     - Rotated, the operator of a curved face is not one matrix of the face
       times one matrix of the quantities, so neither the rotation nor the scale
       can be folded into what a face stores. This is the one place where it has
@@ -239,12 +241,12 @@ What is not done
 - Ghost cells on other ranks are sampled straight-sided: their metadata carries
   their vertices only, so the material a face reads from a neighbour on
   another rank comes from sample points placed by the straight-sided map.
-- The device path. A curved face's rotation per node has not been generated or
+- The device path. A curved face's rotation per point has not been generated or
   checked with tensorforge.
 - ``MATERIAL_OPERATOR=factored``, which would fold the metric at every
   application.
 - Memory: the face rotation could be built in the kernel from a normal per
-  node.
+  point.
 
 Checks
 ------
@@ -253,7 +255,7 @@ Unit checks, in either build where they apply: a straight-sided cell evaluated
 at every point carries what it carries as one cell; the isoparametric map passes
 through its nodes, its Jacobian is its derivative, its cofactor matrix is free
 of divergence and gives the face normal (Nanson); on a curved cell the face
-scale and frame per node agree with differencing the map; the volume term
+scale and frame per point agree with differencing the map; the volume term
 differentiates a linear field exactly on a curved cell -- with the metric of one
 point for the whole cell, a mode that has to vanish comes out at a sizeable
 fraction of the derivative -- and a constant state stays constant; the strong

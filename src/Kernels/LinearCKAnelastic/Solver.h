@@ -43,7 +43,7 @@ struct Solver {
         (faceType == FaceType::Dirichlet || faceType == FaceType::FreeSurfaceGravity)) {
       // The map of these conditions is folded into the flux matrix of the face
       // (foldDirichlet, foldFreeSurfaceGravity), and a flux that reads the
-      // material at the nodes of the face does not apply that matrix.
+      // material at the points of the face does not apply that matrix.
       return faceTypeUnsupported("the boundary map is folded into a flux matrix that a flux "
                                  "varying along the face does not read");
     }
