@@ -4,11 +4,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Build several SeisSol variants from a single declarative variant-set file.
 
-SeisSol bakes ``EQUATIONS``, ``ORDER`` and ``PRECISION`` (and friends) into the
-generated kernels at configure time, so one build tree produces exactly one
-variant.  The binaries encode the variant in their name
-(``seissol-<eq>[-<mech>]-o<order>-f{32,64}[-s<multisim>][-<suffix>]``) and are
-meant to be installed side by side.  This tool is a *thin orchestrator*: it
+A variant is either a build of one configuration, which ``equations``,
+``order`` and ``precision`` (and friends) describe, or a build of several
+(``configs``, which CMake takes as ``CONFIGS``: names of configurations or of
+named sets of them, e.g. ``ci-cpu``). A build of one configuration encodes it
+in the name of its executable
+(``seissol-<eq>[-<mech>]-o<order>-f{32,64}[-s<multisim>][-<suffix>]``); one of
+several is ``seissol[-<suffix>]``, and a run chooses its configuration with
+``SEISSOL_CONFIGURATION``. The executables are meant to be installed side by
+side.  This tool is a *thin orchestrator*: it
 expands a variant matrix, configures/builds/installs each variant in its own
 build tree, and reports the result.  Dependency tracking stays with CMake/Ninja.
 
@@ -57,6 +61,7 @@ REPORT_SCHEMA = "seissol-build-report/2"
 # Mapping: canonical variant field -> CMake cache variable.
 # Only fields present on a variant are passed to CMake.
 FIELD_TO_CMAKE: dict[str, str] = {
+    "configs": "CONFIGS",
     "equations": "EQUATIONS",
     "order": "ORDER",
     "precision": "PRECISION",
@@ -70,7 +75,8 @@ FIELD_TO_CMAKE: dict[str, str] = {
     "custom_suffix": "CUSTOM_BINARY_SUFFIX",
 }
 
-# Fields that identify a variant (must resolve to something).
+# Fields that identify a variant of one configuration (must resolve to something); a variant of
+# several names them with `configs` instead.
 REQUIRED_FIELDS = ("equations", "order", "precision")
 
 # Settings that cascade global-defaults -> preset-defaults -> toolchain -> variant.
@@ -256,6 +262,9 @@ def _axis_values(values: Any) -> list[dict[str, Any]]:
 def _normalise_partial(part: dict[str, Any]) -> dict[str, Any]:
     """Rename convenience keys to canonical field names."""
     part = dict(part)
+    if isinstance(part.get("configs"), list):
+        # CMake takes the configurations as a list
+        part["configs"] = ";".join(str(name) for name in part["configs"])
     if "type" in part and "equations" not in part:
         part["equations"] = part.pop("type")
     if "equation" in part and "equations" not in part:
@@ -329,9 +338,19 @@ class Variant:
         return bool(self.testing.get("enabled")) and not self.testing.get("build_only")
 
     @property
+    def several(self) -> bool:
+        """Whether the variant builds several configurations (CONFIGS)."""
+        return bool(self.spec.get("configs"))
+
+    @property
     def name_suffix(self) -> str:
-        """Reproduces the NEW_BINARY_NAMING NAME_SUFFIX from SeisSol's CMake."""
+        """Reproduces the NEW_BINARY_NAMING NAME_SUFFIX from SeisSol's CMake: the
+        configuration of a build of one, nothing for a build of several, and the
+        custom suffix after either."""
         s = self.spec
+        custom = str(s.get("custom_suffix", "") or "")
+        if self.several:
+            return custom
         eq = str(s["equations"])
         # viscoelastic2 shares the binary name 'viscoelastic'
         base = "viscoelastic" if eq == "viscoelastic2" else eq
@@ -344,19 +363,22 @@ class Variant:
         multisim = int(s.get("multisim", 1) or 1)
         if multisim > 1:
             suffix += f"-s{multisim}"
-        custom = str(s.get("custom_suffix", "") or "")
         if custom:
             suffix += f"-{custom}"
         return suffix
 
     @property
     def binary_name(self) -> str:
-        return f"seissol-{self.name_suffix}"
+        return f"seissol-{self.name_suffix}" if self.name_suffix else "seissol"
 
     def base_slug(self) -> str:
         """Human-readable build-dir slug (includes arch/build_type so that
         arch-only differences do not collide, unlike the binary name)."""
-        parts = [self.name_suffix]
+        if self.several:
+            configs = str(self.spec["configs"]).replace(";", "+")
+            parts = [configs, self.name_suffix]
+        else:
+            parts = [self.name_suffix]
         if self.spec.get("device_backend") and self.spec["device_backend"] != "none":
             parts.append(str(self.spec["device_backend"]))
             if self.spec.get("device_arch"):
@@ -549,12 +571,24 @@ def build_variants(config: dict[str, Any], preset_name: str | None) -> list[Vari
                 + ", ".join(sorted(unknown))
             )
 
-        for req in REQUIRED_FIELDS:
-            if spec.get(req) in (None, ""):
+        if spec.get("configs"):
+            # CMake takes CONFIGS in place of these, so a variant naming both is a mistake
+            given = [
+                f for f in REQUIRED_FIELDS + ("mechanisms", "multisim") if f in spec
+            ]
+            if given:
                 die(
-                    f"variant {raw_entry!r} is missing required field {req!r} "
-                    "(set it on the variant or in defaults)"
+                    f"variant {raw_entry!r} names its configurations with 'configs' "
+                    f"and with {', '.join(given)}; give one or the other"
                 )
+        else:
+            for req in REQUIRED_FIELDS:
+                if spec.get(req) in (None, ""):
+                    die(
+                        f"variant {raw_entry!r} is missing required field {req!r} "
+                        "(set it on the variant or in defaults, or name its "
+                        "configurations with 'configs')"
+                    )
         variant = Variant(
             spec=spec, meta=meta, env=env, defines=defines, testing=testing
         )

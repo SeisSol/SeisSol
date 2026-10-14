@@ -8,13 +8,14 @@ Reads ``cases.json`` (in --precomputed-dir) and per-case ``tpv-data.json`` files
 dispatches the appropriate SeisSol binary from --binary-dir per case, then calls
 the existing ``compare-{mesh,receivers,energies}.py`` scripts next to this file.
 
-Binaries: a build of a single configuration names its executable
-``seissol-<config>``, where ``<config>`` is the one of cases.json (e.g.
-``elastic-o6-f64``, ``viscoelastic-3-o6-f64``, ``elastic-o3-f64-s8``). A build of
-several configurations (``CONFIGS``) has a single ``seissol``, which a case runs
-with ``SEISSOL_CONFIGURATION`` set to the canonical name of its configuration
-(``elastic-linearck-o6-f64-stroud``, ...); this script falls back to it when
-there is no executable of the configuration itself.
+Binaries: the CI builds one executable of several configurations (``CONFIGS``,
+the set ci-cpu or ci-gpu of cmake/confignames.cmake), ``seissol``, which a case
+runs with ``SEISSOL_CONFIGURATION`` set to the canonical name of its
+configuration (``elastic-linearck-o6-f64-stroud``, ...); a case whose
+configuration it does not hold is skipped. A build of a single configuration
+names its executable ``seissol-<config>`` after the config of cases.json (e.g.
+``elastic-o6-f64``, ``viscoelastic-3-o6-f64``, ``elastic-o3-f64-s8``), and where
+there is one, it is taken first.
 
 Examples
 --------
@@ -1739,8 +1740,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--binary-dir",
         type=Path,
         default=None,
-        help="Directory holding seissol-<config> binaries "
-        "(not required with --list).",
+        help="Directory (or its bin/) holding the executable: a seissol of several "
+        "configurations, or seissol-<config> of one each (not required with --list).",
     )
     sel = p.add_argument_group("Case selection")
     sel.add_argument(

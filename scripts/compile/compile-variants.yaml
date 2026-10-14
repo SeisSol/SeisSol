@@ -61,13 +61,17 @@ toolchains:
   nvhpc:
     env: { CC: nvc, CXX: nvc++, FC: nvfortran }
     # The NVHPC runtime needs an MPI launcher even for a single rank, both for
-    # CTest's discovery pass and for running the tests themselves.
+    # CTest's discovery pass and for running the tests themselves. As on master,
+    # without the generated kernel tests, which NVHPC still miscompiles.
     defines:
       TESTING_COMMAND: "mpirun -np 1 --oversubscribe --allow-run-as-root"
+      TESTING_GENERATED: "OFF"
 
 presets:
-  # Mirrors build-seissol-cpu.yml. The compiler stays out of the matrix: in CI
-  # it is pinned by the container image and passed with --toolchain.
+  # Mirrors build-seissol-cpu.yml: as master's CI, one executable of the set
+  # ci-cpu of cmake/confignames.cmake, whose tests run the verification cases in
+  # each of its configurations. The compiler stays out of the preset: in CI it is
+  # pinned by the container image and passed with --toolchain.
   ci-cpu:
     defaults:
       host_arch: hsw
@@ -78,48 +82,29 @@ presets:
       # gcc and clang where they were measured.
       defines:
         SEISSOL_SNAPSHOT_TOLERANCE_DOUBLE: "1e-9"
-    matrix:
-      order: [6]
-      precision: [single, double]
-      equation:
-        - { type: acoustic }
-        - { type: elastic }
-        - { type: poroelastic }
-        - { type: viscoelastic, mechanisms: 3 }
-        - { type: viscoacoustic, mechanisms: 3 }
-        - { type: anisotropic }
-        # the fused cases of precomputed-seissol run at order three
-        - { type: elastic, order: 3, multisim: 8 }
+    variants:
+      - configs: ci-cpu
 
-  # Mirrors build-seissol-gpu.yml. The build hosts have no device, so the test
-  # code is compiled but not run; that still catches device-side compile errors.
+  # Mirrors build-seissol-gpu.yml, and as master's CI builds two executables:
+  # the set ci-gpu with TensorForge, and one configuration with the code
+  # generators the backend takes when TensorForge is not there (gemmforge and
+  # chainforge; the images have no Tiny Tensor Compiler for Intel GPUs). These
+  # are named, as `auto` would find the TensorForge the leg installs and take
+  # that; the suffix keeps the executable and its libraries apart from those of
+  # the set. The build hosts have no device, so the test code is compiled but
+  # not run; that still catches device-side compile errors.
   ci-gpu:
     defaults:
       host_arch: hsw
-      device_codegen: tensorforge
       testing:
         enabled: true
         build_only: true
-    matrix:
-      precision: [single]
-      equation:
-        - { type: acoustic, order: 6 }
-        - { type: elastic, order: 6 }
-        - { type: poroelastic, order: 6 }
-        - { type: viscoelastic, order: 6, mechanisms: 3 }
-        - { type: viscoacoustic, order: 6, mechanisms: 3 }
-        - { type: anisotropic, order: 6 }
-        - { type: elastic, order: 3, multisim: 32 }
-      include:
-        # the code generators the backend takes when TensorForge is not there (gemmforge and
-        # chainforge; the images have no Tiny Tensor Compiler for Intel GPUs). They are named, as
-        # `auto` would find the TensorForge every leg installs and take that; the suffix keeps the
-        # build apart from the TensorForge one of the same configuration
-        - equations: elastic
-          order: 6
-          precision: single
-          device_codegen: gemmforge-chainforge
-          custom_suffix: gemmforge
+    variants:
+      - configs: ci-gpu
+        device_codegen: tensorforge
+      - configs: elastic-linearck-o6-f32-stroud
+        device_codegen: gemmforge-chainforge
+        custom_suffix: gemmforge
 
   tensorforge:
     defaults:

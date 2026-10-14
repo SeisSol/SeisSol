@@ -13,6 +13,13 @@ env:
   precomputed-hash: e38464959c9f4426e30ec105be8ced4abc257097
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Build SeisSol per backend and compiler, as master does: one executable of
+  # all configurations of the set ci-gpu, whose kernels TensorForge generates,
+  # and one of a single configuration with the code generators the backend
+  # takes without TensorForge (the preset ci-gpu of
+  # scripts/compile/compile-variants.yaml).
+  # ---------------------------------------------------------------------------
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
     runs-on: ubuntu-26.04

@@ -12,10 +12,11 @@
 # The named sets: SEISSOL_CONFIG_SETS lists their names, SEISSOL_CONFIG_SET_<name> the
 # configurations of each.
 #
-# ci-cpu: what the CPU CI builds, on Linux and on macOS, in order 6 and both precisions: the six
-# materials, viscoelastic and viscoacoustic with their default solver and 3 mechanisms, and elastic
-# with 8 fused simulations. Building it into one executable takes a host architecture whose vectors
-# the 8 fused simulations fill in both precisions, e.g. hsw or neon.
+# ci-cpu: what the CPU CI builds, on Linux and on macOS, in both precisions: the six materials in
+# order 6, viscoelastic and viscoacoustic with their default solver and 3 mechanisms, and elastic
+# with 8 fused simulations in order 3, the order of the fused cases of precomputed-seissol. Building
+# it into one executable takes a host architecture whose vectors the 8 fused simulations fill in
+# both precisions, e.g. hsw or neon.
 #
 # ci-gpu: what the GPU CI builds with TensorForge, in both precisions: the six materials in order 6,
 # viscoelastic and viscoacoustic with their default solver and 3 mechanisms, and elastic with 32
@@ -37,7 +38,7 @@ foreach(_precision f64 f32)
     poroelastic-stp-o6-${_precision}-stroud
     viscoelastic-linearckanelastic-m3-o6-${_precision}-stroud
     viscoacoustic-linearckanelastic-m3-o6-${_precision}-stroud
-    elastic-linearck-o6-${_precision}-stroud-s8)
+    elastic-linearck-o3-${_precision}-stroud-s8)
 endforeach()
 
 set(SEISSOL_CONFIG_SET_ci-gpu)

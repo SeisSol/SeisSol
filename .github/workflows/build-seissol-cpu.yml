@@ -14,7 +14,9 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Build SeisSol once per (equation, precision, fused, compiler) tuple.
+  # Build SeisSol once per compiler, as master does: one executable of all
+  # configurations of the set ci-cpu (scripts/compile/compile-variants.yaml),
+  # whose tests run the verification cases in each of them.
   # ---------------------------------------------------------------------------
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
@@ -108,7 +110,9 @@ jobs:
   # Per (compiler) × (parallel mode): run SeisSol and
   # verify against the precomputed reference. All five compare-* dispatches
   # plus the run itself live inside verify.py; tpv-data.json controls
-  # which categories actually fire per case.
+  # which categories actually fire per case. A case runs the executable of the
+  # build in its configuration, which verify.py chooses with
+  # SEISSOL_CONFIGURATION.
   # ---------------------------------------------------------------------------
   seissol-run-test:
     name: seissol-run-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}><r${{matrix.parallel.ranks}}×t${{matrix.parallel.threads}}>
