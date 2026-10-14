@@ -7,7 +7,6 @@
 # SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
-from kernels import material
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
@@ -27,7 +26,6 @@ def addKernels(
     aderdg,
     matricesDir,
     drQuadRule,
-    materialPoints,
     targets,
     isOldGpuInterface,
 ):
@@ -415,12 +413,6 @@ def addKernels(
     )
     generator.add("computeImposedStateM", computeImposedStateM)
     generator.add("computeImposedStateP", computeImposedStateP)
-
-    # the material at the quadrature points of the fault, for a material that
-    # varies along the face
-    material.addFaultKernels(
-        generator, aderdg, matricesDir, materialPoints, db, NumFaceRelations
-    )
 
     # the layout of a fault face names both rotations, whichever the kernels use
     return {

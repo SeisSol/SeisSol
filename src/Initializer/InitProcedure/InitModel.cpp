@@ -23,6 +23,7 @@
 #include "Initializer/Model/BoundaryMappings.h"
 #include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Model/DynamicRuptureMatrices.h"
+#include "Initializer/Model/FaceSamples.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -33,6 +34,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/OperatorLayout.h"
 #include "Model/Plasticity.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
@@ -72,7 +74,7 @@ std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerato
   return vectorDB;
 }
 
-void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
+FaceSamples initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
   const auto& meshReader = seissolInstance.meshReader();
   initializer::MemoryManager& memoryManager = seissolInstance.memoryManager();
@@ -123,6 +125,22 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         seissolParams.model.materialFileName);
   }
 
+  // The material where the faces need it, asked for there rather than taken from the samples
+  // inside the cells: the flux of a face is integrated at points of its own, and the two cells
+  // sharing a face each see the material of their own side there. The same for the two sides of a
+  // fault face at the points of the fault rule.
+  FaceSamples faceSamples;
+  if constexpr (NodalFlux) {
+    faceSamples.flux = queryDB<MaterialT>(
+        std::make_shared<FacePointGenerator>(ctv, FacePointGenerator::fluxPoints()),
+        seissolParams.model.materialFileName);
+  }
+  if constexpr (NodalMaterial) {
+    faceSamples.fault = queryDB<MaterialT>(std::make_shared<FaultSidesGenerator>(meshReader),
+                                           seissolParams.model.materialFileName);
+    faceSamples.faultPoints = FaultSidesGenerator::pointsPerSide();
+  }
+
   // plasticity (if needed)
 
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
@@ -150,12 +168,26 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     nodalMaterialsDB[i].initialize(seissolParams.model);
   }
 
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < faceSamples.flux.size(); ++i) {
+    faceSamples.flux[i].initialize(seissolParams.model);
+  }
+
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < faceSamples.fault.size(); ++i) {
+    faceSamples.fault[i].initialize(seissolParams.model);
+  }
+
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
+
+  faceSamples.cellOf.resize(memoryManager.ltsStorage().getColorMap().size());
 
   for (auto& layer : memoryManager.ltsStorage().leaves()) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialDataArray = layer.var<LTS::MaterialData>();
+    auto& cellOf = faceSamples.cellOf.at(layer.id());
+    cellOf.resize(layer.size());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
 
@@ -174,6 +206,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         const auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
         const auto& localMaterial = materialsDB[materialGhostIdx + ghostOffset];
         initAssign(materialData, localMaterial);
+        cellOf[cell] = materialGhostIdx + ghostOffset;
 
         if (!nodalMaterialsDB.empty()) {
           // the samples of a ghost cell, for a fault face whose other side is
@@ -209,6 +242,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
+        cellOf[cell] = meshId;
 
         if (nodalMaterialArray != nullptr) {
           const auto* sampled =
@@ -272,9 +306,11 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       }
     }
   }
+
+  return faceSamples;
 }
 
-void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
+void initializeCellMatrices(seissol::SeisSol& seissolInstance, const FaceSamples& faceSamples) {
   const auto& seissolParams = seissolInstance.parameters();
 
   // \todo Move this to some common initialization place
@@ -294,7 +330,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                                                     memoryManager.ltsStorage(),
                                                     memoryManager.clusterLayout(),
                                                     seissolParams.model,
-                                                    *memoryManager.globalData().onHost);
+                                                    *memoryManager.globalData().onHost,
+                                                    faceSamples);
 
   if (seissolParams.drParameters.etaDamp != 1.0) {
     logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp
@@ -309,7 +346,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                                                          memoryManager.ltsStorage(),
                                                          memoryManager.backmap(),
                                                          memoryManager.drStorage(),
-                                                         *memoryManager.globalData().onHost);
+                                                         faceSamples);
 
   memoryManager.initFrictionData();
 
@@ -425,7 +462,8 @@ void initModel(seissol::SeisSol& seissolInstance) {
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)
   logInfo() << "Initialize cell material parameters.";
-  initializeCellMaterial(seissolInstance);
+  // what the faces need of the material, until their operators are set up
+  const auto faceSamples = initializeCellMaterial(seissolInstance);
 
   hostDeviceCoexecution(seissolInstance);
 
@@ -435,7 +473,7 @@ void initModel(seissol::SeisSol& seissolInstance) {
 
   // init cell matrices
   logInfo() << "Initialize cell-local matrices.";
-  initializeCellMatrices(seissolInstance);
+  initializeCellMatrices(seissolInstance, faceSamples);
 
   watch.pause();
   watch.printTime("Model initialized in:");

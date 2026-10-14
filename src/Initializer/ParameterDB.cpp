@@ -376,6 +376,151 @@ easi::Query NodalPointGenerator::generate() const {
   return query;
 }
 
+FacePointGenerator::PointSet FacePointGenerator::fluxPoints() {
+  const auto points = init::faceQuadPoints::view::create(init::faceQuadPoints::Values);
+  return {[points](std::size_t i) {
+            std::array<double, Face::Dim> point{};
+            for (std::size_t j = 0; j < Face::Dim; ++j) {
+              if (points.isInRange(i, j)) {
+                point[j] = points(i, j);
+              }
+            }
+            return point;
+          },
+          init::faceQuadPoints::Shape[0]};
+}
+
+std::size_t FacePointGenerator::outputPerCell() const { return Cell::NumFaces * points_.count; }
+
+easi::Query FacePointGenerator::generate() const {
+  const auto pointsPerCell = outputPerCell();
+  easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
+
+  const seissol::geometry::CellTransform::VectorEigenT barycenter(Cell::ReferenceBarycenter.data());
+
+#pragma omp parallel for schedule(static)
+  for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
+    const auto transform = cellToVertex_.elementTransform(elem);
+    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+      const seissol::geometry::ReferenceFaceMap face(side);
+      for (std::size_t i = 0; i < points_.count; ++i) {
+        const auto point = points_.point(i);
+        const auto onFace =
+            face.faceToCell(seissol::geometry::FaceTransform::FaceVectorT(point[0], point[1]));
+        const seissol::geometry::CellTransform::VectorEigenT inside =
+            (1 - InwardPull) * onFace + InwardPull * barycenter;
+        const auto transformed = transform->refToSpace(inside);
+
+        const auto pointIdx = elem * pointsPerCell + side * points_.count + i;
+        for (std::size_t d = 0; d < Cell::Dim; ++d) {
+          query.x(pointIdx, d) = transformed[d];
+        }
+        query.group(pointIdx) = cellToVertex_.elementGroups(elem);
+      }
+    }
+  }
+
+  return query;
+}
+
+easi::Query PointListGenerator::generate() const {
+  easi::Query query(points_.size(), Cell::Dim);
+  for (std::size_t i = 0; i < points_.size(); ++i) {
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      query.x(i, d) = points_[i](d);
+    }
+    query.group(i) = groups_[i];
+  }
+  return query;
+}
+
+std::size_t FaultSidesGenerator::pointsPerSide() { return dr::misc::NumBoundaryGaussPoints; }
+
+easi::Query FaultSidesGenerator::generate() const {
+  const std::vector<Fault>& fault = meshReader_.getFault();
+  const std::vector<Element>& elements = meshReader_.getElements();
+  const std::vector<Vertex>& vertices = meshReader_.getVertices();
+
+  constexpr std::size_t NumPoints = dr::misc::NumBoundaryGaussPoints;
+  const auto pointsView = init::quadpoints::view::create(init::quadpoints::Values);
+
+  // the barycentre and the group of the cell on one side of a fault face, given by the element
+  // on this rank that has the face and the side of it; the cell across is a ghost cell where the
+  // element has no neighbour on this rank there
+  struct SideCell {
+    Eigen::Vector3d barycenter;
+    int group;
+  };
+  const auto ownCell = [&](std::size_t element) {
+    SideCell cell{Eigen::Vector3d::Zero(), elements[element].group};
+    for (const auto vertex : elements[element].vertices) {
+      for (std::size_t d = 0; d < Cell::Dim; ++d) {
+        cell.barycenter(d) += vertices[vertex].coords[d] / Cell::NumVertices;
+      }
+    }
+    return cell;
+  };
+  const auto cellAcross = [&](std::size_t element, std::int8_t side) {
+    const auto& own = elements[element];
+    if (own.neighbors[side].hasValue()) {
+      return ownCell(own.neighbors[side].value());
+    }
+    const auto linear =
+        meshReader_.toLinearGhostlayer().at({own.neighborRanks[side], own.mpiIndices[side]});
+    const auto& ghost = meshReader_.linearGhostlayer()[linear];
+    const auto& metadata =
+        meshReader_.getGhostlayerMetadata().at(ghost.rank)[ghost.inRankIndices[0]];
+    SideCell cell{Eigen::Vector3d::Zero(), metadata.group};
+    for (const auto& vertex : metadata.vertices) {
+      for (std::size_t d = 0; d < Cell::Dim; ++d) {
+        cell.barycenter(d) += vertex[d] / Cell::NumVertices;
+      }
+    }
+    return cell;
+  };
+
+  easi::Query query(2 * NumPoints * fault.size(), Cell::Dim);
+  std::size_t q = 0;
+  for (const Fault& f : fault) {
+    // the points as the fault places them (see FaultGPGenerator): through the face of the plus
+    // side where that side is on this rank, otherwise through the face of the minus side, whose
+    // orientation the canonical vertex numbering pins to zero
+    std::size_t element = 0;
+    std::int8_t side = 0;
+    auto sideOrientation = seissol::geometry::FaceOrientation::Local;
+    std::array<SideCell, 2> cells{};
+    if (f.element.hasValue()) {
+      element = f.element.value();
+      side = f.side;
+      cells[0] = ownCell(element);
+      cells[1] = cellAcross(element, side);
+    } else {
+      assert(f.neighborElement.hasValue());
+      element = f.neighborElement.value();
+      side = f.neighborSide;
+      sideOrientation = seissol::geometry::FaceOrientation::Rotate0;
+      cells[0] = cellAcross(element, side);
+      cells[1] = ownCell(element);
+    }
+    const auto face =
+        seissol::geometry::faceTransformOf(element, side, meshReader_, sideOrientation);
+
+    for (const auto& cell : cells) {
+      for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
+        const auto onFace = face->refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
+            seissol::multisim::multisimTranspose(pointsView, n, 0),
+            seissol::multisim::multisimTranspose(pointsView, n, 1)));
+        const Eigen::Vector3d inside = (1 - InwardPull) * onFace + InwardPull * cell.barycenter;
+        for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+          query.x(q, dim) = inside(dim);
+        }
+        query.group(q) = cell.group;
+      }
+    }
+  }
+  return query;
+}
+
 easi::Query FaultBarycenterGenerator::generate() const {
   const std::vector<Fault>& fault = meshReader_.getFault();
   const std::vector<Element>& elements = meshReader_.getElements();

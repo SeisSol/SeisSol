@@ -27,6 +27,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
+#include "Initializer/Model/FaceSamples.h"
 #include "Initializer/Model/FaultFlux.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -190,51 +191,6 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   for (size_t row = 0; row < Dim1t; ++row) {
     for (size_t col = 0; col < tensorView.shape(1); ++col) {
       tensorView(rowIdx[row], col) = static_cast<S>(matrix(row, col));
-    }
-  }
-}
-
-/// The material of one side of a fault face, at the quadrature points of that
-/// face.
-///
-/// A cell carries its material as samples; the fault wants it where its own
-/// points are, and which parametrisation of the shared face applies depends on
-/// the side: the face relation is 0 on the plus side and 1 on the minus side,
-/// whose face orientation the canonical vertex order pins to zero. The
-/// generated kernel folds the evaluation and the projection into one matrix per
-/// side and face relation, so this runs
-/// one small product per parameter the material declares. The samples are the
-/// initialized ones the cell keeps, so nothing is fitted or derived a second
-/// time here -- for a viscoelastic material that means the unrelaxed moduli
-/// the fit produced, which is what the fault reads on the constant path too.
-template <typename MaterialT>
-void materialAtFaultPoints(const std::array<MaterialT, LTS::MaterialNodes>& samples,
-                           std::uint8_t side,
-                           std::uint8_t faceRelation,
-                           const GlobalData& global,
-                           std::array<MaterialT, seissol::dr::ImpedancePoints>& atPoints) {
-  static_assert(tensor::materialAtFault::size() >= seissol::dr::ImpedancePoints,
-                "The fault reads more points than the material is evaluated at.");
-
-  alignas(Alignment) std::array<real, tensor::materialSamples::size()> sampled{};
-  alignas(Alignment) std::array<real, tensor::materialAtFault::size()> atFault{};
-
-  dynamicRupture::kernel::projectMaterialToFault krnl{};
-  krnl.bindGlobals(global);
-  krnl.materialSamples = sampled.data();
-  krnl.materialAtFault = atFault.data();
-
-  for (const auto& [name, member] : MaterialT::ParameterMap) {
-    for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
-      // the material is one field, so every fused simulation sees the same
-      // sample at a point
-      for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
-        sampled[sim + multisim::NumSimulations * node] = static_cast<real>(samples[node].*member);
-      }
-    }
-    krnl.execute(side, faceRelation);
-    for (std::size_t point = 0; point < atPoints.size(); ++point) {
-      atPoints[point].*member = atFault[point];
     }
   }
 }
@@ -428,7 +384,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage,
-                                      const GlobalData& global) {
+                                      const FaceSamples& faceSamples) {
   real matTData[tensor::T::size()]{};
   real matTinvData[tensor::Tinv::size()]{};
 
@@ -638,39 +594,21 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       std::array<seissol::model::MaterialT, seissol::dr::ImpedancePoints> plusAtPoints{};
       std::array<seissol::model::MaterialT, seissol::dr::ImpedancePoints> minusAtPoints{};
       if constexpr (NodalMaterial) {
-        // The samples of a cell that is not on this rank are reached through the
-        // one that is: its face neighbour on the shared side, which is where the
-        // ghost layer keeps them.
-        const auto samplesOf = [&](const std::optional<StoragePosition>& own,
-                                   const std::optional<StoragePosition>& other,
-                                   std::uint8_t otherSide)
-            -> const std::array<seissol::model::MaterialT, LTS::MaterialNodes>& {
-          if (own.has_value()) {
-            return ltsStorage.lookup<LTS::NodalMaterialData>(own.value());
+        // Both sides were asked for the material at the points of the fault, each inside its
+        // own cell; the points carry one Riemann problem per fused simulation, all of them
+        // with the same material.
+        const auto* plusSamples = faceSamples.atFault(meshFace, 0);
+        const auto* minusSamples = faceSamples.atFault(meshFace, 1);
+        for (std::size_t point = 0; point < seissol::dr::misc::NumBoundaryGaussPoints; ++point) {
+          for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+            plusAtPoints[sim + multisim::NumSimulations * point] = plusSamples[point];
+            minusAtPoints[sim + multisim::NumSimulations * point] = minusSamples[point];
           }
-          const auto& secondary = ltsStorage.lookup<LTS::SecondaryInformation>(other.value());
-          return ltsStorage.lookup<LTS::NodalMaterialData>(secondary.faceNeighbors[otherSide]);
-        };
+        }
 
-        // the plus side reads the face in its own parametrisation, the minus
-        // side in the one the two sides agree on -- the same pair of arguments
-        // the interpolation of the degrees of freedom uses
-        materialAtFaultPoints(samplesOf(plusLtsId, minusLtsId, faceInformation[ltsFace].minusSide),
-                              faceInformation[ltsFace].plusSide,
-                              0,
-                              global,
-                              plusAtPoints);
-        materialAtFaultPoints(samplesOf(minusLtsId, plusLtsId, faceInformation[ltsFace].plusSide),
-                              faceInformation[ltsFace].minusSide,
-                              faceInformation[ltsFace].faceRelation,
-                              global,
-                              minusAtPoints);
-
-        // The points are padded to the vector width, and the evaluation leaves
-        // the padding at zero: a material of density zero, whose impedances are
-        // infinite. Nothing reads those points, but the impedances of every
-        // point are formed, so the padding takes the material of the cell, as
-        // it did before the material varied.
+        // The points are padded to the vector width. Nothing reads the padding,
+        // but the impedances of every point are formed, so the padding takes the
+        // material of the cell.
         constexpr std::size_t FaultPoints =
             seissol::dr::misc::NumBoundaryGaussPoints * multisim::NumSimulations;
         for (std::size_t point = FaultPoints; point < seissol::dr::ImpedancePoints; ++point) {

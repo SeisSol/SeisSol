@@ -240,7 +240,7 @@ What is not done
   elementwise output writes at order zero are plane between their corners.
 - Ghost cells on other ranks are sampled straight-sided: their metadata carries
   their vertices only, so the material a face reads from a neighbour on
-  another rank comes from sample points placed by the straight-sided map.
+  another rank is asked for at points placed by the straight-sided map.
 - The device path. A curved face's rotation per point has not been generated or
   checked with tensorforge.
 - ``MATERIAL_OPERATOR=factored``, which would fold the metric at every

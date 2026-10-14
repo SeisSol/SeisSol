@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include "Common/Constants.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/CellTransform.h"
@@ -20,11 +21,14 @@
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"
 
+#include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #ifdef USE_HDF
@@ -147,6 +151,68 @@ class NodalPointGenerator : public QueryGenerator {
   CellToVertexArray cellToVertex_;
   PointSet points_;
   bool pointwise_{true};
+};
+
+/// How far a point on a face of a cell is pulled into the cell before the material is queried
+/// there, as a fraction of the way to the barycentre of the cell. A point on a face of the mesh
+/// lies on the boundary between two cells, and which side easi answers with there is a matter of
+/// convention and of rounding, not of the cell -- where the material jumps across the face, a
+/// layer boundary the mesh follows, say. Pulled inside, the point reads the material of the cell it
+/// is asked for, which is what each side of the face sees, while a smooth material moves by far
+/// less than the discretization sees.
+constexpr double InwardPull = 1e-6;
+
+// samples the four faces of every cell at the given points of the reference face, each pulled
+// into the cell by InwardPull; per cell, the points of face 0 come first, then those of face 1,
+// and so on
+class FacePointGenerator : public QueryGenerator {
+  public:
+  //! The points, in the coordinates of the reference face.
+  struct PointSet {
+    std::function<std::array<double, Face::Dim>(std::size_t)> point;
+    std::size_t count{0};
+  };
+
+  //! The points the flux of a face is integrated at (@c faceQuadPoints ).
+  static PointSet fluxPoints();
+
+  FacePointGenerator(const CellToVertexArray& cellToVertex, const PointSet& points)
+      : cellToVertex_(cellToVertex), points_(points) {}
+  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] std::size_t outputPerCell() const override;
+
+  private:
+  CellToVertexArray cellToVertex_;
+  PointSet points_;
+};
+
+// samples points given in space, each with the group of the cell it is asked for
+class PointListGenerator : public QueryGenerator {
+  public:
+  PointListGenerator(std::vector<Eigen::Vector3d> points, std::vector<int> groups)
+      : points_(std::move(points)), groups_(std::move(groups)) {}
+  [[nodiscard]] easi::Query generate() const override;
+
+  private:
+  std::vector<Eigen::Vector3d> points_;
+  std::vector<int> groups_;
+};
+
+// samples both sides of every fault face of the mesh at the points of the fault rule: per fault
+// face, in the order of MeshReader::getFault(), the points on its plus side, then the same points
+// on its minus side, each pulled by InwardPull into the cell of that side and asked for with the
+// group of that cell, which may be a ghost cell
+class FaultSidesGenerator : public QueryGenerator {
+  public:
+  explicit FaultSidesGenerator(const seissol::geometry::MeshReader& meshReader)
+      : meshReader_(meshReader) {}
+  [[nodiscard]] easi::Query generate() const override;
+
+  //! how many points one side of a fault face is sampled at
+  static std::size_t pointsPerSide();
+
+  private:
+  const seissol::geometry::MeshReader& meshReader_;
 };
 
 class FaultBarycenterGenerator : public QueryGenerator {

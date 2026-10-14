@@ -8,6 +8,7 @@
 #include "InstantaneousTimeMirrorManager.h"
 
 #include "Initializer/Model/CellLocalMatrices.h"
+#include "Initializer/Model/FaceSamples.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Memory/Descriptor/LTS.h"
@@ -107,11 +108,14 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   updateVelocities();
 
   logInfo() << "Updating CellLocalMatrices";
+  // A build whose material varies inside a cell refuses the mirror (see ModelParameters), so no
+  // face here asks for the material at its points.
   initializer::initializeCellLocalMatrices(*meshReader_,
                                            *ltsStorage_,
                                            *clusterLayout_,
                                            seissolInstance_.parameters().model,
-                                           *seissolInstance_.memoryManager().globalData().onHost);
+                                           *seissolInstance_.memoryManager().globalData().onHost,
+                                           initializer::FaceSamples{});
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();

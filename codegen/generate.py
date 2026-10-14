@@ -332,7 +332,6 @@ def main():
                 adg,
                 cmdLineArgs.matricesDir,
                 cmdLineArgs.drQuadRule,
-                materialPoints,
                 targets,
                 isOldGpuInterface,
             )
@@ -350,12 +349,6 @@ def main():
         )
 
         kernels.material.addKernels(
-            generator, adg, cmdLineArgs.matricesDir, materialPoints
-        )
-        kernels.material.addFaceKernels(
-            generator, adg, cmdLineArgs.matricesDir, materialPoints
-        )
-        kernels.material.addNeighborFaceKernels(
             generator, adg, cmdLineArgs.matricesDir, materialPoints
         )
         kernels.material.includeTensors(

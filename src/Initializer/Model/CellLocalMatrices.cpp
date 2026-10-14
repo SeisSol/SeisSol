@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
+#include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -25,6 +26,7 @@
 #include "Initializer/BoundarySetup.h"
 #include "Initializer/Model/CellFlux.h"
 #include "Initializer/Model/CurvedCell.h"
+#include "Initializer/Model/FaceSamples.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -75,70 +77,20 @@ void setStarMatrix(const real* matAT,
 
 /// The material of both sides of a face, at the points of that face its flux is integrated at.
 ///
-/// The cell reads its own samples through the face evaluation; the neighbour
-/// sees the face with the other parametrisation, so its evaluation carries the
-/// renumbering into this cell's ordering. Both give the same physical point at
-/// the same index, which is what the flux of a point is built from.
+/// Each side was asked for the material at those points inside its own cell, in the numbering its
+/// own parametrisation of the face gives them. The neighbour sees the face with the other
+/// parametrisation, so its values are renumbered into this cell's ordering; then both give the same
+/// physical point at the same index, which is what the flux of a point is built from.
 template <typename MaterialT>
-void faceMaterials(const GlobalData& global,
-                   const std::array<MaterialT, LTS::MaterialNodes>& ownSamples,
-                   const std::array<MaterialT, LTS::MaterialNodes>& neighborSamples,
-                   std::uint8_t side,
-                   std::uint8_t neighborSide,
+void faceMaterials(const MaterialT* ownSamples,
+                   const MaterialT* neighborSamples,
                    std::uint8_t faceRelation,
                    std::array<MaterialT, FluxFaceNodes>& own,
                    std::array<MaterialT, FluxFaceNodes>& neighbor) {
-  alignas(Alignment) std::array<real, tensor::materialSamples::size()> samples{};
-  alignas(Alignment) std::array<real, tensor::materialAtFace::size()> atFace{};
-
-  const auto fill = [&](const std::array<MaterialT, LTS::MaterialNodes>& source,
-                        double MaterialT::* member) {
-    for (std::size_t node = 0; node < LTS::MaterialNodes; ++node) {
-      // the material is one field, so every fused simulation sees the same
-      // sample at a point
-      for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
-        samples[sim + multisim::NumSimulations * node] = static_cast<real>(source[node].*member);
-      }
-    }
-  };
-  // the simulation index is the leading dimension of the face values, and
-  // every simulation holds the same material there
-  static_assert(tensor::materialAtFace::size() >= multisim::NumSimulations * FluxFaceNodes,
-                "The face values hold fewer nodes than the flux reads.");
-  const auto scatter = [&](std::array<MaterialT, FluxFaceNodes>& target,
-                           double MaterialT::* member) {
-    for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
-      target[node].*member = atFace[node * multisim::NumSimulations];
-    }
-  };
-
-  kernel::projectMaterialToFace ownKrnl{};
-  ownKrnl.bindGlobals(global);
-  ownKrnl.materialSamples = samples.data();
-  ownKrnl.materialAtFace = atFace.data();
-
-  kernel::projectMaterialToNeighborFace neighborKrnl{};
-  neighborKrnl.bindGlobals(global);
-  neighborKrnl.materialSamples = samples.data();
-  neighborKrnl.materialAtFace = atFace.data();
-
-  // What a material holds beyond the parameters it binds is derived rather
-  // than sampled, and only the bound parameters are interpolated to the face.
-  // The rest comes from a sample as it is: right for what is the same at every
-  // point, like the relaxation frequencies, and not interpolated for what is
-  // not, like the theta of a viscoelastic material -- which the flux does not
-  // read.
-  own.fill(ownSamples[0]);
-  neighbor.fill(neighborSamples[0]);
-
-  for (const auto& [name, member] : MaterialT::ParameterMap) {
-    fill(ownSamples, member);
-    ownKrnl.execute(side);
-    scatter(own, member);
-
-    fill(neighborSamples, member);
-    neighborKrnl.execute(faceRelation, neighborSide);
-    scatter(neighbor, member);
+  const auto& renumbering = generated::FaceOrientationPermutations[faceRelation];
+  for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
+    own[node] = ownSamples[node];
+    neighbor[node] = neighborSamples[renumbering[node]];
   }
 }
 
@@ -146,7 +98,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters,
-                                 const GlobalData& global) {
+                                 const GlobalData& global,
+                                 const FaceSamples& faceSamples) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
@@ -187,7 +140,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
-    auto* nodalMaterial = NodalMaterial ? layer.var<LTS::NodalMaterialData>() : nullptr;
 
 #pragma omp parallel
     {
@@ -419,30 +371,21 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               nodeScale.fill(fluxScale);
             }
 
-            const auto& ownSamples = nodalMaterial[cell];
+            const auto* ownSamples = faceSamples.atFace(StoragePosition(layer.id(), cell, 0), side);
             std::array<model::MaterialT, FluxFaceNodes> ownAtFace{};
             std::array<model::MaterialT, FluxFaceNodes> neighborAtFace{};
             if (isInternalFaceType(cellInformation[cell].faceTypes[side])) {
               const auto neighborPosition = secondaryInformation[cell].faceNeighbors[side];
-              faceMaterials(global,
-                            ownSamples,
-                            ltsStorage.lookup<LTS::NodalMaterialData>(neighborPosition),
-                            static_cast<std::uint8_t>(side),
-                            cellInformation[cell].faceRelations[side][0],
+              faceMaterials(ownSamples,
+                            faceSamples.atFace(neighborPosition,
+                                               cellInformation[cell].faceRelations[side][0]),
                             cellInformation[cell].faceRelations[side][1],
                             ownAtFace,
                             neighborAtFace);
             } else {
               // a boundary face has no neighbour; the matrix form takes the
               // cell's own material for both sides and so does this
-              faceMaterials(global,
-                            ownSamples,
-                            ownSamples,
-                            static_cast<std::uint8_t>(side),
-                            static_cast<std::uint8_t>(side),
-                            0,
-                            ownAtFace,
-                            neighborAtFace);
+              faceMaterials(ownSamples, ownSamples, 0, ownAtFace, neighborAtFace);
               neighborAtFace = ownAtFace;
             }
 
