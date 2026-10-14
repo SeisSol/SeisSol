@@ -680,12 +680,16 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
     ConditionalKey key = ConditionalKey(*KernelNames::Time);
     if (table.find(key) != table.end()) {
       auto entry = table.at(key);
-      device_.algorithms().accumulateBatchedData(
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-          (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
-          tensor::Q<Cfg>::Size,
-          (entry.get(inner_keys::Wp::Id::Dofs))->getSize(),
-          streamRuntime_.stream());
+      // as on the host: the state at the end of the step times the width of the step
+      kernel::gpu_integrateOutput<Cfg> integrateKrnl;
+      integrateKrnl.Q =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+      integrateKrnl.QIntegral = (entry.get(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr();
+      integrateKrnl.dt = timeStepWidth;
+      // Note: this kernel doesn't require tmp. memory
+      integrateKrnl.numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+      integrateKrnl.streamPtr = streamRuntime_.stream();
+      integrateKrnl.execute();
     }
   }
 
