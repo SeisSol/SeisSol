@@ -36,16 +36,19 @@ void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings_.name << ": setup.";
   executor_.setComm(seissol::Mpi::mpi.comm());
   setExecutor(executor_);
-  // TODO: adjust the CommThread call here
-  if (isAffinityNecessary() && useCommThread(seissol::Mpi::mpi, seissolInstance_.env())) {
+  // The thread goes to the CPUs no OpenMP worker uses, with a communication thread or without one:
+  // left to ASYNC, it takes the last CPU of the mask it inherits from the main thread, which is the
+  // main thread's own core, or its own CPU, while that core computes.
+  if (isAffinityNecessary()) {
     const auto freeCpus = pinning_.getFreeCPUsMask();
-    logInfo() << "Output Writer" << settings_.name
-              << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus) << "("
-              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
-    if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+    if (!parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+      logInfo() << "Output Writer" << settings_.name
+                << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus) << "("
+                << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+      setAffinityIfNecessary(freeCpus);
+    } else if (useCommThread(seissol::Mpi::mpi, seissolInstance_.env())) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
-    setAffinityIfNecessary(freeCpus);
   }
 }
 
