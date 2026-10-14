@@ -516,7 +516,9 @@ class NonLinearCK(ADERDGBase):
         The state at a node comes from the stored expansion, the material
         response from the constitutive law, and the integrals accumulate here
         rather than in a pass of their own -- there is nothing to be gained
-        from writing a nodal stress out only to read it back and weigh it.
+        from writing a nodal stress out only to read it back and weigh it. At
+        the nodes after the first, the state is expanded and read at the points
+        only in the columns :meth:`nodalColumnsAfterFirst` names.
         """
         nodes = self.numTimeNodes()
         evaluate = [
@@ -547,18 +549,45 @@ class NonLinearCK(ADERDGBase):
 
         statements = []
         for q in range(nodes):
-            expansion = evaluate[q][0] * self.dQs[0]["kp"]
-            for i in range(1, self.order):
-                expansion = expansion + evaluate[q][i] * self.dQs[i]["kp"]
-            statements += [
-                state["kp"] <= expansion,
-                self.nodalState["lp"]
-                <= self.db.evalAtNodes[self.t("lk")] * state["kp"],
-            ]
+            columns = None if q == 0 else self.nodalColumnsAfterFirst()
+            if columns is None:
+                expansion = evaluate[q][0] * self.dQs[0]["kp"]
+                for i in range(1, self.order):
+                    expansion = expansion + evaluate[q][i] * self.dQs[i]["kp"]
+                statements += [
+                    state["kp"] <= expansion,
+                    self.nodalState["lp"]
+                    <= self.db.evalAtNodes[self.t("lk")] * state["kp"],
+                ]
+            else:
+                start, stop = columns
+                expansion = evaluate[q][0] * self.dQs[0]["kc"].subslice(
+                    "c", start, stop
+                )
+                for i in range(1, self.order):
+                    expansion = expansion + evaluate[q][i] * self.dQs[i]["kc"].subslice(
+                        "c", start, stop
+                    )
+                statements += [
+                    state["kc"].subslice("c", start, stop) <= expansion,
+                    self.nodalState["lc"].subslice("c", start, stop)
+                    <= self.db.evalAtNodes[self.t("lk")]
+                    * state["kc"].subslice("c", start, stop),
+                ]
             statements += self.stepStatements(q, weights[q], width)
 
         statements += self.finishStatements()
         generator.add(f"{prefix}damageStep", statements, target=target)
+
+    def nodalColumnsAfterFirst(self):
+        """The columns of the state the step reads at the points at the time
+        nodes after the first, as ``(start, stop)``, or None for all of them.
+
+        The first node takes from the state whatever the step carries through
+        it; what marches from there on stays at the points, so the later nodes
+        may need fewer columns of the state than there are.
+        """
+        return None
 
     def addConstitutive(self, generator, target, prefix):
         """Pointwise material response at the nodes of :attr:`QNodal`.

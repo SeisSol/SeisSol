@@ -496,6 +496,13 @@ class DamageADERDG(NonLinearCK):
             self.nodeShear["u"] <= yf.mul(yf.max(sSquared, "l"), self.unitColumn["u"]),
         ]
 
+    def nodalColumnsAfterFirst(self):
+        """The six strains, which the material response is formed from. The
+        damage and the breakage march at the points from the values the first
+        node takes, and the velocities enter neither the response nor the
+        sources."""
+        return (0, 6)
+
     def stepStatements(self, node, weight, width):
         """The material response at one time node, and what it contributes.
 
