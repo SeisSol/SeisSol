@@ -367,7 +367,8 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
-      const auto& cellIds =
+      // a copy, which the loop keeps: it runs as a host function of the stream, after this scope
+      auto cellIds =
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
       auto* analytical = reinterpret_cast<real(*)[tensor::INodal<Cfg>::size()]>(
@@ -375,7 +376,8 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
 
       runtime.enqueueLoop(
           numElements,
-          [this, face, time, timeStepWidth, analytical, &cellIds, &layer](std::size_t index) {
+          [this, face, time, timeStepWidth, analytical, cellIds = std::move(cellIds), &layer](
+              std::size_t index) {
             auto cellId = cellIds.at(index);
             auto data = layer.cellRef<Cfg>(cellId);
 
@@ -394,6 +396,9 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
           });
 
       auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
+      auto tmpMem = runtime.memoryHandle<real>(
+          (yateto::getMaxTmpMemRequired(nodalLfKrnl) * numElements) / sizeof(real));
+      nodalLfKrnl.linearAllocator.initialize(tmpMem.get());
       nodalLfKrnl.INodal = const_cast<const real**>(
           dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
       nodalLfKrnl.AminusT =
