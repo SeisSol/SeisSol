@@ -121,6 +121,27 @@ constant to :math:`10^{-14}`. The local flux of every face now takes off the
 normal flux of the cell's own trace (``toCorrectorForm``), a fault face
 included, whose local flux is that subtraction alone.
 
+**The predictor keeps the degrees a constant operator gives.** A constant
+operator drops a degree with every time derivative, so for a scheme of order
+:math:`N` the k-th derivative of the predictor has the degree :math:`N-1-k`.
+An operator that varies inside the cell -- through the metric or the material --
+raises the degree again. But the field is accurate to order :math:`N` and its
+k-th derivative to order :math:`N-k`, which the degree :math:`N-1-k` resolves
+already: the modes above it are of the size of that error, and the predictor
+weighs them with :math:`\Delta t^k`. With ``MATERIAL_NARROW_DERIVATIVES=ON``,
+the default, the k-th derivative keeps the modes up to the degree
+:math:`N-1-k`, projected onto those alone; a solver with a source term keeps
+every mode, since the source keeps the degree. A plane wave through the
+periodic cube :math:`[0,2]^3` of :math:`n^3` hexahedra cut into six tetrahedra
+each, its vertices moved by the map of the cubes below scaled to its size and
+its cells curved, at order 4: the L2 errors with and without differ by less
+than 0.06 percent for :math:`n = 4 \dots 16` and converge at the same rate, the
+time series of four receivers differ by :math:`9 \cdot 10^{-5}` at
+:math:`n = 8` and :math:`6 \cdot 10^{-6}` at :math:`n = 16`, about a
+twenty-fifth of the error, and the run takes 18 percent fewer operations (the
+derivative kernel 39 percent). On straight-sided cells the errors agree to all
+digits printed.
+
 **The mass matrix stays the one of the reference cell.** The scheme tests with
 the basis functions divided by :math:`\det J`. A point source then is
 :math:`\varphi(\xi_s) / \det J(\xi_s)`, the initial state is the projection of
@@ -260,7 +281,10 @@ differentiates a linear field exactly on a curved cell -- with the metric of one
 point for the whole cell, a mode that has to vanish comes out at a sizeable
 fraction of the derivative -- and a constant state stays constant; the strong
 form with its face terms is the weak form for one material per cell, a fault
-face included. On a fault: the lift of every point is the flux of the normal
+face included; the time derivatives of the predictor are the ones of the
+matrices for one material per cell, and where the material varies from point to
+point they are the chain formed at the points by hand, each derivative cut to
+the modes it keeps. On a fault: the lift of every point is the flux of the normal
 there, with the rotation and the scale of the point; the frame of a plane face
 is the one of the fault at every point, and the one of a curved face is the
 normal there with the tangent of the fault turned into it; the fault subtracts

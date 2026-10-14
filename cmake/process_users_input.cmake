@@ -120,6 +120,8 @@ set(MATERIAL_OPERATOR "factored" CACHE STRING "Shape a MATERIAL_NODAL build appl
 set(MATERIAL_OPERATOR_OPTIONS factored assembled)
 set_property(CACHE MATERIAL_OPERATOR PROPERTY STRINGS ${MATERIAL_OPERATOR_OPTIONS})
 
+option(MATERIAL_NARROW_DERIVATIVES "Let the k-th time derivative of the predictor of a MATERIAL_NODAL build keep only the modes up to the degree ORDER-1-k, the ones a constant operator gives it. Where the operator varies inside a cell the derivative has more, of the size of its error; dropping them keeps the order of the scheme and saves operations of the predictor. A solver with a source term keeps every mode, since the source keeps the degree" ON)
+
 
 set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
 set(DR_QUAD_RULE_OPTIONS stroud dunavant)

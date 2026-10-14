@@ -55,6 +55,12 @@ else()
   set(CURVILINEAR_PARAM "")
 endif()
 
+if (MATERIAL_NARROW_DERIVATIVES)
+  set(MATERIAL_NARROW_DERIVATIVES_PARAM "--material_narrow_derivatives")
+else()
+  set(MATERIAL_NARROW_DERIVATIVES_PARAM "")
+endif()
+
 # common arguments between configure and build
 set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
@@ -75,6 +81,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      ${FACTORED_STAR_PARAM}
      ${MATERIAL_NODAL_PARAM}
      ${CURVILINEAR_PARAM}
+     ${MATERIAL_NARROW_DERIVATIVES_PARAM}
      "--material_operator" ${MATERIAL_OPERATOR}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}

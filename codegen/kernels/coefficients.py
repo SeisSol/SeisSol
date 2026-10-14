@@ -621,6 +621,7 @@ def generate(
     material_samples: int = 1,
     operator_points: int = 1,
     curvilinear: bool = False,
+    narrowed_derivatives: bool = False,
     face_permutations=(),
     flux_blocks=(),
     flux_diagonal=None,
@@ -767,6 +768,11 @@ def generate(
         "// whether a cell may be curved, and carries its metric at those points\n",
         "inline constexpr bool Curvilinear = "
         f"{'true' if curvilinear else 'false'};\n",
+        "// whether the k-th time derivative of the predictor keeps only the\n",
+        "// modes up to the degree ConvergenceOrder - 1 - k where the operator\n",
+        "// varies inside a cell, the ones a constant operator gives it\n",
+        "inline constexpr bool NarrowedDerivatives = "
+        f"{'true' if narrowed_derivatives else 'false'};\n",
         "\n",
     ]
 

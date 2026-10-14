@@ -539,10 +539,10 @@ class LinearCKAnelastic(ADERDGBase):
                 def derivativeStep(kthDer):
                     """One step of the chain, in whichever shape the operator has.
 
-                    A constant operator drops a degree with every derivative and the
-                    generator narrows the matrices accordingly; one that varies
-                    inside the cell is read where its samples are, so nothing
-                    narrows and every derivative stays full.
+                    The relaxation keeps the degree of the field it acts on, so
+                    every derivative here has as many modes as the field, whether
+                    the operator is constant or varies inside the cell; where it
+                    varies, it is read where its samples are.
                     """
                     if self.nodalMaterial:
                         return self.nodalApply(

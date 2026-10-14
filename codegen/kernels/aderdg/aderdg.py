@@ -359,6 +359,7 @@ class ADERDGBase(ABC):
         # the build got as far as the nodal configuration
         self.nodalMaterial = False
         self.nodalFaceFlux = False
+        self.narrowDerivatives = False
         # the points the operator is formed at: the barycentre, where it is one
         # per cell; the nodal configuration replaces it with its point set
         self.operatorNodes = Tensor(
@@ -429,6 +430,10 @@ class ADERDGBase(ABC):
         )
         if not self.nodalMaterial:
             return
+        # whether the build lets the time derivatives of the predictor keep
+        # fewer modes with every derivative; the solver decides whether its
+        # chain can (narrowsDerivatives)
+        self.narrowDerivatives = bool(kwargs.get("material_narrow_derivatives", False))
         # The nodal chain contracts the derivative matrices over the modes
         # that carry a derivative at all. At the lowest orders that range
         # starts past the first stored row, or ends before the rows an aligned
@@ -960,6 +965,7 @@ class ADERDGBase(ABC):
         temporaries=None,
         accumulate=False,
         scalar=None,
+        project=None,
     ):
         """One application of the operator where the material varies inside the
         cell: read the derivative at the sample points, multiply by the
@@ -971,6 +977,9 @@ class ADERDGBase(ABC):
         than modes and quantities; the caller then hands over the two
         temporaries those indices widen. `scalar` scales the result, and
         `accumulate` adds it to what the target holds instead of replacing it.
+        `project` is the projection the result comes back with, for a target
+        that keeps fewer modes than the field; the operator's own where not
+        given.
         """
         valuesPrototype, product = (
             temporaries
@@ -1003,7 +1012,8 @@ class ADERDGBase(ABC):
                     <= (term if first else product["np" + spectator] + term)
                 )
                 first = False
-        projected = self.operatorProject["kn"] * product["np" + spectator]
+        projector = self.operatorProject if project is None else project
+        projected = projector["kn"] * product["np" + spectator]
         if scalar is not None:
             projected = scalar * projected
         statements.append(
@@ -1011,6 +1021,12 @@ class ADERDGBase(ABC):
             <= (target["kp" + spectator] + projected if accumulate else projected)
         )
         return statements
+
+    def narrowsDerivatives(self):
+        """Whether the k-th time derivative of the predictor keeps only the
+        modes up to the degree order - 1 - k where the operator varies inside
+        the cell. Not here; a solver whose chain can says so."""
+        return False
 
     def nodalVolumeDerivatives(self):
         """The derivative matrices the volume term of the corrector applies

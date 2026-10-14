@@ -71,6 +71,9 @@ def main():
     )
     cmdLineParser.add_argument("--material_nodal", action="store_true", default=False)
     cmdLineParser.add_argument(
+        "--material_narrow_derivatives", action="store_true", default=False
+    )
+    cmdLineParser.add_argument(
         "--material_operator",
         type=str,
         choices=list(kernels.coefficients.OPERATOR_FORMS),
@@ -458,6 +461,7 @@ def main():
             material_samples=materialSampleCount,
             operator_points=operatorPointCount,
             curvilinear=adgForTables.curvilinear,
+            narrowed_derivatives=adgForTables.narrowsDerivatives(),
             face_permutations=kernels.material.faceOrientationPermutations(
                 cmdLineArgs.matricesDir, adgForTables
             ),

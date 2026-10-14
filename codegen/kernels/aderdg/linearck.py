@@ -6,9 +6,10 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
+import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, ops, simpleParameterSpace
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.util import (
@@ -24,6 +25,70 @@ class LinearCK(ADERDGBase):
 
     def sourceMatrix(self):
         return None
+
+    def narrowsDerivatives(self):
+        """A constant operator drops a degree with every derivative, so its
+        k-th time derivative has the degree order - 1 - k. One that varies
+        inside the cell raises the degree again, by as much as it varies. The
+        field is accurate to the order of the scheme and its k-th derivative
+        to k orders less, which the degree order - 1 - k resolves already: the
+        modes above it are of the size of that error, and in the predictor
+        they come with the k-th power of the time step, which brings them to
+        the order of the scheme. Where the build asks for it
+        (MATERIAL_NARROW_DERIVATIVES), the k-th derivative keeps the modes up
+        to that degree, projected onto those alone.
+
+        A source term keeps the degree of what it acts on, and its derivatives
+        then have every mode even where the operator is constant, so a solver
+        with one keeps them all."""
+        return (
+            self.nodalMaterial
+            and self.narrowDerivatives
+            and self.sourceMatrix() is None
+        )
+
+    def derivativeModes(self, k):
+        """How many modes the k-th time derivative of the predictor keeps where
+        the operator varies inside the cell, see narrowsDerivatives."""
+        if not self.narrowsDerivatives():
+            return self.num3DBasisFunctions()
+        degrees = self.order - k
+        return degrees * (degrees + 1) * (degrees + 2) // 6
+
+    def derivativeProjection(self, k):
+        """The projection the k-th time derivative of the predictor comes back
+        with: onto the modes it keeps. The basis is orthogonal and ordered by
+        degree, so that is the operator's projection cut to its leading rows."""
+        modes = self.derivativeModes(k)
+        if modes == self.num3DBasisFunctions():
+            return self.operatorProject
+        # one tensor per member, however many targets ask for it
+        if not hasattr(self, "_derivativeProjections"):
+            self._derivativeProjections = {}
+        if k not in self._derivativeProjections:
+            self._derivativeProjections[k] = Tensor(
+                f"derivativeProject({k})",
+                self.operatorProject.shape(),
+                spp={
+                    index: value
+                    for index, value in self.operatorProject.values().items()
+                    if index[0] < modes
+                },
+                alignStride=self.alignStride("derivativeProject"),
+            )
+        return self._derivativeProjections[k]
+
+    def derivativePattern(self, k):
+        """Where the k-th time derivative of the predictor has entries where the
+        operator varies inside the cell: the modes it keeps, every quantity.
+        None where it keeps every mode."""
+        modes = self.derivativeModes(k)
+        if modes == self.num3DBasisFunctions():
+            return None
+        rows = self.Q.insertOptDim((slice(0, modes), slice(None)), (slice(None),))
+        pattern = np.zeros(self.Q.shape(), dtype=bool)
+        pattern[rows] = True
+        return pattern
 
     def extendedQTensor(self):
         return self.Q
@@ -310,22 +375,24 @@ class LinearCK(ADERDGBase):
                 for i in range(1, self.order):
                     power = powers[i]
                     if self.nodalMaterial:
-                        # A constant operator drops a degree with every derivative,
-                        # so each one occupies fewer modes than the last and the
-                        # chain narrows. A material that varies inside the cell
-                        # raises the degree again by as much as it carries itself,
-                        # so nothing narrows and every derivative stays full.
+                        # The operator varies inside the cell, so the degree of
+                        # a derivative is what the build lets it keep, not what
+                        # the generator can deduce (narrowsDerivatives).
                         dQ = OptionalDimTensor(
                             "dQ({})".format(i),
                             self.Q.optName(),
                             self.Q.optSize(),
                             self.Q.optPos(),
                             qShape,
+                            spp=self.derivativePattern(i),
                             alignStride=True,
                         )
                         self.dQs.append(dQ)
                         derivativeExpr += self.nodalApply(
-                            derivatives[-1], dQ, self.db.kDivMT
+                            derivatives[-1],
+                            dQ,
+                            self.db.kDivMT,
+                            project=self.derivativeProjection(i),
                         )
                         derivativeExpr += self.sourceTerm(derivatives[-1], dQ)
                         derivativeExpr += [

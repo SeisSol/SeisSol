@@ -300,6 +300,70 @@ class TestViscoelasticConstruction:
             assert adg.starMatrix(dim).shape() == (nq, nq)
 
 
+class TestNarrowedDerivatives:
+    """Where the material varies inside a cell, the k-th time derivative of
+    the predictor keeps the modes up to the degree order - 1 - k, unless the
+    build says otherwise or a source term keeps the degree."""
+
+    def _make(self, equation, solver, narrow, numMechanisms=0):
+        import importlib
+
+        kwargs = dict(
+            equations=equation,
+            order=4,
+            multipleSimulations=1,
+            matricesDir=str(MATRICES_DIR),
+            memLayout=_default_memLayout(),
+            numMechanisms=numMechanisms,
+            solver=solver,
+            factored_star=True,
+            material_nodal=True,
+            material_points="sq",
+            material_operator="assembled",
+            material_narrow_derivatives=narrow,
+            targets=["cpu"],
+            old_gpu_interface=False,
+        )
+        module = importlib.import_module(f"kernels.equations.{equation}")
+        return module.kernel_class(**kwargs)(**kwargs)
+
+    @pytest.mark.parametrize("equation", ["elastic", "acoustic"])
+    def test_keeps_the_modes_of_a_constant_operator(self, equation):
+        adg = self._make(equation, "linearck", narrow=True)
+        assert adg.narrowsDerivatives()
+        assert [adg.derivativeModes(k) for k in range(1, 4)] == [10, 4, 1]
+
+    def test_projection_is_the_leading_rows(self):
+        """The basis is ordered by degree, so projecting onto the modes a
+        derivative keeps is the projection cut to its leading rows."""
+        adg = self._make("elastic", "linearck", narrow=True)
+        full = adg.operatorProject.values()
+        for k in range(1, 4):
+            modes = adg.derivativeModes(k)
+            cut = adg.derivativeProjection(k).values()
+            assert cut == {i: v for i, v in full.items() if i[0] < modes}
+
+    def test_switch_off_keeps_every_mode(self):
+        adg = self._make("elastic", "linearck", narrow=False)
+        assert not adg.narrowsDerivatives()
+        assert all(adg.derivativeModes(k) == 20 for k in range(1, 4))
+        assert all(
+            adg.derivativeProjection(k) is adg.operatorProject for k in range(1, 4)
+        )
+
+    @pytest.mark.parametrize(
+        "equation, solver, mechanisms",
+        [
+            ("viscoelastic", "linearck", 3),
+            ("viscoelastic", "linearckanelastic", 3),
+            ("poroelastic", "stp", 0),
+        ],
+    )
+    def test_source_term_keeps_every_mode(self, equation, solver, mechanisms):
+        adg = self._make(equation, solver, narrow=True, numMechanisms=mechanisms)
+        assert not adg.narrowsDerivatives()
+
+
 # =============================================================================
 # Matrix-file inventory — catches missing files for supported orders
 # =============================================================================
