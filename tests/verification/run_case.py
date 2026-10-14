@@ -671,6 +671,10 @@ def _command_run(args):
     environment["OMP_NUM_THREADS"] = str(args.threads)
     environment.setdefault("OMP_PLACES", "cores")
     environment.setdefault("OMP_PROC_BIND", "close")
+    # Mini SeisSol times the ranks of a run on several, for node weights of the partitioning, which
+    # the mini meshes do without (PartitioningLib 'none' keeps the cells where they were read); in
+    # a build without optimization, as the one measuring the coverage, it takes minutes
+    environment["SEISSOL_MINISEISSOL"] = "0"
 
     print("running:", " ".join(command))
     completed = subprocess.run(

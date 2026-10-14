@@ -338,11 +338,13 @@ function(seissol_add_minitest)
                      --tolerance-double ${SEISSOL_SNAPSHOT_TOLERANCE_DOUBLE}
                      --tolerance-single ${SEISSOL_SNAPSHOT_TOLERANCE_SINGLE}
                      --result ${CMAKE_CURRENT_BINARY_DIR}/results/snapshot-${MT_NAME}.json)
+    # with the labels of its case as well, so that a selection by label takes or leaves both
+    set(snapshot_labels verification snapshot ${MT_LABELS})
     set_tests_properties(verification.snapshot.${MT_NAME} PROPERTIES
         SKIP_RETURN_CODE 77
         FIXTURES_REQUIRED "case.${MT_NAME};verification"
         TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
-        LABELS "verification;snapshot")
+        LABELS "${snapshot_labels}")
     set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
         "    {\"name\": \"snapshot-${MT_NAME}\", \"mesh\": \"${MT_MESH}\", \"requires\": []},\n")
   endif()

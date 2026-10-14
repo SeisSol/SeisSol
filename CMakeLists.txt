@@ -513,9 +513,11 @@ endif()
 
 # Coverage (should run last; after all folders have been added)
 if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  # The verification cases of the label convergence run what the smoke cases run, for 256 steps
+  # rather than 20; that adds no coverage, but minutes per case in this unoptimized build.
   setup_target_for_coverage_lcov(
           NAME seissol-coverage
-          EXECUTABLE ctest -j
+          EXECUTABLE ctest -j -LE convergence
           EXCLUDE "/usr/*"
                   "submodules/*"
                   "tests/*"
