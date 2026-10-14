@@ -29,7 +29,7 @@ constexpr std::size_t symmetricTetrahedronRuleSize(std::size_t degree) {
                                                               {6, 24},
                                                               {7, 35},
                                                               {8, 46},
-                                                              {10, 81},
+                                                              {10, 79},
                                                               {11, 110},
                                                               {12, 128},
                                                               {13, 145},

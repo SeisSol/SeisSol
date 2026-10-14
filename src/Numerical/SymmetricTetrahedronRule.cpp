@@ -45,10 +45,11 @@ struct Rule {
  * The rules of quad_rules.SymmetricTet in SeisSol/matrices up to degree 14, as orbits sorted by
  * kind and then by parameters; values rounded to 20 significant digits. Sources (files in
  * src/quad_rules/tetrahedron there):
- *   degrees 1, 2, 3, 5, 6, 7, 8, 10: F. D. Witherden, P. E. Vincent, On the identification of
+ *   degrees 1, 2, 3, 5, 6, 7, 8: F. D. Witherden, P. E. Vincent, On the identification of
  *     symmetric quadrature rules for finite element methods, Comput. Math. Appl. 69(10),
  *     1232-1241, 2015, via PyFR (BSD 3-Clause License, Copyright (c) 2012-2026 Imperial College
  *     London)
+ *   degree 10: computed for SeisSol by a search over orbit structures
  *   degree 11: J. Jaskowiec, N. Sukumar, High-order symmetric cubature rules for tetrahedra and
  *     pyramids, Int. J. Numer. Methods Eng. 122(1), 148-171, 2021 (CC BY 4.0)
  *   degree 13: F. D. Witherden, via PyFR (as above)
@@ -118,30 +119,29 @@ const std::vector<Rule>& rules() {
             0.015453486150960334814,
             {0.20413933387602912043, 0.0079239539457973532127}},
        }},
-      // witherden-vincent/witherden-vincent-n81-d10.txt
+      // orbit-search/orbit-search-n79-d10.txt
       {10,
        {
-           {OrbitKind::S1, 0.047399773556020738385, {}},
-           {OrbitKind::S4, 0.0098691597167933832346, {0.11430965385734615059}},
-           {OrbitKind::S4, 0.026937059992268699803, {0.31225006869518864773}},
+           {OrbitKind::S1, 0.045744342446789630054, {}},
+           {OrbitKind::S4, 0.00055346716868564207782, {0.010638211251437933813}},
+           {OrbitKind::S4, 0.01092468847059769422, {0.11422900089056276921}},
+           {OrbitKind::S4, 0.025693972060698947718, {0.31273589377082560697}},
+           {OrbitKind::S6, 0.00055953733740315898993, {0.016432313689786628482}},
            {OrbitKind::S12,
-            0.00036194434433925362424,
-            {0.0061380088247907478476, 0.044735215005213638107}},
+            0.0061585332282130537542,
+            {0.030018728177575208716, 0.12782018682468132107}},
            {OrbitKind::S12,
-            0.0065761472770359041675,
-            {0.032485281564823047836, 0.1338521522120095131}},
+            0.010445427028362449501,
+            {0.034305206188598863068, 0.33305715558157544454}},
            {OrbitKind::S12,
-            0.010135871679755792789,
-            {0.032779468216442670775, 0.34018479408710763279}},
+            0.025140755309605840298,
+            {0.12345767363800584155, 0.28185872506094552653}},
            {OrbitKind::S12,
-            0.025739731980456071279,
-            {0.12105018114558942599, 0.28070925780454079747}},
+            0.01331824037907913148,
+            {0.17396983292677239303, 0.022886836789337276292}},
            {OrbitKind::S12,
-            0.012907035798861990639,
-            {0.17497934218393902428, 0.021969470156755940737}},
-           {OrbitKind::S12,
-            0.011393881220195231624,
-            {0.41043073921896549429, 0.01365249594245795982}},
+            0.011787870948811381628,
+            {0.40991377504957833642, 0.014698521078267115984}},
        }},
       // jaskowiec-sukumar-symmetric/jaskowiec-sukumar-n110-d11.txt
       {11,
