@@ -17,6 +17,10 @@
 #include <string>
 #include <vector>
 
+namespace seissol::expr {
+class Program;
+} // namespace seissol::expr
+
 namespace seissol::physics {
 
 /// A field given by a script: an initial condition, an analytical solution, and with it the values
@@ -42,6 +46,13 @@ class ScriptField : public InitialFieldOf<ScriptField> {
               std::vector<std::string> quantities,
               std::size_t simulation,
               bool hasTime);
+
+  /// The field of a program that SeisSol makes itself, which `name` names in messages. A program
+  /// that reads anything else, keeps state, or gives what is no quantity is an error here.
+  ScriptField(const expr::Program& program,
+              const std::string& name,
+              std::vector<std::string> quantities,
+              std::size_t simulation);
   ~ScriptField() override;
 
   ScriptField(const ScriptField&) = delete;
@@ -80,6 +91,8 @@ class ScriptField : public InitialFieldOf<ScriptField> {
   [[nodiscard]] bool compiled() const;
 
   private:
+  void setUp();
+
   [[nodiscard]] std::vector<double>& scratch(std::size_t count) const;
 
   struct Impl;

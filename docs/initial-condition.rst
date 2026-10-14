@@ -95,6 +95,11 @@ For elastic, anisotropic and viscoelastic materials, we impose a P and an S wave
 For poroelastic materials, we impose a slow P and an S wave travelling in one direction and a fast P wave travelling in opposite direction.
 This scenario needs periodic boundary conditions to make sense.
 This is the only case where the old netcdf mesh format is prefered.
+With fused simulations, the phase of simulation :math:`s` out of :math:`N` is shifted by :math:`2\pi s/N`.
+
+SeisSol evaluates the planar waves -- also the superimposed and the travelling one below -- as an
+sderiv module that it writes at setup from the eigenvalues and eigenvectors of the material, in real
+arithmetic, and compiles like a script of its own.
 After the simulation is finished the errors between the analytic solution and the numerical one are plotted in the :math:`L^1`-,  :math:`L^2`- and :math:`L^\infty`-norm.
 
 You can use the ``cubegenerator`` mesh type to make SeisSol generate meshes for

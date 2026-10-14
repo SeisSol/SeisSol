@@ -14,12 +14,8 @@
 #include "Initializer/Typedefs.h"
 #include "Physics/InitialField.h"
 
-#include <Eigen/Dense>
 #include <array>
-#include <cmath>
-#include <complex>
 #include <cstddef>
-#include <vector>
 
 namespace seissol::physics {
 
@@ -37,79 +33,6 @@ class PressureInjection : public InitialFieldOf<PressureInjection> {
 
   private:
   seissol::initializer::parameters::InitializationParameters parameters_;
-};
-
-// A planar wave travelling in direction kVec
-class Planarwave : public InitialFieldOf<Planarwave> {
-  public:
-  // Choose phase in [0, 2*pi]; the wave is set up for the material of the configuration `config`
-  Planarwave(const CellMaterialData& materialData,
-             ConfigId config,
-             double phase,
-             Eigen::Vector3d kVec,
-             std::vector<int> varField,
-             std::vector<std::complex<double>> ampField);
-  Planarwave(const CellMaterialData& materialData,
-             ConfigId config,
-             double phase = 0.0,
-             Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
-
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
-
-  protected:
-  std::vector<int> varField_;
-  std::vector<std::complex<double>> ampField_;
-  double phase_;
-  Eigen::Vector3d kVec_;
-  // the quantities of the material, and the eigenvalues and eigenvectors of the plane wave
-  // operator for them
-  std::size_t numQuantities_{};
-  std::vector<std::complex<double>> lambdaA_;
-  std::vector<std::complex<double>> eigenvectors_;
-
-  private:
-  void init(const CellMaterialData& materialData, ConfigId config);
-};
-
-// superimpose three planar waves travelling into different directions
-class SuperimposedPlanarwave : public InitialFieldOf<SuperimposedPlanarwave> {
-  public:
-  //! Choose phase in [0, 2*pi]
-  SuperimposedPlanarwave(const CellMaterialData& materialData, ConfigId config, double phase = 0.0);
-
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
-
-  private:
-  std::array<Eigen::Vector3d, 3> kVec_;
-  std::array<Planarwave, 3> pw_;
-};
-
-// A part of a planar wave travelling in one direction
-class TravellingWave : public InitialFieldOf<TravellingWave, Planarwave> {
-  public:
-  TravellingWave(const CellMaterialData& materialData,
-                 ConfigId config,
-                 const TravellingWaveParameters& travellingWaveParameters);
-
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
-
-  private:
-  Eigen::Vector3d origin_;
 };
 
 class AcousticTravellingWaveITM : public InitialFieldOf<AcousticTravellingWaveITM> {

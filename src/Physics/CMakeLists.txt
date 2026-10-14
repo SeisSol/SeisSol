@@ -7,6 +7,7 @@
 
 add_library(seissol-physics OBJECT
     InstantaneousTimeMirrorManager.cpp
+    Scenario/PlaneWave.cpp
     Scenario/Registry.cpp
     Scenario/Scenarios.cpp
     ScriptField.cpp

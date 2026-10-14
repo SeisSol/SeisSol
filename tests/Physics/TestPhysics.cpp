@@ -9,4 +9,5 @@
 
 #include "InstantaneousTimeMirror.t.h"
 #include "NonlinearDirichlet.t.h"
+#include "PlaneWave.t.h"
 #include "ScriptField.t.h"

@@ -14,6 +14,7 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/MaterialType.h"
 #include "Physics/InitialField.h"
+#include "Physics/Scenario/PlaneWave.h"
 #include "Physics/Scenario/Scenarios.h"
 
 #include <algorithm>
@@ -76,19 +77,6 @@ AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(const Input
   return parameters;
 }
 
-// Fused simulations are offset against each other in phase, so that they do not all carry the
-// same wave.
-template <typename FieldT, typename... Args>
-FieldList perSimulation(const Input& input, const Args&... args) {
-  FieldList fields;
-  const auto numSimulations = configValue(input.config).numSimulations;
-  for (std::size_t sim = 0; sim < numSimulations; ++sim) {
-    const double phase = (2.0 * M_PI * sim) / numSimulations;
-    fields.emplace_back(std::make_unique<FieldT>(args..., phase));
-  }
-  return fields;
-}
-
 template <typename FieldT, typename... Args>
 FieldList single(Args&&... args) {
   FieldList fields;
@@ -121,25 +109,22 @@ constexpr std::array<Entry, 12> Registry = {{
      MaterialRequirement::None,
      "",
      true,
-     [](const Input& input) {
-       return perSimulation<Planarwave>(input, input.materialData, input.config);
-     }},
+     // fused simulations are offset against each other in phase, so that they do not all carry
+     // the same wave
+     [](const Input& input) { return planarwave(input.materialData, input.config); }},
     {InitializationType::SuperimposedPlanarwave,
      "super-imposed planar wave",
      MaterialRequirement::None,
      "",
      true,
-     [](const Input& input) {
-       return perSimulation<SuperimposedPlanarwave>(input, input.materialData, input.config);
-     }},
+     [](const Input& input) { return superimposedPlanarwave(input.materialData, input.config); }},
     {InitializationType::Travelling,
      "travelling wave",
      MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
      [](const Input& input) {
-       return single<TravellingWave>(
-           input.materialData, input.config, travellingWaveParameters(input));
+       return travellingWave(input.materialData, input.config, travellingWaveParameters(input));
      }},
     {InitializationType::AcousticTravellingWithITM,
      "acoustic travelling wave with ITM",

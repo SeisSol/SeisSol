@@ -132,7 +132,27 @@ ScriptField::ScriptField(const std::string& path,
     }
     return;
   }
+  setUp();
+}
 
+ScriptField::ScriptField(const expr::Program& program,
+                         const std::string& name,
+                         std::vector<std::string> quantities,
+                         std::size_t simulation)
+    : impl_(std::make_unique<Impl>()) {
+  impl_->path = name;
+  impl_->quantities = std::move(quantities);
+  impl_->simulation = static_cast<double>(simulation);
+  impl_->threads.resize(std::max<std::size_t>(1, seissol::OpenMP::threadCount()));
+  impl_->program = program;
+  setUp();
+  if (!impl_->error.empty()) {
+    logError() << impl_->error;
+  }
+}
+
+void ScriptField::setUp() {
+  const auto& path = impl_->path;
   const auto& program = *impl_->program;
   if (!program.state().empty()) {
     impl_->error =
