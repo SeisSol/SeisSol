@@ -64,16 +64,18 @@ jobs:
     steps:
       - name: setup
         run: |
+          # h5py for the verification tests, which write their meshes with it (and with numpy, which
+          # TensorForge brings along)
           if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
             # in the Intel image, pip ends without installing the TensorForge of the repository, and
             # Python cannot import one there: take it from a clone instead, for the steps below as
             # well, and its dependencies from pip
-            pip3 install numpy pyyaml
+            pip3 install numpy pyyaml h5py
             git clone https://github.com/seissol/tensorforge.git ${RUNNER_TEMP}/tensorforge
             echo "PYTHONPATH=${RUNNER_TEMP}/tensorforge/src${PYTHONPATH:+:${PYTHONPATH}}" >> ${GITHUB_ENV}
             echo "CMAKE_PREFIX_PATH=${RUNNER_TEMP}/tensorforge/src/tensorforge/share/cmake${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> ${GITHUB_ENV}
           else
-            pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
+            pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git h5py
           fi
 
       - name: checkout

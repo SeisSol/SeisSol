@@ -19,7 +19,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install lcov ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libomp-dev libopenmpi-dev libptscotch-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip libblas-dev liblapack-dev liblapacke-dev
 
-          sudo pip3 install setuptools numpy --break-system-packages
+          # h5py for the verification tests, which write their meshes with it
+          sudo pip3 install setuptools numpy h5py --break-system-packages
           sudo mkdir -p /opt/dependencies
 
       - name: checkout-easi
@@ -58,9 +59,11 @@ jobs:
           export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
           # run w/o netcdf for consistency with the clang-tidy check; the configurations of the CPU
-          # tests (cmake/confignames.cmake), so that the code of every material counts
+          # tests (cmake/confignames.cmake), so that the code of every material counts. The snapshot
+          # references of the verification tests come from another environment, which this one
+          # deviates from by rounding, as the CPU CI (scripts/compile/compile-variants.yaml)
           export CMAKE_PREFIX_PATH=/opt/dependencies
-          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DCMAKE_BUILD_TYPE=Debug -DCONFIGS=ci-cpu -DGRAPH_PARTITIONING_LIBS=ptscotch
+          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DCMAKE_BUILD_TYPE=Debug -DCONFIGS=ci-cpu -DGRAPH_PARTITIONING_LIBS=ptscotch -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9
           ninja
 
       - name: seissol-coverage
