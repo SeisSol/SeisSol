@@ -97,6 +97,7 @@ Generic parameters
 - ``TESTING``: compile unit tests for SeisSol
 - ``TESTING_GENERATED``: compile unit tests for code-generated kernels. Useful for either developing a code generator, or when figuring out why a simulation runs into Inf/NaN or invalid results. Without it, the code generator writes no unit tests either.
 - ``TESTING_PYTHON``: run additional code generator Python unit tests (those can also be run separately using ``pytest`` directly)
+- ``SEISSOL_VERIFICATION_CONFIGS``: the configurations of the executable that the verification cases of the tests (``tests/verification``, end-to-end runs on generated mini meshes) run in: ``all`` of them (default), ``first``, or a list of their names. A case of a configuration is named after it, e.g. ``verification.smoke-box48<elastic-linearck-o6-f64-stroud>``.
 - ``LTO``: enable link-time optimization
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 

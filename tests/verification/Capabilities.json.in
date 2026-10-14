@@ -1,10 +1,12 @@
 {
-  "equations": "@EQUATIONS@",
-  "order": @ORDER@,
-  "precision": "@PRECISION@",
-  "mechanisms": @NUMBER_OF_MECHANISMS@,
-  "fused": @NUMBER_OF_FUSED_SIMULATIONS@,
-  "dr-quad-rule": "@DR_QUAD_RULE@",
+  "configuration": "@SEISSOL_VERIFICATION_CONFIG@",
+  "equations": "@SEISSOL_CAP_MATERIALS@",
+  "solver": "@SEISSOL_CAP_SOLVERS@",
+  "order": @SEISSOL_CAP_ORDERS@,
+  "precision": "@SEISSOL_CAP_PRECISIONS@",
+  "mechanisms": @SEISSOL_CAP_MECHANISMS@,
+  "fused": @SEISSOL_CAP_SIMULATIONS@,
+  "dr-quad-rule": "@SEISSOL_CAP_DRQUADRULES@",
   "mpi": @SEISSOL_CAP_MPI@,
   "openmp": @SEISSOL_CAP_OPENMP@,
   "device-backend": "@SEISSOL_CAP_DEVICE@"

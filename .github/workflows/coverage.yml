@@ -61,9 +61,11 @@ jobs:
           # run w/o netcdf for consistency with the clang-tidy check; the configurations of the CPU
           # tests (cmake/confignames.cmake), so that the code of every material counts. The snapshot
           # references of the verification tests come from another environment, which this one
-          # deviates from by rounding, as the CPU CI (scripts/compile/compile-variants.yaml)
+          # deviates from by rounding, as the CPU CI (scripts/compile/compile-variants.yaml). The
+          # verification cases run in the first configuration only, since in this unoptimized
+          # build, the ones of all configurations would take hours; the CPU CI runs them all
           export CMAKE_PREFIX_PATH=/opt/dependencies
-          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DCMAKE_BUILD_TYPE=Debug -DCONFIGS=ci-cpu -DGRAPH_PARTITIONING_LIBS=ptscotch -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9
+          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DCMAKE_BUILD_TYPE=Debug -DCONFIGS=ci-cpu -DGRAPH_PARTITIONING_LIBS=ptscotch -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9 -DSEISSOL_VERIFICATION_CONFIGS=first
           ninja
 
       - name: seissol-coverage

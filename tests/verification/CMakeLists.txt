@@ -8,10 +8,11 @@
 # ---------------------------------------------------------------------------
 # Verification tests on generated mini meshes.
 #
-# The case list below is the declared matrix. Every build registers all of it
-# and skips what it cannot run, so that a configuration missing from a build
-# shows up as a skip instead of disappearing. The coverage test at the end
-# turns those skips into a statement about what has been covered overall.
+# The case list of Cases.cmake is the declared matrix. Every build registers
+# all of it, for each of its configurations (or those SEISSOL_VERIFICATION_CONFIGS
+# names), and skips what a configuration cannot run, so that a gap shows up as
+# a skip instead of disappearing. The coverage test of a configuration turns
+# those skips into a statement about what has been covered overall.
 # ---------------------------------------------------------------------------
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -31,6 +32,11 @@ set(SEISSOL_MINITEST_TIMEOUT 300 CACHE STRING
 set(SEISSOL_MINITEST_MPIEXEC_FLAGS "" CACHE STRING
     "Extra launcher flags for the verification cases, e.g. --oversubscribe on a \
 machine with fewer cores than the rank counts the cases ask for")
+# A case runs in a configuration of the executable, which the runner chooses with
+# SEISSOL_CONFIGURATION; all of them take long in an unoptimized build (e.g. for the coverage).
+set(SEISSOL_VERIFICATION_CONFIGS "all" CACHE STRING
+    "Configurations to register the verification cases for: all of the build, first, or a list \
+of their names")
 set(SEISSOL_SNAPSHOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/references" CACHE PATH
     "Where the snapshot references live; may point to a separate repository")
 # References are kept for few configurations, so that a deliberate change of
@@ -77,15 +83,6 @@ else()
   set(SEISSOL_CAP_DEVICE "none")
 endif()
 
-set(SEISSOL_BUILD_CONFIGURATION
-    "${EQUATIONS}-m${NUMBER_OF_MECHANISMS}-o${ORDER}-${PRECISION}-s${NUMBER_OF_FUSED_SIMULATIONS}")
-message(STATUS "Verification: build configuration ${SEISSOL_BUILD_CONFIGURATION}")
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/Capabilities.json.in
-    ${CMAKE_CURRENT_BINARY_DIR}/capabilities.json
-    @ONLY
-)
 # not what the build can do, but where it runs; recorded with every snapshot
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Environment.json.in
@@ -238,10 +235,11 @@ function(seissol_add_minitest)
       run
       --name ${MT_NAME}
       --binary $<TARGET_FILE:seissol-bin>
-      --capabilities ${CMAKE_CURRENT_BINARY_DIR}/capabilities.json
+      --seissol-configuration ${SEISSOL_VERIFICATION_CONFIG}
+      --capabilities ${SEISSOL_VERIFICATION_DIR}/capabilities.json
       --case-dir ${CMAKE_CURRENT_SOURCE_DIR}/cases
-      --work-dir ${CMAKE_CURRENT_BINARY_DIR}/work/${MT_NAME}
-      --result ${CMAKE_CURRENT_BINARY_DIR}/results/${MT_NAME}.json
+      --work-dir ${SEISSOL_VERIFICATION_DIR}/work/${MT_NAME}
+      --result ${SEISSOL_VERIFICATION_DIR}/results/${MT_NAME}.json
       --mesh ${SEISSOL_MINIMESH_DIR}/${MT_MESH}.puml.h5
       --mesh-manifest ${SEISSOL_MINIMESH_DIR}/${MT_MESH}.json
       --parameters ${MT_PARAMETERS}
@@ -291,16 +289,16 @@ function(seissol_add_minitest)
     endforeach()
   endif()
 
-  add_test(NAME verification.${MT_NAME}
+  add_test(NAME verification.${MT_NAME}${SEISSOL_VERIFICATION_SUFFIX}
            COMMAND ${Python3_EXECUTABLE}
                    ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py ${arguments})
 
   math(EXPR slots "${MT_RANKS} * ${MT_THREADS}")
-  set_tests_properties(verification.${MT_NAME} PROPERTIES
+  set_tests_properties(verification.${MT_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
       # the runner reports a configuration this build lacks as skipped, so that
       # it is neither a failure nor silently absent
       SKIP_RETURN_CODE 77
-      FIXTURES_SETUP case.${MT_NAME}
+      FIXTURES_SETUP case.${SEISSOL_VERIFICATION_CONFIG}.${MT_NAME}
       FIXTURES_REQUIRED "minimesh.${MT_MESH};verification"
       PROCESSORS ${slots}
       TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
@@ -322,27 +320,27 @@ function(seissol_add_minitest)
   endif()
   if (NOT MT_NO_SNAPSHOT AND NOT MT_EXPECT_ZERO AND NOT MT_EXPECT_FAILURE
       AND MT_RANKS EQUAL 1 AND MT_THREADS EQUAL 1)
-    add_test(NAME verification.snapshot.${MT_NAME}
+    add_test(NAME verification.snapshot.${MT_NAME}${SEISSOL_VERIFICATION_SUFFIX}
              COMMAND ${Python3_EXECUTABLE}
                      ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py snapshot
                      --name ${MT_NAME}
-                     --case-result ${CMAKE_CURRENT_BINARY_DIR}/results/${MT_NAME}.json
-                     --work ${CMAKE_CURRENT_BINARY_DIR}/work/${MT_NAME}
+                     --case-result ${SEISSOL_VERIFICATION_DIR}/results/${MT_NAME}.json
+                     --work ${SEISSOL_VERIFICATION_DIR}/work/${MT_NAME}
                      --reference-dir ${SEISSOL_SNAPSHOT_DIR}
                      --key ${MT_SNAPSHOT_KEY}
-                     --capabilities ${CMAKE_CURRENT_BINARY_DIR}/capabilities.json
+                     --capabilities ${SEISSOL_VERIFICATION_DIR}/capabilities.json
                      --environment ${CMAKE_CURRENT_BINARY_DIR}/environment.json
                      --source-dir ${PROJECT_SOURCE_DIR}
                      --configuration ${SEISSOL_BUILD_CONFIGURATION}
                      ${snapshot_scope}
                      --tolerance-double ${SEISSOL_SNAPSHOT_TOLERANCE_DOUBLE}
                      --tolerance-single ${SEISSOL_SNAPSHOT_TOLERANCE_SINGLE}
-                     --result ${CMAKE_CURRENT_BINARY_DIR}/results/snapshot-${MT_NAME}.json)
+                     --result ${SEISSOL_VERIFICATION_DIR}/results/snapshot-${MT_NAME}.json)
     # with the labels of its case as well, so that a selection by label takes or leaves both
     set(snapshot_labels verification snapshot ${MT_LABELS})
-    set_tests_properties(verification.snapshot.${MT_NAME} PROPERTIES
+    set_tests_properties(verification.snapshot.${MT_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
         SKIP_RETURN_CODE 77
-        FIXTURES_REQUIRED "case.${MT_NAME};verification"
+        FIXTURES_REQUIRED "case.${SEISSOL_VERIFICATION_CONFIG}.${MT_NAME};verification"
         TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
         LABELS "${snapshot_labels}")
     set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
@@ -372,20 +370,25 @@ function(seissol_add_comparison)
     set(CMP_PREFIX output/mini)
   endif()
 
-  add_test(NAME verification.${CMP_NAME}
+  set(directory ${SEISSOL_VERIFICATION_DIR})
+  add_test(NAME verification.${CMP_NAME}${SEISSOL_VERIFICATION_SUFFIX}
            COMMAND ${Python3_EXECUTABLE}
                    ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py compare
                    --name ${CMP_NAME}
-                   --reference ${CMAKE_CURRENT_BINARY_DIR}/work/${CMP_REFERENCE}
-                   --candidate ${CMAKE_CURRENT_BINARY_DIR}/work/${CMP_CANDIDATE}
-                   --reference-result ${CMAKE_CURRENT_BINARY_DIR}/results/${CMP_REFERENCE}.json
-                   --candidate-result ${CMAKE_CURRENT_BINARY_DIR}/results/${CMP_CANDIDATE}.json
-                   --result ${CMAKE_CURRENT_BINARY_DIR}/results/${CMP_NAME}.json
+                   --reference ${directory}/work/${CMP_REFERENCE}
+                   --candidate ${directory}/work/${CMP_CANDIDATE}
+                   --reference-result ${directory}/results/${CMP_REFERENCE}.json
+                   --candidate-result ${directory}/results/${CMP_CANDIDATE}.json
+                   --result ${directory}/results/${CMP_NAME}.json
                    --prefix ${CMP_PREFIX}
                    --tolerance ${CMP_TOLERANCE})
-  set_tests_properties(verification.${CMP_NAME} PROPERTIES
+  set(fixtures
+      case.${SEISSOL_VERIFICATION_CONFIG}.${CMP_REFERENCE}
+      case.${SEISSOL_VERIFICATION_CONFIG}.${CMP_CANDIDATE}
+      verification)
+  set_tests_properties(verification.${CMP_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
       SKIP_RETURN_CODE 77
-      FIXTURES_REQUIRED "case.${CMP_REFERENCE};case.${CMP_CANDIDATE};verification"
+      FIXTURES_REQUIRED "${fixtures}"
       TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
       LABELS "verification;${CMP_LABELS}")
 
@@ -394,188 +397,10 @@ function(seissol_add_comparison)
 endfunction()
 
 # ---------------------------------------------------------------------------
-# Stage 0: does it run at all, and did it compute anything.
-# ---------------------------------------------------------------------------
-
-set(SEISSOL_WAVE_MATERIALS "equations=elastic|anisotropic|viscoelastic|poroelastic|acoustic")
-
-foreach (mesh box48 skew48)
-  seissol_add_minitest(
-      NAME smoke-${mesh}
-      MESH ${mesh}
-      PARAMETERS wave.par
-      STEPS 20
-      REQUIRE ${SEISSOL_WAVE_MATERIALS}
-      ACTIVITY "v1:1e-12"
-      LABELS smoke)
-endforeach()
-
-seissol_add_minitest(
-    NAME smoke-box48-mpi4
-    MESH box48
-    PARAMETERS wave.par
-    STEPS 20
-    RANKS 4
-    REQUIRE ${SEISSOL_WAVE_MATERIALS}
-    ACTIVITY "v1:1e-12"
-    LABELS "smoke;mpi")
-
-seissol_add_minitest(
-    NAME smoke-box48-threads4
-    MESH box48
-    PARAMETERS wave.par
-    STEPS 20
-    THREADS 4
-    REQUIRE ${SEISSOL_WAVE_MATERIALS}
-    ACTIVITY "v1:1e-12"
-    LABELS "smoke;threads")
-
-# plasticity is a runtime switch, so it needs no separate build; its
-# parameters come from the material file
-seissol_add_minitest(
-    NAME smoke-skew48-plasticity
-    MESH skew48
-    PARAMETERS wave.par
-    MATERIAL material-plastic.yaml
-    STEPS 20
-    REQUIRE equations=elastic
-    SET "equations.Plasticity=1"
-    ACTIVITY "v1:1e-12"
-    LABELS "smoke;plasticity")
-
-# without a friction law the fault is welded: NoFault passes the traction of
-# the continuous-contact state through unchanged
-seissol_add_minitest(
-    NAME smoke-fault48
-    MESH fault48
-    PARAMETERS wave.par
-    STEPS 20
-    REQUIRE equations=elastic
-    ACTIVITY "v1:1e-12"
-    LABELS "smoke;dr")
-
-# ---------------------------------------------------------------------------
-# Stage 1: invariants that need no reference data.
-#
-# A zero state without sources has to stay exactly zero. Every linear operator
-# maps zero to zero whatever its sign or rotation, so this does not test the
-# mathematics of a boundary condition; it tests that nothing is injected and
-# that every operator is finite, since 0 * NaN is NaN. That covers
-# uninitialised buffers and halos, material parameters missing in some cell,
-# boundary data that is not zero, and nonlinear updates that act on a state
-# they should leave alone.
-# ---------------------------------------------------------------------------
-
-set(SEISSOL_ZERO_STATE "IniCondition.cICType='Zero'")
-
-foreach (mesh box6 box6-outflow box6-mixed box48 skew48 periodic162 mat48)
-  seissol_add_minitest(
-      NAME null-${mesh}
-      MESH ${mesh}
-      PARAMETERS wave.par
-      STEPS 20
-      SET ${SEISSOL_ZERO_STATE}
-      REQUIRE ${SEISSOL_WAVE_MATERIALS}
-      EXPECT_ZERO
-      LABELS null)
-endforeach()
-
-# halos and the threaded paths are where uninitialised memory hides
-seissol_add_minitest(
-    NAME null-skew48-mpi4
-    MESH skew48
-    PARAMETERS wave.par
-    STEPS 20
-    RANKS 4
-    SET ${SEISSOL_ZERO_STATE}
-    REQUIRE ${SEISSOL_WAVE_MATERIALS}
-    EXPECT_ZERO
-    LABELS "null;mpi")
-
-seissol_add_minitest(
-    NAME null-skew48-threads4
-    MESH skew48
-    PARAMETERS wave.par
-    STEPS 20
-    THREADS 4
-    SET ${SEISSOL_ZERO_STATE}
-    REQUIRE ${SEISSOL_WAVE_MATERIALS}
-    EXPECT_ZERO
-    LABELS "null;threads")
-
-foreach (mesh box6-fsg box6-fsg2)
-  seissol_add_minitest(
-      NAME null-${mesh}
-      MESH ${mesh}
-      PARAMETERS wave.par
-      STEPS 20
-      SET ${SEISSOL_ZERO_STATE}
-      REQUIRE equations=acoustic
-      EXPECT_ZERO
-      LABELS "null;fsg")
-endforeach()
-
-# the initial stress is hydrostatic and below yield, so the plasticity update
-# must leave a zero perturbation untouched
-seissol_add_minitest(
-    NAME null-skew48-plasticity
-    MESH skew48
-    PARAMETERS wave.par
-    MATERIAL material-plastic.yaml
-    STEPS 20
-    SET ${SEISSOL_ZERO_STATE} "equations.Plasticity=1"
-    REQUIRE equations=elastic
-    EXPECT_ZERO
-    LABELS "null;plasticity")
-
-# ---------------------------------------------------------------------------
-# Stage 1: hold runs against each other. The receiver output carries about
-# sixteen digits, so it can support a claim of identity.
-# ---------------------------------------------------------------------------
-
-seissol_add_comparison(
-    NAME bitwise-box48-mpi4
-    REFERENCE smoke-box48
-    CANDIDATE smoke-box48-mpi4
-    TOLERANCE 0
-    LABELS "bitwise;mpi")
-
-seissol_add_comparison(
-    NAME bitwise-box48-threads4
-    REFERENCE smoke-box48
-    CANDIDATE smoke-box48-threads4
-    TOLERANCE 0
-    LABELS "bitwise;threads")
-
-# A welded fault is the absence of a fault: fault48 and box48 are the same
-# mesh apart from the tag on the plane x = 0, and the rupture quadrature is
-# exact for the polynomial degrees involved, so the two runs differ by
-# rounding only. A sign or rotation error in the rupture flux gives a
-# difference of order one; the bound sits between the two regimes and gets
-# tightened once the actual difference has been measured.
-seissol_add_comparison(
-    NAME identity-fault48-nofault
-    REFERENCE smoke-box48
-    CANDIDATE smoke-fault48
-    TOLERANCE 1e-6
-    LABELS "identity;dr")
-
-
-# ---------------------------------------------------------------------------
-# Friction laws.
-#
 # seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [MESH mesh]
 #                     [RANKS n] [EXPECT_FAILURE regex] [EXPECT_ZERO])
 #
-# Every law runs on fault48 from rest, with a nucleation stress that breaks
-# the fault within the run. The activity demand is a slip rate above 1e-6 m/s
-# in either fault direction: ten orders of magnitude above the creep rate the
-# rate-and-state laws start from, and exactly zero for a locked fault.
-#
-# Which easi file a law gets matters beyond its own parameters: SeisSol
-# chooses between the Cartesian and the traction parametrization, and
-# switches the forced rupture time on, by what the file provides. Each law
-# therefore gets a file with exactly its parameters.
+# A case of a friction law on fault48 (see the friction laws in Cases.cmake).
 # ---------------------------------------------------------------------------
 
 function(seissol_add_rupture)
@@ -618,137 +443,61 @@ function(seissol_add_rupture)
       LABELS "dr;${RUP_LABELS}")
 endfunction()
 
-set(SEISSOL_RS
-    "DynamicRupture.RS_f0=0.6"
-    "DynamicRupture.RS_sr0=1e-6"
-    "DynamicRupture.RS_b=0.012"
-    "DynamicRupture.RS_iniSlipRate1=1e-16"
-    "DynamicRupture.RS_iniSlipRate2=0.0")
-set(SEISSOL_RS_FVW
-    "DynamicRupture.RS_f0=0.6"
-    "DynamicRupture.RS_sr0=1e-6"
-    "DynamicRupture.RS_b=0.014"
-    "DynamicRupture.RS_muW=0.2"
-    "DynamicRupture.RS_iniSlipRate1=1e-16"
-    "DynamicRupture.RS_iniSlipRate2=0.0")
-set(SEISSOL_TP
-    "DynamicRupture.thermalPress=1"
-    "DynamicRupture.tp_iniTemp=483.15"
-    "DynamicRupture.tp_iniPressure=0.0"
-    "DynamicRupture.tp_thermalDiffusivity=1.0e-6"
-    "DynamicRupture.tp_heatCapacity=2.7e6"
-    "DynamicRupture.tp_undrainedTPResponse=0.1e6")
-# delays the nucleation stress past the end of the run
-set(SEISSOL_NO_NUCLEATION "DynamicRupture.s_0=1.0")
+# ---------------------------------------------------------------------------
+# The cases of Cases.cmake, for every configuration they are registered for.
+#
+# The tests of a configuration carry its name, as in
+# verification.smoke-box48<elastic-linearck-o6-f64-stroud>, and work in a
+# directory of their own; the runner chooses the configuration of the
+# executable with SEISSOL_CONFIGURATION. The coverage test of a configuration
+# runs after its cases because it cleans up the fixture they require, and fails
+# when a declared case has never been run by any build.
+# ---------------------------------------------------------------------------
 
-seissol_add_rupture(NAME rupture-lsw FL 16 FAULT fault-lsw.yaml)
-# the forced rupture time is a separate branch, taken only if the file
-# provides it; without nucleation it is the only thing breaking the fault
-seissol_add_rupture(NAME rupture-lsw-forced FL 16 FAULT fault-lsw-forced.yaml
-                    SET ${SEISSOL_NO_NUCLEATION})
-seissol_add_rupture(NAME rupture-lsw-bimaterial FL 6 FAULT fault-lsw.yaml
-                    SET "DynamicRupture.pc_vstar=0.1" "DynamicRupture.pc_prakashLength=0.1")
-seissol_add_rupture(NAME rupture-lsw-tpapprox FL 1058 FAULT fault-lsw.yaml)
-# FL=2 is documented as a deprecated spelling of FL=16; its identity with
-# FL=16 is tested directly, so it needs no snapshot of its own
-seissol_add_rupture(NAME rupture-lsw-legacy FL 2 FAULT fault-lsw.yaml NO_SNAPSHOT)
+if (SEISSOL_VERIFICATION_CONFIGS STREQUAL "all")
+  set(verification_configs ${SEISSOL_CONFIG_NAMES})
+elseif (SEISSOL_VERIFICATION_CONFIGS STREQUAL "first")
+  list(GET SEISSOL_CONFIG_NAMES 0 verification_configs)
+else()
+  set(verification_configs ${SEISSOL_VERIFICATION_CONFIGS})
+endif()
+message(STATUS "Verification: cases for ${verification_configs}")
 
-foreach (law aging:3 slip:4 svw:7)
-  string(REPLACE ":" ";" law ${law})
-  list(GET law 0 name)
-  list(GET law 1 number)
-  seissol_add_rupture(NAME rupture-rs-${name} FL ${number} FAULT fault-rs.yaml
-                      SET ${SEISSOL_RS})
-  seissol_add_rupture(NAME rupture-rs-${name}-tp FL ${number} FAULT fault-rs-tp.yaml
-                      SET ${SEISSOL_RS} ${SEISSOL_TP})
+foreach (SEISSOL_VERIFICATION_CONFIG IN LISTS verification_configs)
+  list(FIND SEISSOL_CONFIG_NAMES ${SEISSOL_VERIFICATION_CONFIG} index)
+  if (index LESS 0)
+    message(FATAL_ERROR "SEISSOL_VERIFICATION_CONFIGS: ${SEISSOL_VERIFICATION_CONFIG} is not "
+                        "built; the build holds ${SEISSOL_CONFIG_NAMES}")
+  endif()
+  # what the configuration is, for capabilities.json and the snapshot keys
+  foreach (property MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS DRQUADRULES SIMULATIONS)
+    list(GET SEISSOL_CONFIG_${property} ${index} SEISSOL_CAP_${property})
+  endforeach()
+  set(SEISSOL_BUILD_CONFIGURATION
+      "${SEISSOL_CAP_MATERIALS}-m${SEISSOL_CAP_MECHANISMS}-o${SEISSOL_CAP_ORDERS}-${SEISSOL_CAP_PRECISIONS}-s${SEISSOL_CAP_SIMULATIONS}")
+  set(SEISSOL_VERIFICATION_SUFFIX "<${SEISSOL_VERIFICATION_CONFIG}>")
+  set(SEISSOL_VERIFICATION_DIR ${CMAKE_CURRENT_BINARY_DIR}/${SEISSOL_VERIFICATION_CONFIG})
+  configure_file(
+      ${CMAKE_CURRENT_SOURCE_DIR}/Capabilities.json.in
+      ${SEISSOL_VERIFICATION_DIR}/capabilities.json
+      @ONLY
+  )
+
+  set_property(GLOBAL PROPERTY SEISSOL_DECLARED_CASES "")
+  include(${CMAKE_CURRENT_SOURCE_DIR}/Cases.cmake)
+
+  get_property(declared GLOBAL PROPERTY SEISSOL_DECLARED_CASES)
+  string(REGEX REPLACE ",\n$" "\n" declared "${declared}")
+  file(GENERATE
+       OUTPUT ${SEISSOL_VERIFICATION_DIR}/declared.json
+       CONTENT "{\n  \"cases\": [\n${declared}  ]\n}\n")
+
+  add_test(NAME verification.coverage${SEISSOL_VERIFICATION_SUFFIX}
+           COMMAND ${Python3_EXECUTABLE}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py coverage
+                   --declared ${SEISSOL_VERIFICATION_DIR}/declared.json
+                   --results ${SEISSOL_VERIFICATION_DIR}/results)
+  set_tests_properties(verification.coverage${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+                       FIXTURES_CLEANUP verification
+                       LABELS "verification;coverage")
 endforeach()
-seissol_add_rupture(NAME rupture-rs-fvw FL 103 FAULT fault-rs-fvw.yaml
-                    SET ${SEISSOL_RS_FVW})
-seissol_add_rupture(NAME rupture-rs-fvw-tp FL 103 FAULT fault-rs-fvw-tp.yaml
-                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP})
-
-foreach (law yoffe:33 gaussian:34)
-  string(REPLACE ":" ";" law ${law})
-  list(GET law 0 name)
-  list(GET law 1 number)
-  seissol_add_rupture(NAME rupture-imposed-${name} FL ${number} FAULT fault-imposed.yaml
-                      SET "DynamicRupture.SlipRateOutputType=0")
-endforeach()
-# the delta pulse gets its onset off the step boundaries; see its fault file
-seissol_add_rupture(NAME rupture-imposed-delta FL 35 FAULT fault-imposed-delta.yaml
-                    SET "DynamicRupture.SlipRateOutputType=0")
-
-# disabled on purpose in SeisSol; it has to be refused at initialization
-seissol_add_rupture(NAME rupture-rs-aging-nucleation FL 101 FAULT fault-rs.yaml
-                    SET ${SEISSOL_RS}
-                    EXPECT_FAILURE "friction law 101 currently disabled")
-
-# a prestressed fault below its strength is locked and must not radiate: the
-# initial stress is background, and nothing of it may leak into the wavefield
-seissol_add_rupture(NAME null-faultskew48-lsw FL 16 FAULT fault-lsw.yaml
-                    MESH faultskew48 SET ${SEISSOL_NO_NUCLEATION} EXPECT_ZERO
-                    LABELS null)
-
-# rupture across rank boundaries: fault faces end up in the copy layer
-seissol_add_rupture(NAME rupture-lsw-mpi4 FL 16 FAULT fault-lsw.yaml RANKS 4
-                    LABELS mpi)
-seissol_add_comparison(
-    NAME bitwise-rupture-lsw-mpi4
-    REFERENCE rupture-lsw
-    CANDIDATE rupture-lsw-mpi4
-    TOLERANCE 0
-    LABELS "bitwise;mpi;dr")
-
-# a deprecated spelling of the same law has to give the same run
-seissol_add_comparison(
-    NAME identity-lsw-legacy
-    REFERENCE rupture-lsw
-    CANDIDATE rupture-lsw-legacy
-    TOLERANCE 0
-    LABELS "identity;dr")
-
-# ---------------------------------------------------------------------------
-# Stage 2: the analytical error. A planar wave only satisfies a fully periodic
-# mesh, so this is the mesh the measurement runs on. 256 steps of 2^-14 s let
-# the P wave cross about one wavelength. The thresholds are deliberately
-# unset; see cases/thresholds.json.
-# ---------------------------------------------------------------------------
-
-seissol_add_minitest(
-    NAME convergence-periodic162
-    MESH periodic162
-    PARAMETERS wave.par
-    STEPS 256
-    THRESHOLDS thresholds.json
-    REQUIRE ${SEISSOL_WAVE_MATERIALS}
-    ACTIVITY "v1:1e-12"
-    LABELS convergence)
-
-seissol_add_minitest(
-    NAME convergence-periodicx72
-    MESH periodicx72
-    PARAMETERS wave.par
-    STEPS 256
-    REQUIRE ${SEISSOL_WAVE_MATERIALS}
-    ACTIVITY "v1:1e-12"
-    LABELS convergence)
-
-# ---------------------------------------------------------------------------
-# Coverage. Runs after the cases because it cleans up the fixture they
-# require, and fails when a declared case has never been run by any build.
-# ---------------------------------------------------------------------------
-
-get_property(declared GLOBAL PROPERTY SEISSOL_DECLARED_CASES)
-string(REGEX REPLACE ",\n$" "\n" declared "${declared}")
-file(GENERATE
-     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/declared.json
-     CONTENT "{\n  \"cases\": [\n${declared}  ]\n}\n")
-
-add_test(NAME verification.coverage
-         COMMAND ${Python3_EXECUTABLE}
-                 ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py coverage
-                 --declared ${CMAKE_CURRENT_BINARY_DIR}/declared.json
-                 --results ${CMAKE_CURRENT_BINARY_DIR}/results)
-set_tests_properties(verification.coverage PROPERTIES
-                     FIXTURES_CLEANUP verification
-                     LABELS "verification;coverage")

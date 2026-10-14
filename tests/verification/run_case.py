@@ -12,9 +12,10 @@ A case is a base parameter file plus a few overrides, run on a generated mini
 mesh in its own working directory. This wrapper exists because three things
 cannot be expressed in ``add_test`` alone:
 
-* the build may not contain the configuration a case needs. The case is still
-  registered so that it stays visible, and is reported as skipped rather than
-  as a failure or as nothing at all.
+* a configuration of the executable may not be one the case can run in (a
+  rupture in an acoustic one, say). The case is still registered for it so
+  that it stays visible, and is reported as skipped rather than as a failure
+  or as nothing at all.
 * the parameter file has no include or override mechanism, so the overrides
   have to be applied to a copy of it here.
 * a run that finishes with return code zero has not necessarily computed
@@ -665,9 +666,13 @@ def _command_run(args):
     command += [args.binary, "parameters.par"]
 
     environment = dict(os.environ)
-    # the run computes in the first configuration of the build, the one the case and its snapshot
-    # key describe; a configuration chosen in the environment would compute another one
-    environment.pop("SEISSOL_CONFIGURATION", None)
+    # the run computes in the configuration the case and its snapshot key describe: the one named,
+    # or else the first one of the executable, which a configuration chosen in the environment
+    # would replace
+    if args.seissol_configuration:
+        environment["SEISSOL_CONFIGURATION"] = args.seissol_configuration
+    else:
+        environment.pop("SEISSOL_CONFIGURATION", None)
     environment["OMP_NUM_THREADS"] = str(args.threads)
     environment.setdefault("OMP_PLACES", "cores")
     environment.setdefault("OMP_PROC_BIND", "close")
@@ -1198,6 +1203,10 @@ def main(argv=None):
     run = commands.add_parser("run", help="run a single case")
     run.add_argument("--name", required=True)
     run.add_argument("--binary", required=True)
+    run.add_argument(
+        "--seissol-configuration",
+        help="the configuration of the executable to run, as SEISSOL_CONFIGURATION takes it",
+    )
     run.add_argument("--capabilities", required=True)
     run.add_argument("--case-dir", required=True)
     run.add_argument("--work-dir", required=True)
