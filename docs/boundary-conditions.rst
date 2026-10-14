@@ -214,10 +214,9 @@ evaluated at the face nodes and integrated over the timestep. It is used to meas
 convergence against a known solution rather than to model a physical boundary.
 
 The scenario has to be one that can be evaluated at an arbitrary time, not only at
-:math:`t = 0`. Of the scenarios in :doc:`initial-condition` every analytically given
-one qualifies; a scenario read from a file does not, since it supplies a state at
-:math:`t = 0` alone. A mesh with analytical faces combined with such a scenario is
-rejected at startup.
+:math:`t = 0`. Every analytically given scenario in :doc:`initial-condition` qualifies,
+and so does a script (``cICType = 'script'``), evaluated at the times of the quadrature;
+a script that does not read ``t`` gives the same state at every time.
 
 In device builds with the anelastic solver (viscoelastic and viscoacoustic materials), the
 analytical boundary is not available yet and rejected at startup.
