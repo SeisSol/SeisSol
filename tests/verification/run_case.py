@@ -550,6 +550,14 @@ def check_log(log, timestep):
     return problems
 
 
+def available_cpus():
+    """The number of CPUs this process may run on, or of all of them where that is unknown."""
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count() or 1
+
+
 def record(path, payload):
     if path is None:
         return
@@ -676,6 +684,23 @@ def _command_run(args):
     environment["OMP_NUM_THREADS"] = str(args.threads)
     environment.setdefault("OMP_PLACES", "cores")
     environment.setdefault("OMP_PROC_BIND", "close")
+    # A run of several ranks advances its communication in a thread of its own, on a CPU that no
+    # OpenMP worker of the node holds, and SeisSol does not start without one. Whether one is left
+    # where the ranks and their threads take every CPU there is depends on how the MPI library and
+    # the OpenMP runtime bind them (on the CI's runners of four, only the build with GCC found one),
+    # so there the run polls instead, as the CI's runs of verify.py do; the environment can say
+    # otherwise.
+    cpus = available_cpus()
+    if (
+        args.ranks > 1
+        and cpus <= args.ranks * args.threads
+        and "SEISSOL_COMMTHREAD" not in environment
+    ):
+        environment["SEISSOL_COMMTHREAD"] = "0"
+        print(
+            f"communication by polling: {args.ranks} ranks of {args.threads} threads on "
+            f"{cpus} CPUs leave none for a communication thread"
+        )
     # Mini SeisSol times the ranks of a run on several, for node weights of the partitioning, which
     # the mini meshes do without (PartitioningLib 'none' keeps the cells where they were read); in
     # a build without optimization, as the one measuring the coverage, it takes minutes
