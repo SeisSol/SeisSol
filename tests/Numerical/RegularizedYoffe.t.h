@@ -10,6 +10,7 @@
 #include "Numerical/RegularizedYoffe.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -20,6 +21,11 @@ namespace seissol::unit_test {
 namespace regularizedyoffe {
 
 using seissol::regularizedYoffe::regularizedYoffe;
+
+// (tauS, tauR) in both regimes, tauR > 2 tauS and tauR <= 2 tauS; typed, since NVHPC deduces no
+// initializer list of a pair and braced pairs
+constexpr std::array<std::pair<double, double>, 4> Durations{
+    {{0.157, 0.586}, {0.05, 2.0}, {0.4, 0.5}, {0.3, 0.5}}};
 
 struct Sample {
   double tauS;
@@ -337,13 +343,14 @@ TEST_CASE_TEMPLATE("Regularized Yoffe is continuous across its branches" *
                    float,
                    double) {
   using namespace regularizedyoffe;
-  for (const auto& pair : {std::pair{0.157, 0.586}, {0.05, 2.0}, {0.4, 0.5}, {0.3, 0.5}}) {
-    const auto [tauS, tauR] = pair;
+  for (const auto& [tauS, tauR] : Durations) {
     const double peak = peakOf<RealT>(tauS, tauR);
     const double ratio = tauR / tauS;
     const double tolerance = 8.0 * (1.0 + ratio * ratio) * peak *
                              static_cast<double>(std::numeric_limits<RealT>::epsilon());
-    for (const double breakpoint : {0.0, tauS, 2 * tauS, tauR, tauR + tauS, tauR + 2 * tauS}) {
+    const std::array<double, 6> breakpoints{
+        0.0, tauS, 2 * tauS, tauR, tauR + tauS, tauR + 2 * tauS};
+    for (const double breakpoint : breakpoints) {
       const auto at = static_cast<RealT>(breakpoint);
       const auto below = std::nextafter(at, static_cast<RealT>(-1));
       const auto above = std::nextafter(at, static_cast<RealT>(1e30));
@@ -372,8 +379,7 @@ TEST_CASE_TEMPLATE("Regularized Yoffe has unit integral and compact support" *
                    float,
                    double) {
   using namespace regularizedyoffe;
-  for (const auto& pair : {std::pair{0.157, 0.586}, {0.05, 2.0}, {0.4, 0.5}, {0.3, 0.5}}) {
-    const auto [tauS, tauR] = pair;
+  for (const auto& [tauS, tauR] : Durations) {
     const double support = tauR + 2 * tauS;
     constexpr std::size_t Intervals = 20000;
     const double h = support / Intervals;
@@ -383,8 +389,9 @@ TEST_CASE_TEMPLATE("Regularized Yoffe has unit integral and compact support" *
           static_cast<RealT>(i * h), static_cast<RealT>(tauS), static_cast<RealT>(tauR)));
     }
     CHECK(integral * h == doctest::Approx(1.0).epsilon(1e-3));
-    for (const double outside : {-1.0, -1e-3, support + 1e-3, 10 * support}) {
-      CHECK(regularizedYoffe<RealT>(static_cast<RealT>(outside),
+    const std::array<double, 4> outside{-1.0, -1e-3, support + 1e-3, 10 * support};
+    for (const double time : outside) {
+      CHECK(regularizedYoffe<RealT>(static_cast<RealT>(time),
                                     static_cast<RealT>(tauS),
                                     static_cast<RealT>(tauR)) == static_cast<RealT>(0));
     }
