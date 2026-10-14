@@ -253,10 +253,13 @@ void Plasticity<Cfg>::computePlasticityBatched(
 
   using namespace seissol::recording;
 
-  static_assert(tensor::Q<Cfg>::Shape[0] == tensor::QStressNodal<Cfg>::Shape[0],
-                "modal and nodal dofs must have the same leading dimensions");
-  static_assert(tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg>] == tensor::v<Cfg>::Shape[0],
-                "modal dofs and vandermonde matrix must have the same leading dimensions");
+  // the number of nodes is that of the plasticity point set and need not be the number of basis
+  // functions; buffers and kernels take it from QStressNodal
+  static_assert(tensor::QStressNodal<Cfg>::Shape[multisim::BasisDim<Cfg>] ==
+                    tensor::v<Cfg>::Shape[0],
+                "nodal stresses and Vandermonde matrix must have the same number of nodes");
+  static_assert(tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg>] == tensor::v<Cfg>::Shape[1],
+                "modal dofs and Vandermonde matrix must have the same number of basis functions");
 
   const ConditionalKey key(*KernelNames::Plasticity);
   auto* defaultStream = runtime.stream();

@@ -88,11 +88,12 @@ Generic parameters
 - ``LOG_LEVEL_MASTER``: determines the minimum relevance level of log messages that are printed. Possible values are ``error``, ``warning``, ``info``, and ``debug``.
 - ``ASAGI``: enable or disable ASAGI as input for fault and material information. Note that easi will need to be built with ASAGI support if you select this option.
 - ``COVERAGE``: determine the code coverage (currently only relevant for the CI).
-- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names.
-- ``PLASTICITY_METHOD``: changes the plasticity matrices to be used. Options are
+- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names. ``stroud`` is the conical product rule with (order + 1)² points, exact up to degree 2 · order + 1; ``dunavant`` uses Dunavant's symmetric rules exact up to degree 2 · order, with 6, 12, 16, 25, 33, 42 and 61 points for the orders 2 to 8 (degree 17 for order 8, since the rule of degree 16 has points outside the triangle).
+- ``PLASTICITY_METHOD``: the points at which the plastic correction is computed, and with them the plasticity matrices to be used. Options are
 
-    * ``nb``: nodal basis
-    * ``ib``: interpolating basis
+    * ``sq``: symmetric quadrature (the default), the points of a quadrature rule that integrates the product of two basis functions exactly, is invariant under all permutations of the vertices and has all points inside the cell (4, 14, 24, 46, 79, 128 and 188 points for the orders 2 to 8). Converting back to the basis is the L2 projection with that rule.
+    * ``nb``: nodal basis, the warp & blend nodes of the basis: one point per basis function, some of them on the boundary of the cell. Converting back to the basis interpolates.
+    * ``ip``: interpolation points, the conical-product (Stroud) quadrature rule with (order + 1)^3 points. Converting back to the basis is the L2 projection with that rule.
 - ``PROXY_PYBINDING``: compile Python bindings for the SeisSol proxy
 - ``TESTING``: compile unit tests for SeisSol
 - ``TESTING_GENERATED``: compile unit tests for code-generated kernels. Useful for either developing a code generator, or when figuring out why a simulation runs into Inf/NaN or invalid results. Without it, the code generator writes no unit tests either.

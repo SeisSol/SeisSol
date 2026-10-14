@@ -66,6 +66,19 @@ parameter file that sets ``kVec`` for a planar wave therefore imposes a
 different wave than before. Without ``kVec``, the wave vector is
 :math:`(\pi, \pi, \pi)`, as it always was.
 
+The default plasticity points
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(after 1.3.2, October 2026)
+
+The plastic correction is now computed by default at the points of a fully symmetric quadrature
+rule that lie inside the cell, and projected back onto the basis with that rule
+(``PLASTICITY_METHOD=sq``, see :ref:`build_parameters`), instead of at the nodes of a nodal basis,
+some of which lie on the boundary of the cell (``nb``). Simulations with plasticity therefore give
+different results than before; plasticity parameters given per point (``plasticityPointwise``) are
+read at the new points; and since checkpoints hold the plastic strain at these points, a
+checkpoint written with ``nb`` does not fit a build with ``sq``. Building with
+``-DPLASTICITY_METHOD=nb`` restores the previous behavior.
+
 The fault tag of the elementwise fault output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)
