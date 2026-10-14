@@ -13,7 +13,6 @@
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "Common/Real.h"
-#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
