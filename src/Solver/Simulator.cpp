@@ -155,14 +155,15 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   Modules::callSyncHook(currentTime_, timeTolerance, true);
 
+  // and the writes still under way finish
+  Modules::callHook<ModuleHook::SimulationEnd>();
+
   ioStopwatch.pause();
 
   const double wallTime = simulationStopwatch.pause();
   simulationStopwatch.printTime("Simulation time (total):");
   computeStopwatch.printTime("Simulation time (compute):");
   ioStopwatch.printTime("Simulation time (blocking IO):");
-
-  Modules::callHook<ModuleHook::SimulationEnd>();
 
   const auto& outputParams = seissolInstance.parameters().output;
 
