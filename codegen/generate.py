@@ -59,6 +59,7 @@ def main():
     cmdLineParser.add_argument("--vectorsize", default=0, type=int)
     cmdLineParser.add_argument("--alignment", default=0, type=int)
     cmdLineParser.add_argument("--memLayout")
+    cmdLineParser.add_argument("--damage_points", type=str, choices=["sq3", "sq"])
     cmdLineParser.add_argument("--multipleSimulations", type=int)
     cmdLineParser.add_argument("--PlasticityMethod")
     cmdLineParser.add_argument("--gemm_tools")

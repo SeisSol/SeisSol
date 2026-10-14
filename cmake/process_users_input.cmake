@@ -114,6 +114,10 @@ set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
 set(DR_QUAD_RULE_OPTIONS stroud dunavant)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
+set(DAMAGE_POINTS "sq3" CACHE STRING "Point set the step of a damaged material (EQUATIONS=damage) evaluates the constitutive relation and the sources at inside a cell and projects them back from with the weights of the rule, a fully symmetric quadrature rule with positive weights and every point inside the cell that SeisSol/matrices selects: sq3 (exact for the product of three basis functions, degree 3(ORDER-1), and at least to 2 ORDER+1, so that a source quadratic in the state projects exactly: 59 points at order 4) or sq (exact for the product of two, degree 2(ORDER-1): 24 points at order 4).")
+set(DAMAGE_POINTS_OPTIONS sq3 sq)
+set_property(CACHE DAMAGE_POINTS PROPERTY STRINGS ${DAMAGE_POINTS_OPTIONS})
+
 
 set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
@@ -211,6 +215,7 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
+check_parameter("DAMAGE_POINTS" ${DAMAGE_POINTS} "${DAMAGE_POINTS_OPTIONS}")
 
 string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 

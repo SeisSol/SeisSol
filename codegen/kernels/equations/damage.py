@@ -180,7 +180,7 @@ class DamageADERDG(NonLinearCK):
         node, so the kernel needs no scratch of its own beyond what yateto
         allocates for it. Only alpha and B survive a node, because they march.
         """
-        nodes = self.num3DQuadraturePoints()
+        nodes = self.numNodes()
         nq = self.numQuantities()
 
         # The material is a property of the cell, and a scalar argument is
@@ -703,7 +703,7 @@ class DamageADERDG(NonLinearCK):
         # The expansion of what the cell carries beyond its state, one
         # weighted sum per coefficient. The weights are the projection onto
         # the Legendre basis and constant, so they arrive as literals.
-        modal = self.db.projectQP[self.t("kl")]
+        modal = self.db.projectNodes[self.t("kl")]
         statements += [
             self.sigmaModal["kc"] <= modal * sigma["lc"],
             # The two internal variables ride along, because the moduli a wave
@@ -773,7 +773,7 @@ class DamageADERDG(NonLinearCK):
             (self.transportGroupSlice("waveIntegral"), self.waveIntegral),
             (self.transportGroupSlice("shearIntegral"), self.shearIntegral),
         )
-        projection = self.db.projectQP[self.t("kl")]
+        projection = self.db.projectNodes[self.t("kl")]
         return (
             [
                 self.I["kc"].subslice("c", *stress)
@@ -1002,11 +1002,11 @@ class DamageADERDG(NonLinearCK):
         coupled = (0, self.transportStateExtent())
         stress = self.transportGroupSlice("sigma")
         wave = self.transportGroupSlice("waveIntegral")
-        projection = self.db.projectQP[self.t("kl")]
+        projection = self.db.projectNodes[self.t("kl")]
 
         statements = self.parameterStatements()
         statements += [
-            self.nodalState["lp"] <= self.db.evalAtQP[self.t("lk")] * self.Q["kp"],
+            self.nodalState["lp"] <= self.db.evalAtNodes[self.t("lk")] * self.Q["kp"],
             self.alphaNodal["l"] <= self.nodalState["lp"] * self.pickAlpha["p"],
             self.breakageNodal["l"] <= self.nodalState["lp"] * self.pickBreakage["p"],
         ]

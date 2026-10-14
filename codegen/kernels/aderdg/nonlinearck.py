@@ -32,6 +32,7 @@ from kernels.quantities import (
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from yateto.input import parseJSONMatrixFile
 
 from .aderdg import ADERDGBase
 
@@ -159,6 +160,50 @@ class NonLinearCK(ADERDGBase):
             prefix.append(block)
         return total_extent(prefix)
 
+    #: The point sets the step can evaluate the material at, as the matrix
+    #: files name them; the first one is the default.
+    NodeSets = ("sq3", "sq")
+
+    def configure(self, matricesDir, memLayout, kwargs, extra=()):
+        """Reads the points the step evaluates the material at as well, before
+        the memory layout is resolved over everything.
+
+        They are the points of a quadrature rule, the nodes of :attr:`QNodal`:
+        the step reads the state there, forms what the material makes of it,
+        and projects that back with the weights of the rule. Which rule the
+        build decides (DAMAGE_POINTS); nothing downstream depends on the choice
+        beyond the two matrices that read and project. The initial state and
+        the error norms keep the points of the conical-product rule, which the
+        host computes them at.
+        """
+        nodeSet = kwargs.get("damage_points") or self.NodeSets[0]
+        if nodeSet not in self.NodeSets:
+            raise ValueError(f"no point set {nodeSet} for the step")
+        nodes = parseJSONMatrixFile(
+            f"{matricesDir}/plasticity-{nodeSet}-matrices-{self.order}.json",
+            {"v": ["evalAtNodes"], "vInv": ["projectNodes"]},
+            transpose=self.transpose,
+            alignStride=self.alignStride,
+        )
+        # the two matrices alone: the file carries more, under names the
+        # matrices of the quadrature points have taken already
+        for name in ("evalAtNodes", "projectNodes"):
+            self.db[name] = nodes[name]
+        return super().configure(matricesDir, memLayout, kwargs, extra)
+
+    def nodeMatrix(self, tensor):
+        """The values of a matrix of the nodes, rows and columns as the
+        mathematics has them: a build that bundles simulations stores them the
+        other way round."""
+        values = np.zeros(tensor.shape())
+        for entry, value in tensor.values().items():
+            values[entry] = float(value)
+        return values.T if self.transpose(tensor.name()) else values
+
+    def numNodes(self):
+        """How many nodes :attr:`QNodal` has."""
+        return self.nodeMatrix(self.db.evalAtNodes).shape[0]
+
     def nodalMeanWeights(self):
         """Weights that average a nodal field over the cell.
 
@@ -166,12 +211,7 @@ class NonLinearCK(ADERDGBase):
         it is the quadrature weights, normalised. Reading it off the matrix
         that is there anyway keeps one definition of where the nodes are.
         """
-        projection = self.db.projectQP
-        shape = projection.shape()
-        values = np.zeros(shape)
-        for entry, value in projection.values().items():
-            values[entry] = float(value)
-        row = values[:, 0] if shape[0] == self.num3DQuadraturePoints() else values[0, :]
+        row = self.nodeMatrix(self.db.projectNodes)[0, :]
         return row / row.sum()
 
     def modalMeanWeights(self):
@@ -182,14 +222,7 @@ class NonLinearCK(ADERDGBase):
         For an orthogonal basis only the constant coefficient survives, which
         is the same statement read from the other side.
         """
-        evaluation = self.db.evalAtQP
-        shape = evaluation.shape()
-        values = np.zeros(shape)
-        for entry, value in evaluation.values().items():
-            values[entry] = float(value)
-        if shape[0] != self.num3DQuadraturePoints():
-            values = values.T
-        return self.nodalMeanWeights() @ values
+        return self.nodalMeanWeights() @ self.nodeMatrix(self.db.evalAtNodes)
 
     def transportGroupSlice(self, name):
         """``(start, stop)`` of a transport group along the quantity axis."""
@@ -245,7 +278,7 @@ class NonLinearCK(ADERDGBase):
         self.addStepTensors()
 
         nodalShape = (
-            self.num3DQuadraturePoints(),
+            self.numNodes(),
             self.numQuantities(),
         )
 
@@ -519,7 +552,8 @@ class NonLinearCK(ADERDGBase):
                 expansion = expansion + evaluate[q][i] * self.dQs[i]["kp"]
             statements += [
                 state["kp"] <= expansion,
-                self.nodalState["lp"] <= self.db.evalAtQP[self.t("lk")] * state["kp"],
+                self.nodalState["lp"]
+                <= self.db.evalAtNodes[self.t("lk")] * state["kp"],
             ]
             statements += self.stepStatements(q, weights[q], width)
 
@@ -541,7 +575,7 @@ class NonLinearCK(ADERDGBase):
         without one is the working precision, and a truth value written into
         it is then one type where it is written and another where it is read.
         """
-        shape = (self.num3DQuadraturePoints(),)
+        shape = (self.numNodes(),)
         if columns is not None:
             shape = shape + (columns,)
         return OptionalDimTensor(
@@ -837,12 +871,12 @@ class NonLinearCK(ADERDGBase):
             prefix = generate_kernel_name_prefix(target)
             generator.add(
                 f"{prefix}convertToNodal",
-                self.QNodal["lp"] <= self.db.evalAtQP[self.t("lk")] * self.Q["kp"],
+                self.QNodal["lp"] <= self.db.evalAtNodes[self.t("lk")] * self.Q["kp"],
                 target=target,
             )
             generator.add(
                 f"{prefix}convertToModal",
-                self.Q["kp"] <= self.db.projectQP[self.t("kl")] * self.QNodal["lp"],
+                self.Q["kp"] <= self.db.projectNodes[self.t("kl")] * self.QNodal["lp"],
                 target=target,
             )
             self.addCellIntegral(generator, target, prefix)

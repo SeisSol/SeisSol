@@ -217,6 +217,95 @@ class TestOtherEquationsConstruction:
         assert adg.numQuantities() == 13
 
 
+class TestDamageNodes:
+    """The points the step of a damaged material forms the material response
+    at: the points of a quadrature rule, which the build chooses."""
+
+    def _make(self, points, order=4):
+        from kernels.equations.damage import DamageADERDG
+
+        return DamageADERDG(
+            order=order,
+            multipleSimulations=1,
+            matricesDir=str(MATRICES_DIR),
+            memLayout=_default_memLayout(),
+            damage_points=points,
+        )
+
+    @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
+    @pytest.mark.parametrize("points", ["sq", "sq3"])
+    def test_every_order_has_the_points(self, points, order):
+        f = MATRICES_DIR / f"plasticity-{points}-matrices-{order}.json"
+        assert f.exists(), f"Missing points of the step: {f}"
+
+    @pytest.mark.parametrize(
+        "points, order, count",
+        [
+            ("sq", 2, 4),
+            ("sq", 4, 24),
+            ("sq", 6, 79),
+            ("sq3", 2, 14),
+            ("sq3", 4, 59),
+            ("sq3", 6, 213),
+        ],
+    )
+    def test_nodes_are_the_points_of_the_rule(self, points, order, count):
+        adg = self._make(points, order)
+        assert adg.numNodes() == count
+        assert adg.nodalTensor("probe", 6).shape() == (count, 6)
+
+    @pytest.mark.parametrize("points", ["sq", "sq3"])
+    def test_projection_inverts_the_evaluation(self, points):
+        """Both rules integrate the product of two basis functions exactly, so
+        a field read at the nodes comes back unchanged."""
+        adg = self._make(points)
+        evaluate = adg.nodeMatrix(adg.db.evalAtNodes)
+        project = adg.nodeMatrix(adg.db.projectNodes)
+        assert np.allclose(project @ evaluate, np.eye(evaluate.shape[1]), atol=1e-12)
+
+    @pytest.mark.parametrize("order", [2, 3, 4])
+    def test_a_quadratic_source_projects_exactly(self, order):
+        """The product of two fields read at the nodes of sq3 projects as at
+        the points of the conical-product rule, which is exact to degree
+        2 order + 1 and so for such a product up to order 4. The rule of sq is
+        exact to degree 2(order - 1) and projects it differently."""
+        reference = self._make("sq3", order)
+        evaluate = reference.nodeMatrix(reference.db.evalAtQP)
+        project = reference.nodeMatrix(reference.db.projectQP)
+        u, w = np.random.default_rng(order).standard_normal((2, evaluate.shape[1]))
+        exact = project @ ((evaluate @ u) * (evaluate @ w))
+        error = {}
+        for points in ("sq3", "sq"):
+            adg = self._make(points, order)
+            evaluate = adg.nodeMatrix(adg.db.evalAtNodes)
+            project = adg.nodeMatrix(adg.db.projectNodes)
+            projected = project @ ((evaluate @ u) * (evaluate @ w))
+            error[points] = np.abs(projected - exact).max() / np.abs(exact).max()
+        assert error["sq3"] < 1e-12
+        assert error["sq"] > 1e-6
+
+    @pytest.mark.parametrize("points", ["sq", "sq3"])
+    def test_means(self, points):
+        """The mean of a nodal field weighs every node positively, and the mean
+        of a modal field is its constant coefficient, whichever the rule."""
+        adg = self._make(points)
+        weights = adg.nodalMeanWeights()
+        assert np.all(weights > 0)
+        assert np.isclose(weights.sum(), 1.0)
+        modal = adg.modalMeanWeights()
+        assert np.isclose(modal[0], 1.0)
+        assert np.allclose(modal[1:], 0.0, atol=1e-12)
+
+    @pytest.mark.parametrize("points", ["sq", "sq3"])
+    def test_initial_state_keeps_the_conical_product_points(self, points):
+        """The host computes the initial state at the points of the
+        conical-product rule, so its projection keeps them, whichever points
+        the step uses."""
+        adg = self._make(points)
+        assert adg.num3DQuadraturePoints() in adg.db.projectQP.shape()
+        assert adg.numNodes() not in adg.db.projectQP.shape()
+
+
 class TestRuntimeOperandsCarryNoValues:
     """Operands SeisSol fills in at run time must not carry numbers.
 

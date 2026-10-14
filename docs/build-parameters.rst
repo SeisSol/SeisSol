@@ -44,6 +44,12 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``stp``: the space-time predictor, which treats stiff source terms implicitly. The only choice for ``poroelastic``.
 
 - ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic and viscoacoustic simulations. For all other equations, this parameter is required to be 0.
+- ``DAMAGE_POINTS``: the points the step of a damaged material (``EQUATIONS=damage``) evaluates the constitutive relation at inside a cell, those of a fully symmetric quadrature rule with positive weights and every point inside the cell. Options are
+
+    * ``sq3`` (default): the rule exact for the product of three basis functions, degree ``3(ORDER-1)``, and at least to ``2 ORDER+1``, so that a source quadratic in the state projects exactly
+    * ``sq``: the rule exact for the product of two basis functions, degree ``2(ORDER-1)``, with fewer points
+
+  See :doc:`damage`.
 - ``ORDER``: the expected convergence order. It corresponds to the polynomial degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.
 - ``PRECISION``:
 

@@ -50,6 +50,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--order" ${ORDER}
      "--numMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
+     "--damage_points" ${DAMAGE_POINTS}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}

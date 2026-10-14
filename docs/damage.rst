@@ -190,6 +190,31 @@ constitutive relation and the two sources at each of them, and integrates. The
 time rule includes both endpoints of the step, so the internal variables march
 from the start of the step to its end without a gap.
 
+**In space, the build decides where.** At every time node the step reads the
+state at the points of a quadrature rule of the tetrahedron, evaluates the
+constitutive relation and the two sources there, and projects the result back
+onto the basis with the weights of the rule; the stress of an instant, which
+the fault output and the energy output ask a cell for, is formed the same way.
+Both rules ``DAMAGE_POINTS`` offers are fully symmetric, with positive weights
+and every point inside the cell. ``DAMAGE_POINTS=sq3``, the default, integrates
+the product of three basis functions exactly: degree :math:`3(N-1)` for a
+scheme of order :math:`N`, and at least :math:`2N+1`, with 59 points at order 4
+and 213 at order 6. The source of the damage is of second order in the strain,
+which against a basis function is degree :math:`3(N-1)`, so its quadratic part
+projects exactly. ``DAMAGE_POINTS=sq`` integrates the product of two basis
+functions exactly, degree :math:`2(N-1)`, with 24 and 79 points; it projects
+exactly where the stress is linear in the state -- in the elastic limit -- and
+the mean of the source over the cell, but not its higher modes. Measured at
+order 4 with the plane wave of SeisSol through a periodic cube of :math:`n^3`
+hexahedra cut into six tetrahedra each (two shear waves, the damage growing
+wherever the rock is strained, up to 0.16 within the run), against ``sq3`` at
+:math:`n = 16`: the strains and the velocities at four receivers are as
+accurate with either rule, the damage there two to three times as accurate with
+``sq3`` (1.2 against 2.6 percent at :math:`n = 8`, 0.29 against 0.87 percent at
+:math:`n = 12`). A run with ``sq`` takes two thirds of the time of one with
+``sq3``. The initial state and the error norms are computed at the points of
+the conical-product rule either way.
+
 **A cell hands its neighbors more than its state.** What crosses a face is
 the integrated state, the integrated stress, and two scalars from which the
 dissipation of the numerical flux is scaled. The stress of a cell is a
