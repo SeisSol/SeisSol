@@ -137,6 +137,11 @@ class NodalPointGenerator : public QueryGenerator {
   //! The set the material is sampled at (@c materialNodes ): the points of a quadrature
   //! rule, all of them inside the cell.
   static PointSet materialPoints();
+  //! The material at the points the plastic strain lives on: those points, pulled into the cell
+  //! by InwardPull, since some sets have points on the faces and at the vertices.
+  static PointSet plasticityMaterialPoints();
+  //! Whether two sets are the same points, in the same order.
+  static bool samePoints(const PointSet& first, const PointSet& second);
 
   explicit NodalPointGenerator(const CellToVertexArray& cellToVertex, bool pointwise = true)
       : NodalPointGenerator(cellToVertex, plasticityPoints(), pointwise) {}

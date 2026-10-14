@@ -8,11 +8,11 @@
 #ifndef SEISSOL_TESTS_MODEL_MATERIALSAMPLING_T_H_
 #define SEISSOL_TESTS_MODEL_MATERIALSAMPLING_T_H_
 
-// Where a material varies inside a cell it is carried as samples, and some
-// readers take it from there at points of their own: the points of the plastic
-// strain and of the volume quadrature. Each of those is one matrix that takes
-// the samples straight to the points, folded from the projection to the modal
-// basis and the evaluation at the points.
+// Where a material varies inside a cell it is carried as samples, and the
+// energies, which are integrated over the conical-product quadrature, take it
+// from there: through one matrix that takes the samples straight to the points,
+// folded from the projection to the modal basis and the evaluation at the
+// points.
 
 #include <doctest.h>
 
@@ -29,7 +29,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Material at the points of the plastic strain and of the volume quadrature") {
+TEST_CASE("Material at the points of the volume quadrature") {
   constexpr std::size_t Samples = tensor::materialNodes::Shape[0];
   constexpr double Tolerance = std::is_same_v<real, double> ? 1e-11 : 1e-5;
 
@@ -72,16 +72,6 @@ TEST_CASE("Material at the points of the plastic strain and of the volume quadra
       REQUIRE(value == doctest::Approx(field(coordinates.data())).epsilon(Tolerance));
     }
   };
-
-  SUBCASE("where the plastic strain lives") {
-    constexpr std::size_t Points = tensor::vNodes::Shape[0];
-    static_assert(tensor::materialToPlasticity::Shape[0] == Points);
-    static_assert(tensor::materialToPlasticity::Shape[1] == Samples);
-    const auto plasticity = init::vNodes::view::create(init::vNodes::Values);
-    check(init::materialToPlasticity::view::create(init::materialToPlasticity::Values),
-          Points,
-          [&](std::size_t point) { return pointOf(plasticity, point); });
-  }
 
   SUBCASE("where the energies are integrated") {
     constexpr std::size_t PerDirection = ConvergenceOrder + 1;

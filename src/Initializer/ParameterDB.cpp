@@ -337,6 +337,34 @@ NodalPointGenerator::PointSet NodalPointGenerator::materialPoints() {
   return pointsOf<init::materialNodes>();
 }
 
+NodalPointGenerator::PointSet NodalPointGenerator::plasticityMaterialPoints() {
+  auto points = plasticityPoints();
+  points.point = [nodes = points.point](std::size_t i) {
+    auto point = nodes(i);
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      point[d] = (1 - InwardPull) * point[d] + InwardPull * Cell::ReferenceBarycenter[d];
+    }
+    return point;
+  };
+  return points;
+}
+
+bool NodalPointGenerator::samePoints(const PointSet& first, const PointSet& second) {
+  if (first.count != second.count) {
+    return false;
+  }
+  for (std::size_t i = 0; i < first.count; ++i) {
+    const auto a = first.point(i);
+    const auto b = second.point(i);
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      if (std::abs(a[d] - b[d]) > 1e-10) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 std::size_t NodalPointGenerator::outputPerCell() const { return pointwise_ ? points_.count : 1; }
 
 easi::Query NodalPointGenerator::generate() const {

@@ -111,6 +111,24 @@ TEST_CASE("Material at the points of a face" * doctest::test_suite("initializer"
   }
 }
 
+TEST_CASE("Material at the points of the plastic strain" * doctest::test_suite("initializer")) {
+  using namespace seissol::initializer;
+  const auto points = NodalPointGenerator::plasticityPoints();
+  const auto pulled = NodalPointGenerator::plasticityMaterialPoints();
+  REQUIRE(pulled.count == points.count);
+  CHECK(NodalPointGenerator::samePoints(points, points));
+  for (std::size_t i = 0; i < points.count; ++i) {
+    const auto point = points.point(i);
+    const auto inside = pulled.point(i);
+    // inside the cell, also where the point of the plastic strain lies on its boundary
+    CHECK(1.0 - inside[0] - inside[1] - inside[2] > 0.0);
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      CHECK(inside[d] > 0.0);
+      CHECK(inside[d] == doctest::Approx(point[d]).epsilon(InwardPull).scale(1.0));
+    }
+  }
+}
+
 } // namespace seissol::unit_test
 
 #endif // SEISSOL_TESTS_INITIALIZER_FACESAMPLING_T_H_

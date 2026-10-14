@@ -45,6 +45,7 @@
 #include "Solver/Estimator.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -157,6 +158,17 @@ FaceSamples initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     }
   }
 
+  // The shear modulus the plastic strain is formed with, where the material varies inside a cell:
+  // asked for at the points the plastic strain lives on, unless those are the samples already.
+  const bool plasticityAtSamples = NodalPointGenerator::samePoints(
+      NodalPointGenerator::plasticityPoints(), NodalPointGenerator::materialPoints());
+  std::vector<MaterialT> plasticityMaterialsDB;
+  if (seissolParams.model.plasticity && seissolParams.model.materialNodal && !plasticityAtSamples) {
+    plasticityMaterialsDB = queryDB<MaterialT>(
+        std::make_shared<NodalPointGenerator>(ctv, NodalPointGenerator::plasticityMaterialPoints()),
+        seissolParams.model.materialFileName);
+  }
+
 #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
@@ -166,6 +178,11 @@ FaceSamples initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < nodalMaterialsDB.size(); ++i) {
     nodalMaterialsDB[i].initialize(seissolParams.model);
+  }
+
+#pragma omp parallel for schedule(static)
+  for (size_t i = 0; i < plasticityMaterialsDB.size(); ++i) {
+    plasticityMaterialsDB[i].initialize(seissolParams.model);
   }
 
 #pragma omp parallel for schedule(static)
@@ -282,21 +299,17 @@ FaceSamples initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           std::array<double, NodeCount> muBar{};
           if (nodalMaterialArray == nullptr) {
             muBar.fill(material.local->getMuBar());
+          } else if (plasticityAtSamples) {
+            // the same points in the same order, so as many of them
+            for (std::size_t node = 0; node < std::min<std::size_t>(NodeCount, LTS::MaterialNodes);
+                 ++node) {
+              muBar[node] = nodalMaterialArray[cell][node].getMuBar();
+            }
           } else {
-            // the samples themselves where the material is sampled at the
-            // points of the plastic strain, and what they interpolate there
-            // where it is not
-            static_assert(tensor::materialToPlasticity::Shape[0] == NodeCount);
-            static_assert(tensor::materialToPlasticity::Shape[1] == LTS::MaterialNodes);
-            const auto interpolation =
-                init::materialToPlasticity::view::create(init::materialToPlasticity::Values);
+            const auto* sampled =
+                &plasticityMaterialsDB[static_cast<std::size_t>(meshId) * NodeCount];
             for (std::size_t node = 0; node < NodeCount; ++node) {
-              for (std::size_t sample = 0; sample < LTS::MaterialNodes; ++sample) {
-                if (interpolation.isInRange(node, sample)) {
-                  muBar[node] +=
-                      interpolation(node, sample) * nodalMaterialArray[cell][sample].getMuBar();
-                }
-              }
+              muBar[node] = sampled[node].getMuBar();
             }
           }
 

@@ -356,7 +356,6 @@ def main():
             adg,
             materialPoints,
             include_tensors,
-            cmdLineArgs.PlasticityMethod,
         )
 
         kernels.nodalbc.addKernels(
