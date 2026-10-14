@@ -151,14 +151,15 @@ enum class Target {
  */
 enum class NodalSet {
   //! Hesthaven/Warburton warp&blend points: unisolvent, one point per basis function
-  //! (@c PLASTICITY_METHOD=nb , the default).
+  //! (@c PLASTICITY_METHOD=nb ).
   WarpBlend,
   //! Conical-product (Stroud) quadrature points: over-determined, the nodal-to-modal transform is
   //! the corresponding L2 projection (@c PLASTICITY_METHOD=ip ). 3D only.
   Stroud,
   //! The points of the fully symmetric quadrature rule that is exact for the product of two basis
   //! functions, quadrature::symmetricTetrahedronRule(2 * (order - 1)): the nodal-to-modal
-  //! transform is the corresponding L2 projection (@c PLASTICITY_METHOD=sq ). 3D only.
+  //! transform is the corresponding L2 projection (@c PLASTICITY_METHOD=sq , the default). 3D
+  //! only.
   Symmetric
 };
 
