@@ -621,7 +621,6 @@ def generate(
     material_samples: int = 1,
     operator_points: int = 1,
     curvilinear: bool = False,
-    material_interpolates: bool = False,
     face_permutations=(),
     flux_blocks=(),
     flux_diagonal=None,
@@ -762,16 +761,12 @@ def generate(
         "// how many samples of the material a cell carries. One, where the\n",
         "// material does not vary inside a cell.\n",
         f"inline constexpr std::size_t MaterialSampleCount = {material_samples};\n",
-        "// how many points the operator is formed at; one, where it is one per\n",
-        "// cell\n",
+        "// how many points the operator is formed at: the samples, or one where\n",
+        "// the operator is one per cell\n",
         f"inline constexpr std::size_t OperatorPointCount = {operator_points};\n",
         "// whether a cell may be curved, and carries its metric at those points\n",
         "inline constexpr bool Curvilinear = "
         f"{'true' if curvilinear else 'false'};\n",
-        "// whether the operator is formed at points other than the samples, which\n",
-        "// the samples then interpolate to\n",
-        "inline constexpr bool MaterialInterpolatesToOperator = "
-        f"{'true' if material_interpolates else 'false'};\n",
         "\n",
     ]
 

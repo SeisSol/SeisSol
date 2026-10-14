@@ -64,15 +64,12 @@ def main():
     cmdLineParser.add_argument("--multipleSimulations", type=int)
     cmdLineParser.add_argument("--PlasticityMethod")
     cmdLineParser.add_argument(
-        "--material_points", type=str, choices=list(kernels.material.SETS), default=None
+        "--material_points",
+        type=str,
+        choices=list(kernels.material.SETS),
+        default=kernels.material.SETS[0],
     )
     cmdLineParser.add_argument("--material_nodal", action="store_true", default=False)
-    cmdLineParser.add_argument(
-        "--material_projection",
-        type=str,
-        choices=list(kernels.material.PROJECTIONS),
-        default=kernels.material.PROJECTIONS[0],
-    )
     cmdLineParser.add_argument(
         "--material_operator",
         type=str,
@@ -131,9 +128,7 @@ def main():
 
     arch, host_arch, device_arch = deriveWith(cmdLineArgs.vectorsize)
 
-    # ohne eigene Angabe folgt das Material dem Satz der Plastizitaet, sodass
-    # beide dieselben Punkte sehen und nichts dazwischen interpoliert werden muss
-    materialPoints = cmdLineArgs.material_points or cmdLineArgs.PlasticityMethod
+    materialPoints = cmdLineArgs.material_points
 
     # The simulation index is the leading dimension of every fused tensor, and a
     # leading dimension is padded to the vector size. Padded simulation lanes
@@ -279,10 +274,8 @@ def main():
         # serves them -- the memory layouts depend on it
         cmdArgsDict["targets"] = targets
         cmdArgsDict["old_gpu_interface"] = isOldGpuInterface
-        # the resolved point set, not the raw command line value
         cmdArgsDict["material_points"] = materialPoints
         cmdArgsDict["material_operator"] = cmdLineArgs.material_operator
-        cmdArgsDict["material_projection"] = cmdLineArgs.material_projection
 
         equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
 
@@ -473,8 +466,6 @@ def main():
             material_samples=materialSampleCount,
             operator_points=operatorPointCount,
             curvilinear=adgForTables.curvilinear,
-            material_interpolates=adgForTables.nodalMaterial
-            and getattr(adgForTables, "materialToOperator", None) is not None,
             face_permutations=kernels.material.faceOrientationPermutations(
                 cmdLineArgs.matricesDir, adgForTables
             ),

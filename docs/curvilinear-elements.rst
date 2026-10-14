@@ -56,7 +56,7 @@ On a straight-sided mesh a ``CURVILINEAR`` build computes what the build without
 it computes: a plane wave through a cube gives the same error norms to
 :math:`10^{-12}` and the same energies to :math:`10^{-15}`.
 
-At order 4 a cell carries 9.0 kB of metric at the 125 operator points and 14.4 kB
+At order 4 a cell carries 1.7 kB of metric at the 24 points the operator is formed at and 14.4 kB
 of face rotations at the 10 nodes of each face, against 72 B and 1.4 kB for a
 straight-sided cell.
 
@@ -243,9 +243,8 @@ What is not done
   checked with tensorforge.
 - ``MATERIAL_OPERATOR=factored``, which would fold the metric at every
   application.
-- Memory: the metric could be carried at the material samples and
-  interpolated, as the material is, instead of at the operator points; the face
-  rotation could be built in the kernel from a normal per node.
+- Memory: the face rotation could be built in the kernel from a normal per
+  node.
 
 Checks
 ------

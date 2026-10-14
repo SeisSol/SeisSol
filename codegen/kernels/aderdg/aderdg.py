@@ -408,43 +408,23 @@ class ADERDGBase(ABC):
         points = material.tensors(self._matricesDir, self, kwargs["material_points"])
         self.materialEval = points["materialEval"]
         self.materialProject = points["materialProject"]
-        # the samples a cell carries its coefficients at
+        # The samples are the points of a quadrature rule, so the operator is
+        # formed at them and projected back with the rule's weights: reading a
+        # field there is materialEval, projecting what is formed there back to
+        # the modes is materialProject.
+        self.operatorEval = self.materialEval
+        self.operatorProject = self.materialProject
         samples = self.materialEval.shape()[0]
-        # and the points the operator is formed at, with the matrices that read
-        # a field there and project what is formed back to the modes; where the
-        # two differ, the coefficients are carried to the operator's points
-        # once per kernel
-        (
-            self.operatorEval,
-            self.operatorProject,
-            self.materialToOperator,
-        ) = material.operatorTensors(
-            self._matricesDir,
-            self,
-            kwargs["material_points"],
-            kwargs.get("material_projection", material.PROJECTIONS[0]),
-        )
-        npoints = self.operatorEval.shape()[0]
-        self.operatorNodes = material.operatorNodes(
-            self._matricesDir,
-            self,
-            kwargs["material_points"],
-            kwargs.get("material_projection", material.PROJECTIONS[0]),
+        npoints = samples
+        # the points the host evaluates the metric of a curved cell at
+        self.operatorNodes = Tensor(
+            "operatorNodes",
+            points["materialNodes"].shape(),
+            spp=dict(points["materialNodes"].values()),
+            alignStride=self.alignStride("operatorNodes"),
         )
         if self.curvilinear:
             self._configureCurvilinear(kwargs, npoints)
-        # the same three under their own names in every nodal build, for the
-        # host to read whichever way the kernels form the operator
-        self.operatorExports = (
-            (self.operatorEval, self.operatorProject, self.materialToOperator)
-            if self.materialToOperator is not None
-            else material.operatorExports(
-                self._matricesDir,
-                self,
-                kwargs["material_points"],
-                kwargs.get("material_projection", material.PROJECTIONS[0]),
-            )
-        )
 
         # one structure per coefficient, written into the kernel as before
         perCoefficient = [
@@ -480,9 +460,6 @@ class ADERDGBase(ABC):
         self.nodalCoefficients = [
             Tensor(f"nodalCoefficients({a})", (samples,)) for a in range(count)
         ]
-        self.nodalCoefficientsAtOperator = self.atOperatorPoints(
-            self.nodalCoefficients, "nodalCoefficientsAtOperator"
-        )
         quantities = starSpp.shape[0]
         self.nodalOperatorAssembled = (
             kwargs.get("material_operator", coefficients.OPERATOR_FORMS[0])
@@ -891,28 +868,6 @@ class ADERDGBase(ABC):
             temporary=True,
         )
 
-    def atOperatorPoints(self, samples, name):
-        """The temporaries that hold what `samples` says at the points the
-        operator is formed at, or `samples` itself where those are the sample
-        points."""
-        if self.materialToOperator is None:
-            return samples
-        points = self.operatorEval.shape()[0]
-        return [
-            Tensor(f"{name}({a})", (points,), temporary=True)
-            for a in range(len(samples))
-        ]
-
-    def interpolateToOperator(self, samples, targets):
-        """The statements that carry coefficients from the samples to the
-        points the operator is formed at; none where those coincide."""
-        if self.materialToOperator is None:
-            return []
-        return [
-            target["q"] <= self.materialToOperator["qn"] * sample["n"]
-            for sample, target in zip(samples, targets)
-        ]
-
     def nodalAssembly(self):
         """Folds the Jacobian rows into the structure, once per kernel.
 
@@ -924,15 +879,13 @@ class ADERDGBase(ABC):
         """
         if not self.nodalMaterial:
             return []
-        statements = self.interpolateToOperator(
-            self.nodalCoefficients, self.nodalCoefficientsAtOperator
-        )
+        statements = []
         if self.curvilinear:
             # the metric varies from point to point as the material does, so
             # the two go in together, and only into the assembled form
             for dim in range(3):
                 folded = None
-                for a, coefficient in enumerate(self.nodalCoefficientsAtOperator):
+                for a, coefficient in enumerate(self.nodalCoefficients):
                     term = (
                         coefficient["n"]
                         * self.referenceGradients[dim]["nj"]
@@ -950,7 +903,7 @@ class ADERDGBase(ABC):
         if self.nodalOperatorAssembled:
             for dim in range(3):
                 folded = None
-                for a, coefficient in enumerate(self.nodalCoefficientsAtOperator):
+                for a, coefficient in enumerate(self.nodalCoefficients):
                     term = coefficient["n"] * self.structureFolded[dim][a]["qp"]
                     folded = term if folded is None else folded + term
                 statements.append(self.starAtPoint[dim]["nqp"] <= folded)
@@ -1000,7 +953,7 @@ class ADERDGBase(ABC):
                     coefficient["n"]
                     * values["nq" + spectator]
                     * self.structureFolded[dim][a]["qp"]
-                    for a, coefficient in enumerate(self.nodalCoefficientsAtOperator)
+                    for a, coefficient in enumerate(self.nodalCoefficients)
                 ]
             for term in terms:
                 statements.append(
@@ -1080,16 +1033,7 @@ class ADERDGBase(ABC):
         )
         values = self.definedOnce(values)
         product = self.definedOnce(product)
-        # the coefficients at the operator's points, where those are not the
-        # samples: carried there at every call, since the scalars of a source
-        # term are few against what the term itself costs
-        atOperator = [
-            self.definedOnce(point)
-            for point in self.atOperatorPoints(coefficients, "sourceAtOperator")
-        ]
-        statements = self.interpolateToOperator(coefficients, atOperator)
-        coefficients = atOperator
-        statements += [
+        statements = [
             values[contract + spectator]
             <= self.operatorEval["nk"] * source["k" + contract[1:] + spectator]
         ]
@@ -1361,8 +1305,6 @@ class ADERDGBase(ABC):
         for gradients in self.referenceGradients:
             include_tensors.add(gradients)
         if self.nodalMaterial:
-            for tensor in self.operatorExports:
-                include_tensors.add(tensor)
             # the weak derivative matrices, which no kernel of such a build
             # applies any more; the strong form is checked against them
             for member in self.db.kDivM.values():

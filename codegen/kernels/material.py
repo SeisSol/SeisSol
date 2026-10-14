@@ -9,11 +9,13 @@
 
 Separate from the one the plastic strain lives on, because the two answer
 different questions. The plastic strain wants points to evaluate a yield
-criterion at; the material wants points whose spacing carries the operator.
-A set whose face traces are the two-dimensional nodal set gives the flux its
-samples for free but only integrates a product exactly while the material is
-linear; the conical-product set integrates far beyond that and has no point on
-a face at all.
+criterion at; the material wants points to form the operator at. Both sets a
+build can sample the material at are quadrature rules -- the symmetric rule of
+degree 2N with positive weights and interior points (sq), or the conical
+product of Gauss-Jacobi rules (ip) -- so the operator is formed at the samples
+themselves and projected back with the weights of the rule: the Galerkin
+projection of the product of material and field, exact where the material is
+constant. Neither set has a point on a face.
 """
 
 import numpy as np
@@ -22,8 +24,9 @@ from yateto import Tensor, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from yateto.util import tensor_collection_from_constant_expression
 
-#: The sets a build can choose between, as the matrix files name them.
-SETS = ("nb", "ip")
+#: The sets a build can choose between, as the matrix files name them; the
+#: first one is the default.
+SETS = ("sq", "ip")
 
 
 def _db(matricesDir, pointSet, order, alignStride):
@@ -63,86 +66,6 @@ def tensors(matricesDir, aderdg, pointSet):
     }
 
 
-#: How the operator formed from the samples is projected back to the modes:
-#: at the sample points themselves (the interpolation through them), or at the
-#: points of a quadrature rule with its weights (the Galerkin projection).
-PROJECTIONS = ("quadrature", "collocation")
-
-
-def operatorPointSet(pointSet, projection):
-    """The point set the operator is formed at.
-
-    The conical-product set is a quadrature rule, so projecting from it is the
-    Galerkin projection whichever way it is asked for. The nodal set is not:
-    projecting from it interpolates the product of material and field through
-    the nodes, and for a material that varies inside the cell that product
-    has a degree the nodes cannot hold, so what falls outside aliases onto what
-    they can -- the scheme gains energy it should not. With the quadrature
-    projection the operator is formed at the conical-product points instead,
-    from the material the nodal samples interpolate there.
-    """
-    if projection not in PROJECTIONS:
-        raise ValueError(f"unknown material projection {projection}")
-    return "ip" if projection == "quadrature" else pointSet
-
-
-def operatorTensors(matricesDir, aderdg, pointSet, projection):
-    """The matrices the operator is formed and projected back with, and the
-    interpolation that takes the samples there where the two sets differ.
-
-    Where they coincide these are the sample set's own tensors, so nothing
-    changes for a build that forms the operator where it samples.
-    """
-    operatorSet = operatorPointSet(pointSet, projection)
-    if operatorSet == pointSet:
-        mats = tensors(matricesDir, aderdg, pointSet)
-        return mats["materialEval"], mats["materialProject"], None
-    return operatorExports(matricesDir, aderdg, pointSet, projection)
-
-
-def operatorExports(matricesDir, aderdg, pointSet, projection):
-    """The operator's matrices and the interpolation to its points, under
-    their own names in every build, so that the host can read them whether
-    or not the kernels do: where the operator is formed at the samples, they
-    are copies of the sample set's matrices and the identity."""
-    operatorSet = operatorPointSet(pointSet, projection)
-
-    ops = _db(matricesDir, operatorSet, aderdg.order, aderdg.alignStride)
-    samples = _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride)
-
-    def renamed(name, source):
-        return Tensor(
-            name,
-            source.shape(),
-            spp=dict(source.values()),
-            alignStride=aderdg.alignStride(name),
-        )
-
-    return (
-        renamed("operatorEval", ops.v),
-        renamed("operatorProject", ops.vInv),
-        _interpolation(
-            "materialToOperator", aderdg, samples, ops, operatorSet == pointSet
-        ),
-    )
-
-
-def operatorNodes(matricesDir, aderdg, pointSet, projection):
-    """Where the points the operator is formed at sit, in the reference cell.
-
-    The host reads them where something it carries varies at those points
-    itself: the metric of a curved cell, which is evaluated there and not
-    interpolated from anywhere."""
-    operatorSet = operatorPointSet(pointSet, projection)
-    ops = _db(matricesDir, operatorSet, aderdg.order, aderdg.alignStride)
-    return Tensor(
-        "operatorNodes",
-        ops.vNodes.shape(),
-        spp=dict(ops.vNodes.values()),
-        alignStride=aderdg.alignStride("operatorNodes"),
-    )
-
-
 def _interpolation(name, aderdg, samples, points, same):
     """The values the samples give at the points of another set.
 
@@ -179,9 +102,7 @@ def quadratureInterpolation(matricesDir, aderdg, pointSet):
 
     A quantity integrated over the cell with a material that varies inside it,
     such as an energy, reads the material there: the samples themselves where
-    they are that set, and what they interpolate there where they are not --
-    the same values the operator is formed from when it is formed at those
-    points.
+    they are that set, and what they interpolate there where they are not.
     """
     quadrature = _db(matricesDir, "ip", aderdg.order, aderdg.alignStride)
     samples = _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride)

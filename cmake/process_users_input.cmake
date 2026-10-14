@@ -112,17 +112,14 @@ set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 
-set(MATERIAL_POINTS "" CACHE STRING "Point set the material is sampled at inside a cell: nb (one point per basis function, its face traces are the two-dimensional nodal set) or ip (conical-product quadrature, integrates products far beyond nb but has no point on a face). Empty follows PLASTICITY_METHOD.")
-set(MATERIAL_POINTS_OPTIONS "" nb ip)
+set(MATERIAL_POINTS "sq" CACHE STRING "Point set the material is sampled at inside a cell, and the operator formed at: sq (the fully symmetric quadrature rule of degree 2(ORDER-1) with positive weights and every point inside the cell that SeisSol/matrices selects: 24 points at order 4) or ip (the conical-product rule with (ORDER+1)^3 points: 125 at order 4). Both are quadrature rules, so the operator formed there is projected back with their weights.")
+set(MATERIAL_POINTS_OPTIONS sq ip)
 set_property(CACHE MATERIAL_POINTS PROPERTY STRINGS ${MATERIAL_POINTS_OPTIONS})
 
 set(MATERIAL_OPERATOR "factored" CACHE STRING "Shape a MATERIAL_NODAL build applies the operator in: factored (the coefficients scale the fixed structures at every application) or assembled (they are folded into one operator per sample point beforehand, fewer operations against a larger temporary). Both compute the same thing; which one is faster depends on the kernel and the machine.")
 set(MATERIAL_OPERATOR_OPTIONS factored assembled)
 set_property(CACHE MATERIAL_OPERATOR PROPERTY STRINGS ${MATERIAL_OPERATOR_OPTIONS})
 
-set(MATERIAL_PROJECTION "quadrature" CACHE STRING "How a MATERIAL_NODAL build projects the operator it forms from the samples back to the modes: quadrature (at the points of the conical-product quadrature rule, with its weights, from the material the samples interpolate there: the Galerkin projection) or collocation (at the sample points themselves). For MATERIAL_POINTS=ip the two coincide. With the nodal set, collocation aliases a material that varies inside a cell and is not energy stable.")
-set(MATERIAL_PROJECTION_OPTIONS quadrature collocation)
-set_property(CACHE MATERIAL_PROJECTION PROPERTY STRINGS ${MATERIAL_PROJECTION_OPTIONS})
 
 set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
 set(DR_QUAD_RULE_OPTIONS stroud dunavant)
@@ -225,7 +222,6 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 check_parameter("MATERIAL_POINTS" "${MATERIAL_POINTS}" "${MATERIAL_POINTS_OPTIONS}")
 check_parameter("MATERIAL_OPERATOR" "${MATERIAL_OPERATOR}" "${MATERIAL_OPERATOR_OPTIONS}")
-check_parameter("MATERIAL_PROJECTION" "${MATERIAL_PROJECTION}" "${MATERIAL_PROJECTION_OPTIONS}")
 if (MATERIAL_NODAL AND NOT FACTORED_STAR)
   message(FATAL_ERROR
     "MATERIAL_NODAL=ON needs FACTORED_STAR=ON: what varies inside a cell are the "

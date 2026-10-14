@@ -201,24 +201,17 @@ TEST_CASE("Space time predictor at the material samples" * doctest::test_suite("
       krnl.execute();
 
       // The residual of the system, with the operator assembled where the build
-      // forms it: project a mode onto those points, apply the star and the
-      // deviation of the source there, and project back. The points are the
-      // samples, or the points of a quadrature rule the samples interpolate
-      // to; the star and the source are linear in what a cell carries, so at
-      // such a point they are the interpolation of their values at the samples.
-      constexpr std::size_t OperatorPoints = tensor::operatorEval::Shape[0];
+      // forms it: project a mode onto the samples, apply the star and the
+      // deviation of the source there, and project back with the weights of the
+      // rule the samples are the points of.
       const auto evaluate =
-          denseOf(init::operatorEval::view::create(const_cast<real*>(init::operatorEval::Values)),
-                  OperatorPoints,
+          denseOf(init::materialEval::view::create(const_cast<real*>(init::materialEval::Values)),
+                  Points,
                   Basis);
       const auto project = denseOf(
-          init::operatorProject::view::create(const_cast<real*>(init::operatorProject::Values)),
+          init::materialProject::view::create(const_cast<real*>(init::materialProject::Values)),
           Basis,
-          OperatorPoints);
-      const auto toOperator = denseOf(init::materialToOperator::view::create(
-                                          const_cast<real*>(init::materialToOperator::Values)),
-                                      OperatorPoints,
-                                      Points);
+          Points);
       const auto timeOperator =
           denseOf(init::Z::view::create(const_cast<real*>(init::Z::Values)), Order, Order);
       const auto wHat = init::wHat::Values;
@@ -269,12 +262,9 @@ TEST_CASE("Space time predictor at the material samples" * doctest::test_suite("
                     Basis,
                     Basis);
         const Eigen::MatrixXd atPoints = evaluate * stiffness * field;
-        Eigen::MatrixXd applied = Eigen::MatrixXd::Zero(OperatorPoints, NQ * Order);
-        for (std::size_t point = 0; point < OperatorPoints; ++point) {
-          Eigen::MatrixXd star = Eigen::MatrixXd::Zero(NQ, NQ);
-          for (std::size_t sample = 0; sample < Points; ++sample) {
-            star += toOperator(point, sample) * starOf(sampled[sample], gradients[dim]);
-          }
+        Eigen::MatrixXd applied = Eigen::MatrixXd::Zero(Points, NQ * Order);
+        for (std::size_t point = 0; point < Points; ++point) {
+          const Eigen::MatrixXd star = starOf(sampled[point], gradients[dim]);
           for (std::size_t quantity = 0; quantity < NQ; ++quantity) {
             for (std::size_t step = 0; step < Order; ++step) {
               double value = 0.0;
@@ -292,12 +282,9 @@ TEST_CASE("Space time predictor at the material samples" * doctest::test_suite("
       addDirection(std::integral_constant<std::size_t, 2>{});
       {
         const Eigen::MatrixXd atPoints = evaluate * field;
-        Eigen::MatrixXd applied = Eigen::MatrixXd::Zero(OperatorPoints, NQ * Order);
-        for (std::size_t point = 0; point < OperatorPoints; ++point) {
-          Eigen::MatrixXd deviation = Eigen::MatrixXd::Zero(NQ, NQ);
-          for (std::size_t sample = 0; sample < Points; ++sample) {
-            deviation += toOperator(point, sample) * (sourceOf(sampled[sample]) - cellSource);
-          }
+        Eigen::MatrixXd applied = Eigen::MatrixXd::Zero(Points, NQ * Order);
+        for (std::size_t point = 0; point < Points; ++point) {
+          const Eigen::MatrixXd deviation = sourceOf(sampled[point]) - cellSource;
           for (std::size_t quantity = 0; quantity < NQ; ++quantity) {
             for (std::size_t step = 0; step < Order; ++step) {
               double value = 0.0;

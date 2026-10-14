@@ -55,12 +55,6 @@ else()
   set(CURVILINEAR_PARAM "")
 endif()
 
-if (MATERIAL_POINTS)
-  set(MATERIAL_POINTS_PARAM "--material_points=${MATERIAL_POINTS}")
-else()
-  set(MATERIAL_POINTS_PARAM "")
-endif()
-
 # common arguments between configure and build
 set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
@@ -77,12 +71,11 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
-     ${MATERIAL_POINTS_PARAM}
+     "--material_points" ${MATERIAL_POINTS}
      ${FACTORED_STAR_PARAM}
      ${MATERIAL_NODAL_PARAM}
      ${CURVILINEAR_PARAM}
      "--material_operator" ${MATERIAL_OPERATOR}
-     "--material_projection" ${MATERIAL_PROJECTION}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
