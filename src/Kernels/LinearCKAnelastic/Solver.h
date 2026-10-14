@@ -53,6 +53,11 @@ struct Solver {
           "the nonlinear Dirichlet boundary is evaluated on the host, which a device build "
           "does not do yet");
     }
+    if (faceType == FaceType::Analytical) {
+      // the device kernels of this solver have no flux of a ghost state given at the nodes
+      return faceTypeUnsupported(
+          "the device kernels of the anelastic solver do not apply the analytical boundary yet");
+    }
 #endif
     return faceTypeSupported();
   }

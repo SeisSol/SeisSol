@@ -116,6 +116,9 @@ block:
 The condition is sampled once per face, at the face barycenter, so it may vary from
 face to face but not within one.
 
+In device builds with the anelastic solver (viscoelastic and viscoacoustic materials), the
+offset :math:`b` is not applied yet: a face with a nonzero offset is rejected at startup.
+
 Terms
 ~~~~~
 
@@ -215,6 +218,9 @@ The scenario has to be one that can be evaluated at an arbitrary time, not only 
 one qualifies; a scenario read from a file does not, since it supplies a state at
 :math:`t = 0` alone. A mesh with analytical faces combined with such a scenario is
 rejected at startup.
+
+In device builds with the anelastic solver (viscoelastic and viscoacoustic materials), the
+analytical boundary is not available yet and rejected at startup.
 
 .. _nonlinear_dirichlet:
 
