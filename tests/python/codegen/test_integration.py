@@ -326,10 +326,10 @@ class TestMatrixFileInventory:
         assert f.exists(), f"Missing matrix file for order={order}: {f}"
 
     @pytest.mark.parametrize("order", [2, 3, 4, 5, 6, 7, 8])
-    @pytest.mark.parametrize("method", ["ip", "nb"])
+    @pytest.mark.parametrize("method", ["ip", "nb", "sq"])
     def test_plasticity_matrix_files_exist(self, order, method):
-        """Both plasticity methods (Interior Point, Nodal Basis) need a
-        matrix file for each order.
+        """All plasticity methods (Interpolation Points, Nodal Basis,
+        Symmetric Quadrature) need a matrix file for each order.
         """
         f = MATRICES_DIR / f"plasticity-{method}-matrices-{order}.json"
         assert f.exists(), (
