@@ -7,14 +7,10 @@
 
 #include "Physics/Scenario/ScriptedScenario.h"
 
-#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
-#include "Equations/Datastructures.h"
 #include "Expr/Program.h"
 #include "Expr/SderivFrontend.h"
-#include "Model/ScriptParameters.h"
-#include "Model/StateNames.h"
 #include "Physics/InitialField.h"
 #include "Physics/ScriptField.h"
 
@@ -58,24 +54,6 @@ std::string concat(std::initializer_list<std::string_view> parts) {
     result.append(part);
   }
   return result;
-}
-
-std::vector<std::string> stateNamesOf(ConfigId config) {
-  std::vector<std::string> names;
-  dispatchConfig(config, [&](auto cfg) {
-    using Cfg = decltype(cfg);
-    names = model::stateNames<model::MaterialOf<Cfg>>();
-  });
-  return names;
-}
-
-std::vector<std::string> parameterNamesOf(ConfigId config) {
-  std::vector<std::string> names;
-  dispatchConfig(config, [&](auto cfg) {
-    using Cfg = decltype(cfg);
-    names = model::scriptParameterNames<model::MaterialOf<Cfg>>();
-  });
-  return names;
 }
 
 std::vector<std::unique_ptr<InitialField>> scriptedFields(const std::string& source,

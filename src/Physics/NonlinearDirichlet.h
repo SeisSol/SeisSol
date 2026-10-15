@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_PHYSICS_NONLINEARDIRICHLET_H_
 
 #include "Physics/GhostState.h"
+#include "Physics/ScriptScope.h"
 
 #include <cstddef>
 #include <memory>
@@ -45,10 +46,16 @@ class NonlinearDirichlet {
   /// The condition of the script at `path`, for a material with the quantities `quantities` and the
   /// parameters `parameters`, integrated over a step with `timePoints` points. A script that cannot
   /// be used is a configuration error.
+  ///
+  /// In a run of several configurations, `inputs` are the quantities of all of them, which an
+  /// sderiv module reads as the inner state (expr::SderivOptions::inputs) -- the quantities if
+  /// empty -- and `filter` restricts the program to the configuration at hand (see ScriptScope).
   NonlinearDirichlet(const std::string& path,
                      std::vector<std::string> quantities,
                      std::vector<std::string> parameters,
-                     std::size_t timePoints);
+                     std::size_t timePoints,
+                     const std::vector<std::string>& inputs = {},
+                     const ProgramFilter& filter = {});
 
   /// The condition of a program, which `name` names in messages; from sderiv, it is compiled with
   /// the quantities as its inputs (expr::SderivOptions::inputs). Throws std::invalid_argument for a

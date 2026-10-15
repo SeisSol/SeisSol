@@ -13,6 +13,7 @@
 #include "Initializer/Typedefs.h"
 #include "Model/ScriptParameters.h"
 #include "Parallel/OpenMP.h"
+#include "Physics/ScriptScope.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
@@ -106,7 +107,8 @@ ScriptField::ScriptField(const std::string& path,
                          std::vector<std::string> quantities,
                          std::vector<std::string> parameters,
                          std::size_t simulation,
-                         bool hasTime)
+                         bool hasTime,
+                         const ProgramFilter& filter)
     : impl_(std::make_unique<Impl>()) {
   impl_->path = path;
   impl_->quantities = std::move(quantities);
@@ -126,6 +128,9 @@ ScriptField::ScriptField(const std::string& path,
                   : std::vector<std::string>{"x", "y", "z"});
     }
     return;
+  }
+  if (filter) {
+    impl_->program = filter(*impl_->program);
   }
   setUp();
 }
@@ -177,6 +182,10 @@ void ScriptField::setUp() {
       return;
     }
     impl_->outputQuantity.push_back(static_cast<std::size_t>(found - impl_->quantities.begin()));
+  }
+  if (program.outputs().empty()) {
+    // it gives nothing here -- in a configuration of a run whose material has none of it, say
+    return;
   }
 
   impl_->boundPoints.assign(Capacity, {0, 0, 0});
@@ -285,6 +294,9 @@ void ScriptField::evaluateValues(double time,
                                  : values + (found - impl_->quantities.begin()) * count);
     }
     thread.reader->call(table);
+    return;
+  }
+  if (impl_->outputQuantity.empty()) {
     return;
   }
 

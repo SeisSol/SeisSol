@@ -265,7 +265,9 @@ state by the same names; a quantity it does not give is the one inside. There ar
 appears, also next to the definition of its ghost value: the module is one parallel
 assignment. As with the Dirichlet boundary, ``frame = 1`` states both states in the
 face-aligned basis (the first axis is the outward normal); the default, 0, is global
-coordinates. The frame is the same on every face, so it may read nothing.
+coordinates. The frame is the same on every face, so it may read nothing. In a run of several
+materials, a script gives and reads the quantities of each, and each configuration takes those of
+its material, as the Dirichlet boundary does its terms (see :ref:`several_configurations`).
 
 The condition is evaluated at the nodes of each face, at the times of the quadrature of
 each timestep, with the state inside at that time, and integrated over the timestep,

@@ -11,6 +11,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Physics/InitialField.h"
 #include "Physics/ScriptField.h"
+#include "Physics/ScriptScope.h"
 
 #include <initializer_list>
 #include <memory>
@@ -31,12 +32,8 @@ std::string literal(double value);
 /// `parts` one after the other.
 std::string concat(std::initializer_list<std::string_view> parts);
 
-/// The names of the components of the state of the configuration `config`.
-std::vector<std::string> stateNamesOf(ConfigId config);
-
-/// The names of the parameters of the material of the configuration `config`, as scripts read
-/// them.
-std::vector<std::string> parameterNamesOf(ConfigId config);
+using physics::parameterNamesOf;
+using physics::stateNamesOf;
 
 /// The fields of the sderiv module `source`, which SeisSol wrote for the scenario `name`, in the
 /// configuration `config`: one per fused simulation if `perSimulation` (the module reads `sim`),

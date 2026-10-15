@@ -41,6 +41,7 @@ ITMReflectionType = 1 ! 1 reflects both waves, 2 reflects both waves with consta
 ! the mirror (n; 1/n for the second one); what it does not give stays. The time steps scale as for
 ! ITMReflectionType, whose mirror SeisSol otherwise writes as such a script itself (elastic, and
 ! type 1 anisotropic). E.g. type 1: `out def mu = mu0 * n * n` and `out def lambda = lambda0 * n * n`.
+! In a run of several materials, each configuration takes the parameters of its material.
 
 numflux = 'godunov' ! The numerical flux. Values: 'godunov', 'rusanov'
 numfluxnearfault = 'godunov' ! The numerical flux for faces of cells adjacent to the fault (on cells which have at least one DR face), excluding the DR faces themselves. Values: 'godunov', 'rusanov'

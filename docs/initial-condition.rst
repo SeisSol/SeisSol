@@ -109,7 +109,8 @@ Besides the quantities, a script may give the memory variables of a viscoelastic
 material, one group per relaxation mechanism: ``theta1_xx``, ``theta1_yy``, ..., ``theta1_xz``,
 ``theta2_xx``, ... (``theta1``, ``theta2``, ... for a viscoacoustic one). What it does not give is
 zero. With fused simulations, it is evaluated once for each simulation, which it can tell by
-``sim``.
+``sim``. In a run of several materials, a script gives the quantities of each, and each configuration
+takes those of its material (see :ref:`several_configurations`).
 
 Hard-Coded Initial Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

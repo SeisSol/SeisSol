@@ -8,6 +8,7 @@
 #include "DerivedOutput.h"
 
 #include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Config.h"
@@ -1052,6 +1053,12 @@ class DerivedElementOutput final : public DerivedOutput {
     evaluate(found->second, time);
   }
 
+  /// Whether a program of this configuration can read the channel `name` (see sourcesOf).
+  static bool reads(bool plasticity, bool faces, const std::string& name) {
+    std::vector<SourceLocation> locations;
+    return classify(name, sourcesOf(plasticity, faces, locations)).has_value();
+  }
+
   void copy(std::size_t output,
             double* target,
             std::size_t index,
@@ -1353,7 +1360,10 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
                                                 bool faces)
     : seissolInstance_(seissolInstance),
       derived_(program,
-               sourcesOf(seissolInstance.parameters().model.plasticity, faces, locations_),
+               sourcesOf(seissolInstance.parameters().model.plasticity &&
+                             model::MaterialOf<Cfg>::SupportsPlasticity,
+                         faces,
+                         locations_),
                points),
       names_(outputNames<Cfg>(derived_.program())),
       outputCount_(derived_.program().outputs().size()) {
@@ -1590,6 +1600,16 @@ std::shared_ptr<DerivedOutput> makeDerivedOutput(seissol::SeisSol& seissolInstan
 }
 
 } // namespace
+
+bool derivedOutputReads(ConfigId config, bool faces, bool plasticity, const std::string& name) {
+  bool reads = false;
+  dispatchConfig(config, [&](auto cfg) {
+    using Cfg = decltype(cfg);
+    reads = DerivedElementOutput<Cfg>::reads(
+        plasticity && model::MaterialOf<Cfg>::SupportsPlasticity, faces, name);
+  });
+  return reads;
+}
 
 template <typename Cfg>
 std::shared_ptr<DerivedOutput>

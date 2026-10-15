@@ -12,3 +12,4 @@
 #include "PlaneWave.t.h"
 #include "Scenarios.t.h"
 #include "ScriptField.t.h"
+#include "ScriptScope.t.h"

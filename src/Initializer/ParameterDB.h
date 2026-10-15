@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
@@ -245,7 +246,11 @@ enum class BoundaryFrame { Global, FaceAligned };
 
 class DirichletCondition {
   public:
-  explicit DirichletCondition(const std::string& fileName);
+  /// The condition of the file `fileName`, for the configurations `configs` of a run: in each, a
+  /// script that compiles gives the terms of its material and what reads its parameters, and leaves
+  /// out those of the others (see physics::ScriptScope).
+  explicit DirichletCondition(const std::string& fileName,
+                              const std::vector<ConfigId>& configs = {});
 
   DirichletCondition() = default;
   DirichletCondition(const DirichletCondition&) = delete;
@@ -271,6 +276,8 @@ class DirichletCondition {
   template <typename Cfg>
   std::unique_ptr<Query> makeQuery() const;
 
+  std::string fileName_;
+  std::vector<ConfigId> configs_;
   std::unique_ptr<reader::scripting::DataReader> model_;
   /// The table of the queries of a configuration, bound once: a model binds to the columns of a
   /// table, which a table per face would move every time.

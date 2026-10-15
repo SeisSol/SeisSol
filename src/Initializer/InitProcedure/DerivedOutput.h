@@ -54,6 +54,7 @@
 // checkpoint is loaded, and written to the checkpoints under a name that changes with its layout,
 // so that a restart continues it when the layout is the same and starts it over otherwise.
 
+#include "Common/ConfigRegistry.h"
 #include "Expr/Program.h"
 #include "IO/Instance/Geometry/Refinement.h"
 #include "Numerical/Projection.h"
@@ -378,6 +379,11 @@ class DerivedOutput {
   virtual void
       copy(std::size_t output, double* target, std::size_t index, std::size_t subcell) const = 0;
 };
+
+/// Whether a derived program of the cells of the configuration `config` -- or of the faces of the
+/// free surface, with `faces` -- can read the channel `name`, in a run with or without
+/// `plasticity`.
+bool derivedOutputReads(ConfigId config, bool faces, bool plasticity, const std::string& name);
 
 /// The derived outputs of `program` at the cells `cells` (mesh ids, in the order written) of the
 /// configuration `Cfg`; cells of other configurations are skipped. If none of the cells is of the

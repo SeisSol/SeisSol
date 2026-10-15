@@ -218,6 +218,10 @@ therefore needs a name of its own; one that has the name of a built-in output (`
 of its own, which follows the time steps (see below), so that the built-in outputs are still
 only computed when they are written.
 
+In a run of several materials, an output of the script that reads what the material of a
+configuration does not have (``s_xx`` of a solid in the cells of a fluid, say) is NaN in its cells
+(see :ref:`several_configurations`).
+
 A program without state is evaluated when the output is written. A program with state follows
 every time step of the cells (on the CPU; on a GPU, it is evaluated when written), so that e.g. a
 maximum over time does not miss what happens between two outputs:

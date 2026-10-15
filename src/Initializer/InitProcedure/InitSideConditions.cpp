@@ -29,6 +29,8 @@
 #include "Physics/InitialField.h"
 #include "Physics/Scenario/Registry.h"
 #include "Physics/ScriptField.h"
+#include "Physics/ScriptScope.h"
+#include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 #include "SourceTerm/Manager.h"
@@ -79,8 +81,13 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
                                                     initConditionParams.hasTime);
 
     // The same script, as the field an analytic boundary condition asks for at its points and
-    // times, one per fused simulation.
-    for (const auto config : seissolInstance.parameters().model.configs()) {
+    // times, one per fused simulation; in each configuration, what it can compute there.
+    const auto configs = seissolInstance.parameters().model.configs();
+    const auto scope = physics::fieldScope(configs);
+    if (const auto program = reader::scripting::buildProgram(initConditionParams.filename)) {
+      scope.checkKept(*program, initConditionParams.filename);
+    }
+    for (const auto config : configs) {
       dispatchConfig(config, [&](auto cfg) {
         using Cfg = decltype(cfg);
         std::vector<std::unique_ptr<physics::InitialField>> fields;
@@ -90,7 +97,8 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
               model::stateNames<model::MaterialOf<Cfg>>(),
               model::scriptParameterNames<model::MaterialOf<Cfg>>(),
               sim,
-              initConditionParams.hasTime));
+              initConditionParams.hasTime,
+              scope.filter(config, initConditionParams.filename, sim == 0)));
         }
         memoryManager.setInitialConditions(config, std::move(fields));
       });

@@ -13,6 +13,7 @@
 #include "Expr/Program.h"
 #include "Expr/SderivFrontend.h"
 #include "Physics/GhostState.h"
+#include "Physics/ScriptScope.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/ReaderBuilder.h"
@@ -74,11 +75,14 @@ double constantOf(const expr::Program& program, expr::NodeId root) {
 NonlinearDirichlet::NonlinearDirichlet(const std::string& path,
                                        std::vector<std::string> quantities,
                                        std::vector<std::string> parameters,
-                                       std::size_t timePoints)
+                                       std::size_t timePoints,
+                                       const std::vector<std::string>& inputs,
+                                       const ProgramFilter& filter)
     : name_(path), quantities_(std::move(quantities)), parameters_(std::move(parameters)) {
   // in sderiv, a quantity reads the inner state also next to the definition of its ghost value
   expr::SderivOptions options;
-  options.inputs.insert(quantities_.begin(), quantities_.end());
+  const auto& innerState = inputs.empty() ? quantities_ : inputs;
+  options.inputs.insert(innerState.begin(), innerState.end());
   std::string reason;
   const auto program = reader::scripting::buildProgram(path, &reason, options);
   if (!program.has_value()) {
@@ -89,7 +93,7 @@ NonlinearDirichlet::NonlinearDirichlet(const std::string& path,
     return;
   }
   try {
-    setUp(*program, timePoints);
+    setUp(filter ? filter(*program) : *program, timePoints);
   } catch (const std::invalid_argument& error) {
     logError() << "Nonlinear Dirichlet boundary:" << error.what();
   }

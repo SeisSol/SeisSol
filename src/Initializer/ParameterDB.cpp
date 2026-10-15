@@ -10,6 +10,7 @@
 #include "ParameterDB.h"
 
 #include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Config.h"
@@ -27,6 +28,8 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/ScriptParameters.h"
 #include "Numerical/Quadrature.h"
+#include "Physics/ScriptScope.h"
+#include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/ReaderBuilder.h"
@@ -788,8 +791,9 @@ std::vector<bool> OutputRegions::select(const std::string& name,
   return selected;
 }
 
-DirichletCondition::DirichletCondition(const std::string& fileName)
-    : model_(ParameterDB::loadModel(fileName)) {}
+DirichletCondition::DirichletCondition(const std::string& fileName,
+                                       const std::vector<ConfigId>& configs)
+    : fileName_(fileName), configs_(configs), model_(ParameterDB::loadModel(fileName)) {}
 
 DirichletCondition::DirichletCondition(DirichletCondition&& other) noexcept = default;
 
@@ -797,7 +801,30 @@ DirichletCondition& DirichletCondition::operator=(DirichletCondition&& other) no
 
 DirichletCondition::~DirichletCondition() = default;
 
+namespace {
+
+/// The terms of the Dirichlet condition of the configuration `config`: map_{to}_{from} and
+/// const_{to}, with the quantities of its material.
+std::vector<std::string> dirichletTermsOf(ConfigId config) {
+  const auto quantities = physics::quantityNamesOf(config);
+  std::vector<std::string> terms;
+  for (const auto& to : quantities) {
+    terms.push_back("const_" + to);
+    for (const auto& from : quantities) {
+      std::string term = "map_";
+      term.append(to).append("_").append(from);
+      terms.push_back(std::move(term));
+    }
+  }
+  return terms;
+}
+
+} // namespace
+
 struct DirichletCondition::Query {
+  /// the model of the configuration, if it is not the one of the file: what a script computes
+  /// there
+  std::unique_ptr<reader::scripting::DataReader> model;
   reader::scripting::DataTable table{1};
   std::array<double, 3> barycenter{};
   std::int32_t group{0};
@@ -820,7 +847,21 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
   const auto& varNames = model::MaterialOf<Cfg>::Quantities;
   const auto count = varNames.size();
 
+  // in a run of several materials, a script gives the terms of each, and what reads the parameters
+  // of each: in this configuration, what it computes there
+  const physics::ScriptScope scope(configs_,
+                                   physics::knowsAmong(configs_, physics::parameterNamesOf),
+                                   physics::knowsAmong(configs_, dirichletTermsOf));
   auto query = std::make_unique<Query>();
+  if (const auto* compiled = dynamic_cast<const reader::scripting::CompiledReader*>(model_.get())) {
+    auto restricted = scope.restrict(compiled->program(), configIdOf<Cfg>(), fileName_);
+    if (restricted.outputs().size() != compiled->program().outputs().size()) {
+      query->model =
+          std::make_unique<reader::scripting::CompiledReader>(std::move(restricted), nullptr);
+    }
+  }
+  auto& model = query->model != nullptr ? *query->model : *model_;
+
   // Default: extrapolate
   query->map.assign(count * count, 0.0);
   for (std::size_t i = 0; i < count; ++i) {
@@ -840,7 +881,7 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
   // the parameters of the material the model reads
   const auto parameterNames = model::scriptParameterNames<model::MaterialOf<Cfg>>();
   query->parameters.assign(parameterNames.size(), 0.0);
-  for (const auto& input : model_->inputVars()) {
+  for (const auto& input : model.inputVars()) {
     if (input == "x" || input == "y" || input == "z" || input == "group" || input == "sim") {
       continue;
     }
@@ -855,7 +896,7 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
         input, reader::scripting::Direction::In, query->parameters.data() + parameter.value_or(0));
   }
 
-  const auto supplied = suppliedParameters(*model_);
+  const auto supplied = suppliedParameters(model);
   std::unordered_set<std::string> known;
 
   known.insert("frame");
@@ -883,7 +924,8 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
   }
 
   for (const auto& termName : supplied) {
-    if (known.count(termName) == 0) {
+    // a term of the material of another configuration of the run is that one's
+    if (known.count(termName) == 0 && scope.keepsOutput(configIdOf<Cfg>(), termName)) {
       std::ostringstream valid;
       for (std::size_t i = 0; i < count; ++i) {
         valid << (i == 0 ? "" : ", ") << varNames[i];
@@ -918,7 +960,8 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   query->group = group;
   std::copy_n(parameters, query->parameters.size(), query->parameters.data());
 
-  evaluateSafe(*model_, query->table, "Dirichlet BC data");
+  evaluateSafe(
+      query->model != nullptr ? *query->model : *model_, query->table, "Dirichlet BC data");
 
   if (query->frame != 0.0 && query->frame != 1.0) {
     logError() << "The boundary condition file supplies a frame of" << query->frame

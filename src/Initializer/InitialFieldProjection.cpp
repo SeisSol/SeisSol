@@ -30,6 +30,7 @@
 #include "Model/StateNames.h"
 #include "Numerical/Quadrature.h"
 #include "Physics/InitialField.h"
+#include "Physics/ScriptScope.h"
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
@@ -221,13 +222,16 @@ std::vector<double> projectScriptFields(const std::string& path,
   const auto inVars = needsTime ? std::vector<std::string>{"t", "x", "y", "z"}
                                 : std::vector<std::string>{"x", "y", "z"};
 
-  // a script that compiles runs compiled; easi, and Lua that does not trace, interpreted
+  // a script that compiles runs compiled, with what it computes in this configuration of the run;
+  // easi, and Lua that does not trace, interpreted
   std::unique_ptr<reader::scripting::DataReader> reader;
   if (auto program = reader::scripting::buildProgram(path)) {
     reader::scripting::CompiledReaderOptions options;
     options.backend.preferred = expr::BackendKind::RtcCpu;
-    reader =
-        std::make_unique<reader::scripting::CompiledReader>(std::move(*program), nullptr, options);
+    reader = std::make_unique<reader::scripting::CompiledReader>(
+        physics::fieldScope(storage.configs()).restrict(*program, configIdOf<Cfg>(), path, false),
+        nullptr,
+        options);
   } else {
     reader = reader::scripting::buildReader(path, inVars);
   }

@@ -15,6 +15,7 @@
 #include "Equations/Energy.h" // IWYU pragma: keep
 #include "Equations/EnergyBase.h"
 #include "Expr/RtcGpuDriver.h"
+#include "Expr/SderivFrontend.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/DerivedOutput.h"
@@ -46,9 +47,12 @@
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "Physics/NonlinearDirichlet.h"
+#include "Physics/ScriptScope.h"
+#include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 #include "Solver/Estimator.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -314,8 +318,28 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
     }
   }
 
+  // the script serves the configurations of all materials of the run: it reads the inner state by
+  // the quantities of any of them, and gives in each what it computes there
   const auto& fileName = seissolParams.model.nonlinearDirichletFileName;
-  for (const auto config : seissolParams.model.configs()) {
+  const auto configs = seissolParams.model.configs();
+  const auto scope = physics::ghostStateScope(configs);
+  std::vector<std::string> innerState;
+  for (const auto config : configs) {
+    for (const auto& name : physics::quantityNamesOf(config)) {
+      if (std::find(innerState.begin(), innerState.end(), name) == innerState.end()) {
+        innerState.push_back(name);
+      }
+    }
+  }
+  if (std::any_of(present.begin(), present.end(), [](bool face) { return face; }) &&
+      !fileName.empty()) {
+    expr::SderivOptions options;
+    options.inputs.insert(innerState.begin(), innerState.end());
+    if (const auto program = reader::scripting::buildProgram(fileName, nullptr, options)) {
+      scope.checkKept(*program, fileName);
+    }
+  }
+  for (const auto config : configs) {
     if (!present[config]) {
       continue;
     }
@@ -336,7 +360,9 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
               fileName,
               std::vector<std::string>(quantities.begin(), quantities.end()),
               model::scriptParameterNames<model::MaterialOf<Cfg>>(),
-              Cfg::ConvergenceOrder));
+              Cfg::ConvergenceOrder,
+              innerState,
+              scope.filter(config, fileName)));
     });
   }
 }
@@ -350,7 +376,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
   std::optional<DirichletCondition> dirichletCondition;
   if (seissolParams.model.hasBoundaryFile) {
-    dirichletCondition = DirichletCondition(seissolParams.model.boundaryFileName);
+    dirichletCondition =
+        DirichletCondition(seissolParams.model.boundaryFileName, seissolParams.model.configs());
   }
 
   // the boundary mappings carry the Dirichlet map, which the flux solvers absorb

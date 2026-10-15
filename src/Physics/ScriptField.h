@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_PHYSICS_SCRIPTFIELD_H_
 
 #include "Physics/InitialField.h"
+#include "Physics/ScriptScope.h"
 
 #include <algorithm>
 #include <array>
@@ -48,11 +49,14 @@ class ScriptField : public InitialFieldOf<ScriptField> {
   /// only is fine with that (it may read the mesh group, for one).
   ///
   /// `hasTime` says whether an easi script reads the time, as for the initial condition.
+  /// `filter`, if given, transforms the program of a script that compiles before it is used (in a
+  /// run of several configurations, it restricts it to one of them; see ScriptScope).
   ScriptField(const std::string& path,
               std::vector<std::string> quantities,
               std::vector<std::string> parameters,
               std::size_t simulation,
-              bool hasTime);
+              bool hasTime,
+              const ProgramFilter& filter = {});
 
   /// The field of a program that SeisSol makes itself, which `name` names in messages. A program
   /// that reads anything else, keeps state, or gives what is no quantity is an error here.

@@ -22,8 +22,8 @@
 #include "Model/MaterialType.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Physics/ScriptScope.h"
 #include "Reader/Scripting/CompiledReader.h"
-#include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 
 #include <array>
@@ -112,11 +112,33 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   const auto& path = itmParameters.itmMaterialScript;
 
   // the script of each configuration of the run, checked now: the material script, else the one
-  // SeisSol writes for the reflection type
+  // SeisSol writes for the reflection type. A material script serves the materials of all
+  // configurations: in each, it gives the parameters of its material, from those before the
+  // mirror, and leaves out what reads those of another one.
   scripts_.clear();
   scripts_.resize(builtConfigCount());
   scriptNames_.assign(builtConfigCount(), path);
-  for (const auto config : ltsStorage.configs()) {
+  const auto configs = ltsStorage.configs();
+  const ScriptScope scope(configs,
+                          knowsAmong(configs,
+                                     [](ConfigId config) {
+                                       auto names = parameterNamesOf(config);
+                                       for (auto& name : names) {
+                                         name += "0";
+                                       }
+                                       return names;
+                                     }),
+                          knowsAmong(configs, [](ConfigId config) {
+                            std::vector<std::string> names;
+                            dispatchConfig(config, [&](auto cfg) {
+                              for (const auto& parameter :
+                                   model::MaterialOf<decltype(cfg)>::ParameterList) {
+                                names.push_back(parameter.first);
+                              }
+                            });
+                            return names;
+                          }));
+  for (const auto config : configs) {
     dispatchConfig(config, [&](auto cfg) {
       using MaterialT = model::MaterialOf<decltype(cfg)>;
       if (path.empty()) {
@@ -134,7 +156,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
         scripts_[config] = std::make_unique<reader::scripting::CompiledReader>(
             expr::compileSderivModule(*source), nullptr);
       } else {
-        scripts_[config] = reader::scripting::buildReader(path, {"x", "y", "z"});
+        scripts_[config] = scope.reader(path, {"x", "y", "z"}, config);
       }
       checkMirrorScript<MaterialT>(*scripts_[config], scriptNames_[config]);
     });

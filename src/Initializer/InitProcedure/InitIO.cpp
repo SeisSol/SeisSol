@@ -37,6 +37,7 @@
 #include "Model/ScriptParameters.h"
 #include "Numerical/Projection.h"
 #include "Parallel/MPI.h"
+#include "Physics/ScriptScope.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -296,6 +297,18 @@ void collectDerived(NamedOutputs& outputs,
   derived.push_back(std::move(output));
 }
 
+/// The scope of a derived program of the cells -- or of the faces of the free surface, with
+/// `faces` -- of the configurations `configs` of the run: in each, it reads what that configuration
+/// has, and gives any name.
+physics::ScriptScope
+    derivedScope(const std::vector<ConfigId>& configs, bool faces, bool plasticity) {
+  return {configs,
+          [faces, plasticity](ConfigId config, const std::string& name) {
+            return initializer::derivedOutputReads(config, faces, plasticity, name);
+          },
+          [](ConfigId /*config*/, const std::string& /*name*/) { return true; }};
+}
+
 /// The programs of an output: its built-in outputs `builtIn` and those of its configured program
 /// `script` (from `path`) as one program, so that what both read is read once -- unless the
 /// script keeps state, which it updates after every time step: then two programs, so that the
@@ -305,7 +318,7 @@ std::vector<expr::Program> programsOf(expr::Program builtIn,
                                       const expr::Program* script,
                                       const std::string& path,
                                       const char* output) {
-  if (script == nullptr) {
+  if (script == nullptr || (script->outputs().empty() && script->state().empty())) {
     return {std::move(builtIn)};
   }
   try {
@@ -365,15 +378,22 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
   selection.integrationMask = parameters.integrationMask;
   selection.strain = parameters.computeStrain;
   selection.rotation = parameters.computeRotation;
-  if (seissolParams.model.plasticity) {
+  // a material without the stresses of a solid has no plastic strain
+  if (seissolParams.model.plasticity && MaterialT::SupportsPlasticity) {
     selection.plasticQuantities.assign(seissol::model::PlasticityData<Cfg>::Quantities.begin(),
                                        seissol::model::PlasticityData<Cfg>::Quantities.end());
     selection.plasticityMask.assign(parameters.plasticityMask.begin(),
                                     parameters.plasticityMask.end());
   }
 
+  // the configured program, with what it computes in this configuration of the run
+  std::optional<expr::Program> script;
+  if (setup.script != nullptr) {
+    script = derivedScope(seissolParams.model.configs(), false, seissolParams.model.plasticity)
+                 .restrict(*setup.script, configIdOf<Cfg>(), parameters.script);
+  }
   const auto programs = programsOf(initializer::waveFieldProgram(selection),
-                                   setup.script.get(),
+                                   script.has_value() ? &*script : nullptr,
                                    parameters.script,
                                    "wave field");
 
@@ -562,6 +582,8 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance,
   if (!parameters.script.empty()) {
     setup.script =
         std::make_shared<const expr::Program>(initializer::loadDerivedProgram(parameters.script));
+    derivedScope(configs, false, seissolParams.model.plasticity)
+        .checkKept(*setup.script, parameters.script);
   }
 
   std::vector<std::shared_ptr<initializer::DerivedOutput>> derived;
@@ -609,11 +631,18 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance,
   geometry.target = setup.projectionTarget;
   geometry.nodalSet = plasticityNodalSet<Cfg>();
 
+  // the configured program, with what it computes in this configuration of the run
+  const auto& model = seissolInstance.parameters().model;
+  std::optional<expr::Program> script;
+  if (setup.script != nullptr) {
+    script = derivedScope(model.configs(), true, model.plasticity)
+                 .restrict(*setup.script, configIdOf<Cfg>(), parameters.script);
+  }
   const auto programs =
       programsOf(initializer::surfaceProgram(std::vector<std::string>(MaterialT::Quantities.begin(),
                                                                       MaterialT::Quantities.end()),
                                              parameters.outputMask),
-                 setup.script.get(),
+                 script.has_value() ? &*script : nullptr,
                  parameters.script,
                  "free surface");
 
@@ -769,6 +798,8 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance,
   if (!parameters.script.empty()) {
     setup.script =
         std::make_shared<const expr::Program>(initializer::loadDerivedProgram(parameters.script));
+    derivedScope(configs, true, seissolParams.model.plasticity)
+        .checkKept(*setup.script, parameters.script);
   }
 
   std::vector<std::shared_ptr<initializer::DerivedOutput>> derived;
