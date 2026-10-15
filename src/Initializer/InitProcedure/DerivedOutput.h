@@ -21,6 +21,8 @@
 //   int_<q>, int_<q>_rk, d*_int_<q>
 //                       the same for the time integral of q
 //   <p>, <p>_rk, d*_<p> the plastic strain quantity p, e.g. ep_xx (with plasticity)
+//   <m>                 the parameter m of the material of the cell (model::scriptParameterNames),
+//                       e.g. rho or Qp; one value per cell, without derivatives
 //   u1, u2, u3          the displacement of a free surface face (surface output only)
 //   jinv<k><d>          d xi_k / d x_d, the inverse Jacobian of the cell
 //   x, y, z             the output point
@@ -85,7 +87,9 @@ enum class Representation : std::uint8_t {
   /// Point values at the nodal set of the volume (the plastic strain).
   Nodal,
   /// Point values at the nodes of the face basis (the displacement of a free surface face).
-  FaceNodal
+  FaceNodal,
+  /// One value per cell, the same at all of its points (a parameter of the material of the cell).
+  Constant
 };
 
 /// A quantity a derived program can read.

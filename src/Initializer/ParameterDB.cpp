@@ -25,6 +25,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/PUMLReader.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/ScriptParameters.h"
 #include "Numerical/Quadrature.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
@@ -733,7 +734,8 @@ std::vector<bool> OutputRegions::select(const std::string& name,
                                         std::size_t count,
                                         std::size_t corners,
                                         const CornerFunction& corner,
-                                        const GroupFunction& group) const {
+                                        const GroupFunction& group,
+                                        const Parameters& parameters) const {
   std::vector<bool> selected(count, true);
   if (!restricts(name) || count == 0) {
     return selected;
@@ -756,6 +758,25 @@ std::vector<bool> OutputRegions::select(const std::string& name,
           out[i] = group((first + i) / corners);
         }
       });
+  // the parameters of the material the model reads, the same at all corners of an item
+  for (const auto& input : model->inputVars()) {
+    if (input == "x" || input == "y" || input == "z" || input == "group") {
+      continue;
+    }
+    if (!model::parameterIndexOf(parameters.names, input).has_value()) {
+      logError() << "The output region file" << fileName_ << "reads" << input
+                 << ", which a region does not have; it reads x, y, z, group and the parameters "
+                    "of the materials:"
+                 << model::parameterList(parameters.names);
+    }
+    const auto itemValues = std::make_shared<std::vector<double>>(parameters.values(input));
+    table.bindComputedBatch<double>(
+        input, [itemValues, corners](std::size_t first, std::size_t pointCount, double* out) {
+          for (std::size_t i = 0; i < pointCount; ++i) {
+            out[i] = (*itemValues)[(first + i) / corners];
+          }
+        });
+  }
   table.bindView(name, reader::scripting::Direction::Out, values.data());
   evaluateSafe(*model, table, "the output region " + name);
 

@@ -65,10 +65,10 @@ Region
 ------
 
 The faces written may be restricted to a region given by a script or an easi file, which gives
-``surface`` as a function of the position ``x``, ``y``, ``z`` and of the ``group`` of the cell: a
-face is written if it is positive at one of its vertices. The file is named by
-``OutputRegionFileName`` and may give the region of the wavefield output as well, see
-:ref:`output_region_file`.
+``surface`` as a function of the position ``x``, ``y``, ``z``, of the ``group`` of the cell and of
+the parameters of its material: a face is written if it is positive at one of its vertices. The
+file is named by ``OutputRegionFileName`` and may give the region of the wavefield output as well,
+see :ref:`output_region_file`.
 
 .. code-block:: text
 
@@ -81,11 +81,11 @@ Derived outputs
 ``surfacescript`` names a program whose outputs are written along with the free surface, at the
 same points; it is written like the one of the wavefield output (see :ref:`derived_outputs`). On a
 face, a program reads the quantities of the cell the face belongs to, with their derivatives, and
-in addition the displacement of the face, ``u1``, ``u2``, ``u3`` (without derivatives); ``x``,
-``y``, ``z`` are the output points on the face. The built-in outputs are computed the same way.
-The state of a program lives with the faces and is written to the checkpoints, as for the
-wavefield; ``surfacevtkorder``, ``surfaceoutputrefinement`` and ``surfaceprojection`` decide its
-layout.
+the parameters of its material, and in addition the displacement of the face, ``u1``, ``u2``,
+``u3`` (without derivatives); ``x``, ``y``, ``z`` are the output points on the face. The built-in
+outputs are computed the same way. The state of a program lives with the faces and is written to
+the checkpoints, as for the wavefield; ``surfacevtkorder``, ``surfaceoutputrefinement`` and
+``surfaceprojection`` decide its layout.
 
 .. code-block:: text
 

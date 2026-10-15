@@ -25,6 +25,7 @@
 #include "IO/Instance/Geometry/Refinement.h"
 #include "Initializer/InitProcedure/DerivedOutput.h"
 #include "Memory/MemoryAllocator.h"
+#include "Model/ScriptParameters.h"
 #include "Numerical/Projection.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
@@ -61,12 +62,16 @@ constexpr std::size_t QuantityStride =
     tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
 constexpr std::size_t CellStride = tensor::Q<Cfg>::size();
 constexpr std::size_t Simulations = Cfg::NumSimulations;
+// the parameters of the material of a cell, as scripts read them
+constexpr std::size_t ParameterCount = model::ScriptParameterCount<MaterialT>;
 
 /// Cells with random coefficients, their time integrals, and a random straight-sided shape each.
 struct Cells {
   std::size_t count{0};
   std::vector<RealT> dofs;
   std::vector<RealT> integrals;
+  // ParameterCount per cell
+  std::vector<RealT> parameters;
   std::vector<double> jacobians; // 9 per cell, row-major d xi_k / d x_d
   std::vector<seissol::geometry::AffineTransform> shapes;
   // 12 per cell: the origin, then the images of the reference unit vectors less the origin
@@ -82,6 +87,10 @@ struct Cells {
     }
     for (auto& entry : integrals) {
       entry = static_cast<RealT>(value(rng));
+    }
+    parameters.resize(count * ParameterCount);
+    for (auto& entry : parameters) {
+      entry = static_cast<RealT>(2.0 + value(rng));
     }
     const auto barycenter =
         seissol::geometry::CellTransform::VectorEigenT(Cell::ReferenceBarycenter.data());
@@ -131,6 +140,14 @@ inline std::vector<DerivedSource> sources() {
     result.push_back(DerivedSource{"int_" + name, Representation::Modal});
   }
   return result;
+}
+
+/// `sources` and the parameters of the material, as a configuration offers them after the rest.
+inline std::vector<DerivedSource> withParameters(std::vector<DerivedSource> sources) {
+  for (const auto& name : model::scriptParameterNames<MaterialT>()) {
+    sources.push_back(DerivedSource{name, Representation::Constant});
+  }
+  return sources;
 }
 
 inline DerivedGeometry refinedGeometry(std::size_t degree) {
@@ -237,7 +254,11 @@ struct Evaluation {
     for (std::size_t b = 0; b < program.usedSources().size(); ++b) {
       const std::size_t source = program.usedSources()[b];
       const auto& block = program.program().blocks()[b];
-      if (source < 2 * Quantities) {
+      if (const auto parameter = model::scriptParameterIndex<MaterialT>(block.name)) {
+        // the parameters of the cell (also of the cell of a face)
+        table.bindBlock<RealT>(
+            block.name, cells.parameters.data() + *parameter, block.length, ParameterCount, 1);
+      } else if (source < 2 * Quantities) {
         const std::size_t quantity = source % Quantities;
         const auto& storage = source < Quantities ? cells.dofs : cells.integrals;
         table.bindBlock<RealT>(block.name,
@@ -858,6 +879,59 @@ TEST_CASE("DerivedOutput: the vocabulary is checked") {
   CHECK(readsTimeIntegral("int_v1_r2"));
   CHECK_FALSE(readsTimeIntegral("dy_v1"));
   CHECK_FALSE(readsTimeIntegral("v1"));
+}
+
+TEST_CASE("DerivedOutput: a parameter of the material is one value per cell") {
+  const auto names = model::scriptParameterNames<MaterialT>();
+  const std::string& first = names.front();
+  const std::string& last = names.back();
+  const std::string& velocity = MaterialT::Quantities[MaterialT::VelocityOffset];
+  const auto program =
+      expr::compileSderivModule("out def v = " + velocity + "\nout def a = " + first + " * " +
+                                velocity + " + " + last + "\nout def b = " + last + "\n");
+  reader::datafield::GridStore store;
+
+  const auto check = [&](const Evaluation& evaluation,
+                         const Cells& cells,
+                         std::size_t elements,
+                         std::size_t pointsPerElement) {
+    for (std::size_t element = 0; element < elements; ++element) {
+      const auto firstValue = static_cast<double>(cells.parameters[element * ParameterCount + 0]);
+      const auto lastValue =
+          static_cast<double>(cells.parameters[element * ParameterCount + ParameterCount - 1]);
+      for (std::size_t p = 0; p < pointsPerElement; ++p) {
+        const std::size_t point = element * pointsPerElement + p;
+        REQUIRE(evaluation.value("b", point) == lastValue);
+        REQUIRE(
+            evaluation.value("a", point) ==
+            doctest::Approx(firstValue * evaluation.value("v", point) + lastValue).epsilon(1e-14));
+      }
+    }
+  };
+
+  // the cells of the wave field
+  Cells cells(6, 21);
+  const DerivedProgram inCells(program, withParameters(sources()), refinedGeometry(2));
+  Evaluation volume(inCells, cells);
+  volume.run(*kernelFor(volume, expr::BackendKind::Interpreter, store));
+  check(volume, cells, cells.count, inCells.pointsPerElement());
+
+  // the faces of the free surface read those of their cell
+  Faces faces(8, 22);
+  const DerivedProgram onFaces(
+      program, withParameters(surfaceSources()), SurfacePoints(surfaceGeometry(1, 1)));
+  Evaluation surface(onFaces, faces.cells, 0, &faces);
+  surface.run(*kernelFor(surface, expr::BackendKind::Interpreter, store));
+  check(surface, faces.cells, faces.cells.count, onFaces.pointsPerElement());
+
+  // without derivatives
+  for (const auto& spelling : {"dx_" + first, first + "_r1"}) {
+    CAPTURE(spelling);
+    CHECK_THROWS_AS(DerivedProgram(expr::compileSderivModule("out def a = " + spelling + "\n"),
+                                   withParameters(sources()),
+                                   refinedGeometry(1)),
+                    std::invalid_argument);
+  }
 }
 
 TEST_CASE("DerivedOutput: the built-in surface program reproduces the hand-written outputs") {

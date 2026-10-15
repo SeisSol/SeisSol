@@ -29,6 +29,7 @@
 #include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
+#include "Model/ScriptParameters.h"
 #include "Numerical/Projection.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Datafield/Grid.h"
@@ -184,7 +185,8 @@ std::optional<Channel> classify(const std::string& name,
 std::string unknownChannel(const std::string& name, const std::vector<DerivedSource>& sources) {
   std::ostringstream message;
   message << "derived output: the program reads '" << name
-          << "', which is neither a quantity nor derived from one. Available are the quantities";
+          << "', which is neither a quantity nor derived from one. Available are the quantities "
+             "and the parameters of the material";
   for (const auto& source : sources) {
     message << " " << source.name;
   }
@@ -196,7 +198,7 @@ std::string unknownChannel(const std::string& name, const std::vector<DerivedSou
 /// Matrices are keyed by the representation of their source and the derivative: 0 is the value,
 /// 1 + k the derivative along reference direction k.
 constexpr std::size_t DerivativeKinds = 4;
-constexpr std::size_t Representations = 3;
+constexpr std::size_t Representations = 4;
 constexpr std::size_t MatrixKinds = Representations * DerivativeKinds;
 
 std::size_t matrixKey(Representation representation, std::optional<std::size_t> derivative) {
@@ -216,7 +218,7 @@ std::optional<std::size_t> derivativeOf(std::size_t key) {
 }
 
 std::string matrixName(std::size_t key) {
-  const std::array<std::string, Representations> names{"modal", "nodal", "face_nodal"};
+  const std::array<std::string, Representations> names{"modal", "nodal", "face_nodal", "constant"};
   const std::string& base = names[key / DerivativeKinds];
   const auto derivative = derivativeOf(key);
   return derivative.has_value() ? base + "_r" + std::to_string(*derivative) : base;
@@ -281,6 +283,14 @@ bool startsWith(const std::string& text, const std::string& prefix) {
   return text.compare(0, prefix.size(), prefix) == 0;
 }
 
+/// The projection of a value per element onto its `points` points: a column of ones.
+std::vector<double> constantMatrix(std::size_t points, std::optional<std::size_t> derivative) {
+  if (derivative.has_value()) {
+    throw std::logic_error("derived output: a value per cell has no derivatives");
+  }
+  return std::vector<double>(points, 1.0);
+}
+
 } // namespace
 
 VolumePoints::VolumePoints(DerivedGeometry geometry) : geometry_(std::move(geometry)) {}
@@ -299,12 +309,14 @@ std::size_t VolumePoints::columns(Representation representation) const {
     return projection::nodalSize(3, geometry_.order, geometry_.nodalSet);
   case Representation::FaceNodal:
     return 0;
+  case Representation::Constant:
+    return 1;
   }
   return 0;
 }
 
 bool VolumePoints::derivatives(Representation representation) const {
-  return representation != Representation::FaceNodal;
+  return representation == Representation::Modal || representation == Representation::Nodal;
 }
 
 std::vector<double> VolumePoints::matrix(std::size_t /*variant*/,
@@ -312,6 +324,9 @@ std::vector<double> VolumePoints::matrix(std::size_t /*variant*/,
                                          std::optional<std::size_t> derivative) const {
   if (representation == Representation::FaceNodal) {
     throw std::logic_error("derived output: a cell has no face nodes");
+  }
+  if (representation == Representation::Constant) {
+    return constantMatrix(pointsPerElement(), derivative);
   }
   const auto spec = specOf(geometry_.order,
                            representation == Representation::Nodal ? projection::Source::Nodal
@@ -352,18 +367,23 @@ std::size_t SurfacePoints::columns(Representation representation) const {
     return projection::nodalSize(3, geometry_.order, geometry_.nodalSet);
   case Representation::FaceNodal:
     return projection::nodalSize(2, geometry_.order, projection::NodalSet::WarpBlend);
+  case Representation::Constant:
+    return 1;
   }
   return 0;
 }
 
 bool SurfacePoints::derivatives(Representation representation) const {
   // the face nodes would only give the derivatives along the face
-  return representation != Representation::FaceNodal;
+  return representation == Representation::Modal || representation == Representation::Nodal;
 }
 
 std::vector<double> SurfacePoints::matrix(std::size_t variant,
                                           Representation representation,
                                           std::optional<std::size_t> derivative) const {
+  if (representation == Representation::Constant) {
+    return constantMatrix(pointsPerElement(), derivative);
+  }
   if (representation == Representation::FaceNodal) {
     if (derivative.has_value()) {
       throw std::logic_error("derived output: the face nodes have no derivatives across the face");
@@ -925,7 +945,13 @@ bool derivedOutputsReadIntegrals(seissol::SeisSol& seissolInstance) {
 namespace {
 
 /// Which array an element reads a source from, and where in it.
-enum class Storage : std::uint8_t { Dofs, Integrals, PlasticStrain, FaceDisplacement };
+enum class Storage : std::uint8_t {
+  Dofs,
+  Integrals,
+  PlasticStrain,
+  FaceDisplacement,
+  MaterialParameters
+};
 
 struct SourceLocation {
   Storage storage{Storage::Dofs};
@@ -1157,6 +1183,11 @@ std::vector<DerivedSource> DerivedElementOutput<Cfg>::sourcesOf(
       locations.push_back(SourceLocation{Storage::FaceDisplacement, component * FaceStride});
     }
   }
+  const auto parameters = model::scriptParameterNames<MaterialT>();
+  for (std::size_t k = 0; k < parameters.size(); ++k) {
+    sources.push_back(DerivedSource{parameters[k], Representation::Constant});
+    locations.push_back(SourceLocation{Storage::MaterialParameters, k});
+  }
   return sources;
 }
 
@@ -1170,6 +1201,8 @@ std::size_t DerivedElementOutput<Cfg>::cellStride(Storage storage) {
     return tensor::QStressNodal<Cfg>::size() + tensor::QEtaNodal<Cfg>::size();
   case Storage::FaceDisplacement:
     return tensor::faceDisplacement<Cfg>::size();
+  case Storage::MaterialParameters:
+    return model::ScriptParameterCount<model::MaterialOf<Cfg>>;
   }
   return 0;
 }
@@ -1245,6 +1278,10 @@ const void* DerivedElementOutput<Cfg>::blockBase(const SourceLocation& location,
         surfaceLayer.template var<SurfaceLTS::DisplacementDofs>(Cfg()));
     break;
   }
+  case Storage::MaterialParameters:
+    // the same in all simulations
+    base = reinterpret_cast<const RealT*>(layer.template var<LTS::MaterialParameters>(Cfg()));
+    return base == nullptr ? nullptr : base + location.offset;
   }
   // the simulation is the fastest dimension of the fused layout
   return base == nullptr ? nullptr : base + location.offset + simulation;
@@ -1412,7 +1449,9 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
       reader::scripting::BlockInput block;
       block.base = runs_.front().blocks[sim][b];
       block.cellStride = cellStride(location.storage) * sizeof(RealT);
-      block.modeStride = Simulations * sizeof(RealT);
+      // a parameter of the material is one value, the same in all simulations
+      block.modeStride =
+          (location.storage == Storage::MaterialParameters ? 1 : Simulations) * sizeof(RealT);
       block.cellIndex =
           location.storage == Storage::FaceDisplacement ? faceIndex_.data() : cellIndex_.data();
       block.type = reader::scripting::DataTypeTraits<RealT>::Type;

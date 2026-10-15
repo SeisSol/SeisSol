@@ -118,11 +118,12 @@ OutputRegionFileName
 A region of any shape is given by a model, a script (an sderiv module, ``sderiv:file`` or a
 ``.sderiv`` file, or a Lua model that traces, ``lua:file`` or a ``.lua`` file) or an
 :doc:`easi` file, named by ``OutputRegionFileName``. The model gives ``wavefield``, a function of
-the position ``x``, ``y``, ``z`` and of the ``group`` of a cell; a cell is written if it is
-positive at one of its vertices, as with ``OutputRegionBounds``. A value of a comparison (1 or 0)
-does, and so does a signed distance to the boundary of the region. The model is evaluated once,
-when the output is set up. It works together with the two parameters above: only the cells that
-satisfy all of them are included.
+the position ``x``, ``y``, ``z``, of the ``group`` of a cell and of the parameters of its material
+(see :ref:`script_material_parameters`; an easi file reads the position and the group only); a
+cell is written if it is positive at one of its vertices, as with ``OutputRegionBounds``. A value
+of a comparison (1 or 0) does, and so does a signed distance to the boundary of the region. The
+model is evaluated once, when the output is set up. It works together with the two parameters
+above: only the cells that satisfy all of them are included.
 
 The same file may give ``surface``, the region of the free surface output (see
 :doc:`free-surface-output`), where a face is written if ``surface`` is positive at one of its
@@ -202,6 +203,8 @@ same points. It is an sderiv module (``sderiv:file`` or a ``.sderiv`` file) or a
 | ``int_q`` -- the time integral of ``q`` since the start, as the ``int-`` outputs write it (and
   its derivatives as above, e.g. ``dx_int_v1``)
 | ``ep_xx`` ... ``eta`` -- the plastic strain, with plasticity
+| ``rho``, ``mu``, ``lambda``, ... -- a parameter of the material of the cell (see
+  :ref:`script_material_parameters`), the same at all points of the cell
 | ``jinv00`` ... ``jinv22`` -- the inverse Jacobian of the cell, ``jinvkd`` = d xi_k / d x_d
 | ``x``, ``y``, ``z``, ``t`` -- the output point and the time
 | ``dt`` -- the time since the previous evaluation of the point

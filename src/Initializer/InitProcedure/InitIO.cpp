@@ -32,6 +32,7 @@
 #include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
+#include "Model/ScriptParameters.h"
 #include "Numerical/Projection.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
@@ -46,6 +47,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -354,6 +356,50 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
   return outputs;
 }
 
+/// The parameters of the materials of `count` items for the regions of the outputs, the material
+/// of item i being that of the cell `cellOf(i)` (a mesh id).
+initializer::OutputRegions::Parameters
+    regionParameters(seissol::SeisSol& seissolInstance,
+                     std::size_t count,
+                     std::function<std::size_t(std::size_t)> cellOf) {
+  initializer::OutputRegions::Parameters parameters;
+  std::vector<std::vector<std::string>> namesOfConfig(builtConfigCount());
+  for (const auto config : seissolInstance.parameters().model.configs()) {
+    dispatchConfig(config, [&](auto cfg) {
+      namesOfConfig[config] = model::scriptParameterNames<model::MaterialOf<decltype(cfg)>>();
+    });
+    for (const auto& name : namesOfConfig[config]) {
+      if (std::find(parameters.names.begin(), parameters.names.end(), name) ==
+          parameters.names.end()) {
+        parameters.names.push_back(name);
+      }
+    }
+  }
+  parameters.values = [&seissolInstance, count, cellOf = std::move(cellOf), namesOfConfig](
+                          const std::string& name) {
+    auto& storage = seissolInstance.memoryManager().ltsStorage();
+    auto& backmap = seissolInstance.memoryManager().backmap();
+    std::vector<std::optional<std::size_t>> indexOfConfig;
+    indexOfConfig.reserve(namesOfConfig.size());
+    for (const auto& names : namesOfConfig) {
+      indexOfConfig.push_back(model::parameterIndexOf(names, name));
+    }
+    std::vector<double> values(count, std::numeric_limits<double>::quiet_NaN());
+    std::vector<double> cellParameters;
+    for (std::size_t item = 0; item < count; ++item) {
+      const auto position = backmap.get(cellOf(item));
+      const auto config = storage.layer(position.color).getIdentifier().config;
+      if (const auto index = indexOfConfig.at(config)) {
+        cellParameters.resize(namesOfConfig[config].size());
+        storage.lookup<LTS::Material>(position).local->scriptParameters(cellParameters.data());
+        values[item] = cellParameters[*index];
+      }
+    }
+    return values;
+  };
+  return parameters;
+}
+
 /// Sets up the output of the wave field. Every cell is written in its configuration; with several
 /// configurations in the run, a quantity is written once for the cells of all of them.
 void setupWaveFieldOutput(seissol::SeisSol& seissolInstance,
@@ -379,7 +425,8 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance,
         [&](std::size_t cell, std::size_t corner) {
           return vertexArray[elements[cell].vertices[corner]].coords;
         },
-        [&](std::size_t cell) { return elements[cell].group; });
+        [&](std::size_t cell) { return elements[cell].group; },
+        regionParameters(seissolInstance, elements.size(), [](std::size_t cell) { return cell; }));
     for (std::size_t i = 0; i < elements.size(); ++i) {
       const auto& element = elements[i];
       const auto& vertex0 = vertexArray[element.vertices[0]].coords;
@@ -591,7 +638,10 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance,
       [&](std::size_t index) {
         return meshReader->getElements()[surfaceMeshIds[freeSurfaceIntegrator->backmap[index]]]
             .group;
-      });
+      },
+      regionParameters(seissolInstance, faceCount, [&](std::size_t index) {
+        return static_cast<std::size_t>(surfaceMeshIds[freeSurfaceIntegrator->backmap[index]]);
+      }));
   std::vector<std::size_t> faceList;
   faceList.reserve(faceCount);
   for (std::size_t index = 0; index < faceCount; ++index) {

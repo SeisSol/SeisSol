@@ -193,7 +193,7 @@ std::set<std::string> faultProvides(const std::string& fileName);
 /// The regions the mesh outputs are restricted to by a model (an easi file, or a script): the
 /// output of the wave field writes the cells at one of whose vertices the model gives a positive
 /// `wavefield`, the one of the free surface the faces where it gives a positive `surface`. The
-/// model reads the position x, y, z and the group of the cell.
+/// model reads the position x, y, z, the group of the cell and the parameters of its material.
 class OutputRegions {
   public:
   static constexpr const char* WaveField = "wavefield";
@@ -203,6 +203,14 @@ class OutputRegions {
   using CornerFunction = std::function<std::array<double, 3>(std::size_t item, std::size_t corner)>;
   /// The group of item `item`.
   using GroupFunction = std::function<int(std::size_t item)>;
+
+  /// The parameters of the materials of the items: the names of those of the materials of the run
+  /// (model::scriptParameterNames), and `values(name)`, the parameter `name` of the material of
+  /// the cell of every item, NaN for one whose material has none of that name.
+  struct Parameters {
+    std::vector<std::string> names;
+    std::function<std::vector<double>(const std::string& name)> values;
+  };
 
   OutputRegions() = default;
 
@@ -214,12 +222,14 @@ class OutputRegions {
   [[nodiscard]] bool restricts(const std::string& name) const;
 
   /// Which of `count` items with `corners` corners each lie in the region of the output `name`:
-  /// those where it is positive at one of their corners; all if the model does not restrict it.
+  /// those where it is positive at one of their corners; all if the model does not restrict it. A
+  /// model that reads what an item does not have is an error.
   [[nodiscard]] std::vector<bool> select(const std::string& name,
                                          std::size_t count,
                                          std::size_t corners,
                                          const CornerFunction& corner,
-                                         const GroupFunction& group) const;
+                                         const GroupFunction& group,
+                                         const Parameters& parameters) const;
 
   private:
   std::string fileName_;
