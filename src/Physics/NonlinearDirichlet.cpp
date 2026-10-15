@@ -156,6 +156,16 @@ void NonlinearDirichlet::setUp(const expr::Program& program, std::size_t timePoi
                                                    parameters_,
                                                    GhostStateIntegral::Missing::Inner,
                                                    timePoints);
+#ifdef ACL_DEVICE
+  deviceIntegral_ = std::make_unique<GhostStateIntegral>(ghost,
+                                                         name_,
+                                                         quantities_,
+                                                         quantities_,
+                                                         parameters_,
+                                                         GhostStateIntegral::Missing::Zero,
+                                                         timePoints,
+                                                         false);
+#endif
 }
 
 bool NonlinearDirichlet::faceAligned() const { return faceAligned_; }
@@ -163,5 +173,9 @@ bool NonlinearDirichlet::faceAligned() const { return faceAligned_; }
 std::size_t NonlinearDirichlet::quantityCount() const { return quantities_.size(); }
 
 const GhostStateIntegral& NonlinearDirichlet::integral() const { return *integral_; }
+
+const GhostStateIntegral* NonlinearDirichlet::deviceIntegral() const {
+  return deviceIntegral_.get();
+}
 
 } // namespace seissol::physics

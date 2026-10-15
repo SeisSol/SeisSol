@@ -197,6 +197,85 @@ TEST_CASE("GhostStateIntegral: the script integrated over the time points of a s
   CHECK(ghost[5] == 0.0);
 }
 
+TEST_CASE("GhostStateIntegral: a quantity the script does not give is the integral of the state "
+          "inside, as a device takes it" *
+          doctest::test_suite("physics")) {
+  // a device integrates what the script gives (Missing::Zero) and takes the rest from the
+  // integrated state of the cell; the quadrature is exact for the Taylor series of the state, so
+  // that is what the host computes (Missing::Inner)
+  constexpr std::size_t TimePoints = 3;
+  expr::SderivOptions options;
+  options.inputs.insert(Quantities.begin(), Quantities.end());
+  const auto program = expr::compileSderivModule("out def v1 = -v1 * x + s_xx\n", options);
+  const physics::GhostStateIntegral host(program,
+                                         "test",
+                                         Quantities,
+                                         Quantities,
+                                         Parameters,
+                                         physics::GhostStateIntegral::Missing::Inner,
+                                         TimePoints);
+  const physics::GhostStateIntegral device(program,
+                                           "test",
+                                           Quantities,
+                                           Quantities,
+                                           Parameters,
+                                           physics::GhostStateIntegral::Missing::Zero,
+                                           TimePoints);
+  REQUIRE(device.program().outputs().size() == 1);
+  // the device program reads the state inside only where the script does
+  for (std::size_t i = 0; i < device.program().inputs().size(); ++i) {
+    if (device.input(i) == physics::GhostStateIntegral::Input::Inner) {
+      const auto component = device.inputIndex(i) % device.innerCount();
+      CHECK((Quantities[component] == "v1" || Quantities[component] == "s_xx"));
+    }
+  }
+
+  const double start = 0.75;
+  const double width = 0.5;
+  std::array<double, TimePoints> times{};
+  host.timePoints(start, width, times.data());
+  const std::vector<std::array<double, 3>> points = {{1.0, 2.0, 3.0}, {-0.5, 0.25, 4.0}};
+  const std::size_t count = points.size();
+  // the state inside is a polynomial of degree 2 in the time into the step, per quantity and point
+  const auto coefficient = [](std::size_t k, std::size_t p, std::size_t power) {
+    return 0.1 * static_cast<double>(k + 1) - 0.2 * static_cast<double>(p) +
+           0.3 * static_cast<double>(power);
+  };
+  std::vector<double> inner(TimePoints * Quantities.size() * count);
+  for (std::size_t i = 0; i < TimePoints; ++i) {
+    const double tau = times[i] - start;
+    for (std::size_t k = 0; k < Quantities.size(); ++k) {
+      for (std::size_t p = 0; p < count; ++p) {
+        inner[(i * Quantities.size() + k) * count + p] =
+            coefficient(k, p, 0) + coefficient(k, p, 1) * tau + coefficient(k, p, 2) * tau * tau;
+      }
+    }
+  }
+  const std::array<double, 3> parameters{1.0, 2.0, 3.0};
+  std::vector<double> onHost(Quantities.size() * count, -100.0);
+  std::vector<double> onDevice(Quantities.size() * count, -100.0);
+  host.evaluate(
+      start, width, 0, points.data(), count, parameters.data(), inner.data(), onHost.data());
+  device.evaluate(
+      start, width, 0, points.data(), count, parameters.data(), inner.data(), onDevice.data());
+  for (std::size_t k = 0; k < Quantities.size(); ++k) {
+    for (std::size_t p = 0; p < count; ++p) {
+      CAPTURE(k);
+      CAPTURE(p);
+      if (Quantities[k] == "v1") {
+        CHECK(onDevice[k * count + p] == onHost[k * count + p]);
+      } else {
+        // the integral of the state inside, which the integrated state of the cell gives
+        const double integral = coefficient(k, p, 0) * width +
+                                coefficient(k, p, 1) * width * width / 2.0 +
+                                coefficient(k, p, 2) * width * width * width / 3.0;
+        CHECK(onDevice[k * count + p] == 0.0);
+        CHECK(onHost[k * count + p] == doctest::Approx(integral).epsilon(1e-13));
+      }
+    }
+  }
+}
+
 TEST_CASE("AnalyticalGhostState: the fields of one script share one program" *
           doctest::test_suite("physics")) {
   const auto program = expr::compileSderivModule("out def v1 = sim + t\n");

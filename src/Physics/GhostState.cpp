@@ -49,8 +49,7 @@ constexpr std::size_t Capacity = 64;
 constexpr const char* Start = "$t0";
 constexpr const char* Width = "$dt";
 
-/// What an input of the integral reads.
-enum class Input : std::uint8_t { X, Y, Z, Start, Width, Simulation, Parameter, Inner };
+using Input = GhostStateIntegral::Input;
 
 /// What an input of the script reads, besides the state inside, the time and the material.
 std::optional<Input> scriptInputOf(const std::string& name) {
@@ -123,7 +122,8 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
                                        std::vector<std::string> inner,
                                        const std::vector<std::string>& parameters,
                                        Missing missing,
-                                       std::size_t timePoints)
+                                       std::size_t timePoints,
+                                       bool onHost)
     : impl_(std::make_unique<Impl>()) {
   auto& impl = *impl_;
   impl.name = name;
@@ -272,6 +272,9 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
   }
 
   // one kernel per thread, bound to storage of its own; a call moves the bases
+  if (!onHost) {
+    return;
+  }
   impl.threads.resize(std::max<std::size_t>(1, seissol::OpenMP::threadCount()));
   if (program.outputs().empty()) {
     return;
@@ -334,6 +337,18 @@ void GhostStateIntegral::timePoints(double start, double width, double* times) c
   for (std::size_t point = 0; point < impl_->quadPoints.size(); ++point) {
     times[point] = (width * impl_->quadPoints[point] + 2 * start + width) / 2;
   }
+}
+
+const expr::Program& GhostStateIntegral::program() const { return impl_->program; }
+
+GhostStateIntegral::Input GhostStateIntegral::input(std::size_t i) const {
+  return impl_->inputs.at(i);
+}
+
+std::size_t GhostStateIntegral::inputIndex(std::size_t i) const { return impl_->inputIndex.at(i); }
+
+std::size_t GhostStateIntegral::outputComponent(std::size_t j) const {
+  return impl_->outputComponent.at(j);
 }
 
 void GhostStateIntegral::evaluate(double start,

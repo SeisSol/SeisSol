@@ -38,15 +38,21 @@ class GhostStateIntegral {
   public:
   enum class Missing : std::uint8_t { Zero, Inner };
 
+  /// What an input of program() reads: a coordinate of the point, the start or the width of the
+  /// step, what the script reads as `sim`, a parameter of the material, or the state inside.
+  enum class Input : std::uint8_t { X, Y, Z, Start, Width, Simulation, Parameter, Inner };
+
   /// Throws std::invalid_argument for a script that reads anything else or keeps state; `name`
-  /// names it in the message.
+  /// names it in the message. Without `onHost`, evaluate() is not available, and the integral
+  /// serves as the program of a kernel bound elsewhere only (program()).
   GhostStateIntegral(const expr::Program& ghost,
                      const std::string& name,
                      std::vector<std::string> components,
                      std::vector<std::string> inner,
                      const std::vector<std::string>& parameters,
                      Missing missing,
-                     std::size_t timePoints);
+                     std::size_t timePoints,
+                     bool onHost = true);
   ~GhostStateIntegral();
 
   GhostStateIntegral(const GhostStateIntegral&) = delete;
@@ -66,11 +72,25 @@ class GhostStateIntegral {
   /// The times of the quadrature of the step [start, start + width], one per time point.
   void timePoints(double start, double width, double* times) const;
 
+  /// The program of the integral, which reads $t0 and $dt as the start and the width of the step
+  /// and gives the integral of each component it computes.
+  [[nodiscard]] const expr::Program& program() const;
+
+  /// What input `i` of program() reads.
+  [[nodiscard]] Input input(std::size_t i) const;
+
+  /// For a parameter of the material, its index among the parameters; for the state inside at time
+  /// point t, component k, the index t * innerCount() + k. Zero for the other inputs.
+  [[nodiscard]] std::size_t inputIndex(std::size_t i) const;
+
+  /// The component of the ghost state that output `j` of program() gives.
+  [[nodiscard]] std::size_t outputComponent(std::size_t j) const;
+
   /// The integral of the ghost state over the step [start, start + width] at `count` points, in
   /// the simulation `simulation`, beyond a cell whose material has the parameters `parameters` (in
   /// the order of the names given): component j at point p into ghost[j * count + p]. The state
   /// inside, if read, is inner component k at point p at time point i in
-  /// inner[(i * innerCount() + k) * count + p].
+  /// inner[(i * innerCount() + k) * count + p]. Only for an integral made `onHost`.
   void evaluate(double start,
                 double width,
                 std::size_t simulation,

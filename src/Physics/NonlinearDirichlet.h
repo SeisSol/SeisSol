@@ -75,6 +75,12 @@ class NonlinearDirichlet {
   /// quantities, in the basis of the frame), into the basis of the frame.
   [[nodiscard]] const GhostStateIntegral& integral() const;
 
+  /// The same for a device, in a device build, which takes a quantity the script does not give
+  /// from the integrated state of the cell, and evaluates the rest: the integral of the quantities
+  /// the script gives, which reads the state inside only where the script does. Null in a build
+  /// without a device.
+  [[nodiscard]] const GhostStateIntegral* deviceIntegral() const;
+
   private:
   void setUp(const expr::Program& program, std::size_t timePoints);
 
@@ -83,6 +89,7 @@ class NonlinearDirichlet {
   std::vector<std::string> parameters_;
   bool faceAligned_{false};
   std::unique_ptr<GhostStateIntegral> integral_;
+  std::unique_ptr<GhostStateIntegral> deviceIntegral_;
 };
 
 } // namespace seissol::physics
