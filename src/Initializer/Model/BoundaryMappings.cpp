@@ -72,6 +72,13 @@ void initializeBoundaryMappingsOfLayer(
       std::copy_n(
           nodal::init::nodes2D<Cfg>::Values, nodal::tensor::nodes2D<Cfg>::Size, nodesReferenceData);
       auto nodesReference = nodal::init::nodes2D<Cfg>::view::create(nodesReferenceData);
+      // the nodes are the rows of the matrix, or its columns where the fused simulations transpose
+      // the matrices; what it leaves out is zero (as the first node is, there)
+      const auto referenceCoordinate = [&](std::size_t node, std::size_t coordinate) {
+        const auto row = multisim::BasisDim<Cfg> == 0 ? node : coordinate;
+        const auto column = multisim::BasisDim<Cfg> == 0 ? coordinate : node;
+        return nodesReference.isInRange(row, column) ? nodesReference(row, column) : real{0};
+      };
       auto* nodes = boundary[cell][side].nodes;
       assert(nodes != nullptr);
       auto offset = 0;
@@ -79,7 +86,7 @@ void initializeBoundaryMappingsOfLayer(
            ++i) {
         // Compute the global coordinates for the nodal points.
         const auto xyz = face.refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
-            nodesReference(i, 0), nodesReference(i, 1)));
+            referenceCoordinate(i, 0), referenceCoordinate(i, 1)));
         for (std::size_t d = 0; d < Cell::Dim; ++d) {
           nodes[offset++] = xyz(d);
         }
