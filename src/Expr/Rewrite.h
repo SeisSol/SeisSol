@@ -21,6 +21,7 @@
 #include <functional>
 #include <map>
 #include <string>
+#include <unordered_map>
 
 namespace seissol::expr {
 
@@ -52,6 +53,20 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
 void substituteByContraction(Program& program,
                              MatrixId matrix,
                              const std::map<std::string, BlockId>& blocks);
+
+/// `root` with every read of a channel in `replacements` replaced by the node mapped to it, in the
+/// same arena. A subtree that reads none of them stays the node it is, so a program that holds both
+/// the original and the replaced expression computes the shared part once -- e.g. one instance of a
+/// script per time, in which only what depends on `t` is computed for each. The replacements are
+/// not rewritten again. `memo` keeps the rewritten nodes; one memo serves one set of replacements,
+/// across any number of roots.
+///
+/// Throws std::invalid_argument for a node of a kind it does not rewrite (the derived-output
+/// kinds, which only the derived-output lowering has).
+NodeId replaceChannels(Arena& arena,
+                       NodeId root,
+                       const std::unordered_map<int, NodeId>& replacements,
+                       std::unordered_map<NodeId, NodeId>& memo);
 
 } // namespace seissol::expr
 

@@ -11,6 +11,7 @@
 #include "Expr/Binding.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Expr/Rewrite.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
@@ -32,9 +33,7 @@ namespace seissol::dr::friction_law {
 
 namespace {
 
-using expr::Arena;
 using expr::Fn;
-using expr::Kind;
 using expr::NodeId;
 using reader::scripting::DataTable;
 using reader::scripting::DataType;
@@ -44,64 +43,6 @@ constexpr const char* SlipStrike = "slip_strike";
 constexpr const char* SlipDip = "slip_dip";
 constexpr const char* SlipRateStrike = "slip_rate_strike";
 constexpr const char* SlipRateDip = "slip_rate_dip";
-
-/// `root` with every read of the channel `from` replaced by the node `to`, in the same arena: a
-/// subtree that does not read `from` stays the node it is, so the program computes it once for
-/// both uses.
-NodeId replaceChannel(
-    Arena& arena, NodeId root, int from, NodeId to, std::unordered_map<NodeId, NodeId>& memo) {
-  const auto found = memo.find(root);
-  if (found != memo.end()) {
-    return found->second;
-  }
-  // a copy: interning a node below may move the nodes of the arena
-  const expr::Node node = arena[root];
-  NodeId result = root;
-  switch (node.kind) {
-  case Kind::Const:
-  case Kind::Contract:
-    break;
-  case Kind::Field:
-    if (node.ch == from) {
-      result = to;
-    }
-    break;
-  case Kind::PW: {
-    const int count = expr::arity(node.fn);
-    const NodeId a = replaceChannel(arena, node.a, from, to, memo);
-    const NodeId b = count > 1 ? replaceChannel(arena, node.b, from, to, memo) : expr::NoNode;
-    const NodeId c = count > 2 ? replaceChannel(arena, node.c, from, to, memo) : expr::NoNode;
-    if (a != node.a || b != node.b || c != node.c) {
-      if (count == 1) {
-        result = arena.pw(node.fn, a);
-      } else if (count == 2) {
-        result = arena.pw(node.fn, a, b);
-      } else {
-        result = arena.pw(node.fn, a, b, c);
-      }
-    }
-    break;
-  }
-  case Kind::Lookup: {
-    std::vector<NodeId> coordinates(arena.args(node), arena.args(node) + node.argCount);
-    bool changed = false;
-    for (auto& coordinate : coordinates) {
-      const NodeId replaced = replaceChannel(arena, coordinate, from, to, memo);
-      changed |= replaced != coordinate;
-      coordinate = replaced;
-    }
-    if (changed) {
-      result = arena.lookup(node.grid, node.comp, coordinates);
-    }
-    break;
-  }
-  default:
-    throw std::invalid_argument(std::string("a slip rate script cannot contain a node of kind ") +
-                                expr::name(node.kind));
-  }
-  memo.emplace(root, result);
-  return result;
-}
 
 bool readsInput(const expr::Program& program, const std::string& name) {
   return std::any_of(program.inputs().begin(),
@@ -214,9 +155,10 @@ SlipRateScript::SlipRateScript(const expr::Program& script, const std::string& p
       program.addInput(StartTime, DataType::F64);
       const NodeId start = arena.field(StartTime);
       const int time = arena.findChannel(Time);
+      const std::unordered_map<int, NodeId> replacements{{time, start}};
       std::unordered_map<NodeId, NodeId> memo;
-      strikeStart = replaceChannel(arena, strike, time, start, memo);
-      dipStart = replaceChannel(arena, dip, time, start, memo);
+      strikeStart = expr::replaceChannels(arena, strike, replacements, memo);
+      dipStart = expr::replaceChannels(arena, dip, replacements, memo);
     }
     if (!readsInput(script, TimeStep)) {
       program.addInput(TimeStep, DataType::F64);

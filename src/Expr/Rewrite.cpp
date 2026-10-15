@@ -16,6 +16,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -177,6 +178,68 @@ void substituteByContraction(Program& program,
         name, [matrix, block = block](Arena& arena) { return arena.contract(matrix, block); });
   }
   substituteChannels(program, builders);
+}
+
+NodeId replaceChannels(Arena& arena,
+                       NodeId root,
+                       const std::unordered_map<int, NodeId>& replacements,
+                       std::unordered_map<NodeId, NodeId>& memo) {
+  if (root == NoNode) {
+    return root;
+  }
+  const auto found = memo.find(root);
+  if (found != memo.end()) {
+    return found->second;
+  }
+  // a copy: interning a node below may move the nodes of the arena
+  const Node node = arena[root];
+  NodeId result = root;
+  switch (node.kind) {
+  case Kind::Const:
+  case Kind::Contract:
+    break;
+  case Kind::Field: {
+    const auto replacement = replacements.find(node.ch);
+    if (replacement != replacements.end()) {
+      result = replacement->second;
+    }
+    break;
+  }
+  case Kind::PW: {
+    const int count = arity(node.fn);
+    const NodeId a = replaceChannels(arena, node.a, replacements, memo);
+    const NodeId b = count > 1 ? replaceChannels(arena, node.b, replacements, memo) : NoNode;
+    const NodeId c = count > 2 ? replaceChannels(arena, node.c, replacements, memo) : NoNode;
+    if (a != node.a || b != node.b || c != node.c) {
+      if (count == 1) {
+        result = arena.pw(node.fn, a);
+      } else if (count == 2) {
+        result = arena.pw(node.fn, a, b);
+      } else {
+        result = arena.pw(node.fn, a, b, c);
+      }
+    }
+    break;
+  }
+  case Kind::Lookup: {
+    std::vector<NodeId> coordinates(arena.args(node), arena.args(node) + node.argCount);
+    bool changed = false;
+    for (auto& coordinate : coordinates) {
+      const NodeId replaced = replaceChannels(arena, coordinate, replacements, memo);
+      changed |= replaced != coordinate;
+      coordinate = replaced;
+    }
+    if (changed) {
+      result = arena.lookup(node.grid, node.comp, coordinates);
+    }
+    break;
+  }
+  default:
+    throw std::invalid_argument(std::string("cannot replace the channels below a node of kind ") +
+                                name(node.kind));
+  }
+  memo.emplace(root, result);
+  return result;
 }
 
 } // namespace seissol::expr
