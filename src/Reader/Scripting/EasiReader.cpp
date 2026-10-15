@@ -98,8 +98,14 @@ class MixedResultsAdapter : public easi::ResultAdapter {
   void set(const std::string& parameter,
            const easi::Vector<unsigned>& index,
            const easi::Slice<double>& value) override {
-    const auto& entryIdx = indices_.at(parameter);
-    const auto& entry = entries_[entryIdx];
+    // a model may supply more than the table asks for -- the plasticity in the file of the
+    // material, or the parameters of another source time function of a fault -- as the adapters of
+    // easi allow
+    const auto found = indices_.find(parameter);
+    if (found == indices_.end()) {
+      return;
+    }
+    const auto& entry = entries_[found->second];
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < value.size(); ++i) {

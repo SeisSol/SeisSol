@@ -13,6 +13,10 @@
 #include "NRFReader.t.h"
 #endif
 
+#ifdef USE_EASI
+#include "EasiReader.t.h"
+#endif
+
 #include "Datafield/GridStore.t.h"
 #include "Datafield/GridUpdateModule.t.h"
 #include "Datafield/Interpolation.t.h"
