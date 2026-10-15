@@ -455,6 +455,30 @@ _CASE_CONFIG = re.compile(
 _CANONICAL_CONFIG = re.compile(
     r"^[a-z]+-[a-z]+(?:-m\d+)?-o\d+-(?:f32|f64)-[a-z]+(?:-s\d+)?$"
 )
+_CANONICAL_PARTS = re.compile(
+    r"^(?P<material>[a-z]+)-[a-z]+(?:-m(?P<mechanisms>\d+))?-o(?P<order>\d+)"
+    r"-(?P<precision>f32|f64)-[a-z]+(?:-s(?P<simulations>\d+))?$"
+)
+
+
+class ConfigurationMismatch(Exception):
+    """An executable holds the configuration of a case under another name than the one
+    `canonical_config` gives it: the solver or the quadrature rule it assumes no longer is
+    SeisSol's."""
+
+
+def _setup(canonical: str) -> Optional[tuple]:
+    """What a configuration computes, leaving out the names of its solver and its rule."""
+    match = _CANONICAL_PARTS.match(canonical)
+    if match is None:
+        return None
+    return (
+        match["material"],
+        int(match["mechanisms"] or 0),
+        int(match["order"]),
+        match["precision"],
+        int(match["simulations"] or 1),
+    )
 
 
 def canonical_config(config: str) -> str:
@@ -527,6 +551,15 @@ def resolve_binary(binary_dir: Path, config: str) -> tuple[Path, Optional[str]]:
                 raise FileNotFoundError(f"{cand} needs a configuration: {e}") from e
             built = built_configurations(cand.absolute())
             if built is not None and configuration not in built:
+                # The same material, mechanisms, order, precision and simulations under another
+                # name is no configuration the executable lacks: skipped, the case would pass
+                # unrun, and so would every other one if SeisSol renamed its configurations.
+                alike = sorted(n for n in built if _setup(n) == _setup(configuration))
+                if alike:
+                    raise ConfigurationMismatch(
+                        f"{cand} holds {', '.join(alike)} for {config}, which verify.py "
+                        f"names {configuration}"
+                    )
                 raise FileNotFoundError(
                     f"{cand} is not built for {configuration}; it has "
                     + ", ".join(sorted(built))
@@ -1993,6 +2026,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         try:
             binary, configuration = resolve_binary(args.binary_dir, case.config)
+        except ConfigurationMismatch as e:
+            print(f"{_bad('[fail]')} {case.key}: {e}", file=sys.stderr)
+            results.append(CaseResult(case, False, 0, 0.0, [], note=str(e)))
+            if args.fail_fast:
+                break
+            continue
         except FileNotFoundError as e:
             print(f"{_warn('[skip]')} {case.key}: {e}", file=sys.stderr)
             results.append(

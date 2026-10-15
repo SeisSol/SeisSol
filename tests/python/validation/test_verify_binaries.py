@@ -79,6 +79,24 @@ def test_shared_executable_without_the_configuration_is_passed_over(tmp_path):
         verify.resolve_binary(tmp_path, "viscoelastic-3-o6-f64")
 
 
+def test_a_configuration_under_another_name_is_no_reason_to_skip(tmp_path):
+    # the same material, order and precision, but with a quadrature rule verify.py does not
+    # assume: renamed in SeisSol, every case would be skipped and the run pass unrun
+    shared = tmp_path / "bin" / "seissol"
+    shared.parent.mkdir(parents=True)
+    shared.write_text(
+        "#!/bin/sh\n"
+        "echo elastic-linearck-o6-f64-dunavant\n"
+        "echo acoustic-linearck-o6-f32-stroud\n"
+        "exit 1\n"
+    )
+    shared.chmod(0o755)
+    with pytest.raises(verify.ConfigurationMismatch):
+        verify.resolve_binary(tmp_path, "elastic-o6-f64")
+    with pytest.raises(FileNotFoundError):
+        verify.resolve_binary(tmp_path, "elastic-o6-f32")
+
+
 def test_no_executable(tmp_path):
     with pytest.raises(FileNotFoundError):
         verify.resolve_binary(tmp_path, "elastic-o6-f64")
