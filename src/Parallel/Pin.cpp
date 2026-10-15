@@ -130,7 +130,7 @@ void Pinning::checkEnvVariables() {
 
         isMaskGood = false;
       } else {
-        const auto maxCpuId = get_nprocs();
+        const auto maxCpuId = get_nprocs() - 1;
         for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask_.size());
              ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask_[localProcessId]) {
