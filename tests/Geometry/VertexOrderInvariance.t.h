@@ -31,6 +31,7 @@
 
 #include <PUML/PUML.h>
 #include <PUML/PartitionGraph.h>
+#include <PUML/Types.h>
 #include <algorithm>
 #include <cstddef>
 #include <iostream>
@@ -136,17 +137,17 @@ TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
     CHECK(coordinatesFloat == coordinatesFloatPermuted);
 
     // the edge ids handed out while iterating over the faces address the (sorted) adjacency
-    std::vector<unsigned long> gids(mesh.cells().size());
+    std::vector<PUML::GlobalId> gids(mesh.cells().size());
     for (std::size_t i = 0; i < gids.size(); ++i) {
       gids[i] = mesh.cells()[i].gid();
     }
     std::vector<int> visits(graph.localEdgeCount(), 0);
-    graph.forEachLocalEdges<unsigned long>(
+    graph.forEachLocalEdges<PUML::GlobalId>(
         gids,
         [&](int /*fid*/,
             int lid,
-            const unsigned long& neighbor,
-            const unsigned long& self,
+            const PUML::GlobalId& neighbor,
+            const PUML::GlobalId& self,
             int eid) {
           // no REQUIRE: the faces are iterated collectively
           const bool inRange = eid >= 0 && static_cast<std::size_t>(eid) < visits.size();
@@ -155,8 +156,8 @@ TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
             return;
           }
           ++visits[eid];
-          CHECK(graph.adjDisp()[lid] <= static_cast<unsigned long>(eid));
-          CHECK(static_cast<unsigned long>(eid) < graph.adjDisp()[lid + 1]);
+          CHECK(graph.adjDisp()[lid] <= static_cast<std::size_t>(eid));
+          CHECK(static_cast<std::size_t>(eid) < graph.adjDisp()[lid + 1]);
           CHECK(graph.adj()[eid] == neighbor);
           CHECK(self == gids[lid]);
         });

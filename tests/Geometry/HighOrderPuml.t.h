@@ -29,6 +29,7 @@
 #include <PUML/Hdf5Reader.h>
 #include <PUML/PUML.h>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <mpi.h>
 #include <string>
@@ -66,7 +67,7 @@ TEST_CASE("PUMLReader tells the curved cells of a mesh file of PUMGen from the s
   CHECK(straight.order == 2);
   CHECK(straight.curvature < PUMLReader::StraightTolerance);
 
-  const std::vector<std::pair<std::string, unsigned long>> curvedFiles = {
+  const std::vector<std::pair<std::string, std::uint64_t>> curvedFiles = {
       {"Testing/cube2-o2-permuted.h5", 2}, {"Testing/cube2-o3.h5", 3}};
   for (const auto& curvedFile : curvedFiles) {
     const auto& file = curvedFile.first;
@@ -107,8 +108,13 @@ TEST_CASE("PUMLReader reads straight-sided cells of a higher order as cells of t
   // the reader takes the mesh, and forgets the nodes beyond the vertices
   const auto reader =
       vertexorderinvariancetest::readMesh("Testing/cube2-o2-straight.h5", "None", seissolInstance);
-  unsigned long cells = reader->getElements().size();
-  MPI_Allreduce(MPI_IN_PLACE, &cells, 1, MPI_UNSIGNED_LONG, MPI_SUM, seissol::Mpi::mpi.comm());
+  std::uint64_t cells = reader->getElements().size();
+  MPI_Allreduce(MPI_IN_PLACE,
+                &cells,
+                1,
+                seissol::Mpi::castToMpiType<std::uint64_t>(),
+                MPI_SUM,
+                seissol::Mpi::mpi.comm());
   CHECK(cells == 48);
 
   std::cout.clear();

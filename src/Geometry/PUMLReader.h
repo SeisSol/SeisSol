@@ -119,11 +119,11 @@ std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
 /// What the nodes of a higher order a mesh file gives for its cells say about them, over all ranks.
 struct HighOrderGeometrySummary {
   /// the cells of an order above one
-  unsigned long highOrderCells{0};
+  std::uint64_t highOrderCells{0};
   /// those of them whose nodes are not where the straight-sided cell through its vertices has them
-  unsigned long curvedCells{0};
+  std::uint64_t curvedCells{0};
   /// the highest order of a cell
-  unsigned long order{1};
+  std::uint64_t order{1};
   /// how far the nodes of a cell are off the straight-sided one at most, relative to its longest
   /// edge
   double curvature{0};

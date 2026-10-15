@@ -198,7 +198,7 @@ double orientationDeterminant(const std::array<const double*, Cell::NumVertices>
  * where the rank-local vertex indices are unrelated to each other. The orientation in turn has to
  * be judged on the geometry. For periodic meshes the two differ.
  */
-VertexOrder canonicalVertexOrder(const std::array<unsigned long, Cell::NumVertices>& topoVertices,
+VertexOrder canonicalVertexOrder(const std::array<PUML::GlobalId, Cell::NumVertices>& topoVertices,
                                  const std::array<const double*, Cell::NumVertices>& coords) {
   VertexOrder order{};
   std::iota(order.begin(), order.end(), 0);
@@ -288,8 +288,8 @@ std::string stringAttribute(const std::string& file, const char* dataset, const 
       H5Fclose(h5file);
     }
   }
-  auto length = static_cast<unsigned long>(value.size());
-  MPI_Bcast(&length, 1, MPI_UNSIGNED_LONG, 0, Mpi::mpi.comm());
+  auto length = static_cast<std::uint64_t>(value.size());
+  MPI_Bcast(&length, 1, PUML::MPITypeInfer<std::uint64_t>::type(), 0, Mpi::mpi.comm());
   value.resize(length);
   MPI_Bcast(value.data(), static_cast<int>(length), MPI_CHAR, 0, Mpi::mpi.comm());
   return value;
@@ -431,17 +431,31 @@ auto summarizeHighOrderGeometry(const PumlMesh& meshGeometry, const HighOrderArr
     for (std::size_t cell = 0; cell < meshGeometry.cells().size(); ++cell) {
       if (geometry.order(cell) > 1) {
         ++summary.highOrderCells;
-        summary.order = std::max<unsigned long>(summary.order, geometry.order(cell));
+        summary.order = std::max<std::uint64_t>(summary.order, geometry.order(cell));
         const auto curvature = curvatureOf(meshGeometry, geometry, cell);
         summary.curvature = std::max(summary.curvature, curvature);
         summary.curvedCells += curvature > PUMLReader::StraightTolerance ? 1 : 0;
       }
     }
   }
-  MPI_Allreduce(
-      MPI_IN_PLACE, &summary.highOrderCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, &summary.curvedCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, &summary.order, 1, MPI_UNSIGNED_LONG, MPI_MAX, Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE,
+                &summary.highOrderCells,
+                1,
+                PUML::MPITypeInfer<std::uint64_t>::type(),
+                MPI_SUM,
+                Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE,
+                &summary.curvedCells,
+                1,
+                PUML::MPITypeInfer<std::uint64_t>::type(),
+                MPI_SUM,
+                Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE,
+                &summary.order,
+                1,
+                PUML::MPITypeInfer<std::uint64_t>::type(),
+                MPI_MAX,
+                Mpi::mpi.comm());
   MPI_Allreduce(MPI_IN_PLACE, &summary.curvature, 1, MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
   return summary;
 }
@@ -455,7 +469,7 @@ std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
 
   std::vector<VertexOrder> orders(cells.size());
   for (std::size_t i = 0; i < cells.size(); i++) {
-    std::array<unsigned long, Cell::NumVertices> topoVertices{};
+    std::array<PUML::GlobalId, Cell::NumVertices> topoVertices{};
     PUML::Downward::gvertices(meshTopology, cells[i], topoVertices.data());
 
     std::array<PUML::LocalId, Cell::NumVertices> geomVertices{};
@@ -891,8 +905,8 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   // Exchange ghost layer information and generate neighbor list
   std::vector<std::vector<char>> copySide(neighborInfo.size());
   std::vector<std::vector<char>> ghostSide(neighborInfo.size());
-  std::vector<std::vector<unsigned long>> copyFirstVertex(neighborInfo.size());
-  std::vector<std::vector<unsigned long>> ghostFirstVertex(neighborInfo.size());
+  std::vector<std::vector<PUML::GlobalId>> copyFirstVertex(neighborInfo.size());
+  std::vector<std::vector<PUML::GlobalId>> ghostFirstVertex(neighborInfo.size());
 
   std::vector<MPI_Request> requests(neighborInfo.size() * 4);
 
@@ -925,7 +939,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
               &requests[k]);
     MPI_Irecv(ghostFirstVertex[k].data(),
               info.second.size(),
-              MPI_UNSIGNED_LONG,
+              PUML::MPITypeInfer<PUML::GlobalId>::type(),
               info.first,
               0,
               Mpi::mpi.comm(),
@@ -968,7 +982,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
               &requests[neighborInfo.size() * 2 + k]);
     MPI_Isend(copyFirstVertex[k].data(),
               info.second.size(),
-              MPI_UNSIGNED_LONG,
+              PUML::MPITypeInfer<PUML::GlobalId>::type(),
               info.first,
               0,
               Mpi::mpi.comm(),
@@ -992,7 +1006,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       elements_[cellIds[0]].neighborSides[side] = gSide;
 
       // Set side sideOrientation
-      std::array<unsigned long, Cell::NumVertices> nvertices{};
+      std::array<PUML::GlobalId, Cell::NumVertices> nvertices{};
       PUML::Downward::gvertices(meshTopology, cells[cellIds[0]], nvertices.data());
       applyVertexOrder(nvertices, vertexOrderFromFaceMap(pumlFaceMaps[cellIds[0]]));
 
