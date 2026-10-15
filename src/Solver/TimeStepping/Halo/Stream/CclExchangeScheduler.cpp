@@ -21,8 +21,8 @@
 
 #include <Device/device.h>
 #include <algorithm>
-#include <cstdlib>
 #include <mpi.h>
+#include <stdlib.h>
 #include <utility>
 #include <vector>
 
@@ -89,7 +89,8 @@ CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder
   // those of the replay are still outstanding on the same communicator. That needs the support for
   // mixing graph and direct launches, which NCCL has on by default, but RCCL (7.2) off: its proxy
   // then sends the later messages first, and the processes take them for the wrong operations.
-  // A setting of the user is kept.
+  // A setting of the user is kept. (Only one thread runs while the schedulers are set up.)
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
   setenv("NCCL_GRAPH_MIXING_SUPPORT", "1", 0);
 #endif
 
