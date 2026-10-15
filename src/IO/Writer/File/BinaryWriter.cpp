@@ -25,21 +25,30 @@
 
 namespace seissol::io::writer::file {
 
-BinaryFile::BinaryFile(MPI_Comm comm) : comm_(comm) {}
+BinaryFile::BinaryFile(MPI_Comm comm, bool rootOnly) : comm_(comm), rootOnly_(rootOnly) {
+  MPI_Comm_rank(comm_, &rank_);
+}
+bool BinaryFile::rootOnly() const { return rootOnly_; }
 void BinaryFile::openFile(const std::string& name, bool append, bool backUp) {
+  if (rootOnly_ && rank_ != 0) {
+    return;
+  }
   if (backUp) {
-    int rank = 0;
-    MPI_Comm_rank(comm_, &rank);
-    if (rank == 0) {
+    if (rank_ == 0) {
       backUpFile(name);
     }
     // no rank may open the file before rank 0 moved the earlier one out of the way
-    MPI_Barrier(comm_);
+    if (!rootOnly_) {
+      MPI_Barrier(comm_);
+    }
   }
   const auto mode = append ? MPI_MODE_APPEND : 0;
   // the same hints the HDF5 backend uses; the payload of an Xdmf output goes through here
-  MPI_File_open(
-      comm_, name.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY | mode, outputMpioHints(), &file_);
+  MPI_File_open(rootOnly_ ? MPI_COMM_SELF : comm_,
+                name.c_str(),
+                MPI_MODE_CREATE | MPI_MODE_WRONLY | mode,
+                outputMpioHints(),
+                &file_);
   if (!append) {
     // not appending means writing the file from its start, so whatever it held before goes;
     // distributed writes are placed behind the current end of the file
@@ -47,22 +56,27 @@ void BinaryFile::openFile(const std::string& name, bool append, bool backUp) {
   }
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
-  int rank = 0;
-  MPI_Comm_rank(comm_, &rank);
-  if (rank == 0) {
+  if (rank_ == 0) {
     MPI_File_write(file_, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
   }
-  MPI_Barrier(comm_);
+  // a distributed write behind it takes the size of the file for where it starts
+  if (!rootOnly_) {
+    MPI_Barrier(comm_);
+  }
 }
 void BinaryFile::writeGlobalAt(const void* data, std::size_t size, std::size_t offset) {
-  int rank = 0;
-  MPI_Comm_rank(comm_, &rank);
-  if (rank == 0) {
+  if (rank_ == 0) {
     MPI_File_write_at(file_, offset, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
   }
-  MPI_Barrier(comm_);
+  if (!rootOnly_) {
+    MPI_Barrier(comm_);
+  }
 }
 void BinaryFile::writeDistributed(const void* data, std::size_t size) {
+  if (rootOnly_) {
+    logError() << "Binary writer error: distributed data was written to a file that rank 0 writes "
+                  "alone.";
+  }
   // TODO: handle size > usable
   MPI_Offset filesize = 0;
   MPI_File_get_size(file_, &filesize);
@@ -76,20 +90,33 @@ void BinaryFile::writeDistributed(const void* data, std::size_t size) {
   MPI_File_seek(file_, 0, MPI_SEEK_END);
 }
 void BinaryFile::align(std::size_t alignment) {
+  if (rootOnly_ && rank_ != 0) {
+    return;
+  }
   MPI_Offset position = 0;
   MPI_File_get_position(file_, &position);
 
   const auto alignedPosition = ((position + alignment - 1) / alignment) * alignment;
   MPI_File_seek(file_, alignedPosition, MPI_SEEK_SET);
 }
-void BinaryFile::closeFile() { MPI_File_close(&file_); }
+void BinaryFile::closeFile() {
+  if (rootOnly_ && rank_ != 0) {
+    return;
+  }
+  MPI_File_close(&file_);
+}
 
 BinaryWriter::BinaryWriter(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFiles_(runFiles) {}
+
+void BinaryWriter::beginWrite(const std::set<std::string>& distributedFiles) {
+  distributedFiles_ = distributedFiles;
+}
 
 void BinaryWriter::write(const async::ExecInfo& info, const instructions::BinaryWrite& write) {
   written_.insert(write.filename);
   if (openFiles_.find(write.filename) == openFiles_.end()) {
-    openFiles_[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm_));
+    const bool rootOnly = distributedFiles_.count(write.filename) == 0;
+    openFiles_[write.filename] = std::make_unique<BinaryFile>(comm_, rootOnly);
     // as for HDF5: the first write of a resuming run keeps what an earlier run left as a backup
     const bool backUp =
         runFiles_ != nullptr && runFiles_->firstWrite(write.filename) && runFiles_->resumed;

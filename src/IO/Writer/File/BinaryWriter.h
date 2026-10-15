@@ -24,7 +24,13 @@ namespace seissol::io::writer::file {
 
 class BinaryFile {
   public:
-  explicit BinaryFile(MPI_Comm comm);
+  /**
+   * @brief A file of all ranks of @p comm , or with @p rootOnly , of its rank 0 alone.
+   *
+   * A file that only takes data every rank holds alike -- the XML of an Xdmf or PVD output -- is
+   * written by rank 0, and the others need not open it: on them, the operations do nothing.
+   */
+  BinaryFile(MPI_Comm comm, bool rootOnly);
   /**
    * @brief Opens @p name for writing; unless @p append , from its start.
    *
@@ -36,10 +42,13 @@ class BinaryFile {
   void writeDistributed(const void* data, std::size_t size);
   void align(std::size_t alignment);
   void closeFile();
+  [[nodiscard]] bool rootOnly() const;
 
   private:
   MPI_Comm comm_{MPI_COMM_NULL};
   MPI_File file_{MPI_FILE_NULL};
+  bool rootOnly_{false};
+  int rank_{0};
 };
 
 class BinaryWriter {
@@ -48,6 +57,13 @@ class BinaryWriter {
    * @brief A writer for the write plans of one output; @p runFiles as for Hdf5Writer.
    */
   explicit BinaryWriter(MPI_Comm comm, RunFiles* runFiles = nullptr);
+
+  /**
+   * @brief Starts the writes of one plan, in which @p distributedFiles take distributed data.
+   *
+   * A file that does not is opened by rank 0 alone (see BinaryFile).
+   */
+  void beginWrite(const std::set<std::string>& distributedFiles);
 
   void write(const async::ExecInfo& info, const instructions::BinaryWrite& write);
 
@@ -60,6 +76,7 @@ class BinaryWriter {
   private:
   //! By name, so that every rank closes them in the same order: closing is collective.
   std::map<std::string, std::unique_ptr<BinaryFile>> openFiles_;
+  std::set<std::string> distributedFiles_;
   //! The files the current plan wrote, and those the plan before wrote.
   std::set<std::string> written_;
   std::set<std::string> writtenBefore_;
