@@ -22,6 +22,8 @@
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace seissol::expr {
 
@@ -76,6 +78,27 @@ NodeId replaceChannels(Arena& arena,
 /// Throws std::invalid_argument for an output or a state both have, for a state of one that the
 /// other reads as an input, and for an input both read with different types.
 [[nodiscard]] Program mergePrograms(const Program& first, const Program& second);
+
+/// What restrictProgram leaves out of a program, by name.
+struct Restriction {
+  /// the outputs that are not wanted
+  std::vector<std::string> unwanted;
+  /// the outputs that read a channel that is not available, each with that channel
+  std::vector<std::pair<std::string, std::string>> unavailable;
+};
+
+/// `program` reduced to what it computes where only some of its inputs are there, and only some of
+/// its outputs are asked for: an output that `wanted` does not accept is left out, and so is one
+/// that reads an input `available` does not accept -- directly, or through a state whose update
+/// reads one. A state that no output kept reads is left out as well, and so are the inputs, grids
+/// and contractions nothing kept reads. The outputs and states kept keep their order; there may be
+/// none, in a program that computes nothing. `restriction`, if given, collects what was left out.
+///
+/// Throws std::invalid_argument if a result that computes something does not validate.
+[[nodiscard]] Program restrictProgram(const Program& program,
+                                      const std::function<bool(const std::string&)>& available,
+                                      const std::function<bool(const std::string&)>& wanted,
+                                      Restriction* restriction = nullptr);
 
 } // namespace seissol::expr
 

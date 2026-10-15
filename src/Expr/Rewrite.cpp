@@ -13,7 +13,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -244,67 +246,101 @@ NodeId replaceChannels(Arena& arena,
 
 namespace {
 
-/// Where the grids, matrices and blocks of a program are declared in the one it is added to.
-struct Declarations {
-  std::vector<GridId> grids;
-  std::vector<MatrixId> matrices;
-  std::vector<BlockId> blocks;
+/// The grids, matrices and blocks of a source program, as they are declared in the program its
+/// nodes are added to: declared there when first used, unless declared beforehand.
+struct Imports {
+  explicit Imports(const Program& source) : source(&source) {}
+  const Program* source;
+  std::unordered_map<GridId, GridId> grids;
+  std::unordered_map<MatrixId, MatrixId> matrices;
+  std::unordered_map<BlockId, BlockId> blocks;
+  std::unordered_map<NodeId, NodeId> nodes;
+
+  GridId grid(Program& target, GridId id) {
+    const auto found = grids.find(id);
+    if (found != grids.end()) {
+      return found->second;
+    }
+    const auto imported = target.internGrid(source->grids().at(static_cast<std::size_t>(id)));
+    grids.emplace(id, imported);
+    return imported;
+  }
+  MatrixId matrix(Program& target, MatrixId id) {
+    const auto found = matrices.find(id);
+    if (found != matrices.end()) {
+      return found->second;
+    }
+    const auto& spec = source->matrices().at(static_cast<std::size_t>(id));
+    const auto imported = target.internMatrix(spec.name, spec.shape);
+    matrices.emplace(id, imported);
+    return imported;
+  }
+  BlockId block(Program& target, BlockId id) {
+    const auto found = blocks.find(id);
+    if (found != blocks.end()) {
+      return found->second;
+    }
+    const auto& spec = source->blocks().at(static_cast<std::size_t>(id));
+    const auto imported = target.internBlock(spec.name, spec.length);
+    blocks.emplace(id, imported);
+    return imported;
+  }
 };
 
-/// `root` of the arena `source`, built in `target`, whose channels are those of the same names.
-NodeId importNode(Arena& target,
-                  const Arena& source,
-                  NodeId root,
-                  const Declarations& declarations,
-                  std::unordered_map<NodeId, NodeId>& memo) {
+/// `root` of the program `imports.source`, built in `target`, whose channels are those of the same
+/// names.
+NodeId importNode(Program& target, NodeId root, Imports& imports) {
   if (root == NoNode) {
     return root;
   }
-  const auto found = memo.find(root);
-  if (found != memo.end()) {
+  const auto found = imports.nodes.find(root);
+  if (found != imports.nodes.end()) {
     return found->second;
   }
+  const Arena& source = imports.source->arena();
   const Node node = source[root];
   NodeId result = NoNode;
   switch (node.kind) {
   case Kind::Const:
-    result = target.konst(node.value);
+    result = target.arena().konst(node.value);
     break;
   case Kind::Field:
-    result = target.field(source.channelName(node.ch));
+    result = target.arena().field(source.channelName(node.ch));
     break;
   case Kind::PW: {
     const int count = arity(node.fn);
-    const NodeId a = importNode(target, source, node.a, declarations, memo);
-    const NodeId b = count > 1 ? importNode(target, source, node.b, declarations, memo) : NoNode;
-    const NodeId c = count > 2 ? importNode(target, source, node.c, declarations, memo) : NoNode;
+    const NodeId a = importNode(target, node.a, imports);
+    const NodeId b = count > 1 ? importNode(target, node.b, imports) : NoNode;
+    const NodeId c = count > 2 ? importNode(target, node.c, imports) : NoNode;
     if (count == 1) {
-      result = target.pw(node.fn, a);
+      result = target.arena().pw(node.fn, a);
     } else if (count == 2) {
-      result = target.pw(node.fn, a, b);
+      result = target.arena().pw(node.fn, a, b);
     } else {
-      result = target.pw(node.fn, a, b, c);
+      result = target.arena().pw(node.fn, a, b, c);
     }
     break;
   }
   case Kind::Lookup: {
     std::vector<NodeId> coordinates(source.args(node), source.args(node) + node.argCount);
     for (auto& coordinate : coordinates) {
-      coordinate = importNode(target, source, coordinate, declarations, memo);
+      coordinate = importNode(target, coordinate, imports);
     }
-    result = target.lookup(
-        declarations.grids.at(static_cast<std::size_t>(node.grid)), node.comp, coordinates);
+    const auto grid = imports.grid(target, node.grid);
+    result = target.arena().lookup(grid, node.comp, coordinates);
     break;
   }
-  case Kind::Contract:
-    result = target.contract(declarations.matrices.at(static_cast<std::size_t>(node.matrix)),
-                             declarations.blocks.at(static_cast<std::size_t>(node.block)));
+  case Kind::Contract: {
+    const auto matrix = imports.matrix(target, node.matrix);
+    const auto block = imports.block(target, node.block);
+    result = target.arena().contract(matrix, block);
     break;
+  }
   default:
-    throw std::invalid_argument(std::string("cannot merge a program with a node of kind ") +
+    throw std::invalid_argument(std::string("cannot rebuild a program with a node of kind ") +
                                 name(node.kind));
   }
-  memo.emplace(root, result);
+  imports.nodes.emplace(root, result);
   return result;
 }
 
@@ -352,36 +388,160 @@ Program mergePrograms(const Program& first, const Program& second) {
   if (second.computeType() == ComputeType::F64) {
     merged.setComputeType(ComputeType::F64);
   }
-  Declarations declarations;
-  for (const auto& grid : second.grids()) {
-    declarations.grids.push_back(merged.internGrid(grid));
+  Imports imports(second);
+  for (std::size_t i = 0; i < second.grids().size(); ++i) {
+    imports.grid(merged, static_cast<GridId>(i));
   }
-  for (const auto& matrix : second.matrices()) {
-    declarations.matrices.push_back(merged.internMatrix(matrix.name, matrix.shape));
+  for (std::size_t i = 0; i < second.matrices().size(); ++i) {
+    imports.matrix(merged, static_cast<MatrixId>(i));
   }
-  for (const auto& block : second.blocks()) {
-    declarations.blocks.push_back(merged.internBlock(block.name, block.length));
+  for (std::size_t i = 0; i < second.blocks().size(); ++i) {
+    imports.block(merged, static_cast<BlockId>(i));
   }
   for (const auto& input : second.inputs()) {
     if (findByName(merged.inputs(), input.name) == nullptr) {
       merged.addInput(input.name, input.type);
     }
   }
-  std::unordered_map<NodeId, NodeId> memo;
   for (std::size_t i = 0; i < second.outputs().size(); ++i) {
     const auto& output = second.outputs()[i];
-    merged.addOutput(
-        output.name,
-        output.type,
-        importNode(merged.arena(), second.arena(), second.roots()[i], declarations, memo));
+    merged.addOutput(output.name, output.type, importNode(merged, second.roots()[i], imports));
   }
   for (const auto& state : second.state()) {
-    merged.addState(state.name,
-                    state.initial,
-                    importNode(merged.arena(), second.arena(), state.root, declarations, memo));
+    merged.addState(state.name, state.initial, importNode(merged, state.root, imports));
   }
   validate(merged);
   return merged;
+}
+
+Program restrictProgram(const Program& program,
+                        const std::function<bool(const std::string&)>& available,
+                        const std::function<bool(const std::string&)>& wanted,
+                        Restriction* restriction) {
+  const auto& states = program.state();
+  const auto isState = [&](const std::string& name) { return findByName(states, name) != nullptr; };
+
+  // what the update of each state and each output reads
+  std::vector<std::set<std::string>> stateReads;
+  stateReads.reserve(states.size());
+  for (const auto& state : states) {
+    stateReads.push_back(channelsRead(program, {state.root}));
+  }
+  std::vector<std::set<std::string>> outputReads;
+  outputReads.reserve(program.outputs().size());
+  for (const auto root : program.roots()) {
+    outputReads.push_back(channelsRead(program, {root}));
+  }
+
+  // the states that can be computed: the ones that read only inputs that are there and states
+  // that can be computed; and why the others cannot
+  std::map<std::string, std::string> missing;
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (std::size_t s = 0; s < states.size(); ++s) {
+      if (missing.count(states[s].name) > 0) {
+        continue;
+      }
+      for (const auto& read : stateReads[s]) {
+        const auto lacking = isState(read) ? missing.find(read) : missing.end();
+        if (isState(read) ? lacking != missing.end() : !available(read)) {
+          missing.emplace(states[s].name, isState(read) ? lacking->second : read);
+          changed = true;
+          break;
+        }
+      }
+    }
+  }
+  const auto lackingOf = [&](const std::set<std::string>& reads) -> std::string {
+    for (const auto& read : reads) {
+      if (isState(read)) {
+        const auto lacking = missing.find(read);
+        if (lacking != missing.end()) {
+          return lacking->second;
+        }
+      } else if (!available(read)) {
+        return read;
+      }
+    }
+    return {};
+  };
+
+  // the outputs kept, and the states they need
+  std::vector<std::size_t> kept;
+  std::set<std::string> needed;
+  std::vector<std::string> pending;
+  for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+    const auto& name = program.outputs()[i].name;
+    if (!wanted(name)) {
+      if (restriction != nullptr) {
+        restriction->unwanted.push_back(name);
+      }
+      continue;
+    }
+    const auto lacking = lackingOf(outputReads[i]);
+    if (!lacking.empty()) {
+      if (restriction != nullptr) {
+        restriction->unavailable.emplace_back(name, lacking);
+      }
+      continue;
+    }
+    kept.push_back(i);
+    for (const auto& read : outputReads[i]) {
+      if (isState(read) && needed.insert(read).second) {
+        pending.push_back(read);
+      }
+    }
+  }
+  while (!pending.empty()) {
+    const auto name = pending.back();
+    pending.pop_back();
+    for (std::size_t s = 0; s < states.size(); ++s) {
+      if (states[s].name != name) {
+        continue;
+      }
+      for (const auto& read : stateReads[s]) {
+        if (isState(read) && needed.insert(read).second) {
+          pending.push_back(read);
+        }
+      }
+    }
+  }
+
+  // the inputs the rest reads, in their order
+  std::set<std::string> read;
+  for (const auto i : kept) {
+    read.insert(outputReads[i].begin(), outputReads[i].end());
+  }
+  for (std::size_t s = 0; s < states.size(); ++s) {
+    if (needed.count(states[s].name) > 0) {
+      read.insert(stateReads[s].begin(), stateReads[s].end());
+    }
+  }
+
+  Program restricted;
+  restricted.setComputeType(program.computeType());
+  for (const auto& input : program.inputs()) {
+    if (read.count(input.name) > 0) {
+      restricted.addInput(input.name, input.type);
+    }
+  }
+  Imports imports(program);
+  for (const auto i : kept) {
+    const auto& output = program.outputs()[i];
+    restricted.addOutput(
+        output.name, output.type, importNode(restricted, program.roots()[i], imports));
+  }
+  for (const auto& state : states) {
+    if (needed.count(state.name) > 0) {
+      restricted.addState(state.name, state.initial, importNode(restricted, state.root, imports));
+    }
+  }
+  // nothing left is a program that computes nothing, which its consumer skips
+  if (!restricted.outputs().empty() || !restricted.state().empty()) {
+    validate(restricted);
+  }
+  return restricted;
 }
 
 } // namespace seissol::expr

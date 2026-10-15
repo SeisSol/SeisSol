@@ -133,6 +133,13 @@ void CompiledReader::prepare(const DataTable& table) {
   // as an easi file may: the kernel computes what is asked for.
   kernel_.reset();
   bound_ = withOutputsOf(program_, table);
+  if (bound_.outputs().empty() && bound_.state().empty()) {
+    // the table asks for nothing the program gives -- one restricted to a configuration of a run
+    // that has none of it, say -- so there is nothing to compute
+    preparedFor_ = table.revision();
+    fallback_ = false;
+    return;
+  }
   binding_ = expr::Binding::bind(bound_, table);
   kernel_ = expr::makeKernel(bound_, binding_, *grids_, options_.backend);
   if (kernel_ == nullptr) {
@@ -227,7 +234,9 @@ void CompiledReader::call(const DataTable& table) {
     reference_->call(table);
     return;
   }
-  kernel_->run(table);
+  if (kernel_ != nullptr) {
+    kernel_->run(table);
+  }
 }
 
 } // namespace seissol::reader::scripting

@@ -522,6 +522,72 @@ TEST_SUITE("ExprContract") {
     CHECK_THROWS_AS(static_cast<void>(mergePrograms(state, state)), std::invalid_argument);
   }
 
+  TEST_CASE("a program restricted to what is there computes the rest as before") {
+    const Program program = compileSderivModule(
+        "state acc = 0.0\nout def acc = acc + Qp * 2.0\nout def a = v * 2.0 + x\n"
+        "out def b = Qp + v\nout def pprime = -v\nout def c = acc + 1.0\n");
+    Restriction restriction;
+    const Program restricted = restrictProgram(
+        program,
+        [](const std::string& name) { return name != "Qp"; },
+        [](const std::string& name) { return name != "pprime"; },
+        &restriction);
+
+    // a reads only what is there; b reads Qp directly, acc and c through the state
+    REQUIRE(restricted.outputs().size() == 1);
+    CHECK(restricted.outputs()[0].name == "a");
+    CHECK(restricted.state().empty());
+    std::vector<std::string> inputs;
+    for (const auto& input : restricted.inputs()) {
+      inputs.push_back(input.name);
+    }
+    CHECK(inputs == std::vector<std::string>{"v", "x"});
+    CHECK(restriction.unwanted == std::vector<std::string>{"pprime"});
+    REQUIRE(restriction.unavailable.size() == 3);
+    CHECK(restriction.unavailable[0] == std::pair<std::string, std::string>{"acc", "Qp"});
+    CHECK(restriction.unavailable[1] == std::pair<std::string, std::string>{"b", "Qp"});
+    CHECK(restriction.unavailable[2] == std::pair<std::string, std::string>{"c", "Qp"});
+
+    // with everything there, the state stays, and the outputs compute as before
+    const Program full = restrictProgram(
+        program,
+        [](const std::string&) { return true; },
+        [](const std::string& name) { return name != "a"; });
+    REQUIRE(full.outputs().size() == 4);
+    REQUIRE(full.state().size() == 1);
+    constexpr std::size_t Points = 3;
+    const std::vector<double> v = {0.5, -1.0, 2.0};
+    const std::vector<double> x = {1.0, 2.0, 3.0};
+    const std::vector<double> qp = {10.0, 20.0, 30.0};
+    const auto run = [&](const Program& p, std::vector<std::vector<double>>& values) {
+      DataTable table(Points);
+      table.bindViewConst<double>("v", Direction::In, v.data());
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindViewConst<double>("Qp", Direction::In, qp.data());
+      values.assign(p.outputs().size(), std::vector<double>(Points, -1.0));
+      for (std::size_t i = 0; i < p.outputs().size(); ++i) {
+        table.bindView<double>(p.outputs()[i].name, Direction::Out, values[i].data());
+      }
+      Binding binding = Binding::bind(p, table);
+      df::GridStore store;
+      const auto kernel = makeKernel(p, binding, store, {});
+      kernel->precompute(table);
+      kernel->run(table);
+      kernel->run(table);
+    };
+    std::vector<std::vector<double>> ofProgram;
+    std::vector<std::vector<double>> ofRestricted;
+    std::vector<std::vector<double>> ofFull;
+    run(program, ofProgram);
+    run(restricted, ofRestricted);
+    run(full, ofFull);
+    CHECK(ofRestricted[0] == ofProgram[1]);
+    CHECK(ofFull[0] == ofProgram[0]);
+    CHECK(ofFull[1] == ofProgram[2]);
+    CHECK(ofFull[2] == ofProgram[3]);
+    CHECK(ofFull[3] == ofProgram[4]);
+  }
+
 } // TEST_SUITE
 
 } // namespace seissol::expr::test
