@@ -86,7 +86,12 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
 
   _eh(H5Pset_fapl_mpio(h5falist, comm_, outputMpioHints()));
 
-  _eh(H5Pset_all_coll_metadata_ops(h5falist, false));
+  // Every rank carries out the same plan, so every operation on the metadata happens on all of them
+  // in the same order anyway. Read independently, each rank fetches every superblock, object header
+  // and chunk index node from the file system itself -- thousands of reads of the same few blocks;
+  // collectively, one rank reads them for all. Likewise, the metadata is written collectively.
+  _eh(H5Pset_all_coll_metadata_ops(h5falist, true));
+  _eh(H5Pset_coll_metadata_write(h5falist, true));
 
   // Opening and creating are collective, so every rank has to make the same choice; rank 0 looks at
   // the file system for all of them, since the ranks may see it differently (e.g. stale caches).
