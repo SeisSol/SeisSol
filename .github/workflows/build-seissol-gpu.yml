@@ -8,6 +8,8 @@
 name: build-seissol-gpu
 on:
   - push
+  # a run started by hand verifies its branch as well, not only master
+  - workflow_dispatch
 
 env:
   precomputed-hash: bed56573928e224984f5e75a17feb8b0b2f5ea27
@@ -138,11 +140,12 @@ jobs:
       image: ${{ matrix.setup.container }}
       options: ${{ matrix.setup.container-options || ' ' }}
     needs: [seissol-build-test]
-    # Only on master for now: the runner takes one job at a time, so the verification of every push
-    # queued up behind that of the pushes before it. It runs whatever the builds end in: a failed
-    # build of another leg (as of a backend that is not verified) holds back none of the others,
-    # and a leg whose own build failed finds no executable to download.
-    if: ${{ !cancelled() && github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
+    # Only on master for now, and in runs started by hand: the runner takes one job at a time, so
+    # the verification of every push queued up behind that of the pushes before it. It runs
+    # whatever the builds end in: a failed build of another leg (as of a backend that is not
+    # verified) holds back none of the others, and a leg whose own build failed finds no
+    # executable to download.
+    if: ${{ !cancelled() && github.repository == 'SeisSol/SeisSol' && (github.ref_name == 'master' || github.event_name == 'workflow_dispatch') }}
     strategy:
       fail-fast: false
       matrix:
