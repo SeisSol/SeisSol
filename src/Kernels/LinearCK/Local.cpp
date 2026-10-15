@@ -22,6 +22,7 @@
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
@@ -154,13 +155,15 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       break;
     }
     case FaceType::NonlinearDirichlet: {
-      // the space-time predictor has no Taylor series, and the setup refuses the face type there
-      if constexpr (Cfg::Solver == SolverType::LinearCK) {
-        assert(this->nonlinearDirichlet() != nullptr);
-        assert(tmp.timeDerivatives != nullptr);
-        // the state of the cell at a time into the step, from its Taylor series
-        const real* derivatives = tmp.timeDerivatives;
-        const auto stateAt = [derivatives](double tau, real* state) {
+      assert(this->nonlinearDirichlet() != nullptr);
+      assert(tmp.timeDerivatives != nullptr);
+      // the state of the cell at a time into the step: from its Taylor series, or from the
+      // polynomial in time of the space-time predictor
+      const real* derivatives = tmp.timeDerivatives;
+      const auto stateAt = [derivatives, timeStepWidth](double tau, real* state) {
+        // the predictor reads it, the Taylor series does not
+        static_cast<void>(timeStepWidth);
+        if constexpr (Cfg::Solver == SolverType::LinearCK) {
           kernel::derivativeTaylorExpansion<Cfg> taylorKrnl;
           taylorKrnl.I = state;
           double power = 1;
@@ -170,17 +173,26 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
             power *= tau / static_cast<double>(d + 1);
           }
           taylorKrnl.execute();
-        };
-        ghostStateBoundary_.nonlinearDirichlet(*this->nonlinearDirichlet(),
-                                               stateAt,
-                                               face,
-                                               cellBoundaryMapping[face],
-                                               data.template get<LTS::MaterialParameters>(),
-                                               time,
-                                               timeStepWidth,
-                                               dofsFaceBoundaryNodal);
-        nodalLfKrnl.execute(face);
-      }
+        } else {
+#ifdef SEISSOL_KERNELS_STP
+          const auto basis = seissol::kernels::timeBasis<Cfg>().point(tau, timeStepWidth);
+          kernel::evaluateDOFSAtTimeSTP<Cfg> evaluateKrnl;
+          evaluateKrnl.spaceTimePredictor = derivatives;
+          evaluateKrnl.timeBasisFunctionsAtPoint = basis.data();
+          evaluateKrnl.QAtTimeSTP = state;
+          evaluateKrnl.execute();
+#endif
+        }
+      };
+      ghostStateBoundary_.nonlinearDirichlet(*this->nonlinearDirichlet(),
+                                             stateAt,
+                                             face,
+                                             cellBoundaryMapping[face],
+                                             data.template get<LTS::MaterialParameters>(),
+                                             time,
+                                             timeStepWidth,
+                                             dofsFaceBoundaryNodal);
+      nodalLfKrnl.execute(face);
       break;
     }
     default:
@@ -458,6 +470,13 @@ PerformanceEstimate
             (PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +
              PerformanceEstimate::fromKernel<seissol::kernel::derivativeTaylorExpansion<Cfg>>()) *
             Cfg::ConvergenceOrder;
+      } else {
+#ifdef SEISSOL_KERNELS_STP
+        estimate +=
+            (PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +
+             PerformanceEstimate::fromKernel<seissol::kernel::evaluateDOFSAtTimeSTP<Cfg>>()) *
+            Cfg::ConvergenceOrder;
+#endif
       }
       break;
     default:

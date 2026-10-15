@@ -314,6 +314,8 @@ the same integral. The script is evaluated where it gives a quantity, and the st
 only computed if it reads it. As for the analytical boundary, the build needs the runtime
 compiler of its device.
 
-The boundary is not available with the space-time predictor (poroelastic materials), which
-has no Taylor series of the state in time, nor in device builds with the anelastic solver
-(viscoelastic and viscoacoustic materials).
+With the space-time predictor (poroelastic materials), the state inside at a time point is
+the polynomial in time of the predictor at that time, which the quadrature of the step
+integrates exactly as well. That is on the host only: device builds of the space-time predictor
+reject the boundary, as do device builds with the anelastic solver (viscoelastic and
+viscoacoustic materials).
