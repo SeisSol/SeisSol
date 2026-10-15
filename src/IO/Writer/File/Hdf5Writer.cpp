@@ -592,7 +592,9 @@ void Hdf5Writer::endWrite() {
   for (auto entry = openFiles_.begin(); entry != openFiles_.end();) {
     const auto& name = entry->first;
     if (written_.count(name) > 0 && writtenBefore_.count(name) > 0) {
-      entry->second.flushFile();
+      if (outputFlush()) {
+        entry->second.flushFile();
+      }
       ++entry;
     } else {
       entry->second.closeFile();

@@ -59,6 +59,16 @@ inline std::size_t outputMetaBlockSize() {
 }
 
 /**
+ * @brief Whether a file an output keeps open from one write to the next is flushed after each.
+ *
+ * On by default: flushed, the file is complete on disk after every step, so that a run ending
+ * early leaves its output readable up to its last step. A flush syncs the file on every rank,
+ * though (MPI_File_sync), which a parallel file system may take its time over with thousands of
+ * ranks; without it, the file is complete once the simulation ends.
+ */
+inline bool outputFlush() { return utils::Env("SEISSOL_IO_").get<bool>("FLUSH", true); }
+
+/**
  * @brief The MPI-IO hints for the output, from the environment.
  *
  * Which ones help depends entirely on the file system, so they are not something SeisSol can
