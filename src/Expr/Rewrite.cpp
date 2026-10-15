@@ -242,4 +242,146 @@ NodeId replaceChannels(Arena& arena,
   return result;
 }
 
+namespace {
+
+/// Where the grids, matrices and blocks of a program are declared in the one it is added to.
+struct Declarations {
+  std::vector<GridId> grids;
+  std::vector<MatrixId> matrices;
+  std::vector<BlockId> blocks;
+};
+
+/// `root` of the arena `source`, built in `target`, whose channels are those of the same names.
+NodeId importNode(Arena& target,
+                  const Arena& source,
+                  NodeId root,
+                  const Declarations& declarations,
+                  std::unordered_map<NodeId, NodeId>& memo) {
+  if (root == NoNode) {
+    return root;
+  }
+  const auto found = memo.find(root);
+  if (found != memo.end()) {
+    return found->second;
+  }
+  const Node node = source[root];
+  NodeId result = NoNode;
+  switch (node.kind) {
+  case Kind::Const:
+    result = target.konst(node.value);
+    break;
+  case Kind::Field:
+    result = target.field(source.channelName(node.ch));
+    break;
+  case Kind::PW: {
+    const int count = arity(node.fn);
+    const NodeId a = importNode(target, source, node.a, declarations, memo);
+    const NodeId b = count > 1 ? importNode(target, source, node.b, declarations, memo) : NoNode;
+    const NodeId c = count > 2 ? importNode(target, source, node.c, declarations, memo) : NoNode;
+    if (count == 1) {
+      result = target.pw(node.fn, a);
+    } else if (count == 2) {
+      result = target.pw(node.fn, a, b);
+    } else {
+      result = target.pw(node.fn, a, b, c);
+    }
+    break;
+  }
+  case Kind::Lookup: {
+    std::vector<NodeId> coordinates(source.args(node), source.args(node) + node.argCount);
+    for (auto& coordinate : coordinates) {
+      coordinate = importNode(target, source, coordinate, declarations, memo);
+    }
+    result = target.lookup(
+        declarations.grids.at(static_cast<std::size_t>(node.grid)), node.comp, coordinates);
+    break;
+  }
+  case Kind::Contract:
+    result = target.contract(declarations.matrices.at(static_cast<std::size_t>(node.matrix)),
+                             declarations.blocks.at(static_cast<std::size_t>(node.block)));
+    break;
+  default:
+    throw std::invalid_argument(std::string("cannot merge a program with a node of kind ") +
+                                name(node.kind));
+  }
+  memo.emplace(root, result);
+  return result;
+}
+
+template <typename Spec>
+const Spec* findByName(const std::vector<Spec>& specs, const std::string& name) {
+  for (const auto& spec : specs) {
+    if (spec.name == name) {
+      return &spec;
+    }
+  }
+  return nullptr;
+}
+
+} // namespace
+
+Program mergePrograms(const Program& first, const Program& second) {
+  for (const auto& output : second.outputs()) {
+    if (findByName(first.outputs(), output.name) != nullptr) {
+      throw std::invalid_argument("both give the output `" + output.name + "`");
+    }
+  }
+  for (const auto& state : second.state()) {
+    if (findByName(first.state(), state.name) != nullptr) {
+      throw std::invalid_argument("both declare the state `" + state.name + "`");
+    }
+    if (findByName(first.inputs(), state.name) != nullptr) {
+      throw std::invalid_argument("`" + state.name +
+                                  "` is a state of one and an input of the other");
+    }
+  }
+  for (const auto& state : first.state()) {
+    if (findByName(second.inputs(), state.name) != nullptr) {
+      throw std::invalid_argument("`" + state.name +
+                                  "` is a state of one and an input of the other");
+    }
+  }
+  for (const auto& input : second.inputs()) {
+    const auto* other = findByName(first.inputs(), input.name);
+    if (other != nullptr && other->type != input.type) {
+      throw std::invalid_argument("both read `" + input.name + "`, with different types");
+    }
+  }
+
+  Program merged = first;
+  if (second.computeType() == ComputeType::F64) {
+    merged.setComputeType(ComputeType::F64);
+  }
+  Declarations declarations;
+  for (const auto& grid : second.grids()) {
+    declarations.grids.push_back(merged.internGrid(grid));
+  }
+  for (const auto& matrix : second.matrices()) {
+    declarations.matrices.push_back(merged.internMatrix(matrix.name, matrix.shape));
+  }
+  for (const auto& block : second.blocks()) {
+    declarations.blocks.push_back(merged.internBlock(block.name, block.length));
+  }
+  for (const auto& input : second.inputs()) {
+    if (findByName(merged.inputs(), input.name) == nullptr) {
+      merged.addInput(input.name, input.type);
+    }
+  }
+  std::unordered_map<NodeId, NodeId> memo;
+  for (std::size_t i = 0; i < second.outputs().size(); ++i) {
+    const auto& output = second.outputs()[i];
+    merged.addOutput(
+        output.name,
+        output.type,
+        importNode(merged.arena(), second.arena(), second.roots()[i], declarations, memo));
+  }
+  for (const auto& state : second.state()) {
+    merged.addState(state.name,
+                    state.initial,
+                    importNode(merged.arena(), second.arena(), state.root, declarations, memo));
+  }
+  validate(merged);
+  return merged;
+}
+
 } // namespace seissol::expr

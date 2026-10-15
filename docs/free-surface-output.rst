@@ -83,9 +83,10 @@ same points; it is written like the one of the wavefield output (see :ref:`deriv
 face, a program reads the quantities of the cell the face belongs to, with their derivatives, and
 the parameters of its material, and in addition the displacement of the face, ``u1``, ``u2``,
 ``u3`` (without derivatives); ``x``, ``y``, ``z`` are the output points on the face. The built-in
-outputs are computed the same way. The state of a program lives with the faces and is written to
-the checkpoints, as for the wavefield; ``surfacevtkorder``, ``surfaceoutputrefinement`` and
-``surfaceprojection`` decide its layout.
+outputs are computed the same way, in one program with those of a script without state, and an
+output of a script needs a name of its own, as for the wavefield. The state of a program lives
+with the faces and is written to the checkpoints, as for the wavefield; ``surfacevtkorder``,
+``surfaceoutputrefinement`` and ``surfaceprojection`` decide its layout.
 
 .. code-block:: text
 

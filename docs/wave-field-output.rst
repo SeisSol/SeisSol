@@ -211,7 +211,12 @@ same points. It is an sderiv module (``sderiv:file`` or a ``.sderiv`` file) or a
 
 The values and derivatives are taken from the coefficients of the cell directly, so a program
 pays for each of them once however many outputs read it. The built-in outputs (the quantities,
-``int-`` quantities, strain, rotation and plastic strain) are computed the same way.
+``int-`` quantities, strain, rotation and plastic strain) are computed the same way, and in the
+same program as those of the script: what both read is computed once. An output of the script
+therefore needs a name of its own; one that has the name of a built-in output (``v1`` with
+``iOutputMask`` writing ``v1``, say) is an error at startup. A script with state stays a program
+of its own, which follows the time steps (see below), so that the built-in outputs are still
+only computed when they are written.
 
 A program without state is evaluated when the output is written. A program with state follows
 every time step of the cells (on the CPU; on a GPU, it is evaluated when written), so that e.g. a

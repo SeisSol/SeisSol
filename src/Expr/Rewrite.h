@@ -68,6 +68,15 @@ NodeId replaceChannels(Arena& arena,
                        const std::unordered_map<int, NodeId>& replacements,
                        std::unordered_map<NodeId, NodeId>& memo);
 
+/// The outputs and the states of `second` added to those of `first`, as one program on one DAG:
+/// a channel of the same name is one channel, so an input both read is read once, and an
+/// expression both compute is computed once. The grids and the contractions of `second` are
+/// declared in the result as well. It computes in F64 if either does.
+///
+/// Throws std::invalid_argument for an output or a state both have, for a state of one that the
+/// other reads as an input, and for an input both read with different types.
+[[nodiscard]] Program mergePrograms(const Program& first, const Program& second);
+
 } // namespace seissol::expr
 
 #endif // SEISSOL_SRC_EXPR_REWRITE_H_

@@ -14,6 +14,7 @@
 #include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Expr/Program.h"
+#include "Expr/Rewrite.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
@@ -48,6 +49,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -286,6 +288,31 @@ void collectDerived(NamedOutputs& outputs,
   derived.push_back(std::move(output));
 }
 
+/// The programs of an output: its built-in outputs `builtIn` and those of its configured program
+/// `script` (from `path`) as one program, so that what both read is read once -- unless the
+/// script keeps state, which it updates after every time step: then two programs, so that the
+/// built-in outputs are computed only when written. An output of the script with the name of a
+/// built-in one is an error either way.
+std::vector<expr::Program> programsOf(expr::Program builtIn,
+                                      const expr::Program* script,
+                                      const std::string& path,
+                                      const char* output) {
+  if (script == nullptr) {
+    return {std::move(builtIn)};
+  }
+  try {
+    auto merged = expr::mergePrograms(builtIn, *script);
+    if (script->state().empty()) {
+      return {std::move(merged)};
+    }
+  } catch (const std::invalid_argument& error) {
+    logError() << "The" << output << "output takes the outputs of" << path
+               << "along with its own, but" << error.what()
+               << "-- an output of the script needs a name of its own.";
+  }
+  return {std::move(builtIn), *script};
+}
+
 /// All outputs of a program are computed at once, before `writer` pulls them name by name; a
 /// program with state follows every time step of the cells instead.
 void evaluateDerived(seissol::SeisSol& seissolInstance,
@@ -337,20 +364,18 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
                                     parameters.plasticityMask.end());
   }
 
-  std::vector<const expr::Program*> programs;
-  const auto builtIn = initializer::waveFieldProgram(selection);
-  programs.push_back(&builtIn);
-  if (setup.script != nullptr) {
-    programs.push_back(setup.script.get());
-  }
+  const auto programs = programsOf(initializer::waveFieldProgram(selection),
+                                   setup.script.get(),
+                                   parameters.script,
+                                   "wave field");
 
   NamedOutputs outputs;
-  for (const auto* program : programs) {
-    if (!program->outputs().empty()) {
+  for (const auto& program : programs) {
+    if (!program.outputs().empty()) {
       collectDerived(outputs,
                      derived,
                      initializer::makeDerivedVolumeOutput<Cfg>(
-                         seissolInstance, setup.cells, geometry, *program));
+                         seissolInstance, setup.cells, geometry, program));
     }
   }
   return outputs;
@@ -576,22 +601,21 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance,
   geometry.target = setup.projectionTarget;
   geometry.nodalSet = PlasticityNodalSet<Cfg>;
 
-  std::vector<const expr::Program*> programs;
-  const auto builtIn = initializer::surfaceProgram(
-      std::vector<std::string>(MaterialT::Quantities.begin(), MaterialT::Quantities.end()),
-      parameters.outputMask);
-  programs.push_back(&builtIn);
-  if (setup.script != nullptr) {
-    programs.push_back(setup.script.get());
-  }
+  const auto programs =
+      programsOf(initializer::surfaceProgram(std::vector<std::string>(MaterialT::Quantities.begin(),
+                                                                      MaterialT::Quantities.end()),
+                                             parameters.outputMask),
+                 setup.script.get(),
+                 parameters.script,
+                 "free surface");
 
   NamedOutputs outputs;
-  for (const auto* program : programs) {
-    if (!program->outputs().empty()) {
+  for (const auto& program : programs) {
+    if (!program.outputs().empty()) {
       collectDerived(outputs,
                      derived,
                      initializer::makeDerivedSurfaceOutput<Cfg>(
-                         seissolInstance, setup.faces, geometry, *program));
+                         seissolInstance, setup.faces, geometry, program));
     }
   }
   return outputs;

@@ -454,6 +454,74 @@ TEST_SUITE("ExprContract") {
     CHECK(source.find("pointIndex != 0 ? pointIndex[l] : first + l") != std::string::npos);
   }
 
+  TEST_CASE("two programs merge into one, which computes what they share once") {
+    const Program first = compileSderivModule("out def a = v * 2.0 + x\n");
+    const Program second = compileSderivModule(
+        "state s = 0.0\nout def s = s + v * 2.0\nout def b = sin(v * 2.0) + y\n");
+    const Program merged = mergePrograms(first, second);
+
+    std::vector<std::string> inputs;
+    for (const auto& input : merged.inputs()) {
+      inputs.push_back(input.name);
+    }
+    CHECK(inputs == std::vector<std::string>{"v", "x", "y"});
+    REQUIRE(merged.outputs().size() == 3);
+    CHECK(merged.outputs()[0].name == "a");
+    CHECK(merged.outputs()[1].name == "s");
+    CHECK(merged.outputs()[2].name == "b");
+    REQUIRE(merged.state().size() == 1);
+    CHECK(merged.state()[0].name == "s");
+    // v * 2.0 is one node, which both read
+    const auto& arena = merged.arena();
+    const NodeId shared = arena[merged.roots()[0]].a;
+    CHECK(arena[shared].fn == Fn::Mul);
+    CHECK(arena[arena[merged.roots()[2]].a].a == shared);
+
+    // the merged program computes what both compute, also the state over calls
+    constexpr std::size_t Points = 4;
+    const std::vector<double> v = {0.5, -1.0, 2.0, 3.25};
+    const std::vector<double> x = {1.0, 2.0, 3.0, 4.0};
+    const std::vector<double> y = {-1.0, 0.0, 1.0, 2.0};
+    const auto run = [&](const Program& program, std::vector<std::vector<double>>& values) {
+      DataTable table(Points);
+      table.bindViewConst<double>("v", Direction::In, v.data());
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindViewConst<double>("y", Direction::In, y.data());
+      values.assign(program.outputs().size(), std::vector<double>(Points, -1.0));
+      for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+        table.bindView<double>(program.outputs()[i].name, Direction::Out, values[i].data());
+      }
+      Binding binding = Binding::bind(program, table);
+      df::GridStore store;
+      const auto kernel = makeKernel(program, binding, store, {});
+      kernel->precompute(table);
+      kernel->run(table);
+      kernel->run(table);
+    };
+    std::vector<std::vector<double>> ofFirst;
+    std::vector<std::vector<double>> ofSecond;
+    std::vector<std::vector<double>> ofMerged;
+    run(first, ofFirst);
+    run(second, ofSecond);
+    run(merged, ofMerged);
+    CHECK(ofMerged[0] == ofFirst[0]);
+    CHECK(ofMerged[1] == ofSecond[0]);
+    CHECK(ofMerged[2] == ofSecond[1]);
+    // the state after two calls
+    CHECK(ofMerged[1][1] == -4.0);
+  }
+
+  TEST_CASE("programs that both have a name do not merge") {
+    const Program first = compileSderivModule("out def a = v + 1.0\n");
+    CHECK_THROWS_AS(static_cast<void>(mergePrograms(first, first)), std::invalid_argument);
+    // a state of one is an input of the other
+    const Program reader = compileSderivModule("out def c = s + 1.0\n");
+    const Program state = compileSderivModule("state s = 0.0\nout def s = s + v\n");
+    CHECK_THROWS_AS(static_cast<void>(mergePrograms(reader, state)), std::invalid_argument);
+    CHECK_THROWS_AS(static_cast<void>(mergePrograms(state, reader)), std::invalid_argument);
+    CHECK_THROWS_AS(static_cast<void>(mergePrograms(state, state)), std::invalid_argument);
+  }
+
 } // TEST_SUITE
 
 } // namespace seissol::expr::test
