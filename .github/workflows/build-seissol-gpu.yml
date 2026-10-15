@@ -138,7 +138,11 @@ jobs:
       image: ${{ matrix.setup.container }}
       options: ${{ matrix.setup.container-options || ' ' }}
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' }}
+    # Only on master for now: the runner takes one job at a time, so the verification of every push
+    # queued up behind that of the pushes before it. It runs whatever the builds end in: a failed
+    # build of another leg (as of a backend that is not verified) holds back none of the others,
+    # and a leg whose own build failed finds no executable to download.
+    if: ${{ !cancelled() && github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
     strategy:
       fail-fast: false
       matrix:

@@ -122,7 +122,12 @@ jobs:
       image: ${{ matrix.setup.container }}
       options: --shm-size=2g
     needs: seissol-build-test
-    if: ${{ github.repository == 'SeisSol/SeisSol' }} #  && github.ref_name == 'master'
+    # Only on master for now: the runner takes one job at a time, so the verification of every push
+    # queued up behind that of the pushes before it. It runs whatever the builds end in: a build
+    # whose tests failed has installed and uploaded SeisSol before running them, a failed build of
+    # another leg (as of NVHPC, which is not verified) holds back none of the others, and a leg
+    # whose own build failed finds no executable to download.
+    if: ${{ !cancelled() && github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
     strategy:
       fail-fast: false
       matrix:
