@@ -17,6 +17,7 @@
 
 #include <async/Config.h>
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <optional>
@@ -24,6 +25,21 @@
 #include <utils/logger.h>
 
 namespace seissol::io::writer::module {
+
+namespace {
+/**
+ * @brief The place of the next call among the writes of all outputs (see AsyncWriterExec::ticket).
+ *
+ * With one thread per output, the writes of all outputs have to run in the order they are issued
+ * in on the main thread, which is the same on every rank. Synchronously, they run in that order
+ * anyway, and with dedicated processes, waiting for another output's turn could hold up the
+ * process that is to serve it.
+ */
+std::uint64_t nextTicket() {
+  static std::uint64_t issued = 0;
+  return async::Config::mode() == async::Mode::Thread ? ++issued : 0;
+}
+} // namespace
 
 WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
@@ -35,6 +51,7 @@ WriterModule::WriterModule(const std::string& prefix,
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings_.name << ": setup.";
   executor_.setComm(seissol::Mpi::mpi.comm());
+  executor_.setName(settings_.name);
   setExecutor(executor_);
   // The thread goes to the CPUs no OpenMP worker uses, with a communication thread or without one:
   // left to ASYNC, it takes the last CPU of the mask it inherits from the main thread, which is the
@@ -85,18 +102,22 @@ void WriterModule::simulationStart(std::optional<double> checkpointTime) {
 }
 
 void WriterModule::syncPoint(double time) {
+  const auto start = std::chrono::steady_clock::now();
   if (lastWrite_ >= 0) {
     logInfo() << "Output Writer" << settings_.name << ": finishing previous write from"
               << lastWrite_;
   }
   wait();
+  const auto waited = std::chrono::steady_clock::now();
   logInfo() << "Output Writer" << settings_.name << ": preparing write at" << time;
 
   // request the write plan
   auto writer = settings_.planWrite(prefix_, writeCount_, time);
+  const auto planned = std::chrono::steady_clock::now();
 
-  // decide which buffer each data source of the plan uses
+  // decide which buffer each data source of the plan uses; a generated one fills its buffer here
   const auto idsToSend = registry_.assign(writer);
+  const auto generated = std::chrono::steady_clock::now();
 
   // take care of the plan (i.e. resize our managed buffer and send it)
   auto serialized = writer.serialize();
@@ -110,16 +131,19 @@ void WriterModule::syncPoint(double time) {
     sendBuffer(id);
   }
 
-  logInfo() << "Output Writer" << settings_.name << ": triggering write at" << time;
+  const auto handedOver = std::chrono::steady_clock::now();
+  const auto seconds = [](auto from, auto to) {
+    return std::chrono::duration<double>(to - from).count();
+  };
+  // where the main thread spent its time on this write, up to here
+  logInfo() << "Output Writer" << settings_.name << ": triggering write at" << time << "after"
+            << seconds(start, handedOver) << "s (waiting for the previous write"
+            << seconds(start, waited) << "s, plan" << seconds(waited, planned) << "s, data"
+            << seconds(planned, generated) << "s, handover" << seconds(generated, handedOver)
+            << "s)";
   lastWrite_ = time;
   ++writeCount_;
-  // With one thread per output, the writes of all outputs have to run in the order they are issued
-  // in here, which is the same on every rank (see AsyncWriterExec::ticket). Synchronously, they
-  // run in that order anyway, and with dedicated processes, waiting for another output's turn
-  // could hold up the process that is to serve it.
-  static std::uint64_t issued = 0;
-  const std::uint64_t ticket = async::Config::mode() == async::Mode::Thread ? ++issued : 0;
-  call(AsyncWriterExec{resumed_, ticket});
+  call(AsyncWriterExec{resumed_, nextTicket()});
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {
@@ -135,11 +159,17 @@ void* WriterModule::managedBuffer(int id) { return AsyncWriterModule::managedBuf
 void WriterModule::simulationEnd() {
   logInfo() << "Output Writer" << settings_.name << ": finishing output";
   wait();
+  // the files the writes kept open for the next one; closing is collective, and takes its turn
+  // like a write
+  call(AsyncWriterExec{resumed_, nextTicket(), true});
+  wait();
 }
 
 void WriterModule::shutdown() {
   logInfo() << "Output Writer" << settings_.name << ": shutdown";
   finalize();
+  // in case the simulation did not end the output
+  executor_.closeFiles();
 }
 
 } // namespace seissol::io::writer::module
