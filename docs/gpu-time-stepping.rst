@@ -171,8 +171,30 @@ Status
 
 The ordering and the decisions of the options above are checked by unit tests,
 including simulations of devices and networks that run the enqueued work in any admissible order.
-On GPUs, these options have not been validated yet;
-compare the results of a run bitwise to the default before relying on them.
-The paths for ROCSHMEM and Intel SHMEM have only been compiled against the headers of these libraries
-(rocSHMEM from its development branch of September 2026, Intel SHMEM 1.5.2), not linked or run;
-the path for HPE Cray MPICH has not been compiled yet.
+On GPUs, the verification cases pass with all of them, and runs of scenarios with local time stepping
+(TPV5, TPV13 with plasticity, TPV105 with rate-and-state friction and thermal pressurization,
+TPVGaussian with imposed slip, LOH.1 with a point source) were compared to the default on a workstation (October 2026).
+All outputs came out bitwise the same, except for the energy output, whose sums vary from run to run anyway:
+
+- with CUDA (sm_120) and with HIP (gfx1150, ROCm 7.2), one process, all options, including recorded super-timesteps;
+- with two to four processes on one GPU, ``direct``, ``host`` and ``ccl`` with NCCL 2.32;
+  with two processes, ``ccl`` with RCCL 7.2 (with the GPU taken as gfx1100) and ``shmem`` with NVSHMEM 3.8;
+  ``ccl`` and ``shmem`` with and without recorded super-timesteps;
+- with SYCL (AdaptiveCpp, generic target, on the NVIDIA GPU), one and two processes, concurrent clusters
+  (AdaptiveCpp cannot record graphs).
+
+On HIP, graphs need Device d2fe2de or newer, which works around two bugs of HIP 7.2:
+graph roots that do not wait for the work before the launch, and captures that do not end
+when streams waited for each other.
+SeisSol sets ``NCCL_GRAPH_MIXING_SUPPORT=1`` for ``ccl`` (unless set already), which RCCL needs for recorded super-timesteps.
+Compare the results of a run bitwise to the default before relying on these options on another system.
+
+The paths for oneCCL (its C API, oneAPI 2026.0) and Intel SHMEM (1.5.2) have been compiled, but not run;
+the path for ROCSHMEM has only been compiled against its headers (development branch of September 2026);
+``stream-mpi`` and the path for HPE Cray MPICH have not been compiled yet.
+
+Several processes on one GPU, as in such tests, share its memory and queues:
+NVSHMEM then needs a smaller symmetric heap (e.g. ``NVSHMEM_SYMMETRIC_SIZE=256M``),
+NCCL and RCCL a host ID per process (``NCCL_HOSTID``) to accept several processes on one GPU,
+and with RCCL on an AMD GPU, the waiting kernels of the processes can occupy all hardware queues
+(``GPU_MAX_HW_QUEUES=2`` avoided that).
