@@ -223,8 +223,9 @@ a script that does not read ``t`` gives the same state at every time. A script t
 compiles (an sderiv module or a Lua model that traces) becomes one program that
 evaluates it at all times of the quadrature of a timestep and integrates it, so that
 what does not depend on the time is computed once per face. Fused simulations of the
-same script share that program, with ``sim`` as its input. The other scenarios, and an
-easi script, are evaluated at one time after the other.
+same script share that program, with ``sim`` as its input. The scenarios SeisSol has
+built in are such scripts as well; only an easi file, or a Lua model that does not trace,
+is evaluated at one time after the other.
 
 In device builds with the anelastic solver (viscoelastic and viscoacoustic materials), the
 analytical boundary is not available yet and rejected at startup.

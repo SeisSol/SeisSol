@@ -10,6 +10,7 @@ add_library(seissol-physics OBJECT
     Scenario/PlaneWave.cpp
     Scenario/Registry.cpp
     Scenario/Scenarios.cpp
+    Scenario/ScriptedScenario.cpp
     ScriptField.cpp
     GhostState.cpp
     NonlinearDirichlet.cpp

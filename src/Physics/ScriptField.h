@@ -13,7 +13,9 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,6 +39,10 @@ namespace seissol::physics {
 /// correct but slow.
 class ScriptField : public InitialFieldOf<ScriptField> {
   public:
+  /// A condition on the material of a cell, given the parameters of the material (in the order of
+  /// the names the field was made with): why the material does not fit, or nothing.
+  using MaterialCheck = std::function<std::optional<std::string>(const double* parameters)>;
+
   /// A script that reads anything else, keeps state, or gives what is no quantity is an error
   /// once the field is evaluated -- not before, since a script that serves as an initial condition
   /// only is fine with that (it may read the mesh group, for one).
@@ -88,6 +94,10 @@ class ScriptField : public InitialFieldOf<ScriptField> {
                       double* values) const;
 
   [[nodiscard]] std::size_t quantityCount() const;
+
+  /// Checks the material of every cell the field is evaluated in by `check`; one that does not fit
+  /// is an error. For a scenario that SeisSol writes for one kind of material.
+  void checkMaterial(MaterialCheck check);
 
   /// Whether the script compiled, and calls run a kernel rather than a reader.
   [[nodiscard]] bool compiled() const;

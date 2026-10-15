@@ -11,20 +11,15 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Equations/Datastructures.h"
-#include "Expr/Program.h"
-#include "Expr/SderivFrontend.h"
 #include "Initializer/Typedefs.h"
 #include "Model/Common.h"
 #include "Model/MaterialType.h"
-#include "Model/ScriptParameters.h"
-#include "Model/StateNames.h"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
-#include "Physics/ScriptField.h"
+#include "Physics/Scenario/ScriptedScenario.h"
 
 #include <Eigen/Core>
 #include <array>
-#include <charconv>
 #include <cmath>
 #include <complex>
 #include <cstddef>
@@ -33,7 +28,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -46,47 +40,8 @@ namespace seissol::physics {
 
 namespace {
 
-/// `value` as an sderiv literal that reads back as the same double, the shortest one; in
-/// parentheses if negative.
-std::string literal(double value) {
-  std::array<char, 32> buffer{};
-  const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), std::abs(value));
-  std::string digits(buffer.data(), result.ptr);
-  if (!std::signbit(value)) {
-    return digits;
-  }
-  std::string negative = "(-";
-  negative.append(digits).append(")");
-  return negative;
-}
-
-/// `parts` one after the other.
-std::string concat(std::initializer_list<std::string_view> parts) {
-  std::string result;
-  for (const auto& part : parts) {
-    result.append(part);
-  }
-  return result;
-}
-
-/// The names of the components of the state of the configuration `config`.
-std::vector<std::string> stateNamesOf(ConfigId config) {
-  std::vector<std::string> names;
-  dispatchConfig(config, [&](auto cfg) {
-    using Cfg = decltype(cfg);
-    names = model::stateNames<model::MaterialOf<Cfg>>();
-  });
-  return names;
-}
-
-std::vector<std::string> parameterNamesOf(ConfigId config) {
-  std::vector<std::string> names;
-  dispatchConfig(config, [&](auto cfg) {
-    using Cfg = decltype(cfg);
-    names = model::scriptParameterNames<model::MaterialOf<Cfg>>();
-  });
-  return names;
-}
+using scenario::concat;
+using scenario::literal;
 
 /// theta of a mode: Re(omega) t - k.(x - o) + phi, in the order in which a complex argument of
 /// exp is formed, so that both round alike.
@@ -107,22 +62,8 @@ std::vector<std::unique_ptr<InitialField>> fieldsOf(const PlaneWaveSum& sum,
                                                     ConfigId config,
                                                     const std::string& name,
                                                     bool perSimulation) {
-  const auto names = stateNamesOf(config);
-  const auto source = planeWaveModule(sum, names);
-  std::optional<expr::Program> program;
-  try {
-    program = expr::compileSderivModule(source);
-  } catch (const expr::SderivError& error) {
-    logError() << "The script of" << name << "does not compile:" << error.what() << "\n" << source;
-  }
-
-  std::vector<std::unique_ptr<InitialField>> fields;
-  const std::size_t count = perSimulation ? configValue(config).numSimulations : 1;
-  for (std::size_t simulation = 0; simulation < count; ++simulation) {
-    fields.push_back(
-        std::make_unique<ScriptField>(*program, name, names, parameterNamesOf(config), simulation));
-  }
-  return fields;
+  return scenario::scriptedFields(
+      planeWaveModule(sum, scenario::stateNamesOf(config)), config, name, perSimulation);
 }
 
 /// The phase of fused simulation `sim` out of the simulations of `config`: 2 pi sim / simulations.

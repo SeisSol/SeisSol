@@ -35,12 +35,22 @@ using initializer::parameters::InitializationType;
 using FieldList = std::vector<std::unique_ptr<InitialField>>;
 
 // The material models a scenario is formulated for.
-enum class MaterialRequirement { None, NotAnelastic, Poroelastic };
+enum class MaterialRequirement {
+  None,
+  NotAnelastic,
+  // the stresses and velocities of an elastic material, without anelastic mechanisms
+  ElasticQuantities,
+  Poroelastic
+};
 
 bool fulfills(const ConfigValue& config, MaterialRequirement requirement) {
   switch (requirement) {
   case MaterialRequirement::NotAnelastic:
     return config.relaxationMechanisms == 0;
+  case MaterialRequirement::ElasticQuantities:
+    return config.relaxationMechanisms == 0 &&
+           config.materialType != model::MaterialType::Acoustic &&
+           config.materialType != model::MaterialType::Viscoacoustic;
   case MaterialRequirement::Poroelastic:
     return config.materialType == model::MaterialType::Poroelastic;
   case MaterialRequirement::None:
@@ -77,13 +87,6 @@ AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(const Input
   return parameters;
 }
 
-template <typename FieldT, typename... Args>
-FieldList single(Args&&... args) {
-  FieldList fields;
-  fields.emplace_back(std::make_unique<FieldT>(std::forward<Args>(args)...));
-  return fields;
-}
-
 struct Entry {
   InitializationType type;
   std::string_view name;
@@ -103,7 +106,7 @@ constexpr std::array<Entry, 12> Registry = {{
      MaterialRequirement::None,
      "",
      true,
-     [](const Input&) { return single<ZeroField>(); }},
+     [](const Input& input) { return zeroField(input.config); }},
     {InitializationType::Planarwave,
      "planar wave",
      MaterialRequirement::None,
@@ -128,55 +131,54 @@ constexpr std::array<Entry, 12> Registry = {{
      }},
     {InitializationType::AcousticTravellingWithITM,
      "acoustic travelling wave with ITM",
-     MaterialRequirement::NotAnelastic,
-     "it is formulated for a material without anelastic mechanisms",
+     MaterialRequirement::ElasticQuantities,
+     "it is formulated for the stresses and velocities of an elastic material without anelastic "
+     "mechanisms",
      true,
      [](const Input& input) {
-       return single<AcousticTravellingWaveITM>(input.materialData,
-                                                acousticTravellingWaveParameters(input));
+       return acousticTravellingWaveITM(
+           input.materialData, acousticTravellingWaveParameters(input), input.config);
      }},
     {InitializationType::Scholte,
      "Scholte wave (elastic-acoustic)",
-     MaterialRequirement::NotAnelastic,
-     "it is formulated for a material without anelastic mechanisms",
+     MaterialRequirement::ElasticQuantities,
+     "it is formulated for the stresses and velocities of an elastic material without anelastic "
+     "mechanisms",
      true,
-     [](const Input&) { return single<ScholteWave>(); }},
+     [](const Input& input) { return scholteWave(input.config); }},
     {InitializationType::Snell,
      "Snell's law (elastic-acoustic)",
-     MaterialRequirement::NotAnelastic,
-     "it is formulated for a material without anelastic mechanisms",
+     MaterialRequirement::ElasticQuantities,
+     "it is formulated for the stresses and velocities of an elastic material without anelastic "
+     "mechanisms",
      true,
-     [](const Input&) { return single<SnellsLaw>(); }},
+     [](const Input& input) { return snellsLaw(input.config); }},
     {InitializationType::Ocean0,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 0)",
      MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
-     [](const Input& input) {
-       return single<Ocean>(0, input.gravitation.acceleration, input.config);
-     }},
+     [](const Input& input) { return ocean(0, input.gravitation.acceleration, input.config); }},
     {InitializationType::Ocean1,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 1)",
      MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
-     [](const Input& input) {
-       return single<Ocean>(1, input.gravitation.acceleration, input.config);
-     }},
+     [](const Input& input) { return ocean(1, input.gravitation.acceleration, input.config); }},
     {InitializationType::Ocean2,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 2)",
      MaterialRequirement::NotAnelastic,
      "it is formulated for a material without anelastic mechanisms",
      true,
-     [](const Input& input) {
-       return single<Ocean>(2, input.gravitation.acceleration, input.config);
-     }},
+     [](const Input& input) { return ocean(2, input.gravitation.acceleration, input.config); }},
     {InitializationType::PressureInjection,
      "pressure injection",
      MaterialRequirement::Poroelastic,
      "it is formulated for a poroelastic material",
      true,
-     [](const Input& input) { return single<PressureInjection>(input.parameters.initialization); }},
+     [](const Input& input) {
+       return pressureInjection(input.parameters.initialization, input.config);
+     }},
     // Read from a script, which may read the time t: physics::ScriptField evaluates it at any
     // point and time, as an analytical boundary condition asks.
     {InitializationType::Script, "script", MaterialRequirement::None, {}, true, nullptr},

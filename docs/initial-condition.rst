@@ -124,6 +124,12 @@ To select these, it suffices to set
 
 where ``$NAME`` is the name of one of the following inital conditions.
 
+SeisSol evaluates each of them as an sderiv module that it writes at setup, with the constants of
+its closed form as numbers -- the planar waves from the eigenvalues and eigenvectors of the
+material, in real arithmetic -- and compiles like a script of its own. The projection, the analysis
+and the analytical boundary therefore all run the same program; the boundary integrates it over a
+time step in one call per face.
+
 Zero (``Zero``)
 ---------------
 
@@ -141,9 +147,6 @@ This scenario needs periodic boundary conditions to make sense.
 This is the only case where the old netcdf mesh format is prefered.
 With fused simulations, the phase of simulation :math:`s` out of :math:`N` is shifted by :math:`2\pi s/N`.
 
-SeisSol evaluates the planar waves -- also the superimposed and the travelling one below -- as an
-sderiv module that it writes at setup from the eigenvalues and eigenvectors of the material, in real
-arithmetic, and compiles like a script of its own.
 After the simulation is finished the errors between the analytic solution and the numerical one are plotted in the :math:`L^1`-,  :math:`L^2`- and :math:`L^\infty`-norm.
 
 You can use the ``cubegenerator`` mesh type to make SeisSol generate meshes for
@@ -185,41 +188,41 @@ The Travelling wave can be configured in the parameter file (in the ``IniConditi
 Scholte (``Scholte``)
 ---------------------
 
-A Scholte wave to test elastic-acoustic coupling
+A Scholte wave to test elastic-acoustic coupling: along the interface :math:`z = 0` between an
+elastic material below and an acoustic one (``mu = 0``) above. A cell is acoustic if its ``mu`` is
+zero.
 
 Snell (``Snell``)
 -----------------
 
-Snells law to test elastic-acoustic coupling
+Snells law to test elastic-acoustic coupling, at the same interface.
 
-Ocean (``Ocean``)
------------------
+Ocean (``Ocean_0``, ``Ocean_1``, ``Ocean_2``)
+---------------------------------------------
 
-An uncoupled ocean test case for acoustic equations
+An uncoupled ocean test case for acoustic equations, in the mode 0 (gravity), 1 or 2. It reads the
+density of each cell, needs an acoustic material (``mu = 0``) everywhere and the gravitational
+acceleration ``9.81e-3``.
+
+Pressure injection (``PressureInjection``)
+------------------------------------------
+
+A gaussian perturbation of the pressure of a poroelastic material, with ``origin``, ``magnitude``
+and ``width`` from the ``IniCondition`` section.
+
+Acoustic travelling wave with ITM (``AcousticTravellingwithITM``)
+-----------------------------------------------------------------
+
+An acoustic wave along :math:`x` with the wave number ``k`` (``IniCondition`` section) that passes
+an instantaneous time mirror (the ``ITM`` parameters of the ``equations`` section), in the material
+of the first cell of the run.
 
 How to implement a new hard-coded initial condition?
 ----------------------------------------------------
 
-Alternatively, you can implement a new initial condition in the code itself.
-
-For that, extend the class
-
-.. code-block:: c
-
-  seissol::physics::Initalfield
-
-and implement the method
-
-.. code-block:: c
-
-  void evaluate(  double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
-
-Here :code:`dofsQP(i,j)` is the value of the :math:`j^\text{th}` quantity at the :code:`points[i]`.
-
-Furthermore, you will also need to add the new initial condition to the paraemter file parser
-in ``src/Initializer/Parameters/InitializationParameters.cpp`` and the initial condition initialization
-under ``src/Initializer/InitProcedure/InitSideConditions.cpp`` as well.
+Most initial conditions are best written as a script (see above). To add one to SeisSol itself,
+write a function that returns its sderiv module as a string and hands it to
+``seissol::physics::scenario::scriptedFields`` (``src/Physics/Scenario/ScriptedScenario.h``), as
+the scenarios in ``src/Physics/Scenario/Scenarios.cpp`` do, and add it to the registry in
+``src/Physics/Scenario/Registry.cpp`` and to the parameter file parser in
+``src/Initializer/Parameters/InitializationParameters.cpp``.

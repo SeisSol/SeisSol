@@ -66,6 +66,8 @@ struct ScriptField::Impl {
   std::vector<std::string> quantities;
   std::vector<std::string> parameters;
   double simulation{0};
+  // a condition on the material of the cells
+  MaterialCheck check;
 
   // a compiled script: per program input what it reads (and which parameter of the material), per
   // program output its quantity
@@ -222,6 +224,8 @@ ScriptField::~ScriptField() = default;
 
 std::size_t ScriptField::quantityCount() const { return impl_->quantities.size(); }
 
+void ScriptField::checkMaterial(MaterialCheck check) { impl_->check = std::move(check); }
+
 bool ScriptField::compiled() const { return impl_->program.has_value(); }
 
 const expr::Program* ScriptField::program() const {
@@ -252,6 +256,11 @@ void ScriptField::evaluateValues(double time,
   parameters.assign(impl_->parameters.size(), std::numeric_limits<double>::quiet_NaN());
   if (materialData.local != nullptr) {
     materialData.local->scriptParameters(parameters.data());
+    if (impl_->check) {
+      if (const auto reason = impl_->check(parameters.data())) {
+        logError() << impl_->path << ":" << *reason;
+      }
+    }
   }
   std::fill_n(values, count * impl_->quantities.size(), 0.0);
 

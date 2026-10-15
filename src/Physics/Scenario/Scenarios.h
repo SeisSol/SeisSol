@@ -9,103 +9,60 @@
 #define SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
 
 #include "Common/ConfigRegistry.h"
-#include "GeneratedCode/init.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Physics/InitialField.h"
 
-#include <array>
-#include <cstddef>
+#include <memory>
+#include <string>
+#include <vector>
+
+// The scenarios with a closed form, which SeisSol writes as sderiv modules at setup (see
+// ScriptedScenario.h): the constants they take from the material and the parameters are numbers in
+// the source. The planar waves are in PlaneWave.h.
 
 namespace seissol::physics {
 
-class PressureInjection : public InitialFieldOf<PressureInjection> {
-  public:
-  explicit PressureInjection(
-      const seissol::initializer::parameters::InitializationParameters& initializationParameters);
+/// No wave: the state is zero.
+std::vector<std::unique_ptr<InitialField>> zeroField(ConfigId config);
 
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
+/// A Scholte wave along the interface z = 0 between an elastic material below and an acoustic one
+/// (mu = 0) above. A cell is acoustic if its mu is zero.
+std::vector<std::unique_ptr<InitialField>> scholteWave(ConfigId config);
 
-  private:
-  seissol::initializer::parameters::InitializationParameters parameters_;
-};
+/// A plane wave refracted at the interface z = 0 between an elastic material below and an
+/// acoustic one (mu = 0) above, as Snell's law says.
+std::vector<std::unique_ptr<InitialField>> snellsLaw(ConfigId config);
 
-class AcousticTravellingWaveITM : public InitialFieldOf<AcousticTravellingWaveITM> {
-  public:
-  AcousticTravellingWaveITM(
-      const CellMaterialData& materialData,
-      const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
+/// A standing wave of the mode `mode` (0, the gravity mode, 1 or 2) in an ocean of an acoustic
+/// material (mu = 0) with the gravitational acceleration 9.81e-3, from
+///
+/// Abrahams, L. S., Krenz, L., Dunham, E. M., & Gabriel, A. A. (2019, December).
+/// Verification of a 3D fully-coupled earthquake and tsunami model.
+/// In AGU Fall Meeting Abstracts (Vol. 2019, pp. NH43F-1000).
+///
+/// a 3D extension of the 2D scenario in
+///
+/// Lotto, G. C., & Dunham, E. M. (2015).
+/// High-order finite difference modeling of tsunami generation in a compressible ocean from
+/// offshore earthquakes. Computational Geosciences, 19(2), 327-340.
+///
+/// It reads the density of each cell; a cell with shear is an error.
+std::vector<std::unique_ptr<InitialField>>
+    ocean(int mode, double gravitationalAcceleration, ConfigId config);
 
-  private:
-  void init(const CellMaterialData& materialData);
-  double rho0_;
-  double c0_;
-  double k_;
-  double tITMMinus_;
-  double tau_;
-  double tITMPlus_;
-  double n_;
-};
+/// A gaussian perturbation of the pressure of a poroelastic material, with the origin, the
+/// magnitude and the width of `parameters`.
+std::vector<std::unique_ptr<InitialField>>
+    pressureInjection(const initializer::parameters::InitializationParameters& parameters,
+                      ConfigId config);
 
-class ScholteWave : public InitialFieldOf<ScholteWave> {
-  public:
-  ScholteWave() = default;
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
-};
-class SnellsLaw : public InitialFieldOf<SnellsLaw> {
-  public:
-  SnellsLaw() = default;
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
-};
-/*
- * From
- * Abrahams, L. S., Krenz, L., Dunham, E. M., & Gabriel, A. A. (2019, December).
- * Verification of a 3D fully-coupled earthquake and tsunami model.
- * In AGU Fall Meeting Abstracts (Vol. 2019, pp. NH43F-1000).
- * A 3D extension of the 2D scenario in
- * Lotto, G. C., & Dunham, E. M. (2015).
- * High-order finite difference modeling of tsunami generation in a compressible ocean from offshore
- * earthquakes. Computational Geosciences, 19(2), 327-340.
- */
-class Ocean : public InitialFieldOf<Ocean> {
-  private:
-  int mode_;
-  double gravitationalAcceleration_;
-  // whether the material of the configuration is elastic (and not acoustic), and the index of its
-  // first velocity
-  bool elastic_;
-  std::size_t velocityOffset_;
-
-  public:
-  Ocean(int mode, double gravitationalAcceleration, ConfigId config);
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
-};
+/// An acoustic wave travelling along x, through the time mirror of `parameters`, in the material
+/// `materialData` (rho and the speed sqrt(lambda / rho) of the wave before the mirror).
+std::vector<std::unique_ptr<InitialField>>
+    acousticTravellingWaveITM(const CellMaterialData& materialData,
+                              const AcousticTravellingWaveParametersITM& parameters,
+                              ConfigId config);
 
 } // namespace seissol::physics
 
