@@ -748,11 +748,11 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
   }
 
   const GpuLayout layout = gpuLayoutOf(binding);
-  // PTX for compute_70 runs on every later device, by JIT; a HIP code object has to be for the
+  // PTX for compute_75 runs on every later device, by JIT; a HIP code object has to be for the
   // device itself, which HIPRTC compiles for when it is given none.
   std::string arch = options.arch;
   if (arch.empty() && target == GpuTarget::Cuda) {
-    arch = "70";
+    arch = "75";
   }
   const CacheKey key{program.fingerprint(),
                      options.lowering.fingerprint(),
