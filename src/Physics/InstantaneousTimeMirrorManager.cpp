@@ -176,6 +176,8 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
       seissol::initializer::AllocationPlace::Device, stream);
   ltsStorage_->varSynchronizeTo<LTS::NeighboringIntegration>(
       seissol::initializer::AllocationPlace::Device, stream);
+  ltsStorage_->varSynchronizeTo<LTS::MaterialParameters>(
+      seissol::initializer::AllocationPlace::Device, stream);
   device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
 #endif
 

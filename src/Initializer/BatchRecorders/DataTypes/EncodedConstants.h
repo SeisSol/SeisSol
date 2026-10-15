@@ -50,6 +50,8 @@ struct Wp {
     Analytical,
     QEtaNodal,
     Integrals,
+    // per face of the nonlinear Dirichlet boundary, its block of LTS::NonlinearDirichletScratch
+    NonlinearDirichletScratch,
     Count
   };
 };
@@ -105,7 +107,8 @@ enum struct ComputationKind : size_t {
   FreeSurfaceGravity = 1 << 6,
   Dirichlet = 1 << 7,
   Analytical = 1 << 8,
-  Count = 9,
+  NonlinearDirichlet = 1 << 9,
+  Count = 10,
   None = encodeAny(Count)
 };
 

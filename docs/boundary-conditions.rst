@@ -227,8 +227,13 @@ same script share that program, with ``sim`` as its input. The scenarios SeisSol
 built in are such scripts as well; only an easi file, or a Lua model that does not trace,
 is evaluated at one time after the other.
 
-In device builds with the anelastic solver (viscoelastic and viscoacoustic materials), the
-analytical boundary is not available yet and rejected at startup.
+In a device build, the program runs on the device, as one kernel for all faces of a side of
+the cells of a layer, which reads the nodes of the faces and the parameters of the materials
+where they are. The initial condition then has to be a script that compiles: an easi file or
+a Lua model that does not trace is rejected at startup, as is a build without the runtime
+compiler of its device (NVRTC, HIPRTC, or the kernel compiler of SYCL). In device builds with
+the anelastic solver (viscoelastic and viscoacoustic materials), the analytical boundary is not
+available yet and rejected at startup.
 
 .. _nonlinear_dirichlet:
 
@@ -300,5 +305,15 @@ diverge with local timestepping, as the same affine condition does on a Dirichle
 boundary: a reflection of half the whole state in global coordinates, for instance. A
 rigid wall is stable in both.
 
-The boundary is not available in device builds yet, nor with the space-time predictor
-(poroelastic materials): it needs the Taylor series of the state in time, on the host.
+In a device build, the boundary runs on the device: per side of the cells of a layer, the
+state inside at the time points of the step from the time derivatives of the cells, at the
+nodes of the faces (and in the face-aligned basis, if the script states it there), then one
+kernel of the script for all faces, and the ghost state back in global coordinates. A
+quantity the script does not give is the integrated state of the cell at the nodes, which is
+the same integral. The script is evaluated where it gives a quantity, and the state inside
+only computed if it reads it. As for the analytical boundary, the build needs the runtime
+compiler of its device.
+
+The boundary is not available with the space-time predictor (poroelastic materials), which
+has no Taylor series of the state in time, nor in device builds with the anelastic solver
+(viscoelastic and viscoacoustic materials).

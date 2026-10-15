@@ -30,7 +30,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <stdint.h>
 #include <utils/logger.h>
 #include <yateto.h>
@@ -64,6 +63,7 @@ void Local<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
   deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceFsgFlux_.bindGlobals(*global.onDevice);
   deviceDirichletFlux_.bindGlobals(*global.onDevice);
+  deviceGhostStates_ = std::make_shared<DeviceGhostStates<Cfg>>(global.onDevice);
 #endif
 }
 
@@ -357,52 +357,54 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
 
+  // the flux of the ghost states of the faces of a batch, from their slots of AnalyticScratch
+  const auto nodalFlux = [&](const ConditionalKey& key, std::size_t face) {
+    const std::size_t numElements = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize();
+    auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
+    auto tmpMem = runtime.memoryHandle<real>(
+        (yateto::getMaxTmpMemRequired(nodalLfKrnl) * numElements) / sizeof(real));
+    nodalLfKrnl.linearAllocator.initialize(tmpMem.get());
+    nodalLfKrnl.INodal = const_cast<const real**>(
+        dataTable[key].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
+    nodalLfKrnl.AminusT = const_cast<const real**>(
+        dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+    nodalLfKrnl.extraOffset_AminusT =
+        SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
+    nodalLfKrnl.Q = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+    nodalLfKrnl.streamPtr = runtime.stream();
+    nodalLfKrnl.numElements = numElements;
+    nodalLfKrnl.execute(face);
+  };
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
-      // a copy, which the loop keeps: it runs as a host function of the stream, after this scope
-      auto cellIds =
-          indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
-      const size_t numElements = cellIds.size();
-      auto* analytical = reinterpret_cast<real(*)[tensor::INodal<Cfg>::size()]>(
-          layer.var<LTS::AnalyticScratch>(Cfg()));
+      // the setup refuses an initial condition that is no script that compiles in a device build
+      assert(this->analyticalGhostState() != nullptr);
+      deviceGhostStates_->analytical(*this->analyticalGhostState(),
+                                     indicesTable,
+                                     layer,
+                                     face,
+                                     time,
+                                     timeStepWidth,
+                                     runtime.stream());
+      nodalFlux(analyticalKey, face);
+    }
 
-      runtime.enqueueLoop(
-          numElements,
-          [this, face, time, timeStepWidth, analytical, cellIds = std::move(cellIds), &layer](
-              std::size_t index) {
-            auto cellId = cellIds.at(index);
-            auto data = layer.cellRef<Cfg>(cellId);
-
-            alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
-            ghostStateBoundary_.analytical(this->analyticalGhostState(),
-                                           this->initConds_,
-                                           data,
-                                           face,
-                                           time,
-                                           timeStepWidth,
-                                           dofsFaceBoundaryNodal);
-
-            std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));
-          });
-
-      auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
-      auto tmpMem = runtime.memoryHandle<real>(
-          (yateto::getMaxTmpMemRequired(nodalLfKrnl) * numElements) / sizeof(real));
-      nodalLfKrnl.linearAllocator.initialize(tmpMem.get());
-      nodalLfKrnl.INodal = const_cast<const real**>(
-          dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
-      nodalLfKrnl.AminusT =
-          const_cast<const real**>(dataTable[analyticalKey]
-                                       .get(inner_keys::Wp::Id::NeighborIntegrationData)
-                                       ->getDeviceDataPtr());
-      nodalLfKrnl.extraOffset_AminusT =
-          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
-      nodalLfKrnl.Q = dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
-      nodalLfKrnl.streamPtr = runtime.stream();
-      nodalLfKrnl.numElements = numElements;
-      nodalLfKrnl.execute(face);
+    const ConditionalKey nonlinearDirichletKey(
+        *KernelNames::BoundaryConditions, *ComputationKind::NonlinearDirichlet, face);
+    if (indicesTable.find(nonlinearDirichletKey) != indicesTable.end()) {
+      assert(this->nonlinearDirichlet() != nullptr);
+      deviceGhostStates_->nonlinearDirichlet(*this->nonlinearDirichlet(),
+                                             dataTable,
+                                             indicesTable,
+                                             layer,
+                                             face,
+                                             time,
+                                             timeStepWidth,
+                                             runtime);
+      nodalFlux(nonlinearDirichletKey, face);
     }
   }
 #else

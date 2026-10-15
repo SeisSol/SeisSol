@@ -16,6 +16,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Kernels/NonlinearDirichletScratch.h"
 #include "Kernels/Precision.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
@@ -43,6 +44,7 @@ void LocalIntegrationRecorder::record(LTS::Layer& layer) {
   recordFreeSurfaceGravityBc();
   recordDirichletBc();
   recordAnalyticalBc(layer);
+  recordNonlinearDirichletBc(layer);
   recordLocalFluxIntegral();
   recordDisplacements();
 }
@@ -440,6 +442,69 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Analytical, analytical[face]);
       }
+    }
+  }
+}
+
+void LocalIntegrationRecorder::recordNonlinearDirichletBc(LTS::Layer& layer) {
+  const auto size = currentLayer_->size();
+  if (size == 0) {
+    return;
+  }
+  std::array<std::vector<unsigned>, Cell::NumFaces> cellIndices{};
+  std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
+  std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
+  std::array<std::vector<real*>, Cell::NumFaces> ghostPtrs{};
+  std::array<std::vector<real*>, Cell::NumFaces> scratchPtrs{};
+  std::array<std::vector<real*>, Cell::NumFaces> idofsPtrs{};
+  std::array<std::vector<real*>, Cell::NumFaces> derivativesPtrs{};
+  std::array<std::vector<real*>, Cell::NumFaces> tPtrs{};
+  std::array<std::vector<real*>, Cell::NumFaces> tInvPtrs{};
+
+  real* analyticScratch =
+      reinterpret_cast<real*>(layer.var<LTS::AnalyticScratch>(Config(), AllocationPlace::Device));
+  real* scratch = reinterpret_cast<real*>(
+      layer.var<LTS::NonlinearDirichletScratch>(Config(), AllocationPlace::Device));
+
+  for (std::size_t cell = 0; cell < size; ++cell) {
+    auto data = currentLayer_->cellRef<Config>(cell, AllocationPlace::Device);
+    auto dataHost = currentLayer_->cellRef<Config>(cell, AllocationPlace::Host);
+
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::NonlinearDirichlet) {
+        // as for the analytical boundary, by the position of the cell in the list of the face,
+        // which the faces use one after the other
+        const auto index = cellIndices[face].size();
+        ghostPtrs[face].push_back(analyticScratch + index * tensor::INodal<Config>::size());
+        scratchPtrs[face].push_back(scratch +
+                                    index * kernels::NonlinearDirichletScratch<Config>::PerFace);
+        cellIndices[face].push_back(cell);
+        dofsPtrs[face].push_back(data.get<LTS::Dofs>());
+        neighPtrs[face].push_back(
+            reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
+        idofsPtrs[face].push_back(idofsAddressRegistry_[cell]);
+        derivativesPtrs[face].push_back(dQPtrs_[cell]);
+        tPtrs[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataT);
+        tInvPtrs[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataTinv);
+      }
+    }
+  }
+
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    if (!cellIndices[face].empty()) {
+      const ConditionalKey key(
+          *KernelNames::BoundaryConditions, *ComputationKind::NonlinearDirichlet, face);
+      checkKey(key);
+      (*currentIndicesTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
+
+      (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::Analytical, ghostPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::NonlinearDirichletScratch, scratchPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, derivativesPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::T, tPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::Tinv, tInvPtrs[face]);
     }
   }
 }

@@ -11,6 +11,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Equations/Datastructures.h"
+#include "Expr/RtcGpuDriver.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitialFieldProjection.h"
@@ -19,6 +20,7 @@
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/ScriptParameters.h"
@@ -167,14 +169,26 @@ void initAnalyticalBoundary(seissol::SeisSol& seissolInstance) {
       auto components = model::stateNames<model::MaterialOf<Cfg>>();
       components.resize(std::min<std::size_t>(
           components.size(), tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1]));
-      memoryManager.setAnalyticalGhostState(
-          config,
-          physics::AnalyticalGhostState::fromFields(
-              memoryManager.initialConditions(config),
-              components,
-              model::scriptParameterNames<model::MaterialOf<Cfg>>(),
-              Cfg::NumSimulations,
-              Cfg::ConvergenceOrder));
+      auto state = physics::AnalyticalGhostState::fromFields(
+          memoryManager.initialConditions(config),
+          components,
+          model::scriptParameterNames<model::MaterialOf<Cfg>>(),
+          Cfg::NumSimulations,
+          Cfg::ConvergenceOrder);
+      if constexpr (isDeviceOn()) {
+        // a device build evaluates the boundary on the device, and nowhere else
+        if (state == nullptr) {
+          logError() << "The analytical boundary of a device build evaluates the initial "
+                        "condition on the device, as a script that compiles: an sderiv module, a "
+                        "Lua model that traces, or a scenario of SeisSol. An easi file or a Lua "
+                        "model that does not trace is none.";
+        }
+        if (!expr::deviceRuntimeAvailable()) {
+          logError() << "The analytical boundary of a device build needs the runtime compiler of "
+                        "the device, which this build does not have.";
+        }
+      }
+      memoryManager.setAnalyticalGhostState(config, std::move(state));
     });
   }
 }

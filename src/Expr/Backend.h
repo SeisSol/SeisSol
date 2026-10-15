@@ -40,6 +40,19 @@ enum class BackendKind : std::uint8_t {
 
 const char* name(BackendKind kind);
 
+/// The backend of the device this build runs on: RtcCpu in a build without one.
+[[nodiscard]] constexpr BackendKind deviceBackendOfBuild() {
+#if defined(SEISSOL_KERNELS_CUDA)
+  return BackendKind::RtcCuda;
+#elif defined(SEISSOL_KERNELS_HIP)
+  return BackendKind::RtcHip;
+#elif defined(SEISSOL_KERNELS_SYCL)
+  return BackendKind::RtcOpenCl;
+#else
+  return BackendKind::RtcCpu;
+#endif
+}
+
 /// One call's worth of raw arguments, in Binding slot order.
 struct KernelArgs {
   /// inputs[i] is the base for Program::inputs()[i], outputs[j] for outputs()[j].

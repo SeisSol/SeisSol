@@ -57,19 +57,6 @@ std::size_t elementSize(DataType type) {
   return type == DataType::F32 ? sizeof(float) : sizeof(double);
 }
 
-/// The backend of the device of this build.
-expr::BackendKind deviceBackend() {
-#if defined(SEISSOL_KERNELS_CUDA)
-  return expr::BackendKind::RtcCuda;
-#elif defined(SEISSOL_KERNELS_HIP)
-  return expr::BackendKind::RtcHip;
-#elif defined(SEISSOL_KERNELS_SYCL)
-  return expr::BackendKind::RtcOpenCl;
-#else
-  return expr::BackendKind::RtcCpu;
-#endif
-}
-
 } // namespace
 
 SlipRateScript::SlipRateScript(const std::string& path) : path_(path) {
@@ -351,7 +338,7 @@ struct SlipRateEvaluator::Impl {
       return deviceKernel.kernel != nullptr;
     }
     deviceTried = true;
-    const auto backend = deviceBackend();
+    const auto backend = expr::deviceBackendOfBuild();
     if (backend == expr::BackendKind::RtcCpu) {
       return false;
     }

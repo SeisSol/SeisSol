@@ -711,6 +711,19 @@ bool gpuRuntimeAvailable(GpuTarget target) {
   return false;
 }
 
+bool deviceRuntimeAvailable() {
+  switch (deviceBackendOfBuild()) {
+  case BackendKind::RtcCuda:
+    return gpuRuntimeAvailable(GpuTarget::Cuda);
+  case BackendKind::RtcHip:
+    return gpuRuntimeAvailable(GpuTarget::Hip);
+  case BackendKind::RtcOpenCl:
+    return gpuRuntimeAvailable(GpuTarget::OpenCl);
+  default:
+    return false;
+  }
+}
+
 std::size_t rtcGpuCacheSize() {
   const std::lock_guard<std::mutex> lock(cacheMutex());
   return cache().size();

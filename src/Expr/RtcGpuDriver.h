@@ -38,6 +38,10 @@ namespace seissol::expr {
 /// Whether this build has a runtime compiler for `target` at all.
 [[nodiscard]] bool gpuRuntimeAvailable(GpuTarget target);
 
+/// Whether this build has a runtime compiler for the device it runs on (deviceBackendOfBuild):
+/// false in a build without a device.
+[[nodiscard]] bool deviceRuntimeAvailable();
+
 /// Compile and return a device kernel, or nullptr.
 ///
 /// Never throws and never aborts on a compilation failure: a model that cannot

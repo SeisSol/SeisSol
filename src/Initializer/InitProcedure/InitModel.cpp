@@ -14,6 +14,7 @@
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h" // IWYU pragma: keep
 #include "Equations/EnergyBase.h"
+#include "Expr/RtcGpuDriver.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/DerivedOutput.h"
@@ -317,6 +318,10 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
     if (fileName.empty()) {
       logError() << "The mesh has faces with the nonlinear Dirichlet boundary, but the equations "
                     "section names no script for it (NonlinearDirichletFileName).";
+    }
+    if (isDeviceOn() && !expr::deviceRuntimeAvailable()) {
+      logError() << "The nonlinear Dirichlet boundary of a device build needs the runtime compiler "
+                    "of the device, which this build does not have.";
     }
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);

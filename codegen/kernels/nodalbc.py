@@ -9,7 +9,8 @@ import numpy as np
 from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import layout, total_extent
-from yateto import Scalar, Tensor, simpleParameterSpace
+from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto.ast.node import Accumulate
 from yateto.util import tensor_collection_from_constant_expression
 
 
@@ -251,3 +252,129 @@ def addKernels(
         * aderdg.INodalAligned["km"]
     )
     generator.add("rotateNodalToGlobal", rotate_nodal_to_global)
+
+    if "gpu" in targets:
+        addDeviceNonlinearDirichlet(generator, aderdg, project_to_face_nodes, nr)
+
+
+def addDeviceNonlinearDirichlet(generator, aderdg, project_to_face_nodes, nr):
+    """The nonlinear Dirichlet boundary on a device, for all faces of one side of a batch at once:
+    the time integral of the state inside at the nodes of a face (from the integrated state), the
+    state inside at the times of the quadrature of a step (from the time derivatives), and the ghost
+    state back in global coordinates. Only for a solver with the Taylor series of the state."""
+    from kernels.aderdg.linearck import LinearCK
+    from kernels.aderdg.stp import STP
+
+    if not isinstance(aderdg, LinearCK) or isinstance(aderdg, STP):
+        return
+
+    generator.addFamily(
+        "gpu_projectToFaceNodes",
+        simpleParameterSpace(4),
+        project_to_face_nodes,
+        target="gpu",
+    )
+
+    nq = aderdg.numQuantities()
+    order = aderdg.order
+    columns = aderdg.INodal.shape()[-1]
+
+    # the state of the cell at one time point, which the device kernels need as a tensor of its
+    # own between the Taylor series and the projection
+    state = OptionalDimTensor(
+        "faceStateI",
+        aderdg.I.optName(),
+        aderdg.I.optSize(),
+        aderdg.I.optPos(),
+        (aderdg.num3DBasisFunctions(), nq),
+        alignStride=True,
+    )
+    taylor = [
+        [Scalar(f"taylorCoefficient({c * order + d})") for d in range(order)]
+        for c in range(order)
+    ]
+
+    def stateAt(c):
+        series = Accumulate(ops.Add())
+        for d in range(order):
+            series = series + taylor[c][d] * aderdg.dQs[d]["lq"]
+        return state["lq"] <= series
+
+    def nodalAt(name, quantities):
+        return [
+            OptionalDimTensor(
+                f"{name}({c})",
+                aderdg.INodal.optName(),
+                aderdg.INodal.optSize(),
+                aderdg.INodal.optPos(),
+                (aderdg.num2DBasisFunctions(), quantities),
+                alignStride=True,
+            )
+            for c in range(order)
+        ]
+
+    inodalAt = nodalAt("INodalAt", columns)
+    generator.addFamily(
+        "gpu_projectToFaceNodesAtTimes",
+        simpleParameterSpace(4),
+        lambda f: [
+            expression
+            for c in range(order)
+            for expression in [
+                stateAt(c),
+                inodalAt[c]["kq"]
+                <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")] * state["lq"],
+            ]
+        ],
+        target="gpu",
+    )
+
+    # the quantities of the Riemann problem: all of them, unless a material keeps more on the
+    # quantity axis (the memory variables), whose kernels then select them as the CPU ones do
+    whole = (
+        nr == nq
+        and columns == nq
+        and aderdg.T.shape() == (nq, nq)
+        and aderdg.Tinv.shape() == (nq, nq)
+    )
+
+    def riemann(access, *indices):
+        if not whole:
+            for index in indices:
+                access = access.subslice(index, 0, nr)
+        return access
+
+    generator.addFamily(
+        "gpu_projectToFaceNodesAligned",
+        simpleParameterSpace(4),
+        lambda f: aderdg.INodalAligned["ka"]
+        <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
+        * riemann(aderdg.I["lm"], "m")
+        * riemann(aderdg.Tinv["am"], "a", "m"),
+        target="gpu",
+    )
+
+    inodalAlignedAt = nodalAt("INodalAlignedAt", nr)
+    generator.addFamily(
+        "gpu_projectToFaceNodesAlignedAtTimes",
+        simpleParameterSpace(4),
+        lambda f: [
+            expression
+            for c in range(order)
+            for expression in [
+                stateAt(c),
+                inodalAlignedAt[c]["ka"]
+                <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
+                * riemann(state["lm"], "m")
+                * riemann(aderdg.Tinv["am"], "a", "m"),
+            ]
+        ],
+        target="gpu",
+    )
+
+    generator.add(
+        "gpu_rotateNodalToGlobal",
+        riemann(aderdg.INodal["ka"], "a")
+        <= riemann(aderdg.T["am"], "a", "m") * aderdg.INodalAligned["km"],
+        target="gpu",
+    )

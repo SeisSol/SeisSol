@@ -512,14 +512,16 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
-  // The analytical boundary conditions are evaluated in a host function that is handed the
-  // current time. A graph keeps the host functions it recorded as they were, so replaying it
-  // would evaluate them at the time of the step that recorded it.
+  // The kernels of the analytical and the nonlinear Dirichlet boundary take the time of the step
+  // (and the coefficients of the Taylor series at its time points) by value. A graph keeps the
+  // arguments it recorded, so replaying it would evaluate them at the time of the step that
+  // recorded it.
   bool timeDependentBc = false;
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    const ConditionalKey analyticalKey(
-        *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-    timeDependentBc = timeDependentBc || indicesTable.find(analyticalKey) != indicesTable.end();
+    for (const auto kind : {ComputationKind::Analytical, ComputationKind::NonlinearDirichlet}) {
+      const ConditionalKey key(*KernelNames::BoundaryConditions, *kind, face);
+      timeDependentBc = timeDependentBc || indicesTable.find(key) != indicesTable.end();
+    }
   }
 
   const ComputeGraphType graphType =

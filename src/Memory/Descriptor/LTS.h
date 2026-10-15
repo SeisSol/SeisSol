@@ -162,6 +162,9 @@ struct LTS {
   struct DerivativesScratch : public initializer::VariantScratchpad<Real> {};
   struct NodalAvgDisplacements : public initializer::VariantScratchpad<Real> {};
   struct AnalyticScratch : public initializer::VariantScratchpad<Real> {};
+  /// per face of the nonlinear Dirichlet boundary, what the device kernels between the time
+  /// derivatives and the ghost state need (kernels::NonlinearDirichletScratch)
+  struct NonlinearDirichletScratch : public initializer::VariantScratchpad<Real> {};
   struct DerivativesExtScratch : public initializer::VariantScratchpad<Real> {};
   struct DerivativesAneScratch : public initializer::VariantScratchpad<Real> {};
   struct IDofsAneScratch : public initializer::VariantScratchpad<Real> {};
@@ -209,6 +212,7 @@ struct LTS {
                                                         DerivativesScratch,
                                                         NodalAvgDisplacements,
                                                         AnalyticScratch,
+                                                        NonlinearDirichletScratch,
                                                         DerivativesExtScratch,
                                                         DerivativesAneScratch,
                                                         IDofsAneScratch,
@@ -275,8 +279,9 @@ struct LTS {
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    // also on the device, where the boundary integrals read it
     storage.add<MaterialParameters>(
-        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<Plasticity>(
         plasticityMask, Alignment, allocationModeWP(AllocationPreset::Plasticity), true);
     storage.add<DRMapping>(
@@ -322,7 +327,8 @@ struct LTS {
       storage.add<IntegratedDofsScratch>(LayerMask(), Alignment, mode);
       storage.add<DerivativesScratch>(LayerMask(), Alignment, mode);
       storage.add<NodalAvgDisplacements>(LayerMask(), Alignment, mode);
-      storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
+      storage.add<AnalyticScratch>(LayerMask(), Alignment, mode);
+      storage.add<NonlinearDirichletScratch>(LayerMask(), Alignment, mode);
 
       storage.add<FlagScratch>(LayerMask(), Alignment, mode);
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);

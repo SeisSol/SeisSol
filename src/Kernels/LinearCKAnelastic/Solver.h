@@ -47,16 +47,10 @@ struct Solver {
 
   static constexpr FaceTypeSupport implementsFaceType([[maybe_unused]] FaceType faceType) {
 #ifdef ACL_DEVICE
-    if (faceType == FaceType::NonlinearDirichlet) {
-      // its script runs on the host, at the nodes of a face, from the inner state at a time
-      return faceTypeUnsupported(
-          "the nonlinear Dirichlet boundary is evaluated on the host, which a device build "
-          "does not do yet");
-    }
-    if (faceType == FaceType::Analytical) {
+    if (faceType == FaceType::NonlinearDirichlet || faceType == FaceType::Analytical) {
       // the device kernels of this solver have no flux of a ghost state given at the nodes
-      return faceTypeUnsupported(
-          "the device kernels of the anelastic solver do not apply the analytical boundary yet");
+      return faceTypeUnsupported("the device kernels of the anelastic solver do not apply a "
+                                 "ghost state given at the nodes of a face yet");
     }
 #endif
     return faceTypeSupported();
