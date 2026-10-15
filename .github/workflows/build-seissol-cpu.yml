@@ -172,9 +172,9 @@ jobs:
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
           if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
-            pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
+            pip3 install --break-system-packages "numpy>=1.12.0" lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           else
-            pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
+            pip3 install "numpy>=1.12.0" lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           fi
 
       - name: get-precomputed-solutions
