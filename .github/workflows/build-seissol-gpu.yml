@@ -8,15 +8,27 @@
 name: build-seissol-gpu
 on:
   - push
+  # a run started by hand verifies its branch as well, not only master
+  - workflow_dispatch
 
 env:
-  precomputed-hash: 4cc0993d4ba3b8f0aabc84af78e405af9d98f902
+  precomputed-hash: bed56573928e224984f5e75a17feb8b0b2f5ea27
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Build SeisSol per backend and compiler, as master does: one executable of
+  # all configurations of the set ci-gpu, whose kernels TensorForge generates,
+  # and one of a single configuration with the code generators the backend
+  # takes without TensorForge (the preset ci-gpu of
+  # scripts/compile/compile-variants.yaml).
+  # ---------------------------------------------------------------------------
   seissol-build-test:
-    name: seissol-build-test
-    runs-on: ${{ matrix.setup.runner }}
+    name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
+    runs-on: ubuntu-26.04
     container: ${{ matrix.setup.container }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -25,316 +37,118 @@ jobs:
         build_type:
           - Release
           #- Debug
-        # each setup builds the set ci-gpu of cmake/confignames.cmake (order 6, all materials, f32
-        # and f64, elastic with 32 fused simulations in order 3) into one executable, whose kernels
-        # TensorForge generates; and one configuration with the code generators the backend takes
-        # by default (gemmforge, or tinytc on Intel GPUs), without TensorForge. A run chooses its
-        # configuration with SEISSOL_CONFIGURATION.
-        build:
-          - configs: ci-gpu
-            codegen: tensorforge
-          - configs: elastic-linearck-o6-f32-stroud
-            codegen: auto
+        # `name` selects the entry from the `toolchains:` block in
+        # scripts/compile/compile-variants.yaml.
         setup:
-          - arch: sm_75
+          - arch: sm_86
             backend: cuda
-            cc: gcc-13
-            cxx: g++-13
-            fc: gfortran-13
+            name: gcc-13
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
-          - arch: sm_75
+          - arch: sm_86
             backend: cuda
-            cc: clang-18
-            cxx: clang++-18
-            fc: gfortran-13 # TODO?
+            name: clang-18
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
-          # TODO: needs a working GPU runner
-          #- arch: sm_75
-          #  backend: cuda
-          #  cc: nvc
-          #  cxx: nvc++
-          #  fc: nvfortran
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-          #  runner: sccs-ci-nv-sm60
-          #  pythonbreak: true
           - arch: gfx906
             backend: hip
-            cc: gcc-13
-            cxx: g++-13
-            fc: gfortran-13
+            name: gcc-13
             container: seissol/gha-gpu-amd:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
           - arch: gfx906
             backend: hip
-            cc: clang-18
-            cxx: clang++-18
-            fc: gfortran-13 # TODO?
+            name: clang-18
             container: seissol/gha-gpu-amd:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: true
           - arch: skl
             backend: oneapi
-            cc: icx
-            cxx: icpx
-            fc: ifx
+            name: icx-2024
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             runner: ubuntu-26.04
             pythonbreak: false
     steps:
-      - name: checkout-seissol
+      - name: setup
+        run: |
+          # h5py for the verification tests, which write their meshes with it (and with numpy, which
+          # TensorForge brings along)
+          if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
+            # in the Intel image, pip ends without installing the TensorForge of the repository, and
+            # Python cannot import one there: take it from a clone instead, for the steps below as
+            # well, and its dependencies from pip
+            pip3 install numpy pyyaml h5py
+            git clone https://github.com/seissol/tensorforge.git ${RUNNER_TEMP}/tensorforge
+            echo "PYTHONPATH=${RUNNER_TEMP}/tensorforge/src${PYTHONPATH:+:${PYTHONPATH}}" >> ${GITHUB_ENV}
+            echo "CMAKE_PREFIX_PATH=${RUNNER_TEMP}/tensorforge/src/tensorforge/share/cmake${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> ${GITHUB_ENV}
+            echo "TensorForge: $(git -C ${RUNNER_TEMP}/tensorforge log -1 --format='%H %cd %s')"
+          else
+            pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git h5py
+            # the commit the install took, which the default branch had when the job ran
+            python3 -c "import importlib.metadata as m; print('TensorForge:', m.distribution('tensorforge').read_text('direct_url.json'))"
+          fi
+
+      - name: checkout
+        id: checkout
         uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - id: build
-        name: build-seissol
+      - name: build-variants
+        id: build
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
         run: |
-          if [ "${{ matrix.build.codegen }}" = tensorforge ]; then
-              if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
-                  # in the Intel image, pip ends without installing the tensorforge of the repository,
-                  # and Python cannot import one there: install it regardless of what is installed,
-                  # and its dependencies beforehand
-                  pip3 install numpy pyyaml
-                  git clone https://github.com/seissol/tensorforge.git
-                  export PYTHONPATH=$(pwd)/tensorforge/src:$PYTHONPATH
-                  export CMAKE_PREFIX_PATH=$(pwd)/tensorforge/src/tensorforge/cmake:$CMAKE_PREFIX_PATH
-              else
-                  pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
-              fi
+          # the generated kernel tests do not configure with HIP: their host library links
+          # hip::host, which cmake/hip.cmake does not find; master's CI leaves them out there as well
+          if [ "${{ matrix.setup.backend }}" = hip ]; then
+            TESTING_GENERATED=OFF
+          else
+            TESTING_GENERATED=ON
           fi
-          DEVICE_CODEGEN=${{ matrix.build.codegen }}
 
-          mkdir build && cd build
+          python3 scripts/compile/compile_variants.py \
+            --preset ci-gpu \
+            --toolchain ${{ matrix.setup.name }} \
+            --set device_backend=${{ matrix.setup.backend }} \
+            --set device_arch=${{ matrix.setup.arch }} \
+            --set defines.TESTING_GENERATED=${TESTING_GENERATED} \
+            --install-prefix /opt/seissol \
+            --max-parallel 1 \
+            --report build-report.json
 
-          # TODO: change to `-Wall -Werror` at some point
-          EXTRA_FLAGS="-Wall"
-
-          export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
-          export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
-          export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
-
-          export CC=${{matrix.setup.cc}}
-          export CXX=${{matrix.setup.cxx}}
-          export FC=${{matrix.setup.fc}}
-
-          mkdir -p /opt/seissol
-
-          if [ ${{matrix.setup.cc}} = nvc ]; then
-            TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
-          else
-            TESTING_COMMAND="";
-          fi;
-
-          # HIP may consume too much memory; hence disable the codegen tests for now
-          if [ ${{matrix.setup.backend}} = hip ]; then
-            TESTING_GENERATED=OFF;
-          else
-            TESTING_GENERATED=ON;
-          fi;
-
-          cmake .. \
-            -GNinja \
-            -DTESTING_COMMAND="${TESTING_COMMAND}" \
-            -DCMAKE_INSTALL_PREFIX=/opt/seissol \
-            -DTESTING=ON \
-            -DTESTING_GENERATED=$TESTING_GENERATED \
-            -DTESTING_BUILD_ONLY=ON \
-            -DASAGI=ON \
-            -DHOST_ARCH=${{matrix.arch}} \
-            -DDEVICE_CODEGEN=${DEVICE_CODEGEN} \
-            -DDEVICE_BACKEND=${{matrix.setup.backend}} \
-            -DDEVICE_ARCH=${{matrix.setup.arch}} \
-            -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
-            -DCONFIGS=${{matrix.build.configs}}
-
-          ninja install
+      - name: upload-build-report
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        with:
+          name: build-report-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.name}}
+          path: build-report.json
+          if-no-files-found: ignore
 
       - name: upload-seissol
-        uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.build.configs}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.name}}
           path: /opt/seissol
 
   seissol-run-test:
-    name: seissol-run-test
-    runs-on: sccs-ci-nv-sm60
-    container: ${{ matrix.setup.container }}
+    name: seissol-run-test<${{matrix.setup.name}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
+    runs-on: ${{matrix.setup.container-runner}}
+    container:
+      image: ${{ matrix.setup.container }}
+      options: ${{ matrix.setup.container-options || ' ' }}
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
-    env:
-      CONFIGNAME: |
-        ${{
-          format('{0}-o{1}-{2}-stroud{3}',
-            matrix.case.config,
-            matrix.case.order,
-            matrix.precision == 'single' && 'f32' || 'f64',
-            matrix.case.multisim != 1 && format('-s{0}', matrix.case.multisim) || ''
-          )
-        }}
+    # Only on master for now, and in runs started by hand: the runner takes one job at a time, so
+    # the verification of every push queued up behind that of the pushes before it. It runs
+    # whatever the builds end in: a failed build of another leg (as of a backend that is not
+    # verified) holds back none of the others, and a leg whose own build failed finds no
+    # executable to download.
+    if: ${{ !cancelled() && github.repository == 'SeisSol/SeisSol' && (github.ref_name == 'master' || github.event_name == 'workflow_dispatch') }}
     strategy:
       fail-fast: false
       matrix:
-        case:
-          # NOTE: the commented tests do not yet work on the GPU on this branch
-          - name: tpv5
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv5-nuc
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv5-visco
-            config: viscoelastic-linearckanelastic-m3
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv5-poro
-            config: poroelastic-stp
-            multisim: 1
-            energies: false # incomplete, hence disabled
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv6
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv13
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv16
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv101
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv101-slip
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv104
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpv105
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: ahsp
-            config: anisotropic-linearck
-            multisim: 1
-            energies: false
-            receivers: true
-            fault: false
-            volume: true
-            surface: false
-            order: 6
-          - name: tpvgaussian
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: tpvyoffe
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-            order: 6
-          - name: ttpv1
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: true
-            order: 6
-          - name: loh1-fused
-            config: elastic-linearck
-            multisim: 32
-            energies: true
-            receivers: true
-            fault: false # NYI
-            volume: false
-            surface: false
-            order: 3
-          - name: loh1-ic
-            config: elastic-linearck
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: false
-            volume: true
-            surface: false
-            order: 6
         precision:
           - single
         arch:
@@ -342,135 +156,108 @@ jobs:
         build_type:
           - Release
         setup:
-          - arch: sm_75
+          - arch: sm_86
             backend: cuda
-            cc: gcc-13
-            cxx: g++-13
-            fc: gfortran-13
+            name: gcc-13
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
-          - arch: sm_75
+            container-options: --runtime=nvidia --gpus=all
+            container-runner: gpu-nv
+          - arch: sm_86
             backend: cuda
-            cc: clang-18
-            cxx: clang++-18
-            fc: gfortran-13 # TODO?
+            name: clang-18
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
-          # TODO: needs a working GPU runner
-          #- arch: sm_75
-          #  backend: cuda
-          #  cc: nvc
-          #  cxx: nvc++
-          #  fc: nvfortran
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
-          #  pythonbreak: true
-          #  mpi: openmpi
+            container-options: --runtime=nvidia --gpus=all
+            container-runner: gpu-nv
         parallel:
           - ranks: 1
             threads: 4
             commthread: false
-          - ranks: 4
-            threads: 1
-            commthread: false
+          #- ranks: 4
+          #  threads: 1
+          #  commthread: false
     steps:
-      - name: install-packages # TODO: move to containers
+      - name: clean-workspace
+        run: |
+          # A self-hosted runner keeps the workspace of the repository from one job to the next, of
+          # every workflow and branch: what an earlier job downloaded to install/ would stay next to
+          # the executables of this build, and verify.py takes an executable
+          # seissol-<configuration> before the shared seissol. Nor may the report of an earlier job
+          # pass for this one's, should verify.py stop before writing its own.
+          rm -rf install report.txt
+
+      - name: install-packages
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
-
           if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
-            pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+            pip3 install --break-system-packages "numpy>=1.12.0" lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           else
-            pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+            pip3 install "numpy>=1.12.0" lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           fi
 
-      - id: load-precomputed-solutions
-        name: load-precomputed-solutions
-        uses: corca-ai/local-cache@v3
+      - name: get-precomputed-solutions
+        uses: actions/checkout@v6
         with:
-          key: ${{env.precomputed-hash}}
+          repository: seissol/precomputed-seissol
+          ref: ${{ env.precomputed-hash }}
           path: precomputed
-          base: /home/runner/_cache
-      - name: get-seissol
-        uses: actions/download-artifact@v5
-        with:
-          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-ci-gpu-${{matrix.setup.cc}}
-          path: install
-      - name: run-seissol
-        id: run
-        run: |
-          if [ ${{matrix.setup.mpi}} = openmpi ]; then
-            MPI_OPTIONS="--oversubscribe --allow-run-as-root";
-          elif [ ${{matrix.setup.mpi}} = intel ]; then
-            MPI_OPTIONS="";
-          else
-            MPI_OPTIONS="";
-          fi;
 
-          export PATH=$(pwd)/install/bin:$PATH
-          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
-
-          chmod +x $(pwd)/install/bin/*
-
-          export OMP_NUM_THREADS=${{matrix.parallel.threads}}
-          export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
-          export SEISSOL_MINI_NUM_ELEMENTS=100
-
-          # FIXME: compile the container with GPU-aware MPI
-          export SEISSOL_USM_MPI=1
-
-          cd precomputed/${{matrix.case.name}}
-
-          export SEISSOL_CONFIGURATION=$(echo ${CONFIGNAME})
-
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol
-
-      # TODO: make this checkout obsolete
+      # The compare-*.py / verify.py scripts live in this very repo. The
+      # workflow itself doesn't auto-checkout, so we do it explicitly here.
       - name: get-verification-scripts
         uses: actions/checkout@v6
         with:
-          path: scripts
+          path: seissol-scripts
+          sparse-checkout: scripts/validate
+          sparse-checkout-cone-mode: false
 
-      # for now, compare faults only on single-rank setups
-      - name: check-fault
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}
+      - name: get-seissol
+        id: get-seissol
+        uses: actions/download-artifact@v8
+        with:
+          name: seissol-${{matrix.build_type}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.setup.name}}
+          path: install
+
+      - name: verify
+        id: verify
         run: |
-          FAULT_FILE=tpv-fault.xdmf
-          EPSILON=0.05
+          MPI_OPTIONS=""
+          if [ "${{ matrix.setup.mpi }}" = openmpi ]; then
+            MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none"
+          fi
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
-      - name: check-volume
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.volume }}
-        run: |
-          # the wavefield output is named after what it holds; the references predate that
-          VOLUME_FILE=tpv-wavefield.xdmf
-          VOLUME_FILE_REF=tpv.xdmf
-          EPSILON=0.05
+          export PATH=$(pwd)/install/bin:$PATH
+          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:${LD_LIBRARY_PATH:-}
+          chmod +x $(pwd)/install/bin/*
+          # the executables verify.py chooses from
+          ls -l $(pwd)/install/bin
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE_REF} --epsilon ${EPSILON}
-      - name: check-surface
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.surface }}
-        run: |
-          SURFACE_FILE=tpv-surface.xdmf
-          EPSILON=0.05
+          export OMP_NUM_THREADS=${{ matrix.parallel.threads }}
+          export SEISSOL_COMMTHREAD=${{ matrix.parallel.commthread }}
+          export SEISSOL_MINI_NUM_ELEMENTS=100
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${SURFACE_FILE} ./precomputed/${{matrix.precision}}/${SURFACE_FILE} --epsilon ${EPSILON}
-      - name: check-receivers
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.receivers }}
-        run: |
-          EPSILON=0.05
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+          export OMPI_MCA_rmaps_base_oversubscribe=true
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON}
-      - name: check-energy
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.energies }}
-        run: |
-          ENERGY_FILE=tpv-energy.csv
-          EPSILON=0.05
+          python3 $GITHUB_WORKSPACE/seissol-scripts/scripts/validate/verify.py \
+            --precomputed-dir precomputed \
+            --binary-dir $GITHUB_WORKSPACE/install \
+            --all \
+            --mpi-cmd mpirun \
+            --mpi-args "${MPI_OPTIONS}" \
+            --ranks ${{ matrix.parallel.ranks }} \
+            --threads ${{ matrix.parallel.threads }} \
+            --color always \
+            --report report.txt
 
-          cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-energies.py ./output/${ENERGY_FILE} ./precomputed/${{matrix.precision}}/${ENERGY_FILE} --epsilon ${EPSILON}
+      - name: upload-report
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: report-${{ matrix.setup.name }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
+          path: report.txt
+          if-no-files-found: ignore

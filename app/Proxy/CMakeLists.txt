@@ -28,12 +28,39 @@ endif()
 install(TARGETS seissol-proxy-exe RUNTIME)
 
 if (TESTING)
-    add_test(NAME "Proxy: all" COMMAND $<TARGET_FILE:seissol-proxy-exe> 10 1 all)
-    add_test(NAME "Proxy: all_dr" COMMAND $<TARGET_FILE:seissol-proxy-exe> 10 1 all_dr)
-    add_test(NAME "Proxy: ader" COMMAND $<TARGET_FILE:seissol-proxy-exe> 10 1 ader)
-    add_test(NAME "Proxy: localwoader" COMMAND $<TARGET_FILE:seissol-proxy-exe> 10 1 localwoader)
-    add_test(NAME "Proxy: local" COMMAND $<TARGET_FILE:seissol-proxy-exe> 10 1 local)
-    add_test(NAME "Proxy: neigh" COMMAND $<TARGET_FILE:seissol-proxy-exe> 10 1 neigh)
-    add_test(NAME "Proxy: neigh_dr" COMMAND $<TARGET_FILE:seissol-proxy-exe> 10 1 neigh_dr)
-    add_test(NAME "Proxy: godunov_dr" COMMAND $<TARGET_FILE:seissol-proxy-exe> 10 1 godunov_dr)
+    # Each kernel is run through the JSON output mode, so the run itself and
+    # the numbers it reports are checked in one go.
+    foreach(kernel all all_dr ader localwoader local neigh neigh_dr godunov_dr)
+        seissol_add_proxy_smoke_test(
+            NAME "Proxy: ${kernel}"
+            TARGET seissol-proxy-exe
+            KERNEL ${kernel}
+            LABELS proxy
+        )
+    endforeach()
+
+    # The plain format is what a human reads; keep it from silently going away.
+    seissol_add_smoke_test(
+        NAME "Proxy: plain output"
+        TARGET seissol-proxy-exe
+        ARGS 10 1 all -f plain
+        EXPECT_OUTPUT "PERFORMANCE SUMMARY"
+        LABELS proxy
+    )
+
+    # Argument handling: both of these have to be rejected, not silently run
+    # with a default.
+    seissol_add_smoke_test(
+        NAME "Proxy: no arguments"
+        TARGET seissol-proxy-exe
+        EXPECT_FAILURE
+        LABELS proxy
+    )
+    seissol_add_smoke_test(
+        NAME "Proxy: unknown kernel"
+        TARGET seissol-proxy-exe
+        ARGS 10 1 not-a-kernel
+        EXPECT_FAILURE
+        LABELS proxy
+    )
 endif()

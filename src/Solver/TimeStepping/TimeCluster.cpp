@@ -629,6 +629,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
         clusterData_->var<LTS::Plasticity>(Cfg(), seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
         clusterData_->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
+    auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
     streamRuntime_.runGraph(
         plasticityGraphKey,
         *clusterData_,
@@ -638,6 +639,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
               seissolInstance_.parameters().model.tv,
               globalData_.onDevice,
               table,
+              indicesTable,
               plasticity,
               conditionalCounterDevice_.data(),
               isAdjustableVector,

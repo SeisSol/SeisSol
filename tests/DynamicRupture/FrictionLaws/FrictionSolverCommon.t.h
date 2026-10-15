@@ -6,14 +6,18 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Real.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Numerical/Quadrature.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <numeric>
 
 namespace seissol::unit_test {
@@ -306,9 +310,177 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynami
         CHECK(dSMinus[q][p] == AbsApprox(iSMinus[q][p]).epsilon(Epsilon).delta(Epsilon));
       }
     }
+
+    SUBCASE("Friction energy accumulates in double") {
+      // late in a simulation, the sums of the energy output are large and their increments tiny;
+      // in single precision, the increments would be rounded away
+      DREnergyOutput<Cfg> energyOutput{};
+      real slipRateMagnitude[misc::NumPaddedPoints<Cfg>]{};
+      for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
+        energyOutput.accumulatedSlip[p] = 1.0;
+        slipRateMagnitude[p] = static_cast<real>(1e-9);
+      }
+      // as the padded weights the solver is given: it reads a weight for every padded point
+      real spaceWeights[misc::NumPaddedPoints<Cfg>]{};
+      const DRGodunovData<Cfg> godunovData{};
+      friction_law::common::computeFrictionEnergy<Cfg>(energyOutput,
+                                                       qInterpolatedPlus,
+                                                       qInterpolatedMinus,
+                                                       impAndEta,
+                                                       timeWeights,
+                                                       spaceWeights,
+                                                       godunovData,
+                                                       slipRateMagnitude,
+                                                       false);
+      double gain = 0;
+      for (size_t o = 0; o < misc::TimeSteps<Cfg>; o++) {
+        gain += static_cast<double>(timeWeights[o] * slipRateMagnitude[0]);
+      }
+      for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
+        CHECK(energyOutput.accumulatedSlip[p] - 1.0 == doctest::Approx(gain).epsilon(1e-6));
+      }
+    }
+  }
+}
+
+TEST_CASE_TEMPLATE_DEFINE("Friction solver event times" * doctest::test_suite("dynamicrupture"),
+                          Cfg,
+                          FrictionSolverEventTimes) {
+  using real = Real<Cfg>;
+  const auto crossingTime = friction_law::common::crossingTime<Cfg>;
+  const auto real0 = [](double x) { return static_cast<real>(x); };
+
+  SUBCASE("A crossing is interpolated linearly, rising or falling") {
+    CHECK(crossingTime(real0(0.0), real0(2.0), real0(1.0), real0(10.0), real0(12.0)) ==
+          doctest::Approx(11.0));
+    CHECK(crossingTime(real0(0.8), real0(0.4), real0(0.6), real0(1.0), real0(2.0)) ==
+          doctest::Approx(1.5));
+    // landing on the threshold exactly, the crossing is at the current time
+    CHECK(crossingTime(real0(0.0), real0(1.0), real0(1.0), real0(1.0), real0(2.0)) ==
+          doctest::Approx(2.0));
+  }
+
+  SUBCASE("A previous value past the threshold gives the previous time") {
+    // moving away from the threshold, back toward it, or not at all
+    CHECK(crossingTime(real0(2.0), real0(3.0), real0(1.0), real0(5.0), real0(6.0)) == 5.0);
+    CHECK(crossingTime(real0(3.0), real0(2.0), real0(1.0), real0(5.0), real0(6.0)) == 5.0);
+    CHECK(crossingTime(real0(2.0), real0(2.0), real0(1.0), real0(5.0), real0(6.0)) == 5.0);
+    // and so continuously as the current value passes the previous one
+    CHECK(crossingTime(real0(2.0), real0(2.001), real0(1.0), real0(5.0), real0(6.0)) == 5.0);
+    CHECK(crossingTime(real0(2.0), real0(1.999), real0(1.0), real0(5.0), real0(6.0)) == 5.0);
+  }
+
+  // the time points of a step as the time stepping gets them
+  const double stepLength = 0.7;
+  const auto timePoints =
+      seissol::quadrature::ShiftedGaussLegendre(misc::TimeSteps<Cfg>, 0, stepLength).first;
+  const auto frictionTime = friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
+  real deltaT[misc::TimeSteps<Cfg>]{};
+  for (std::size_t i = 0; i < misc::TimeSteps<Cfg>; ++i) {
+    deltaT[i] = static_cast<real>(frictionTime.deltaT[i]);
+  }
+  const double tolerance = 64 * std::numeric_limits<real>::epsilon();
+
+  SUBCASE("Sub-step times follow the time points of the step") {
+    const double stepStart = 3.0;
+    // the last time point of a previous step of the same length
+    const double previousStepPoint = stepStart - (stepLength - timePoints.back());
+    for (uint32_t k = 0; k < misc::TimeSteps<Cfg>; ++k) {
+      CAPTURE(k);
+      const auto times = friction_law::common::subStepTimes<Cfg>(real0(stepStart), deltaT, k);
+      CHECK(times.point == doctest::Approx(stepStart + timePoints[k]).epsilon(tolerance));
+      const double previous = k == 0 ? previousStepPoint : stepStart + timePoints[k - 1];
+      CHECK(times.previousPoint == doctest::Approx(previous).epsilon(tolerance));
+      const double start = k == 0 ? stepStart : stepStart + timePoints[k - 1];
+      CHECK(times.start == doctest::Approx(start).epsilon(tolerance));
+      const double end =
+          k + 1 < misc::TimeSteps<Cfg> ? stepStart + timePoints[k] : stepStart + stepLength;
+      CHECK(times.end == doctest::Approx(end).epsilon(tolerance));
+    }
+  }
+
+  SUBCASE("The first evaluation of a simulation has no previous one") {
+    const auto first = friction_law::common::subStepTimes<Cfg>(real0(0.0), deltaT, 0);
+    CHECK(first.previousPoint == 0.0);
+    CHECK(first.point == 0.0);
+    const auto second = friction_law::common::subStepTimes<Cfg>(real0(0.0), deltaT, 1);
+    CHECK(second.previousPoint == doctest::Approx(timePoints[0]).epsilon(tolerance));
+
+    // a prescribed slip rate keeps them too
+    const auto rate = friction_law::common::slipRateTimes<Cfg>(first, true);
+    CHECK(rate.previousPoint == 0.0);
+    CHECK(rate.point == 0.0);
+  }
+
+  SUBCASE("A prescribed slip rate belongs to the ends of the sub-step interval") {
+    for (uint32_t k = 0; k < misc::TimeSteps<Cfg>; ++k) {
+      CAPTURE(k);
+      const auto times = friction_law::common::subStepTimes<Cfg>(real0(3.0), deltaT, k);
+      const auto rate = friction_law::common::slipRateTimes<Cfg>(times, true);
+      CHECK(rate.previousPoint == times.start);
+      CHECK(rate.point == times.end);
+      const auto solved = friction_law::common::slipRateTimes<Cfg>(times, false);
+      CHECK(solved.previousPoint == times.previousPoint);
+      CHECK(solved.point == times.point);
+    }
+  }
+
+  // per point: a previous slip rate below the threshold of 1 mm/s, and a current one above it
+  // for all points but the last
+  constexpr auto NumPoints = misc::NumPaddedPoints<Cfg>;
+  bool pending[NumPoints]{};
+  real ruptureTime[NumPoints]{};
+  real previousSlipRate[NumPoints]{};
+  real slipRate[NumPoints]{};
+  for (std::size_t p = 0; p < NumPoints; ++p) {
+    pending[p] = true;
+    previousSlipRate[p] = static_cast<real>(0.0005 * p / NumPoints);
+    slipRate[p] = p + 1 < NumPoints ? static_cast<real>(0.001 * (2 + p)) : 0.0;
+  }
+
+  SUBCASE("The rupture time moves with the crossing") {
+    friction_law::common::saveRuptureFrontOutput<Cfg>(
+        pending, ruptureTime, previousSlipRate, slipRate, real0(2.0), real0(3.0));
+    for (std::size_t p = 0; p + 1 < NumPoints; ++p) {
+      CAPTURE(p);
+      CHECK_FALSE(pending[p]);
+      CHECK(ruptureTime[p] ==
+            crossingTime(previousSlipRate[p], slipRate[p], real0(0.001), real0(2.0), real0(3.0)));
+      CHECK(ruptureTime[p] > 2.0);
+      CHECK(ruptureTime[p] <= 3.0);
+    }
+    CHECK(pending[NumPoints - 1]);
+    CHECK(ruptureTime[NumPoints - 1] == 0.0);
+  }
+
+  SUBCASE("A rupture at the first evaluation of a simulation is at 0") {
+    friction_law::common::saveRuptureFrontOutput<Cfg>(
+        pending, ruptureTime, previousSlipRate, slipRate, real0(0.0), real0(0.0));
+    CHECK_FALSE(pending[0]);
+    CHECK(ruptureTime[0] == 0.0);
+  }
+
+  SUBCASE("The device range matches the host range") {
+    // the device variant takes the previous slip rate of its point alone
+    bool devicePending[NumPoints]{};
+    real deviceRuptureTime[NumPoints]{};
+    std::copy_n(pending, NumPoints, devicePending);
+    for (uint32_t p = 0; p < NumPoints; ++p) {
+      const real previous = previousSlipRate[p];
+      friction_law::common::saveRuptureFrontOutput<Cfg, friction_law::common::RangeType::GPU>(
+          devicePending, deviceRuptureTime, &previous, slipRate, real0(2.0), real0(3.0), p);
+    }
+    friction_law::common::saveRuptureFrontOutput<Cfg>(
+        pending, ruptureTime, previousSlipRate, slipRate, real0(2.0), real0(3.0));
+    for (std::size_t p = 0; p < NumPoints; ++p) {
+      CAPTURE(p);
+      CHECK(devicePending[p] == pending[p]);
+      CHECK(deviceRuptureTime[p] == ruptureTime[p]);
+    }
   }
 }
 
 TEST_CASE_TEMPLATE_APPLY(FrictionSolverCommon, DynamicRuptureConfigs);
+TEST_CASE_TEMPLATE_APPLY(FrictionSolverEventTimes, DynamicRuptureConfigs);
 
 } // namespace seissol::unit_test

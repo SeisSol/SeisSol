@@ -13,6 +13,7 @@
 #include "IO/Datatype/MPIType.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Metadata/Pvd.h"
+#include "IO/Instance/Metadata/Xml.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Dimension.h"
 #include "IO/Writer/Instructions/Hdf5.h"
@@ -311,8 +312,9 @@ void VtkHdfWriter::addHook(const std::function<void(std::size_t, double)>& hook)
 std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWriter::makeWriter() {
   logInfo() << "Adding VTK writer" << name_ << "of order" << targetDegree_;
   const auto self = *this;
+  auto pvu = metadata::GrowingXmlFile(metadata::makePvuCollection);
   return
-      [self, pvu = std::vector<metadata::PvuEntry>(), constCounter = std::optional<std::size_t>()](
+      [self, pvu, constCounter = std::optional<std::size_t>()](
           const std::string& prefix, std::size_t counter, double time) mutable -> writer::Writer {
         // The unchanging data is written once per run, not once per counter: a run resuming from a
         // checkpoint starts at whatever counter the schedule gives it and would otherwise link to a
@@ -343,9 +345,6 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
         const auto filenameConst = prefix + "-" + self.name_ + constSuffix;
         const auto filenameConstFile = inDirectory(filenameConst);
         const auto filenamePvu = prefix + "-" + self.name_ + ".pvd";
-        if (!self.temporal_) {
-          pvu.emplace_back(metadata::PvuEntry{filenameFile, time});
-        }
         auto writer = writer::Writer();
 
         if (fullWrite) {
@@ -379,7 +378,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
         // A time series carries its own step list, and every step would enter the collection under
         // the same file name, so there is nothing for a pvd to say.
         if (!self.temporal_) {
-          writer.addInstructions(metadata::makePvu(pvu).instructions(filenamePvu));
+          writer.addInstructions(
+              pvu.add(filenamePvu, {metadata::makePvuDataset({filenameFile, time})}));
         }
         return writer;
       };

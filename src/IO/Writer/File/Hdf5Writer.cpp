@@ -66,9 +66,12 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #endif
 
-  // Keep the metadata of one file together instead of scattering it between the datasets: on a
-  // parallel file system the small metadata writes are what hurts, not the bulk data.
-  _eh(H5Pset_meta_block_size(h5falist, MetaBlockSize));
+  // Keep the metadata of one file together instead of scattering it between the datasets, if asked
+  // to: on a parallel file system the small metadata writes are what hurts, not the bulk data.
+  const auto metaBlockSize = outputMetaBlockSize();
+  if (metaBlockSize > 0) {
+    _eh(H5Pset_meta_block_size(h5falist, static_cast<hsize_t>(metaBlockSize)));
+  }
 
   // Align datasets to the stripe size of the file system, if it was given. Unaligned bulk writes
   // make more than one storage target take part in a single write, which serializes them.

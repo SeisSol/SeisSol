@@ -186,4 +186,83 @@ TEST_CASE("makePvu single entry" * doctest::test_suite("io")) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// GrowingXmlFile: the file written by step is the file written in full
+// ---------------------------------------------------------------------------
+
+// Carries out the writes of @p instrs on @p file as BinaryWriter does.
+static void
+    applyWrites(std::string& file,
+                const std::vector<std::shared_ptr<instructions::WriteInstruction>>& instrs) {
+  for (const auto& instr : instrs) {
+    auto* bw = dynamic_cast<instructions::BinaryWrite*>(instr.get());
+    REQUIRE(bw != nullptr);
+    REQUIRE_FALSE(bw->dataSource->distributed());
+    const auto* ptr = reinterpret_cast<const char*>(bw->dataSource->getLocalPointer());
+    const std::string text(ptr, ptr + bw->dataSource->getLocalSize());
+    if (!bw->append) {
+      file.clear();
+    }
+    const auto at = bw->offset.value_or(file.size());
+    if (file.size() < at + text.size()) {
+      file.resize(at + text.size());
+    }
+    file.replace(at, text.size(), text);
+  }
+}
+
+TEST_CASE("GrowingXmlFile writes the file a step at a time" * doctest::test_suite("io")) {
+  // nested as an Xdmf file, whose time series takes a grid per step
+  const auto document = [](const std::vector<std::shared_ptr<XmlEntry>>& steps) {
+    auto root = std::make_shared<XmlNode>("Outer");
+    auto series = std::make_shared<XmlNode>("Series");
+    series->addAttribute(XmlAttribute::create("kind", "temporal"));
+    root->addNode(series);
+    for (const auto& step : steps) {
+      series->addNode(step);
+    }
+    XmlFile file;
+    file.setRoot(root);
+    return file;
+  };
+  const auto makeStep = [](int index) {
+    auto step = std::make_shared<XmlNode>("Step");
+    step->addAttribute(XmlAttribute::create("index", std::to_string(index)));
+    auto value = std::make_shared<XmlData>("Value");
+    value->setImmediate<std::string>("data of step " + std::to_string(index));
+    step->addNode(value);
+    return step;
+  };
+
+  GrowingXmlFile growing(document);
+  std::vector<std::shared_ptr<XmlEntry>> steps;
+  std::string file;
+  for (int index = 0; index < 4; ++index) {
+    steps.emplace_back(makeStep(index));
+    const auto instrs = growing.add("out.xdmf", {steps.back()});
+    REQUIRE(instrs.size() == 1);
+    const auto* bw = dynamic_cast<instructions::BinaryWrite*>(instrs.front().get());
+    REQUIRE(bw != nullptr);
+    CHECK(bw->filename == "out.xdmf");
+    // only the first write writes the head, and from the start
+    CHECK(bw->append == (index > 0));
+    CHECK(bw->offset.has_value() == (index > 0));
+    CHECK((extractInlineText(instrs).find("<?xml") == std::string::npos) == (index > 0));
+
+    applyWrites(file, instrs);
+    CHECK(file == document(steps).text());
+  }
+}
+
+TEST_CASE("GrowingXmlFile writes a pvd a step at a time" * doctest::test_suite("io")) {
+  GrowingXmlFile growing(makePvuCollection);
+  std::vector<PvuEntry> entries;
+  std::string file;
+  for (int index = 0; index < 3; ++index) {
+    entries.push_back({"output-" + std::to_string(index) + ".vtkhdf", 0.5 * index});
+    applyWrites(file, growing.add("out.pvd", {makePvuDataset(entries.back())}));
+    CHECK(file == makePvu(entries).text());
+  }
+}
+
 } // namespace seissol::unit_test

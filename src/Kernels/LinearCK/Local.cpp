@@ -37,6 +37,8 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+
+#include <utility>
 #endif
 
 #ifndef ACL_DEVICE
@@ -79,8 +81,13 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
   const auto& materialData = data.template get<LTS::Material>();
   const auto& cellBoundaryMapping = data.template get<LTS::BoundaryMapping>();
 
+  // the kernels add their products into Q term by term; into the DOFs, every one of these
+  // additions would round at the size of the DOFs rather than of the update, so that the rounding
+  // error of a step grows with the number of terms. So they go into a buffer, which is added once.
+  alignas(Alignment) real update[tensor::Q<Cfg>::size()]{};
+
   kernel::volume<Cfg> volKrnl = volumeKernelPrototype_;
-  volKrnl.Q = data.template get<LTS::Dofs>();
+  volKrnl.Q = update;
   volKrnl.I = timeIntegratedDoFs;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
     volKrnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
@@ -90,7 +97,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
   set_ET(volKrnl, get_ptr_sourceMatrix(data.template get<LTS::LocalIntegration>().specific));
 
   kernel::localFlux<Cfg> lfKrnl = localFluxKernelPrototype_;
-  lfKrnl.Q = data.template get<LTS::Dofs>();
+  lfKrnl.Q = update;
   lfKrnl.I = timeIntegratedDoFs;
   lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I<Cfg>::size();
   lfKrnl._prefetch.Q = data.template get<LTS::Dofs>() + tensor::Q<Cfg>::size();
@@ -106,7 +113,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
     auto nodalLfKrnl = nodalLfKrnlPrototype_;
-    nodalLfKrnl.Q = data.template get<LTS::Dofs>();
+    nodalLfKrnl.Q = update;
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I<Cfg>::size();
     nodalLfKrnl._prefetch.Q = data.template get<LTS::Dofs>() + tensor::Q<Cfg>::size();
@@ -122,7 +129,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       kernel.rho = &localRho;
       kernel.averageNormalDisplacement = tmp.nodalAvgDisplacements[face].data();
 
-      kernel.Q = data.template get<LTS::Dofs>();
+      kernel.Q = update;
       kernel.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.execute(face);
@@ -136,7 +143,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       kernel.dirichletOffset = dirichletOffset;
       kernel.dt = timeStepWidth;
 
-      kernel.Q = data.template get<LTS::Dofs>();
+      kernel.Q = update;
       kernel.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.execute(face);
@@ -158,6 +165,12 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       // No boundary condition.
       break;
     }
+  }
+
+  real* dofs = data.template get<LTS::Dofs>();
+#pragma omp simd
+  for (std::size_t i = 0; i < tensor::Q<Cfg>::size(); ++i) {
+    dofs[i] += update[i];
   }
 }
 
@@ -338,8 +351,12 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
-      const auto& cellIds =
-          indicesTable[analyticalKey].get<unsigned>(inner_keys::Indices::Id::Cells)->getHostData();
+      // the indices the table holds, not a copy of them: the loop below runs when the stream gets
+      // to it, after this scope
+      const auto& cellIds = std::as_const(indicesTable)
+                                .at(analyticalKey)
+                                .get<unsigned>(inner_keys::Indices::Id::Cells)
+                                ->getHostData();
       const size_t numElements = cellIds.size();
       auto* analytical = reinterpret_cast<real(*)[tensor::INodal<Cfg>::size()]>(
           layer.var<LTS::AnalyticScratch>(Cfg()));
@@ -365,6 +382,11 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
           });
 
       auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
+
+      // as for the other device kernels of the local integral
+      const auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnl);
+      auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
+
       nodalLfKrnl.INodal = const_cast<const real**>(
           dataTable[analyticalKey].get<real*>(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
       nodalLfKrnl.AminusT =
@@ -375,6 +397,7 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
           SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
       nodalLfKrnl.Q =
           dataTable[analyticalKey].get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+      nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
       nodalLfKrnl.streamPtr = runtime.stream();
       nodalLfKrnl.numElements = numElements;
       nodalLfKrnl.execute(face);

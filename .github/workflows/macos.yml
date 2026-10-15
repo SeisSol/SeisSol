@@ -26,6 +26,9 @@ jobs:
 
           brew install numpy
           brew install scipy
+          # h5py for the verification tests, which write their meshes with it; Homebrew has no
+          # formula of it, so pip installs it next to the numpy of Homebrew
+          python3 -m pip install --break-system-packages h5py
 
       - name: checkout-easi
         uses: actions/checkout@v6
@@ -55,7 +58,11 @@ jobs:
 
           sudo mkdir -p /opt/seissol
 
-          # run w/o netcdf for consistency with the clang-tidy check
+          # run w/o netcdf for consistency with the clang-tidy check. The snapshot references of the
+          # verification tests come from another environment, which this one deviates from by
+          # rounding, as the CPU CI (scripts/compile/compile-variants.yaml). They run in the first
+          # configuration only, as before the configurations were built into one executable; the
+          # CPU CI runs them in all
           export CMAKE_PREFIX_PATH=/opt/dependencies
 
           # cf. https://gist.github.com/scivision/16c2ca1dc250f54d34f1a1a35596f4a0
@@ -84,7 +91,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCONFIGS=ci-cpu \
             -DGRAPH_PARTITIONING_LIBS=none \
-            -DNUMA_AWARE_PINNING=OFF
+            -DNUMA_AWARE_PINNING=OFF \
+            -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9 \
+            -DSEISSOL_VERIFICATION_CONFIGS=first
 
           # one compile job per core: a translation unit of the set takes up to 1.6 GB
           ninja -j $(sysctl -n hw.ncpu)

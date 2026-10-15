@@ -217,11 +217,17 @@ std::size_t
       qEtaNodal[qp] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtPstrainSqAcc);
     }
 
+    // added to the DOFs once, for the reason given in Local::computeIntegral
+    alignas(Alignment) real stressUpdate[tensor::QStress<Cfg>::size()]{};
     kernel::plConvertToModal<Cfg> adjKrnl;
-    adjKrnl.QStress = degreesOfFreedom;
+    adjKrnl.QStress = stressUpdate;
     adjKrnl.bindGlobals(*global);
     adjKrnl.QStressNodal = qStressNodal;
     adjKrnl.execute();
+#pragma omp simd
+    for (std::size_t i = 0; i < tensor::QStress<Cfg>::size(); ++i) {
+      degreesOfFreedom[i] += stressUpdate[i];
+    }
 
     return 1;
   }
@@ -234,6 +240,7 @@ void Plasticity<Cfg>::computePlasticityBatched(
     SEISSOL_GPU_PARAM real tV,
     SEISSOL_GPU_PARAM const GlobalData<Cfg>* global,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
     SEISSOL_GPU_PARAM seissol::model::PlasticityData<Cfg>* plasticityData,
     SEISSOL_GPU_PARAM std::size_t* yieldCounter,
     SEISSOL_GPU_PARAM unsigned* isAdjustableVector,
@@ -280,12 +287,16 @@ void Plasticity<Cfg>::computePlasticityBatched(
     m2nKrnl.execute();
 
     real** pstrains = entry.get<real*>(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
+    // the batch holds only the plastic cells; plasticityData is indexed by the layer cell
+    const unsigned* cellIndices =
+        indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells)->getDeviceDataPtr();
 
     device::aux::plasticity::plasticityNonlinear(nodalStressTensors,
                                                  pstrains,
                                                  isAdjustableVector,
                                                  yieldCounter,
                                                  plasticityData,
+                                                 cellIndices,
                                                  oneMinusIntegratingFactor,
                                                  tV,
                                                  timeStepWidth,

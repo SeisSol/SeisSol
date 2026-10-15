@@ -11,13 +11,14 @@
 #include "IO/Reader/File/Hdf5Reader.h"
 #include "Parallel/MPI.h"
 
-#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <hdf5.h>
 #include <mpi.h>
+#include <stdexcept>
 #include <stdlib.h>
 #include <string>
+#include <system_error>
 #include <unistd.h>
 #include <vector>
 
@@ -26,14 +27,23 @@ using namespace seissol::io;
 
 // Helper RAII for temp HDF5 files
 struct TempHdf5File {
-  static inline char tpl[] = "/tmp/seissoltestXXXXXX";
   std::string path;
   std::string dir;
-  TempHdf5File() : dir(mkdtemp(tpl)) {
+  TempHdf5File() {
+    // mkdtemp rewrites its argument, so it needs a fresh buffer on every call
+    std::string buffer = "/tmp/seissoltestXXXXXX";
+    const char* created = mkdtemp(buffer.data());
+    if (created == nullptr) {
+      throw std::runtime_error("could not create a temporary directory");
+    }
+    dir = created;
     // Create a unique temp file name per rank
     path = std::filesystem::path(dir) / "testfile.h5";
   }
-  ~TempHdf5File() { (void)std::remove(path.c_str()); }
+  ~TempHdf5File() {
+    std::error_code error;
+    std::filesystem::remove_all(dir, error);
+  }
   auto operator=(const TempHdf5File&) = delete;
   auto operator=(TempHdf5File&&) = delete;
   TempHdf5File(const TempHdf5File&) = delete;

@@ -56,6 +56,8 @@ std::string frictionLawName(seissol::dr::misc::FrictionLawType type) {
     return "rs-severe";
   case seissol::dr::misc::FrictionLawType::RateAndStateFastVelocityWeakening:
     return "rs-fast";
+  case seissol::dr::misc::FrictionLawType::RateAndStateAgingNucleation:
+    return "rs-slow-aging-nucleation";
   default:
     logError() << "unknown friction law";
     return "unknown";

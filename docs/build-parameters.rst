@@ -40,8 +40,8 @@ You may explicitly compile and install multiple of these configurations at the s
 - ``SOLVER``: the scheme which advances a cell in time. The default, ``auto``, picks the first one the equation system supports.
 
     * ``linearck``: the Cauchy-Kovalevskaya procedure for linear equations. The only choice for ``elastic``, ``acoustic`` and ``anisotropic``. For ``viscoelastic`` and ``viscoacoustic``, it carries the memory variables as additional quantities; this replaces ``VISCO_MODE=extend``.
-    * ``linearckanelastic``: the Cauchy-Kovalevskaya procedure with the memory variables kept separately, which is faster. The default for ``viscoelastic`` and ``viscoacoustic``; this replaces ``VISCO_MODE=split``.
-    * ``stp``: the space-time predictor, which treats stiff source terms implicitly. The only choice for ``poroelastic``.
+    * ``linearckanelastic``: the Cauchy-Kovalevskaya procedure with the memory variables kept separately, which is faster. The default for ``viscoelastic`` and ``viscoacoustic``; this replaces ``VISCO_MODE=split``. On GPUs, it does not support free surfaces with gravity, Dirichlet or analytical boundaries; SeisSol stops during the initialization if the mesh has any.
+    * ``stp``: the space-time predictor, which treats stiff source terms implicitly. The only choice for ``poroelastic``. It does not support free surfaces with gravity; SeisSol stops during the initialization if the mesh has any.
 
 - ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic and viscoacoustic simulations. For all other equations, this parameter is required to be 0.
 - ``ORDER``: the expected convergence order. It corresponds to the polynomial degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.
@@ -98,6 +98,7 @@ Generic parameters
 - ``TESTING``: compile unit tests for SeisSol
 - ``TESTING_GENERATED``: compile unit tests for code-generated kernels. Useful for either developing a code generator, or when figuring out why a simulation runs into Inf/NaN or invalid results. Without it, the code generator writes no unit tests either.
 - ``TESTING_PYTHON``: run additional code generator Python unit tests (those can also be run separately using ``pytest`` directly)
+- ``SEISSOL_VERIFICATION_CONFIGS``: the configurations of the executable that the verification cases of the tests (``tests/verification``, end-to-end runs on generated mini meshes) run in: ``all`` of them (default), ``first``, or a list of their names. A case of a configuration is named after it, e.g. ``verification.smoke-box48<elastic-linearck-o6-f64-stroud>``.
 - ``LTO``: enable link-time optimization
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 

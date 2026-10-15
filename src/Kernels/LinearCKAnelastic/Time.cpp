@@ -181,7 +181,7 @@ PerformanceEstimate Spacetime<Cfg>::metrics() const {
 template <typename Cfg>
 void Time<Cfg>::evaluate(const real* coeffs,
                          const real* timeDerivativesOrSTP,
-                         real timeEvaluated[tensor::Q<Cfg>::size()]) {
+                         real timeEvaluated[tensor::I<Cfg>::size()]) {
   /*
    * assert alignments.
    */

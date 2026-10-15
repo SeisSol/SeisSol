@@ -25,6 +25,9 @@ class LinearSlipWeakeningBase
   public:
   using real = Real<Cfg>;
 
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
+
   explicit LinearSlipWeakeningBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters) {};
 
@@ -148,16 +151,24 @@ class LinearSlipWeakeningBase
     }
   }
 
+  //! the slip, whose reaching d_c is the dynamic stress time
+  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext<Cfg>& __restrict ctx) {
+    return ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex];
+  }
+
   /*
-   * output time when shear stress is equal to the dynamic stress after rupture arrived
-   * currently only for linear slip weakening
+   * output time when shear stress is equal to the dynamic stress after rupture arrived: when the
+   * slip reaches d_c, interpolated over the interval the sub-step integrates the slip over (see
+   * common::crossingTime)
    */
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
-                                                     real time) {
-    if (ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        std::fabs(ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex]) >=
-            ctx.data->dC[ctx.ltsFace][ctx.pointIndex]) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
+                                                     real previousSlip,
+                                                     const common::SubStepTimes<Cfg>& times) {
+    const real slip = std::fabs(ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex]);
+    const real dC = ctx.data->dC[ctx.ltsFace][ctx.pointIndex];
+    if (ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] && slip >= dC) {
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] =
+          common::crossingTime<Cfg>(std::fabs(previousSlip), slip, dC, times.start, times.end);
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
@@ -353,11 +364,13 @@ class BiMaterialFault {
                                           real prakashLength) {
     const auto expval =
         -(std::max(static_cast<real>(0.0), localSlipRate) + vStar) * deltaT / prakashLength;
-    const real expterm = std::exp(expval);
     const real exp1mterm = -std::expm1(expval);
 
-    const real newStrength = ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] * expterm +
-                             faultStrength * exp1mterm;
+    // the relaxation towards faultStrength with expm1 alone, which keeps faultStrength as its exact
+    // fixed point in any precision (see FastVelocityWeakeningLaw::updateStateVariable)
+    const real regularizedStrength = ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex];
+    const real newStrength =
+        regularizedStrength + (faultStrength - regularizedStrength) * exp1mterm;
 
     ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] = newStrength;
     return newStrength;

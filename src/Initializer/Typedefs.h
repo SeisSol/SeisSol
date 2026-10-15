@@ -133,8 +133,12 @@ struct DRGodunovData {
 template <typename Cfg>
 struct DREnergyOutput {
   Real<Cfg> slip[seissol::tensor::slipInterpolated<Cfg>::size()]{};
-  Real<Cfg> accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
-  Real<Cfg> frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
+  // Sums over the whole simulation of increments that do not change sign, of the slip rate
+  // magnitude and of the frictional power; in single precision, the small ones after the slip has
+  // stopped would fall below the rounding of the sums and be lost, which biases the seismic moment
+  // and the potency low
+  double accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
+  double frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
   Real<Cfg> timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
 
   static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {

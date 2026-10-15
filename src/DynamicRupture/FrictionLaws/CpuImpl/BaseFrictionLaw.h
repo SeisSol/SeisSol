@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 
+#include "Alignment.h"
 #include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
@@ -17,6 +18,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Monitoring/Instrumentation.h"
 
+#include <algorithm>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::dr::friction_law::cpu {
@@ -92,11 +94,24 @@ class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
         TractionResults<Cfg, Executor::Host> tractionResults{};
 
         // loop over sub time steps (i.e. quadrature points in time
-        real startTime = 0;
         real updateTime = this->fullUpdateTime_;
+        // the values before the update of a sub-step, for the times of the events that its
+        // update crosses the threshold of (see common::crossingTime)
+        alignas(Alignment) real previousSlipRate[misc::NumPaddedPoints<Cfg>]{};
+        alignas(Alignment) real previousDynamicStressQuantity[misc::NumPaddedPoints<Cfg>]{};
         for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps<Cfg>; timeIndex++) {
-          startTime = updateTime;
           updateTime += this->deltaT_[timeIndex];
+          const auto times = common::subStepTimes<Cfg>(
+              this->fullUpdateTime_, this->deltaT_, static_cast<uint32_t>(timeIndex));
+          const auto rateTimes = common::slipRateTimes<Cfg>(times, Derived::SlipRateAtIntervalEnds);
+          std::copy_n(
+              this->slipRateMagnitude_[ltsFace], misc::NumPaddedPoints<Cfg>, previousSlipRate);
+          const real* dynamicStressQuantity =
+              static_cast<Derived*>(this)->dynamicStressQuantity(ltsFace);
+          if (dynamicStressQuantity != nullptr) {
+            std::copy_n(
+                dynamicStressQuantity, misc::NumPaddedPoints<Cfg>, previousDynamicStressQuantity);
+          }
 
           common::precomputeStressFromQInterpolated<Cfg>(faultStresses,
                                                          this->impAndEta_[ltsFace],
@@ -128,10 +143,13 @@ class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
           // time-dependent outputs
           common::saveRuptureFrontOutput<Cfg>(this->ruptureTimePending_[ltsFace],
                                               this->ruptureTime_[ltsFace],
+                                              previousSlipRate,
                                               this->slipRateMagnitude_[ltsFace],
-                                              startTime);
+                                              rateTimes.previousPoint,
+                                              rateTimes.point);
 
-          static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace, startTime);
+          static_cast<Derived*>(this)->saveDynamicStressOutput(
+              ltsFace, previousDynamicStressQuantity, times);
 
           common::savePeakSlipRateOutput<Cfg>(this->slipRateMagnitude_[ltsFace],
                                               this->peakSlipRate_[ltsFace]);

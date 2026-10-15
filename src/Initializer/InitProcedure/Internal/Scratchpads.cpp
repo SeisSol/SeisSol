@@ -61,6 +61,9 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
     if (needsScratchMemForStepIntegral) {
       ++integratedDofsCounterLocal;
     }
+    if (cellInformation[cell].plasticityEnabled) {
+      ++numPlasticCells;
+    }
 
     // include data provided by ghost layers
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -96,10 +99,6 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
 
       if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
         ++analyticCounter;
-      }
-
-      if (cellInformation[cell].plasticityEnabled) {
-        ++numPlasticCells;
       }
     }
   }

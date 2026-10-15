@@ -129,8 +129,12 @@ class ReceiverCluster {
 
   [[nodiscard]] virtual size_t ncols() const = 0;
 
-  //! @brief The names of the columns a sample takes: the time, then what each simulation records.
-  [[nodiscard]] virtual std::vector<std::string> variableNames() const = 0;
+  //! @brief The number of fused simulations a sample holds.
+  [[nodiscard]] virtual std::size_t simulationCount() const = 0;
+
+  //! @brief What one simulation records, without the time. A sample takes the time, then this for
+  //! one simulation after the other.
+  [[nodiscard]] virtual std::vector<std::string> quantityNames() const = 0;
 
   virtual void allocateData() = 0;
   virtual void freeData() = 0;
@@ -173,7 +177,9 @@ class ReceiverClusterImpl : public ReceiverCluster {
 
   [[nodiscard]] size_t ncols() const override;
 
-  [[nodiscard]] std::vector<std::string> variableNames() const override;
+  [[nodiscard]] std::size_t simulationCount() const override;
+
+  [[nodiscard]] std::vector<std::string> quantityNames() const override;
 
   void allocateData() override;
   void freeData() override;

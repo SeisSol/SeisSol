@@ -45,7 +45,17 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
-  static constexpr FaceTypeSupport implementsFaceType(FaceType /*faceType*/) {
+  static constexpr FaceTypeSupport implementsFaceType([[maybe_unused]] FaceType faceType) {
+#ifdef ACL_DEVICE
+    // the device kernels of the local integral (Local::computeBatchedIntegral and
+    // Local::evaluateBatchedTimeDependentBc) apply no boundary condition with a nodal flux; such
+    // faces would act as absorbing ones
+    if (faceType == FaceType::FreeSurfaceGravity || faceType == FaceType::Dirichlet ||
+        faceType == FaceType::Analytical) {
+      return faceTypeUnsupported(
+          "its device kernels apply no boundary condition with a nodal flux");
+    }
+#endif
     return faceTypeSupported();
   }
 

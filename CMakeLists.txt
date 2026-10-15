@@ -497,17 +497,27 @@ add_subdirectory(external)
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
+  include(cmake/SmokeTest.cmake)
 
   add_subdirectory(tests)
 endif()
 
 add_subdirectory(app)
 
+# the verification cases drive the executable, so they are registered after it
+# exists. They need enable_testing(), hence the TESTING guard.
+option(VERIFICATION_TESTS "Register the mini-mesh verification cases" ON)
+if (TESTING AND VERIFICATION_TESTS)
+  add_subdirectory(tests/verification)
+endif()
+
 # Coverage (should run last; after all folders have been added)
 if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  # The verification cases of the label convergence run what the smoke cases run, for 256 steps
+  # rather than 20; that adds no coverage, but minutes per case in this unoptimized build.
   setup_target_for_coverage_lcov(
           NAME seissol-coverage
-          EXECUTABLE ctest -j
+          EXECUTABLE ctest -j -LE convergence
           EXCLUDE "/usr/*"
                   "submodules/*"
                   "tests/*"
