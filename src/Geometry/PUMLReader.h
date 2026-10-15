@@ -17,7 +17,9 @@
 #include <PUML/PUML.h>
 #include <PUML/Topology.h>
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace seissol::initializer {
@@ -29,6 +31,24 @@ class VertexWeightModel;
 namespace seissol::geometry {
 constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
 using PumlMesh = PUML::PUML<PumlTopology>;
+
+/// the names the cell data of a mesh read by PUMLReader is filed under
+namespace pumldata {
+constexpr const char* Group = "group";
+constexpr const char* Boundary = "boundary";
+constexpr const char* CellIdsAsInFile = "cellIdsAsInFile";
+constexpr const char* ClusterIds = "clusterIds";
+constexpr const char* Timesteps = "timesteps";
+constexpr const char* VertexOrders = "vertexOrders";
+} // namespace pumldata
+
+/// the group of every cell of a mesh read by PUMLReader
+auto groupsOf(const PumlMesh& mesh) -> const int*;
+
+/// the boundary condition tags of every cell of a mesh read by PUMLReader, as decodeBoundary reads
+/// them
+auto boundaryTagsOf(const PumlMesh& mesh, seissol::initializer::parameters::BoundaryFormat format)
+    -> const void*;
 
 inline uint32_t decodeBoundary(const void* data,
                                size_t cell,
@@ -112,7 +132,7 @@ class PUMLReader : public seissol::geometry::MeshReader {
 
   void addMPINeighor(const PumlMesh& meshTopology,
                      int rank,
-                     const std::vector<unsigned int>& faces,
+                     const std::vector<PUML::LocalId>& faces,
                      const std::vector<std::array<std::uint8_t, Cell::NumFaces>>& pumlFaceMaps);
 };
 

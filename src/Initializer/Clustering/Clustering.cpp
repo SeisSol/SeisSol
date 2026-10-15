@@ -26,6 +26,7 @@
 #include "SeisSol.h"
 
 #include <PUML/Downward.h>
+#include <PUML/Types.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -181,13 +182,13 @@ std::vector<std::uint64_t>
 
   const auto& modelParameters = seissolInstance_.parameters().model;
   std::vector<std::uint64_t> cellCosts(cells.size());
-  const auto* group = static_cast<const int*>(mesh.cellData(0));
-  const void* boundaryCond = mesh.cellData(1);
+  const auto* group = seissol::geometry::groupsOf(mesh);
+  const void* boundaryCond = seissol::geometry::boundaryTagsOf(mesh, boundaryFormat_);
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     std::uint64_t dynamicRupture = 0;
     std::uint64_t freeSurfaceWithGravity = 0;
 
-    unsigned int faceids[Cell::NumFaces];
+    PUML::LocalId faceids[Cell::NumFaces];
     PUML::Downward::faces(mesh, cells[cell], faceids);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
