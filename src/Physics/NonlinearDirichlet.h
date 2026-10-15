@@ -8,9 +8,8 @@
 #ifndef SEISSOL_SRC_PHYSICS_NONLINEARDIRICHLET_H_
 #define SEISSOL_SRC_PHYSICS_NONLINEARDIRICHLET_H_
 
-#include "Initializer/Typedefs.h"
+#include "Physics/GhostState.h"
 
-#include <array>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -33,8 +32,9 @@ namespace seissol::physics {
 /// velocity, in the face-aligned basis.
 ///
 /// The boundary evaluates the condition at the nodes of a face, at the times of the quadrature of
-/// a time step, with the inner state of the cell at that time (kernels::ApplyNonlinearDirichlet);
-/// it is not folded into the flux solver, as the affine condition of a Dirichlet boundary is.
+/// a time step, with the inner state of the cell at that time, and integrates it over the step:
+/// all in one program (integral(), physics::GhostStateIntegral). It is not folded into the flux
+/// solver, as the affine condition of a Dirichlet boundary is.
 ///
 /// A script that gives `frame` as 1 states both in the face-aligned basis, as with the Dirichlet
 /// boundary: the first axis is the outward normal, the others are the strike and the dip
@@ -42,16 +42,20 @@ namespace seissol::physics {
 /// may read nothing.
 class NonlinearDirichlet {
   public:
-  /// The condition of the script at `path`, for a material with the quantities `quantities`. A
-  /// script that cannot be used is a configuration error.
-  NonlinearDirichlet(const std::string& path, std::vector<std::string> quantities);
+  /// The condition of the script at `path`, for a material with the quantities `quantities`,
+  /// integrated over a step with `timePoints` points. A script that cannot be used is a
+  /// configuration error.
+  NonlinearDirichlet(const std::string& path,
+                     std::vector<std::string> quantities,
+                     std::size_t timePoints);
 
   /// The condition of a program, which `name` names in messages; from sderiv, it is compiled with
   /// the quantities as its inputs (expr::SderivOptions::inputs). Throws std::invalid_argument for a
   /// program that cannot be used.
   NonlinearDirichlet(const expr::Program& program,
                      const std::string& name,
-                     std::vector<std::string> quantities);
+                     std::vector<std::string> quantities,
+                     std::size_t timePoints);
 
   ~NonlinearDirichlet();
 
@@ -65,22 +69,17 @@ class NonlinearDirichlet {
 
   [[nodiscard]] std::size_t quantityCount() const;
 
-  /// The ghost state at `count` points at `time`, in the simulation `simulation`, beyond a cell of
-  /// the material `materialData`: from the inner state, quantity j at point i in
-  /// inner[j * count + i], into ghost likewise, both in the basis of the frame.
-  void evaluate(double time,
-                std::size_t simulation,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                const double* inner,
-                double* ghost) const;
+  /// The ghost state integrated over a step, from the state inside at its time points (all
+  /// quantities, in the basis of the frame), into the basis of the frame.
+  [[nodiscard]] const GhostStateIntegral& integral() const;
 
   private:
-  void setUp(const expr::Program& program);
+  void setUp(const expr::Program& program, std::size_t timePoints);
 
-  struct Impl;
-  std::unique_ptr<Impl> impl_;
+  std::string name_;
+  std::vector<std::string> quantities_;
+  bool faceAligned_{false};
+  std::unique_ptr<GhostStateIntegral> integral_;
 };
 
 } // namespace seissol::physics

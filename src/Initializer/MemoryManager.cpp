@@ -39,7 +39,7 @@ namespace seissol::initializer {
 
 MemoryManager::MemoryManager(seissol::SeisSol& instance)
     : seissolInstance_(instance), iniConds_(builtConfigCount()),
-      nonlinearDirichlet_(builtConfigCount()) {}
+      nonlinearDirichlet_(builtConfigCount()), analyticalGhostState_(builtConfigCount()) {}
 
 void MemoryManager::initialize() {
   // initialize global matrices

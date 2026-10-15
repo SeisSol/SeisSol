@@ -221,3 +221,33 @@ def addKernels(
     generator.addFamily(
         "projectToFaceNodes", simpleParameterSpace(4), project_to_face_nodes
     )
+
+    # The same in the face-aligned basis, for a condition stated in it: the quantities of the
+    # Riemann problem alone, which the rotation keeps among themselves.
+    nr = total_extent(layout(aderdg.primaryGroups()))
+    aderdg.INodalAligned = OptionalDimTensor(
+        "INodalAligned",
+        aderdg.INodal.optName(),
+        aderdg.INodal.optSize(),
+        aderdg.INodal.optPos(),
+        (aderdg.num2DBasisFunctions(), nr),
+        alignStride=True,
+    )
+    project_to_face_nodes_aligned = (
+        lambda f: aderdg.INodalAligned["ka"]
+        <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
+        * aderdg.I["lm"].subslice("m", 0, nr)
+        * aderdg.Tinv["am"].subslice("a", 0, nr).subslice("m", 0, nr)
+    )
+    generator.addFamily(
+        "projectToFaceNodesAligned",
+        simpleParameterSpace(4),
+        project_to_face_nodes_aligned,
+    )
+
+    # The ghost state of such a condition back in global coordinates, as the nodal flux takes it.
+    rotate_nodal_to_global = aderdg.INodal["ka"].subslice("a", 0, nr) <= (
+        aderdg.T["am"].subslice("a", 0, nr).subslice("m", 0, nr)
+        * aderdg.INodalAligned["km"]
+    )
+    generator.add("rotateNodalToGlobal", rotate_nodal_to_global)

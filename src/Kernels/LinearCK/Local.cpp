@@ -53,7 +53,7 @@ void Local<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
-  projectToFaceNodesPrototype_.bindGlobals(*global.onHost);
+  ghostStateBoundary_.bindGlobals(*global.onHost);
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
 
@@ -143,14 +143,13 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       break;
     }
     case FaceType::Analytical: {
-      assert(this->initConds_ != nullptr);
-      const auto applyAnalyticalSolution = ApplyAnalyticalSolution<Cfg>(this->initConds_, data);
-
-      analyticalBoundary_.evaluate(cellBoundaryMapping[face],
-                                   applyAnalyticalSolution,
-                                   dofsFaceBoundaryNodal,
-                                   time,
-                                   timeStepWidth);
+      ghostStateBoundary_.analytical(this->analyticalGhostState(),
+                                     this->initConds_,
+                                     data,
+                                     face,
+                                     time,
+                                     timeStepWidth,
+                                     dofsFaceBoundaryNodal);
       nodalLfKrnl.execute(face);
       break;
     }
@@ -172,19 +171,14 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
           }
           taylorKrnl.execute();
         };
-        const ApplyNonlinearDirichlet<Cfg, decltype(stateAt)> applyNonlinearDirichlet(
-            *this->nonlinearDirichlet(),
-            stateAt,
-            projectToFaceNodesPrototype_,
-            face,
-            time,
-            cellBoundaryMapping[face],
-            materialData);
-        analyticalBoundary_.evaluate(cellBoundaryMapping[face],
-                                     applyNonlinearDirichlet,
-                                     dofsFaceBoundaryNodal,
-                                     time,
-                                     timeStepWidth);
+        ghostStateBoundary_.nonlinearDirichlet(*this->nonlinearDirichlet(),
+                                               stateAt,
+                                               face,
+                                               cellBoundaryMapping[face],
+                                               materialData,
+                                               time,
+                                               timeStepWidth,
+                                               dofsFaceBoundaryNodal);
         nodalLfKrnl.execute(face);
       }
       break;
@@ -382,15 +376,13 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
             auto data = layer.cellRef<Cfg>(cellId);
 
             alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
-
-            assert(this->initConds_ != nullptr);
-            const ApplyAnalyticalSolution<Cfg> applyAnalyticalSolution(this->initConds_, data);
-
-            analyticalBoundary_.evaluate(data.template get<LTS::BoundaryMapping>()[face],
-                                         applyAnalyticalSolution,
-                                         dofsFaceBoundaryNodal,
-                                         time,
-                                         timeStepWidth);
+            ghostStateBoundary_.analytical(this->analyticalGhostState(),
+                                           this->initConds_,
+                                           data,
+                                           face,
+                                           time,
+                                           timeStepWidth,
+                                           dofsFaceBoundaryNodal);
 
             std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));
           });
@@ -453,17 +445,15 @@ PerformanceEstimate
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux<Cfg>>(face);
       break;
     case FaceType::Analytical:
+      // and the script, at every node, integrated over the step
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::updateINodal<Cfg>>() *
-                  Cfg::ConvergenceOrder;
       break;
     case FaceType::NonlinearDirichlet:
-      // and the script, at every node and time
+      // and the script, at every node, integrated over the step
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
       if constexpr (Cfg::Solver == SolverType::LinearCK) {
         estimate +=
-            (PerformanceEstimate::fromKernel<seissol::kernel::updateINodal<Cfg>>() +
-             PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +
+            (PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +
              PerformanceEstimate::fromKernel<seissol::kernel::derivativeTaylorExpansion<Cfg>>()) *
             Cfg::ConvergenceOrder;
       }

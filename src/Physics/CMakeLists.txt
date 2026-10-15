@@ -11,6 +11,7 @@ add_library(seissol-physics OBJECT
     Scenario/Registry.cpp
     Scenario/Scenarios.cpp
     ScriptField.cpp
+    GhostState.cpp
     NonlinearDirichlet.cpp
 )
 

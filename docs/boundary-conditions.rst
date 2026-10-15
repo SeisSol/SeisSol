@@ -216,7 +216,12 @@ convergence against a known solution rather than to model a physical boundary.
 The scenario has to be one that can be evaluated at an arbitrary time, not only at
 :math:`t = 0`. Every analytically given scenario in :doc:`initial-condition` qualifies,
 and so does a script (``cICType = 'script'``), evaluated at the times of the quadrature;
-a script that does not read ``t`` gives the same state at every time.
+a script that does not read ``t`` gives the same state at every time. A script that
+compiles (an sderiv module or a Lua model that traces) becomes one program that
+evaluates it at all times of the quadrature of a timestep and integrates it, so that
+what does not depend on the time is computed once per face. Fused simulations of the
+same script share that program, with ``sim`` as its input. The other scenarios, and an
+easi script, are evaluated at one time after the other.
 
 In device builds with the anelastic solver (viscoelastic and viscoacoustic materials), the
 analytical boundary is not available yet and rejected at startup.
@@ -254,8 +259,9 @@ face-aligned basis (the first axis is the outward normal); the default, 0, is gl
 coordinates. The frame is the same on every face, so it may read nothing.
 
 The condition is evaluated at the nodes of each face, at the times of the quadrature of
-each timestep, with the state inside at that time; the ghost state then enters the
-Godunov flux as that of an analytical boundary does. The Dirichlet boundary above stays
+each timestep, with the state inside at that time, and integrated over the timestep,
+all in one program; the ghost state then enters the Godunov flux as that of an
+analytical boundary does. The Dirichlet boundary above stays
 as it is: its affine condition is folded into the flux solver once, which a function
 that is not affine cannot be. An affine function gives the same result as the Dirichlet
 boundary, up to rounding.

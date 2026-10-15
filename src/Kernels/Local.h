@@ -22,6 +22,7 @@
 #include <memory>
 
 namespace seissol::physics {
+class AnalyticalGhostState;
 class NonlinearDirichlet;
 } // namespace seissol::physics
 
@@ -38,6 +39,8 @@ class LocalKernel : public Kernel<Cfg> {
   /// where the condition of the nonlinear Dirichlet boundary is kept: the kernels are made before
   /// it is
   const std::unique_ptr<physics::NonlinearDirichlet>* nonlinearDirichletSlot_{nullptr};
+  /// where the ghost state of the analytical boundary is kept, likewise
+  const std::unique_ptr<physics::AnalyticalGhostState>* analyticalGhostStateSlot_{nullptr};
 
   public:
   ~LocalKernel() override = default;
@@ -47,9 +50,20 @@ class LocalKernel : public Kernel<Cfg> {
     this->nonlinearDirichletSlot_ = slot;
   }
 
+  void setAnalyticalGhostState(decltype(analyticalGhostStateSlot_) slot) {
+    this->analyticalGhostStateSlot_ = slot;
+  }
+
   /// The condition of the nonlinear Dirichlet boundary, null if there is none.
   [[nodiscard]] const physics::NonlinearDirichlet* nonlinearDirichlet() const {
     return nonlinearDirichletSlot_ == nullptr ? nullptr : nonlinearDirichletSlot_->get();
+  }
+
+  /// The ghost state of the analytical boundary integrated over a step at once, null if the
+  /// initial condition is no script that compiles: the boundary then evaluates it at one time after
+  /// the other.
+  [[nodiscard]] const physics::AnalyticalGhostState* analyticalGhostState() const {
+    return analyticalGhostStateSlot_ == nullptr ? nullptr : analyticalGhostStateSlot_->get();
   }
 
   physics::InitialField* getInitCond(size_t index) {

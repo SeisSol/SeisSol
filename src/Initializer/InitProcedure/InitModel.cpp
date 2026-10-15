@@ -323,7 +323,9 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
       memoryManager.setNonlinearDirichlet(
           config,
           std::make_unique<physics::NonlinearDirichlet>(
-              fileName, std::vector<std::string>(quantities.begin(), quantities.end())));
+              fileName,
+              std::vector<std::string>(quantities.begin(), quantities.end()),
+              Cfg::ConvergenceOrder));
     });
   }
 }

@@ -11,6 +11,8 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/InitializationParameters.h"
@@ -18,13 +20,17 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "Model/StateNames.h"
+#include "Physics/GhostState.h"
 #include "Physics/InitialField.h"
 #include "Physics/Scenario/Registry.h"
 #include "Physics/ScriptField.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 #include "SourceTerm/Manager.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -131,6 +137,44 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   }
 }
 
+/// The ghost state of the analytical boundary integrated over a step at once, for every
+/// configuration with such a face whose initial condition is a script that compiles.
+void initAnalyticalBoundary(seissol::SeisSol& seissolInstance) {
+  auto& memoryManager = seissolInstance.memoryManager();
+
+  std::vector<bool> present(builtConfigCount(), false);
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (const auto faceType : cellInformation[cell].faceTypes) {
+        if (faceType == FaceType::Analytical) {
+          present[layer.getIdentifier().config] = true;
+        }
+      }
+    }
+  }
+
+  for (const auto config : seissolInstance.parameters().model.configs()) {
+    if (!present[config]) {
+      continue;
+    }
+    dispatchConfig(config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      // the components of the state at a face, which leaves out the memory variables that the
+      // solver keeps apart
+      auto components = model::stateNames<model::MaterialOf<Cfg>>();
+      components.resize(std::min<std::size_t>(
+          components.size(), tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1]));
+      memoryManager.setAnalyticalGhostState(
+          config,
+          physics::AnalyticalGhostState::fromFields(memoryManager.initialConditions(config),
+                                                    components,
+                                                    Cfg::NumSimulations,
+                                                    Cfg::ConvergenceOrder));
+    });
+  }
+}
+
 void initSource(seissol::SeisSol& seissolInstance) {
   const auto& srcparams = seissolInstance.parameters().source;
   auto& memoryManager = seissolInstance.memoryManager();
@@ -147,6 +191,7 @@ void initSource(seissol::SeisSol& seissolInstance) {
 void initSideConditions(seissol::SeisSol& seissolInstance) {
   logInfo() << "Setting initial conditions.";
   initInitialCondition(seissolInstance);
+  initAnalyticalBoundary(seissolInstance);
   logInfo() << "Reading source.";
   initSource(seissolInstance);
 }

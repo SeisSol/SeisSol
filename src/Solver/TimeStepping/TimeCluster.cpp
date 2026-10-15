@@ -140,6 +140,8 @@ TimeCluster<Cfg>::TimeCluster(
   localKernel_.setInitConds(&seissolInstance_.memoryManager().initialConditions(configIdOf<Cfg>()));
   localKernel_.setNonlinearDirichlet(
       &seissolInstance_.memoryManager().nonlinearDirichlet(configIdOf<Cfg>()));
+  localKernel_.setAnalyticalGhostState(
+      &seissolInstance_.memoryManager().analyticalGhostState(configIdOf<Cfg>()));
   localKernel_.setGravitationalAcceleration(seissolInstance_.gravitationSetup().acceleration);
   neighborKernel_.setGlobalData(globalData);
   dynamicRuptureKernel_.setGlobalData(globalData);

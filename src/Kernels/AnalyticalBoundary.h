@@ -16,6 +16,7 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Numerical/Quadrature.h"
+#include "Physics/GhostState.h"
 #include "Physics/InitialField.h"
 #include "Physics/NonlinearDirichlet.h"
 #include "Solver/MultipleSimulations.h"
@@ -74,102 +75,9 @@ struct ApplyAnalyticalSolution {
 };
 
 /**
- * The ghost state of a nonlinear Dirichlet boundary (physics::NonlinearDirichlet) at the given
- * nodes and time, in global coordinates, from the state of the cell at that time: `stateAt(tau,
- * state)` writes the modal state `tau` into the time step to `state` (shaped like I), which is
- * then taken to the nodes of the face.
- */
-template <typename Cfg, typename StateAt>
-class ApplyNonlinearDirichlet {
-  public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
-
-  ApplyNonlinearDirichlet(const physics::NonlinearDirichlet& condition,
-                          const StateAt& stateAt,
-                          const kernel::projectToFaceNodes<Cfg>& projectPrototype,
-                          std::size_t face,
-                          double startTime,
-                          const CellBoundaryMapping<Cfg>& boundaryMapping,
-                          const CellMaterialData& materialData)
-      : condition_(condition), stateAt_(stateAt), projectPrototype_(projectPrototype), face_(face),
-        startTime_(startTime), boundaryMapping_(boundaryMapping), materialData_(materialData) {}
-
-  void operator()(const real* nodes,
-                  double time,
-                  typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) const {
-    constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
-    const std::size_t quantities = condition_.quantityCount();
-
-    // the state of the cell at the time, at the nodes of the face, in global coordinates
-    alignas(Alignment) real state[tensor::I<Cfg>::size()];
-    stateAt_(time - startTime_, state);
-    alignas(Alignment) real nodal[tensor::INodal<Cfg>::size()];
-    auto project = projectPrototype_;
-    project.I = state;
-    project.INodal = nodal;
-    project.execute(face_);
-    auto nodalView = init::INodal<Cfg>::view::create(nodal);
-
-    std::array<double, 3> points[NodeCount];
-    for (std::size_t i = 0; i < NodeCount; ++i) {
-      points[i] = {nodes[i * 3 + 0], nodes[i * 3 + 1], nodes[i * 3 + 2]};
-    }
-
-    // the condition is stated in the face-aligned basis, or globally
-    const bool faceAligned = condition_.faceAligned();
-    const auto rotation = init::T<Cfg>::view::create(boundaryMapping_.dataT);
-    const auto inverseRotation = init::Tinv<Cfg>::view::create(boundaryMapping_.dataTinv);
-    thread_local std::vector<double> inner;
-    thread_local std::vector<double> ghost;
-    inner.resize(quantities * NodeCount);
-    ghost.resize(quantities * NodeCount);
-    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
-      auto innerOfSimulation = multisim::simtensor<Cfg>(nodalView, s);
-      for (std::size_t i = 0; i < NodeCount; ++i) {
-        for (std::size_t a = 0; a < quantities; ++a) {
-          double value = 0;
-          if (faceAligned) {
-            for (std::size_t m = 0; m < quantities; ++m) {
-              value += inverseRotation(a, m) * innerOfSimulation(i, m);
-            }
-          } else {
-            value = innerOfSimulation(i, a);
-          }
-          inner[a * NodeCount + i] = value;
-        }
-      }
-      condition_.evaluate(time, s, points, NodeCount, materialData_, inner.data(), ghost.data());
-      auto ghostOfSimulation = multisim::simtensor<Cfg>(boundaryDofs, s);
-      for (std::size_t i = 0; i < NodeCount; ++i) {
-        for (std::size_t a = 0; a < quantities; ++a) {
-          double value = 0;
-          if (faceAligned) {
-            for (std::size_t m = 0; m < quantities; ++m) {
-              value += rotation(a, m) * ghost[m * NodeCount + i];
-            }
-          } else {
-            value = ghost[a * NodeCount + i];
-          }
-          ghostOfSimulation(i, a) = static_cast<real>(value);
-        }
-      }
-    }
-  }
-
-  private:
-  const physics::NonlinearDirichlet& condition_;
-  const StateAt& stateAt_;
-  const kernel::projectToFaceNodes<Cfg>& projectPrototype_;
-  std::size_t face_;
-  double startTime_;
-  const CellBoundaryMapping<Cfg>& boundaryMapping_;
-  const CellMaterialData& materialData_;
-};
-
-/**
  * Evaluates the analytical solution at the face nodes and integrates it over the
- * timestep. The condition is a function of position and time alone; one that also
- * depended on the interior state would need the time-integrated DOFs passed in.
+ * timestep, at one time of the quadrature after the other: for an initial condition that
+ * is no script that compiles, which GhostStateBoundary integrates at once.
  */
 template <typename Cfg>
 class AnalyticalBoundary {
@@ -225,6 +133,202 @@ class AnalyticalBoundary {
   private:
   std::array<double, Cfg::ConvergenceOrder> quadPoints_{};
   std::array<double, Cfg::ConvergenceOrder> quadWeights_{};
+};
+
+/**
+ * The ghost state of a boundary whose script is integrated over the time step at once
+ * (physics::GhostStateIntegral), at the nodes of a face, in global coordinates, into a tensor
+ * shaped like INodal, as the nodal flux takes it: the analytical boundary from an initial condition
+ * that is a script that compiles, and the nonlinear Dirichlet boundary.
+ */
+template <typename Cfg>
+class GhostStateBoundary {
+  public:
+  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+
+  static constexpr auto NodeCount = tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
+  static constexpr auto ColumnCount = tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+  static constexpr auto AlignedColumnCount =
+      tensor::INodalAligned<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+
+  void bindGlobals(const GlobalData<Cfg>& global) {
+    project_.bindGlobals(global);
+    projectAligned_.bindGlobals(global);
+    rotateToGlobal_.bindGlobals(global);
+  }
+
+  /// The analytical boundary at the face `face` of the cell `data`: per simulation, the integral
+  /// of the script of its field (`state`) -- or, if the initial condition is no script that
+  /// compiles (`state` is null), the fields `initConditions` at one time after the other.
+  void analytical(const physics::AnalyticalGhostState* state,
+                  const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
+                  LTS::Ref<Cfg>& data,
+                  std::size_t face,
+                  double start,
+                  double width,
+                  real* ghostNodal) const {
+    const auto& boundaryMapping = data.template get<LTS::BoundaryMapping>()[face];
+    if (state == nullptr) {
+      assert(initConditions != nullptr);
+      timeQuadrature_.evaluate(boundaryMapping,
+                               ApplyAnalyticalSolution<Cfg>(initConditions, data),
+                               ghostNodal,
+                               start,
+                               width);
+      return;
+    }
+
+    const auto points = pointsOf(boundaryMapping);
+    auto ghostView = init::INodal<Cfg>::view::create(ghostNodal);
+    ghostView.setZero();
+    std::array<double, ColumnCount * NodeCount> ghost{};
+    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+      const auto& integral = state->integral(s);
+      assert(integral.componentCount() <= ColumnCount);
+      integral.evaluate(start,
+                        width,
+                        state->scriptSimulation(s),
+                        points.data(),
+                        NodeCount,
+                        data.template get<LTS::Material>(),
+                        nullptr,
+                        ghost.data());
+      auto ghostOfSimulation = multisim::simtensor<Cfg>(ghostView, s);
+      store(ghost.data(), integral.componentCount(), ghostOfSimulation);
+    }
+  }
+
+  /// The nonlinear Dirichlet boundary at the face `face`: the state inside at the time points of
+  /// the step, from `stateAt(tau, state)`, which writes the modal state `tau` into the step to
+  /// `state` (shaped like I), taken to the nodes of the face and into the basis of the condition;
+  /// the integral of the ghost state taken back into global coordinates.
+  template <typename StateAt>
+  void nonlinearDirichlet(const physics::NonlinearDirichlet& condition,
+                          const StateAt& stateAt,
+                          std::size_t face,
+                          const CellBoundaryMapping<Cfg>& boundaryMapping,
+                          const CellMaterialData& materialData,
+                          double start,
+                          double width,
+                          real* ghostNodal) const {
+    const auto& integral = condition.integral();
+    const bool faceAligned = condition.faceAligned();
+    const auto timePoints = integral.timePointCount();
+    const auto innerCount = integral.innerCount();
+    assert(integral.componentCount() <= AlignedColumnCount);
+    assert(innerCount <= AlignedColumnCount);
+    const auto points = pointsOf(boundaryMapping);
+
+    // the state inside per simulation, component k at node p at time point i at
+    // [(i * innerCount + k) * NodeCount + p]; none if the script does not read it
+    const auto innerSize = timePoints * innerCount * NodeCount;
+    thread_local std::vector<double> inner;
+    inner.resize(Cfg::NumSimulations * innerSize);
+    if (innerCount > 0) {
+      thread_local std::vector<double> times;
+      times.resize(timePoints);
+      integral.timePoints(start, width, times.data());
+      for (std::size_t i = 0; i < timePoints; ++i) {
+        alignas(Alignment) real state[tensor::I<Cfg>::size()];
+        stateAt(times[i] - start, state);
+        if (faceAligned) {
+          alignas(Alignment) real nodal[tensor::INodalAligned<Cfg>::size()];
+          auto project = projectAligned_;
+          project.I = state;
+          project.Tinv = boundaryMapping.dataTinv;
+          project.INodalAligned = nodal;
+          project.execute(face);
+          load(init::INodalAligned<Cfg>::view::create(nodal), i, innerCount, innerSize, inner);
+        } else {
+          alignas(Alignment) real nodal[tensor::INodal<Cfg>::size()];
+          auto project = project_;
+          project.I = state;
+          project.INodal = nodal;
+          project.execute(face);
+          load(init::INodal<Cfg>::view::create(nodal), i, innerCount, innerSize, inner);
+        }
+      }
+    }
+
+    // the integral, in the basis of the condition
+    auto ghostView = init::INodal<Cfg>::view::create(ghostNodal);
+    ghostView.setZero();
+    alignas(Alignment) real aligned[tensor::INodalAligned<Cfg>::size()];
+    auto alignedView = init::INodalAligned<Cfg>::view::create(aligned);
+    std::array<double, AlignedColumnCount * NodeCount> ghost{};
+    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+      integral.evaluate(start,
+                        width,
+                        s,
+                        points.data(),
+                        NodeCount,
+                        materialData,
+                        inner.data() + s * innerSize,
+                        ghost.data());
+      if (faceAligned) {
+        auto alignedOfSimulation = multisim::simtensor<Cfg>(alignedView, s);
+        store(ghost.data(), integral.componentCount(), alignedOfSimulation);
+      } else {
+        auto ghostOfSimulation = multisim::simtensor<Cfg>(ghostView, s);
+        store(ghost.data(), integral.componentCount(), ghostOfSimulation);
+      }
+    }
+    if (faceAligned) {
+      auto rotate = rotateToGlobal_;
+      rotate.INodalAligned = aligned;
+      rotate.T = boundaryMapping.dataT;
+      rotate.INodal = ghostNodal;
+      rotate.execute();
+    }
+  }
+
+  private:
+  /// The nodes of the face, as a script reads them.
+  static std::array<std::array<double, 3>, NodeCount>
+      pointsOf(const CellBoundaryMapping<Cfg>& boundaryMapping) {
+    assert(boundaryMapping.nodes != nullptr);
+    std::array<std::array<double, 3>, NodeCount> points{};
+    for (std::size_t p = 0; p < NodeCount; ++p) {
+      for (std::size_t d = 0; d < 3; ++d) {
+        points[p][d] = boundaryMapping.nodes[p * 3 + d];
+      }
+    }
+    return points;
+  }
+
+  /// Component j at node p of `values`, at values[j * NodeCount + p], into column j of `target`.
+  template <typename ViewT>
+  static void store(const double* values, std::size_t components, ViewT& target) {
+    for (std::size_t j = 0; j < components; ++j) {
+      for (std::size_t p = 0; p < NodeCount; ++p) {
+        target(p, j) = static_cast<real>(values[j * NodeCount + p]);
+      }
+    }
+  }
+
+  /// The first `innerCount` columns of the state `nodal` at the nodes, of all simulations, as the
+  /// time point `point` of `inner`.
+  template <typename ViewT>
+  static void load(ViewT nodal,
+                   std::size_t point,
+                   std::size_t innerCount,
+                   std::size_t innerSize,
+                   std::vector<double>& inner) {
+    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+      auto nodalOfSimulation = multisim::simtensor<Cfg>(nodal, s);
+      double* target = inner.data() + s * innerSize + point * innerCount * NodeCount;
+      for (std::size_t k = 0; k < innerCount; ++k) {
+        for (std::size_t p = 0; p < NodeCount; ++p) {
+          target[k * NodeCount + p] = nodalOfSimulation(p, k);
+        }
+      }
+    }
+  }
+
+  AnalyticalBoundary<Cfg> timeQuadrature_;
+  kernel::projectToFaceNodes<Cfg> project_;
+  kernel::projectToFaceNodesAligned<Cfg> projectAligned_;
+  kernel::rotateNodalToGlobal<Cfg> rotateToGlobal_;
 };
 
 } // namespace seissol::kernels

@@ -226,6 +226,14 @@ std::size_t ScriptField::quantityCount() const { return impl_->quantities.size()
 
 bool ScriptField::compiled() const { return impl_->program.has_value(); }
 
+const expr::Program* ScriptField::program() const {
+  return impl_->program.has_value() ? &*impl_->program : nullptr;
+}
+
+std::size_t ScriptField::simulation() const { return static_cast<std::size_t>(impl_->simulation); }
+
+const std::string& ScriptField::error() const { return impl_->error; }
+
 std::vector<double>& ScriptField::scratch(std::size_t count) const {
   auto& values = impl_->thread().scratch;
   values.resize(count * impl_->quantities.size());

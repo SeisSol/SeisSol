@@ -38,7 +38,7 @@ void Local<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
-  projectToFaceNodesPrototype_.bindGlobals(*global.onHost);
+  ghostStateBoundary_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
@@ -114,16 +114,14 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       break;
     }
     case FaceType::Analytical: {
-      assert(this->initConds_ != nullptr);
-      const auto applyAnalyticalSolution =
-          kernels::ApplyAnalyticalSolution<Cfg>(this->initConds_, data);
-
       alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
-      analyticalBoundary_.evaluate(cellBoundaryMapping[face],
-                                   applyAnalyticalSolution,
-                                   dofsFaceBoundaryNodal,
-                                   time,
-                                   timeStepWidth);
+      ghostStateBoundary_.analytical(this->analyticalGhostState(),
+                                     this->initConds_,
+                                     data,
+                                     face,
+                                     time,
+                                     timeStepWidth,
+                                     dofsFaceBoundaryNodal);
 
       auto nodalLfKrnl = nodalLfKrnlPrototype_;
       nodalLfKrnl.Qext = Qext;
@@ -148,20 +146,15 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
         }
         taylorKrnl.execute();
       };
-      const kernels::ApplyNonlinearDirichlet<Cfg, decltype(stateAt)> applyNonlinearDirichlet(
-          *this->nonlinearDirichlet(),
-          stateAt,
-          projectToFaceNodesPrototype_,
-          face,
-          time,
-          cellBoundaryMapping[face],
-          materialData);
       alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
-      analyticalBoundary_.evaluate(cellBoundaryMapping[face],
-                                   applyNonlinearDirichlet,
-                                   dofsFaceBoundaryNodal,
-                                   time,
-                                   timeStepWidth);
+      ghostStateBoundary_.nonlinearDirichlet(*this->nonlinearDirichlet(),
+                                             stateAt,
+                                             face,
+                                             cellBoundaryMapping[face],
+                                             materialData,
+                                             time,
+                                             timeStepWidth,
+                                             dofsFaceBoundaryNodal);
 
       auto nodalLfKrnl = nodalLfKrnlPrototype_;
       nodalLfKrnl.Qext = Qext;
@@ -214,10 +207,11 @@ PerformanceEstimate
         estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux<Cfg>>(face);
         break;
       case FaceType::Analytical:
+        // and the script, at every node, integrated over the step
         estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
         break;
       case FaceType::NonlinearDirichlet:
-        // and the script, at every node and time
+        // and the script, at every node, integrated over the step
         estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
         estimate +=
             (PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +

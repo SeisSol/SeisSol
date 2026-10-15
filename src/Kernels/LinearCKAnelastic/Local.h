@@ -56,9 +56,8 @@ class Local : public LocalKernel<Cfg> {
   kernel::fsgFlux<Cfg> fsgFlux_;
   kernel::dirichletFlux<Cfg> dirichletFlux_;
   kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
-  kernel::projectToFaceNodes<Cfg> projectToFaceNodesPrototype_;
 
-  kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
+  kernels::GhostStateBoundary<Cfg> ghostStateBoundary_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volumeExt<Cfg> deviceVolumeKernelPrototype_;

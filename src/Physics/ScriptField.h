@@ -90,6 +90,15 @@ class ScriptField : public InitialFieldOf<ScriptField> {
   /// Whether the script compiled, and calls run a kernel rather than a reader.
   [[nodiscard]] bool compiled() const;
 
+  /// The program of a script that compiled, else null.
+  [[nodiscard]] const expr::Program* program() const;
+
+  /// The simulation the field is for, which the script reads as `sim`.
+  [[nodiscard]] std::size_t simulation() const;
+
+  /// Why the script cannot be evaluated as a field, empty if it can.
+  [[nodiscard]] const std::string& error() const;
+
   private:
   void setUp();
 
