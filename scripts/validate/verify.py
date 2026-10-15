@@ -2141,6 +2141,14 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
             print(text)
 
+    # A run in which every case was skipped, for want of an executable of its configuration say,
+    # has verified nothing, and does not pass.
+    if all(r.skipped for r in results):
+        print(
+            f"{_bad('[fail]')} every case was skipped; none was verified",
+            file=sys.stderr,
+        )
+        return 1
     return 0 if all(r.passed for r in results) else 1
 
 

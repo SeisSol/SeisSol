@@ -100,3 +100,27 @@ def test_a_configuration_under_another_name_is_no_reason_to_skip(tmp_path):
 def test_no_executable(tmp_path):
     with pytest.raises(FileNotFoundError):
         verify.resolve_binary(tmp_path, "elastic-o6-f64")
+
+
+def test_a_run_that_skips_every_case_fails(tmp_path):
+    # as one given an artifact without the executable: each case is skipped for want of one, and
+    # skipped cases pass
+    precomputed = tmp_path / "precomputed"
+    (precomputed / "tpv5").mkdir(parents=True)
+    (precomputed / "cases.json").write_text(
+        '{"tpv5/double": {"config": "elastic-o6-f64", "parameters": "tpv5/parameters.par", '
+        '"output": {"prefix": "tpv", "directory": "tpv5/precomputed/double"}}}'
+    )
+    (tmp_path / "install" / "bin").mkdir(parents=True)
+    argv = [
+        "--precomputed-dir",
+        str(precomputed),
+        "--binary-dir",
+        str(tmp_path / "install"),
+        "--all",
+        "--color",
+        "never",
+        "--step-summary",
+        "never",
+    ]
+    assert verify.main(argv) == 1
