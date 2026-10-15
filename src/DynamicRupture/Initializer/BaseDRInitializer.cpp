@@ -195,9 +195,9 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       // read initial stress and nucleation stress
       auto addStressesToStorageMap = [&parameterToStorageMap, &layer, this](
                                          StressTensor<Cfg>& initialStress, int readNucleation) {
-        // return pointer to first element
+        // return pointer to first element, which a layer without faces does not have
         auto getRawData = [](typename StressTensor<Cfg>::VectorOfArraysT& vectorOfArrays) {
-          return vectorOfArrays.data()->data();
+          return vectorOfArrays.empty() ? nullptr : vectorOfArrays.front().data();
         };
         // fault can be either initialized by traction or by cartesian stress
         // this method reads either the nucleation stress or the initial stress
