@@ -11,6 +11,11 @@ on:
   # a run started by hand verifies its branch as well, not only master
   - workflow_dispatch
 
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
 env:
   precomputed-hash: bed56573928e224984f5e75a17feb8b0b2f5ea27
 

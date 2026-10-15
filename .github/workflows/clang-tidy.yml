@@ -9,6 +9,11 @@ name: clang-tidy
 on:
   - push
 
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   clang-tidy:
     name: clang-tidy (${{ matrix.shard }}/4)
