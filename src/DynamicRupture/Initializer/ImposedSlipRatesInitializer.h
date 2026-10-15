@@ -92,8 +92,9 @@ class ImposedSlipRatesDeltaInitializer : public ImposedSlipRatesInitializer {
 
 /**
  * The initializer of the imposed slip rates of a script (FL 36): fills the rows of the script per
- * point -- the fault parameters it reads from the fault parameter file, the position, the
- * simulation, and the rotation from strike and dip into the coordinate system of the face.
+ * point -- the fault parameters it reads from the fault parameter file, the parameters of the
+ * materials on both sides of the fault (<p>_plus, <p>_minus), the position, the simulation, and
+ * the rotation from strike and dip into the coordinate system of the face.
  */
 class ImposedSlipRatesScriptInitializer : public BaseDRInitializer {
   public:

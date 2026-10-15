@@ -801,6 +801,8 @@ struct DirichletCondition::Query {
   reader::scripting::DataTable table{1};
   std::array<double, 3> barycenter{};
   std::int32_t group{0};
+  /// the parameters of the material of the cell, as scripts read them
+  std::vector<double> parameters;
   /// the terms as the model gives them, or their defaults: A row by row (map_{to}_{from}), b
   std::vector<double> map;
   std::vector<double> offset;
@@ -834,6 +836,24 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
   table.bindViewConst("z", reader::scripting::Direction::In, query->barycenter.data(), 3, 2);
   table.bindViewConst("group", reader::scripting::Direction::In, &query->group);
   table.bindConstant("sim", std::int32_t{0});
+
+  // the parameters of the material the model reads
+  const auto parameterNames = model::scriptParameterNames<model::MaterialOf<Cfg>>();
+  query->parameters.assign(parameterNames.size(), 0.0);
+  for (const auto& input : model_->inputVars()) {
+    if (input == "x" || input == "y" || input == "z" || input == "group" || input == "sim") {
+      continue;
+    }
+    const auto parameter = model::parameterIndexOf(parameterNames, input);
+    if (!parameter.has_value()) {
+      logError() << "The boundary condition file reads" << input
+                 << ", which a Dirichlet boundary does not have; it reads x, y, z, group, sim and "
+                    "the parameters of the material:"
+                 << model::parameterList(parameterNames);
+    }
+    table.bindViewConst(
+        input, reader::scripting::Direction::In, query->parameters.data() + parameter.value_or(0));
+  }
 
   const auto supplied = suppliedParameters(*model_);
   std::unordered_set<std::string> known;
@@ -880,6 +900,7 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
 template <typename Cfg>
 BoundaryFrame DirichletCondition::query(const double* barycenter,
                                         int group,
+                                        const double* parameters,
                                         Real<Cfg>* mapTermsData,
                                         Real<Cfg>* constantTermsData) const {
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
@@ -895,6 +916,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   }
   std::copy_n(barycenter, Cell::Dim, query->barycenter.data());
   query->group = group;
+  std::copy_n(parameters, query->parameters.size(), query->parameters.data());
 
   evaluateSafe(*model_, query->table, "Dirichlet BC data");
 
@@ -925,7 +947,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
   template BoundaryFrame DirichletCondition::query<Cfg>(                                           \
-      const double*, int, Real<Cfg>*, Real<Cfg>*) const;
+      const double*, int, const double*, Real<Cfg>*, Real<Cfg>*) const;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 

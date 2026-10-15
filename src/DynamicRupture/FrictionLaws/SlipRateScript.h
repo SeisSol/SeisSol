@@ -23,7 +23,8 @@ namespace seissol::dr::friction_law {
 ///
 /// The script reads the time `t`, the point `x`, `y`, `z`, the simulation `sim`, and any other
 /// name as a parameter of the fault, read from the fault parameter file (as FL 33 reads
-/// `strike_slip`). It gives either the slip at `t`, `slip_strike` and `slip_dip`, or the slip rate
+/// `strike_slip`), or as `<p>_plus` and `<p>_minus` the parameter p of the material on that side
+/// of the fault (both Row::Parameter here; the initializer tells them apart). It gives either the slip at `t`, `slip_strike` and `slip_dip`, or the slip rate
 /// at `t`, `slip_rate_strike` and `slip_rate_dip`: along strike and dip, with the signs of FL 33.
 /// A script of the rate may also read `dt`, the length of the sub-step that ends at `t`.
 ///

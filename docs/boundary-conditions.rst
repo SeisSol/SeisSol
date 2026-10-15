@@ -114,8 +114,10 @@ block:
   /
 
 The condition is sampled once per face, at the face barycenter, so it may vary from
-face to face but not within one. It reads the barycenter ``x``, ``y``, ``z`` and the
-``group`` of the cell.
+face to face but not within one. The file may also be a script (``sderiv:file`` or
+``lua:file``). It reads the barycenter ``x``, ``y``, ``z`` and the ``group`` of the cell; a
+script also reads the parameters of the material of the cell (see
+:ref:`script_material_parameters`).
 
 In device builds with the anelastic solver (viscoelastic and viscoacoustic materials), the
 offset :math:`b` is not applied yet: a face with a nonzero offset is rejected at startup.

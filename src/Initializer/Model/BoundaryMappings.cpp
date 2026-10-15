@@ -28,6 +28,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
+#include "Model/ScriptParameters.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
@@ -55,6 +56,7 @@ void initializeBoundaryMappingsOfLayer(
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* boundary = layer.var<LTS::BoundaryMapping>(Cfg());
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+  const auto* material = layer.var<LTS::Material>();
 
 #pragma omp for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -113,10 +115,15 @@ void initializeBoundaryMappingsOfLayer(
         if (dirichletCondition.has_value()) {
           const auto faceBarycenter = face.center();
 
+          // the condition reads the group of the cell and the parameters of its material
+          std::array<double, model::ScriptParameterCount<model::MaterialOf<Cfg>>> parameters{};
+          material[cell].local->scriptParameters(parameters.data());
+
           real globalMapData[tensor::dirichletMapGlobal<Cfg>::size()];
           real globalConstantData[tensor::dirichletOffsetGlobal<Cfg>::size()];
           const auto frame = dirichletCondition->query<Cfg>(faceBarycenter.data(),
                                                             meshReader.getElements()[meshId].group,
+                                                            parameters.data(),
                                                             globalMapData,
                                                             globalConstantData);
 

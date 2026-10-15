@@ -11,11 +11,16 @@
 #include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/SlipRateScript.h"
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/ParameterDB.h"
+#include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Model/ScriptParameters.h"
 #include "Reader/Scripting/DataTable.h"
 #include "SeisSol.h"
 
@@ -24,6 +29,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -49,6 +55,39 @@ std::pair<double, double> slipRotation(const Fault& fault) {
   const double scalarProduct = MeshTools::dot(crossProduct, fault.normal);
   const double sin = std::sqrt(1 - cos * cos) * std::copysign(1.0, scalarProduct);
   return {cos, sin};
+}
+
+/// A parameter of the material on one side of the fault, as a script reads it: `<p>_plus` or
+/// `<p>_minus`.
+struct SideParameter {
+  std::string parameter;
+  bool plus{true};
+};
+
+std::optional<SideParameter> sideParameterOf(const std::string& name) {
+  for (const auto& [suffix, plus] :
+       std::array<std::pair<std::string, bool>, 2>{{{"_plus", true}, {"_minus", false}}}) {
+    if (name.size() > suffix.size() &&
+        name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0) {
+      return SideParameter{name.substr(0, name.size() - suffix.size()), plus};
+    }
+  }
+  return std::nullopt;
+}
+
+/// The material on the plus or the minus side of the fault face `face`, found as for the
+/// impedances of the face.
+const model::Material*
+    sideMaterial(seissol::SeisSol& seissolInstance, const DRFaceInformation& face, bool plus) {
+  const auto& fault = seissolInstance.meshReader().getFault().at(face.meshFace);
+  auto& storage = seissolInstance.memoryManager().ltsStorage();
+  const auto& backmap = seissolInstance.memoryManager().backmap();
+  if (fault.element.hasValue()) {
+    const auto& material = storage.lookup<LTS::Material>(backmap.get(fault.element.value()));
+    return plus ? material.local : material.neighbor[face.plusSide];
+  }
+  const auto& material = storage.lookup<LTS::Material>(backmap.get(fault.neighborElement.value()));
+  return plus ? material.neighbor[face.minusSide] : material.local;
 }
 
 /// The name of the coordinate a row of the script reads.
@@ -210,13 +249,27 @@ void ImposedSlipRatesScriptInitializer::initializeFault(DynamicRupture::Storage&
   logQuadratureRules(drStorage);
   const auto& rowNames = script_->rowNames();
   const auto& rowKinds = script_->rowKinds();
+  // a name of its own is a fault parameter of that name, or <p>_plus or <p>_minus: the parameter p
+  // of the material on that side of the fault
+  std::vector<bool> faultRow(rowNames.size(), false);
+  std::vector<std::optional<SideParameter>> sideRow(rowNames.size());
   for (std::size_t row = 0; row < rowNames.size(); ++row) {
-    if (rowKinds[row] == Row::Parameter && faultParameterNames_.count(rowNames[row]) == 0) {
-      logError() << "imposed slip rates: the script" << script_->path() << "reads"
-                 << rowNames[row].c_str()
-                 << ", which is neither t, dt, x, y, z nor sim, nor given by the fault "
-                    "parameter file"
-                 << drParameters_->faultFileName;
+    if (rowKinds[row] != Row::Parameter) {
+      continue;
+    }
+    if (faultParameterNames_.count(rowNames[row]) > 0) {
+      faultRow[row] = true;
+    } else {
+      sideRow[row] = sideParameterOf(rowNames[row]);
+      if (!sideRow[row].has_value()) {
+        logError() << "imposed slip rates: the script" << script_->path() << "reads"
+                   << rowNames[row].c_str()
+                   << ", which is neither t, dt, x, y, z nor sim, nor given by the fault "
+                      "parameter file"
+                   << drParameters_->faultFileName
+                   << ", nor a parameter of the material on a side of the fault (<p>_plus, "
+                      "<p>_minus)";
+      }
     }
   }
 
@@ -240,11 +293,11 @@ void ImposedSlipRatesScriptInitializer::initializeFault(DynamicRupture::Storage&
       if (faces > 0) {
         const auto faceIDs = getFaceIDsInIterator(layer);
         const bool readsParameters =
-            std::find(rowKinds.begin(), rowKinds.end(), Row::Parameter) != rowKinds.end();
+            std::find(faultRow.begin(), faultRow.end(), true) != faultRow.end();
         for (std::size_t sim = 0; readsParameters && sim < Simulations; ++sim) {
           seissol::initializer::FaultParameterDB<double> faultParameterDB(sim, Simulations);
           for (std::size_t row = 0; row < rowNames.size(); ++row) {
-            if (rowKinds[row] == Row::Parameter) {
+            if (faultRow[row]) {
               faultParameterDB.addParameter(rowNames[row], rows + row * points);
             }
           }
@@ -263,9 +316,29 @@ void ImposedSlipRatesScriptInitializer::initializeFault(DynamicRupture::Storage&
                 .generate();
         std::vector<double> coordinate(faces * PointsPerSimulation);
         const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+        const auto parameterNames = model::scriptParameterNames<model::MaterialOf<Cfg>>();
+        std::vector<double> sideParameters(parameterNames.size());
         for (std::size_t row = 0; row < rowNames.size(); ++row) {
           const auto kind = rowKinds[row];
           double* values = rows + row * points;
+          if (sideRow[row].has_value()) {
+            // the same at all points of a face, and in all simulations
+            const auto parameter = model::parameterIndexOf(parameterNames, sideRow[row]->parameter);
+            if (!parameter.has_value()) {
+              logError() << "imposed slip rates: the script" << script_->path() << "reads"
+                         << rowNames[row].c_str() << ", but the material has no parameter"
+                         << sideRow[row]->parameter.c_str()
+                         << "; it has:" << model::parameterList(parameterNames);
+            }
+            for (std::size_t face = 0; face < faces; ++face) {
+              sideMaterial(seissolInstance_, faceInformation[face], sideRow[row]->plus)
+                  ->scriptParameters(sideParameters.data());
+              std::fill_n(values + face * PointsPerFace,
+                          PointsPerFace,
+                          sideParameters[parameter.value_or(0)]);
+            }
+            continue;
+          }
           if (kind == Row::X || kind == Row::Y || kind == Row::Z) {
             const std::string name = coordinateName(kind);
             for (const auto& entry : table.dataEntries()) {

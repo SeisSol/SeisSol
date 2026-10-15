@@ -63,9 +63,11 @@ along strike and dip as a function of time:
 
 with the sign convention of ``strike_slip`` and ``dip_slip`` above. It reads the time ``t``, the
 point ``x``, ``y``, ``z`` and the simulation ``sim``; every other name it reads is a parameter of
-the fault, read from the fault yaml file (``ModelFileName``) like ``strike_slip`` for FL=33. So
-the time function is no longer limited to the shapes above: several time windows, other source
-time functions, or a rake that changes with time are a few lines.
+the fault, read from the fault yaml file (``ModelFileName``) like ``strike_slip`` for FL=33, or,
+as ``<p>_plus`` and ``<p>_minus``, the parameter ``p`` of the material on the plus or the minus
+side of the fault (see :ref:`script_material_parameters`), e.g. ``mu_plus``. So the time function
+is no longer limited to the shapes above: several time windows, other source time functions, or a
+rake that changes with time are a few lines.
 
 The slip rate of a sub-step of the time integration is the increment of the slip over the
 sub-step, divided by its length; so the slip on the fault is that of the script at the end of
