@@ -77,7 +77,7 @@ void BinaryFile::writeGlobalAt(const void* data, std::size_t size, std::size_t o
     for (std::size_t written = 0; written < size;) {
       const auto piece = std::min(size - written, maxPiece_);
       MPI_File_write_at(file_,
-                        static_cast<MPI_Offset>(offset + written),
+                        static_cast<MPI_Offset>(offset) + static_cast<MPI_Offset>(written),
                         bytes + written,
                         static_cast<int>(piece),
                         MPI_BYTE,
@@ -110,7 +110,7 @@ void BinaryFile::writeDistributed(const void* data, std::size_t size) {
     const auto start = std::min(size, round * maxPiece_);
     const auto piece = std::min(size - start, maxPiece_);
     MPI_File_write_at_all(file_,
-                          static_cast<MPI_Offset>(offset + start),
+                          static_cast<MPI_Offset>(offset) + static_cast<MPI_Offset>(start),
                           bytes + start,
                           static_cast<int>(piece),
                           MPI_BYTE,

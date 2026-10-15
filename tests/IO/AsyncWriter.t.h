@@ -198,7 +198,7 @@ TEST_CASE("IO/AsyncWriter: a file every write appends to holds every step once c
   }
 
   // what WriterModule asks for when the simulation ends
-  io::LocalExecInfo info;
+  const io::LocalExecInfo info;
   executor.exec(info, module::AsyncWriterExec{false, 0, true});
   executor.finalize();
 

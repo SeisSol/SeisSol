@@ -48,7 +48,7 @@ class Hdf5File {
   void closeDataset();
   void closeGroup();
   //! Writes out what HDF5 holds of the file, so that it is complete on disk while it stays open.
-  void flushFile();
+  void flushFile() const;
   void closeFile();
 
   private:

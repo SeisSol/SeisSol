@@ -514,7 +514,7 @@ void Hdf5File::closeGroup() {
   _eh(H5Gclose(handles_.top()));
   handles_.pop();
 }
-void Hdf5File::flushFile() { _eh(H5Fflush(file_, H5F_SCOPE_LOCAL)); }
+void Hdf5File::flushFile() const { _eh(H5Fflush(file_, H5F_SCOPE_LOCAL)); }
 void Hdf5File::closeFile() {
   _eh(H5Fclose(file_));
   handles_.pop();
