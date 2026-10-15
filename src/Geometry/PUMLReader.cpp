@@ -321,6 +321,21 @@ int integerSignOf(const std::string& file, const char* dataset) {
   return sign;
 }
 
+/**
+ * Where the cells a rank reads start among the cells of the file, which the ranks read in runs, one
+ * after the other: the number of cells the ranks before it read. Collective.
+ */
+std::size_t firstCellOf(const PumlMesh& mesh) {
+  const std::size_t localCells = mesh.numOriginalCells();
+  std::size_t firstCell = 0;
+  MPI_Exscan(
+      &localCells, &firstCell, 1, PUML::MPITypeInfer<std::size_t>::type(), MPI_SUM, mesh.comm());
+  // MPI_Exscan leaves the result on the first rank undefined
+  int rank = 0;
+  MPI_Comm_rank(mesh.comm(), &rank);
+  return rank == 0 ? 0 : firstCell;
+}
+
 /// the vertices of a local cell, in the vertex order of the file
 std::array<CellTransform::VectorEigenT, Cell::NumVertices>
     fileVertices(const PumlMesh& meshGeometry, std::size_t cell) {
@@ -599,13 +614,8 @@ auto PUMLReader::read(PumlMesh& mesh,
       PUML::MPITypeInfer<std::uint64_t>::type(),
       boundarySign > 0 ? H5T_NATIVE_INT64 : H5T_NATIVE_UINT64);
 
-  const size_t localCells = mesh.numOriginalCells();
-  size_t localStart = 0;
-
-  MPI_Exscan(&localCells, &localStart, 1, PUML::MPITypeInfer<size_t>::type(), MPI_SUM, mesh.comm());
-
-  std::vector<size_t> cellIdsAsInFile(localCells);
-  std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), localStart);
+  std::vector<std::size_t> cellIdsAsInFile(mesh.numOriginalCells());
+  std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), firstCellOf(mesh));
   arrays.cellIdsAsInFile = mesh.addDataArray(
       pumldata::CellIdsAsInFile, cellIdsAsInFile.data(), PUML::DataType::Cell, {});
   return arrays;
@@ -633,18 +643,8 @@ auto PUMLReader::readHighOrderGeometry(PumlMesh& meshGeometry, const std::string
                << "-- the reader knows the one of gmsh only";
   }
 
-  // the cells a rank reads are a run of the cells of the file
   const std::size_t localCells = meshGeometry.numOriginalCells();
-  std::size_t firstCell = 0;
-  MPI_Exscan(&localCells,
-             &firstCell,
-             1,
-             PUML::MPITypeInfer<std::size_t>::type(),
-             MPI_SUM,
-             meshGeometry.comm());
-  if (Mpi::mpi.rank() == 0) {
-    firstCell = 0;
-  }
+  const auto firstCell = firstCellOf(meshGeometry);
 
   const HighOrderGeometry geometry(meshGeometry, arrays);
   for (std::size_t cell = 0; cell < localCells; ++cell) {
