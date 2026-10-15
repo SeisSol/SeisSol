@@ -12,6 +12,7 @@
 #include "Clustering/LTSWeights.t.h"
 #include "Clustering/LadderOptimizer.t.h"
 #include "DerivedOutput.t.h"
+#include "DirichletCondition.t.h"
 #include "FaceMap.t.h"
 #include "LtsSetup.t.h"
 #include "OutputRegions.t.h"

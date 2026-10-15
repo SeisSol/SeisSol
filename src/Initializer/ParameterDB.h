@@ -255,11 +255,13 @@ class DirichletCondition {
 
   ~DirichletCondition();
 
-  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`.
-  /// Not thread-safe: the queries of a configuration share one table.
+  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`, in
+  /// the group `group`. Not thread-safe: the queries of a configuration share one table.
   template <typename Cfg>
-  [[nodiscard]] BoundaryFrame
-      query(const double* barycenter, Real<Cfg>* mapTermsData, Real<Cfg>* constantTermsData) const;
+  [[nodiscard]] BoundaryFrame query(const double* barycenter,
+                                    int group,
+                                    Real<Cfg>* mapTermsData,
+                                    Real<Cfg>* constantTermsData) const;
 
   private:
   struct Query;

@@ -115,8 +115,10 @@ void initializeBoundaryMappingsOfLayer(
 
           real globalMapData[tensor::dirichletMapGlobal<Cfg>::size()];
           real globalConstantData[tensor::dirichletOffsetGlobal<Cfg>::size()];
-          const auto frame = dirichletCondition->query<Cfg>(
-              faceBarycenter.data(), globalMapData, globalConstantData);
+          const auto frame = dirichletCondition->query<Cfg>(faceBarycenter.data(),
+                                                            meshReader.getElements()[meshId].group,
+                                                            globalMapData,
+                                                            globalConstantData);
 
           if (frame == BoundaryFrame::FaceAligned) {
             std::copy_n(globalMapData, tensor::dirichletMap<Cfg>::size(), dirichletMap);

@@ -800,6 +800,7 @@ DirichletCondition::~DirichletCondition() = default;
 struct DirichletCondition::Query {
   reader::scripting::DataTable table{1};
   std::array<double, 3> barycenter{};
+  std::int32_t group{0};
   /// the terms as the model gives them, or their defaults: A row by row (map_{to}_{from}), b
   std::vector<double> map;
   std::vector<double> offset;
@@ -831,7 +832,7 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
   table.bindViewConst("x", reader::scripting::Direction::In, query->barycenter.data(), 3, 0);
   table.bindViewConst("y", reader::scripting::Direction::In, query->barycenter.data(), 3, 1);
   table.bindViewConst("z", reader::scripting::Direction::In, query->barycenter.data(), 3, 2);
-  table.bindConstant("group", std::int32_t{1});
+  table.bindViewConst("group", reader::scripting::Direction::In, &query->group);
   table.bindConstant("sim", std::int32_t{0});
 
   const auto supplied = suppliedParameters(*model_);
@@ -878,6 +879,7 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
 
 template <typename Cfg>
 BoundaryFrame DirichletCondition::query(const double* barycenter,
+                                        int group,
                                         Real<Cfg>* mapTermsData,
                                         Real<Cfg>* constantTermsData) const {
   using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
@@ -892,6 +894,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
     query = makeQuery<Cfg>();
   }
   std::copy_n(barycenter, Cell::Dim, query->barycenter.data());
+  query->group = group;
 
   evaluateSafe(*model_, query->table, "Dirichlet BC data");
 
@@ -921,8 +924,8 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
-  template BoundaryFrame DirichletCondition::query<Cfg>(const double*, Real<Cfg>*, Real<Cfg>*)     \
-      const;
+  template BoundaryFrame DirichletCondition::query<Cfg>(                                           \
+      const double*, int, Real<Cfg>*, Real<Cfg>*) const;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 
