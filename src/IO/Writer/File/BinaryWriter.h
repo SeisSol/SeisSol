@@ -11,6 +11,7 @@
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Data.h"
 
+#include <cstddef>
 #include <hdf5.h>
 #include <map>
 #include <memory>
@@ -25,12 +26,21 @@ namespace seissol::io::writer::file {
 class BinaryFile {
   public:
   /**
+   * @brief The most bytes one MPI-IO call writes by default.
+   *
+   * MPI counts bytes in an int, so a larger write goes in pieces; a gigabyte keeps them well below
+   * that limit.
+   */
+  static constexpr std::size_t MaxPieceBytes = std::size_t{1} << 30;
+
+  /**
    * @brief A file of all ranks of @p comm , or with @p rootOnly , of its rank 0 alone.
    *
    * A file that only takes data every rank holds alike -- the XML of an Xdmf or PVD output -- is
    * written by rank 0, and the others need not open it: on them, the operations do nothing.
+   * A write of more than @p maxPiece bytes goes in pieces of at most that many.
    */
-  BinaryFile(MPI_Comm comm, bool rootOnly);
+  BinaryFile(MPI_Comm comm, bool rootOnly, std::size_t maxPiece = MaxPieceBytes);
   /**
    * @brief Opens @p name for writing; unless @p append , from its start.
    *
@@ -49,6 +59,7 @@ class BinaryFile {
   MPI_File file_{MPI_FILE_NULL};
   bool rootOnly_{false};
   int rank_{0};
+  std::size_t maxPiece_{MaxPieceBytes};
 };
 
 class BinaryWriter {

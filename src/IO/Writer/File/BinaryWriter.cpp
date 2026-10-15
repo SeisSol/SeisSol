@@ -12,6 +12,7 @@
 #include "Parallel/MPI.h"
 #include "RunFiles.h"
 
+#include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>
 #include <hdf5.h>
@@ -25,7 +26,8 @@
 
 namespace seissol::io::writer::file {
 
-BinaryFile::BinaryFile(MPI_Comm comm, bool rootOnly) : comm_(comm), rootOnly_(rootOnly) {
+BinaryFile::BinaryFile(MPI_Comm comm, bool rootOnly, std::size_t maxPiece)
+    : comm_(comm), rootOnly_(rootOnly), maxPiece_(std::max<std::size_t>(1, maxPiece)) {
   MPI_Comm_rank(comm_, &rank_);
 }
 bool BinaryFile::rootOnly() const { return rootOnly_; }
@@ -57,7 +59,12 @@ void BinaryFile::openFile(const std::string& name, bool append, bool backUp) {
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   if (rank_ == 0) {
-    MPI_File_write(file_, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+    const auto* bytes = static_cast<const char*>(data);
+    for (std::size_t written = 0; written < size;) {
+      const auto piece = std::min(size - written, maxPiece_);
+      MPI_File_write(file_, bytes + written, static_cast<int>(piece), MPI_BYTE, MPI_STATUS_IGNORE);
+      written += piece;
+    }
   }
   // a distributed write behind it takes the size of the file for where it starts
   if (!rootOnly_) {
@@ -66,7 +73,17 @@ void BinaryFile::writeGlobal(const void* data, std::size_t size) {
 }
 void BinaryFile::writeGlobalAt(const void* data, std::size_t size, std::size_t offset) {
   if (rank_ == 0) {
-    MPI_File_write_at(file_, offset, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+    const auto* bytes = static_cast<const char*>(data);
+    for (std::size_t written = 0; written < size;) {
+      const auto piece = std::min(size - written, maxPiece_);
+      MPI_File_write_at(file_,
+                        static_cast<MPI_Offset>(offset + written),
+                        bytes + written,
+                        static_cast<int>(piece),
+                        MPI_BYTE,
+                        MPI_STATUS_IGNORE);
+      written += piece;
+    }
   }
   if (!rootOnly_) {
     MPI_Barrier(comm_);
@@ -77,16 +94,28 @@ void BinaryFile::writeDistributed(const void* data, std::size_t size) {
     logError() << "Binary writer error: distributed data was written to a file that rank 0 writes "
                   "alone.";
   }
-  // TODO: handle size > usable
   MPI_Offset filesize = 0;
   MPI_File_get_size(file_, &filesize);
   std::size_t offset = 0;
-  std::size_t total = 0;
   MPI_Exscan(&size, &offset, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm_);
-  MPI_Allreduce(&size, &total, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm_);
   offset += filesize;
 
-  MPI_File_write_at_all(file_, offset, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+  // A rank writes its data in pieces of at most maxPiece_ bytes (see BinaryFile::MaxPieceBytes).
+  // The write is collective, so every rank takes part in as many rounds as the rank with the most
+  // pieces, with nothing once its own are written.
+  std::size_t rounds = (size + maxPiece_ - 1) / maxPiece_;
+  MPI_Allreduce(MPI_IN_PLACE, &rounds, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, comm_);
+  const auto* bytes = static_cast<const char*>(data);
+  for (std::size_t round = 0; round < rounds; ++round) {
+    const auto start = std::min(size, round * maxPiece_);
+    const auto piece = std::min(size - start, maxPiece_);
+    MPI_File_write_at_all(file_,
+                          static_cast<MPI_Offset>(offset + start),
+                          bytes + start,
+                          static_cast<int>(piece),
+                          MPI_BYTE,
+                          MPI_STATUS_IGNORE);
+  }
   MPI_File_seek(file_, 0, MPI_SEEK_END);
 }
 void BinaryFile::align(std::size_t alignment) {
