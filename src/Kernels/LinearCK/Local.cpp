@@ -175,7 +175,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
                                                stateAt,
                                                face,
                                                cellBoundaryMapping[face],
-                                               materialData,
+                                               data.template get<LTS::MaterialParameters>(),
                                                time,
                                                timeStepWidth,
                                                dofsFaceBoundaryNodal);

@@ -12,7 +12,7 @@
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/Rewrite.h"
-#include "Initializer/Typedefs.h"
+#include "Model/ScriptParameters.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/OpenMP.h"
 #include "Physics/InitialField.h"
@@ -24,7 +24,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -51,17 +50,12 @@ constexpr const char* Start = "$t0";
 constexpr const char* Width = "$dt";
 
 /// What an input of the integral reads.
-enum class Input : std::uint8_t { X, Y, Z, Start, Width, Simulation, Density, Mu, Lambda, Inner };
+enum class Input : std::uint8_t { X, Y, Z, Start, Width, Simulation, Parameter, Inner };
 
-/// What an input of the script reads, besides the state inside and the time.
+/// What an input of the script reads, besides the state inside, the time and the material.
 std::optional<Input> scriptInputOf(const std::string& name) {
-  const std::array<std::pair<const char*, Input>, 7> inputs{{{"x", Input::X},
-                                                             {"y", Input::Y},
-                                                             {"z", Input::Z},
-                                                             {"sim", Input::Simulation},
-                                                             {"rho", Input::Density},
-                                                             {"mu", Input::Mu},
-                                                             {"lambda", Input::Lambda}}};
+  const std::array<std::pair<const char*, Input>, 4> inputs{
+      {{"x", Input::X}, {"y", Input::Y}, {"z", Input::Z}, {"sim", Input::Simulation}}};
   for (const auto& [channel, input] : inputs) {
     if (name == channel) {
       return input;
@@ -81,17 +75,6 @@ std::string innerName(std::size_t point, const std::string& component) {
 /// inner component takes the name of the component.
 std::string integralName(const std::string& component) { return "$ghost_" + component; }
 
-/// The material of a cell as the script sees it.
-std::array<double, 3> materialOf(const CellMaterialData& materialData) {
-  if (materialData.local == nullptr) {
-    constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
-    return {NaN, NaN, NaN};
-  }
-  return {materialData.local->getDensity(),
-          materialData.local->getMuBar(),
-          materialData.local->getLambdaBar()};
-}
-
 } // namespace
 
 struct GhostStateIntegral::Impl {
@@ -104,7 +87,8 @@ struct GhostStateIntegral::Impl {
 
   expr::Program program;
   std::vector<Input> inputs;
-  // per input: for an inner one, its index in the inner state, i * inner.size() + k
+  // per input: for an inner one, its index in the inner state, i * inner.size() + k; for a
+  // parameter of the material, its index among them
   std::vector<std::size_t> inputIndex;
   // per output, its component
   std::vector<std::size_t> outputComponent;
@@ -137,6 +121,7 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
                                        const std::string& name,
                                        std::vector<std::string> components,
                                        std::vector<std::string> inner,
+                                       const std::vector<std::string>& parameters,
                                        Missing missing,
                                        std::size_t timePoints)
     : impl_(std::make_unique<Impl>()) {
@@ -150,11 +135,16 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
   }
   for (const auto& input : ghost.inputs()) {
     if (input.name != "t" && !scriptInputOf(input.name).has_value() &&
-        std::find(inner.begin(), inner.end(), input.name) == inner.end()) {
-      throw std::invalid_argument(std::string(name)
-                                      .append(" reads `")
-                                      .append(input.name)
-                                      .append("`, which a boundary condition does not have"));
+        std::find(inner.begin(), inner.end(), input.name) == inner.end() &&
+        !model::parameterIndexOf(parameters, input.name).has_value()) {
+      throw std::invalid_argument(
+          std::string(name)
+              .append(" reads `")
+              .append(input.name)
+              .append("`, which a boundary condition does not have; it reads x, y, z, t, sim")
+              .append(inner.empty() ? "" : ", the state inside")
+              .append(" and the parameters of the material: ")
+              .append(model::parameterList(parameters)));
     }
   }
 
@@ -258,6 +248,8 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
       meaning = std::pair{Input::Width, std::size_t{0}};
     } else if (const auto scriptInput = scriptInputOf(channel)) {
       meaning = std::pair{*scriptInput, std::size_t{0}};
+    } else if (const auto parameter = model::parameterIndexOf(parameters, channel)) {
+      meaning = std::pair{Input::Parameter, *parameter};
     } else {
       for (std::size_t point = 0; point < timePoints && !meaning.has_value(); ++point) {
         for (std::size_t k = 0; k < impl.inner.size(); ++k) {
@@ -349,7 +341,7 @@ void GhostStateIntegral::evaluate(double start,
                                   std::size_t simulation,
                                   const std::array<double, 3>* points,
                                   std::size_t count,
-                                  const CellMaterialData& materialData,
+                                  const double* parameters,
                                   const double* inner,
                                   double* ghost) const {
   const auto& impl = *impl_;
@@ -359,7 +351,6 @@ void GhostStateIntegral::evaluate(double start,
     return;
   }
   auto& thread = impl_->thread();
-  const auto material = materialOf(materialData);
   const auto simulationValue = static_cast<double>(simulation);
 
   for (std::size_t first = 0; first < count; first += Capacity) {
@@ -381,14 +372,8 @@ void GhostStateIntegral::evaluate(double start,
       case Input::Simulation:
         thread.inputBases[i] = &simulationValue;
         break;
-      case Input::Density:
-        thread.inputBases[i] = material.data();
-        break;
-      case Input::Mu:
-        thread.inputBases[i] = material.data() + 1;
-        break;
-      case Input::Lambda:
-        thread.inputBases[i] = material.data() + 2;
+      case Input::Parameter:
+        thread.inputBases[i] = parameters + impl.inputIndex[i];
         break;
       case Input::Inner:
         thread.inputBases[i] = inner + impl.inputIndex[i] * count + first;
@@ -432,6 +417,7 @@ bool sameProgram(const expr::Program& first, const expr::Program& second) {
 std::unique_ptr<AnalyticalGhostState>
     AnalyticalGhostState::fromFields(const std::vector<std::unique_ptr<InitialField>>& fields,
                                      const std::vector<std::string>& components,
+                                     const std::vector<std::string>& parameters,
                                      std::size_t simulations,
                                      std::size_t timePoints) {
   std::vector<const ScriptField*> scripts;
@@ -470,6 +456,7 @@ std::unique_ptr<AnalyticalGhostState>
                                                "the initial condition",
                                                components,
                                                std::vector<std::string>{},
+                                               parameters,
                                                GhostStateIntegral::Missing::Zero,
                                                timePoints));
     } catch (const std::invalid_argument& error) {

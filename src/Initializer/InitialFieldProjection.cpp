@@ -25,6 +25,8 @@
 #include "Kernels/Common.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Model/ScriptParameters.h"
 #include "Model/StateNames.h"
 #include "Numerical/Quadrature.h"
 #include "Physics/InitialField.h"
@@ -38,9 +40,11 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 GENERATE_HAS_MEMBER(Qane)
@@ -183,6 +187,7 @@ template <typename Cfg>
 std::vector<double> projectScriptFields(const std::string& path,
                                         double time,
                                         const seissol::geometry::MeshReader& meshReader,
+                                        const LTS::Storage& storage,
                                         bool needsTime) {
   const auto& elements = meshReader.getElements();
   const auto names = model::stateNames<model::MaterialOf<Cfg>>();
@@ -227,6 +232,56 @@ std::vector<double> projectScriptFields(const std::string& path,
     reader = reader::scripting::buildReader(path, inVars);
   }
 
+  // the parameters of the material the script reads, by their position among those of the material
+  const auto parameterNames = model::scriptParameterNames<model::MaterialOf<Cfg>>();
+  std::vector<std::size_t> readParameters;
+  for (const auto& input : reader->inputVars()) {
+    if (input == "x" || input == "y" || input == "z" || input == "t" || input == "sim" ||
+        input == "group") {
+      continue;
+    }
+    const auto parameter = model::parameterIndexOf(parameterNames, input);
+    if (!parameter.has_value()) {
+      logError() << "The scripted field" << path << "reads" << input
+                 << ", which a field of the initial condition does not have; it reads x, y, z, t, "
+                    "sim, group and the parameters of the material:"
+                 << model::parameterList(parameterNames);
+    }
+    readParameters.push_back(parameter.value_or(0));
+  }
+
+  // per parameter read, its value at every point: that of the material of the cell of the element
+  std::vector<std::vector<double>> parameterColumns(
+      readParameters.size(),
+      std::vector<double>(numPoints, std::numeric_limits<double>::quiet_NaN()));
+  if (!readParameters.empty()) {
+    for (const auto& layer : storage.leaves(Ghost)) {
+      if (layer.getIdentifier().config != configIdOf<Cfg>()) {
+        continue;
+      }
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* material = layer.var<LTS::Material>();
+#pragma omp parallel
+      {
+        std::vector<double> values(parameterNames.size());
+#pragma omp for schedule(static)
+        for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+          // a cell kept twice has the material of the first
+          if (secondaryInformation[cell].duplicate > 0) {
+            continue;
+          }
+          material[cell].local->scriptParameters(values.data());
+          const auto first = secondaryInformation[cell].meshId * NumQuadPoints;
+          for (std::size_t k = 0; k < readParameters.size(); ++k) {
+            std::fill_n(parameterColumns[k].begin() + static_cast<std::ptrdiff_t>(first),
+                        NumQuadPoints,
+                        values[readParameters[k]]);
+          }
+        }
+      }
+    }
+  }
+
   constexpr auto Simulations = Cfg::NumSimulations;
   std::vector<double> data(numPoints * Simulations * names.size());
   const auto pointStride = Simulations * names.size();
@@ -239,6 +294,11 @@ std::vector<double> projectScriptFields(const std::string& path,
     table.bindViewConst("group", reader::scripting::Direction::In, groups.data());
     table.bindConstant("t", time);
     table.bindConstant("sim", static_cast<std::int32_t>(simulation));
+    for (std::size_t k = 0; k < readParameters.size(); ++k) {
+      table.bindViewConst(parameterNames[readParameters[k]],
+                          reader::scripting::Direction::In,
+                          parameterColumns[k].data());
+    }
     for (std::size_t j = 0; j < names.size(); ++j) {
       table.bindView(names[j],
                      reader::scripting::Direction::Out,
@@ -253,8 +313,11 @@ std::vector<double> projectScriptFields(const std::string& path,
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
-  template std::vector<double> projectScriptFields<Cfg>(                                           \
-      const std::string&, double, const seissol::geometry::MeshReader&, bool);
+  template std::vector<double> projectScriptFields<Cfg>(const std::string&,                        \
+                                                        double,                                    \
+                                                        const seissol::geometry::MeshReader&,      \
+                                                        const LTS::Storage&,                       \
+                                                        bool);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 
@@ -266,7 +329,7 @@ void projectScriptInitialField(const std::string& path,
   for (const auto config : storage.configs()) {
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      const auto data = projectScriptFields<Cfg>(path, 0, meshReader, needsTime);
+      const auto data = projectScriptFields<Cfg>(path, 0, meshReader, storage, needsTime);
       for (auto& layer : storage.leaves(Ghost)) {
         if (layer.getIdentifier().config == config) {
           projectScriptFieldsOnLayer<Cfg>(data, layer);

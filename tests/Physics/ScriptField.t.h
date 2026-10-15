@@ -6,7 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/poroelastic/Model/Datastructures.h"
 #include "Initializer/Typedefs.h"
+#include "Model/ScriptParameters.h"
 #include "Physics/ScriptField.h"
 
 #include <array>
@@ -44,6 +46,9 @@ class ScriptFile {
 const std::vector<std::string> Quantities{
     "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 
+/// The parameters of an elastic material, as scripts read them.
+const std::vector<std::string> Parameters{"rho", "mu", "lambda"};
+
 inline std::vector<std::array<double, 3>> randomPoints(std::size_t count, unsigned seed) {
   std::mt19937 rng(seed);
   std::uniform_real_distribution<double> value(-2.0, 2.0);
@@ -59,7 +64,7 @@ TEST_CASE("ScriptField: a compiled script gives the quantities at any points and
   const ScriptFile script("field.sderiv",
                           "out def v1 = sin(x) * cos(t)\n"
                           "out def s_xx = rho * x + mu * y + lambda * z + sim\n");
-  const physics::ScriptField field("sderiv:" + script.path(), Quantities, 2, true);
+  const physics::ScriptField field("sderiv:" + script.path(), Quantities, Parameters, 2, true);
   CHECK(field.compiled());
 
   model::ElasticMaterial material({2.5, 1.5, 3.0});
@@ -88,7 +93,7 @@ TEST_CASE("ScriptField: many threads evaluate at once as one does alone" *
   const ScriptFile script("threads.sderiv",
                           "out def v2 = exp(-(x*x + y*y + z*z)) * sin(10.0 * t)\n"
                           "out def s_yz = x * y - z * t\n");
-  const physics::ScriptField field("sderiv:" + script.path(), Quantities, 0, true);
+  const physics::ScriptField field("sderiv:" + script.path(), Quantities, Parameters, 0, true);
 
   model::ElasticMaterial material({1.0, 1.0, 2.0});
   CellMaterialData materialData;
@@ -123,7 +128,41 @@ TEST_CASE("ScriptField: a script for the initial condition only is accepted unti
           doctest::test_suite("physics")) {
   // the mesh group is known to the initial condition, not at a boundary node
   const ScriptFile script("group.sderiv", "out def v1 = group * x\n");
-  CHECK_NOTHROW(physics::ScriptField("sderiv:" + script.path(), Quantities, 0, true));
+  CHECK_NOTHROW(physics::ScriptField("sderiv:" + script.path(), Quantities, Parameters, 0, true));
+}
+
+TEST_CASE("ScriptField: a script reads every parameter of the material" *
+          doctest::test_suite("physics")) {
+  const ScriptFile script("poro.sderiv",
+                          "out def v1 = porosity * x + viscosity\n"
+                          "out def s_xx = rho_fluid * bulk_fluid\n");
+  const auto parameters = model::scriptParameterNames<model::PoroElasticMaterial>();
+  const physics::ScriptField field("sderiv:" + script.path(), Quantities, parameters, 0, true);
+  CHECK(field.error().empty());
+
+  model::PoroElasticMaterial material;
+  material.porosity = 0.25;
+  material.viscosity = 1.0e-3;
+  material.rhoFluid = 1000.0;
+  material.bulkFluid = 2.2e9;
+  CellMaterialData materialData;
+  materialData.local = &material;
+  const auto points = randomPoints(5, 4);
+  std::vector<double> values(points.size() * Quantities.size(), -1.0);
+  field.evaluateValues(0.0, points.data(), points.size(), materialData, values.data());
+  for (std::size_t i = 0; i < points.size(); ++i) {
+    CHECK(values[6 * points.size() + i] ==
+          doctest::Approx(0.25 * points[i][0] + 1.0e-3).epsilon(1e-14));
+    CHECK(values[0 * points.size() + i] == doctest::Approx(2.2e12).epsilon(1e-14));
+  }
+}
+
+TEST_CASE("ScriptField: a script that reads what the material does not have says what it has" *
+          doctest::test_suite("physics")) {
+  const ScriptFile script("unknown.sderiv", "out def v1 = porosity * x\n");
+  const physics::ScriptField field("sderiv:" + script.path(), Quantities, Parameters, 0, true);
+  CHECK(field.error().find("`porosity`") != std::string::npos);
+  CHECK(field.error().find("rho, mu, lambda") != std::string::npos);
 }
 
 TEST_CASE("ScriptField: an easi file is evaluated through its reader" *
@@ -134,7 +173,7 @@ TEST_CASE("ScriptField: an easi file is evaluated through its reader" *
                           "  v3: [1.0, 2.0, -0.5]\n"
                           "translation:\n"
                           "  v3: 0.25\n");
-  const physics::ScriptField field(script.path(), Quantities, 0, false);
+  const physics::ScriptField field(script.path(), Quantities, Parameters, 0, false);
   CHECK_FALSE(field.compiled());
 
   model::ElasticMaterial material({1.0, 1.0, 2.0});

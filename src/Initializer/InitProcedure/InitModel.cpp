@@ -326,6 +326,7 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
           std::make_unique<physics::NonlinearDirichlet>(
               fileName,
               std::vector<std::string>(quantities.begin(), quantities.end()),
+              model::scriptParameterNames<model::MaterialOf<Cfg>>(),
               Cfg::ConvergenceOrder));
     });
   }

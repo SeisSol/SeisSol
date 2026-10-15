@@ -27,8 +27,8 @@ namespace seissol::physics {
 /// of an analytic boundary condition, which ask for it at their points and times as they go.
 ///
 /// The script gives the quantities by name. It reads `x`, `y`, `z`, and as it needs them the time
-/// `t`, the simulation `sim`, and the material of the cell `rho`, `mu` and `lambda`. A quantity it
-/// does not give is zero.
+/// `t`, the simulation `sim`, and the parameters of the material of the cell by the names
+/// `parameters` (model::scriptParameterNames). A quantity it does not give is zero.
 ///
 /// A script that compiles to a program (an sderiv module, or a Lua model that traces) is evaluated
 /// by one kernel per thread, made here, with the points and values of a call passed as bases --
@@ -44,6 +44,7 @@ class ScriptField : public InitialFieldOf<ScriptField> {
   /// `hasTime` says whether an easi script reads the time, as for the initial condition.
   ScriptField(const std::string& path,
               std::vector<std::string> quantities,
+              std::vector<std::string> parameters,
               std::size_t simulation,
               bool hasTime);
 
@@ -52,6 +53,7 @@ class ScriptField : public InitialFieldOf<ScriptField> {
   ScriptField(const expr::Program& program,
               const std::string& name,
               std::vector<std::string> quantities,
+              std::vector<std::string> parameters,
               std::size_t simulation);
   ~ScriptField() override;
 

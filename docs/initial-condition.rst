@@ -56,10 +56,54 @@ which the scheme represents exactly:
   out def v1 = 0.1 * t
 
 The script also serves the analytical boundary condition, which evaluates it at the nodes of a
-face and the times of a time step as the simulation runs. There it can read ``x``, ``y``, ``z``,
-``t``, the simulation index ``sim`` and the material of the cell (``rho``, ``mu``, ``lambda``), but not
-the mesh group. A program is compiled once and then called for every face; an easi file is
-evaluated through easi, which works but is much slower.
+face and the times of a time step as the simulation runs. A program is compiled once and then
+called for every face; an easi file is evaluated through easi, which works but is much slower.
+
+A script reads ``x``, ``y``, ``z``, ``t``, the simulation index ``sim`` and the parameters of the
+material of the cell, by the names below; for the initial condition, but not at the boundary, also
+the mesh ``group``. A name that is none of these is an error at startup, which lists the names
+there are. An easi file reads the position, and the time with ``hastime``. For instance, a plane P
+wave along :math:`x` whose speed and amplitudes the material gives:
+
+.. code-block:: text
+
+  def a = 0.01
+  def c = sqrt((lambda + 2.0 * mu) / rho)
+  def phase = 6.283185307179586 * (x - c * t)
+  out def v1 = a * sin(phase)
+  out def s_xx = -rho * c * a * sin(phase)
+  out def s_yy = -lambda / c * a * sin(phase)
+  out def s_zz = -lambda / c * a * sin(phase)
+
+.. _script_material_parameters:
+
+The parameters of the material that scripts read -- here, at the boundaries
+(:doc:`boundary-conditions`) and in the outputs -- are those of its material file, by the same
+names, and for every material ``mu`` and ``lambda``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Material
+     - Parameters
+   * - elastic
+     - ``rho``, ``mu``, ``lambda``
+   * - viscoelastic
+     - ``rho``, ``mu``, ``lambda``, ``Qp``, ``Qs``
+   * - acoustic
+     - ``rho``, ``lambda``, and ``mu``, which is 0
+   * - viscoacoustic
+     - ``rho``, ``lambda``, ``Qp``, and ``mu``, which is 0
+   * - anisotropic
+     - ``rho``, ``c11``, ``c12``, ..., ``c16``, ``c22``, ..., ``c66``, and ``mu`` and ``lambda`` of
+       the closest isotropic material
+   * - poroelastic
+     - ``rho``, ``mu``, ``lambda``, ``bulk_solid``, ``porosity``, ``permeability``,
+       ``tortuosity``, ``bulk_fluid``, ``rho_fluid``, ``viscosity``
+
+For a viscoelastic or viscoacoustic material, ``mu`` and ``lambda`` are the moduli of the material
+file, not the unrelaxed ones that the solver computes from them.
 
 Besides the quantities, a script may give the memory variables of a viscoelastic or viscoacoustic
 material, one group per relaxation mechanism: ``theta1_xx``, ``theta1_yy``, ..., ``theta1_xz``,

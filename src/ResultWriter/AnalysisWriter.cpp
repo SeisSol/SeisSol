@@ -112,6 +112,7 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
         initializer::projectScriptFields<Cfg>(seissolInstance_.parameters().initialization.filename,
                                               simulationTime,
                                               *meshReader_,
+                                              seissolInstance_.memoryManager().ltsStorage(),
                                               seissolInstance_.parameters().initialization.hasTime);
   }
   // the components of the state a scripted field gives, per point and fused simulation

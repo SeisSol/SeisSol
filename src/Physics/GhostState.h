@@ -8,8 +8,6 @@
 #ifndef SEISSOL_SRC_PHYSICS_GHOSTSTATE_H_
 #define SEISSOL_SRC_PHYSICS_GHOSTSTATE_H_
 
-#include "Initializer/Typedefs.h"
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -31,10 +29,11 @@ class InitialField;
 /// what depends on the time (and on the state inside) is computed per time point.
 ///
 /// The script gives components of the state by the names `components`; what else it gives is not
-/// asked for. It reads x, y, z, t, sim, rho, mu and lambda, and the state inside by the names
-/// `inner`, which then are inputs per time point. A component it does not give is zero
-/// (Missing::Zero, the analytical boundary) or the state inside (Missing::Inner, the nonlinear
-/// Dirichlet boundary, whose inner names are its components).
+/// asked for. It reads x, y, z, t, sim, the parameters of the material by the names `parameters`
+/// (model::scriptParameterNames), and the state inside by the names `inner`, which then are inputs
+/// per time point. A component it does not give is zero (Missing::Zero, the analytical boundary) or
+/// the state inside (Missing::Inner, the nonlinear Dirichlet boundary, whose inner names are its
+/// components).
 class GhostStateIntegral {
   public:
   enum class Missing : std::uint8_t { Zero, Inner };
@@ -45,6 +44,7 @@ class GhostStateIntegral {
                      const std::string& name,
                      std::vector<std::string> components,
                      std::vector<std::string> inner,
+                     const std::vector<std::string>& parameters,
                      Missing missing,
                      std::size_t timePoints);
   ~GhostStateIntegral();
@@ -67,15 +67,16 @@ class GhostStateIntegral {
   void timePoints(double start, double width, double* times) const;
 
   /// The integral of the ghost state over the step [start, start + width] at `count` points, in
-  /// the simulation `simulation`, beyond a cell of the material `materialData`: component j at
-  /// point p into ghost[j * count + p]. The state inside, if read, is inner component k at point p
-  /// at time point i in inner[(i * innerCount() + k) * count + p].
+  /// the simulation `simulation`, beyond a cell whose material has the parameters `parameters` (in
+  /// the order of the names given): component j at point p into ghost[j * count + p]. The state
+  /// inside, if read, is inner component k at point p at time point i in
+  /// inner[(i * innerCount() + k) * count + p].
   void evaluate(double start,
                 double width,
                 std::size_t simulation,
                 const std::array<double, 3>* points,
                 std::size_t count,
-                const CellMaterialData& materialData,
+                const double* parameters,
                 const double* inner,
                 double* ghost) const;
 
@@ -92,12 +93,13 @@ class AnalyticalGhostState {
   public:
   /// The ghost state of the fields `fields`, of which field s % fields.size() serves simulation s
   /// of `simulations`, as for the initial condition; `components` are the components the boundary
-  /// takes. Null unless all fields are scripts that compile (physics::ScriptField): the boundary
-  /// then evaluates the fields at one time after the other. A script that cannot serve as a field
-  /// is an error.
+  /// takes, `parameters` the parameters of the material. Null unless all fields are scripts that
+  /// compile (physics::ScriptField): the boundary then evaluates the fields at one time after the
+  /// other. A script that cannot serve as a field is an error.
   static std::unique_ptr<AnalyticalGhostState>
       fromFields(const std::vector<std::unique_ptr<InitialField>>& fields,
                  const std::vector<std::string>& components,
+                 const std::vector<std::string>& parameters,
                  std::size_t simulations,
                  std::size_t timePoints);
 

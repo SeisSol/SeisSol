@@ -15,6 +15,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Model/ScriptParameters.h"
 #include "Numerical/Quadrature.h"
 #include "Physics/GhostState.h"
 #include "Physics/InitialField.h"
@@ -150,6 +151,7 @@ class GhostStateBoundary {
   static constexpr auto ColumnCount = tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
   static constexpr auto AlignedColumnCount =
       tensor::INodalAligned<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+  static constexpr auto ParameterCount = model::ScriptParameterCount<model::MaterialOf<Cfg>>;
 
   void bindGlobals(const GlobalData<Cfg>& global) {
     project_.bindGlobals(global);
@@ -179,6 +181,7 @@ class GhostStateBoundary {
     }
 
     const auto points = pointsOf(boundaryMapping);
+    const auto parameters = parametersOf(data.template get<LTS::MaterialParameters>());
     auto ghostView = init::INodal<Cfg>::view::create(ghostNodal);
     ghostView.setZero();
     std::array<double, ColumnCount * NodeCount> ghost{};
@@ -190,7 +193,7 @@ class GhostStateBoundary {
                         state->scriptSimulation(s),
                         points.data(),
                         NodeCount,
-                        data.template get<LTS::Material>(),
+                        parameters.data(),
                         nullptr,
                         ghost.data());
       auto ghostOfSimulation = multisim::simtensor<Cfg>(ghostView, s);
@@ -198,20 +201,22 @@ class GhostStateBoundary {
     }
   }
 
-  /// The nonlinear Dirichlet boundary at the face `face`: the state inside at the time points of
-  /// the step, from `stateAt(tau, state)`, which writes the modal state `tau` into the step to
-  /// `state` (shaped like I), taken to the nodes of the face and into the basis of the condition;
-  /// the integral of the ghost state taken back into global coordinates.
+  /// The nonlinear Dirichlet boundary at the face `face` of a cell with the parameters
+  /// `parameters` (LTS::MaterialParameters): the state inside at the time points of the step, from
+  /// `stateAt(tau, state)`, which writes the modal state `tau` into the step to `state` (shaped
+  /// like I), taken to the nodes of the face and into the basis of the condition; the integral of
+  /// the ghost state taken back into global coordinates.
   template <typename StateAt>
   void nonlinearDirichlet(const physics::NonlinearDirichlet& condition,
                           const StateAt& stateAt,
                           std::size_t face,
                           const CellBoundaryMapping<Cfg>& boundaryMapping,
-                          const CellMaterialData& materialData,
+                          const real* parameters,
                           double start,
                           double width,
                           real* ghostNodal) const {
     const auto& integral = condition.integral();
+    const auto parameterValues = parametersOf(parameters);
     const bool faceAligned = condition.faceAligned();
     const auto timePoints = integral.timePointCount();
     const auto innerCount = integral.innerCount();
@@ -262,7 +267,7 @@ class GhostStateBoundary {
                         s,
                         points.data(),
                         NodeCount,
-                        materialData,
+                        parameterValues.data(),
                         inner.data() + s * innerSize,
                         ghost.data());
       if (faceAligned) {
@@ -283,6 +288,15 @@ class GhostStateBoundary {
   }
 
   private:
+  /// The parameters of the material of a cell as scripts read them, from their reals.
+  static std::array<double, ParameterCount> parametersOf(const real* parameters) {
+    std::array<double, ParameterCount> values{};
+    for (std::size_t i = 0; i < ParameterCount; ++i) {
+      values[i] = parameters[i];
+    }
+    return values;
+  }
+
   /// The nodes of the face, as a script reads them.
   static std::array<std::array<double, 3>, NodeCount>
       pointsOf(const CellBoundaryMapping<Cfg>& boundaryMapping) {

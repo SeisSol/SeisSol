@@ -16,6 +16,7 @@
 #include "Initializer/Typedefs.h"
 #include "Model/Common.h"
 #include "Model/MaterialType.h"
+#include "Model/ScriptParameters.h"
 #include "Model/StateNames.h"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
@@ -78,6 +79,15 @@ std::vector<std::string> stateNamesOf(ConfigId config) {
   return names;
 }
 
+std::vector<std::string> parameterNamesOf(ConfigId config) {
+  std::vector<std::string> names;
+  dispatchConfig(config, [&](auto cfg) {
+    using Cfg = decltype(cfg);
+    names = model::scriptParameterNames<model::MaterialOf<Cfg>>();
+  });
+  return names;
+}
+
 /// theta of a mode: Re(omega) t - k.(x - o) + phi, in the order in which a complex argument of
 /// exp is formed, so that both round alike.
 std::string argumentOf(const PlaneWaveMode& mode, const std::optional<Eigen::Vector3d>& origin) {
@@ -109,7 +119,8 @@ std::vector<std::unique_ptr<InitialField>> fieldsOf(const PlaneWaveSum& sum,
   std::vector<std::unique_ptr<InitialField>> fields;
   const std::size_t count = perSimulation ? configValue(config).numSimulations : 1;
   for (std::size_t simulation = 0; simulation < count; ++simulation) {
-    fields.push_back(std::make_unique<ScriptField>(*program, name, names, simulation));
+    fields.push_back(
+        std::make_unique<ScriptField>(*program, name, names, parameterNamesOf(config), simulation));
   }
   return fields;
 }

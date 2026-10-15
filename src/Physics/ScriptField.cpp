@@ -11,6 +11,7 @@
 #include "Expr/Binding.h"
 #include "Expr/Program.h"
 #include "Initializer/Typedefs.h"
+#include "Model/ScriptParameters.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataReader.h"
@@ -40,34 +41,20 @@ using reader::scripting::Direction;
 constexpr std::size_t Capacity = 1024;
 
 /// What a field reads besides the point.
-enum class Input : std::uint8_t { X, Y, Z, Time, Simulation, Density, Mu, Lambda };
+enum class Input : std::uint8_t { X, Y, Z, Time, Simulation, Parameter };
 
 std::optional<Input> inputOf(const std::string& name) {
-  const std::array<std::pair<const char*, Input>, 8> inputs{{{"x", Input::X},
+  const std::array<std::pair<const char*, Input>, 5> inputs{{{"x", Input::X},
                                                              {"y", Input::Y},
                                                              {"z", Input::Z},
                                                              {"t", Input::Time},
-                                                             {"sim", Input::Simulation},
-                                                             {"rho", Input::Density},
-                                                             {"mu", Input::Mu},
-                                                             {"lambda", Input::Lambda}}};
+                                                             {"sim", Input::Simulation}}};
   for (const auto& [channel, input] : inputs) {
     if (name == channel) {
       return input;
     }
   }
   return std::nullopt;
-}
-
-/// The material of a cell as a field sees it; NaN where a caller has none.
-std::array<double, 3> materialOf(const CellMaterialData& materialData) {
-  if (materialData.local == nullptr) {
-    constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
-    return {NaN, NaN, NaN};
-  }
-  return {materialData.local->getDensity(),
-          materialData.local->getMuBar(),
-          materialData.local->getLambdaBar()};
 }
 
 } // namespace
@@ -77,11 +64,14 @@ struct ScriptField::Impl {
   // why the script cannot be evaluated as a field, if it cannot
   std::string error;
   std::vector<std::string> quantities;
+  std::vector<std::string> parameters;
   double simulation{0};
 
-  // a compiled script: per program input what it reads, per program output its quantity
+  // a compiled script: per program input what it reads (and which parameter of the material), per
+  // program output its quantity
   std::optional<expr::Program> program;
   std::vector<Input> inputs;
+  std::vector<std::size_t> inputParameter;
   std::vector<std::size_t> outputQuantity;
   // the storage the tables are bound to; every call moves the bases
   std::vector<std::array<double, 3>> boundPoints;
@@ -96,6 +86,7 @@ struct ScriptField::Impl {
     std::vector<const void*> inputBases;
     std::vector<void*> outputBases;
     std::vector<double> scratch;
+    std::vector<double> parameters;
   };
   std::vector<Thread> threads;
 
@@ -111,11 +102,13 @@ struct ScriptField::Impl {
 
 ScriptField::ScriptField(const std::string& path,
                          std::vector<std::string> quantities,
+                         std::vector<std::string> parameters,
                          std::size_t simulation,
                          bool hasTime)
     : impl_(std::make_unique<Impl>()) {
   impl_->path = path;
   impl_->quantities = std::move(quantities);
+  impl_->parameters = std::move(parameters);
   impl_->simulation = static_cast<double>(simulation);
   impl_->threads.resize(std::max<std::size_t>(1, seissol::OpenMP::threadCount()));
 
@@ -138,10 +131,12 @@ ScriptField::ScriptField(const std::string& path,
 ScriptField::ScriptField(const expr::Program& program,
                          const std::string& name,
                          std::vector<std::string> quantities,
+                         std::vector<std::string> parameters,
                          std::size_t simulation)
     : impl_(std::make_unique<Impl>()) {
   impl_->path = name;
   impl_->quantities = std::move(quantities);
+  impl_->parameters = std::move(parameters);
   impl_->simulation = static_cast<double>(simulation);
   impl_->threads.resize(std::max<std::size_t>(1, seissol::OpenMP::threadCount()));
   impl_->program = program;
@@ -161,13 +156,16 @@ void ScriptField::setUp() {
   }
   for (const auto& input : program.inputs()) {
     const auto meaning = inputOf(input.name);
-    if (!meaning.has_value()) {
+    const auto parameter = model::parameterIndexOf(impl_->parameters, input.name);
+    if (!meaning.has_value() && !parameter.has_value()) {
       impl_->error = "the scripted field " + path + " reads `" + input.name +
-                     "`; a field evaluated at arbitrary points reads x, y, z, t, sim, rho, mu "
-                     "and lambda";
+                     "`; a field evaluated at arbitrary points reads x, y, z, t, sim and the "
+                     "parameters of the material: " +
+                     model::parameterList(impl_->parameters);
       return;
     }
-    impl_->inputs.push_back(*meaning);
+    impl_->inputs.push_back(meaning.value_or(Input::Parameter));
+    impl_->inputParameter.push_back(parameter.value_or(0));
   }
   for (const auto& output : program.outputs()) {
     const auto found = std::find(impl_->quantities.begin(), impl_->quantities.end(), output.name);
@@ -249,7 +247,12 @@ void ScriptField::evaluateValues(double time,
     logError() << impl_->error;
   }
   auto& thread = impl_->thread();
-  const auto material = materialOf(materialData);
+  // the parameters of the material as scripts read them; NaN where a caller has no material
+  auto& parameters = thread.parameters;
+  parameters.assign(impl_->parameters.size(), std::numeric_limits<double>::quiet_NaN());
+  if (materialData.local != nullptr) {
+    materialData.local->scriptParameters(parameters.data());
+  }
   std::fill_n(values, count * impl_->quantities.size(), 0.0);
 
   if (!impl_->program.has_value()) {
@@ -259,9 +262,9 @@ void ScriptField::evaluateValues(double time,
     table.bindViewConst<double>("z", Direction::In, points->data(), 3, 2);
     table.bindConstant<double>("t", time);
     table.bindConstant<double>("sim", impl_->simulation);
-    table.bindConstant<double>("rho", material[0]);
-    table.bindConstant<double>("mu", material[1]);
-    table.bindConstant<double>("lambda", material[2]);
+    for (std::size_t i = 0; i < impl_->parameters.size(); ++i) {
+      table.bindConstant<double>(impl_->parameters[i], parameters[i]);
+    }
     // every output of the reader needs a column; those that are no quantity go to the scratch
     std::vector<double> discard(count);
     for (const auto& name : thread.reader->outputVars()) {
@@ -292,14 +295,8 @@ void ScriptField::evaluateValues(double time,
       case Input::Simulation:
         thread.inputBases[i] = &impl_->simulation;
         break;
-      case Input::Density:
-        thread.inputBases[i] = material.data();
-        break;
-      case Input::Mu:
-        thread.inputBases[i] = material.data() + 1;
-        break;
-      case Input::Lambda:
-        thread.inputBases[i] = material.data() + 2;
+      case Input::Parameter:
+        thread.inputBases[i] = parameters.data() + impl_->inputParameter[i];
         break;
       }
     }

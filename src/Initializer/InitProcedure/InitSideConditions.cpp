@@ -21,6 +21,7 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/ScriptParameters.h"
 #include "Model/StateNames.h"
 #include "Physics/GhostState.h"
 #include "Physics/InitialField.h"
@@ -82,11 +83,12 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
         using Cfg = decltype(cfg);
         std::vector<std::unique_ptr<physics::InitialField>> fields;
         for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
-          fields.push_back(
-              std::make_unique<physics::ScriptField>(initConditionParams.filename,
-                                                     model::stateNames<model::MaterialOf<Cfg>>(),
-                                                     sim,
-                                                     initConditionParams.hasTime));
+          fields.push_back(std::make_unique<physics::ScriptField>(
+              initConditionParams.filename,
+              model::stateNames<model::MaterialOf<Cfg>>(),
+              model::scriptParameterNames<model::MaterialOf<Cfg>>(),
+              sim,
+              initConditionParams.hasTime));
         }
         memoryManager.setInitialConditions(config, std::move(fields));
       });
@@ -167,10 +169,12 @@ void initAnalyticalBoundary(seissol::SeisSol& seissolInstance) {
           components.size(), tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1]));
       memoryManager.setAnalyticalGhostState(
           config,
-          physics::AnalyticalGhostState::fromFields(memoryManager.initialConditions(config),
-                                                    components,
-                                                    Cfg::NumSimulations,
-                                                    Cfg::ConvergenceOrder));
+          physics::AnalyticalGhostState::fromFields(
+              memoryManager.initialConditions(config),
+              components,
+              model::scriptParameterNames<model::MaterialOf<Cfg>>(),
+              Cfg::NumSimulations,
+              Cfg::ConvergenceOrder));
     });
   }
 }

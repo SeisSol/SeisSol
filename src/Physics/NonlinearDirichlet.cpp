@@ -73,8 +73,9 @@ double constantOf(const expr::Program& program, expr::NodeId root) {
 
 NonlinearDirichlet::NonlinearDirichlet(const std::string& path,
                                        std::vector<std::string> quantities,
+                                       std::vector<std::string> parameters,
                                        std::size_t timePoints)
-    : name_(path), quantities_(std::move(quantities)) {
+    : name_(path), quantities_(std::move(quantities)), parameters_(std::move(parameters)) {
   // in sderiv, a quantity reads the inner state also next to the definition of its ghost value
   expr::SderivOptions options;
   options.inputs.insert(quantities_.begin(), quantities_.end());
@@ -99,8 +100,9 @@ NonlinearDirichlet::NonlinearDirichlet(const std::string& path,
 NonlinearDirichlet::NonlinearDirichlet(const expr::Program& program,
                                        const std::string& name,
                                        std::vector<std::string> quantities,
+                                       std::vector<std::string> parameters,
                                        std::size_t timePoints)
-    : name_(name), quantities_(std::move(quantities)) {
+    : name_(name), quantities_(std::move(quantities)), parameters_(std::move(parameters)) {
   setUp(program, timePoints);
 }
 
@@ -147,8 +149,13 @@ void NonlinearDirichlet::setUp(const expr::Program& program, std::size_t timePoi
     ghost.addOutput(output.name, output.type, program.roots()[i]);
   }
 
-  integral_ = std::make_unique<GhostStateIntegral>(
-      ghost, name_, quantities_, quantities_, GhostStateIntegral::Missing::Inner, timePoints);
+  integral_ = std::make_unique<GhostStateIntegral>(ghost,
+                                                   name_,
+                                                   quantities_,
+                                                   quantities_,
+                                                   parameters_,
+                                                   GhostStateIntegral::Missing::Inner,
+                                                   timePoints);
 }
 
 bool NonlinearDirichlet::faceAligned() const { return faceAligned_; }

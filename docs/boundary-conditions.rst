@@ -249,9 +249,9 @@ Lua model that traces (``lua:file`` or a ``.lua`` file), named in the equations 
 
 The script reads the inner state by the names of the quantities of the material
 (``s_xx``, ``s_yy``, ``s_zz``, ``s_xy``, ``s_yz``, ``s_xz``, ``v1``, ``v2``, ``v3`` for an
-elastic one, as for the Dirichlet boundary), and ``x``, ``y``, ``z``, ``t``, ``sim``,
-``rho``, ``mu`` and ``lambda``. It gives the ghost state by the same
-names; a quantity it does not give is the one inside. There are no ``map_*`` or
+elastic one, as for the Dirichlet boundary), ``x``, ``y``, ``z``, ``t``, ``sim``, and the
+parameters of the material of the cell (:ref:`script_material_parameters`). It gives the ghost
+state by the same names; a quantity it does not give is the one inside. There are no ``map_*`` or
 ``const_*`` terms. In an sderiv module a quantity reads the inner state wherever it
 appears, also next to the definition of its ghost value: the module is one parallel
 assignment. As with the Dirichlet boundary, ``frame = 1`` states both states in the

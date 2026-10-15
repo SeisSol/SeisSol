@@ -25,11 +25,11 @@ namespace seissol::physics {
 /// beyond a face, the ghost state, as a function of the state inside.
 ///
 /// A script gives it, an sderiv module or a Lua model that traces. It reads the inner state by the
-/// names of the quantities of the material (`s_xx`, ..., `v1`, `v2`, `v3` for an elastic one), and
-/// x, y, z, t, sim, rho, mu and lambda; it gives the ghost state by the same names. A quantity it
-/// does not give is that of the inside. In an sderiv module, a quantity always reads the inner
-/// state, also next to the definition of its ghost value: `out def v1 = -v1` mirrors the normal
-/// velocity, in the face-aligned basis.
+/// names of the quantities of the material (`s_xx`, ..., `v1`, `v2`, `v3` for an elastic one), x,
+/// y, z, t, sim, and the parameters of the material (model::scriptParameterNames); it gives the
+/// ghost state by the same names. A quantity it does not give is that of the inside. In an sderiv
+/// module, a quantity always reads the inner state, also next to the definition of its ghost
+/// value: `out def v1 = -v1` mirrors the normal velocity, in the face-aligned basis.
 ///
 /// The boundary evaluates the condition at the nodes of a face, at the times of the quadrature of
 /// a time step, with the inner state of the cell at that time, and integrates it over the step:
@@ -42,11 +42,12 @@ namespace seissol::physics {
 /// may read nothing.
 class NonlinearDirichlet {
   public:
-  /// The condition of the script at `path`, for a material with the quantities `quantities`,
-  /// integrated over a step with `timePoints` points. A script that cannot be used is a
-  /// configuration error.
+  /// The condition of the script at `path`, for a material with the quantities `quantities` and the
+  /// parameters `parameters`, integrated over a step with `timePoints` points. A script that cannot
+  /// be used is a configuration error.
   NonlinearDirichlet(const std::string& path,
                      std::vector<std::string> quantities,
+                     std::vector<std::string> parameters,
                      std::size_t timePoints);
 
   /// The condition of a program, which `name` names in messages; from sderiv, it is compiled with
@@ -55,6 +56,7 @@ class NonlinearDirichlet {
   NonlinearDirichlet(const expr::Program& program,
                      const std::string& name,
                      std::vector<std::string> quantities,
+                     std::vector<std::string> parameters,
                      std::size_t timePoints);
 
   ~NonlinearDirichlet();
@@ -78,6 +80,7 @@ class NonlinearDirichlet {
 
   std::string name_;
   std::vector<std::string> quantities_;
+  std::vector<std::string> parameters_;
   bool faceAligned_{false};
   std::unique_ptr<GhostStateIntegral> integral_;
 };

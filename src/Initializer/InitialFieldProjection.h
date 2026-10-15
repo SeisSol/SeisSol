@@ -30,10 +30,15 @@ void projectInitialField(
 /// The values of the scripted field `path` at the quadrature points of every element, as the
 /// configuration `Cfg` projects them, for each of its fused simulations: by element, point,
 /// simulation and component of the state (model::stateNames, memory variables included).
+///
+/// The script reads x, y, z, t, sim, the group of the element, and the parameters of the material
+/// of its cell in `storage` (model::scriptParameterNames), which are NaN for an element of another
+/// configuration. What else it reads is an error.
 template <typename Cfg>
 std::vector<double> projectScriptFields(const std::string& path,
                                         double time,
                                         const seissol::geometry::MeshReader& meshReader,
+                                        const LTS::Storage& storage,
                                         bool needsTime);
 
 void projectScriptInitialField(const std::string& path,
