@@ -10,13 +10,13 @@
 #include "Common/Constants.h"
 #include "Common/Executor.h"
 #include "Common/Marker.h"
+#include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/DynamicRupture.h"
-#include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
@@ -30,7 +30,6 @@
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
-#include "Solver/TimeStepping/Compute/FaceCluster.h"
 
 #include <algorithm>
 #include <cassert>
@@ -48,24 +47,26 @@
 
 namespace seissol::solver {
 
-DynamicRuptureCluster::DynamicRuptureCluster(
+template <typename Cfg>
+DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     double maxTimeStepSize,
     long timeStepRate,
     Executor executor,
     unsigned int profilingId,
     double outputTimestep,
-    CompoundGlobalData globalData,
+    CompoundGlobalData<Cfg> globalData,
     DynamicRupture::Layer* layerData,
-    dr::friction_law::FrictionSolver* frictionSolverTemplate,
-    dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
+    const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
+    const dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
     dr::output::OutputManager* faultOutputManager,
     seissol::SeisSol& seissolInstance,
     LoopStatistics* loopStatistics,
     ActorStateStatistics* actorStateStatistics)
-    : FaceCluster(maxTimeStepSize, timeStepRate, executor), seissolInstance_(seissolInstance),
-      streamRuntime_(4), globalData_(globalData), layerData_(layerData),
-      frictionSolver_(frictionSolverTemplate->clone()),
-      frictionSolverDevice_(frictionSolverTemplateDevice->clone()),
+    : DynamicRuptureClusterInterface(maxTimeStepSize, timeStepRate, executor),
+      seissolInstance_(seissolInstance), streamRuntime_(4), globalData_(globalData),
+      layerData_(layerData),
+      frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
+      frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
       faultOutputManager_(faultOutputManager), outputTimestep_(outputTimestep),
       loopStatistics_(loopStatistics), actorStateStatistics_(actorStateStatistics),
       profilingId_(profilingId) {
@@ -97,7 +98,8 @@ DynamicRuptureCluster::DynamicRuptureCluster(
       getLayerType() == HaloType::Copy ? "dr-frictionlaw-copy" : "dr-frictionlaw-interior", "DR");
 }
 
-void DynamicRuptureCluster::computeDynamicRupture(const StepParams& params) {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::computeDynamicRupture(const StepParams& params) {
   auto& layerData = *layerData_;
   if (layerData.size() == 0) {
     return;
@@ -109,19 +111,20 @@ void DynamicRuptureCluster::computeDynamicRupture(const StepParams& params) {
   loopStatistics_->begin(regionComputeDynamicRupture_);
 
   const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  const DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
-  auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>();
-  auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>();
+  const DRGodunovData<Cfg>* godunovData = layerData.var<DynamicRupture::GodunovData>(Cfg());
+  real* const* timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>(Cfg());
+  real* const* timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
+  auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(Cfg());
+  auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(Cfg());
 
   const auto timestep = params.timeStepSize;
 
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timestep);
+      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
 
-  const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
-  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
+  const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timestep);
+  const auto frictionTime =
+      seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
 
 #pragma omp parallel
   {
@@ -160,7 +163,8 @@ void DynamicRuptureCluster::computeDynamicRupture(const StepParams& params) {
   loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
 }
 
-void DynamicRuptureCluster::computeDynamicRuptureDevice(
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
     SEISSOL_GPU_PARAM const StepParams& params) {
 #ifdef ACL_DEVICE
   auto& layerData = *layerData_;
@@ -182,10 +186,11 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice(
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
     const auto [timePoints, timeWeights] =
-        seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timestep);
+        seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
 
-    const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
-    const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
+    const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timestep);
+    const auto frictionTime =
+        seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
 
     streamRuntime_.runGraph(
         computeGraphKey,
@@ -227,7 +232,8 @@ void DynamicRuptureCluster::computeDynamicRuptureDevice(
 #endif
 }
 
-PerformanceEstimate DynamicRuptureCluster::computeFlops() {
+template <typename Cfg>
+PerformanceEstimate DynamicRuptureCluster<Cfg>::computeFlops() {
   const auto& layerData = *layerData_;
   const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
 
@@ -240,7 +246,8 @@ PerformanceEstimate DynamicRuptureCluster::computeFlops() {
   return estimate;
 }
 
-void DynamicRuptureCluster::planPickpointOutput(const StepParams& params) {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::planPickpointOutput(const StepParams& params) {
   // repeat the current solution for some times---to match the existing output scheme.
   // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
   pickpointTimes_.clear();
@@ -258,7 +265,8 @@ void DynamicRuptureCluster::planPickpointOutput(const StepParams& params) {
   } while (time * (1 + 1e-8) < params.time + ct_.maxTimeStepSize && time < syncTime_);
 }
 
-void DynamicRuptureCluster::setRunTimeOutputs(bool runTimeOutputs) {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::setRunTimeOutputs(bool runTimeOutputs) {
   runTimeOutputs_ = runTimeOutputs;
 #ifdef ACL_DEVICE
   if (runTimeOutputs_ && pickpointStepStart_ == &pickpointStepStartHost_) {
@@ -267,7 +275,8 @@ void DynamicRuptureCluster::setRunTimeOutputs(bool runTimeOutputs) {
 #endif
 }
 
-void DynamicRuptureCluster::recordPickpointsNow(double stepTime, bool lastStep) {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::recordPickpointsNow(double stepTime, bool lastStep) {
   // the same output steps as planPickpointOutput() and writePickpointOutput(), for the step that
   // starts at stepTime
   const auto layerId = layerData_->id();
@@ -287,7 +296,8 @@ void DynamicRuptureCluster::recordPickpointsNow(double stepTime, bool lastStep) 
   } while (time * (1 + 1e-8) < stepTime + ct_.maxTimeStepSize && time < syncTime_);
 }
 
-void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params) {
   if (runTimeOutputs_) {
     const auto layerId = layerData_->id();
     if (faultOutputManager_->hasPickpoints(layerId)) {
@@ -311,19 +321,22 @@ void DynamicRuptureCluster::writePickpointOutput(const StepParams& params) {
   }
 }
 
-void* DynamicRuptureCluster::outputStream() {
+template <typename Cfg>
+void* DynamicRuptureCluster<Cfg>::outputStream() {
   if (faultOutputManager_ == nullptr || !faultOutputManager_->hasPickpoints(layerData_->id())) {
     return nullptr;
   }
   return faultOutputManager_->pickpointStream(layerData_->id());
 }
 
-bool DynamicRuptureCluster::hostWork() const {
+template <typename Cfg>
+bool DynamicRuptureCluster<Cfg>::hostWork() const {
   return executor_ == Executor::Host || hasDifferentExecutorNeighbor() ||
          frictionSolverDevice_->allocationPlace() == initializer::AllocationPlace::Host;
 }
 
-bool DynamicRuptureCluster::outputsAhead(long steps) const {
+template <typename Cfg>
+bool DynamicRuptureCluster<Cfg>::outputsAhead(long steps) const {
   if (layerData_->size() == 0 || runTimeOutputs_) {
     return false;
   }
@@ -348,7 +361,8 @@ bool DynamicRuptureCluster::outputsAhead(long steps) const {
   return false;
 }
 
-StepWork DynamicRuptureCluster::prepare(ActorAction action) {
+template <typename Cfg>
+StepWork DynamicRuptureCluster<Cfg>::prepare(ActorAction action) {
   StepWork work;
   work.hostWork = hostWork();
   if (action == ActorAction::Correct) {
@@ -368,7 +382,8 @@ StepWork DynamicRuptureCluster::prepare(ActorAction action) {
   return work;
 }
 
-void DynamicRuptureCluster::interact(const StepParams& params) {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
   if (layerData_->size() == 0) {
     clock_.advance(params.timeStepSize, streamRuntime_);
     return;
@@ -400,11 +415,13 @@ void DynamicRuptureCluster::interact(const StepParams& params) {
   }
 }
 
-ActorEvent DynamicRuptureCluster::recordActionEvent() {
+template <typename Cfg>
+ActorEvent DynamicRuptureCluster<Cfg>::recordActionEvent() {
   return ActorEvent(streamRuntime_.eventRecord());
 }
 
-void DynamicRuptureCluster::waitForEvent(SEISSOL_GPU_PARAM void* event) {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::waitForEvent(SEISSOL_GPU_PARAM void* event) {
 #ifdef ACL_DEVICE
   if (executor_ == Executor::Host) {
     // the host kernels run right away, so the host has to wait
@@ -415,14 +432,16 @@ void DynamicRuptureCluster::waitForEvent(SEISSOL_GPU_PARAM void* event) {
 #endif
 }
 
-ActResult DynamicRuptureCluster::act() {
+template <typename Cfg>
+ActResult DynamicRuptureCluster<Cfg>::act() {
   actorStateStatistics_->enter(state_);
   const auto result = AbstractTimeCluster::act();
   actorStateStatistics_->enter(state_);
   return result;
 }
 
-void DynamicRuptureCluster::finalize() {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::finalize() {
 #ifdef ACL_DEVICE
   if (pickpointStepStart_ != &pickpointStepStartHost_) {
     device_.api().freePinnedMem(pickpointStepStart_);
@@ -434,10 +453,14 @@ void DynamicRuptureCluster::finalize() {
   streamRuntime_.dispose();
 }
 
-void DynamicRuptureCluster::timeSet(double time) { clock_.set(time, streamRuntime_); }
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::timeSet(double time) {
+  clock_.set(time, streamRuntime_);
+}
 
-void DynamicRuptureCluster::synchronizeTo(seissol::initializer::AllocationPlace place,
-                                          void* stream) {
+template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::synchronizeTo(seissol::initializer::AllocationPlace place,
+                                               void* stream) {
   if constexpr (isDeviceOn()) {
     if ((place == initializer::AllocationPlace::Host && executor_ == Executor::Device) ||
         (place == initializer::AllocationPlace::Device && executor_ == Executor::Host)) {
@@ -446,13 +469,24 @@ void DynamicRuptureCluster::synchronizeTo(seissol::initializer::AllocationPlace 
   }
 }
 
-std::size_t DynamicRuptureCluster::layerId() const { return layerData_->id(); }
+template <typename Cfg>
+std::size_t DynamicRuptureCluster<Cfg>::layerId() const {
+  return layerData_->id();
+}
 
-HaloType DynamicRuptureCluster::getLayerType() const { return layerData_->getIdentifier().halo; }
+template <typename Cfg>
+HaloType DynamicRuptureCluster<Cfg>::getLayerType() const {
+  return layerData_->getIdentifier().halo;
+}
 
-std::string DynamicRuptureCluster::description() const {
+template <typename Cfg>
+std::string DynamicRuptureCluster<Cfg>::description() const {
   const std::string haloStr = getLayerType() == HaloType::Interior ? "interior" : "copy";
   return "dr-" + haloStr;
 }
+
+#define SEISSOL_INSTANTIATE(Cfg) template class DynamicRuptureCluster<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::solver

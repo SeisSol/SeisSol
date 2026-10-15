@@ -6,8 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "InitLayout.h"
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Buckets.h"
@@ -127,16 +130,19 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
+  // every cell computes in the configuration of its mesh group, ghost cells included
+  const auto& model = seissolParams.model;
+
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::TraitLayer<initializer::ConfigVariant>({initializer::ConfigVariant(Config())}));
+      initializer::EnumLayer<ConfigId>(model.configs()));
 
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
     const auto& element = meshReader.getElements()[i];
     const auto halo = geometry::isCopy(element, rank) ? HaloType::Copy : HaloType::Interior;
-    colors[i] = colorMap.color(halo, element.clusterId, Config());
+    colors[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
   const auto ghostSize = meshReader.linearGhostlayer().size();
@@ -146,7 +152,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     const auto& element =
         meshReader.getGhostlayerMetadata().at(linearGhost.rank)[linearGhost.inRankIndices[0]];
     const auto halo = HaloType::Ghost;
-    colorsGhost[i] = colorMap.color(halo, element.clusterId, Config());
+    colorsGhost[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
   const auto needsIntegration =
@@ -212,7 +218,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       const auto dup = addToBackmap(cell, i);
 
       zeroLayer[i].meshId = cell;
-      zeroLayer[i].configId = layer.getIdentifier().config.index();
+      zeroLayer[i].configId = layer.getIdentifier().config;
       zeroLayer[i].clusterId = layer.getIdentifier().lts;
       zeroLayer[i].duplicate = dup;
       zeroLayer[i].halo = layer.getIdentifier().halo;
@@ -266,7 +272,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
             }();
 
             secondaryCellInformation[index].faceNeighbors[face] = neighbor;
-            cellInformation[index].neighborConfigIds[face] = 0;
+            cellInformation[index].neighborConfigIds[face] =
+                ltsStorage.layer(neighbor.color).getIdentifier().config;
           } else {
             secondaryCellInformation[index].faceNeighbors[face] = StoragePosition::NullPosition;
             cellInformation[index].neighborConfigIds[face] =
@@ -298,7 +305,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           secondaryCellInformation[i].faceNeighbors[face] = neighbor;
 
           secondaryCellInformation[i].neighborRanks[face] = rank;
-          cellInformation[i].neighborConfigIds[face] = neighbor.color;
+          cellInformation[i].neighborConfigIds[face] =
+              ltsStorage.layer(neighbor.color).getIdentifier().config;
           cellInformation[i].faceTypes[face] =
               elementNeighbor.boundaries[boundaryElement.localSide];
           cellInformation[i].faceRelations[face][0] = boundaryElement.localSide;
@@ -317,16 +325,20 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   internal::deriveLtsSetups(meshLayout, ltsStorage);
 
   if (seissolParams.model.plasticity) {
-    // remove disabled plasticity groups from the list
+    // remove disabled plasticity groups from the list, and the cells of a material without the
+    // stresses of a solid, where nothing yields
     const auto& pdis = seissolParams.model.plasticityDisabledGroups;
     for (auto& layer : ltsStorage.leaves(Ghost)) {
       const std::size_t size = layer.size();
       auto* cellInfo = layer.var<LTS::CellInformation>();
       const auto* cellInfo2 = layer.var<LTS::SecondaryInformation>();
+      const bool supported = dispatchConfig(layer.getIdentifier().config, [](auto config) {
+        return model::MaterialOf<decltype(config)>::SupportsPlasticity;
+      });
 
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < size; ++i) {
-        cellInfo[i].plasticityEnabled = pdis.find(cellInfo2[i].group) == pdis.end();
+        cellInfo[i].plasticityEnabled = supported && pdis.find(cellInfo2[i].group) == pdis.end();
       }
     }
   }

@@ -15,7 +15,7 @@
 
 #if defined(ACL_DEVICE) && defined(USE_SHMEM)
 
-#include "Kernels/Precision.h"
+#include "Common/Real.h"
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 

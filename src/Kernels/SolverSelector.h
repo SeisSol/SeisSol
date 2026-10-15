@@ -15,26 +15,30 @@
 
 namespace seissol::kernels {
 
-/// Maps the configured solver onto its implementation. Which solvers a
+/// Maps the solver of a configuration onto its implementation. Which solvers a
 /// material may be built with is checked when the build is configured; nothing
 /// here restricts the choice.
-template <SolverType Solver>
+template <SolverType Solver, typename Cfg>
 struct SolverSelector;
 
-template <>
-struct SolverSelector<SolverType::LinearCK> {
-  using Type = solver::linearck::Solver;
+template <typename Cfg>
+struct SolverSelector<SolverType::LinearCK, Cfg> {
+  using Type = solver::linearck::Solver<Cfg>;
 };
 
-template <>
-struct SolverSelector<SolverType::LinearCKAnelastic> {
-  using Type = solver::linearckanelastic::Solver;
+template <typename Cfg>
+struct SolverSelector<SolverType::LinearCKAnelastic, Cfg> {
+  using Type = solver::linearckanelastic::Solver<Cfg>;
 };
 
-template <>
-struct SolverSelector<SolverType::STP> {
-  using Type = solver::stp::Solver;
+template <typename Cfg>
+struct SolverSelector<SolverType::STP, Cfg> {
+  using Type = solver::stp::Solver<Cfg>;
 };
+
+/// The solver a configuration advances its cells with.
+template <typename Cfg>
+using SolverOf = typename SolverSelector<Cfg::Solver, Cfg>::Type;
 
 } // namespace seissol::kernels
 

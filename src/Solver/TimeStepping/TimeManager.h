@@ -48,10 +48,10 @@ class TimeManager {
   std::optional<initializer::ClusterLayout> clusterLayout_;
 
   //! the clusters of the local (copy & interior) cells
-  std::vector<std::unique_ptr<CellCluster>> cellClusters_;
+  std::vector<std::unique_ptr<CellClusterInterface>> cellClusters_;
 
   //! the clusters of the local (copy & interior) dynamic rupture faces
-  std::vector<std::unique_ptr<DynamicRuptureCluster>> faceClusters_;
+  std::vector<std::unique_ptr<DynamicRuptureClusterInterface>> faceClusters_;
 
   //! all cell and face clusters, i.e. all clusters under control of this time manager that do
   //! local work; ordered by rate

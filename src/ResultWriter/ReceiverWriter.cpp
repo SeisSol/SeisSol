@@ -9,6 +9,7 @@
 
 #include "ReceiverWriter.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "IO/Datatype/Inference.h"
@@ -18,15 +19,12 @@
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Modules/Modules.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
 #include <cassert>
@@ -36,6 +34,7 @@
 #include <fstream>
 #include <iomanip>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <mpi.h>
 #include <numeric>
@@ -90,6 +89,20 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
   return points;
 }
 
+namespace {
+// The columns of a row of a text file. With fused simulations, a sample takes a row per
+// simulation, which a column of its own names.
+std::vector<std::string> textColumns(const kernels::ReceiverCluster& cluster) {
+  std::vector<std::string> names{"Time"};
+  if (cluster.simulationCount() > 1) {
+    names.emplace_back("SimulationIndex");
+  }
+  const auto quantities = cluster.quantityNames();
+  names.insert(names.end(), quantities.begin(), quantities.end());
+  return names;
+}
+} // namespace
+
 std::string ReceiverWriter::fileName(std::size_t pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << fileNamePrefix_ << "-receiver-" << std::setw(5) << (pointId + 1);
@@ -97,32 +110,10 @@ std::string ReceiverWriter::fileName(std::size_t pointId) const {
   return fns.str();
 }
 
-std::vector<std::string> ReceiverWriter::variableNames() const {
-  std::vector<std::string> fullNames;
-  fullNames.emplace_back("Time");
-
-  std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(),
-                                 seissol::model::MaterialT::Quantities.end());
-  for (const auto& derived : derivedQuantities_) {
-    auto derivedNames = derived->quantities();
-    names.insert(names.end(), derivedNames.begin(), derivedNames.end());
-  }
-
-  for (auto sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd; ++sim) {
-    for (const auto& name : names) {
-      if constexpr (seissol::multisim::MultisimEnabled) {
-        fullNames.push_back(name + std::to_string(sim));
-      } else {
-        fullNames.push_back(name);
-      }
-    }
-  }
-  return fullNames;
-}
-
 void ReceiverWriter::writeHeader(std::size_t pointId,
                                  const Eigen::Vector3d& point,
-                                 std::size_t globalId) {
+                                 std::size_t globalId,
+                                 const std::vector<std::string>& names) {
   auto name = fileName(pointId);
 
   /// \todo Find a nicer solution that is not so hard-coded.
@@ -135,7 +126,6 @@ void ReceiverWriter::writeHeader(std::size_t pointId,
          << (pointId + 1) << "\"" << '\n';
     file << "VARIABLES = ";
 
-    auto names = variableNames();
     for (size_t i = 0; i < names.size(); ++i) {
       if (i > 0) {
         file << ",";
@@ -179,8 +169,7 @@ void ReceiverWriter::init(
 }
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
-                               const LTS::Backmap& backmap,
-                               const CompoundGlobalData& global) {
+                               const LTS::Backmap& backmap) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
   if (!receiverFileName_.empty()) {
@@ -193,10 +182,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
   const auto numberOfPoints = points.size();
   std::vector<std::size_t> meshIds(numberOfPoints);
-
-  // We want to plot all quantities except for the memory variables
-  std::vector<std::size_t> quantities(seissol::model::MaterialT::Quantities.size());
-  std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo() << "Finding meshIds for receivers...";
   const auto contained =
@@ -229,6 +214,24 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   logInfo() << "Mapping receivers to LTS cells...";
   receiverClusters_.clear();
 
+  // the receivers of a layer are evaluated in the configuration of the layer
+  auto& memoryManager = seissolInstance_.memoryManager();
+  const auto makeCluster = [&](std::size_t layerId) {
+    const auto config = memoryManager.ltsStorage().layer(layerId).getIdentifier().config;
+    return dispatchConfig(config, [&](auto cfg) -> std::shared_ptr<kernels::ReceiverCluster> {
+      using Cfg = decltype(cfg);
+      // We want to plot all quantities except for the memory variables
+      std::vector<std::size_t> quantities(seissol::model::MaterialOf<Cfg>::Quantities.size());
+      std::iota(quantities.begin(), quantities.end(), 0);
+      return std::make_shared<kernels::ReceiverClusterImpl<Cfg>>(memoryManager.globalData<Cfg>(),
+                                                                 quantities,
+                                                                 samplingInterval_,
+                                                                 syncInterval(),
+                                                                 derivedQuantities_,
+                                                                 seissolInstance_);
+    });
+  };
+
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point]) {
       const std::size_t meshId = meshIds[point];
@@ -236,17 +239,14 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
       // Make sure that needed empty clusters are initialized.
       for (std::size_t c = receiverClusters_.size(); c <= id; ++c) {
-        receiverClusters_.emplace_back(
-            std::make_shared<kernels::ReceiverCluster>(global,
-                                                       quantities,
-                                                       samplingInterval_,
-                                                       syncInterval(),
-                                                       derivedQuantities_,
-                                                       seissolInstance_));
+        receiverClusters_.emplace_back(makeCluster(c));
       }
 
       if (format_ == seissol::initializer::parameters::ReceiverOutputFormat::Csv) {
-        writeHeader(point, points[point], mesh.getElements()[meshId].globalId);
+        writeHeader(point,
+                    points[point],
+                    mesh.getElements()[meshId].globalId,
+                    textColumns(*receiverClusters_[id]));
       }
 
       receiverClusters_[id]->addReceiver(meshId, point, points[point], mesh, backmap);
@@ -254,32 +254,38 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 
   if (format_ == seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
-    // What a receiver records follows from the material of the element it sits in, so the table
-    // is told for every one of them and gathers those that agree into a table of their own.
-    const auto names = variableNames();
-    std::vector<io::instance::point::TableQuantity> quantitySet;
-    quantitySet.reserve(names.size());
-    for (const auto& name : names) {
+    // A row of the table is one receiver of one simulation, as on the fault, so what a sample
+    // records is the time and the quantities of that simulation. What a receiver records follows
+    // from the material of the element it sits in, so the table is told for every row and gathers
+    // those that agree into a table of their own.
+    std::vector<std::vector<io::instance::point::TableQuantity>> pointQuantities;
+    // which receiver of the file and which simulation a row belongs to, and where it sits
+    std::vector<std::uint64_t> pointIds;
+    std::vector<std::uint64_t> simulations;
+    std::vector<double> coordinates;
+    for (const auto& entry : orderedReceivers()) {
+      std::vector<io::instance::point::TableQuantity> quantitySet;
       quantitySet.push_back(
-          io::instance::point::TableQuantity{name, io::datatype::inferDatatype<real>()});
+          io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<double>()});
+      for (const auto& name : entry.cluster->quantityNames()) {
+        quantitySet.push_back(
+            io::instance::point::TableQuantity{name, io::datatype::inferDatatype<double>()});
+      }
+      for (std::size_t simulation = 0; simulation < entry.cluster->simulationCount();
+           ++simulation) {
+        pointQuantities.push_back(quantitySet);
+        pointIds.push_back(static_cast<std::uint64_t>(entry.receiver->pointId));
+        simulations.push_back(static_cast<std::uint64_t>(simulation));
+        for (int dimension = 0; dimension < 3; ++dimension) {
+          coordinates.push_back(entry.receiver->position[dimension]);
+        }
+      }
     }
-
-    const std::vector<std::vector<io::instance::point::TableQuantity>> pointQuantities(
-        orderedReceivers().size(), quantitySet);
 
     table_ = std::make_unique<io::instance::point::Hdf5Table>(
         "receivers", pointQuantities, seissol::Mpi::mpi.comm(), sampleChunk_);
-
-    // which receiver of the file a row belongs to, and where it sits
-    std::vector<std::uint64_t> pointIds;
-    std::vector<double> coordinates;
-    for (const auto& entry : orderedReceivers()) {
-      pointIds.push_back(static_cast<std::uint64_t>(entry.receiver->pointId));
-      for (int dimension = 0; dimension < 3; ++dimension) {
-        coordinates.push_back(entry.receiver->position[dimension]);
-      }
-    }
     table_->addPointData("PointId", {}, pointIds);
+    table_->addPointData("SimulationIndex", {}, simulations);
     table_->addPointData("Coordinates", {3}, coordinates);
 
     io::writer::ScheduledWriter scheduled;
@@ -301,7 +307,7 @@ std::vector<ReceiverWriter::OrderedReceiver> ReceiverWriter::orderedReceivers() 
   std::vector<OrderedReceiver> receivers;
   for (auto& cluster : receiverClusters_) {
     for (auto& receiver : *cluster) {
-      receivers.push_back(OrderedReceiver{&receiver, cluster->ncols()});
+      receivers.push_back(OrderedReceiver{&receiver, cluster.get(), cluster->ncols()});
     }
   }
   // the rows of a rank are its receivers in the order of the file they were read from, which is
@@ -320,13 +326,24 @@ void ReceiverWriter::collectSamples() {
   const auto receivers = orderedReceivers();
   const auto& grouping = table_->grouping();
 
+  // the row of the first simulation of every receiver; those of the others follow it
+  std::vector<std::size_t> firstRow(receivers.size());
+  std::size_t rows = 0;
+  for (std::size_t i = 0; i < receivers.size(); ++i) {
+    firstRow[i] = rows;
+    rows += receivers[i].cluster->simulationCount();
+  }
+
   // How far a table grows is the same on every rank, so the sample count is agreed on rather than
   // taken from what this rank happens to hold -- a rank without receivers holds none at all.
   std::vector<std::size_t> samples(grouping.groupCount(), 0);
   for (std::size_t i = 0; i < receivers.size(); ++i) {
-    const auto group = grouping.group[i];
-    samples[group] =
-        std::max(samples[group], receivers[i].receiver->output.size() / receivers[i].columns);
+    const auto held = receivers[i].receiver->output.size() / receivers[i].columns;
+    for (std::size_t simulation = 0; simulation < receivers[i].cluster->simulationCount();
+         ++simulation) {
+      const auto group = grouping.group[firstRow[i] + simulation];
+      samples[group] = std::max(samples[group], held);
+    }
   }
   if (!samples.empty()) {
     MPI_Allreduce(MPI_IN_PLACE,
@@ -337,24 +354,35 @@ void ReceiverWriter::collectSamples() {
                   seissol::Mpi::mpi.comm());
   }
 
-  std::vector<char*> storage(grouping.groupCount(), nullptr);
+  std::vector<double*> storage(grouping.groupCount(), nullptr);
   for (std::size_t group = 0; group < grouping.groupCount(); ++group) {
-    storage[group] = table_->prepare(group, samples[group]);
+    storage[group] = reinterpret_cast<double*>(table_->prepare(group, samples[group]));
+    // A receiver with fewer samples than the longest one of its table leaves the rest of its
+    // column unset, and a zero there is a value a reader cannot tell from a measurement.
+    const auto values = samples[group] * table_->localPointCount(group) *
+                        table_->sampleSize(group) / sizeof(double);
+    std::fill_n(storage[group], values, std::numeric_limits<double>::quiet_NaN());
   }
 
   for (std::size_t i = 0; i < receivers.size(); ++i) {
     auto& receiver = *receivers[i].receiver;
     const auto columns = receivers[i].columns;
-    const auto group = grouping.group[i];
-    const auto row = table_->localRow(i);
-    const auto points = table_->localPointCount(group);
     const auto held = receiver.output.size() / columns;
+    const auto simulations = receivers[i].cluster->simulationCount();
+    // a sample holds the time, then the quantities of one simulation after the other
+    const auto quantities = (columns - 1) / simulations;
 
-    // a receiver with fewer samples than the longest one of its table leaves the rest of its
-    // column as prepare left it
-    for (std::size_t sample = 0; sample < std::min(held, samples[group]); ++sample) {
-      auto* target = reinterpret_cast<real*>(storage[group]) + (sample * points + row) * columns;
-      std::copy_n(receiver.output.data() + sample * columns, columns, target);
+    for (std::size_t simulation = 0; simulation < simulations; ++simulation) {
+      const auto point = firstRow[i] + simulation;
+      const auto group = grouping.group[point];
+      const auto row = table_->localRow(point);
+      const auto points = table_->localPointCount(group);
+      for (std::size_t sample = 0; sample < std::min(held, samples[group]); ++sample) {
+        const auto* source = receiver.output.data() + sample * columns;
+        auto* target = storage[group] + (sample * points + row) * (1 + quantities);
+        target[0] = source[0];
+        std::copy_n(source + 1 + simulation * quantities, quantities, target + 1);
+      }
     }
     receiver.output.clear();
   }
@@ -373,6 +401,9 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   for (auto& cluster : receiverClusters_) {
     cluster->waitForSamples();
     const auto ncols = cluster->ncols();
+    const auto simulations = cluster->simulationCount();
+    // a sample holds the time, then the quantities of one simulation after the other
+    const auto quantities = (ncols - 1) / simulations;
     for (auto& receiver : *cluster) {
       assert(receiver.output.size() % ncols == 0);
       const std::size_t nSamples = receiver.output.size() / ncols;
@@ -381,10 +412,18 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
       file.open(fileName(receiver.pointId), std::ios::app);
       file << std::scientific << std::setprecision(15);
       for (std::size_t i = 0; i < nSamples; ++i) {
-        for (std::size_t q = 0; q < ncols; ++q) {
-          file << "  " << receiver.output[q + i * ncols];
+        const auto* sample = receiver.output.data() + i * ncols;
+        // with fused simulations, a row per simulation, which the second column names
+        for (std::size_t simulation = 0; simulation < simulations; ++simulation) {
+          file << "  " << sample[0];
+          if (simulations > 1) {
+            file << "  " << simulation;
+          }
+          for (std::size_t q = 0; q < quantities; ++q) {
+            file << "  " << sample[1 + simulation * quantities + q];
+          }
+          file << '\n';
         }
-        file << '\n';
       }
       file.close();
       receiver.output.clear();

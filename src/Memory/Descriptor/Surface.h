@@ -10,6 +10,9 @@
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_SURFACE_H_
 
 #include "Alignment.h"
+#include "Common/Real.h"
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/Boundary.h"
 #include "Memory/Tree/LTSTree.h"
@@ -17,20 +20,23 @@
 namespace seissol {
 
 struct SurfaceLTS {
-  using FaceDisplacementType = real[tensor::faceDisplacement::size()];
+  // held in the reals and the layout of the configuration of the layer
+  template <typename Cfg>
+  using FaceDisplacementArray = Real<Cfg>[tensor::faceDisplacement<Cfg>::size()];
 
   struct Side : public seissol::initializer::Variable<std::uint8_t> {};
   struct MeshId : public seissol::initializer::Variable<std::size_t> {};
   struct LocationFlag : public seissol::initializer::Variable<std::uint8_t> {};
 
-  struct DisplacementDofs : public seissol::initializer::Variable<FaceDisplacementType> {};
+  struct DisplacementDofs : public seissol::initializer::VariantVariable<FaceDisplacementArray> {};
 
   struct SurfaceVarmap
       : public initializer::SpecificVarmap<Side, MeshId, LocationFlag, DisplacementDofs> {};
 
   using Storage = initializer::Storage<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
-  using Ref = initializer::Layer<SurfaceVarmap>::CellRef;
+  template <typename Cfg>
+  using Ref = initializer::Layer<SurfaceVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<1>;
 
   static void addTo(Storage& storage) {

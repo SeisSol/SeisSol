@@ -19,6 +19,7 @@
 #include <mpi.h>
 #include <string>
 #include <unordered_map>
+#include <utils/logger.h>
 
 namespace seissol::io::writer::file {
 
@@ -48,6 +49,14 @@ void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   MPI_Comm_rank(comm_, &rank);
   if (rank == 0) {
     MPI_File_write(file_, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
+  }
+  MPI_Barrier(comm_);
+}
+void BinaryFile::writeGlobalAt(const void* data, std::size_t size, std::size_t offset) {
+  int rank = 0;
+  MPI_Comm_rank(comm_, &rank);
+  if (rank == 0) {
+    MPI_File_write_at(file_, offset, data, size, MPI_BYTE, MPI_STATUS_IGNORE);
   }
   MPI_Barrier(comm_);
 }
@@ -93,7 +102,13 @@ void BinaryWriter::write(const async::ExecInfo& info, const instructions::Binary
     openFiles_[write.filename]->align(write.alignment);
   }
 
-  if (write.dataSource->distributed()) {
+  if (write.offset.has_value()) {
+    if (write.dataSource->distributed()) {
+      logError() << "Binary writer error: distributed data cannot be written to an offset in"
+                 << write.filename;
+    }
+    openFiles_[write.filename]->writeGlobalAt(dataPointer, dataSize, write.offset.value());
+  } else if (write.dataSource->distributed()) {
     openFiles_[write.filename]->writeDistributed(dataPointer, dataSize);
   } else {
     openFiles_[write.filename]->writeGlobal(dataPointer, dataSize);

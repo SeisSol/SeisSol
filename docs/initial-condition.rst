@@ -45,7 +45,7 @@ The parameter ``hastime`` indicates that the easi file has ``t`` as a time input
 This way, the easi boundary condition can be used for comparing against after time has passed (e.g. for convergence tests).
 However, it requires easi 1.5.0 or higher to function correctly.
 
-As a caveat, the Easi initial condition currently does not support the analytical boundary condition.
+As a caveat, the Easi initial condition does not support the analytical boundary condition; SeisSol stops during the initialization if the mesh has analytical faces.
 
 Hard-Coded Initial Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -71,17 +71,16 @@ Planar wave (``Planarwave``)
 
 A planar wave for convergence tests.
 The inital values are computed such that a planar wave in a unit cube is imposed.
+Its wave vector :math:`k` is :math:`(\pi, \pi, \pi)`, unless ``kVec`` in the ``IniCondition`` section sets another one, as described for the travelling wave below.
+Along every axis with :math:`k_i \neq 0`, the mesh has to span a whole number of wavelengths :math:`2\pi / |k_i|`.
 For elastic, anisotropic and viscoelastic materials, we impose a P and an S wave travelling in opposite directions.
 For poroelastic materials, we impose a slow P and an S wave travelling in one direction and a fast P wave travelling in opposite direction.
+For acoustic and viscoacoustic materials, we impose a P wave.
 This scenario needs periodic boundary conditions to make sense.
-This is the only case where the old netcdf mesh format is prefered.
 After the simulation is finished the errors between the analytic solution and the numerical one are plotted in the :math:`L^1`-,  :math:`L^2`- and :math:`L^\infty`-norm.
 
-You can use the ``cubegenerator`` mesh type to make SeisSol generate meshes for
-convergence tests.
-
-Alternatively, use ``cube_c`` to do so:
-https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing/cube_c
+SeisSol does not generate such meshes itself (the ``cubegenerator`` mesh format is currently disabled).
+Generate a periodic mesh in the PUML format instead; :doc:`puml-mesh-format` describes how to give the periodic connectivity.
 
 Superimposed planar wave (``SuperimposedPlanarwave``)
 -----------------------------------------------------
@@ -113,44 +112,70 @@ The Travelling wave can be configured in the parameter file (in the ``IniConditi
   The entries of :math:`k` are ``-P -S -S N N N +S +S +P``.
   In this example, we impose a P wave travelling in the opposite direction as :math:`k` with relative amplitude :math:`2` and an S wave travelling towards the same direction as :math:`k` with relative amplitude :math:`1`.
 
+The travelling wave is not available for viscoelastic and viscoacoustic materials.
+
+Acoustic travelling wave with ITM (``AcousticTravellingwithITM``)
+-----------------------------------------------------------------
+
+An acoustic plane wave travelling in x-direction, with the wave number ``k`` given in the ``IniCondition`` section.
+With ``ITMEnable = 1``, it switches at the times of the instantaneous time mirror (ITM) configured by the ``ITM*`` parameters in the ``equations`` section,
+keeping the pressure continuous and scaling the velocity by ``ITMVelocityScalingFactor``, independent of ``ITMReflectionType``;
+this has not been validated against the ITM that SeisSol computes, which changes the material instead.
+With ``ITMEnable = 0``, the ITM parameters are ignored and the wave is a plain travelling wave.
+It needs a fluid: the elastic equations with :math:`\mu = 0`, or the acoustic equations.
+The acoustic equations do not support the mirror itself (SeisSol rejects ``ITMEnable = 1`` there), so use ``ITMEnable = 0`` with them.
+
 Scholte (``Scholte``)
 ---------------------
 
-A Scholte wave to test elastic-acoustic coupling
+A Scholte wave to test elastic-acoustic coupling.
+It needs a solid next to a fluid, i.e. the elastic equations with an acoustic (:math:`\mu = 0`) region; other equations reject it.
 
 Snell (``Snell``)
 -----------------
 
-Snells law to test elastic-acoustic coupling
+Snells law to test elastic-acoustic coupling.
+It needs a solid next to a fluid, i.e. the elastic equations with an acoustic (:math:`\mu = 0`) region; other equations reject it.
 
-Ocean (``Ocean``)
------------------
+Ocean (``Ocean_0``, ``Ocean_1``, ``Ocean_2``)
+---------------------------------------------
 
-An uncoupled ocean test case for acoustic equations
+An uncoupled ocean test case for acoustic equations, in one of three modes; ``Ocean_0`` is the gravity mode.
+It needs a fluid: the elastic equations with :math:`\mu = 0`, or the acoustic equations.
+
+Pressure injection (``PressureInjection``)
+------------------------------------------
+
+A Gaussian perturbation of the fluid pressure, :math:`p = m \exp(-w \|x - x_0\|^2)`, for poroelastic materials only.
+It is configured by ``origin`` (:math:`x_0`), ``magnitude`` (:math:`m`) and ``width`` (:math:`w`) in the ``IniCondition`` section.
 
 How to implement a new hard-coded initial condition?
 ----------------------------------------------------
 
 Alternatively, you can implement a new initial condition in the code itself.
 
-For that, extend the class
+For that, derive a class from
 
 .. code-block:: c
 
-  seissol::physics::Initalfield
+  seissol::physics::InitialFieldOf<YourField>
 
 and implement the method
 
 .. code-block:: c
 
-  void evaluate(  double time,
+  template <typename RealT>
+  void evaluateIn(double time,
                   const std::array<double, 3>* points,
                   std::size_t count,
                   const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
 
 Here :code:`dofsQP(i,j)` is the value of the :math:`j^\text{th}` quantity at the :code:`points[i]`.
+The quantities are those of the configuration the cells compute in; e.g. the velocity starts at the
+``velocityOffset`` of its ``configLayout``.
 
-Furthermore, you will also need to add the new initial condition to the paraemter file parser
-in ``src/Initializer/Parameters/InitializationParameters.cpp`` and the initial condition initialization
-under ``src/Initializer/InitProcedure/InitSideConditions.cpp`` as well.
+Furthermore, you will also need to add the new initial condition to the parameter file parser
+in ``src/Initializer/Parameters/InitializationParameters.cpp``, and register it in
+``src/Physics/Scenario/Registry.cpp``, with the materials it is meaningful for; SeisSol rejects it
+for all others.

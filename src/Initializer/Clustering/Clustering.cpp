@@ -7,6 +7,8 @@
 
 #include "Initializer/Clustering/Clustering.h"
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
 #include "Geometry/PUMLReader.h"
@@ -25,6 +27,7 @@
 
 #include <PUML/Downward.h>
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -40,17 +43,23 @@ Clustering::Clustering(const ClusteringConfig& config, seissol::SeisSol& seissol
       vertexWeightElement_(config.vertexWeightElement),
       vertexWeightDynamicRupture_(config.vertexWeightDynamicRupture),
       vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
-      boundaryFormat_(config.boundaryFormat), faceMap_(config.faceMap) {}
+      boundaryFormat_(config.boundaryFormat), faceMap_(config.faceMap),
+      configCostFactors_(config.configCostFactors) {}
 
 const ClusteringResult&
     Clustering::compute(const seissol::geometry::PumlMesh& meshTopology,
                         const seissol::geometry::PumlMesh& meshGeometry,
                         const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
   bool continueComputation = true;
-  if (!model::MaterialT::SupportsLTS) {
-    logInfo() << "The material" << model::MaterialT::Text
-              << "does not support LTS. Switching to GTS.";
-    continueComputation = false;
+  // the materials of all configurations of the run
+  for (const auto config : seissolInstance_.parameters().model.configs()) {
+    dispatchConfig(config, [&](auto cfg) {
+      using MaterialT = model::MaterialOf<decltype(cfg)>;
+      if (!MaterialT::SupportsLTS) {
+        logInfo() << "The material" << MaterialT::Text << "does not support LTS. Switching to GTS.";
+        continueComputation = false;
+      }
+    });
   }
   if (rate_.empty() || (rate_.size() == 1 && rate_[0] == 1)) {
     logInfo() << "GTS has been selected.";
@@ -162,7 +171,17 @@ std::vector<std::uint64_t>
     Clustering::computeCostsPerTimestep(const seissol::geometry::PumlMesh& mesh) const {
   const auto& cells = mesh.cells();
 
+  // the weight of a cell of each configuration
+  std::vector<std::uint64_t> elementWeights(builtConfigCount(), vertexWeightElement_);
+  for (std::size_t config = 0; config < configCostFactors_.size(); ++config) {
+    const auto weight =
+        std::llround(static_cast<double>(vertexWeightElement_) * configCostFactors_[config]);
+    elementWeights[config] = static_cast<std::uint64_t>(std::max<long long>(1, weight));
+  }
+
+  const auto& modelParameters = seissolInstance_.parameters().model;
   std::vector<std::uint64_t> cellCosts(cells.size());
+  const auto* group = static_cast<const int*>(mesh.cellData(0));
   const void* boundaryCond = mesh.cellData(1);
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     std::uint64_t dynamicRupture = 0;
@@ -179,7 +198,8 @@ std::vector<std::uint64_t>
 
     const auto costDynamicRupture = vertexWeightDynamicRupture_ * dynamicRupture;
     const auto costDisplacement = vertexWeightFreeSurfaceWithGravity_ * freeSurfaceWithGravity;
-    cellCosts[cell] = vertexWeightElement_ + costDynamicRupture + costDisplacement;
+    const auto costElement = elementWeights[modelParameters.configOfGroup(group[cell])];
+    cellCosts[cell] = costElement + costDynamicRupture + costDisplacement;
   }
   return cellCosts;
 }

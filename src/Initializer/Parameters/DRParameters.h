@@ -8,14 +8,17 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
+#include "Common/ConfigRegistry.h"
 #include "DynamicRupture/Typedefs.h"
 #include "ParameterReader.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
+#include <array>
 #include <cstdint>
 #include <numeric>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -61,7 +64,8 @@ struct DRParameters {
   double vStar{0.0}; // Prakash-Clifton regularization parameter
   double prakashLength{0.0};
   std::string faultFileName;
-  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
+  // per fused simulation of the configuration of the run
+  std::vector<std::optional<std::string>> faultFileNames;
   Eigen::Vector3d referencePoint;
   double terminatorSlipRateThreshold{0.0};
   double etaDamp{1.0};
@@ -73,7 +77,7 @@ struct DRParameters {
   double rsStateTolerance{1e-8};
 };
 
-DRParameters readDRParameters(ParameterReader* baseReader);
+DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config);
 
 } // namespace seissol::initializer::parameters
 

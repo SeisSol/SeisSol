@@ -9,6 +9,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+from kernels.common import cold_kernel_attrs
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
@@ -363,7 +364,9 @@ class ADERDGBase(ABC):
             * (self.QgodLocal["kq"] * self.starMatrix(0)["ql"] + self.QcorrLocal["kl"])
             * self.T["jl"]
         )
-        generator.add("computeFluxSolverLocal", computeFluxSolverLocal)
+        generator.add(
+            "computeFluxSolverLocal", computeFluxSolverLocal, attrs=cold_kernel_attrs()
+        )
 
         computeFluxSolverNeighbor = (
             self.AminusT["ij"]
@@ -375,7 +378,11 @@ class ADERDGBase(ABC):
             )
             * self.T["jl"]
         )
-        generator.add("computeFluxSolverNeighbor", computeFluxSolverNeighbor)
+        generator.add(
+            "computeFluxSolverNeighbor",
+            computeFluxSolverNeighbor,
+            attrs=cold_kernel_attrs(),
+        )
 
         stiffnessTensor = Tensor("stiffnessTensor", (3, 3, 3, 3))
         direction = Tensor("direction", (3,))
@@ -416,6 +423,7 @@ class ADERDGBase(ABC):
         generator.add(
             "momentQCompute",
             momentQ["IJ"] <= self.db.M3["Ij"].subselect("I", 0) * self.Q["jJ"],
+            attrs=cold_kernel_attrs(),
         )
 
         # The fused-simulation index 's' occurs in the result and in both Q
@@ -431,6 +439,7 @@ class ADERDGBase(ABC):
         generator.add(
             "momentQQCompute",
             momentQQ["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"],
+            attrs=cold_kernel_attrs(),
         )
 
     @abstractmethod

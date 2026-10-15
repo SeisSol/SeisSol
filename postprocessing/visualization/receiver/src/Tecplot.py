@@ -42,12 +42,15 @@ import Waveform
 import re
 
 def read(fileName):
+  """Reads a text receiver file, as a list of waveforms, one per simulation."""
   data = []
   coordinates = [float('nan')] * 3
   coordComment = re.compile(r'#\s*x(\d)\s+([0-9\.eE\+\-]+)')
-  offsetPattern = re.compile(r'#\s*(P_0|T_s|T_d)(\d+)\s+([0-9\.eE\+\-]+)')
+  # "P_0 <value> <value> ...": a value per simulation. Files of a fused run of an older
+  # version have a line per simulation instead, counted from one, e.g. "P_03 <value>".
+  stressComment = re.compile(r'#\s*(P_0|T_s|T_d)(\d*)\s+(.*)$')
 
-  offsets = {}  # e.g., {('P_0', 0): value, ('T_s', 1): value, ...}
+  stresses = {}  # e.g. {('P_0', 0): value, ('T_s', 1): value, ...}
   variables = []
 
   with open(fileName) as f:
@@ -62,15 +65,18 @@ def read(fileName):
         match_coord = coordComment.match(row)
         if match_coord:
           coordinates[int(match_coord.group(1))-1] = float(match_coord.group(2))
-        else:
-          match_offset = offsetPattern.match(row)
-          if match_offset:
-            key = match_offset.group(1)
-            idx = int(match_offset.group(2))
-            val = float(match_offset.group(3))
-            offsets[(key, idx)] = val
+          continue
+        match_stress = stressComment.match(row)
+        if match_stress:
+          key, number, values = match_stress.groups()
+          values = [float(x) for x in values.split()]
+          if number:
+            stresses[(key, int(number) - 1)] = values[0]
+          else:
+            for simulation, value in enumerate(values):
+              stresses[(key, simulation)] = value
       elif row.startswith('VARIABLES'):
-        var_line = row.split('=')[1]
+        var_line = row.split('=', 1)[1]
         variables = [v.strip().strip('"') for v in var_line.split(',')]
 
   if not data:
@@ -83,15 +89,9 @@ def read(fileName):
   elif len(variables) > n_cols:
     variables = variables[:n_cols]
 
-  # Apply offsets based on variable suffix
-  for i, var in enumerate(variables):
-    for key in ['P_0', 'T_s', 'T_d']:
-      if var.startswith(key):
-        suffix = var[len(key):]
-        if suffix.isdigit():
-          sim_idx = int(suffix)
-          if (key, sim_idx) in offsets:
-            for row in data:
-              row[i] += offsets[(key, sim_idx)]
-
-  return Waveform.Waveform(variables, data, coordinates)
+  waveforms = []
+  for simulation, (names, values) in Waveform.splitSimulations(variables, data).items():
+    index = 0 if simulation is None else simulation
+    Waveform.addInitialStress(names, values, { key: value for (key, sim), value in stresses.items() if sim == index })
+    waveforms.append(Waveform.Waveform(names, values, coordinates, simulation))
+  return waveforms

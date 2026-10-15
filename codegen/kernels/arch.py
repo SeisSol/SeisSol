@@ -16,6 +16,8 @@ a machine with 128-byte lines and 128-bit vectors has them eight apart. Both
 come from yateto, which derives them from the architecture name.
 """
 
+from kernels.output import write_if_changed
+
 
 def cacheline(arch):
     """Bytes a buffer should be aligned to on this target."""
@@ -57,5 +59,4 @@ def emit_header(arch, output_dir, override_alignment=0, override_vectorsize=0):
         "} // namespace seissol",
         "",
     ]
-    with open(os.path.join(output_dir, "alignment.h"), "w") as file:
-        file.write("\n".join(lines))
+    write_if_changed(os.path.join(output_dir, "alignment.h"), "\n".join(lines))

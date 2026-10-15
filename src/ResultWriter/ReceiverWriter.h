@@ -27,7 +27,6 @@
 #include <vector>
 
 namespace seissol {
-struct LocalIntegrationData;
 class SeisSol;
 } // namespace seissol
 
@@ -65,9 +64,7 @@ class ReceiverWriter : public seissol::Module {
    *        This setup is required for receiver recording; without it, no
    *        receiver traces are produced.
    */
-  void addPoints(const seissol::geometry::MeshReader& mesh,
-                 const LTS::Backmap& backmap,
-                 const CompoundGlobalData& global);
+  void addPoints(const seissol::geometry::MeshReader& mesh, const LTS::Backmap& backmap);
 
   /**
    * \brief Returns the ReceiverCluster for a given cluster ID.
@@ -87,12 +84,16 @@ class ReceiverWriter : public seissol::Module {
 
   private:
   [[nodiscard]] std::string fileName(std::size_t pointId) const;
-  [[nodiscard]] std::vector<std::string> variableNames() const;
-  void writeHeader(std::size_t pointId, const Eigen::Vector3d& point, std::size_t globalId);
+  void writeHeader(std::size_t pointId,
+                   const Eigen::Vector3d& point,
+                   std::size_t globalId,
+                   const std::vector<std::string>& names);
 
-  //! @brief A receiver together with the number of columns one of its samples takes.
+  //! @brief A receiver together with its cluster and the number of columns one of its samples
+  //! takes.
   struct OrderedReceiver {
     kernels::Receiver* receiver{nullptr};
+    kernels::ReceiverCluster* cluster{nullptr};
     std::size_t columns{0};
   };
 
@@ -115,7 +116,7 @@ class ReceiverWriter : public seissol::Module {
 
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> receiverClusters_;
 
-  /// One HDF5 table per quantity set, for the receivers this rank holds
+  /// One HDF5 table per quantity set, with a row per receiver this rank holds and simulation
   std::unique_ptr<io::instance::point::Hdf5Table> table_;
 
   /// How far a storage chunk of the table reaches along the sample axis

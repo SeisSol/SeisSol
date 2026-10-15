@@ -13,6 +13,11 @@ Environment variables
 
 SeisSol can be tuned with several environment variables.
 
+Configuration
+-------------
+
+An executable can hold several configurations (see ``EXTRA_CONFIGS`` in the build parameters). ``SEISSOL_CONFIGURATION`` chooses the one a run computes in, by its name, e.g. ``SEISSOL_CONFIGURATION=elastic-linearck-o4-f32-stroud``, for a parameter file that does not name one with ``Configuration`` in its ``equations`` section; a configuration named there takes precedence. Without either, a run takes the first configuration built. So a parameter file written for an executable of a single configuration runs unchanged in an executable of several. The proxy takes the configuration of ``SEISSOL_CONFIGURATION`` as well, unless ``--config`` gives one.
+
 Communication thread
 --------------------
 
@@ -30,6 +35,8 @@ thus estimating the performance of all nodes relative to each other. The number 
 
 As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer, especially when running only on a single node with multiple ranks.
 To disable it, set ``SEISSOL_MINISEISSOL=0``.
+
+In a run with several configurations (see :ref:`several_configurations`), a cell costs according to its configuration. With multiple ranks, Mini SeisSol then also times the time, local and neighbor kernels of each configuration of the run on every rank, and takes the median of the ranks for the cost of a cell of each configuration relative to one of the configuration of the run. The partitioning and the LTS clustering weight each cell with it. Without the measurement (on a single rank, or with ``SEISSOL_MINISEISSOL=0``), the relative cost comes from the hardware FLOPs of the kernels, weighted with the size of a real (4 bytes in single precision, 8 in double precision); that estimate sees nothing of the machine.
 
 Persistent MPI operations
 -------------------------
@@ -52,6 +59,12 @@ Output
   or ``vtkorder``) are merged into one. On by default; the merging happens
   within a rank, so points on a partition boundary stay duplicated. Also
   accepted under its previous name ``SEISSOL_VERTEXFILTER``.
+* ``SEISSOL_IO_META_BLOCK_SIZE``: the size, in bytes, of the blocks the metadata
+  of an HDF5 output file is gathered into. Unset, HDF5 keeps its own small
+  default. A large value, e.g. ``1048576`` as the previous writer had, keeps the
+  many small metadata writes of a file together on a parallel file system, but
+  every file then holds at least one such block in full, used or not -- most of
+  a file of a few receivers.
 
 Two further variables are, for historic reasons, named ``XDMFWRITER``; they are
 also accepted with a ``SEISSOL_IO_`` prefix, which is the name to use:

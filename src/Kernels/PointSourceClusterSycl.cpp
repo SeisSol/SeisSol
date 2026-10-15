@@ -5,8 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "Memory/MemoryAllocator.h"
+#include "Parallel/Runtime/Stream.h"
 #include "PointSourceCluster.h"
+#include "SourceTerm/Typedefs.h"
 
 #include <cstddef>
 #include <sycl/sycl.hpp>
@@ -21,8 +24,9 @@ constexpr auto PerBlock = Blocksize / SubBlock;
 
 namespace seissol::kernels {
 
+template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
-                       sourceterm::PointSources& sources,
+                       sourceterm::PointSources<Cfg>& sources,
                        double from,
                        double timeStepSize,
                        const double* clock,
@@ -52,23 +56,33 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
         if (block < elements) {
           const double start = clock == nullptr ? from : *clock;
           const double end = start + timeStepSize;
-          pointSourceKernelDevice<SubBlock>(thread,
-                                            block,
-                                            start,
-                                            end,
-                                            mappingPtr,
-                                            mInvJInvPhisAtSources,
-                                            simulationIndex,
-                                            tensor,
-                                            onsetTime,
-                                            samplingInterval,
-                                            sampleRange,
-                                            sampleOffsets,
-                                            sample);
+          pointSourceKernelDevice<Cfg, SubBlock>(thread,
+                                                 block,
+                                                 start,
+                                                 end,
+                                                 mappingPtr,
+                                                 mInvJInvPhisAtSources,
+                                                 simulationIndex,
+                                                 tensor,
+                                                 onsetTime,
+                                                 samplingInterval,
+                                                 sampleRange,
+                                                 sampleOffsets,
+                                                 sample);
         }
       });
     });
   }
 }
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void pointSourceKernel<Cfg>(sourceterm::ClusterMapping & clusterMapping,                \
+                                       sourceterm::PointSources<Cfg> & sources,                    \
+                                       double from,                                                \
+                                       double timeStepSize,                                        \
+                                       const double* clock,                                        \
+                                       seissol::parallel::runtime::StreamRuntime& runtime);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels

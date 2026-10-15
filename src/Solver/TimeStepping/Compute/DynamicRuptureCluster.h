@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_DYNAMICRUPTURECLUSTER_H_
 
 #include "Common/Executor.h"
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/Typedefs.h"
@@ -39,20 +40,33 @@ class SeisSol;
 namespace seissol::solver {
 
 /**
- * The dynamic rupture faces of one layer: the space-time interpolation of the adjacent cells, the
- * friction law, and the on-fault receiver output.
+ * What the time manager sees of a dynamic rupture cluster, whatever the configuration of its faces.
  */
-class DynamicRuptureCluster : public FaceCluster {
+class DynamicRuptureClusterInterface : public FaceCluster {
   public:
+  using FaceCluster::FaceCluster;
+
+  virtual void setFaultOutputManager(dr::output::OutputManager* outputManager) = 0;
+};
+
+/**
+ * The dynamic rupture faces of one layer, all of the configuration `Cfg`: the space-time
+ * interpolation of the adjacent cells, the friction law, and the on-fault receiver output.
+ */
+template <typename Cfg>
+class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
+  public:
+  using real = Real<Cfg>;
+
   DynamicRuptureCluster(double maxTimeStepSize,
                         long timeStepRate,
                         Executor executor,
                         unsigned int profilingId,
                         double outputTimestep,
-                        CompoundGlobalData globalData,
+                        CompoundGlobalData<Cfg> globalData,
                         DynamicRupture::Layer* layerData,
-                        dr::friction_law::FrictionSolver* frictionSolverTemplate,
-                        dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
+                        const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
+                        const dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
                         dr::output::OutputManager* faultOutputManager,
                         seissol::SeisSol& seissolInstance,
                         LoopStatistics* loopStatistics,
@@ -66,7 +80,7 @@ class DynamicRuptureCluster : public FaceCluster {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
-  void setFaultOutputManager(dr::output::OutputManager* outputManager) {
+  void setFaultOutputManager(dr::output::OutputManager* outputManager) override {
     faultOutputManager_ = outputManager;
   }
 
@@ -116,16 +130,16 @@ class DynamicRuptureCluster : public FaceCluster {
 
   //! the start of the current step, for the work on the stream
   ClusterClock clock_;
-  kernels::DynamicRupture dynamicRuptureKernel_;
+  kernels::DynamicRupture<Cfg> dynamicRuptureKernel_;
 
-  CompoundGlobalData globalData_;
+  CompoundGlobalData<Cfg> globalData_;
 #ifdef ACL_DEVICE
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 
   DynamicRupture::Layer* layerData_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver_;
-  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolver_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverDevice_;
   dr::output::OutputManager* faultOutputManager_;
 
   //! time interval of the on-fault receiver output

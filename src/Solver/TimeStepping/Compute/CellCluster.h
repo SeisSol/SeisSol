@@ -12,7 +12,9 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_CELLCLUSTER_H_
 
 #include "Common/Executor.h"
+#include "Common/Real.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/ConfigBoundary.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/Receiver.h"
@@ -45,10 +47,33 @@ class ReceiverCluster;
 namespace seissol::solver {
 
 /**
- * The cells of one layer, i.e. of one time cluster and halo type. They all advance with the time
- * step of their time cluster.
+ * What the time manager sees of a cell cluster, whatever the configuration of its cells.
  **/
-class CellCluster : public AbstractTimeCluster {
+class CellClusterInterface : public AbstractTimeCluster {
+  public:
+  using AbstractTimeCluster::AbstractTimeCluster;
+
+  /**
+   * Sets the the cluster's point sources
+   *
+   * @param sourceCluster Contains point sources for cluster
+   */
+  virtual void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) = 0;
+
+  virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
+
+  [[nodiscard]] virtual std::size_t layerId() const = 0;
+};
+
+/**
+ * The cells of one layer, i.e. of one time cluster and halo type, all of the configuration `Cfg`.
+ * They all advance with the time step of their time cluster.
+ **/
+template <typename Cfg>
+class CellCluster : public CellClusterInterface {
+  public:
+  using real = Real<Cfg>;
+
   private:
   SimulationSettings settings_;
 
@@ -56,15 +81,18 @@ class CellCluster : public AbstractTimeCluster {
   /*
    * integrators
    */
-  kernels::Spacetime spacetimeKernel_;
+  kernels::Spacetime<Cfg> spacetimeKernel_;
   //! time kernel
-  kernels::Time timeKernel_;
+  kernels::Time<Cfg> timeKernel_;
 
   //! local kernel
-  kernels::Local localKernel_;
+  kernels::Local<Cfg> localKernel_;
 
   //! neighbor kernel
-  kernels::Neighbor neighborKernel_;
+  kernels::Neighbor<Cfg> neighborKernel_;
+
+  //! the neighbors of the cells that compute in other configurations
+  kernels::ConfigBoundary<Cfg> configBoundary_;
 
   seissol::parallel::runtime::StreamRuntime streamRuntime_;
 
@@ -75,7 +103,7 @@ class CellCluster : public AbstractTimeCluster {
    * global data
    */
   //! global data structures
-  CompoundGlobalData globalData_;
+  CompoundGlobalData<Cfg> globalData_;
 #ifdef ACL_DEVICE
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
@@ -213,7 +241,7 @@ class CellCluster : public AbstractTimeCluster {
               double maxTimeStepSize,
               long timeStepRate,
               bool printProgress,
-              CompoundGlobalData globalData,
+              CompoundGlobalData<Cfg> globalData,
               LTS::Layer* clusterData,
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,
@@ -226,9 +254,9 @@ class CellCluster : public AbstractTimeCluster {
    *
    * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
+  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) override;
 
-  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
+  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) override {
     this->receiverCluster_ = receiverCluster;
     if (receiverCluster_ != nullptr) {
       receiverCluster_->setNextSampleTime(receiverTime_);
@@ -252,7 +280,7 @@ class CellCluster : public AbstractTimeCluster {
 
   protected:
   public:
-  [[nodiscard]] std::size_t layerId() const;
+  [[nodiscard]] std::size_t layerId() const override;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] HaloType getLayerType() const;

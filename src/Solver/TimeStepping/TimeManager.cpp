@@ -9,6 +9,7 @@
 
 #include "TimeManager.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Iterator.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/BasicTypedefs.h"
@@ -150,7 +151,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
 
-  // setup DR schedulers
   for (const auto& layer : memoryManager.drStorage().leaves()) {
     drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
   }
@@ -184,8 +184,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   // iterate over local time clusters
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
-    auto globalData = memoryManager.globalData();
-
     const auto clusterId = layer.getIdentifier().lts;
 
     // chop off at synchronization time
@@ -198,20 +196,25 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                (layer.getIdentifier().halo == HaloType::Interior);
     const auto profilingId = layer.id();
 
-    auto& cluster = cellClusters_.emplace_back(
-        std::make_unique<CellCluster>(clusterId,
-                                      clusterId,
-                                      profilingId,
-                                      settings,
-                                      layer.getIdentifier().halo,
-                                      timeStepSize,
-                                      timeStepRate,
-                                      printProgress,
-                                      globalData,
-                                      &layer,
-                                      seissolInstance_,
-                                      &loopStatistics_,
-                                      &actorStateStatisticsManager_.addCluster(profilingId)));
+    // the cluster computes in the configuration of its layer
+    auto& cluster = cellClusters_.emplace_back(dispatchConfig(
+        layer.getIdentifier().config, [&](auto cfg) -> std::unique_ptr<CellClusterInterface> {
+          using Cfg = decltype(cfg);
+          return std::make_unique<CellCluster<Cfg>>(
+              clusterId,
+              clusterId,
+              profilingId,
+              settings,
+              layer.getIdentifier().halo,
+              timeStepSize,
+              timeStepRate,
+              printProgress,
+              memoryManager.globalData<Cfg>(),
+              &layer,
+              seissolInstance_,
+              &loopStatistics_,
+              &actorStateStatisticsManager_.addCluster(profilingId));
+        }));
 
     const auto clusterSize = layer.size();
     const auto dynRupSize = memoryManager.drStorage().layer(layer.id()).size();
@@ -250,7 +253,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // The dynamic rupture faces are laid out along the same colors as the cells, and both sides of a
   // fault face lie in the same time cluster. The faces of an interior layer lie between interior or
   // copy cells; the faces of a copy layer between copy and ghost cells.
-  std::vector<DynamicRuptureCluster*> faceClusterBackmap(
+  std::vector<DynamicRuptureClusterInterface*> faceClusterBackmap(
       memoryManager.drStorage().getColorMap().size(), nullptr);
   for (auto& layer : memoryManager.drStorage().leaves(Ghost)) {
     if (layer.size() == 0) {
@@ -261,20 +264,25 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const auto profilingId = layer.id();
     auto* cellCluster = cellClusterBackmap[layer.id()];
 
-    auto& cluster = faceClusters_.emplace_back(std::make_unique<DynamicRuptureCluster>(
-        clusterLayout.timestepRate(clusterId),
-        clusterLayout.clusterRate(clusterId),
-        cellCluster->getExecutor(),
-        profilingId,
-        drOutputTimestep,
-        memoryManager.globalData(),
-        &layer,
-        memoryManager.frictionLaw(),
-        memoryManager.frictionLawDevice(),
-        memoryManager.faultOutputManager(),
-        seissolInstance_,
-        &loopStatistics_,
-        &actorStateStatisticsManager_.addCluster(profilingId)));
+    auto& cluster = faceClusters_.emplace_back(
+        dispatchConfig(layer.getIdentifier().config,
+                       [&](auto cfg) -> std::unique_ptr<DynamicRuptureClusterInterface> {
+                         using Cfg = decltype(cfg);
+                         return std::make_unique<DynamicRuptureCluster<Cfg>>(
+                             clusterLayout.timestepRate(clusterId),
+                             clusterLayout.clusterRate(clusterId),
+                             cellCluster->getExecutor(),
+                             profilingId,
+                             drOutputTimestep,
+                             memoryManager.globalData<Cfg>(),
+                             &layer,
+                             memoryManager.frictionLaw(),
+                             memoryManager.frictionLawDevice(),
+                             memoryManager.faultOutputManager(),
+                             seissolInstance_,
+                             &loopStatistics_,
+                             &actorStateStatisticsManager_.addCluster(profilingId));
+                       }));
 
     cluster->setPriority(cellCluster->getPriority());
 
@@ -491,7 +499,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::instance();
+  const device::DeviceInstance& device = device::DeviceInstance::instance();
   device.api().putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 

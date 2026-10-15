@@ -20,11 +20,11 @@ device::DeviceInstance& dev() { return device::DeviceInstance::instance(); }
 
 namespace seissol::parallel::runtime {
 
-ManagedStream::ManagedStream() {
 #ifdef ACL_DEVICE
-  streamPtr_ = dev().api().createStream();
+ManagedStream::ManagedStream() : streamPtr_(dev().api().createStream()) {}
+#else
+ManagedStream::ManagedStream() = default;
 #endif
-}
 
 auto ManagedStream::operator=(ManagedStream&& old) noexcept -> ManagedStream& {
   if (this != &old) {

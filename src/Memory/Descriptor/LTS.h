@@ -10,6 +10,9 @@
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
 #include "Alignment.h"
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
@@ -23,9 +26,7 @@
 #include "Parallel/Helper.h"
 #include "Solver/Settings.h"
 
-namespace seissol::tensor {
-struct Qane;
-} // namespace seissol::tensor
+#include <cstdint>
 
 namespace seissol {
 
@@ -42,8 +43,10 @@ struct LTS {
     PlasticityData
   };
 
-  static auto allocationModeWP(AllocationPreset preset,
-                               int convergenceOrder = seissol::ConvergenceOrder) {
+  /// The variables hold the data of every configuration; their sizes, which the placement
+  /// depends on, grow with the order.
+  static auto allocationModeWP(AllocationPreset preset) {
+    constexpr auto MaxOrder = maxBuiltConvergenceOrder();
     using namespace seissol::initializer;
     if constexpr (!isDeviceOn()) {
       switch (preset) {
@@ -58,13 +61,13 @@ struct LTS {
       case AllocationPreset::Timebucket:
         [[fallthrough]];
       case AllocationPreset::Timedofs:
-        return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       case AllocationPreset::Constant:
         [[fallthrough]];
       case AllocationPreset::ConstantShared:
-        return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       case AllocationPreset::Dofs:
-        return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+        return (MaxOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
       default:
         return AllocationMode::HostOnly;
       }
@@ -94,57 +97,84 @@ struct LTS {
     }
   }
 
-  struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
-  struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
-  // size is zero if Qane is not defined
-  struct DofsAne : public initializer::Variable<real[zeroGuard(kernels::size<tensor::Qane>())]> {};
-  struct StepIntegrals : public initializer::Variable<real*> {};
-  struct AccumulatedIntegrals : public initializer::Variable<real*> {};
-  struct Derivatives : public initializer::Variable<real*> {};
+  // The unknowns of a cell and what is derived from them are held in the reals and the layout of
+  // the configuration of their layer.
+  template <typename Cfg>
+  using DofsArray = Real<Cfg>[tensor::Q<Cfg>::size()];
+  // empty if the configuration has no Qane
+  template <typename Cfg>
+  using DofsAneArray = Real<Cfg>[zeroGuard(kernels::size<tensor::Qane<Cfg>>())];
+  template <typename Cfg>
+  using PStrainArray =
+      Real<Cfg>[tensor::QStressNodal<Cfg>::size() + tensor::QEtaNodal<Cfg>::size()];
+  template <typename Cfg>
+  using RealPtr = Real<Cfg>*;
+  template <typename Cfg>
+  using FaceRealPtrs = std::array<Real<Cfg>*, Cell::NumFaces>;
+  // The data of the integration, the material and the mappings of the faces of a cell are those
+  // of the configuration of its layer as well.
+  template <typename Cfg>
+  using FaceDRMappings = std::array<CellDRMapping<Cfg>, Cell::NumFaces>;
+  template <typename Cfg>
+  using FaceBoundaryMappings = std::array<CellBoundaryMapping<Cfg>, Cell::NumFaces>;
+  template <typename Cfg>
+  using EnergyDataOf = typename model::MaterialOf<Cfg>::template EnergyData<Cfg>;
+  template <typename Cfg>
+  using NormalStressWeightsOf = seissol::NormalStressWeights<Cfg>;
+
+  struct Dofs : public initializer::VariantVariable<DofsArray> {};
+  struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
+  struct DofsAne : public initializer::VariantVariable<DofsAneArray> {};
+  struct StepIntegrals : public initializer::VariantVariable<RealPtr> {};
+  struct AccumulatedIntegrals : public initializer::VariantVariable<RealPtr> {};
+  struct Derivatives : public initializer::VariantVariable<RealPtr> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
-  struct FaceNeighbors : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
-  struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
-  struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
-  struct MaterialData : public initializer::Variable<model::MaterialT> {};
+  // The buffers or derivatives of the neighbors, which hold them in the reals of their own
+  // configuration.
+  struct FaceNeighbors : public initializer::Variable<std::array<void*, Cell::NumFaces>> {};
+  struct LocalIntegration : public initializer::VariantVariable<LocalIntegrationData> {};
+  struct NeighboringIntegration : public initializer::VariantVariable<NeighboringIntegrationData> {
+  };
+  // for the cells of a fluid, the weights of the normal stress on each face for a neighbor of a
+  // solid in another configuration (see kernels::ConfigBoundary); empty for the others
+  struct NormalStress : public initializer::VariantVariable<NormalStressWeightsOf> {};
+  struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
-  struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
-  struct DRMapping : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {};
-  struct BoundaryMapping
-      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
-  struct PStrain : public initializer::Variable<
-                       real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
-  struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
-  struct Buffers : public initializer::Bucket<real> {};
+  struct Plasticity : public initializer::VariantVariable<seissol::model::PlasticityData> {};
+  struct DRMapping : public initializer::VariantVariable<FaceDRMappings> {};
+  struct BoundaryMapping : public initializer::VariantVariable<FaceBoundaryMappings> {};
+  struct PStrain : public initializer::VariantVariable<PStrainArray> {};
+  struct FaceDisplacements : public initializer::VariantVariable<FaceRealPtrs> {};
+  struct Buffers : public initializer::VariantBucket<Real> {};
 
-  struct StepIntegralsDevice : public initializer::Variable<real*> {};
-  struct AccumulatedIntegralsDevice : public initializer::Variable<real*> {};
-  struct DerivativesDevice : public initializer::Variable<real*> {};
-  struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
-  struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
-  };
-  struct DRMappingDevice : public initializer::Variable<std::array<CellDRMapping, Cell::NumFaces>> {
-  };
-  struct BoundaryMappingDevice
-      : public initializer::Variable<std::array<CellBoundaryMapping, Cell::NumFaces>> {};
+  struct StepIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
+  struct AccumulatedIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
+  struct DerivativesDevice : public initializer::VariantVariable<RealPtr> {};
+  struct FaceNeighborsDevice : public initializer::Variable<std::array<void*, Cell::NumFaces>> {};
+  struct FaceDisplacementsDevice : public initializer::VariantVariable<FaceRealPtrs> {};
+  struct DRMappingDevice : public initializer::VariantVariable<FaceDRMappings> {};
+  struct BoundaryMappingDevice : public initializer::VariantVariable<FaceBoundaryMappings> {};
 
-  struct EnergyData : public initializer::Variable<model::MaterialT::EnergyData> {};
+  struct EnergyData : public initializer::VariantVariable<EnergyDataOf> {};
 
-  struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesScratch : public initializer::Scratchpad<real> {};
-  struct NodalAvgDisplacements : public initializer::Scratchpad<real> {};
-  struct AnalyticScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesExtScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesAneScratch : public initializer::Scratchpad<real> {};
-  struct IDofsAneScratch : public initializer::Scratchpad<real> {};
-  struct DofsExtScratch : public initializer::Scratchpad<real> {};
+  struct IntegratedDofsScratch : public initializer::VariantScratchpad<Real> {};
+  struct DerivativesScratch : public initializer::VariantScratchpad<Real> {};
+  struct NodalAvgDisplacements : public initializer::VariantScratchpad<Real> {};
+  struct AnalyticScratch : public initializer::VariantScratchpad<Real> {};
+  struct IDofsAneScratch : public initializer::VariantScratchpad<Real> {};
+  struct DofsExtScratch : public initializer::VariantScratchpad<Real> {};
 
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
-  struct QStressNodalScratch : public initializer::Scratchpad<real> {};
+  struct QStressNodalScratch : public initializer::VariantScratchpad<Real> {};
 
-  struct ZinvExtra : public initializer::Scratchpad<real> {};
+  struct ZinvExtra : public initializer::VariantScratchpad<Real> {};
 
-  struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
+  // the time integrals of the neighbors of other configurations, in their configuration, in the
+  // canonical form, and converted (see kernels::ConfigBoundary); in bytes, as they mix reals
+  struct ConfigBoundaryScratch : public initializer::Scratchpad<std::uint8_t> {};
+
+  struct Integrals : public initializer::VariantVariable<DofsArray> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
@@ -157,6 +187,7 @@ struct LTS {
                                                         FaceNeighbors,
                                                         LocalIntegration,
                                                         NeighboringIntegration,
+                                                        NormalStress,
                                                         Material,
                                                         MaterialData,
                                                         Plasticity,
@@ -176,19 +207,19 @@ struct LTS {
                                                         DerivativesScratch,
                                                         NodalAvgDisplacements,
                                                         AnalyticScratch,
-                                                        DerivativesExtScratch,
-                                                        DerivativesAneScratch,
                                                         IDofsAneScratch,
                                                         DofsExtScratch,
                                                         FlagScratch,
                                                         QStressNodalScratch,
                                                         Integrals,
                                                         EnergyData,
-                                                        ZinvExtra> {};
+                                                        ZinvExtra,
+                                                        ConfigBoundaryScratch> {};
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
-  using Ref = initializer::Layer<LTSVarmap>::CellRef;
+  template <typename Cfg>
+  using Ref = initializer::Layer<LTSVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
   static void addTo(Storage& storage, const SimulationSettings& settings) {
@@ -211,7 +242,10 @@ struct LTS {
                           PagesizeHeap,
                           allocationModeWP(AllocationPreset::Dofs));
 
-    if (kernels::size<tensor::Qane>() > 0) {
+    // the anelastic unknowns, if any configuration has some
+    bool anelastic = false;
+    forEachConfig([&](auto cfg) { anelastic |= kernels::size<tensor::Qane<decltype(cfg)>>() > 0; });
+    if (anelastic) {
       storage.add<DofsAne>(
           LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     } else {
@@ -234,6 +268,8 @@ struct LTS {
     storage.add<LocalIntegration>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<NeighboringIntegration>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<NormalStress>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
@@ -267,8 +303,6 @@ struct LTS {
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;
 
-      storage.add<DerivativesExtScratch>(LayerMask(), Alignment, mode);
-      storage.add<DerivativesAneScratch>(LayerMask(), Alignment, mode);
       storage.add<IDofsAneScratch>(LayerMask(), Alignment, mode);
       storage.add<DofsExtScratch>(LayerMask(), Alignment, mode);
       storage.add<IntegratedDofsScratch>(LayerMask(), Alignment, mode);
@@ -280,18 +314,27 @@ struct LTS {
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
 
       storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
+      storage.add<ConfigBoundaryScratch>(LayerMask(), Alignment, mode);
     }
   }
 
+  /// The variables to checkpoint for cells of the configuration `config`.
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Storage& storage) {
+                                          Storage& storage,
+                                          ConfigId config) {
     manager.registerData<Dofs>("dofs", storage);
-    if constexpr (kernels::size<tensor::Qane>() > 0) {
-      manager.registerData<DofsAne>("dofsAne", storage);
-    }
+    dispatchConfig(config, [&](auto cfg) {
+      if constexpr (kernels::size<tensor::Qane<decltype(cfg)>>() > 0) {
+        manager.registerData<DofsAne>("dofsAne", storage);
+      }
+    });
     // check plasticity usage over the layer mask (for now)
     if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
-      manager.registerData<Plasticity>("pstrain", storage);
+      manager.registerData<PStrain>("pstrain", storage);
+    }
+    // the time integrals of the unknowns, if the output integrates them
+    if (storage.info<Integrals>().mask == initializer::LayerMask(Ghost)) {
+      manager.registerData<Integrals>("integrals", storage);
     }
   }
 };

@@ -7,8 +7,6 @@
 
 #include "ODEInt.h"
 
-#include "Kernels/Precision.h"
-
 #include <Eigen/Core>
 #include <cassert>
 #include <cmath>
@@ -247,8 +245,9 @@ void initializeRungeKuttaScheme(RungeKuttaVariant variant,
 
 } // namespace
 
-RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
-                                         ODESolverConfig config)
+template <typename RealT>
+RungeKuttaODESolver<RealT>::RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes,
+                                                ODESolverConfig config)
     : config_(config) {
 
   // NOTE: we initialize in Eigen, but copy to std vectors afterwards.
@@ -276,7 +275,7 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   }
 
   const auto allocateStorage = [&]() {
-    auto curStoragePtrs = std::vector<real*>();
+    auto curStoragePtrs = std::vector<RealT*>();
     curStoragePtrs.reserve(storageSizes.size());
     for (const auto storageSize : storageSizes) {
       curStoragePtrs.push_back(storages_.emplace_back(storageSize).data());
@@ -297,6 +296,12 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   buffer_.updateStoragesAndSizes(allocateStorage(), storageSizes);
 }
 
-void RungeKuttaODESolver::setConfig(ODESolverConfig newConfig) { config_ = newConfig; }
+template <typename RealT>
+void RungeKuttaODESolver<RealT>::setConfig(ODESolverConfig newConfig) {
+  config_ = newConfig;
+}
+
+template class RungeKuttaODESolver<float>;
+template class RungeKuttaODESolver<double>;
 
 } // namespace seissol::ode

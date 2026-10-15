@@ -8,7 +8,7 @@
 #include <doctest.h>
 
 #include "Common/Executor.h"
-#include "Kernels/Precision.h"
+#include "Common/Real.h"
 #include "Parallel/Runtime/EventPool.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"

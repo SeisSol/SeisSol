@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_
 
 #include "Initializer/Parameters/ModelParameters.h"
+#include "Model/MaterialType.h" // IWYU pragma: export
 
 #include <array>
 #include <limits>
@@ -18,15 +19,6 @@
 #include <vector>
 
 namespace seissol::model {
-enum class MaterialType {
-  Solid,
-  Acoustic,
-  Elastic,
-  Viscoelastic,
-  Viscoacoustic,
-  Anisotropic,
-  Poroelastic
-};
 
 // the local solvers. CK is the default for elastic, acoustic etc.
 // viscoelastic uses CauchyKovalevskiAnelastic (maybe all other materials may be extended to use

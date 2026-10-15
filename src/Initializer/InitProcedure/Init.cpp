@@ -36,7 +36,7 @@ namespace {
 
 void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::instance();
+  const device::DeviceInstance& device = device::DeviceInstance::instance();
   if (device.api().getCurrentlyOccupiedMem() > device.api().getMaxAvailableMem()) {
     std::stringstream stream;
 

@@ -8,11 +8,13 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 
-#include "Equations/Datastructures.h"
+#include "Common/ConfigRegistry.h"
 #include "Initializer/InputAux.h"
 #include "ParameterReader.h"
 
 #include <Eigen/Dense>
+#include <string>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -35,7 +37,8 @@ struct InitializationParameters {
   InitializationType type{InitializationType::Zero};
   Eigen::Vector3d origin;
   Eigen::Vector3d kVec;
-  Eigen::Vector<double, seissol::model::MaterialT::NumQuantities> ampField;
+  // per quantity of the material of the configuration of the run
+  std::vector<double> ampField;
   double magnitude{};
   double width{};
   double k{};
@@ -44,7 +47,7 @@ struct InitializationParameters {
   bool avoidIC{false};
 };
 
-InitializationParameters readInitializationParameters(ParameterReader* baseReader);
+InitializationParameters readInitializationParameters(ParameterReader* baseReader, ConfigId config);
 } // namespace seissol::initializer::parameters
 
 #endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_

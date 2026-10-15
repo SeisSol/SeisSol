@@ -232,17 +232,18 @@ struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<Anisotr
         -eigenvectorsLocal * lambdaLocal, Matrix33::Zero(), eigenvectorsNeighbor * lambdaNeighbor;
   }
 
+  template <typename Tloc, typename Tneigh>
   static void getTransposedGodunovState(const AnisotropicMaterial& local,
                                         const AnisotropicMaterial& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+                                        Tloc& qGodLocal,
+                                        Tneigh& qGodNeighbor) {
 
     Matrix99 matR = Matrix99::Zero();
     getEigenBasisForAnisotropicMaterial(local, neighbor, matR);
 
     if (faceType == FaceType::FreeSurface) {
-      getTransposedFreeSurfaceGodunovState(
+      getTransposedFreeSurfaceGodunovState<AnisotropicMaterial>(
           MaterialType::Anisotropic, qGodLocal, qGodNeighbor, matR);
 
     } else {

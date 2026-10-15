@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
+#include "GeneratedCode/tensor.h"
 #include "Parallel/Runtime/Stream.h"
 #include "PointSourceCluster.h"
 #include "SourceTerm/Typedefs.h"
@@ -23,45 +25,48 @@ constexpr std::size_t SubBlock = 64;
 constexpr std::size_t Blocksize = 256;
 constexpr auto PerBlock = Blocksize / SubBlock;
 
+template <typename Cfg>
 __launch_bounds__(Blocksize) __global__ void launchKernel(
     std::size_t numElements,
     double from,
     double timeStepSize,
     const double* __restrict clock,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
-    const seissol::memory::
-        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<
+        Real<Cfg>,
+        tensor::mInvJInvPhisAtSources<Cfg>::size()>* __restrict mInvJInvPhisAtSources,
     const std::uint32_t* __restrict simulationIndex,
-    const real* __restrict tensor,
+    const Real<Cfg>* __restrict tensor,
     const double* __restrict onsetTime,
     const double* __restrict samplingInterval,
     const std::size_t* __restrict sampleRange,
     const std::size_t* __restrict sampleOffsets,
-    const real* __restrict sample) {
+    const Real<Cfg>* __restrict sample) {
   const auto index = threadIdx.y + PerBlock * blockIdx.x;
   if (index < numElements) {
     const double start = clock == nullptr ? from : *clock;
     const double end = start + timeStepSize;
-    pointSourceKernelDevice<SubBlock>(threadIdx.x,
-                                      index,
-                                      start,
-                                      end,
-                                      mappingPtr,
-                                      mInvJInvPhisAtSources,
-                                      simulationIndex,
-                                      tensor,
-                                      onsetTime,
-                                      samplingInterval,
-                                      sampleRange,
-                                      sampleOffsets,
-                                      sample);
+    pointSourceKernelDevice<Cfg, SubBlock>(threadIdx.x,
+                                           index,
+                                           start,
+                                           end,
+                                           mappingPtr,
+                                           mInvJInvPhisAtSources,
+                                           simulationIndex,
+                                           tensor,
+                                           onsetTime,
+                                           samplingInterval,
+                                           sampleRange,
+                                           sampleOffsets,
+                                           sample);
   }
 }
 
 } // namespace
 
+template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
-                       sourceterm::PointSources& sources,
+                       sourceterm::PointSources<Cfg>& sources,
                        double from,
                        double timeStepSize,
                        const double* clock,
@@ -94,20 +99,30 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
       block.y = mapping.size();
     }
 
-    launchKernel<<<grid, block, 0, stream>>>(mapping.size(),
-                                             from,
-                                             timeStepSize,
-                                             clock,
-                                             mappingPtr,
-                                             mInvJInvPhisAtSources,
-                                             simulationIndex,
-                                             tensor,
-                                             onsetTime,
-                                             samplingInterval,
-                                             sampleRange,
-                                             sampleOffsets,
-                                             sample);
+    launchKernel<Cfg><<<grid, block, 0, stream>>>(mapping.size(),
+                                                  from,
+                                                  timeStepSize,
+                                                  clock,
+                                                  mappingPtr,
+                                                  mInvJInvPhisAtSources,
+                                                  simulationIndex,
+                                                  tensor,
+                                                  onsetTime,
+                                                  samplingInterval,
+                                                  sampleRange,
+                                                  sampleOffsets,
+                                                  sample);
   }
 }
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void pointSourceKernel<Cfg>(sourceterm::ClusterMapping & clusterMapping,                \
+                                       sourceterm::PointSources<Cfg> & sources,                    \
+                                       double from,                                                \
+                                       double timeStepSize,                                        \
+                                       const double* clock,                                        \
+                                       seissol::parallel::runtime::StreamRuntime& runtime);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels
